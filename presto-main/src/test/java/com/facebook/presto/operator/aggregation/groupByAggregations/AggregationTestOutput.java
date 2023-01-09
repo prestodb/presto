@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation.groupByAggregations;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.operator.aggregation.GroupedAccumulator;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 
 import java.util.function.BiConsumer;
 

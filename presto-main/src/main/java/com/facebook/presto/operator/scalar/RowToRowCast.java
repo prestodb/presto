@@ -141,7 +141,7 @@ public class RowToRowCast
 
         // loop through to append member blocks
         for (int i = 0; i < toTypes.size(); i++) {
-            FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CastType.CAST, fromTypes.get(i).getTypeSignature(), toTypes.get(i).getTypeSignature());
+            FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CastType.CAST, fromTypes.get(i), toTypes.get(i));
             JavaScalarFunctionImplementation function = functionAndTypeManager.getJavaScalarFunctionImplementation(functionHandle);
             Type currentFromType = fromTypes.get(i);
             if (currentFromType.equals(UNKNOWN)) {

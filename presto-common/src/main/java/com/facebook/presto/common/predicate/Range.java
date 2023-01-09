@@ -36,6 +36,15 @@ public final class Range
             @JsonProperty("low") Marker low,
             @JsonProperty("high") Marker high)
     {
+        this(low, high, () -> {
+            if (low.compareTo(high) > 0) {
+                throw new IllegalArgumentException("low must be less than or equal to high");
+            }
+        });
+    }
+
+    private Range(Marker low, Marker high, Runnable extraCheck)
+    {
         requireNonNull(low, "value is null");
         requireNonNull(high, "value is null");
         if (!low.getType().equals(high.getType())) {
@@ -47,9 +56,7 @@ public final class Range
         if (high.getBound() == Marker.Bound.ABOVE) {
             throw new IllegalArgumentException("high bound must be EXACTLY or BELOW");
         }
-        if (low.compareTo(high) > 0) {
-            throw new IllegalArgumentException("low must be less than or equal to high");
-        }
+        extraCheck.run();
         this.low = low;
         this.high = high;
     }
@@ -273,5 +280,22 @@ public final class Range
             buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
         }
         return buffer.toString();
+    }
+
+    public Range canonicalize(boolean removeSafeConstants)
+    {
+        if (!removeSafeConstants) {
+            return this;
+        }
+
+        boolean removeConstants = low.getBound().equals(Marker.Bound.EXACTLY) && high.getBound().equals(Marker.Bound.EXACTLY);
+        Marker newLow = low.canonicalize(removeConstants);
+        Marker newHigh = high.canonicalize(removeConstants);
+        if (low == newLow && high == newHigh) {
+            return this;
+        }
+        // After removing constants, newLow and newHigh cannot be compared, and will fail the
+        // low <= high check. So we skip this check.
+        return new Range(newLow, newHigh, () -> {});
     }
 }

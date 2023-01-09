@@ -36,7 +36,9 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getDecimalMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -71,9 +73,9 @@ public abstract class AbstractDecimalSelectiveStreamReader
     private boolean rowGroupOpen;
     private boolean allNulls;
     private boolean valuesInUse;
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
-    private InputStreamSource<DecimalInputStream> dataStreamSource = missingStreamSource(DecimalInputStream.class);
-    private InputStreamSource<LongInputStream> scaleStreamSource = missingStreamSource(LongInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
+    private InputStreamSource<DecimalInputStream> dataStreamSource = getDecimalMissingStreamSource();
+    private InputStreamSource<LongInputStream> scaleStreamSource = getLongMissingStreamSource();
 
     public AbstractDecimalSelectiveStreamReader(
             StreamDescriptor streamDescriptor,
@@ -99,9 +101,9 @@ public abstract class AbstractDecimalSelectiveStreamReader
     @Override
     public void startStripe(Stripe stripe)
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        dataStreamSource = missingStreamSource(DecimalInputStream.class);
-        scaleStreamSource = missingStreamSource(LongInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
+        dataStreamSource = getDecimalMissingStreamSource();
+        scaleStreamSource = getLongMissingStreamSource();
         readOffset = 0;
         presentStream = null;
         dataStream = null;

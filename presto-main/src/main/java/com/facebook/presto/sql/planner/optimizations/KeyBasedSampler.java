@@ -81,7 +81,7 @@ public class KeyBasedSampler
             List<String> sampledFields = new ArrayList<>(2);
             PlanNode rewritten = SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata.getFunctionAndTypeManager(), idAllocator, sampledFields), plan, null);
             if (!sampledFields.isEmpty()) {
-                warningCollector.add(new PrestoWarning(SAMPLED_FIELDS, String.format("Sampled the following columns/derived columns at %s percent:\n\t%s", getKeyBasedSamplingPercentage(session) * 100., String.join("\n\t", sampledFields))));
+                warningCollector.add(new PrestoWarning(SAMPLED_FIELDS, String.format("Sampled the following columns/derived columns at %s percent:%n\t%s", getKeyBasedSamplingPercentage(session) * 100., String.join("\n\t", sampledFields))));
             }
             else {
                 warningCollector.add(new PrestoWarning(SEMANTIC_WARNING, "Sampling could not be performed due to the query structure"));
@@ -120,7 +120,7 @@ public class KeyBasedSampler
             if (!Varchars.isVarcharType(type)) {
                 arg = call(
                         "CAST",
-                        functionAndTypeManager.lookupCast(CAST, rowExpression.getType().getTypeSignature(), VARCHAR.getTypeSignature()),
+                        functionAndTypeManager.lookupCast(CAST, rowExpression.getType(), VARCHAR),
                         VARCHAR,
                         rowExpression);
             }
@@ -204,7 +204,7 @@ public class KeyBasedSampler
             PlanNode rewrittenLeft = rewriteWith(this, left);
             PlanNode rewrittenRight = rewriteWith(this, right);
 
-            // If at leasst one of them is unchanged means it had no join. So one side has a table scan.
+            // If at least one of them is unchanged means it had no join. So one side has a table scan.
             // So we apply filter on both sides.
             if (left == rewrittenLeft || right == rewrittenRight) {
                 // Sample both sides if at least one side is not already sampled

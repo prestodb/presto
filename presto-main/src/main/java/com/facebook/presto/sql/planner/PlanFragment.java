@@ -20,6 +20,7 @@ import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -213,6 +214,11 @@ public class PlanFragment
             findRemoteSourceNodes(source, builder);
         }
 
+        if (node instanceof NativeExecutionNode) {
+            findRemoteSourceNodes(((NativeExecutionNode) node).getSubPlan(), builder);
+            return;
+        }
+
         if (node instanceof RemoteSourceNode) {
             builder.add((RemoteSourceNode) node);
         }
@@ -273,6 +279,21 @@ public class PlanFragment
                 tableScanSchedulingOrder,
                 partitioningScheme,
                 StageExecutionDescriptor.recoverableGroupedExecution(capableTableScanNodes, totalLifespans),
+                outputTableWriterFragment,
+                statsAndCosts,
+                jsonRepresentation);
+    }
+
+    public PlanFragment withSubPlan(PlanNode subPlan)
+    {
+        return new PlanFragment(
+                id,
+                subPlan,
+                variables,
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                stageExecutionDescriptor,
                 outputTableWriterFragment,
                 statsAndCosts,
                 jsonRepresentation);

@@ -34,7 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.presto.execution.warnings.WarningHandlingLevel.NORMAL;
+import static com.facebook.presto.common.WarningHandlingLevel.NORMAL;
 import static com.facebook.presto.spi.StandardWarningCode.PARTIAL_RESULT_WARNING;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -66,8 +66,20 @@ public class TestPartialResultQueryTaskTracker
             throws Exception
     {
         PartialResultQueryTaskTracker tracker = new PartialResultQueryTaskTracker(partialResultQueryManager, 0.50, 2.0, warningCollector);
-        InternalNode node1 = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), new NodeVersion("1"), false, false);
-        InternalNode node2 = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.9"), new NodeVersion("1"), false, false);
+        InternalNode node1 = new InternalNode(
+                UUID.randomUUID().toString(),
+                URI.create("https://192.0.2.8"),
+                new NodeVersion("1"),
+                false,
+                false,
+                false);
+        InternalNode node2 = new InternalNode(
+                UUID.randomUUID().toString(),
+                URI.create("https://192.0.2.9"),
+                new NodeVersion("1"),
+                false,
+                false,
+                false);
         TaskId taskId1 = new TaskId("test1", 1, 0, 1);
         TaskId taskId2 = new TaskId("test2", 2, 0, 1);
         RemoteTask task1 = taskFactory.createTableScanTask(taskId1, node1, ImmutableList.of(), new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}));

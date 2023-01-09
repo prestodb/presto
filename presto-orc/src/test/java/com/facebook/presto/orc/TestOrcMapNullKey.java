@@ -100,7 +100,8 @@ public class TestOrcMapNullKey
                     OrcPredicate.TRUE,
                     mapType,
                     INITIAL_BATCH_SIZE,
-                    mapNullKeysEnabled)) {
+                    mapNullKeysEnabled,
+                    false)) {
                 assertEquals(readMap(reader.getNextPage().getBlock(0).getLoadedBlock(), 0), expectedToRead);
 
                 assertNull(reader.getNextPage());

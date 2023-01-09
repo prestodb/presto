@@ -26,6 +26,7 @@ import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
 import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveFileSplit;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
@@ -38,7 +39,6 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -95,10 +95,7 @@ public class DwrfSelectivePageSourceFactory
     public Optional<? extends ConnectorPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
+            HiveFileSplit fileSplit,
             Storage storage,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
@@ -109,14 +106,16 @@ public class DwrfSelectivePageSourceFactory
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            boolean appendRowNumberEnabled,
+            boolean footerStatsUnreliable)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
         }
 
-        if (fileSize == 0) {
-            throw new PrestoException(HIVE_BAD_DATA, "ORC file is empty: " + path);
+        if (fileSplit.getFileSize() == 0) {
+            throw new PrestoException(HIVE_BAD_DATA, "ORC file is empty: " + fileSplit.getPath());
         }
 
         return Optional.of(createOrcPageSource(
@@ -124,10 +123,7 @@ public class DwrfSelectivePageSourceFactory
                 DWRF,
                 hdfsEnvironment,
                 configuration,
-                path,
-                start,
-                length,
-                fileSize,
+                fileSplit,
                 columns,
                 prefilledValues,
                 coercers,
@@ -148,6 +144,8 @@ public class DwrfSelectivePageSourceFactory
                 hiveFileContext,
                 tupleDomainFilterCache,
                 encryptionInformation,
-                dwrfEncryptionProvider));
+                dwrfEncryptionProvider,
+                appendRowNumberEnabled,
+                footerStatsUnreliable));
     }
 }

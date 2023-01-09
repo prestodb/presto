@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -46,7 +47,7 @@ public class TestMapUnionAggregation
     {
         MapType mapType = mapType(DOUBLE, VARCHAR);
         FunctionHandle functionHandle = FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(mapType));
-        InternalAggregationFunction aggFunc = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(functionHandle);
+        JavaAggregationFunctionImplementation aggFunc = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(23.0, "aaa", 33.0, "bbb", 43.0, "ccc", 53.0, "ddd", 13.0, "eee"),
@@ -57,7 +58,7 @@ public class TestMapUnionAggregation
 
         mapType = mapType(DOUBLE, BIGINT);
         functionHandle = FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(mapType));
-        aggFunc = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(functionHandle);
+        aggFunc = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(1.0, 99L, 2.0, 99L, 3.0, 99L, 4.0, 44L),
@@ -68,7 +69,7 @@ public class TestMapUnionAggregation
 
         mapType = mapType(BOOLEAN, BIGINT);
         functionHandle = FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(mapType));
-        aggFunc = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(functionHandle);
+        aggFunc = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(false, 12L, true, 13L),
@@ -83,7 +84,7 @@ public class TestMapUnionAggregation
     {
         MapType mapType = mapType(DOUBLE, VARCHAR);
         FunctionHandle functionHandle = FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(mapType));
-        InternalAggregationFunction aggFunc = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(functionHandle);
+        JavaAggregationFunctionImplementation aggFunc = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(functionHandle);
 
         Map<Object, Object> expected = mapOf(23.0, "aaa", 33.0, null, 43.0, "ccc", 53.0, "ddd");
 
@@ -102,7 +103,7 @@ public class TestMapUnionAggregation
     {
         MapType mapType = mapType(DOUBLE, new ArrayType(VARCHAR));
         FunctionHandle functionHandle = FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(mapType));
-        InternalAggregationFunction aggFunc = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(functionHandle);
+        JavaAggregationFunctionImplementation aggFunc = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(
@@ -135,7 +136,7 @@ public class TestMapUnionAggregation
 
         mapType = mapType(DOUBLE, mapType(VARCHAR, VARCHAR));
         functionHandle = FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(mapType));
-        aggFunc = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(functionHandle);
+        aggFunc = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(
@@ -161,7 +162,7 @@ public class TestMapUnionAggregation
 
         mapType = mapType(new ArrayType(VARCHAR), DOUBLE);
         functionHandle = FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(mapType));
-        aggFunc = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(functionHandle);
+        aggFunc = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(

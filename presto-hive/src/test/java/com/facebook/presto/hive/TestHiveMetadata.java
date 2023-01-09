@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.testng.annotations.Test;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.List;
 import java.util.Optional;
@@ -199,13 +198,19 @@ public class TestHiveMetadata
         @Override
         public Column toColumn(FieldSchema fieldSchema)
         {
-            throw new NotImplementedException();
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public FieldSchema fromColumn(Column column)
         {
-            throw new NotImplementedException();
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<String> getTypeMetadata(HiveType hiveType, TypeSignature typeSignature)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

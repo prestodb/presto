@@ -39,6 +39,10 @@ Property Value                                     Description
                                                    To alter these privileges, use the :doc:`/sql/grant` and
                                                    :doc:`/sql/revoke` commands.
                                                    See :ref:`hive-sql-standard-based-authorization` for details.
+
+``ranger``                                         Users are permitted to perform the operations as per the
+                                                   authorization policies configured in Ranger Hive service.
+                                                   See :ref:`hive-ranger-based-authorization` for details.
 ================================================== ============================================================
 
 .. _hive-sql-standard-based-authorization:
@@ -521,6 +525,98 @@ See below for an example.
         }
       ]
     }
+
+.. _hive-ranger-based-authorization:
+
+Ranger Based Authorization
+==========================
+
+Apache Ranger is a widely used framework for providing centralized security
+administration and management.
+Ranger supports various components plugin to allow authorization policy
+management and verification by integrating with components.
+Ranger Hive plugin is used to extend authorization for Hive clients such as
+Beeline.
+Presto ranger plugin for Hive connector can be integrated with Ranger
+as a access control system to perform authorization for presto hive connector
+queries configure with polices defined Ranger Hive component . When a query is
+submitted to Presto, Presto parses and analyzes the query to understand the
+privileges required by the user to access objects such as schemas and tables.
+Once a list of these objects is created, Presto communicates with the Ranger
+service to determine if the request is valid. If the request is valid, the
+query continues to execute. If the request is invalid, because the user does
+not have the necessary privileges to query an object, an error is returned.
+Ranger policies are cached in Presto to improve performance.
+
+Authentication is handled outside of Ranger, for example using LDAP, and
+Ranger uses the authenticated user and user groups to associate with the
+policy definition.
+
+Requirements
+------------
+
+Before you configure Presto for any integration with Apache Ranger,
+verify the following prerequisites:
+
+Presto coordinator and workers have the appropriate network access to
+communicate with the Ranger service. Typically this is port 6080.
+
+Apache Ranger 2.1.0 or higher must be used
+
+Policies
+--------
+
+A policy is a combination of set of resources and the associated privileges.
+Ranger provides a user interface, or optionally a REST API, to create
+and manage these access control policies.
+
+Users, groups, and roles
+------------------------
+
+Apache Ranger has UserGroups sync mechanism by which Users, groups, and
+roles are sourced from your configured authentication system with Apache
+Ranger.
+
+Supported authorizations
+------------------------
+
+Ranger Hive service allows to configure privileges at schema, table, column
+level. Note to restrict access to specific user and groups ranger policies
+needs to configure with explict deny conditions.
+
+Access for listing schema, show tables metadata & configuring session
+properties are enabled by default.
+
+Configuration properties
+------------------------
+
+================================================== ============================================================ ============
+Property Name                                      Description                                                  Default
+================================================== ============================================================ ============
+``hive.ranger.rest-endpoint``                      URL address of the Ranger REST service. Kerberos
+                                                   authentication is not supported yet.
+
+``hive.ranger.refresh-policy-period``              Interval at which cached policies are refreshed              60s
+
+``hive.ranger.policy.hive-servicename``            Ranger Hive plugin service name
+
+``hive.ranger.service.basic-auth-username``        Ranger Hive plugin username configured with
+                                                   for Basic HTTP auth.
+
+``hive.ranger.service.basic-auth-password``        Ranger Hive plugin password configured with
+                                                   for Basic HTTP auth.
+
+``hive.ranger.audit.path``                         Ranger Audit configuration - ranger audit file path
+
+``ranger.http-client.key-store-path``              Ranger SSL configuration - client keystore file path
+
+``ranger.http-client.key-store-password``          Ranger SSL configuration - client keystore password
+
+``ranger.http-client.trust-store-path``            Ranger SSL configuration - client trust-store file path
+
+``ranger.http-client.trust-store-password``        Ranger SSL configuration - client trust-store password
+
+================================================== ============================================================ ============
 
 HDFS wire encryption
 --------------------

@@ -17,10 +17,12 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -49,6 +51,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.operator.aggregation.histogram.Histogram.NAME;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
@@ -79,7 +82,7 @@ public class BenchmarkGroupedTypedHistogram
         // these must be manually set in each class now; the mechanism to change and test was removed; the enum was kept in case we want to revisit. Retesting showed linear was superior
         //        //        @Param({"LINEAR", "SUM_OF_COUNT", "SUM_OF_SQUARE"})
 //        @Param({"LINEAR"}) // found to be best, by about 10-15%
-//        private ProbeType mainProbeTyepe;
+//        private ProbeType mainProbeType;
 //        //        @Param({"LINEAR", "SUM_OF_COUNT", "SUM_OF_SQUARE"})
 //        @Param({"LINEAR"}) // found to best
 //        private ProbeType valueStoreProbeType;
@@ -125,16 +128,16 @@ public class BenchmarkGroupedTypedHistogram
                 groupByIdBlocks[j] = groupByIdBlock;
             }
 
-            InternalAggregationFunction aggregationFunction =
+            JavaAggregationFunctionImplementation aggregationFunction =
                     getInternalAggregationFunctionVarChar(histogramGroupImplementation);
             groupedAccumulator = createGroupedAccumulator(aggregationFunction);
         }
 
-        private GroupedAccumulator createGroupedAccumulator(InternalAggregationFunction function)
+        private GroupedAccumulator createGroupedAccumulator(JavaAggregationFunctionImplementation function)
         {
             int[] args = GroupByAggregationTestUtils.createArgs(function);
 
-            return function.bind(Ints.asList(args), Optional.empty())
+            return generateAccumulatorFactory(function, Ints.asList(args), Optional.empty())
                     .createGroupedAccumulator(UpdateMemory.NOOP);
         }
     }
@@ -153,11 +156,11 @@ public class BenchmarkGroupedTypedHistogram
         return groupedAccumulator;
     }
 
-    private static InternalAggregationFunction getInternalAggregationFunctionVarChar(HistogramGroupImplementation groupMode)
+    private static JavaAggregationFunctionImplementation getInternalAggregationFunctionVarChar(HistogramGroupImplementation groupMode)
     {
         FunctionAndTypeManager functionAndTypeManager = getMetadata(groupMode).getFunctionAndTypeManager();
 
-        return functionAndTypeManager.getAggregateFunctionImplementation(
+        return functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction(NAME, fromTypes(VARCHAR)));
     }
 

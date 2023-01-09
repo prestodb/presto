@@ -51,8 +51,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
+import static com.facebook.presto.common.ErrorType.USER_ERROR;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
-import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits.NO_LIMITS;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
@@ -278,7 +278,7 @@ public class InternalResourceGroup
             if (subGroups.isEmpty()) {
                 return runningQueries.stream()
                         .map(ManagedQueryExecution::getBasicQueryInfo)
-                        .map(queryInfo -> createQueryStateInfo(queryInfo, Optional.of(id)))
+                        .map(queryInfo -> createQueryStateInfo(queryInfo))
                         .collect(toImmutableList());
             }
 
@@ -314,6 +314,18 @@ public class InternalResourceGroup
     {
         synchronized (root) {
             return runningQueries.size() + descendantRunningQueries;
+        }
+    }
+
+    private int getAggregatedRunningQueries()
+    {
+        synchronized (root) {
+            int aggregatedRunningQueries = runningQueries.size() + descendantRunningQueries;
+            Optional<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo = getAdditionalRuntimeInfo();
+            if (resourceGroupRuntimeInfo.isPresent()) {
+                aggregatedRunningQueries += resourceGroupRuntimeInfo.get().getRunningQueries() + resourceGroupRuntimeInfo.get().getDescendantRunningQueries();
+            }
+            return aggregatedRunningQueries;
         }
     }
 
@@ -896,7 +908,7 @@ public class InternalResourceGroup
     private void addOrUpdateSubGroup(Queue<InternalResourceGroup> queue, InternalResourceGroup group)
     {
         if (schedulingPolicy == WEIGHTED_FAIR) {
-            ((WeightedFairQueue<InternalResourceGroup>) queue).addOrUpdate(group, new Usage(group.getSchedulingWeight(), group.getRunningQueries()));
+            ((WeightedFairQueue<InternalResourceGroup>) queue).addOrUpdate(group, new Usage(group.getSchedulingWeight(), group.getAggregatedRunningQueries()));
         }
         else {
             ((UpdateablePriorityQueue<InternalResourceGroup>) queue).addOrUpdate(group, getSubGroupSchedulingPriority(schedulingPolicy, group));
@@ -920,7 +932,7 @@ public class InternalResourceGroup
 
     private long computeSchedulingWeight()
     {
-        if (runningQueries.size() + descendantRunningQueries >= softConcurrencyLimit) {
+        if (getAggregatedRunningQueries() >= softConcurrencyLimit) {
             return schedulingWeight;
         }
 

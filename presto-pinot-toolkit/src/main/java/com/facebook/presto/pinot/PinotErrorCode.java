@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.ErrorType;
 
-import static com.facebook.presto.spi.ErrorType.EXTERNAL;
-import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
-import static com.facebook.presto.spi.ErrorType.USER_ERROR;
+import static com.facebook.presto.common.ErrorType.EXTERNAL;
+import static com.facebook.presto.common.ErrorType.INTERNAL_ERROR;
+import static com.facebook.presto.common.ErrorType.USER_ERROR;
 
 public enum PinotErrorCode
         implements ErrorCodeSupplier
 {
     PINOT_UNSUPPORTED_COLUMN_TYPE(0, EXTERNAL), // schema issues
-    PINOT_QUERY_GENERATOR_FAILURE(1, INTERNAL_ERROR), // Accepted a query whose pql we couldn't generate
+    PINOT_QUERY_GENERATOR_FAILURE(1, INTERNAL_ERROR), // Accepted a query whose sql we couldn't generate
     PINOT_INSUFFICIENT_SERVER_RESPONSE(2, EXTERNAL, true), // numServersResponded < numServersQueried
     PINOT_EXCEPTION(3, EXTERNAL), // Exception reported by pinot
     PINOT_HTTP_ERROR(4, EXTERNAL), // Some non okay http error code
@@ -33,13 +33,14 @@ public enum PinotErrorCode
     PINOT_UNSUPPORTED_EXPRESSION(6, INTERNAL_ERROR), // Unsupported function
     PINOT_UNABLE_TO_FIND_BROKER(7, EXTERNAL),
     PINOT_DECODE_ERROR(8, EXTERNAL),
-    PINOT_INVALID_PQL_GENERATED(9, INTERNAL_ERROR),
+    PINOT_INVALID_SQL_GENERATED(9, INTERNAL_ERROR),
     PINOT_INVALID_CONFIGURATION(10, INTERNAL_ERROR),
     PINOT_DATA_FETCH_EXCEPTION(11, EXTERNAL, true),
     PINOT_REQUEST_GENERATOR_FAILURE(12, INTERNAL_ERROR),
     PINOT_UNABLE_TO_FIND_INSTANCE(13, EXTERNAL),
     PINOT_INVALID_SEGMENT_QUERY_GENERATED(14, INTERNAL_ERROR),
     PINOT_PUSH_DOWN_QUERY_NOT_PRESENT(20, USER_ERROR),
+    PINOT_UNAUTHENTICATED_EXCEPTION(30, USER_ERROR),
     PINOT_UNCLASSIFIED_ERROR(100, EXTERNAL);
 
     /**

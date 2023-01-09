@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static java.lang.String.format;
 
 @Test
 public class TestBigQueryIntegrationSmokeTest
@@ -57,5 +58,22 @@ public class TestBigQueryIntegrationSmokeTest
     public void testDuplicatedRowCreateTable()
     {
         throw new SkipException("CREATE TABLE is not supported");
+    }
+
+    @Test
+    public void testColumnPositionMismatch()
+    {
+        String tableName = "test.test_column_position_mismatch";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate(format("CREATE TABLE %s (c_varchar VARCHAR, c_int INT, c_date DATE)", tableName));
+        getQueryRunner().execute(getSession(), format("INSERT INTO %s VALUES ('a', 1, '2021-01-01')", tableName));
+
+        // Adding a CAST makes BigQuery return columns in a different order
+        assertQuery(
+                "SELECT c_varchar, CAST(c_int AS SMALLINT), c_date FROM " + tableName,
+                "VALUES ('a', 1, '2021-01-01')");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 }

@@ -121,6 +121,9 @@ public class TypedSet
 
         // containsNullElement flag is maintained so contains() method can have shortcut for null value
         if (block.isNull(position)) {
+            if (containNullElements) {
+                return false;
+            }
             containNullElements = true;
         }
 
@@ -131,6 +134,25 @@ public class TypedSet
         }
 
         return false;
+    }
+
+    public int addAndGetPosition(Block block, int position)
+    {
+        requireNonNull(block, "block must not be null");
+        checkArgument(position >= 0, "position must be >= 0");
+
+        // containsNullElement flag is maintained so contains() method can have shortcut for null value
+        int hashPosition = getHashPositionOfElement(block, position);
+        int currentPosition = blockPositionByHash.get(hashPosition);
+        if (currentPosition == EMPTY_SLOT) {
+            if (block.isNull(position)) {
+                containNullElements = true;
+            }
+            addNewElement(hashPosition, block, position);
+            return blockPositionByHash.getInt(hashPosition);
+        }
+
+        return currentPosition;
     }
 
     public boolean addNonNull(Block block, int position)
@@ -194,7 +216,7 @@ public class TypedSet
         if (elementBlock.getSizeInBytes() - initialElementBlockSizeInBytes > maxBlockMemoryInBytes) {
             throw new PrestoException(
                     EXCEEDED_FUNCTION_MEMORY_LIMIT,
-                    format("The input to %s is too large. More than %s of memory is needed to hold the intermediate hash set.\n",
+                    format("The input to %s is too large. More than %s of memory is needed to hold the intermediate hash set.%n",
                             functionName,
                             MAX_FUNCTION_MEMORY));
         }

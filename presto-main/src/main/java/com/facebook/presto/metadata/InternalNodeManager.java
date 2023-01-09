@@ -35,6 +35,8 @@ public interface InternalNodeManager
 
     Set<InternalNode> getResourceManagers();
 
+    Set<InternalNode> getCatalogServers();
+
     AllNodes getAllNodes();
 
     void refreshNodes();

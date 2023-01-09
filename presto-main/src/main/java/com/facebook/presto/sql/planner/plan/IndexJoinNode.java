@@ -51,7 +51,21 @@ public class IndexJoinNode
             @JsonProperty("probeHashVariable") Optional<VariableReferenceExpression> probeHashVariable,
             @JsonProperty("indexHashVariable") Optional<VariableReferenceExpression> indexHashVariable)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), type, probeSource, indexSource, criteria, probeHashVariable, indexHashVariable);
+    }
+
+    public IndexJoinNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            Type type,
+            PlanNode probeSource,
+            PlanNode indexSource,
+            List<EquiJoinClause> criteria,
+            Optional<VariableReferenceExpression> probeHashVariable,
+            Optional<VariableReferenceExpression> indexHashVariable)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.type = requireNonNull(type, "type is null");
         this.probeSource = requireNonNull(probeSource, "probeSource is null");
         this.indexSource = requireNonNull(indexSource, "indexSource is null");
@@ -139,7 +153,13 @@ public class IndexJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new IndexJoinNode(getSourceLocation(), getId(), type, newChildren.get(0), newChildren.get(1), criteria, probeHashVariable, indexHashVariable);
+        return new IndexJoinNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), type, newChildren.get(0), newChildren.get(1), criteria, probeHashVariable, indexHashVariable);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new IndexJoinNode(getSourceLocation(), getId(), statsEquivalentPlanNode, type, probeSource, indexSource, criteria, probeHashVariable, indexHashVariable);
     }
 
     public static class EquiJoinClause

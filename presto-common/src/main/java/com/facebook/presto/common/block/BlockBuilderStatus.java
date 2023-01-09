@@ -15,15 +15,11 @@ package com.facebook.presto.common.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BlockBuilderStatus
 {
-    public static final int INSTANCE_SIZE = deepInstanceSize(BlockBuilderStatus.class);
+    public static final int INSTANCE_SIZE = ClassLayout.parseClass(BlockBuilderStatus.class).instanceSize() + PageBuilderStatus.INSTANCE_SIZE;
 
     private final PageBuilderStatus pageBuilderStatus;
 
@@ -52,32 +48,5 @@ public class BlockBuilderStatus
         buffer.append(", currentSize=").append(currentSize);
         buffer.append('}');
         return buffer.toString();
-    }
-
-    /**
-     * Computes the size of an instance of this class assuming that all reference fields are non-null
-     */
-    private static int deepInstanceSize(Class<?> clazz)
-    {
-        if (clazz.isArray()) {
-            throw new IllegalArgumentException(format("Cannot determine size of %s because it contains an array", clazz.getSimpleName()));
-        }
-        if (clazz.isInterface()) {
-            throw new IllegalArgumentException(format("%s is an interface", clazz.getSimpleName()));
-        }
-        if (Modifier.isAbstract(clazz.getModifiers())) {
-            throw new IllegalArgumentException(format("%s is abstract", clazz.getSimpleName()));
-        }
-        if (!clazz.getSuperclass().equals(Object.class)) {
-            throw new IllegalArgumentException(format("Cannot determine size of a subclass. %s extends from %s", clazz.getSimpleName(), clazz.getSuperclass().getSimpleName()));
-        }
-
-        int size = ClassLayout.parseClass(clazz).instanceSize();
-        for (Field field : clazz.getDeclaredFields()) {
-            if (!field.getType().isPrimitive()) {
-                size += deepInstanceSize(field.getType());
-            }
-        }
-        return size;
     }
 }

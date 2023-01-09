@@ -28,6 +28,8 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -53,18 +55,20 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.testing.TestingHandle.INSTANCE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class TestingMetadata
         implements ConnectorMetadata
 {
-    private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
-    private final ConcurrentMap<SchemaTableName, String> views = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, String> views = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
@@ -299,6 +303,43 @@ public class TestingMetadata
         checkArgument(tableHandle instanceof TestingTableHandle, "tableHandle is not an instance of TestingTableHandle");
         TestingTableHandle testingTableHandle = (TestingTableHandle) tableHandle;
         return testingTableHandle.getTableName();
+    }
+
+    @Override
+    public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        materializedViews.remove(viewName);
+    }
+
+    @Override
+    public void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
+    {
+        SchemaTableName viewName = new SchemaTableName(viewDefinition.getSchema(), viewDefinition.getTable());
+        tables.put(viewName, new ConnectorTableMetadata(viewName, ImmutableList.of()));
+        materializedViews.put(viewName, viewDefinition);
+    }
+
+    @Override
+    public Optional<MaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.ofNullable(materializedViews.get(viewName));
+    }
+
+    @Override
+    public MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName, TupleDomain<String> baseQueryDomain)
+    {
+        return new MaterializedViewStatus(FULLY_MATERIALIZED);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
+    {
+        List<SchemaTableName> referencedMaterializedViews = materializedViews.entrySet().stream()
+                .filter(entry -> entry.getValue().getBaseTables().contains(tableName))
+                .map(Map.Entry::getKey)
+                .collect(toList());
+
+        return referencedMaterializedViews.isEmpty() ? Optional.empty() : Optional.of(referencedMaterializedViews);
     }
 
     public static class TestingTableHandle

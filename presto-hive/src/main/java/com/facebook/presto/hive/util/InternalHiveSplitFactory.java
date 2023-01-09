@@ -19,11 +19,10 @@ import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.HiveSplitPartitionInfo;
 import com.facebook.presto.hive.InternalHiveSplit;
 import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
-import com.facebook.presto.hive.S3SelectPushdown;
+import com.facebook.presto.hive.s3select.S3SelectPushdown;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
@@ -110,7 +109,7 @@ public class InternalHiveSplitFactory
                 tableBucketNumber,
                 splittable,
                 fileInfo.getExtraFileInfo(),
-                ImmutableMap.of());
+                fileInfo.getCustomSplitInfo());
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)

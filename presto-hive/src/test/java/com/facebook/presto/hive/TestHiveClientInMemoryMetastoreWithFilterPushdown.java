@@ -57,4 +57,10 @@ public class TestHiveClientInMemoryMetastoreWithFilterPushdown
     {
         // InMemoryHiveMetastore does not check whether partition exist in createPartition and dropPartition
     }
+
+    @Override
+    public void testTableConstraints()
+    {
+        // InMemoryHiveMetastore has no support for table constraints
+    }
 }

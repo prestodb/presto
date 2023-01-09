@@ -231,7 +231,6 @@ public class SpillableHashAggregationBuilder
             }
             merger.ifPresent(closer::register);
             spiller.ifPresent(closer::register);
-            mergeHashSort.ifPresent(closer::register);
             closer.register(() -> localUserMemoryContext.setBytes(0));
             closer.register(() -> localRevocableMemoryContext.setBytes(0));
         }
@@ -249,7 +248,7 @@ public class SpillableHashAggregationBuilder
             spiller = Optional.of(spillerFactory.create(
                     hashAggregationBuilder.buildTypes(),
                     operatorContext.getSpillContext(),
-                    operatorContext.newAggregateSystemMemoryContext()));
+                    operatorContext.aggregateSystemMemoryContext()));
         }
 
         // start spilling process with current content of the hashAggregationBuilder builder...
@@ -266,7 +265,7 @@ public class SpillableHashAggregationBuilder
         checkState(spiller.isPresent());
 
         hashAggregationBuilder.setOutputPartial();
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext()));
+        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.aggregateSystemMemoryContext()));
 
         WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
@@ -286,7 +285,7 @@ public class SpillableHashAggregationBuilder
     {
         checkState(spiller.isPresent());
 
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext()));
+        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.aggregateSystemMemoryContext()));
 
         WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,

@@ -41,6 +41,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
@@ -111,7 +112,7 @@ public class HashGenerationOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
-            PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, functionAndTypeManager), new HashComputationSet());
+            PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, functionAndTypeManager).accept(plan, new HashComputationSet());
             return result.getNode();
         }
         return plan;
@@ -165,7 +166,8 @@ public class HashGenerationOptimizer
         {
             Optional<HashComputation> groupByHash = Optional.empty();
             List<VariableReferenceExpression> groupingKeys = node.getGroupingKeys();
-            if (!node.isStreamable() && !canSkipHashGeneration(node.getGroupingKeys())) {
+            if (!node.isStreamable() && !node.isSegmentedAggregationEligible() && !canSkipHashGeneration(node.getGroupingKeys())) {
+                // todo: for segmented aggregation, add optimizations for the fields that need to compute hash
                 groupByHash = computeHash(groupingKeys, functionAndTypeManager);
             }
 
@@ -461,6 +463,18 @@ public class HashGenerationOptimizer
                             Optional.of(probeHashVariable),
                             Optional.of(indexHashVariable)),
                     allHashVariables);
+        }
+
+        @Override
+        public PlanWithProperties visitMergeJoin(MergeJoinNode node, HashComputationSet parentPreference)
+        {
+            PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(), true, new HashComputationSet());
+            PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(), true, new HashComputationSet());
+            verify(left.getHashVariables().isEmpty(), "left side of the merge join should not include hash variables");
+            verify(right.getHashVariables().isEmpty(), "right side of the merge join should not include hash variables");
+            return new PlanWithProperties(
+                    replaceChildren(node, ImmutableList.of(left.getNode(), right.getNode())),
+                    ImmutableMap.of());
         }
 
         @Override
@@ -773,18 +787,26 @@ public class HashGenerationOptimizer
                 }
             }
 
-            ProjectNode projectNode = new ProjectNode(planWithProperties.node.getSourceLocation(), idAllocator.getNextId(), planWithProperties.getNode(), assignments.build(), LOCAL);
+            ProjectNode projectNode = new ProjectNode(planWithProperties.node.getSourceLocation(), idAllocator.getNextId(), planWithProperties.node.getStatsEquivalentPlanNode(), planWithProperties.getNode(), assignments.build(), LOCAL);
             return new PlanWithProperties(projectNode, outputHashVariables);
         }
 
         private PlanWithProperties plan(PlanNode node, HashComputationSet parentPreference)
         {
-            PlanWithProperties result = node.accept(this, parentPreference);
+            PlanWithProperties result = accept(node, parentPreference);
             checkState(
                     result.getNode().getOutputVariables().containsAll(result.getHashVariables().values()),
                     "Node %s declares hash variables not in the output",
                     result.getNode().getClass().getSimpleName());
-            return result;
+            return new PlanWithProperties(result.getNode().assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode()), result.getHashVariables());
+        }
+
+        private PlanWithProperties accept(PlanNode node, HashComputationSet context)
+        {
+            PlanWithProperties result = node.accept(this, context);
+            return new PlanWithProperties(
+                    result.getNode().assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode()),
+                    result.getHashVariables());
         }
     }
 

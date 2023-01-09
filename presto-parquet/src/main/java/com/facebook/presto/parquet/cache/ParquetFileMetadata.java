@@ -21,11 +21,13 @@ public class ParquetFileMetadata
 {
     private final ParquetMetadata parquetMetadata;
     private final int metadataSize;
+    private final long modificationTime;
 
-    public ParquetFileMetadata(ParquetMetadata parquetMetadata, int metadataSize)
+    public ParquetFileMetadata(ParquetMetadata parquetMetadata, int metadataSize, long modificationTime)
     {
         this.parquetMetadata = requireNonNull(parquetMetadata, "parquetMetadata is null");
         this.metadataSize = metadataSize;
+        this.modificationTime = modificationTime;
     }
 
     public int getMetadataSize()
@@ -36,5 +38,10 @@ public class ParquetFileMetadata
     public ParquetMetadata getParquetMetadata()
     {
         return parquetMetadata;
+    }
+
+    public long getModificationTime()
+    {
+        return modificationTime;
     }
 }

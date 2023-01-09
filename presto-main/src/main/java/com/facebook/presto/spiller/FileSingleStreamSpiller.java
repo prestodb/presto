@@ -45,12 +45,13 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_SPILL_FAILURE;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterators.transform;
+import static java.lang.String.format;
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
 
@@ -73,7 +74,7 @@ public class FileSingleStreamSpiller
 
     private boolean writable = true;
     private boolean committed;
-    private long spilledPagesInMemorySize;
+    private volatile long spilledPagesInMemorySize;
     private ListenableFuture<?> spillInProgress = Futures.immediateFuture(null);
 
     public FileSingleStreamSpiller(
@@ -108,7 +109,7 @@ public class FileSingleStreamSpiller
             this.targetFile = closer.register(new FileHolder(Files.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX)));
         }
         catch (IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to create spill file", e);
+            throw new PrestoException(GENERIC_SPILL_FAILURE, format("Failed to create spill file: %s", e.getMessage()), e);
         }
     }
 
@@ -166,7 +167,7 @@ public class FileSingleStreamSpiller
             }
         }
         catch (UncheckedIOException | IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
+            throw new PrestoException(GENERIC_SPILL_FAILURE, format("Failed to spill pages: %s", e.getMessage()), e);
         }
     }
 
@@ -184,10 +185,11 @@ public class FileSingleStreamSpiller
             InputStream input = closer.register(targetFile.newInputStream());
             Iterator<Page> deserializedPages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input, BUFFER_SIZE));
             Iterator<Page> compactPages = transform(deserializedPages, Page::compact);
+            spillerStats.addToTotalSpilledBytesRead(getSpilledPagesInMemorySize());
             return closeWhenExhausted(compactPages, input);
         }
         catch (IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to read spilled pages", e);
+            throw new PrestoException(GENERIC_SPILL_FAILURE, format("Failed to read spilled pages: %s", e.getMessage()), e);
         }
     }
 
@@ -200,7 +202,7 @@ public class FileSingleStreamSpiller
             closer.close();
         }
         catch (IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to close spiller", e);
+            throw new PrestoException(GENERIC_SPILL_FAILURE, format("Failed to close spiller: %s", e.getMessage()), e);
         }
     }
 

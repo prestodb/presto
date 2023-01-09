@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -59,7 +60,6 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
@@ -176,8 +176,7 @@ public final class PlanMatchPattern
 
     private PlanMatchPattern addColumnReferences(String expectedTableName, Map<String, String> columnReferences)
     {
-        columnReferences.entrySet().forEach(
-                reference -> withAlias(reference.getKey(), columnReference(expectedTableName, reference.getValue())));
+        columnReferences.forEach((key, value) -> withAlias(key, columnReference(expectedTableName, value)));
         return this;
     }
 
@@ -280,10 +279,10 @@ public final class PlanMatchPattern
         return rowNumberMatcherBuilder.build();
     }
 
-    public static PlanMatchPattern topNRowNumber(Consumer<TopNRowNumberMatcher.Builder> topNRowNumberMatcherBuilderComsumer, PlanMatchPattern source)
+    public static PlanMatchPattern topNRowNumber(Consumer<TopNRowNumberMatcher.Builder> topNRowNumberMatcherBuilderConsumer, PlanMatchPattern source)
     {
         TopNRowNumberMatcher.Builder topNRowNumberMatcherBuilder = new TopNRowNumberMatcher.Builder(source);
-        topNRowNumberMatcherBuilderComsumer.accept(topNRowNumberMatcherBuilder);
+        topNRowNumberMatcherBuilderConsumer.accept(topNRowNumberMatcherBuilder);
         return topNRowNumberMatcherBuilder.build();
     }
 
@@ -416,6 +415,15 @@ public final class PlanMatchPattern
                 new SpatialJoinMatcher(SpatialJoinNode.Type.LEFT, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedFilter, new ParsingOptions())), Optional.empty()));
     }
 
+    public static PlanMatchPattern mergeJoin(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<Expression> filter, PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return node(MergeJoinNode.class, left, right).with(
+                new MergeJoinMatcher(
+                        joinType,
+                        expectedEquiCriteria,
+                        filter));
+    }
+
     public static PlanMatchPattern unnest(PlanMatchPattern source)
     {
         return node(UnnestNode.class, source);
@@ -493,9 +501,9 @@ public final class PlanMatchPattern
                 .with(new CorrelationMatcher(correlationSymbolAliases));
     }
 
-    public static PlanMatchPattern groupingSet(List<List<String>> groups, String groupIdAlias, PlanMatchPattern source)
+    public static PlanMatchPattern groupingSet(List<List<String>> groups, Map<String, String> identityMappings, String groupIdAlias, PlanMatchPattern source)
     {
-        return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, ImmutableMap.of(), groupIdAlias));
+        return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, identityMappings, groupIdAlias));
     }
 
     private static PlanMatchPattern values(
@@ -682,6 +690,12 @@ public final class PlanMatchPattern
         return this;
     }
 
+    public PlanMatchPattern withOutputSize(double expectedOutputSize)
+    {
+        matchers.add(new StatsOutputSizeMatcher(expectedOutputSize));
+        return this;
+    }
+
     public static RvalueMatcher columnReference(String tableName, String columnName)
     {
         return new ColumnReference(tableName, columnName);
@@ -690,6 +704,11 @@ public final class PlanMatchPattern
     public static ExpressionMatcher expression(String expression)
     {
         return new ExpressionMatcher(expression);
+    }
+
+    public static ExpressionMatcher expression(String expression, ParsingOptions.DecimalLiteralTreatment decimalLiteralTreatment)
+    {
+        return new ExpressionMatcher(expression, decimalLiteralTreatment);
     }
 
     public PlanMatchPattern withOutputs(String... aliases)
@@ -848,7 +867,7 @@ public final class PlanMatchPattern
     public static GroupingSetDescriptor singleGroupingSet(List<String> groupingKeys)
     {
         Set<Integer> globalGroupingSets;
-        if (groupingKeys.size() == 0) {
+        if (groupingKeys.isEmpty()) {
             globalGroupingSets = ImmutableSet.of(0);
         }
         else {

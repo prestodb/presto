@@ -226,7 +226,7 @@ public class MapSubscriptOperator
 
             FunctionHandle castFunction = null;
             try {
-                castFunction = functionAndTypeManager.lookupCast(CAST, keyType.getTypeSignature(), VARCHAR.getTypeSignature());
+                castFunction = functionAndTypeManager.lookupCast(CAST, keyType, VARCHAR);
             }
             catch (PrestoException ignored) {
             }

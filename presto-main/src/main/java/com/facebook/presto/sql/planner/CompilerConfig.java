@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.presto.spi.function.Description;
 
@@ -23,6 +24,8 @@ import javax.validation.constraints.Min;
 public class CompilerConfig
 {
     private int expressionCacheSize = 10_000;
+    private int leafNodeLimit = 10_000;
+    private boolean leafNodeLimitEnabled;
 
     @Min(0)
     public int getExpressionCacheSize()
@@ -35,6 +38,32 @@ public class CompilerConfig
     public CompilerConfig setExpressionCacheSize(int expressionCacheSize)
     {
         this.expressionCacheSize = expressionCacheSize;
+        return this;
+    }
+
+    public int getLeafNodeLimit()
+    {
+        return this.leafNodeLimit;
+    }
+
+    @Config("planner.max-leaf-nodes-in-plan")
+    @ConfigDescription("Maximum number of leaf nodes in logical plan, throw an exception when exceed if leaf-node-limit-enabled is set true")
+    public CompilerConfig setLeafNodeLimit(int num)
+    {
+        this.leafNodeLimit = num;
+        return this;
+    }
+
+    public boolean getLeafNodeLimitEnabled()
+    {
+        return this.leafNodeLimitEnabled;
+    }
+
+    @Config("planner.leaf-node-limit-enabled")
+    @ConfigDescription("Throw an exception if number of leaf nodes in logical plan exceeds threshold set in max-leaf-nodes-in-plan")
+    public CompilerConfig setLeafNodeLimitEnabled(boolean enabled)
+    {
+        this.leafNodeLimitEnabled = enabled;
         return this;
     }
 }

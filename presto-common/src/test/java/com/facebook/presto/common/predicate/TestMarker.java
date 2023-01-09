@@ -36,11 +36,26 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestMarker
 {
+    private final ObjectMapper mapper;
+
+    public TestMarker()
+    {
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+
+        this.mapper = new JsonObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+    }
+
     @Test
     public void testTypes()
     {
@@ -131,15 +146,6 @@ public class TestMarker
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new JsonObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
-
         Marker marker = Marker.above(BIGINT, 0L);
         assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
 
@@ -157,5 +163,43 @@ public class TestMarker
 
         marker = Marker.lowerUnbounded(BIGINT);
         assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
+    }
+
+    @Test
+    public void testCanonicalize()
+            throws Exception
+    {
+        assertSameMarker(Marker.above(BIGINT, 0L), Marker.above(BIGINT, 0L), false);
+        assertSameMarker(Marker.above(VARCHAR, utf8Slice("abc")), Marker.above(VARCHAR, utf8Slice("abc")), false);
+        assertSameMarker(Marker.upperUnbounded(BIGINT), Marker.upperUnbounded(BIGINT), false);
+
+        assertDifferentMarker(Marker.above(BIGINT, 0L), Marker.above(BIGINT, 5L), false);
+        assertDifferentMarker(Marker.above(VARCHAR, utf8Slice("abc")), Marker.above(VARCHAR, utf8Slice("abcd")), false);
+        assertDifferentMarker(Marker.upperUnbounded(BIGINT), Marker.upperUnbounded(VARCHAR), false);
+
+        assertDifferentMarker(Marker.above(BIGINT, 0L), Marker.below(BIGINT, 0L), false);
+        assertDifferentMarker(Marker.below(BIGINT, 0L), Marker.exactly(BIGINT, 0L), false);
+        assertDifferentMarker(Marker.upperUnbounded(BIGINT), Marker.lowerUnbounded(BIGINT), false);
+
+        assertSameMarker(Marker.above(BIGINT, 0L), Marker.above(BIGINT, 5L), true);
+        assertSameMarker(Marker.below(BIGINT, 0L), Marker.below(BIGINT, 5L), true);
+        assertSameMarker(Marker.exactly(BIGINT, 0L), Marker.exactly(BIGINT, 5L), true);
+        assertSameMarker(Marker.above(VARCHAR, utf8Slice("abc")), Marker.above(VARCHAR, utf8Slice("abcd")), true);
+
+        assertDifferentMarker(Marker.above(BIGINT, 0L), Marker.below(BIGINT, 0L), true);
+        assertDifferentMarker(Marker.below(BIGINT, 0L), Marker.exactly(BIGINT, 0L), true);
+        assertDifferentMarker(Marker.upperUnbounded(BIGINT), Marker.lowerUnbounded(BIGINT), true);
+    }
+
+    private void assertSameMarker(Marker marker1, Marker marker2, boolean removeConstants)
+            throws Exception
+    {
+        assertEquals(mapper.writeValueAsString(marker1.canonicalize(removeConstants)), mapper.writeValueAsString(marker2.canonicalize(removeConstants)));
+    }
+
+    private void assertDifferentMarker(Marker marker1, Marker marker2, boolean removeConstants)
+            throws Exception
+    {
+        assertNotEquals(mapper.writeValueAsString(marker1.canonicalize(removeConstants)), mapper.writeValueAsString(marker2.canonicalize(removeConstants)));
     }
 }

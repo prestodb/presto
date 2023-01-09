@@ -19,7 +19,11 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.function.BiConsumer;
+import javax.annotation.Nullable;
+
+import java.util.Objects;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.BlockUtil.checkValidPosition;
@@ -84,6 +88,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty(); // size does not increase with each row
+    }
+
+    @Override
     public long getLogicalSizeInBytes()
     {
         return positionCount * value.getLogicalSizeInBytes();
@@ -102,10 +112,10 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(value, value.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -160,7 +170,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(@Nullable boolean[] positions, int usedPositionCount)
     {
         return value.getSizeInBytes();
     }
@@ -247,6 +257,13 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(position);
         value.writeBytesTo(0, offset, length, blockBuilder);
+    }
+
+    @Override
+    public void writeBytesTo(int position, int offset, int length, SliceOutput sliceOutput)
+    {
+        checkReadablePosition(position);
+        value.writeBytesTo(0, offset, length, sliceOutput);
     }
 
     @Override
@@ -410,5 +427,25 @@ public class RunLengthEncodedBlock
             ids[positionCount] = 1;
             return new DictionaryBlock(dictionary, ids);
         }
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        RunLengthEncodedBlock other = (RunLengthEncodedBlock) obj;
+        return Objects.equals(this.value, other.value) &&
+                this.positionCount == other.positionCount;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(value, positionCount);
     }
 }

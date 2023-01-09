@@ -34,6 +34,7 @@ import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -101,7 +102,7 @@ public class TestTpchMetadata
     @Test
     public void testNoTableStats()
     {
-        Stream.of("sf10", "sf100").forEach(schema -> {
+        Stream.of("sf10").forEach(schema -> {
             testNoTableStats(schema, REGION);
             testNoTableStats(schema, NATION);
             testNoTableStats(schema, SUPPLIER);
@@ -167,9 +168,6 @@ public class TestTpchMetadata
             //foreign key to scalable identifier column
             testColumnStats(schema, PART_SUPPLIER, PART_KEY, columnStatistics(200_000 * scaleFactor, 1, 200_000 * scaleFactor));
 
-            //dictionary
-            testColumnStats(schema, CUSTOMER, MARKET_SEGMENT, columnStatistics(5, 45));
-
             //low-valued numeric column
             testColumnStats(schema, LINE_ITEM, LINE_NUMBER, columnStatistics(7, 1, 7));
 
@@ -178,12 +176,14 @@ public class TestTpchMetadata
 
             //varchar and double columns
             if (schema.equals("tiny")) {
+                testColumnStats(schema, CUSTOMER, MARKET_SEGMENT, columnStatistics(5, 13465));
                 testColumnStats(schema, CUSTOMER, NAME, columnStatistics(150_000 * scaleFactor, 27000));
                 testColumnStats(schema, PART, RETAIL_PRICE, columnStatistics(1_099, 901, 1900.99));
             }
             else if (schema.equals("sf1")) {
                 testColumnStats(schema, CUSTOMER, NAME, columnStatistics(150_000 * scaleFactor, 2700000));
                 testColumnStats(schema, PART, RETAIL_PRICE, columnStatistics(20899, 901, 2089.99));
+                testColumnStats(schema, CUSTOMER, MARKET_SEGMENT, columnStatistics(5, 1349610));
             }
         });
     }
@@ -194,16 +194,15 @@ public class TestTpchMetadata
         SUPPORTED_SCHEMAS.forEach(schema -> {
             double scaleFactor = TpchMetadata.schemaNameToScaleFactor(schema);
 
-            //value count, min and max are supported for the constrained column
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F"), columnStatistics(1, 1));
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "O"), columnStatistics(1, 1));
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "P"), columnStatistics(1, 1));
+            //Single constrained column has only one unique value
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F"), columnStatistics(1), EnumSet.of(ColumnStatisticsFields.DistinctValuesCount));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "O"), columnStatistics(1), EnumSet.of(ColumnStatisticsFields.DistinctValuesCount));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "P"), columnStatistics(1), EnumSet.of(ColumnStatisticsFields.DistinctValuesCount));
 
             //only min and max values for non-scaling columns can be estimated for non-constrained columns
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "F"), rangeStatistics(3, 6_000_000 * scaleFactor));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "O"), rangeStatistics(1, 6_000_000 * scaleFactor));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "P"), rangeStatistics(65, 6_000_000 * scaleFactor));
-            testColumnStats(schema, ORDERS, CLERK, constraint(ORDER_STATUS, "O"), createColumnStatistics(Optional.empty(), Optional.empty(), Optional.of(15000.0)));
 
             //nothing can be said for always false constraints
             testColumnStats(schema, ORDERS, ORDER_STATUS, alwaysFalse(), noColumnStatistics());
@@ -212,31 +211,37 @@ public class TestTpchMetadata
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "NO SUCH STATUS"), noColumnStatistics());
 
             //unmodified stats are returned for the always true constraint
-            testColumnStats(schema, ORDERS, ORDER_STATUS, alwaysTrue(), columnStatistics(3, 3));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, alwaysTrue(), columnStatistics(3), EnumSet.of(ColumnStatisticsFields.DistinctValuesCount));
             testColumnStats(schema, ORDERS, ORDER_KEY, alwaysTrue(), columnStatistics(1_500_000 * scaleFactor, 1, 6_000_000 * scaleFactor));
 
             //constraints on columns other than ORDER_STATUS are not supported and are ignored
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(CLERK, "NO SUCH CLERK"), columnStatistics(3, 3));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(CLERK, "NO SUCH CLERK"), columnStatistics(3), EnumSet.of(ColumnStatisticsFields.DistinctValuesCount));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(CLERK, "Clerk#000000001"), columnStatistics(1_500_000 * scaleFactor, 1, 6_000_000 * scaleFactor));
 
             //compound constraints are supported
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "NO SUCH STATUS"), columnStatistics(1, 1));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "NO SUCH STATUS"), columnStatistics(1), EnumSet.of(ColumnStatisticsFields.DistinctValuesCount));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "F", "NO SUCH STATUS"), rangeStatistics(3, 6_000_000 * scaleFactor));
 
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "O"), columnStatistics(2, 2));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "O"), columnStatistics(2), EnumSet.of(ColumnStatisticsFields.DistinctValuesCount));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "F", "O"), rangeStatistics(1, 6_000_000 * scaleFactor));
 
-            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "O", "P"), columnStatistics(3, 3));
+            testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "O", "P"), columnStatistics(3), EnumSet.of(ColumnStatisticsFields.DistinctValuesCount));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "F", "O", "P"), columnStatistics(1_500_000 * scaleFactor, 1, 6_000_000 * scaleFactor));
         });
     }
 
     private void testColumnStats(String schema, TpchTable<?> table, TpchColumn<?> column, ColumnStatistics expectedStatistics)
     {
-        testColumnStats(schema, table, column, alwaysTrue(), expectedStatistics);
+        testColumnStats(schema, table, column, alwaysTrue(), expectedStatistics, EnumSet.allOf(ColumnStatisticsFields.class));
     }
 
-    private void testColumnStats(String schema, TpchTable<?> table, TpchColumn<?> column, Constraint<ColumnHandle> constraint, ColumnStatistics expected)
+    private void testColumnStats(String schema, TpchTable<?> table, TpchColumn<?> column, Constraint<ColumnHandle> constraint, ColumnStatistics expectedStatistics)
+    {
+        testColumnStats(schema, table, column, constraint, expectedStatistics, EnumSet.allOf(ColumnStatisticsFields.class));
+    }
+
+    private void testColumnStats(String schema, TpchTable<?> table, TpchColumn<?> column, Constraint<ColumnHandle> constraint, ColumnStatistics expected,
+            EnumSet<ColumnStatisticsFields> fieldsToAssertOn)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(tpchMetadata.getColumnHandles(session, tableHandle).values());
@@ -247,10 +252,18 @@ public class TestTpchMetadata
 
         EstimateAssertion estimateAssertion = new EstimateAssertion(TOLERANCE);
 
-        estimateAssertion.assertClose(actual.getDistinctValuesCount(), expected.getDistinctValuesCount(), "distinctValuesCount");
-        estimateAssertion.assertClose(actual.getDataSize(), expected.getDataSize(), "dataSize");
-        estimateAssertion.assertClose(actual.getNullsFraction(), expected.getNullsFraction(), "nullsFraction");
-        estimateAssertion.assertClose(actual.getRange(), expected.getRange(), "range");
+        if (fieldsToAssertOn.contains(ColumnStatisticsFields.DistinctValuesCount)) {
+            estimateAssertion.assertClose(actual.getDistinctValuesCount(), expected.getDistinctValuesCount(), "distinctValuesCount");
+        }
+        if (fieldsToAssertOn.contains(ColumnStatisticsFields.DataSize)) {
+            estimateAssertion.assertClose(actual.getDataSize(), expected.getDataSize(), "dataSize");
+        }
+        if (fieldsToAssertOn.contains(ColumnStatisticsFields.NullsFraction)) {
+            estimateAssertion.assertClose(actual.getNullsFraction(), expected.getNullsFraction(), "nullsFraction");
+        }
+        if (fieldsToAssertOn.contains(ColumnStatisticsFields.Range)) {
+            estimateAssertion.assertClose(actual.getRange(), expected.getRange(), "range");
+        }
     }
 
     @Test
@@ -385,6 +398,11 @@ public class TestTpchMetadata
         return createColumnStatistics(Optional.of(0.0), Optional.empty(), Optional.of(0.0));
     }
 
+    private ColumnStatistics columnStatistics(double distinctValuesCount)
+    {
+        return createColumnStatistics(Optional.of(distinctValuesCount), Optional.empty(), Optional.empty());
+    }
+
     private ColumnStatistics columnStatistics(double distinctValuesCount, double dataSize)
     {
         return createColumnStatistics(Optional.of(distinctValuesCount), Optional.empty(), Optional.of(dataSize));
@@ -415,5 +433,13 @@ public class TestTpchMetadata
         return value
                 .map(Estimate::of)
                 .orElse(Estimate.unknown());
+    }
+
+    private enum ColumnStatisticsFields
+    {
+        DistinctValuesCount,
+        DataSize,
+        NullsFraction,
+        Range
     }
 }

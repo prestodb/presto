@@ -34,11 +34,26 @@ import static com.facebook.presto.common.type.TestingIdType.ID;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestDomain
 {
+    private final ObjectMapper mapper;
+
+    public TestDomain()
+    {
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+
+        this.mapper = new JsonObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+    }
+
     @Test
     public void testOrderableNone()
     {
@@ -518,15 +533,6 @@ public class TestDomain
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new JsonObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
-
         Domain domain = Domain.all(BIGINT);
         assertEquals(domain, mapper.readValue(mapper.writeValueAsString(domain), Domain.class));
 
@@ -553,6 +559,44 @@ public class TestDomain
 
         domain = Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 0L), Range.equal(BIGINT, 1L), Range.range(BIGINT, 2L, true, 3L, true)), true);
         assertEquals(domain, mapper.readValue(mapper.writeValueAsString(domain), Domain.class));
+    }
+
+    @Test
+    public void testCanonicalize()
+            throws Exception
+    {
+        assertSameDomain(Domain.onlyNull(BIGINT), Domain.onlyNull(BIGINT), false);
+        assertSameDomain(Domain.notNull(BIGINT), Domain.notNull(BIGINT), false);
+
+        assertDifferentDomain(Domain.onlyNull(BIGINT), Domain.notNull(BIGINT), false);
+        assertDifferentDomain(Domain.onlyNull(BIGINT), Domain.onlyNull(VARCHAR), false);
+
+        assertDifferentDomain(
+                Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L)),
+                Domain.multipleValues(BIGINT, ImmutableList.of(0L, 2L)),
+                false);
+
+        assertSameDomain(
+                Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L)),
+                Domain.multipleValues(BIGINT, ImmutableList.of(0L, 2L)),
+                true);
+
+        assertDifferentDomain(
+                Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L)),
+                Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L, 2L)),
+                true);
+    }
+
+    private void assertSameDomain(Domain domain1, Domain domain2, boolean removeConstants)
+            throws Exception
+    {
+        assertEquals(mapper.writeValueAsString(domain1.canonicalize(removeConstants)), mapper.writeValueAsString(domain2.canonicalize(removeConstants)));
+    }
+
+    private void assertDifferentDomain(Domain domain1, Domain domain2, boolean removeConstants)
+            throws Exception
+    {
+        assertNotEquals(mapper.writeValueAsString(domain1.canonicalize(removeConstants)), mapper.writeValueAsString(domain2.canonicalize(removeConstants)));
     }
 
     private void assertUnion(Domain first, Domain second, Domain expected)

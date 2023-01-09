@@ -35,11 +35,14 @@ import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.WindowIndex;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
+import com.facebook.presto.spi.function.aggregation.LambdaProvider;
 import com.facebook.presto.sql.gen.CompilerOperations;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -64,8 +67,8 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.countInputChannels;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.countInputChannels;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -84,25 +87,7 @@ public class AccumulatorCompiler
     {
     }
 
-    public static GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
-    {
-        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
-                Accumulator.class,
-                metadata,
-                classLoader);
-
-        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
-                GroupedAccumulator.class,
-                metadata,
-                classLoader);
-
-        return new GenericAccumulatorFactoryBinder(
-                metadata.getAccumulatorStateDescriptors(),
-                accumulatorClass,
-                groupedAccumulatorClass);
-    }
-
-    private static <T> Class<? extends T> generateAccumulatorClass(
+    public static <T> Class<? extends T> generateAccumulatorClass(
             Class<T> accumulatorInterface,
             AggregationMetadata metadata,
             DynamicClassLoader classLoader)
@@ -126,7 +111,7 @@ public class AccumulatorCompiler
                     definition.declareField(a(PRIVATE, FINAL), "state_" + i, grouped ? stateDescriptors.get(i).getFactory().getGroupedStateClass() : stateDescriptors.get(i).getFactory().getSingleStateClass()),
                     stateDescriptors.get(i)));
         }
-        List<FieldDefinition> stateFileds = stateFieldAndDescriptors.stream()
+        List<FieldDefinition> stateFields = stateFieldAndDescriptors.stream()
                 .map(StateFieldAndDescriptor::getStateField)
                 .collect(toImmutableList());
 
@@ -156,7 +141,7 @@ public class AccumulatorCompiler
         // Generate methods
         generateAddInput(
                 definition,
-                stateFileds,
+                stateFields,
                 inputChannelFields,
                 maskChannelField,
                 metadata.getValueInputMetadata(),
@@ -167,13 +152,13 @@ public class AccumulatorCompiler
                 grouped);
         generateAddInputWindowIndex(
                 definition,
-                stateFileds,
+                stateFields,
                 metadata.getValueInputMetadata(),
                 metadata.getLambdaInterfaces(),
                 lambdaProviderFields,
                 metadata.getInputFunction(),
                 callSiteBinder);
-        generateGetEstimatedSize(definition, stateFileds);
+        generateGetEstimatedSize(definition, stateFields);
 
         generateGetIntermediateType(
                 definition,
@@ -201,10 +186,10 @@ public class AccumulatorCompiler
         }
 
         if (grouped) {
-            generateGroupedEvaluateFinal(definition, stateFileds, metadata.getOutputFunction(), callSiteBinder);
+            generateGroupedEvaluateFinal(definition, stateFields, metadata.getOutputFunction(), callSiteBinder);
         }
         else {
-            generateEvaluateFinal(definition, stateFileds, metadata.getOutputFunction(), callSiteBinder);
+            generateEvaluateFinal(definition, stateFields, metadata.getOutputFunction(), callSiteBinder);
         }
 
         if (grouped) {

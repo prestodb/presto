@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
-import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.spi.WarningCollector;
 
 import static java.util.Objects.requireNonNull;

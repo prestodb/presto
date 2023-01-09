@@ -13,11 +13,20 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+
 import java.util.Optional;
 
 public interface ConnectorTableLayoutHandle
 {
-    default Object getIdentifier(Optional<ConnectorSplit> split)
+    /**
+     * Identifier is used to identify if the table layout is providing the same set of data.
+     *
+     * Split is used to update the identifier based on runtime information.
+     *
+     * Returns an identifier with consistent representation according to canonicalizationStrategy
+     */
+    default Object getIdentifier(Optional<ConnectorSplit> split, PlanCanonicalizationStrategy canonicalizationStrategy)
     {
         return this;
     }

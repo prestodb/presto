@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -30,6 +30,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isOffsetClauseEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.offset;
@@ -64,14 +65,12 @@ public class ImplementOffset
     }
 
     @Override
-    public boolean isEnabled(Session session)
-    {
-        return isOffsetClauseEnabled(session);
-    }
-
-    @Override
     public Result apply(OffsetNode parent, Captures captures, Context context)
     {
+        if (!isOffsetClauseEnabled(context.getSession())) {
+            throw new PrestoException(NOT_SUPPORTED, "Offset support is not enabled");
+        }
+
         VariableReferenceExpression rowNumberSymbol = context.getVariableAllocator().newVariable("row_number", BIGINT);
 
         RowNumberNode rowNumberNode = new RowNumberNode(

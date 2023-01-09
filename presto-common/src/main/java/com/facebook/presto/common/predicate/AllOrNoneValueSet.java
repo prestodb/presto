@@ -142,6 +142,12 @@ public class AllOrNoneValueSet
     }
 
     @Override
+    public ValueSet canonicalize(boolean removeSafeConstants)
+    {
+        return this;
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(type, all);

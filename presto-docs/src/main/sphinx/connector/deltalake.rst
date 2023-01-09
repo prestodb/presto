@@ -71,10 +71,20 @@ command.
     table location. To get around no columns error in Hive metastore, provide a dummy column
     as schema of the Delta table being registered.
 
+Examples
+--------
+
+Create a new Delta table named ``sales_data_new`` in the ``apac`` schema that has Delta Lake
+table location in an S3 bucket named ``db-sa-datasets`` using Delta Lake connector:
+
 .. code-block:: sql
 
     CREATE TABLE sales.apac.sales_data_new (dummyColumn INT)
-    WITH (external_location = 's3://db-sa-datasets/presto/sales_data_new')
+    WITH (external_location = 's3://db-sa-datasets/presto/sales_data_new');
+
+To register a partition Delta table in Hive metastore, use the ``CREATE TABLE`` same as above.
+Only ``external_location`` is required in the properties, no need to specify ``partitioned_by`` in
+``CREATE TABLE``
 
 Another option is querying the table directly using the table location as table name.
 
@@ -91,6 +101,7 @@ To query a specific snapshot of the Delta Lake table use the snapshot identifier
 as suffix to the table name.
 
 .. code-block:: sql
+
     SELECT * FROM sales.apac."sales_data@v4" LIMIT 200;
 
 Above query reads data from snapshot version ``4`` of the table ``sales.apac.sales_data``.
@@ -99,7 +110,15 @@ To query the snapshot of the Delta Lake table as of particular time, specify the
 as suffix to the table name.
 
 .. code-block:: sql
+
     SELECT * FROM sales.apac."sales_data@t2021-11-18 09:45" LIMIT 200;
 
 Above query reads data from the latest snapshot as of timestamp ``2021-11-18 09:45:00``
 in the table ``sales.apac.sales_data``.
+
+.. code-block:: sql
+
+    DROP TABLE sales.apac.sales_data_new;
+
+Above query drops the external table ``sales.apac.sales_data_new``. This only drops the
+metadata for the table. The referenced data directory is not deleted.

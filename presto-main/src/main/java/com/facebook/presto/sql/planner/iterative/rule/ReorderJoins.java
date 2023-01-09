@@ -25,12 +25,14 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.planner.CanonicalJoinNode;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.VariablesExtractor;
@@ -42,6 +44,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Predicate;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -331,7 +334,7 @@ public class ReorderJoins
             // could not be used for equality inference.
             // If they use both the left and right variables, we add them to the list of joinPredicates
             EqualityInference.Builder builder = new EqualityInference.Builder(metadata);
-            StreamSupport.stream(builder.nonInferrableConjuncts(allFilter).spliterator(), false)
+            StreamSupport.stream(builder.nonInferableConjuncts(allFilter).spliterator(), false)
                     .map(conjunct -> allFilterInference.rewriteExpression(
                             conjunct,
                             variable -> leftVariables.contains(variable) || rightVariables.contains(variable)))
@@ -358,7 +361,7 @@ public class ReorderJoins
                 ImmutableList.Builder<RowExpression> predicates = ImmutableList.builder();
                 predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputVariables::contains).getScopeEqualities());
                 EqualityInference.Builder builder = new EqualityInference.Builder(metadata);
-                StreamSupport.stream(builder.nonInferrableConjuncts(allFilter).spliterator(), false)
+                StreamSupport.stream(builder.nonInferableConjuncts(allFilter).spliterator(), false)
                         .map(conjunct -> allFilterInference.rewriteExpression(conjunct, outputVariables::contains))
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);
@@ -422,9 +425,7 @@ public class ReorderJoins
                 case AUTOMATIC:
                     ImmutableList.Builder<JoinEnumerationResult> result = ImmutableList.builder();
                     result.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
-                    if (isBelowMaxBroadcastSize(joinNode, context)) {
-                        result.addAll(getPossibleJoinNodes(joinNode, REPLICATED));
-                    }
+                    result.addAll(getPossibleJoinNodes(joinNode, REPLICATED, node -> isBelowMaxBroadcastSize(node, context)));
                     return result.build();
                 default:
                     throw new IllegalArgumentException("unexpected join distribution type: " + distributionType);
@@ -433,9 +434,15 @@ public class ReorderJoins
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
         {
-            return ImmutableList.of(
-                    createJoinEnumerationResult(joinNode.withDistributionType(distributionType)),
-                    createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(distributionType)));
+            return getPossibleJoinNodes(joinNode, distributionType, (node) -> true);
+        }
+
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)
+        {
+            List<JoinNode> nodes = ImmutableList.of(
+                    joinNode.withDistributionType(distributionType),
+                    joinNode.flipChildren().withDistributionType(distributionType));
+            return nodes.stream().filter(isAllowed).map(this::createJoinEnumerationResult).collect(toImmutableList());
         }
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)
@@ -451,17 +458,23 @@ public class ReorderJoins
     static class MultiJoinNode
     {
         // Use a linked hash set to ensure optimizer is deterministic
-        private final LinkedHashSet<PlanNode> sources;
-        private final RowExpression filter;
-        private final List<VariableReferenceExpression> outputVariables;
+        private final CanonicalJoinNode node;
 
         public MultiJoinNode(LinkedHashSet<PlanNode> sources, RowExpression filter, List<VariableReferenceExpression> outputVariables)
         {
             checkArgument(sources.size() > 1, "sources size is <= 1");
 
-            this.sources = requireNonNull(sources, "sources is null");
-            this.filter = requireNonNull(filter, "filter is null");
-            this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
+            requireNonNull(sources, "sources is null");
+            requireNonNull(filter, "filter is null");
+            requireNonNull(outputVariables, "outputVariables is null");
+            // Plan node id doesn't matter here as we don't use this in planner
+            this.node = new CanonicalJoinNode(
+                    new PlanNodeId(""),
+                    sources.stream().collect(toImmutableList()),
+                    INNER,
+                    ImmutableSet.of(),
+                    ImmutableSet.of(filter),
+                    outputVariables);
 
             List<VariableReferenceExpression> inputVariables = sources.stream().flatMap(source -> source.getOutputVariables().stream()).collect(toImmutableList());
             checkArgument(inputVariables.containsAll(outputVariables), "inputs do not contain all output variables");
@@ -469,17 +482,17 @@ public class ReorderJoins
 
         public RowExpression getFilter()
         {
-            return filter;
+            return node.getFilters().stream().findAny().get();
         }
 
         public LinkedHashSet<PlanNode> getSources()
         {
-            return sources;
+            return new LinkedHashSet<>(node.getSources());
         }
 
         public List<VariableReferenceExpression> getOutputVariables()
         {
-            return outputVariables;
+            return node.getOutputVariables();
         }
 
         public static Builder builder()
@@ -490,7 +503,7 @@ public class ReorderJoins
         @Override
         public int hashCode()
         {
-            return Objects.hash(sources, ImmutableSet.copyOf(extractConjuncts(filter)), outputVariables);
+            return Objects.hash(getSources(), ImmutableSet.copyOf(extractConjuncts(getFilter())), getOutputVariables());
         }
 
         @Override
@@ -501,9 +514,9 @@ public class ReorderJoins
             }
 
             MultiJoinNode other = (MultiJoinNode) obj;
-            return this.sources.equals(other.sources)
-                    && ImmutableSet.copyOf(extractConjuncts(this.filter)).equals(ImmutableSet.copyOf(extractConjuncts(other.filter)))
-                    && this.outputVariables.equals(other.outputVariables);
+            return getSources().equals(other.getSources())
+                    && ImmutableSet.copyOf(extractConjuncts(getFilter())).equals(ImmutableSet.copyOf(extractConjuncts(other.getFilter())))
+                    && getOutputVariables().equals(other.getOutputVariables());
         }
 
         static MultiJoinNode toMultiJoinNode(JoinNode joinNode, Lookup lookup, int joinLimit, FunctionResolution functionResolution, DeterminismEvaluator determinismEvaluator)

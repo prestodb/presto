@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.warnings;
 
+import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardWarningCode;
@@ -40,6 +41,17 @@ public class TestDefaultWarningCollector
         warningCollector.add(new PrestoWarning(new WarningCode(2, "2"), "warning 2"));
         warningCollector.add(new PrestoWarning(new WarningCode(3, "3"), "warning 3"));
         assertEquals(warningCollector.getWarnings().size(), 2);
+    }
+
+    @Test
+    public void testAddingSameTypeWarnings()
+    {
+        WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig(), WarningHandlingLevel.NORMAL);
+        warningCollector.add(new PrestoWarning(new WarningCode(1, "1"), "warning 1-1"));
+        warningCollector.add(new PrestoWarning(new WarningCode(1, "1"), "warning 1-2"));
+        warningCollector.add(new PrestoWarning(new WarningCode(2, "2"), "warning 2"));
+        warningCollector.add(new PrestoWarning(new WarningCode(3, "3"), "warning 3"));
+        assertEquals(warningCollector.getWarnings().size(), 4);
     }
 
     @Test

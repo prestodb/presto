@@ -54,9 +54,8 @@ import java.util.SortedMap;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -93,7 +92,7 @@ public class MapFlatBatchStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
@@ -240,7 +239,7 @@ public class MapFlatBatchStreamReader
     public void startStripe(Stripe stripe)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
 
         inMapStreamSources.clear();
         valueStreamDescriptors.clear();
@@ -255,9 +254,9 @@ public class MapFlatBatchStreamReader
 
         // The ColumnEncoding with sequence ID 0 doesn't have any data associated with it
         for (int sequence : additionalSequenceEncodings.keySet()) {
-            inMapStreamSources.add(missingStreamSource(BooleanInputStream.class));
+            inMapStreamSources.add(getBooleanMissingStreamSource());
 
-            StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
+            StreamDescriptor valueStreamDescriptor = baseValueStreamDescriptor.duplicate(sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
             BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(type.getValueType(), valueStreamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
@@ -272,26 +271,6 @@ public class MapFlatBatchStreamReader
         presentStream = null;
 
         rowGroupOpen = false;
-    }
-
-    /**
-     * Creates StreamDescriptor which is a copy of this one with the value of sequence changed to
-     * the value passed in.  Recursively calls itself on the nested streams.
-     */
-    private static StreamDescriptor copyStreamDescriptorWithSequence(StreamDescriptor streamDescriptor, int sequence)
-    {
-        List<StreamDescriptor> streamDescriptors = streamDescriptor.getNestedStreams().stream()
-                .map(stream -> copyStreamDescriptorWithSequence(stream, sequence))
-                .collect(toImmutableList());
-
-        return new StreamDescriptor(
-                streamDescriptor.getStreamName(),
-                streamDescriptor.getStreamId(),
-                streamDescriptor.getFieldName(),
-                streamDescriptor.getOrcType(),
-                streamDescriptor.getOrcDataSource(),
-                streamDescriptors,
-                sequence);
     }
 
     private Block getKeyBlockTemplate(Collection<DwrfSequenceEncoding> sequenceEncodings)

@@ -18,15 +18,15 @@ import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.Session;
 import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -42,6 +42,7 @@ import java.util.Optional;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.server.BasicQueryStats.immediateFailureQueryStats;
+import static com.facebook.presto.util.QueryInfoUtils.computeQueryHash;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -61,12 +62,14 @@ public class BasicQueryInfo
     private final boolean scheduled;
     private final URI self;
     private final String query;
+    private final String queryHash;
     private final BasicQueryStats queryStats;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final ExecutionFailureInfo failureInfo;
     private final Optional<QueryType> queryType;
     private final List<PrestoWarning> warnings;
+    private final Optional<String> preparedQuery;
 
     @ThriftConstructor
     @JsonCreator
@@ -84,7 +87,8 @@ public class BasicQueryInfo
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
             @JsonProperty("queryType") Optional<QueryType> queryType,
-            @JsonProperty("warnings") List<PrestoWarning> warnings)
+            @JsonProperty("warnings") List<PrestoWarning> warnings,
+            @JsonProperty("preparedQuery") Optional<String> preparedQuery)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");
@@ -97,9 +101,11 @@ public class BasicQueryInfo
         this.scheduled = scheduled;
         this.self = requireNonNull(self, "self is null");
         this.query = requireNonNull(query, "query is null");
+        this.queryHash = computeQueryHash(query);
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.warnings = requireNonNull(warnings, "warnings is null");
+        this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
     }
 
     public BasicQueryInfo(
@@ -114,7 +120,8 @@ public class BasicQueryInfo
             BasicQueryStats queryStats,
             ExecutionFailureInfo failureInfo,
             Optional<QueryType> queryType,
-            List<PrestoWarning> warnings)
+            List<PrestoWarning> warnings,
+            Optional<String> preparedQuery)
     {
         this(
                 queryId,
@@ -129,7 +136,9 @@ public class BasicQueryInfo
                 (failureInfo != null && failureInfo.getErrorCode() != null) ? failureInfo.getErrorCode().getType() : null,
                 failureInfo != null ? failureInfo.getErrorCode() : null,
                 failureInfo,
-                queryType, warnings);
+                queryType,
+                warnings,
+                preparedQuery);
     }
 
     public BasicQueryInfo(QueryInfo queryInfo)
@@ -147,7 +156,8 @@ public class BasicQueryInfo
                 queryInfo.getErrorCode(),
                 queryInfo.getFailureInfo(),
                 queryInfo.getQueryType(),
-                queryInfo.getWarnings());
+                queryInfo.getWarnings(),
+                queryInfo.getPreparedQuery());
     }
 
     public static BasicQueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, ExecutionFailureInfo failure)
@@ -164,7 +174,8 @@ public class BasicQueryInfo
                 immediateFailureQueryStats(),
                 failure,
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
     }
 
     @ThriftField(1)
@@ -225,12 +236,19 @@ public class BasicQueryInfo
 
     @ThriftField(9)
     @JsonProperty
+    public String getQueryHash()
+    {
+        return queryHash;
+    }
+
+    @ThriftField(10)
+    @JsonProperty
     public BasicQueryStats getQueryStats()
     {
         return queryStats;
     }
 
-    @ThriftField(10)
+    @ThriftField(11)
     @Nullable
     @JsonProperty
     public ErrorType getErrorType()
@@ -238,7 +256,7 @@ public class BasicQueryInfo
         return errorType;
     }
 
-    @ThriftField(11)
+    @ThriftField(12)
     @Nullable
     @JsonProperty
     public ErrorCode getErrorCode()
@@ -246,7 +264,7 @@ public class BasicQueryInfo
         return errorCode;
     }
 
-    @ThriftField(12)
+    @ThriftField(13)
     @Nullable
     @JsonProperty
     public ExecutionFailureInfo getFailureInfo()
@@ -254,18 +272,25 @@ public class BasicQueryInfo
         return failureInfo;
     }
 
-    @ThriftField(13)
+    @ThriftField(14)
     @JsonProperty
     public Optional<QueryType> getQueryType()
     {
         return queryType;
     }
 
-    @ThriftField(14)
+    @ThriftField(15)
     @JsonProperty
     public List<PrestoWarning> getWarnings()
     {
         return warnings;
+    }
+
+    @ThriftField(16)
+    @JsonProperty
+    public Optional<String> getPreparedQuery()
+    {
+        return preparedQuery;
     }
 
     @Override

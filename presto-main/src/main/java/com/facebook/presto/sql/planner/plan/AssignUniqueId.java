@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.plan.LogicalProperties;
+import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -41,7 +43,17 @@ public class AssignUniqueId
             @JsonProperty("source") PlanNode source,
             @JsonProperty("idVariable") VariableReferenceExpression idVariable)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, idVariable);
+    }
+
+    public AssignUniqueId(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            VariableReferenceExpression idVariable)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source, "source is null");
         this.idVariable = requireNonNull(idVariable, "idVariable is null");
     }
@@ -74,6 +86,13 @@ public class AssignUniqueId
     }
 
     @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getAssignUniqueIdProperties(this);
+    }
+
+    @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitAssignUniqueId(this, context);
@@ -83,6 +102,12 @@ public class AssignUniqueId
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
-        return new AssignUniqueId(newChildren.get(0).getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), idVariable);
+        return new AssignUniqueId(newChildren.get(0).getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), idVariable);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new AssignUniqueId(getSourceLocation(), getId(), statsEquivalentPlanNode, source, idVariable);
     }
 }

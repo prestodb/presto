@@ -20,6 +20,8 @@ public enum HiveWarningCode
         implements WarningCodeSupplier
 {
     PARTITION_NOT_READABLE(1),
+    HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE(2),
+    HIVE_FILE_STATISTICS_CORRUPTION(3),
     /**/;
     private final WarningCode warningCode;
 

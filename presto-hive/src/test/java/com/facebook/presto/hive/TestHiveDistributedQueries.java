@@ -19,6 +19,7 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -29,6 +30,7 @@ import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -55,9 +57,20 @@ public class TestHiveDistributedQueries
     {
         Optional<EventListener> eventListener = getQueryRunner().getEventListener();
         assertTrue(eventListener.isPresent());
-        assertTrue(eventListener.get() instanceof TestingHiveEventListener);
+        assertTrue(eventListener.get() instanceof TestingHiveEventListener, eventListener.get().getClass().getName());
         Set<QueryId> runningQueryIds = ((TestingHiveEventListener) eventListener.get()).getRunningQueries();
-        assertTrue(runningQueryIds.isEmpty(), format("Query completion events not sent for %d queries", runningQueryIds.size()));
+
+        if (!runningQueryIds.isEmpty()) {
+            // Await query events to propagate and finish
+            Thread.sleep(1000);
+        }
+        assertEquals(
+                runningQueryIds,
+                ImmutableSet.of(),
+                format(
+                        "Query completion events not sent for %d queries: %s",
+                        runningQueryIds.size(),
+                        runningQueryIds.stream().map(QueryId::getId).collect(joining(", "))));
         super.close();
     }
 

@@ -26,7 +26,8 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.MAX_ARRAY_SIZE;
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
@@ -48,8 +49,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 
 public class VariableWidthBlockBuilder
-        extends AbstractVariableWidthBlock
-        implements BlockBuilder
+        extends AbstractVariableWidthBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize();
 
@@ -115,6 +115,12 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty(); // size is variable based on the per element length
+    }
+
+    @Override
     public long getRegionSizeInBytes(int positionOffset, int length)
     {
         int positionCount = getPositionCount();
@@ -124,18 +130,23 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int usedPositionCount)
     {
-        checkValidPositions(positions, getPositionCount());
-        long sizeInBytes = 0;
-        int usedPositionCount = 0;
+        int positionCount = getPositionCount();
+        checkValidPositions(positions, positionCount);
+        if (usedPositionCount == 0) {
+            return 0;
+        }
+        if (usedPositionCount == positionCount) {
+            return getSizeInBytes();
+        }
+        int sizeInBytes = 0;
         for (int i = 0; i < positions.length; ++i) {
             if (positions[i]) {
-                usedPositionCount++;
-                sizeInBytes += getOffset(i + 1) - getOffset(i);
+                sizeInBytes += offsets[i + 1] - offsets[i];
             }
         }
-        return sizeInBytes + (Integer.BYTES + Byte.BYTES) * (long) usedPositionCount;
+        return sizeInBytes + ((Integer.BYTES + Byte.BYTES) * (long) usedPositionCount);
     }
 
     @Override
@@ -149,12 +160,12 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(sliceOutput, sliceOutput.getRetainedSize());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -232,6 +243,17 @@ public class VariableWidthBlockBuilder
 
     @Override
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
+    {
+        if (!initialized) {
+            initializeCapacity();
+        }
+        sliceOutput.writeBytes(source, sourceIndex, length);
+        currentEntrySize += length;
+        return this;
+    }
+
+    @Override
+    public AbstractVariableWidthBlockBuilder writeBytes(byte[] source, int sourceIndex, int length)
     {
         if (!initialized) {
             initializeCapacity();

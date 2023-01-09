@@ -35,7 +35,8 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getFloatMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
@@ -50,11 +51,11 @@ public class FloatBatchStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
-    private InputStreamSource<FloatInputStream> dataStreamSource = missingStreamSource(FloatInputStream.class);
+    private InputStreamSource<FloatInputStream> dataStreamSource = getFloatMissingStreamSource();
     @Nullable
     private FloatInputStream dataStream;
 
@@ -141,8 +142,8 @@ public class FloatBatchStreamReader
     @Override
     public void startStripe(Stripe stripe)
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        dataStreamSource = missingStreamSource(FloatInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
+        dataStreamSource = getFloatMissingStreamSource();
 
         readOffset = 0;
         nextBatchSize = 0;

@@ -16,9 +16,18 @@ package com.facebook.presto.cost;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VariableWidthType;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.statistics.CostBasedSourceInfo;
+import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.PlanStatistics;
+import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
+import com.facebook.presto.spi.statistics.SourceInfo;
+import com.facebook.presto.sql.Serialization;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableMap;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
@@ -43,8 +52,9 @@ public class PlanNodeStatsEstimate
 
     private final double outputRowCount;
     private final double totalSize;
-    private final boolean confident;
     private final PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics;
+
+    private final SourceInfo sourceInfo;
 
     public static PlanNodeStatsEstimate unknown()
     {
@@ -63,11 +73,16 @@ public class PlanNodeStatsEstimate
 
     private PlanNodeStatsEstimate(double outputRowCount, double totalSize, boolean confident, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
     {
+        this(outputRowCount, totalSize, variableStatistics, new CostBasedSourceInfo(confident));
+    }
+
+    public PlanNodeStatsEstimate(double outputRowCount, double totalSize, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics, SourceInfo sourceInfo)
+    {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
         this.totalSize = totalSize;
-        this.confident = confident;
         this.variableStatistics = variableStatistics;
+        this.sourceInfo = requireNonNull(sourceInfo, "SourceInfo is null");
     }
 
     /**
@@ -89,7 +104,12 @@ public class PlanNodeStatsEstimate
     @JsonProperty
     public boolean isConfident()
     {
-        return confident;
+        return sourceInfo.isConfident();
+    }
+
+    public SourceInfo getSourceInfo()
+    {
+        return sourceInfo;
     }
 
     /**
@@ -105,7 +125,22 @@ public class PlanNodeStatsEstimate
      * Returns estimated data size.
      * Unknown value is represented by {@link Double#NaN}
      */
-    public double getOutputSizeInBytes(Collection<VariableReferenceExpression> outputVariables)
+    public double getOutputSizeInBytes(PlanNode planNode)
+    {
+        requireNonNull(planNode, "planNode is null");
+
+        if (!sourceInfo.estimateSizeUsingVariables() && !isNaN(totalSize)) {
+            return totalSize;
+        }
+
+        return getOutputSizeForVariables(planNode.getOutputVariables());
+    }
+
+    /**
+     * Returns estimated data size for given variables.
+     * Unknown value is represented by {@link Double#NaN}
+     */
+    public double getOutputSizeForVariables(Collection<VariableReferenceExpression> outputVariables)
     {
         requireNonNull(outputVariables, "outputSymbols is null");
 
@@ -161,6 +196,7 @@ public class PlanNodeStatsEstimate
         return variableStatistics.getOrDefault(variable, VariableStatsEstimate.unknown());
     }
 
+    @JsonSerialize(keyUsing = Serialization.VariableReferenceExpressionSerializer.class)
     @JsonProperty
     public Map<VariableReferenceExpression, VariableStatsEstimate> getVariableStatistics()
     {
@@ -177,6 +213,23 @@ public class PlanNodeStatsEstimate
         return isNaN(outputRowCount);
     }
 
+    public boolean isTotalSizeUnknown()
+    {
+        return isNaN(totalSize);
+    }
+
+    public PlanNodeStatsEstimate combineStats(PlanStatistics planStatistics, SourceInfo statsSourceInfo)
+    {
+        if (planStatistics.getConfidence() > 0) {
+            return new PlanNodeStatsEstimate(
+                    planStatistics.getRowCount().getValue(),
+                    planStatistics.getOutputSize().getValue(),
+                    variableStatistics,
+                    statsSourceInfo);
+        }
+        return this;
+    }
+
     @Override
     public String toString()
     {
@@ -184,6 +237,7 @@ public class PlanNodeStatsEstimate
                 .add("outputRowCount", outputRowCount)
                 .add("totalSize", totalSize)
                 .add("variableStatistics", variableStatistics)
+                .add("sourceInfo", sourceInfo)
                 .toString();
     }
 
@@ -199,13 +253,25 @@ public class PlanNodeStatsEstimate
         PlanNodeStatsEstimate that = (PlanNodeStatsEstimate) o;
         return Double.compare(outputRowCount, that.outputRowCount) == 0 &&
                 Double.compare(totalSize, that.totalSize) == 0 &&
-                Objects.equals(variableStatistics, that.variableStatistics);
+                Objects.equals(variableStatistics, that.variableStatistics) &&
+                Objects.equals(sourceInfo, that.sourceInfo);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(outputRowCount, totalSize, variableStatistics);
+        return Objects.hash(outputRowCount, totalSize, variableStatistics, sourceInfo);
+    }
+
+    public PlanStatisticsWithSourceInfo toPlanStatisticsWithSourceInfo(PlanNodeId id)
+    {
+        return new PlanStatisticsWithSourceInfo(
+                id,
+                new PlanStatistics(
+                        Double.isNaN(outputRowCount) ? Estimate.unknown() : Estimate.of(outputRowCount),
+                        Double.isNaN(totalSize) ? Estimate.unknown() : Estimate.of(totalSize),
+                        sourceInfo.isConfident() ? 1 : 0),
+                sourceInfo);
     }
 
     public static Builder builder()

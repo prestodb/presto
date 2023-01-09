@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.BasicStageExecutionStats;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.LocationFactory;
@@ -99,7 +100,7 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.createDiscardin
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.sql.planner.PlanFragmenter.ROOT_FRAGMENT_ID;
+import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isRootFragment;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkState;
@@ -320,7 +321,7 @@ public class SqlQueryScheduler
                 sectionExecutions.forEach(sectionExecution -> scheduledStageExecutions.addAll(sectionExecution.getSectionStages()));
                 sectionExecutions.stream()
                         .map(SectionExecution::getSectionStages)
-                        .map(executionPolicy::createExecutionSchedule)
+                        .map(stages -> executionPolicy.createExecutionSchedule(session, stages))
                         .forEach(executionSchedules::add);
 
                 while (!executionSchedules.isEmpty() && executionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {
@@ -497,6 +498,7 @@ public class SqlQueryScheduler
             newRoot = optimizer.optimize(newRoot, session, variableAllocator.getTypes(), variableAllocator, idAllocator, warningCollector);
         }
         if (newRoot != fragment.getRoot()) {
+            StatsAndCosts estimatedStatsAndCosts = fragment.getStatsAndCosts();
             return Optional.of(
                     // The partitioningScheme should stay the same
                     // even if the root's outputVariable layout is changed.
@@ -509,8 +511,8 @@ public class SqlQueryScheduler
                             fragment.getPartitioningScheme(),
                             fragment.getStageExecutionDescriptor(),
                             fragment.isOutputTableWriterFragment(),
-                            fragment.getStatsAndCosts(),
-                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionAndTypeManager, session))));
+                            estimatedStatsAndCosts,
+                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), estimatedStatsAndCosts, functionAndTypeManager, session))));
         }
         return Optional.empty();
     }
@@ -730,11 +732,6 @@ public class SqlQueryScheduler
         }
     }
 
-    private static boolean isRootFragment(PlanFragment fragment)
-    {
-        return fragment.getId().getId() == ROOT_FRAGMENT_ID;
-    }
-
     @Override
     public long getUserMemoryReservation()
     {
@@ -765,6 +762,12 @@ public class SqlQueryScheduler
                 .mapToLong(DataSize::toBytes)
                 .sum();
         return DataSize.succinctBytes(rawInputDataSize);
+    }
+
+    @Override
+    public long getOutputPositions()
+    {
+        return getStageInfo().getLatestAttemptExecutionInfo().getStats().getOutputPositions();
     }
 
     @Override

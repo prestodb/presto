@@ -49,7 +49,7 @@ public class QueryAssertions
     {
         for (Object row : expectedSubset.rows()) {
             if (!all.rows().contains(row)) {
-                fail(format("expected row missing: %s\nAll %s rows:\n    %s\nExpected subset %s rows:\n    %s\n",
+                fail(format("expected row missing: %s%nAll %s rows:%n    %s%nExpected subset %s rows:%n    %s%n",
                         row,
                         all.getRowsCount(),
                         Joiner.on("\n    ").join(Iterables.limit(all.rows(), 100)),

@@ -29,8 +29,9 @@ public class QueryInputMetadata
     private final List<String> columns;
     private final Optional<Object> connectorInfo;
     private final Optional<TableStatistics> statistics;
+    private final String serializedCommitOutput;
 
-    public QueryInputMetadata(String catalogName, String schema, String table, List<String> columns, Optional<Object> connectorInfo, Optional<TableStatistics> statistics)
+    public QueryInputMetadata(String catalogName, String schema, String table, List<String> columns, Optional<Object> connectorInfo, Optional<TableStatistics> statistics, String serializedCommitOutput)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -38,6 +39,7 @@ public class QueryInputMetadata
         this.columns = requireNonNull(columns, "columns is null");
         this.connectorInfo = requireNonNull(connectorInfo, "connectorInfo is null");
         this.statistics = requireNonNull(statistics, "table statistics is null");
+        this.serializedCommitOutput = requireNonNull(serializedCommitOutput, "serializedCommitOutput is null");
     }
 
     @JsonProperty
@@ -74,5 +76,11 @@ public class QueryInputMetadata
     public Optional<TableStatistics> getStatistics()
     {
         return statistics;
+    }
+
+    @JsonProperty
+    public String getSerializedCommitOutput()
+    {
+        return serializedCommitOutput;
     }
 }

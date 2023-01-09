@@ -161,7 +161,7 @@ public class Query
                 renderUpdate(errorChannel, results);
             }
             else if (results.getColumns() == null) {
-                errorChannel.printf("Query %s has no columns\n", results.getId());
+                errorChannel.printf("Query %s has no columns%n", results.getId());
                 return false;
             }
             else {

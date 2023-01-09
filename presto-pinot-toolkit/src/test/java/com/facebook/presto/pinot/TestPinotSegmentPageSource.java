@@ -20,38 +20,45 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VariableWidthType;
+import com.facebook.presto.pinot.query.PinotProxyGrpcRequestBuilder;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.apache.pinot.common.response.ProcessingException;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.pinot.common.config.GrpcConfig;
+import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataTable;
+import org.apache.pinot.common.utils.grpc.GrpcRequestBuilder;
+import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
+import org.apache.pinot.connector.presto.grpc.Utils;
+import org.apache.pinot.core.common.datatable.DataTableBuilder;
+import org.apache.pinot.core.common.datatable.DataTableBuilderV4;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
 import org.apache.pinot.spi.data.FieldSpec;
-import org.apache.pinot.spi.utils.ByteArray;
+import org.apache.pinot.spi.utils.CommonConstants;
 import org.testng.annotations.Test;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInput;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.nio.ByteBuffer;
+import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.pinot.MockPinotClusterInfoFetcher.DEFAULT_GRPC_PORT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
+@Test(singleThreaded = true)
 public class TestPinotSegmentPageSource
         extends TestPinotQueryBase
 {
@@ -87,6 +94,8 @@ public class TestPinotSegmentPageSource
     protected FieldSpec getFieldSpec(String columnName, DataSchema.ColumnDataType columnDataType)
     {
         switch (columnDataType) {
+            case BOOLEAN:
+                return new DimensionFieldSpec(columnName, FieldSpec.DataType.BOOLEAN, true);
             case INT:
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.INT, true);
             case LONG:
@@ -99,6 +108,14 @@ public class TestPinotSegmentPageSource
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.STRING, true);
             case BYTES:
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.BYTES, true);
+            case TIMESTAMP:
+                return new DimensionFieldSpec(columnName, FieldSpec.DataType.TIMESTAMP, true);
+            case JSON:
+                return new DimensionFieldSpec(columnName, FieldSpec.DataType.JSON, true);
+            case BIG_DECIMAL:
+                return new DimensionFieldSpec(columnName, FieldSpec.DataType.BIG_DECIMAL, true, BigDecimal.ZERO);
+            case BOOLEAN_ARRAY:
+                return new DimensionFieldSpec(columnName, FieldSpec.DataType.BOOLEAN, false);
             case INT_ARRAY:
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.INT, false);
             case LONG_ARRAY:
@@ -109,302 +126,141 @@ public class TestPinotSegmentPageSource
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.DOUBLE, false);
             case STRING_ARRAY:
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.STRING, false);
+            case BYTES_ARRAY:
+                return new DimensionFieldSpec(columnName, FieldSpec.DataType.BYTES, false);
+            case TIMESTAMP_ARRAY:
+                return new DimensionFieldSpec(columnName, FieldSpec.DataType.TIMESTAMP, false);
             default:
                 throw new IllegalStateException("Unexpected column type " + columnDataType);
         }
     }
 
-    protected static final class SimpleDataTable
-            implements DataTable
-    {
-        private final DataSchema dataSchema;
-        private final int numRows;
-        private final transient Object[][] data;
-
-        public SimpleDataTable(int numRows, DataSchema dataSchema)
-        {
-            this.numRows = numRows;
-            this.dataSchema = dataSchema;
-            this.data = new Object[numRows][];
-            for (int i = 0; i < numRows; ++i) {
-                this.data[i] = new Object[dataSchema.size()];
-            }
-        }
-
-        public SimpleDataTable(int numRows, DataSchema dataSchema, Object[][] data)
-        {
-            this.numRows = numRows;
-            this.dataSchema = dataSchema;
-            this.data = data;
-        }
-
-        public static DataTable fromBytes(ByteBuffer byteBuffer)
-        {
-            try {
-                int numRows = byteBuffer.getInt();
-                int numDataSchemaBytes = byteBuffer.getInt();
-                int numDataBytes = byteBuffer.getInt();
-
-                byte[] dataSchemaBytes = new byte[numDataSchemaBytes];
-                byteBuffer.get(dataSchemaBytes);
-                DataSchema dataSchema = DataSchema.fromBytes(dataSchemaBytes);
-
-                byte[] dataBytes = new byte[numDataBytes];
-                byteBuffer.get(dataBytes);
-                ByteArrayInputStream bis = new ByteArrayInputStream(dataBytes);
-                ObjectInput in = new ObjectInputStream(bis);
-                Object[][] data = (Object[][]) in.readObject();
-                return new SimpleDataTable(numRows, dataSchema, data);
-            }
-            catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        @Override
-        public void addException(ProcessingException e)
-        {
-            throw new UnsupportedOperationException("Unsupported", e);
-        }
-
-        @Override
-        public byte[] toBytes()
-        {
-            try {
-                byte[] dataSchemaBytes = dataSchema.toBytes();
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                ObjectOutputStream out = new ObjectOutputStream(bos);
-                out.writeObject(data);
-                out.flush();
-                byte[] dataBytes = bos.toByteArray();
-                int totalBytes = 12 + dataSchemaBytes.length + dataBytes.length;
-                ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[totalBytes]);
-                byteBuffer.putInt(numRows);
-                byteBuffer.putInt(dataSchemaBytes.length);
-                byteBuffer.putInt(dataBytes.length);
-                byteBuffer.put(dataSchemaBytes);
-                byteBuffer.put(dataBytes);
-                return byteBuffer.array();
-            }
-            catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        @Override
-        public Map<String, String> getMetadata()
-        {
-            return ImmutableMap.of();
-        }
-
-        @Override
-        public DataSchema getDataSchema()
-        {
-            return dataSchema;
-        }
-
-        @Override
-        public int getNumberOfRows()
-        {
-            return numRows;
-        }
-
-        protected Object get(int rowIndex, int columnIndex)
-        {
-            return this.data[rowIndex][columnIndex];
-        }
-
-        protected void set(int rowIndex, int columnIndex, Object o)
-        {
-            this.data[rowIndex][columnIndex] = o;
-        }
-
-        @Override
-        public int getInt(int rowIndex, int colIndex)
-        {
-            return getObject(rowIndex, colIndex);
-        }
-
-        @Override
-        public long getLong(int rowIndex, int colIndex)
-        {
-            return getObject(rowIndex, colIndex);
-        }
-
-        @Override
-        public float getFloat(int rowIndex, int colIndex)
-        {
-            return getObject(rowIndex, colIndex);
-        }
-
-        @Override
-        public double getDouble(int rowIndex, int colIndex)
-        {
-            return getObject(rowIndex, colIndex);
-        }
-
-        @Override
-        public String getString(int rowIndex, int colIndex)
-        {
-            return getObject(rowIndex, colIndex);
-        }
-
-        @Override
-        public ByteArray getBytes(int rowIndex, int colIndex)
-        {
-            return getBytes(rowIndex, colIndex);
-        }
-
-        @Override
-        public <T> T getObject(int rowIndex, int columnIndex)
-        {
-            return (T) get(rowIndex, columnIndex);
-        }
-
-        @Override
-        public int[] getIntArray(int rowIndex, int colIndex)
-        {
-            return getObject(rowIndex, colIndex);
-        }
-
-        @Override
-        public long[] getLongArray(int rowIndex, int colIndex)
-        {
-            return getObject(rowIndex, colIndex);
-        }
-
-        @Override
-        public float[] getFloatArray(int rowIndex, int colIndex)
-        {
-            return getObject(rowIndex, colIndex);
-        }
-
-        @Override
-        public double[] getDoubleArray(int rowIndex, int colIndex)
-        {
-            return getObject(rowIndex, colIndex);
-        }
-
-        @Override
-        public String[] getStringArray(int rowIndex, int colIndex)
-        {
-            return getObject(rowIndex, colIndex);
-        }
-    }
-
     protected static DataTable createDataTableWithAllTypes()
     {
-        int numColumns = ALL_TYPES.size();
-        String[] columnNames = new String[numColumns];
-        for (int i = 0; i < numColumns; i++) {
-            columnNames[i] = ALL_TYPES.get(i).name();
-        }
-        DataSchema.ColumnDataType[] columnDataTypes = ALL_TYPES_ARRAY;
-        DataSchema dataSchema = new DataSchema(columnNames, columnDataTypes);
-        SimpleDataTable dataTable = new SimpleDataTable(NUM_ROWS, dataSchema);
-        for (int rowId = 0; rowId < NUM_ROWS; rowId++) {
-            for (int colId = 0; colId < numColumns; colId++) {
-                switch (columnDataTypes[colId]) {
-                    case INT:
-                        dataTable.set(rowId, colId, RANDOM.nextInt());
-                        break;
-                    case LONG:
-                        dataTable.set(rowId, colId, RANDOM.nextLong());
-                        break;
-                    case FLOAT:
-                        dataTable.set(rowId, colId, RANDOM.nextFloat());
-                        break;
-                    case DOUBLE:
-                        dataTable.set(rowId, colId, RANDOM.nextDouble());
-                        break;
-                    case STRING:
-                        dataTable.set(rowId, colId, generateRandomStringWithLength(RANDOM.nextInt(20)));
-                        break;
-                    case OBJECT:
-                        dataTable.set(rowId, colId, (Object) RANDOM.nextDouble());
-                        break;
-                    case INT_ARRAY:
-                        int length = RANDOM.nextInt(20);
-                        int[] intArray = new int[length];
-                        for (int i = 0; i < length; i++) {
-                            intArray[i] = RANDOM.nextInt();
-                        }
-                        dataTable.set(rowId, colId, intArray);
-                        break;
-                    case LONG_ARRAY:
-                        length = RANDOM.nextInt(20);
-                        long[] longArray = new long[length];
-                        for (int i = 0; i < length; i++) {
-                            longArray[i] = RANDOM.nextLong();
-                        }
-                        dataTable.set(rowId, colId, longArray);
-                        break;
-                    case FLOAT_ARRAY:
-                        length = RANDOM.nextInt(20);
-                        float[] floatArray = new float[length];
-                        for (int i = 0; i < length; i++) {
-                            floatArray[i] = RANDOM.nextFloat();
-                        }
-                        dataTable.set(rowId, colId, floatArray);
-                        break;
-                    case DOUBLE_ARRAY:
-                        length = RANDOM.nextInt(20);
-                        double[] doubleArray = new double[length];
-                        for (int i = 0; i < length; i++) {
-                            doubleArray[i] = RANDOM.nextDouble();
-                        }
-                        dataTable.set(rowId, colId, doubleArray);
-                        break;
-                    case STRING_ARRAY:
-                        length = RANDOM.nextInt(20);
-                        String[] stringArray = new String[length];
-                        for (int i = 0; i < length; i++) {
-                            stringArray[i] = generateRandomStringWithLength(RANDOM.nextInt(20));
-                        }
-                        dataTable.set(rowId, colId, stringArray);
-                        break;
+        try {
+            int numColumns = ALL_TYPES.size();
+            String[] columnNames = new String[numColumns];
+            for (int i = 0; i < numColumns; i++) {
+                columnNames[i] = ALL_TYPES.get(i).name();
+            }
+            DataSchema.ColumnDataType[] columnDataTypes = ALL_TYPES_ARRAY;
+            DataSchema dataSchema = new DataSchema(columnNames, columnDataTypes);
+            DataTableBuilder dataTableBuilder = new DataTableBuilderV4(dataSchema);
+            for (int rowId = 0; rowId < NUM_ROWS; rowId++) {
+                dataTableBuilder.startRow();
+                for (int colId = 0; colId < numColumns; colId++) {
+                    switch (columnDataTypes[colId]) {
+                        case BOOLEAN:
+                            dataTableBuilder.setColumn(colId, String.valueOf(RANDOM.nextBoolean()));
+                            break;
+                        case INT:
+                            dataTableBuilder.setColumn(colId, RANDOM.nextInt());
+                            break;
+                        case LONG:
+                        case TIMESTAMP:
+                            dataTableBuilder.setColumn(colId, RANDOM.nextLong());
+                            break;
+                        case FLOAT:
+                            dataTableBuilder.setColumn(colId, RANDOM.nextFloat());
+                            break;
+                        case DOUBLE:
+                            dataTableBuilder.setColumn(colId, RANDOM.nextDouble());
+                            break;
+                        case STRING:
+                            dataTableBuilder.setColumn(colId, generateRandomStringWithLength(RANDOM.nextInt(20)));
+                            break;
+                        case OBJECT:
+                            dataTableBuilder.setColumn(colId, (Object) RANDOM.nextDouble());
+                            break;
+                        case BOOLEAN_ARRAY:
+                            int length = RANDOM.nextInt(20);
+                            int[] booleanArray = new int[length];
+                            for (int i = 0; i < length; i++) {
+                                booleanArray[i] = RANDOM.nextInt(2);
+                            }
+                            dataTableBuilder.setColumn(colId, booleanArray);
+                            break;
+                        case INT_ARRAY:
+                            length = RANDOM.nextInt(20);
+                            int[] intArray = new int[length];
+                            for (int i = 0; i < length; i++) {
+                                intArray[i] = RANDOM.nextInt();
+                            }
+                            dataTableBuilder.setColumn(colId, intArray);
+                            break;
+                        case LONG_ARRAY:
+                        case TIMESTAMP_ARRAY:
+                            length = RANDOM.nextInt(20);
+                            long[] longArray = new long[length];
+                            for (int i = 0; i < length; i++) {
+                                longArray[i] = RANDOM.nextLong();
+                            }
+                            dataTableBuilder.setColumn(colId, longArray);
+                            break;
+                        case FLOAT_ARRAY:
+                            length = RANDOM.nextInt(20);
+                            float[] floatArray = new float[length];
+                            for (int i = 0; i < length; i++) {
+                                floatArray[i] = RANDOM.nextFloat();
+                            }
+                            dataTableBuilder.setColumn(colId, floatArray);
+                            break;
+                        case DOUBLE_ARRAY:
+                            length = RANDOM.nextInt(20);
+                            double[] doubleArray = new double[length];
+                            for (int i = 0; i < length; i++) {
+                                doubleArray[i] = RANDOM.nextDouble();
+                            }
+                            dataTableBuilder.setColumn(colId, doubleArray);
+                            break;
+                        case STRING_ARRAY:
+                        case BYTES_ARRAY:
+                            length = RANDOM.nextInt(20);
+                            String[] stringArray = new String[length];
+                            for (int i = 0; i < length; i++) {
+                                stringArray[i] = generateRandomStringWithLength(RANDOM.nextInt(20));
+                            }
+                            dataTableBuilder.setColumn(colId, stringArray);
+                            break;
+                        case JSON:
+                            dataTableBuilder.setColumn(colId,
+                                    "{ " + generateRandomStringWithLength(RANDOM.nextInt(5)) + " : "
+                                        + generateRandomStringWithLength(RANDOM.nextInt(10)) + " }");
+                            break;
+                        case BYTES:
+                            try {
+                                dataTableBuilder.setColumn(colId,
+                                        Hex.decodeHex("0DE0B6B3A7640000".toCharArray())); // Hex of BigDecimal.ONE
+                            }
+                            catch (DecoderException e) {
+                                throw new RuntimeException(e);
+                            }
+                            break;
+                        case BIG_DECIMAL:
+                            dataTableBuilder.setColumn(colId, BigDecimal.ONE);
+                            break;
+                        default:
+                            throw new RuntimeException("Unsupported type - " + columnDataTypes[colId]);
+                    }
                 }
+                dataTableBuilder.finishRow();
             }
+            return dataTableBuilder.build();
         }
-        return dataTable;
-    }
-
-    private static final class MockPinotScatterGatherQueryClient
-            extends PinotScatterGatherQueryClient
-    {
-        private final ImmutableList<DataTable> dataTables;
-
-        MockPinotScatterGatherQueryClient(Config pinotConfig, List<DataTable> dataTables)
-        {
-            super(pinotConfig);
-            this.dataTables = ImmutableList.copyOf(dataTables);
-        }
-
-        @Override
-        public Map<ServerInstance, DataTable> queryPinotServerForDataTable(String pql, String serverHost, List<String> segments, long connectionTimeoutInMillis, boolean ignoreEmptyResponses, int pinotRetryCount)
-        {
-            ImmutableMap.Builder<ServerInstance, DataTable> response = ImmutableMap.builder();
-            for (int i = 0; i < dataTables.size(); ++i) {
-                response.put(new ServerInstance(String.format("Server_localhost_%d", i + 9000)), dataTables.get(i));
-            }
-            return response.build();
+        catch (IOException e) {
+            Assert.fail("Failed to create Pinot DataTable with all types", e);
+            throw new RuntimeException(e);
         }
     }
 
-    PinotSegmentPageSource getPinotSegmentPageSource(
+    private PinotSegmentPageSource getPinotSegmentPageSource(
             ConnectorSession session,
             List<DataTable> dataTables,
             PinotSplit mockPinotSplit,
-            List<PinotColumnHandle> pinotColumnHandles)
+            List<PinotColumnHandle> handlesSurviving)
     {
-        PinotScatterGatherQueryClient mockPinotQueryClient = new MockPinotScatterGatherQueryClient(new PinotScatterGatherQueryClient.Config(
-                pinotConfig.getIdleTimeout().toMillis(),
-                pinotConfig.getThreadPoolSize(),
-                pinotConfig.getMinConnectionsPerServer(),
-                pinotConfig.getMaxBacklogPerServer(),
-                pinotConfig.getMaxConnectionsPerServer()), dataTables);
-        PinotSegmentPageSource pinotSegmentPageSource = new PinotSegmentPageSource(session, pinotConfig, mockPinotQueryClient, mockPinotSplit, pinotColumnHandles);
-        return pinotSegmentPageSource;
+        TestingPinotStreamingQueryClient mockPinotQueryClient = new TestingPinotStreamingQueryClient(new GrpcConfig(pinotConfig.getStreamingServerGrpcMaxInboundMessageBytes(), true), dataTables);
+        return new PinotSegmentPageSource(session, pinotConfig, mockPinotQueryClient, mockPinotSplit, handlesSurviving);
     }
 
     @Test
@@ -444,7 +300,7 @@ public class TestPinotSegmentPageSource
 
     Optional<Integer> getGrpcPort()
     {
-        return Optional.empty();
+        return Optional.of(DEFAULT_GRPC_PORT);
     }
 
     @Test
@@ -473,17 +329,19 @@ public class TestPinotSegmentPageSource
 
     @Test
     public void testMultivaluedType()
+            throws IOException
     {
         String[] columnNames = {"col1", "col2"};
         DataSchema.ColumnDataType[] columnDataTypes = {DataSchema.ColumnDataType.INT_ARRAY, DataSchema.ColumnDataType.STRING_ARRAY};
         DataSchema dataSchema = new DataSchema(columnNames, columnDataTypes);
-        SimpleDataTable dataTable = new SimpleDataTable(1, dataSchema);
-
-        int numRows = 1;
         String[] stringArray = {"stringVal1", "stringVal2"};
         int[] intArray = {10, 34, 67};
-        dataTable.set(0, 0, intArray);
-        dataTable.set(0, 1, stringArray);
+        DataTableBuilder dataTableBuilder = new DataTableBuilderV4(dataSchema);
+        dataTableBuilder.startRow();
+        dataTableBuilder.setColumn(0, intArray);
+        dataTableBuilder.setColumn(1, stringArray);
+        dataTableBuilder.finishRow();
+        DataTable dataTable = dataTableBuilder.build();
 
         PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
         ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
@@ -511,6 +369,119 @@ public class TestPinotSegmentPageSource
                 Assert.assertTrue("stringVal1".equals(new String(variableWidthBlock.getSlice(0, 0, variableWidthBlock.getSliceLength(0)).getBytes())), "Array element not matching");
                 Assert.assertTrue("stringVal2".equals(new String(variableWidthBlock.getSlice(1, 0, variableWidthBlock.getSliceLength(1)).getBytes())), "Array element not matching");
             }
+        }
+    }
+
+    @Test
+    public void testPinotProxyGrpcRequest()
+    {
+        Server.ServerRequest grpcRequest = new PinotProxyGrpcRequestBuilder()
+                .setHostName("localhost")
+                .setPort(8124)
+                .setSegments(ImmutableList.of("segment1"))
+                .setEnableStreaming(true)
+                .setRequestId(121)
+                .setBrokerId("presto-coordinator-grpc")
+                .addExtraMetadata(ImmutableMap.of("k1", "v1", "k2", "v2"))
+                .setSql("SELECT * FROM myTable")
+                .build();
+        Assert.assertEquals(grpcRequest.getSql(), "SELECT * FROM myTable");
+        Assert.assertEquals(grpcRequest.getSegmentsCount(), 1);
+        Assert.assertEquals(grpcRequest.getSegments(0), "segment1");
+        Assert.assertEquals(grpcRequest.getMetadataCount(), 9);
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k1"), "v1");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k2"), "v2");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("FORWARD_HOST"), "localhost");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("FORWARD_PORT"), "8124");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.REQUEST_ID), "121");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.BROKER_ID), "presto-coordinator-grpc");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_TRACE), "false");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_STREAMING), "true");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.PAYLOAD_TYPE), "sql");
+
+        grpcRequest = new PinotProxyGrpcRequestBuilder()
+            .setSegments(ImmutableList.of("segment1"))
+            .setEnableStreaming(true)
+            .setRequestId(121)
+            .setBrokerId("presto-coordinator-grpc")
+            .addExtraMetadata(ImmutableMap.of("k1", "v1", "k2", "v2"))
+            .setSql("SELECT * FROM myTable")
+            .build();
+        Assert.assertEquals(grpcRequest.getSql(), "SELECT * FROM myTable");
+        Assert.assertEquals(grpcRequest.getSegmentsCount(), 1);
+        Assert.assertEquals(grpcRequest.getSegments(0), "segment1");
+        Assert.assertEquals(grpcRequest.getMetadataCount(), 7);
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k1"), "v1");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k2"), "v2");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.REQUEST_ID), "121");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.BROKER_ID), "presto-coordinator-grpc");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_TRACE), "false");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_STREAMING), "true");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.PAYLOAD_TYPE), "sql");
+    }
+
+    @Test
+    public void testPinotGrpcRequest()
+    {
+        final Server.ServerRequest grpcRequest = new GrpcRequestBuilder()
+                .setSegments(ImmutableList.of("segment1"))
+                .setEnableStreaming(true)
+                .setRequestId(121)
+                .setBrokerId("presto-coordinator-grpc")
+                .setSql("SELECT * FROM myTable")
+                .build();
+        Assert.assertEquals(grpcRequest.getSql(), "SELECT * FROM myTable");
+        Assert.assertEquals(grpcRequest.getSegmentsCount(), 1);
+        Assert.assertEquals(grpcRequest.getSegments(0), "segment1");
+        Assert.assertEquals(grpcRequest.getMetadataCount(), 5);
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.REQUEST_ID), "121");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.BROKER_ID), "presto-coordinator-grpc");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_TRACE), "false");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_STREAMING), "true");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.PAYLOAD_TYPE), "sql");
+    }
+
+    private static final class TestingPinotStreamingQueryClient
+            extends PinotStreamingQueryClient
+    {
+        private final ImmutableList<DataTable> dataTables;
+
+        TestingPinotStreamingQueryClient(GrpcConfig pinotConfig, List<DataTable> dataTables)
+        {
+            super(pinotConfig);
+            this.dataTables = ImmutableList.copyOf(dataTables);
+        }
+
+        @Override
+        public Iterator<Server.ServerResponse> submit(String host, int port, GrpcRequestBuilder requestBuilder)
+        {
+            return new Iterator<Server.ServerResponse>()
+            {
+                int index;
+
+                @Override
+                public boolean hasNext()
+                {
+                    return index <= dataTables.size();
+                }
+
+                @Override
+                public Server.ServerResponse next()
+                {
+                    if (index < dataTables.size()) {
+                        final DataTable dataTable = dataTables.get(index++);
+                        try {
+                            return Server.ServerResponse.newBuilder().setPayload(Utils.toByteString(dataTable.toBytes())).putMetadata("responseType", "data").build();
+                        }
+                        catch (IOException e) {
+                            throw new RuntimeException();
+                        }
+                    }
+                    else {
+                        return Server.ServerResponse.newBuilder().putMetadata("responseType", "metadata").build();
+                    }
+                }
+            };
         }
     }
 }

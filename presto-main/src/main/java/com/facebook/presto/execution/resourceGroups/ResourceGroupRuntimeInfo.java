@@ -18,6 +18,8 @@ import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
+import java.util.Optional;
+
 import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
 
@@ -30,9 +32,10 @@ public class ResourceGroupRuntimeInfo
     private final int descendantQueuedQueries;
     private final int runningQueries;
     private final int descendantRunningQueries;
+    private final Optional<ResourceGroupSpecInfo> resourceGroupConfigSpec;
 
     @ThriftConstructor
-    public ResourceGroupRuntimeInfo(ResourceGroupId resourceGroupId, long memoryUsageBytes, int queuedQueries, int descendantQueuedQueries, int runningQueries, int descendantRunningQueries)
+    public ResourceGroupRuntimeInfo(ResourceGroupId resourceGroupId, long memoryUsageBytes, int queuedQueries, int descendantQueuedQueries, int runningQueries, int descendantRunningQueries, Optional<ResourceGroupSpecInfo> resourceGroupConfigSpec)
     {
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
         this.memoryUsageBytes = memoryUsageBytes;
@@ -40,6 +43,7 @@ public class ResourceGroupRuntimeInfo
         this.descendantQueuedQueries = descendantQueuedQueries;
         this.runningQueries = runningQueries;
         this.descendantRunningQueries = descendantRunningQueries;
+        this.resourceGroupConfigSpec = requireNonNull(resourceGroupConfigSpec, "resourceGroupConfigSpec is null");
     }
 
     public static Builder builder(ResourceGroupId resourceGroupId)
@@ -83,10 +87,16 @@ public class ResourceGroupRuntimeInfo
         return descendantRunningQueries;
     }
 
+    @ThriftField(7)
+    public Optional<ResourceGroupSpecInfo> getResourceGroupConfigSpec()
+    {
+        return resourceGroupConfigSpec;
+    }
+
     public static class Builder
     {
         private final ResourceGroupId resourceGroupId;
-
+        private ResourceGroupSpecInfo resourceGroupSpecInfo;
         private long userMemoryReservationBytes;
         private int queuedQueries;
         private int descendantQueuedQueries;
@@ -128,9 +138,16 @@ public class ResourceGroupRuntimeInfo
             return this;
         }
 
+        public Builder setResourceGroupSpecInfo(ResourceGroupSpecInfo resourceGroupSpecInfo)
+        {
+            this.resourceGroupSpecInfo = resourceGroupSpecInfo;
+            return this;
+        }
+
         public ResourceGroupRuntimeInfo build()
         {
-            return new ResourceGroupRuntimeInfo(resourceGroupId, userMemoryReservationBytes, queuedQueries, descendantQueuedQueries, runningQueries, descendantRunningQueries);
+            return new ResourceGroupRuntimeInfo(resourceGroupId, userMemoryReservationBytes, queuedQueries, descendantQueuedQueries, runningQueries, descendantRunningQueries,
+                    Optional.ofNullable(resourceGroupSpecInfo));
         }
     }
 }

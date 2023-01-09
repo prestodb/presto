@@ -181,11 +181,11 @@ public class PrestoSparkPageOutputOperator
         }
 
         List<PrestoSparkBufferedSerializedPage> serializedPages = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES).stream()
-                .map(pagesSerde::serialize)
-                .map(PrestoSparkBufferedSerializedPage::new)
+                .map(p -> new PrestoSparkBufferedSerializedPage(pagesSerde.serialize(p), p.getRetainedSizeInBytes()))
                 .collect(toImmutableList());
 
         serializedPages.forEach(outputBuffer::enqueue);
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override

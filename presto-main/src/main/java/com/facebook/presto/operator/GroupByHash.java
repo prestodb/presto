@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -75,7 +76,12 @@ public interface GroupByHash
 
     boolean contains(int position, Page page, int[] hashChannels);
 
-    long getRawHash(int groupyId);
+    default boolean contains(int position, Page page, int[] hashChannels, long rawHash)
+    {
+        return contains(position, page, hashChannels);
+    }
+
+    long getRawHash(int groupId);
 
     @VisibleForTesting
     int getCapacity();

@@ -15,19 +15,44 @@ package com.facebook.presto.tracing;
 
 import com.facebook.presto.spi.tracing.NoopTracer;
 import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.spi.tracing.TracerHandle;
 import com.facebook.presto.spi.tracing.TracerProvider;
 import com.google.inject.Inject;
+
+import java.util.Map;
+import java.util.function.Function;
 
 public class NoopTracerProvider
         implements TracerProvider
 {
     public static final NoopTracerProvider NOOP_TRACER_PROVIDER = new NoopTracerProvider();
     public static final NoopTracer NOOP_TRACER = new NoopTracer();
+    public static final TracerHandle NOOP_TRACER_HANDLE = new NoopTracerHandle();
+    public static final Function<Map<String, String>, TracerHandle> NOOP_HANDLE_GENERATOR = headers -> NOOP_TRACER_HANDLE;
+
     @Inject
     public NoopTracerProvider() {}
 
     @Override
-    public Tracer getNewTracer()
+    public String getName()
+    {
+        return "NOOP tracer provider";
+    }
+
+    @Override
+    public String getTracerType()
+    {
+        return TracingConfig.TracerType.NOOP;
+    }
+
+    @Override
+    public Function<Map<String, String>, TracerHandle> getHandleGenerator()
+    {
+        return NOOP_HANDLE_GENERATOR;
+    }
+
+    @Override
+    public Tracer getNewTracer(TracerHandle handle)
     {
         return NOOP_TRACER;
     }

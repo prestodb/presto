@@ -62,9 +62,9 @@ public class Stream
 
     private final Optional<Long> offset;
 
-    public Stream(int column, StreamKind streamKind, int length, boolean useVInts)
+    public Stream(int column, int sequence, StreamKind streamKind, int length, boolean useVInts)
     {
-        this(column, streamKind, length, useVInts, ColumnEncoding.DEFAULT_SEQUENCE_ID, Optional.empty());
+        this(column, streamKind, length, useVInts, sequence, Optional.empty());
     }
 
     public Stream(int column, StreamKind streamKind, int length, boolean useVInts, int sequence, Optional<Long> offset)

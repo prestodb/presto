@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.plan.LogicalProperties;
+import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -58,7 +60,24 @@ public class SemiJoinNode
             @JsonProperty("distributionType") Optional<DistributionType> distributionType,
             @JsonProperty("dynamicFilters") Map<String, VariableReferenceExpression> dynamicFilters)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, filteringSource, sourceJoinVariable, filteringSourceJoinVariable, semiJoinOutput, sourceHashVariable, filteringSourceHashVariable, distributionType, dynamicFilters);
+    }
+
+    public SemiJoinNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            PlanNode filteringSource,
+            VariableReferenceExpression sourceJoinVariable,
+            VariableReferenceExpression filteringSourceJoinVariable,
+            VariableReferenceExpression semiJoinOutput,
+            Optional<VariableReferenceExpression> sourceHashVariable,
+            Optional<VariableReferenceExpression> filteringSourceHashVariable,
+            Optional<DistributionType> distributionType,
+            Map<String, VariableReferenceExpression> dynamicFilters)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source, "source is null");
         this.filteringSource = requireNonNull(filteringSource, "filteringSource is null");
         this.sourceJoinVariable = requireNonNull(sourceJoinVariable, "sourceJoinVariable is null");
@@ -174,6 +193,7 @@ public class SemiJoinNode
         return new SemiJoinNode(
                 getSourceLocation(),
                 getId(),
+                getStatsEquivalentPlanNode(),
                 newChildren.get(0),
                 newChildren.get(1),
                 sourceJoinVariable,
@@ -183,6 +203,31 @@ public class SemiJoinNode
                 filteringSourceHashVariable,
                 distributionType,
                 dynamicFilters);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new SemiJoinNode(
+                getSourceLocation(),
+                getId(),
+                statsEquivalentPlanNode,
+                source,
+                filteringSource,
+                sourceJoinVariable,
+                filteringSourceJoinVariable,
+                semiJoinOutput,
+                sourceHashVariable,
+                filteringSourceHashVariable,
+                distributionType,
+                dynamicFilters);
+    }
+
+    @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getSemiJoinProperties(this);
     }
 
     public SemiJoinNode withDistributionType(DistributionType distributionType)

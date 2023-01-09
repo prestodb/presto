@@ -1,0 +1,217 @@
+	{
+	  "id": "0",
+	  "root": {
+	    "@type": "com.facebook.presto.sql.planner.plan.OutputNode",
+	    "id": "9",
+	    "source": {
+	      "@type": ".FilterNode",
+	      "id": "4",
+	      "source": {
+	        "@type": "com.facebook.presto.sql.planner.plan.ExchangeNode",
+	        "id": "133",
+	        "type": "REPARTITION",
+	        "scope": "LOCAL",
+	        "partitioningScheme": {
+	          "partitioning": {
+	            "handle": {
+	              "connectorHandle": {
+	                "@type": "$remote",
+	                "partitioning": "FIXED",
+	                "function": "ROUND_ROBIN"
+	              }
+	            },
+	            "arguments": []
+	          },
+	          "outputLayout": [
+	            {
+	              "@type": "variable",
+	              "name": "field",
+	              "type": "integer"
+	            },
+	            {
+	              "@type": "variable",
+	              "name": "field_0",
+	              "type": "varchar(1)"
+	            }
+	          ],
+	          "replicateNullsAndAny": false
+	        },
+	        "sources": [
+	          {
+	            "@type": ".ValuesNode",
+	            "id": "0",
+	            "outputVariables": [
+	              {
+	                "@type": "variable",
+	                "name": "field",
+	                "type": "integer"
+	              },
+	              {
+	                "@type": "variable",
+	                "name": "field_0",
+	                "type": "varchar(1)"
+	              }
+	            ],
+	            "rows": [
+	              [
+	                {
+	                  "@type": "constant",
+	                  "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA==",
+	                  "type": "integer"
+	                },
+	                {
+	                  "@type": "constant",
+	                  "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAAGE=",
+	                  "type": "varchar(1)"
+	                }
+	              ],
+	              [
+	                {
+	                  "@type": "constant",
+	                  "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA==",
+	                  "type": "integer"
+	                },
+	                {
+	                  "@type": "constant",
+	                  "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAAGI=",
+	                  "type": "varchar(1)"
+	                }
+	              ],
+	              [
+	                {
+	                  "@type": "constant",
+	                  "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAwAAAA==",
+	                  "type": "integer"
+	                },
+	                {
+	                  "@type": "constant",
+	                  "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAAGM=",
+	                  "type": "varchar(1)"
+	                }
+	              ]
+	            ]
+	          }
+	        ],
+	        "inputs": [
+	          [
+	            {
+	              "@type": "variable",
+	              "name": "field",
+	              "type": "integer"
+	            },
+	            {
+	              "@type": "variable",
+	              "name": "field_0",
+	              "type": "varchar(1)"
+	            }
+	          ]
+	        ],
+	        "ensureSourceOrdering": false
+	      },
+	      "predicate": {
+	        "@type": "call",
+	        "displayName": "EQUAL",
+	        "functionHandle": {
+	          "@type": "$static",
+	          "signature": {
+	            "name": "presto.default.$operator$equal",
+	            "kind": "SCALAR",
+	            "typeVariableConstraints": [],
+	            "longVariableConstraints": [],
+	            "returnType": "boolean",
+	            "argumentTypes": [
+	              "integer",
+	              "integer"
+	            ],
+	            "variableArity": false
+	          }
+	        },
+	        "returnType": "boolean",
+	        "arguments": [
+	          {
+	            "@type": "variable",
+	            "name": "field",
+	            "type": "integer"
+	          },
+	          {
+	            "@type": "constant",
+	            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA==",
+	            "type": "integer"
+	          }
+	        ]
+	      }
+	    },
+	    "columnNames": [
+	      "a",
+	      "b"
+	    ],
+	    "outputVariables": [
+	      {
+	        "@type": "variable",
+	        "name": "field",
+	        "type": "integer"
+	      },
+	      {
+	        "@type": "variable",
+	        "name": "field_0",
+	        "type": "varchar(1)"
+	      }
+	    ]
+	  },
+	  "variables": [
+	    {
+	      "@type": "variable",
+	      "name": "field",
+	      "type": "integer"
+	    },
+	    {
+	      "@type": "variable",
+	      "name": "field_0",
+	      "type": "varchar(1)"
+	    }
+	  ],
+	  "partitioning": {
+	    "connectorHandle": {
+	      "@type": "$remote",
+	      "partitioning": "SINGLE",
+	      "function": "SINGLE"
+	    }
+	  },
+	  "tableScanSchedulingOrder": [],
+	  "partitioningScheme": {
+	    "partitioning": {
+	      "handle": {
+	        "connectorHandle": {
+	          "@type": "$remote",
+	          "partitioning": "SINGLE",
+	          "function": "SINGLE"
+	        }
+	      },
+	      "arguments": []
+	    },
+	    "outputLayout": [
+	      {
+	        "@type": "variable",
+	        "name": "field",
+	        "type": "integer"
+	      },
+	      {
+	        "@type": "variable",
+	        "name": "field_0",
+	        "type": "varchar(1)"
+	      }
+	    ],
+	    "replicateNullsAndAny": false,
+	    "bucketToPartition": [
+	      0
+	    ]
+	  },
+	  "stageExecutionDescriptor": {
+	    "stageExecutionStrategy": "UNGROUPED_EXECUTION",
+	    "groupedExecutionScanNodes": [],
+	    "totalLifespans": 1
+	  },
+	  "outputTableWriterFragment": false,
+	  "jsonRepresentation": "{\n  \"id\" : \"9\",\n  \"name\" : \"Output\",\n  \"identifier\" : \"[a, b]\",\n  \"details\" : \"a := field\\nb := field_0\\n\",\n  \"children\" : [ {\n    \"id\" : \"4\",\n    \"name\" : \"Filter\",\n    \"identifier\" : \"[filterPredicate = (field) = (INTEGER 1)]\",\n    \"details\" : \"\",\n    \"children\" : [ {\n      \"id\" : \"133\",\n      \"name\" : \"LocalExchange\",\n      \"identifier\" : \"[ROUND_ROBIN] ()\",\n      \"details\" : \"\",\n      \"children\" : [ {\n        \"id\" : \"0\",\n        \"name\" : \"Values\",\n        \"identifier\" : \"\",\n        \"details\" : \"(INTEGER 1, VARCHAR(1) a)\\n(INTEGER 2, VARCHAR(1) b)\\n(INTEGER 3, VARCHAR(1) c)\\n\",\n        \"children\" : [ ],\n        \"remoteSources\" : [ ]\n      } ],\n      \"remoteSources\" : [ ]\n    } ],\n    \"remoteSources\" : [ ]\n  } ],\n  \"remoteSources\" : [ ]\n}"
+	}
+

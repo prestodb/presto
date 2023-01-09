@@ -1,0 +1,278 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#pragma once
+
+{{#.}}
+{{#comment}}
+{{comment}}
+{{/comment}}
+{{/.}}
+
+#include <exception>
+#include <iostream>
+#include <list>
+#include <map>
+#include <regex>
+#include <set>
+#include <cstdint>
+#include <string>
+#include <tgmath.h>
+
+#include <folly/Format.h>
+#include <utility>
+#include "velox/common/encode/Base64.h"
+#include "presto_cpp/external/json/json.hpp"
+#include "presto_cpp/presto_protocol/DataSize.h"
+#include "presto_cpp/presto_protocol/Duration.h"
+
+using nlohmann::json;
+
+namespace facebook::presto::protocol {
+
+extern const char* const PRESTO_PAGES_MIME_TYPE;
+
+extern const char* const PRESTO_CURRENT_STATE_HTTP_HEADER;
+extern const char* const PRESTO_MAX_WAIT_HTTP_HEADER;
+extern const char* const PRESTO_MAX_SIZE_HTTP_HEADER;
+extern const char* const PRESTO_TASK_INSTANCE_ID_HEADER;
+extern const char* const PRESTO_PAGE_TOKEN_HEADER;
+extern const char* const PRESTO_PAGE_NEXT_TOKEN_HEADER;
+extern const char* const PRESTO_BUFFER_COMPLETE_HEADER;
+
+extern const char* const PRESTO_MAX_WAIT_DEFAULT;
+extern const char* const PRESTO_MAX_SIZE_DEFAULT;
+
+
+extern const char* const PRESTO_ABORT_TASK_URL_PARAM;
+
+class Exception : public std::runtime_error {
+ public:
+  explicit Exception(const std::string& message) : std::runtime_error(message) {};
+};
+
+class TypeError : public Exception {
+ public:
+  explicit TypeError(const std::string& message) : Exception(message) {};
+};
+
+class OutOfRange : public Exception {
+ public:
+  explicit OutOfRange(const std::string& message) : Exception(message) {};
+};
+class ParseError : public Exception {
+ public:
+  explicit ParseError(const std::string& message) : Exception(message) {};
+};
+
+using String = std::string;
+using Integer = int;
+using Long = int64_t;
+using boolean = bool;
+
+template <typename T> using List = std::vector<T>;
+template <typename T> using Set = std::set<T>;
+template <typename K, typename V> using Map = std::map<K, V>;
+
+// These will have to be customized
+//
+using UUID = std::string;
+
+using Subfield = std::string;
+using HiveType = std::string;
+using Type = std::string;
+
+using DateTime = std::string;
+using Locale = std::string;
+using TimeZoneKey = long;
+using URI = std::string;
+using SqlFunctionId = std::string;
+
+using QualifiedObjectName = std::string;
+using TypeSignature = std::string;
+
+using ConnectorId = std::string;
+using MemoryPoolId = std::string;
+using OutputBufferId = std::string;
+using PlanFragmentId = std::string;
+using PlanNodeId = std::string;
+using QueryId = std::string;
+using TaskId = std::string;
+using TransactionId = std::string;
+struct RuntimeMetric;
+using RuntimeStats = Map<String, RuntimeMetric>;
+using SplitWeight = int64_t;
+struct SourceLocation;
+
+template <typename T>
+void to_json_key(json &j, const char *key, const T &value) {
+	j[key] = value;
+}
+
+template <typename T> void
+to_json_key(json &j, const char *key, const std::shared_ptr<T> &value) {
+	if (value != nullptr) {
+		j[key] = value;
+	}
+}
+
+template <typename T>
+void to_json_key(json &j, const char *key, const T &value, const char *className, const char *typeName, const char *fieldName) {
+	try {
+		to_json_key(j, key, value);
+	} catch (json::type_error &e) {
+        throw TypeError(std::string(e.what()) + " " + className + " " + typeName + " " + fieldName);
+	}
+}
+
+template <typename T> void
+from_json_key(const json &j, const char *key, T &value) {
+	j.at(key).get_to(value);
+}
+
+template <typename T> void
+from_json_key(const json &j, const char *key, std::shared_ptr<T> &value) {
+	if (j.count(key)) {
+		j.at(key).get_to(value);
+	}
+}
+
+template <typename T>
+void from_json_key(const json &j, const char *key, T &value, const char *className, const char *typeName, const char *fieldName) {
+	try {
+		from_json_key(j, key, value);
+	} catch (json::type_error &e) {
+          throw TypeError(std::string(e.what()) + " " + className + " " + typeName + " " + fieldName);
+	} catch (json::out_of_range &e) {
+          throw OutOfRange(std::string(e.what()) + " " + className + " " + typeName + " " + fieldName);
+	}
+}
+
+struct KeyedSubclass {
+  std::string _type;      // This member holds the subtype that was serialized.
+
+  std::string getSubclassKey(const json j);
+  virtual ~KeyedSubclass() {}
+};
+
+struct JsonEncodedSubclass : public KeyedSubclass { 
+    std::string getSubclassKey(const json j);
+};
+
+struct Base64EncodedSubclass : public KeyedSubclass { 
+    std::string getSubclassKey(const json& j);
+
+	virtual bool operator<(const Base64EncodedSubclass& /* o */) const {
+        throw std::runtime_error("missing operator<() in Base64EncodedSubclass");
+	}
+};
+
+} // namespace facebook::presto::protocol
+
+namespace nlohmann {
+std::string json_map_key(const std::string p);
+
+template <typename T> void to_json(json &j, const std::shared_ptr<T> &p) {
+	j = *p;
+}
+template <typename T> void from_json(const json &j, std::shared_ptr<T> &p) {
+	p = std::make_shared<T>();
+	j.get_to(*p);
+}
+
+template <typename V> struct adl_serializer<facebook::presto::protocol::Map<int, V>> {
+	static void to_json(json &j, const facebook::presto::protocol::Map<int, V> &p) {
+		j = json::object();
+		for (auto &el : p) {
+			j[std::to_string(el.first)] = el.second;
+		}
+	}
+
+	static void from_json(const json &j, facebook::presto::protocol::Map<int, V> &p) {
+		for (auto &el : j.items()) {
+			p.insert(std::pair<int, V>(std::stoi(el.key()), el.value().get<V>()));
+		}
+	}
+};
+
+template <typename K, typename V> struct adl_serializer<facebook::presto::protocol::Map<K, V>> {
+	static void to_json(json &j, const facebook::presto::protocol::Map<K, V> &p) {
+		j = json::object();
+		for (auto &el : p) {
+			j[json_map_key(el.first)] = el.second;
+		}
+	}
+
+	static void from_json(const json &j, facebook::presto::protocol::Map<K, V> &p) {
+		for (auto &el : j.items()) {
+			p.insert(std::pair<K, V>(K(el.key()), el.value().get<V>()));
+		}
+	}
+};
+} // namespace nlohmann
+
+
+// Forward declaration of all abstract types
+//
+{{#.}}
+{{#abstract}}
+namespace facebook::presto::protocol {
+    struct {{&class_name}} : public {{&super_class}} {
+        {{#fields}}
+        {{#field_local}}{{#optional}}std::shared_ptr<{{/optional}}{{&field_text}}{{#optional}}>{{/optional}} {{&field_name}} = {};{{/field_local}}
+        {{/fields}}
+        {{#comparable}}
+            virtual bool operator<(const {{&class_name}}& /* o */) const {
+                throw std::runtime_error("missing operator<() in {class_name} subclass");
+            }
+        {{/comparable}}
+    };
+    void to_json(json& j, const std::shared_ptr<{{&class_name}}>& p);
+    void from_json(const json& j, std::shared_ptr<{{&class_name}}>& p);
+}
+{{/abstract}}
+{{/.}}
+
+{{#.}}
+{{#hinc}}
+{{&hinc}}
+{{/hinc}}
+{{^hinc}}
+{{#struct}}
+namespace facebook::presto::protocol {
+    struct {{class_name}} {{#super_class}}: public {{super_class}}{{/super_class}}{
+        {{#fields}}
+        {{#field_local}}{{#optional}}std::shared_ptr<{{/optional}}{{&field_text}}{{#optional}}>{{/optional}} {{&field_name}} = {};{{/field_local}}
+        {{/fields}}
+
+        {{#super_class}}
+        {{class_name}}() noexcept;
+        {{/super_class}}
+    };
+    void to_json(json& j, const {{class_name}}& p);
+    void from_json(const json& j, {{class_name}}& p);
+}
+{{/struct}}
+{{#enum}}
+namespace facebook::presto::protocol {
+    enum class {{class_name}} {
+        {{#elements}}
+        {{&element}}{{^_last}},{{/_last}}
+        {{/elements}}
+    };
+    extern void to_json(json& j, const {{class_name}}& e);
+    extern void from_json(const json& j, {{class_name}}& e);
+}
+{{/enum}}
+{{/hinc}}
+{{/.}}

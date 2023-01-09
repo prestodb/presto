@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -30,8 +32,17 @@ public class HiveFileInfo
     private final long length;
     private final long fileModifiedTime;
     private final Optional<byte[]> extraFileInfo;
+    private final Map<String, String> customSplitInfo;
 
     public static HiveFileInfo createHiveFileInfo(LocatedFileStatus locatedFileStatus, Optional<byte[]> extraFileContext)
+    {
+        return createHiveFileInfo(
+                locatedFileStatus,
+                extraFileContext,
+                ImmutableMap.of());
+    }
+
+    public static HiveFileInfo createHiveFileInfo(LocatedFileStatus locatedFileStatus, Optional<byte[]> extraFileContext, Map<String, String> customSplitInfo)
     {
         return new HiveFileInfo(
                 locatedFileStatus.getPath(),
@@ -39,10 +50,11 @@ public class HiveFileInfo
                 locatedFileStatus.getBlockLocations(),
                 locatedFileStatus.getLen(),
                 locatedFileStatus.getModificationTime(),
-                extraFileContext);
+                extraFileContext,
+                customSplitInfo);
     }
 
-    private HiveFileInfo(Path path, boolean isDirectory, BlockLocation[] blockLocations, long length, long fileModifiedTime, Optional<byte[]> extraFileInfo)
+    private HiveFileInfo(Path path, boolean isDirectory, BlockLocation[] blockLocations, long length, long fileModifiedTime, Optional<byte[]> extraFileInfo, Map<String, String> customSplitInfo)
     {
         this.path = requireNonNull(path, "path is null");
         this.isDirectory = isDirectory;
@@ -50,6 +62,7 @@ public class HiveFileInfo
         this.length = length;
         this.fileModifiedTime = fileModifiedTime;
         this.extraFileInfo = requireNonNull(extraFileInfo, "extraFileInfo is null");
+        this.customSplitInfo = requireNonNull(customSplitInfo, "customSplitInfo is null");
     }
 
     public Path getPath()
@@ -80,6 +93,11 @@ public class HiveFileInfo
     public Optional<byte[]> getExtraFileInfo()
     {
         return extraFileInfo;
+    }
+
+    public Map<String, String> getCustomSplitInfo()
+    {
+        return customSplitInfo;
     }
 
     @Override

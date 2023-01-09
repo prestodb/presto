@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isExploitConstraints;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
@@ -157,6 +159,12 @@ public class FullConnectorSession
     }
 
     @Override
+    public boolean isReadConstraints()
+    {
+        return isExploitConstraints(session);
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)
@@ -169,5 +177,11 @@ public class FullConnectorSession
                 .add("properties", properties)
                 .omitNullValues()
                 .toString();
+    }
+
+    @Override
+    public WarningCollector getWarningCollector()
+    {
+        return session.getWarningCollector();
     }
 }

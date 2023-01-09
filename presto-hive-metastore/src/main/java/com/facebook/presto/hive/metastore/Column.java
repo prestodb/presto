@@ -112,9 +112,4 @@ public class Column
         result += comment.map(String::length).orElse(0);
         return result;
     }
-
-    public static Column partitionColumn(String name, HiveType type, Optional<String> comment)
-    {
-        return new Column(name, type, comment, Optional.empty());
-    }
 }

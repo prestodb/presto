@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.parquet;
 
-import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.ErrorType;
 
-import static com.facebook.presto.spi.ErrorType.EXTERNAL;
-import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
+import static com.facebook.presto.common.ErrorType.EXTERNAL;
+import static com.facebook.presto.common.ErrorType.INTERNAL_ERROR;
 
 public enum ParquetErrorCode
         implements ErrorCodeSupplier
 {
     PARQUET_UNSUPPORTED_COLUMN_TYPE(0, INTERNAL_ERROR),
     PARQUET_UNSUPPORTED_ENCODING(1, INTERNAL_ERROR),
-    PARQUET_IO_READ_ERROR(1, EXTERNAL),
+    PARQUET_IO_READ_ERROR(2, EXTERNAL),
     PARQUET_INCORRECT_DECODING(3, INTERNAL_ERROR);
 
     private final ErrorCode errorCode;

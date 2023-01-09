@@ -16,10 +16,10 @@ package com.facebook.presto.hive.metastore.alluxio;
 import alluxio.ClientContext;
 import alluxio.client.table.RetryHandlingTableMasterClient;
 import alluxio.client.table.TableMasterClient;
+import alluxio.conf.Configuration;
 import alluxio.conf.InstancedConfiguration;
 import alluxio.conf.PropertyKey;
 import alluxio.master.MasterClientContext;
-import alluxio.util.ConfigurationUtils;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveMetastore;
@@ -55,7 +55,7 @@ public class AlluxioMetastoreModule
     @Inject
     TableMasterClient provideCatalogMasterClient(AlluxioHiveMetastoreConfig config)
     {
-        InstancedConfiguration conf = new InstancedConfiguration(ConfigurationUtils.defaults());
+        InstancedConfiguration conf = Configuration.modifiableGlobal();
         if (config.isZookeeperEnabled()) {
             conf.set(PropertyKey.ZOOKEEPER_ENABLED, true);
             conf.set(PropertyKey.ZOOKEEPER_ADDRESS, config.getZookeeperAddress());
@@ -65,7 +65,7 @@ public class AlluxioMetastoreModule
             String[] parts = address.split(":", 2);
             conf.set(PropertyKey.MASTER_HOSTNAME, parts[0]);
             if (parts.length > 1) {
-                conf.set(PropertyKey.MASTER_RPC_PORT, parts[1]);
+                conf.set(PropertyKey.MASTER_RPC_PORT, Integer.parseInt(parts[1]));
             }
         }
         MasterClientContext context = MasterClientContext.newBuilder(ClientContext.create(conf)).build();

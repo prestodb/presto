@@ -43,7 +43,10 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.reader.SliceBatchStreamReader.computeTruncatedLength;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getByteArrayMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getRowGroupDictionaryLengthMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -67,11 +70,11 @@ public class SliceDictionaryBatchStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
-    private InputStreamSource<ByteArrayInputStream> stripeDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
+    private InputStreamSource<ByteArrayInputStream> stripeDictionaryDataStreamSource = getByteArrayMissingStreamSource();
     private boolean stripeDictionaryOpen;
     private int stripeDictionarySize;
     private int[] stripeDictionaryLength = new int[0];
@@ -81,18 +84,18 @@ public class SliceDictionaryBatchStreamReader
     private VariableWidthBlock dictionaryBlock = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[] {true}));
     private byte[] currentDictionaryData = EMPTY_DICTIONARY_DATA;
 
-    private InputStreamSource<LongInputStream> stripeDictionaryLengthStreamSource = missingStreamSource(LongInputStream.class);
+    private InputStreamSource<LongInputStream> stripeDictionaryLengthStreamSource = getLongMissingStreamSource();
 
-    private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream inDictionaryStream;
 
-    private InputStreamSource<ByteArrayInputStream> rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
+    private InputStreamSource<ByteArrayInputStream> rowGroupDictionaryDataStreamSource = getByteArrayMissingStreamSource();
 
-    private InputStreamSource<RowGroupDictionaryLengthInputStream> rowGroupDictionaryLengthStreamSource = missingStreamSource(RowGroupDictionaryLengthInputStream.class);
+    private InputStreamSource<RowGroupDictionaryLengthInputStream> rowGroupDictionaryLengthStreamSource = getRowGroupDictionaryLengthMissingStreamSource();
     private int[] rowGroupDictionaryLength = new int[0];
 
-    private InputStreamSource<LongInputStream> dataStreamSource = missingStreamSource(LongInputStream.class);
+    private InputStreamSource<LongInputStream> dataStreamSource = getLongMissingStreamSource();
     @Nullable
     private LongInputStream dataStream;
 
@@ -342,12 +345,12 @@ public class SliceDictionaryBatchStreamReader
                 .getDictionarySize();
         stripeDictionaryOpen = false;
 
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        dataStreamSource = missingStreamSource(LongInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
+        dataStreamSource = getLongMissingStreamSource();
 
-        inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
-        rowGroupDictionaryLengthStreamSource = missingStreamSource(RowGroupDictionaryLengthInputStream.class);
-        rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
+        inDictionaryStreamSource = getBooleanMissingStreamSource();
+        rowGroupDictionaryLengthStreamSource = getRowGroupDictionaryLengthMissingStreamSource();
+        rowGroupDictionaryDataStreamSource = getByteArrayMissingStreamSource();
 
         readOffset = 0;
         nextBatchSize = 0;

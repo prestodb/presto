@@ -44,6 +44,9 @@ public class ModularHashingNodeProvider
         int mod = identifier.hashCode() % size;
         int position = mod < 0 ? mod + size : mod;
         List<HostAddress> chosenCandidates = new ArrayList<>();
+        if (count > size) {
+            count = size;
+        }
         for (int i = 0; i < count && i < sortedCandidates.size(); i++) {
             chosenCandidates.add(sortedCandidates.get((position + i) % size).getHostAndPort());
         }

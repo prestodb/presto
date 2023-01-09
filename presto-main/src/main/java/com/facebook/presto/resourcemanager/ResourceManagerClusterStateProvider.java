@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
@@ -47,14 +48,19 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -67,7 +73,8 @@ public class ResourceManagerClusterStateProvider
 {
     private final Map<String, CoordinatorQueriesState> nodeQueryStates = new ConcurrentHashMap<>();
     private final Map<String, InternalNodeState> nodeStatuses = new ConcurrentHashMap<>();
-
+    private final Map<String, CoordinatorResourceGroupState> resourceGroupStates = new ConcurrentHashMap<>();
+    private final AtomicReference<Integer> adjustedQueueSize = new AtomicReference<>(0);
     private final InternalNodeManager internalNodeManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final int maxCompletedQueries;
@@ -137,6 +144,10 @@ public class ResourceManagerClusterStateProvider
                 }
             }
         }, 100, 100, MILLISECONDS);
+
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            adjustedQueueSize.set(computeAdjustedQueueSize());
+        }, 100, 1000, MILLISECONDS);
     }
 
     public void registerQueryHeartbeat(String nodeId, BasicQueryInfo basicQueryInfo, long sequenceId)
@@ -170,6 +181,42 @@ public class ResourceManagerClusterStateProvider
         }
     }
 
+    public void registerResourceGroupRuntimeHeartbeat(String node, List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos)
+    {
+        resourceGroupStates.put(node, new CoordinatorResourceGroupState(node, resourceGroupRuntimeInfos));
+    }
+
+    public int getAdjustedQueueSize()
+    {
+        return adjustedQueueSize.get();
+    }
+
+    private int computeAdjustedQueueSize()
+    {
+        Map<ResourceGroupId, ResourceGroupRuntimeInfo.Builder> resourceGroupBuilders = new HashMap<>();
+        resourceGroupStates.values().stream()
+                .map(CoordinatorResourceGroupState::getResourceGroups)
+                .flatMap(Collection::stream)
+                .forEach(resourceGroupRuntimeInfo -> {
+                    ResourceGroupId resourceGroupId = resourceGroupRuntimeInfo.getResourceGroupId();
+                    ResourceGroupRuntimeInfo.Builder runtimeInfoBuilder = resourceGroupBuilders.computeIfAbsent(resourceGroupId, ResourceGroupRuntimeInfo::builder);
+                    runtimeInfoBuilder.addQueuedQueries(resourceGroupRuntimeInfo.getQueuedQueries());
+                    runtimeInfoBuilder.addRunningQueries(resourceGroupRuntimeInfo.getRunningQueries());
+                    runtimeInfoBuilder.addDescendantQueuedQueries(resourceGroupRuntimeInfo.getDescendantQueuedQueries());
+                    runtimeInfoBuilder.addDescendantRunningQueries(resourceGroupRuntimeInfo.getDescendantRunningQueries());
+                    if (resourceGroupRuntimeInfo.getResourceGroupConfigSpec().isPresent()) {
+                        runtimeInfoBuilder.setResourceGroupSpecInfo(resourceGroupRuntimeInfo.getResourceGroupConfigSpec().get());
+                    }
+                });
+        List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = resourceGroupBuilders.values().stream().map(ResourceGroupRuntimeInfo.Builder::build).collect(toImmutableList());
+        int adjustedQueueSize = 0;
+        for (ResourceGroupRuntimeInfo runtimeInfo : resourceGroupRuntimeInfos) {
+            checkState(runtimeInfo.getResourceGroupConfigSpec().isPresent());
+            adjustedQueueSize += Math.max(Math.min(runtimeInfo.getQueuedQueries(), runtimeInfo.getResourceGroupConfigSpec().get().getSoftConcurrencyLimit() - runtimeInfo.getRunningQueries()), 0);
+        }
+        return adjustedQueueSize;
+    }
+
     public List<ResourceGroupRuntimeInfo> getClusterResourceGroups(String excludingNode)
             throws ResourceManagerInconsistentException
     {
@@ -189,7 +236,7 @@ public class ResourceManagerClusterStateProvider
                     if (info.getState() == QUEUED) {
                         builder.addQueuedQueries(1);
                     }
-                    else if (!info.getState().isDone()) {
+                    else if (!info.getState().isDone() && info.getState() != WAITING_FOR_PREREQUISITES) {
                         builder.addRunningQueries(1);
                     }
                     builder.addUserMemoryReservationBytes(info.getQueryStats().getUserMemoryReservation().toBytes());
@@ -199,7 +246,7 @@ public class ResourceManagerClusterStateProvider
                         if (info.getState() == QUEUED) {
                             parentBuilder.addDescendantQueuedQueries(1);
                         }
-                        else if (!info.getState().isDone()) {
+                        else if (!info.getState().isDone() && info.getState() != WAITING_FOR_PREREQUISITES) {
                             parentBuilder.addDescendantRunningQueries(1);
                         }
                     }
@@ -214,6 +261,18 @@ public class ResourceManagerClusterStateProvider
                 .flatMap(Collection::stream)
                 .map(Query::getBasicQueryInfo)
                 .collect(toImmutableList());
+    }
+
+    public int getRunningTaskCount()
+    {
+        int runningTaskCount = nodeQueryStates.values().stream()
+                .map(CoordinatorQueriesState::getActiveQueries)
+                .flatMap(Collection::stream)
+                .map(Query::getBasicQueryInfo)
+                .filter(q -> q.getState() == RUNNING)
+                .map(BasicQueryInfo::getQueryStats)
+                .collect(Collectors.summingInt(BasicQueryStats::getRunningTasks));
+        return runningTaskCount;
     }
 
     public Map<MemoryPoolId, ClusterMemoryPoolInfo> getClusterMemoryPoolInfo()
@@ -248,10 +307,17 @@ public class ResourceManagerClusterStateProvider
             }
         }
 
+        List<QueryId> runningQueries = nodeQueryStates.values().stream()
+                .map(CoordinatorQueriesState::getActiveQueries)
+                .flatMap(Collection::stream)
+                .filter(query -> query.getBasicQueryInfo().getState() == RUNNING)
+                .map(Query::getQueryId)
+                .collect(toImmutableList());
+
         ImmutableMap.Builder<MemoryPoolId, ClusterMemoryPoolInfo> memoryPoolInfos = ImmutableMap.builder();
         ClusterMemoryPool pool = new ClusterMemoryPool(GENERAL_POOL);
         pool.update(memoryInfos, queriesAssignedToGeneralPool);
-        ClusterMemoryPoolInfo clusterInfo = pool.getClusterInfo(Optional.ofNullable(largestGeneralPoolQuery).map(Query::getQueryId));
+        ClusterMemoryPoolInfo clusterInfo = pool.getClusterInfo(Optional.ofNullable(largestGeneralPoolQuery).map(Query::getQueryId), Optional.ofNullable(runningQueries));
         memoryPoolInfos.put(GENERAL_POOL, clusterInfo);
         if (isReservedPoolEnabled) {
             pool = new ClusterMemoryPool(RESERVED_POOL);
@@ -295,6 +361,30 @@ public class ResourceManagerClusterStateProvider
                 .collect(toImmutableSet());
         if (!(Sets.difference(coordinators, heartbeatedCoordinatorNodes).isEmpty() && !coordinators.isEmpty())) {
             throw new ResourceManagerInconsistentException(format("%s nodes found in discovery vs. %s nodes found in heartbeats", coordinators.size(), heartbeatedCoordinatorNodes.size()));
+        }
+    }
+
+    private static class CoordinatorResourceGroupState
+    {
+        private final String nodeId;
+        private final List<ResourceGroupRuntimeInfo> resourceGroups;
+
+        public CoordinatorResourceGroupState(
+                String nodeId,
+                List<ResourceGroupRuntimeInfo> resourceGroups)
+        {
+            this.nodeId = requireNonNull(nodeId, "nodeId is null");
+            this.resourceGroups = requireNonNull(resourceGroups, "resourceGroups is null");
+        }
+
+        public List<ResourceGroupRuntimeInfo> getResourceGroups()
+        {
+            return resourceGroups;
+        }
+
+        public String getNodeId()
+        {
+            return nodeId;
         }
     }
 

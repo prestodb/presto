@@ -50,6 +50,12 @@ public class NoOpTransactionManager
     }
 
     @Override
+    public void tryRegisterTransaction(TransactionInfo transactionInfo)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public TransactionId beginTransaction(boolean autoCommitContext)
     {
         throw new UnsupportedOperationException();

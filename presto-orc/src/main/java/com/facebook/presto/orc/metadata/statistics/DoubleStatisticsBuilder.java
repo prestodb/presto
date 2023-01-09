@@ -62,12 +62,10 @@ public class DoubleStatisticsBuilder
     private void addDoubleStatistics(long valueCount, DoubleStatistics value)
     {
         requireNonNull(value, "value is null");
-        requireNonNull(value.getMin(), "value.getMin() is null");
-        requireNonNull(value.getMax(), "value.getMax() is null");
 
         nonNullValueCount += valueCount;
-        minimum = Math.min(value.getMin(), minimum);
-        maximum = Math.max(value.getMax(), maximum);
+        minimum = Math.min(value.getMinPrimitive(), minimum);
+        maximum = Math.max(value.getMaxPrimitive(), maximum);
     }
 
     private Optional<DoubleStatistics> buildDoubleStatistics()

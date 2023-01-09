@@ -242,7 +242,7 @@ public interface HiveCoercer
                 maxValue = Long.MAX_VALUE;
             }
             else {
-                throw new PrestoException(NOT_SUPPORTED, format("Could not create Coercer from from varchar to %s", toType));
+                throw new PrestoException(NOT_SUPPORTED, format("Could not create Coercer from varchar to %s", toType));
             }
         }
 

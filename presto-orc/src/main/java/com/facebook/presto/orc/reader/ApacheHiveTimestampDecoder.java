@@ -22,7 +22,9 @@ final class ApacheHiveTimestampDecoder
     // This comes from the Apache Hive ORC code
     public static long decodeTimestamp(long seconds, long serializedNanos, DecodeTimestampOptions options)
     {
-        long millis = (seconds + options.getBaseSeconds()) * options.getUnitsPerSecond();
+        boolean enableMicroPrecision = options.enableMicroPrecision();
+        long secondsWithBase = seconds + options.getBaseSeconds();
+        long value = getSecondsInRequiredUnits(enableMicroPrecision, secondsWithBase, options.getUnitsPerSecond());
         long nanos = parseNanos(serializedNanos);
         if (nanos > 999999999 || nanos < 0) {
             throw new IllegalArgumentException("nanos field of an encoded timestamp in ORC must be between 0 and 999999999 inclusive, got " + nanos);
@@ -33,11 +35,47 @@ final class ApacheHiveTimestampDecoder
         // to get the correct value we need
         // (-42 - 1)*1000 + 999 = -42001
         // (42)*1000 + 1 = 42001
-        if (millis < 0 && nanos != 0) {
-            millis -= options.getUnitsPerSecond();
+        if (value < 0 && nanos != 0) {
+            value -= options.getUnitsPerSecond();
         }
-        // Truncate nanos to millis and add to mills
-        return millis + (nanos / options.getNanosPerUnit());
+        // Truncate nanos to required units (millis / micros)
+        long truncatedNanos = nanos / options.getNanosPerUnit();
+        return getValueWithNanos(enableMicroPrecision, value, truncatedNanos);
+    }
+
+    private static long getSecondsInRequiredUnits(boolean enableMicroPrecision, long secondsWithBase, long unitsPerSecond)
+    {
+        if (!enableMicroPrecision) {
+            // This can overflow/underflow, but to maintain backward compatibility this is not bounds checked.
+            return secondsWithBase * unitsPerSecond;
+        }
+        try {
+            // Overflow/underflow is detected and the code will raise error.
+            return Math.multiplyExact(secondsWithBase, unitsPerSecond);
+        }
+        catch (ArithmeticException e) {
+            String errorMessage = String.format("seconds field of timestamp exceeds maximum supported value, secondsWithBase: %s unitsPerSecond: %s.",
+                    secondsWithBase, unitsPerSecond);
+            throw new TimestampOutOfBoundsException(errorMessage, e);
+        }
+    }
+
+    // Add truncated nanos to seconds value
+    private static long getValueWithNanos(boolean enableMicroPrecision, long value, long truncatedNanos)
+    {
+        if (!enableMicroPrecision) {
+            // This can overflow/underflow, but to maintain backward compatibility this is not bounds checked.
+            return value + truncatedNanos;
+        }
+        try {
+            // Overflow/underflow is detected and the code will raise error.
+            return Math.addExact(value, truncatedNanos);
+        }
+        catch (ArithmeticException e) {
+            String errorMessage = String.format("Timestamp exceeds maximum supported value, value: %s truncatedNanos: %s.",
+                    value, truncatedNanos);
+            throw new TimestampOutOfBoundsException(errorMessage, e);
+        }
     }
 
     // This comes from the Apache Hive ORC code

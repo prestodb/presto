@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.common.block.Block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -61,25 +62,24 @@ public class StringStatisticsBuilder
     }
 
     @Override
-    public void addValue(Slice value, int sourceIndex, int length)
+    public void addValue(Block block, int position)
     {
-        requireNonNull(value, "value is null");
-
+        requireNonNull(block, "block is null");
+        int sliceLength = block.getSliceLength(position);
         if (nonNullValueCount == 0) {
             checkState(minimum == null && maximum == null);
-            Slice minMaxSlice = value.slice(sourceIndex, length);
+            Slice minMaxSlice = block.getSlice(position, 0, sliceLength);
             minimum = minMaxSlice;
             maximum = minMaxSlice;
         }
-        else if (minimum != null && value.compareTo(sourceIndex, length, minimum, 0, minimum.length()) <= 0) {
-            minimum = value.slice(sourceIndex, length);
+        else if (minimum != null && block.bytesCompare(position, 0, sliceLength, minimum, 0, minimum.length()) <= 0) {
+            minimum = block.getSlice(position, 0, sliceLength);
         }
-        else if (maximum != null && value.compareTo(sourceIndex, length, maximum, 0, maximum.length()) >= 0) {
-            maximum = value.slice(sourceIndex, length);
+        else if (maximum != null && block.bytesCompare(position, 0, sliceLength, maximum, 0, maximum.length()) >= 0) {
+            maximum = block.getSlice(position, 0, sliceLength);
         }
-
         nonNullValueCount++;
-        sum = addExact(sum, length);
+        sum = addExact(sum, sliceLength);
     }
 
     /**

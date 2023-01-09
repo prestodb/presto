@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.SortingProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.PeekingIterator;
@@ -29,6 +31,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.peekingIterator;
 
 public final class LocalProperties
@@ -45,6 +48,11 @@ public final class LocalProperties
     public static <T> List<LocalProperty<T>> grouped(Collection<T> columns)
     {
         return ImmutableList.of(new GroupingProperty<>(columns));
+    }
+
+    public static <T> List<LocalProperty<T>> sorted(Collection<T> columns, SortOrder order)
+    {
+        return columns.stream().map(column -> new SortingProperty<>(column, order)).collect(toImmutableList());
     }
 
     public static <T> List<LocalProperty<T>> stripLeadingConstants(List<? extends LocalProperty<T>> properties)

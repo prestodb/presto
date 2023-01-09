@@ -14,6 +14,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
@@ -21,7 +23,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,6 +54,7 @@ public class TestBasicQueryInfo
                         URI.create("1"),
                         ImmutableList.of("2", "3"),
                         "SELECT 4",
+                        Optional.empty(),
                         Optional.empty(),
                         new QueryStats(
                                 DateTime.parse("1991-09-06T05:00-05:30"),
@@ -102,6 +104,8 @@ public class TestBasicQueryInfo
                                 30,
                                 DataSize.valueOf("31GB"),
                                 32,
+                                DataSize.valueOf("32GB"),
+                                40,
                                 33,
                                 DataSize.valueOf("34GB"),
                                 DataSize.valueOf("35GB"),
@@ -139,13 +143,17 @@ public class TestBasicQueryInfo
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(),
-                        ImmutableSet.of()));
+                        ImmutableSet.of(),
+                        StatsAndCosts.empty(),
+                        ImmutableList.of(),
+                        ImmutableList.of()));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);
         assertEquals(basicInfo.getMemoryPool().getId(), "reserved");
         assertEquals(basicInfo.isScheduled(), false);
         assertEquals(basicInfo.getQuery(), "SELECT 4");
+        assertEquals(basicInfo.getQueryHash(), "235ca215765cbfca");
         assertEquals(basicInfo.getQueryType(), Optional.of(QueryType.INSERT));
 
         assertEquals(basicInfo.getQueryStats().getCreateTime(), DateTime.parse("1991-09-06T05:00-05:30"));
@@ -164,7 +172,7 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getQueryStats().getPeakUserMemoryReservation(), DataSize.valueOf("23GB"));
         assertEquals(basicInfo.getQueryStats().getPeakTotalMemoryReservation(), DataSize.valueOf("24GB"));
         assertEquals(basicInfo.getQueryStats().getPeakTaskTotalMemoryReservation(), DataSize.valueOf("26GB"));
-        assertEquals(basicInfo.getQueryStats().getPeakNodeTotalMemorReservation(), DataSize.valueOf("42GB"));
+        assertEquals(basicInfo.getQueryStats().getPeakNodeTotalMemoryReservation(), DataSize.valueOf("42GB"));
 
         assertEquals(basicInfo.getQueryStats().getTotalCpuTime(), Duration.valueOf("24m"));
 

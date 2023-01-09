@@ -14,6 +14,9 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanCostEstimate;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -33,10 +36,12 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
+import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -77,6 +82,10 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.getDynamicFilterAssignments;
+import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatAsLong;
+import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatDouble;
+import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatEstimateAsDataSize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static java.lang.String.format;
@@ -108,6 +117,7 @@ public final class GraphvizPrinter
         INDEX_SOURCE,
         UNNEST,
         ANALYZE_FINISH,
+        EXPLAIN_ANALYZE,
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -133,6 +143,7 @@ public final class GraphvizPrinter
             .put(NodeType.UNNEST, "crimson")
             .put(NodeType.SAMPLE, "goldenrod4")
             .put(NodeType.ANALYZE_FINISH, "plum")
+            .put(NodeType.EXPLAIN_ANALYZE, "cadetblue1")
             .build());
 
     static {
@@ -141,7 +152,7 @@ public final class GraphvizPrinter
 
     private GraphvizPrinter() {}
 
-    public static String printLogical(List<PlanFragment> fragments, Session session, FunctionAndTypeManager functionAndTypeManager)
+    public static String printLogical(List<PlanFragment> fragments, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
         Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
         PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
@@ -150,7 +161,7 @@ public final class GraphvizPrinter
         output.append("digraph logical_plan {\n");
 
         for (PlanFragment fragment : fragments) {
-            printFragmentNodes(output, fragment, idGenerator, session, functionAndTypeManager);
+            printFragmentNodes(output, fragment, idGenerator, functionAndTypeManager, session);
         }
 
         for (PlanFragment fragment : fragments) {
@@ -162,7 +173,7 @@ public final class GraphvizPrinter
         return output.toString();
     }
 
-    public static String printDistributed(SubPlan plan, Session session, FunctionAndTypeManager functionAndTypeManager)
+    public static String printDistributed(SubPlan plan, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
         List<PlanFragment> fragments = plan.getAllFragments();
         Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
@@ -171,10 +182,26 @@ public final class GraphvizPrinter
         StringBuilder output = new StringBuilder();
         output.append("digraph distributed_plan {\n");
 
-        printSubPlan(plan, fragmentsById, idGenerator, output, session, functionAndTypeManager);
+        printSubPlan(plan, fragmentsById, idGenerator, output, functionAndTypeManager, session);
 
         output.append("}\n");
 
+        return output.toString();
+    }
+    public static String printDistributedFromFragments(List<PlanFragment> allFragments, FunctionAndTypeManager functionAndTypeManager, Session session)
+    {
+        PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
+        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(allFragments, PlanFragment::getId);
+
+        StringBuilder output = new StringBuilder();
+        output.append("digraph distributed_plan {\n");
+
+        for (PlanFragment planFragment : allFragments) {
+            printFragmentNodes(output, planFragment, idGenerator, functionAndTypeManager, session);
+            planFragment.getRoot().accept(new EdgePrinter(output, fragmentsById, idGenerator), null);
+        }
+
+        output.append("}\n");
         return output.toString();
     }
 
@@ -183,19 +210,19 @@ public final class GraphvizPrinter
             Map<PlanFragmentId, PlanFragment> fragmentsById,
             PlanNodeIdGenerator idGenerator,
             StringBuilder output,
-            Session session,
-            FunctionAndTypeManager functionAndTypeManager)
+            FunctionAndTypeManager functionAndTypeManager,
+            Session session)
     {
         PlanFragment fragment = plan.getFragment();
-        printFragmentNodes(output, fragment, idGenerator, session, functionAndTypeManager);
+        printFragmentNodes(output, fragment, idGenerator, functionAndTypeManager, session);
         fragment.getRoot().accept(new EdgePrinter(output, fragmentsById, idGenerator), null);
 
         for (SubPlan child : plan.getChildren()) {
-            printSubPlan(child, fragmentsById, idGenerator, output, session, functionAndTypeManager);
+            printSubPlan(child, fragmentsById, idGenerator, output, functionAndTypeManager, session);
         }
     }
 
-    private static void printFragmentNodes(StringBuilder output, PlanFragment fragment, PlanNodeIdGenerator idGenerator, Session session, FunctionAndTypeManager functionAndTypeManager)
+    private static void printFragmentNodes(StringBuilder output, PlanFragment fragment, PlanNodeIdGenerator idGenerator, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
         String clusterId = "cluster_" + fragment.getId();
         output.append("subgraph ")
@@ -207,7 +234,7 @@ public final class GraphvizPrinter
                 .append('\n');
 
         PlanNode plan = fragment.getRoot();
-        plan.accept(new NodePrinter(output, idGenerator, session, functionAndTypeManager), null);
+        plan.accept(new NodePrinter(output, idGenerator, fragment.getStatsAndCosts(), functionAndTypeManager, session), null);
 
         output.append("}")
                 .append('\n');
@@ -220,14 +247,16 @@ public final class GraphvizPrinter
         private final StringBuilder output;
         private final PlanNodeIdGenerator idGenerator;
         private final Function<RowExpression, String> formatter;
+        StatsAndCosts estimatedStatsAndCosts;
 
-        public NodePrinter(StringBuilder output, PlanNodeIdGenerator idGenerator, Session session, FunctionAndTypeManager functionAndTypeManager)
+        public NodePrinter(StringBuilder output, PlanNodeIdGenerator idGenerator, StatsAndCosts estimatedStatsAndCosts, FunctionAndTypeManager functionAndTypeManager, Session session)
         {
             this.output = output;
             this.idGenerator = idGenerator;
             RowExpressionFormatter rowExpressionFormatter = new RowExpressionFormatter(functionAndTypeManager);
             ConnectorSession connectorSession = requireNonNull(session, "session is null").toConnectorSession();
             this.formatter = rowExpression -> rowExpressionFormatter.formatRowExpression(connectorSession, rowExpression);
+            this.estimatedStatsAndCosts = estimatedStatsAndCosts;
         }
 
         @Override
@@ -265,6 +294,13 @@ public final class GraphvizPrinter
         public Void visitTableFinish(TableFinishNode node, Void context)
         {
             printNode(node, format("TableFinish[%s]", Joiner.on(", ").join(node.getOutputVariables())), NODE_COLORS.get(NodeType.TABLE_FINISH));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitExplainAnalyze(ExplainAnalyzeNode node, Void context)
+        {
+            printNode(node, format("ExplainAnalyze[%s]", Joiner.on(", ").join(node.getOutputVariables())), NODE_COLORS.get(NodeType.EXPLAIN_ANALYZE));
             return node.getSource().accept(this, context);
         }
 
@@ -464,14 +500,19 @@ public final class GraphvizPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            printNode(node, format("TableScan[%s]", node.getTable()), NODE_COLORS.get(NodeType.TABLESCAN));
+            printNode(node, format("TableScan | [%s]", node.getTable()), NODE_COLORS.get(NodeType.TABLESCAN));
             return null;
         }
 
         @Override
         public Void visitValues(ValuesNode node, Void context)
         {
-            printNode(node, "Values", NODE_COLORS.get(NodeType.TABLESCAN));
+            if (node.getValuesNodeLabel().isPresent()) {
+                printNode(node, format("Values converted from TableScan[%s]", node.getValuesNodeLabel().get()), NODE_COLORS.get(NodeType.TABLESCAN));
+            }
+            else {
+                printNode(node, "Values", NODE_COLORS.get(NodeType.TABLESCAN));
+            }
             return null;
         }
 
@@ -489,9 +530,18 @@ public final class GraphvizPrinter
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(JoinNodeUtils.toExpression(clause));
             }
+            String joinCriteria = Joiner.on(" AND ").join(joinExpressions);
+            StringBuilder details = new StringBuilder(joinCriteria);
+            if (!node.getDynamicFilters().isEmpty()) {
+                details.append(", ");
+                details.append(getDynamicFilterAssignments(node));
+            }
 
-            String criteria = Joiner.on(" AND ").join(joinExpressions);
-            printNode(node, node.getType().getJoinLabel(), criteria, NODE_COLORS.get(NodeType.JOIN));
+            String distributionType = node.getDistributionType().isPresent() ? node.getDistributionType().get().toString() : "UNKNOWN";
+            final String joinType = node.isCrossJoin() ? "CrossJoin" : node.getType().getJoinLabel();
+            String label = format("%s[%s]", joinType, distributionType);
+
+            printNode(node, label, details.toString(), NODE_COLORS.get(NodeType.JOIN));
 
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
@@ -502,7 +552,16 @@ public final class GraphvizPrinter
         @Override
         public Void visitSemiJoin(SemiJoinNode node, Void context)
         {
-            printNode(node, "SemiJoin", format("%s = %s", node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable()), NODE_COLORS.get(NodeType.JOIN));
+            String joinExpression = format("%s = %s", node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable());
+            StringBuilder details = new StringBuilder(joinExpression);
+            if (!node.getDynamicFilters().isEmpty()) {
+                details.append(", ");
+                details.append(getDynamicFilterAssignments(node));
+            }
+
+            String label = format("SemiJoin[%s]", node.getDistributionType().isPresent() ? node.getDistributionType().get().toString() : "UNKNOWN");
+
+            printNode(node, label, details.toString(), NODE_COLORS.get(NodeType.JOIN));
 
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
@@ -583,10 +642,12 @@ public final class GraphvizPrinter
 
         private void printNode(PlanNode node, String label, String color)
         {
+            String nodeEstimate = addStatsEstimate(node);
             String nodeId = idGenerator.getNodeId(node);
             label = escapeSpecialCharacters(label);
+            nodeEstimate = escapeSpecialCharacters(nodeEstimate);
             output.append(nodeId)
-                    .append(format("[label=\"{%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]", label, color))
+                    .append(format("[label=\"{%s|%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]", label, nodeEstimate, color))
                     .append(';')
                     .append('\n');
         }
@@ -597,14 +658,32 @@ public final class GraphvizPrinter
                 printNode(node, label, color);
             }
             else {
+                String nodeEstimate = addStatsEstimate(node);
                 String nodeId = idGenerator.getNodeId(node);
                 label = escapeSpecialCharacters(label);
                 details = escapeSpecialCharacters(details);
+                nodeEstimate = escapeSpecialCharacters(nodeEstimate);
                 output.append(nodeId)
-                        .append(format("[label=\"{%s|%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]", label, details, color))
+                        .append(format("[label=\"{%s|%s|%s}\", style=\"rounded, filled\", shape=record, fillcolor=%s]", label, details, nodeEstimate, color))
                         .append(';')
                         .append('\n');
             }
+        }
+
+        private String addStatsEstimate(PlanNode node)
+        {
+            PlanNodeStatsEstimate stats = estimatedStatsAndCosts.getStats().getOrDefault(node.getId(), PlanNodeStatsEstimate.unknown());
+            PlanCostEstimate cost = estimatedStatsAndCosts.getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());
+            StringBuilder output = new StringBuilder();
+            output.append("Estimates: ");
+            output.append(format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+                    formatAsLong(stats.getOutputRowCount()),
+                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(node)),
+                    formatDouble(cost.getCpuCost()),
+                    formatDouble(cost.getMaxMemory()),
+                    formatDouble(cost.getNetworkCost())));
+            output.append("\n");
+            return output.toString();
         }
 
         private static String getColumns(OutputNode node)
@@ -656,6 +735,29 @@ public final class GraphvizPrinter
         }
 
         @Override
+        public Void visitSemiJoin(SemiJoinNode node, Void context)
+        {
+            return visitBuildAndProbe(node, context, node.getBuild(), node.getProbe());
+        }
+
+        @Override
+        public Void visitJoin(JoinNode node, Void context)
+        {
+            return visitBuildAndProbe(node, context, node.getBuild(), node.getProbe());
+        }
+
+        private Void visitBuildAndProbe(AbstractJoinNode node, Void context, PlanNode build, PlanNode probe)
+        {
+            printEdge(node, build, "Build");
+            build.accept(this, context);
+
+            printEdge(node, probe, "Probe");
+            probe.accept(this, context);
+
+            return null;
+        }
+
+        @Override
         public Void visitPlan(PlanNode node, Void context)
         {
             for (PlanNode child : node.getSources()) {
@@ -680,12 +782,18 @@ public final class GraphvizPrinter
 
         private void printEdge(PlanNode from, PlanNode to)
         {
+            printEdge(from, to, "");
+        }
+
+        private void printEdge(PlanNode from, PlanNode to, String label)
+        {
             String fromId = idGenerator.getNodeId(from);
             String toId = idGenerator.getNodeId(to);
 
             output.append(fromId)
                     .append(" -> ")
                     .append(toId)
+                    .append(label.isEmpty() ? "" : String.format(" [label = \"%s\"]", label))
                     .append(';')
                     .append('\n');
         }

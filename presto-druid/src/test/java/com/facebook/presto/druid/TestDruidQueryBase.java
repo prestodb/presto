@@ -197,7 +197,7 @@ public class TestDruidQueryBase
                 new SqlParser(),
                 typeProvider,
                 expression,
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 WarningCollector.NOOP);
         return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionAndTypeManager, session);
     }

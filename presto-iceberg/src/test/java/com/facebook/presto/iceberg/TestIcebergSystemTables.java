@@ -48,12 +48,12 @@ public class TestIcebergSystemTables
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        Path catalogDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve("catalog");
+        Path catalogDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("iceberg_data").resolve("catalog");
 
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDir.toFile().toURI().toString())
+                .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
@@ -62,8 +62,11 @@ public class TestIcebergSystemTables
     }
 
     @BeforeClass
-    public void setUp()
+    @Override
+    public void init()
+            throws Exception
     {
+        super.init();
         assertUpdate("CREATE SCHEMA test_schema");
         assertUpdate("CREATE TABLE test_schema.test_table (_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
         assertUpdate("INSERT INTO test_schema.test_table VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
@@ -73,6 +76,12 @@ public class TestIcebergSystemTables
         assertUpdate("CREATE TABLE test_schema.test_table_multilevel_partitions (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO test_schema.test_table_multilevel_partitions VALUES ('a', 0, CAST('2019-09-08' AS DATE)), ('a', 1, CAST('2019-09-08' AS DATE)), ('a', 0, CAST('2019-09-09' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table_multilevel_partitions", "VALUES 3");
+
+        assertUpdate("CREATE TABLE test_schema.test_table_drop_column (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
+        assertUpdate("INSERT INTO test_schema.test_table_drop_column VALUES ('a', 0, CAST('2019-09-08' AS DATE)), ('a', 1, CAST('2019-09-09' AS DATE)), ('b', 2, CAST('2019-09-09' AS DATE))", 3);
+        assertUpdate("INSERT INTO test_schema.test_table_drop_column VALUES ('c', 3, CAST('2019-09-09' AS DATE)), ('a', 4, CAST('2019-09-10' AS DATE)), ('b', 5, CAST('2019-09-10' AS DATE))", 3);
+        assertQuery("SELECT count(*) FROM test_schema.test_table_drop_column", "VALUES 6");
+        assertUpdate("ALTER TABLE test_schema.test_table_drop_column DROP COLUMN _varchar");
     }
 
     @Test
@@ -158,18 +167,36 @@ public class TestIcebergSystemTables
     public void testFilesTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$files\"",
-                "VALUES ('file_path', 'varchar', '', '')," +
+                "VALUES ('content', 'integer', '', '')," +
+                        "('file_path', 'varchar', '', '')," +
                         "('file_format', 'varchar', '', '')," +
                         "('record_count', 'bigint', '', '')," +
                         "('file_size_in_bytes', 'bigint', '', '')," +
                         "('column_sizes', 'map(integer, bigint)', '', '')," +
                         "('value_counts', 'map(integer, bigint)', '', '')," +
                         "('null_value_counts', 'map(integer, bigint)', '', '')," +
+                        "('nan_value_counts', 'map(integer, bigint)', '', '')," +
                         "('lower_bounds', 'map(integer, varchar)', '', '')," +
                         "('upper_bounds', 'map(integer, varchar)', '', '')," +
                         "('key_metadata', 'varbinary', '', '')," +
-                        "('split_offsets', 'array(bigint)', '', '')");
+                        "('split_offsets', 'array(bigint)', '', '')," +
+                        "('equality_ids', 'array(integer)', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
+    }
+
+    @Test
+    public void testPropertiesTable()
+    {
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$properties\"",
+                "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
+        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 1");
+        assertQuery("SELECT * FROM test_schema.\"test_table$properties\"", "VALUES ('write.format.default', 'PARQUET')");
+    }
+
+    @Test
+    public void testFilesTableOnDropColumn()
+    {
+        assertQuery("SELECT sum(record_count) FROM test_schema.\"test_table_drop_column$files\"", "VALUES 6");
     }
 
     @AfterClass(alwaysRun = true)
@@ -177,6 +204,7 @@ public class TestIcebergSystemTables
     {
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_drop_column");
         assertUpdate("DROP SCHEMA IF EXISTS test_schema");
     }
 }

@@ -142,7 +142,7 @@ public class TestCsv
     }
 
     @Test(groups = STORAGE_FORMATS)
-    public void testCreatePartitionedCsvTableAsWithCustomParamters()
+    public void testCreatePartitionedCsvTableAsWithCustomParameters()
     {
         testCreatePartitionedCsvTableAs(
                 "storage_formats_test_create_table_as_select_partitioned_csv_with_custom_parameters",

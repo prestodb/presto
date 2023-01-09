@@ -103,14 +103,14 @@ public abstract class AbstractDeltaDistributedQueryTestBase
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_metadata");
-        Path catalogDir = dataDir.getParent().resolve("catalog");
+        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("delta_metadata");
+        Path catalogDirectory = dataDirectory.getParent().resolve("catalog");
 
         // Install a Delta connector catalog
         queryRunner.installPlugin(new DeltaPlugin());
         Map<String, String> deltaProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDir.toFile().toURI().toString())
+                .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
                 .build();
         queryRunner.createCatalog(DELTA_CATALOG, "delta", deltaProperties);
 
@@ -120,7 +120,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
         queryRunner.installPlugin(new HivePlugin("hive"));
         Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDir.toFile().toURI().toString())
+                .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
                 .put("hive.allow-drop-table", "true")
                 .put("hive.security", "legacy")
                 .build();
@@ -131,9 +131,8 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     }
 
     /**
-     * Register the given <i>deltaTableName</i> as <i>hiveTableName</i> in HMS using the Hive storage catalog.
-     * Hive and Delta catalogs share the same HMS in this test. Hive is used to register the tables as Delta
-     * connector doesn't have the write support yet.
+     * Register the given <i>deltaTableName</i> as <i>hiveTableName</i> in HMS using the Delta catalog.
+     * Hive and Delta catalogs share the same HMS in this test.
      *
      * @param queryRunner
      * @param deltaTableName Name of the delta table which is on the classpath.
@@ -143,7 +142,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     {
         queryRunner.execute(format(
                 "CREATE TABLE %s.\"%s\".\"%s\" (dummyColumn INT) WITH (external_location = '%s')",
-                HIVE_CATALOG,
+                DELTA_CATALOG,
                 DELTA_SCHEMA,
                 hiveTableName,
                 goldenTablePath(deltaTableName)));
@@ -154,6 +153,6 @@ public abstract class AbstractDeltaDistributedQueryTestBase
      */
     private static void unregisterDeltaTableInHMS(QueryRunner queryRunner, String hiveTableName)
     {
-        queryRunner.execute(format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", HIVE_CATALOG, DELTA_SCHEMA, hiveTableName));
+        queryRunner.execute(format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", DELTA_CATALOG, DELTA_SCHEMA, hiveTableName));
     }
 }

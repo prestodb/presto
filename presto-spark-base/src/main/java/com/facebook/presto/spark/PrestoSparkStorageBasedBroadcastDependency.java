@@ -46,6 +46,7 @@ public class PrestoSparkStorageBasedBroadcastDependency
 
     private RddAndMore<PrestoSparkStorageHandle> broadcastDependency;
     private final DataSize maxBroadcastSize;
+    private final DataSize queryMaxTotalMemoryPerNode;
     private final long queryCompletionDeadline;
     private final TempStorage tempStorage;
     private final TempDataOperationContext tempDataOperationContext;
@@ -53,10 +54,18 @@ public class PrestoSparkStorageBasedBroadcastDependency
 
     private Broadcast<List<PrestoSparkStorageHandle>> broadcastVariable;
 
-    public PrestoSparkStorageBasedBroadcastDependency(RddAndMore<PrestoSparkStorageHandle> broadcastDependency, DataSize maxBroadcastSize, long queryCompletionDeadline, TempStorage tempStorage, TempDataOperationContext tempDataOperationContext, Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
+    public PrestoSparkStorageBasedBroadcastDependency(
+            RddAndMore<PrestoSparkStorageHandle> broadcastDependency,
+            DataSize maxBroadcastSize,
+            DataSize queryMaxTotalMemoryPerNode,
+            long queryCompletionDeadline,
+            TempStorage tempStorage,
+            TempDataOperationContext tempDataOperationContext,
+            Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
     {
         this.broadcastDependency = requireNonNull(broadcastDependency, "broadcastDependency cannot be null");
         this.maxBroadcastSize = requireNonNull(maxBroadcastSize, "maxBroadcastSize cannot be null");
+        this.queryMaxTotalMemoryPerNode = requireNonNull(queryMaxTotalMemoryPerNode, "queryMaxTotalMemoryPerNode cannot be null");
         this.queryCompletionDeadline = queryCompletionDeadline;
         this.tempStorage = requireNonNull(tempStorage, "tempStorage cannot be null");
         this.tempDataOperationContext = requireNonNull(tempDataOperationContext, "tempDataOperationContext cannot be null");
@@ -75,25 +84,34 @@ public class PrestoSparkStorageBasedBroadcastDependency
         broadcastDependency = null;
 
         long compressedBroadcastSizeInBytes = broadcastValue.stream()
-                .mapToLong(metadata -> metadata.getCompressedSizeInBytes())
+                .mapToLong(PrestoSparkStorageHandle::getCompressedSizeInBytes)
                 .sum();
         long uncompressedBroadcastSizeInBytes = broadcastValue.stream()
-                .mapToLong(metadata -> metadata.getUncompressedSizeInBytes())
+                .mapToLong(PrestoSparkStorageHandle::getUncompressedSizeInBytes)
+                .sum();
+        long deserializedBroadcastSizeInBytes = broadcastValue.stream()
+                .mapToLong(PrestoSparkStorageHandle::getDeserializedRetainedSizeInBytes)
                 .sum();
 
-        log.info("Got back %d pages. compressedBroadcastSizeInBytes: %d; uncompressedBroadcastSizeInBytes: %d",
+        log.info(
+                "Got back %d pages. compressedBroadcastSizeInBytes: %d; uncompressedBroadcastSizeInBytes: %d; deserializedBroadcastObjectSizeInBytes: %d",
                 broadcastValue.size(),
                 compressedBroadcastSizeInBytes,
-                uncompressedBroadcastSizeInBytes);
+                uncompressedBroadcastSizeInBytes,
+                deserializedBroadcastSizeInBytes);
 
         long maxBroadcastSizeInBytes = maxBroadcastSize.toBytes();
 
-        if (compressedBroadcastSizeInBytes > maxBroadcastSizeInBytes) {
-            throw exceededLocalBroadcastMemoryLimit(maxBroadcastSize, format("Compressed broadcast size: %s", succinctBytes(compressedBroadcastSizeInBytes)));
+        if (deserializedBroadcastSizeInBytes > maxBroadcastSizeInBytes) {
+            throw exceededLocalBroadcastMemoryLimit(
+                    maxBroadcastSize,
+                    format("Broadcast size: %s", succinctBytes(deserializedBroadcastSizeInBytes)));
         }
 
-        if (uncompressedBroadcastSizeInBytes > maxBroadcastSizeInBytes) {
-            throw exceededLocalBroadcastMemoryLimit(maxBroadcastSize, format("Uncompressed broadcast size: %s", succinctBytes(uncompressedBroadcastSizeInBytes)));
+        if (deserializedBroadcastSizeInBytes > queryMaxTotalMemoryPerNode.toBytes()) {
+            throw exceededLocalBroadcastMemoryLimit(
+                    queryMaxTotalMemoryPerNode,
+                    format("Broadcast size: %s", succinctBytes(deserializedBroadcastSizeInBytes)));
         }
 
         broadcastVariable = sparkContext.broadcast(broadcastValue);

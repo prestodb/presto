@@ -33,10 +33,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.plan.AggregationNode.Aggregation.removeDistinct;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
 
 /**
@@ -152,17 +152,5 @@ public class SingleDistinctAggregationToGroupBy
                         aggregation.getStep(),
                         aggregation.getHashVariable(),
                         aggregation.getGroupIdVariable()));
-    }
-
-    private static AggregationNode.Aggregation removeDistinct(AggregationNode.Aggregation aggregation)
-    {
-        checkArgument(aggregation.isDistinct(), "Expected aggregation to have DISTINCT input");
-
-        return new AggregationNode.Aggregation(
-                aggregation.getCall(),
-                aggregation.getFilter(),
-                aggregation.getOrderBy(),
-                false,
-                aggregation.getMask());
     }
 }

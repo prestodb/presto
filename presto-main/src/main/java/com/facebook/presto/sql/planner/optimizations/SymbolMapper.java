@@ -187,7 +187,7 @@ public class SymbolMapper
                         mapAndDistinctVariable(node.getGroupingKeys()),
                         node.getGroupingSetCount(),
                         node.getGlobalGroupingSets()),
-                ImmutableList.of(),
+                mapAndDistinctVariable(node.getPreGroupedVariables()),
                 node.getStep(),
                 node.getHashVariable().map(this::map),
                 node.getGroupIdVariable().map(this::map));

@@ -164,11 +164,17 @@ public class GcStatusMonitor
                     .map(TaskInfo::getStats)
                     .mapToLong(TaskStats::getSystemMemoryReservationInBytes)
                     .sum();
+            long revocableMemoryReservation = sqlTasks.stream()
+                    .map(SqlTask::getTaskInfo)
+                    .map(TaskInfo::getStats)
+                    .mapToLong(TaskStats::getRevocableMemoryReservationInBytes)
+                    .sum();
             return ImmutableList.of(
                     queryId.toString(),
                     Long.toString(userMemoryReservation + systemMemoryReservation),
                     Long.toString(userMemoryReservation),
-                    Long.toString(systemMemoryReservation));
+                    Long.toString(systemMemoryReservation),
+                    Long.toString(revocableMemoryReservation));
         }).collect(toImmutableList());
         if (!rows.isEmpty()) {
             logInfoTable(ImmutableList.<List<String>>builder().add(
@@ -176,7 +182,8 @@ public class GcStatusMonitor
                             "Query ID",
                             "Total Memory Reservation",
                             "User Memory Reservation",
-                            "System Memory Reservation"))
+                            "System Memory Reservation",
+                            "Revocable Memory Reservation"))
                     .addAll(rows)
                     .build());
         }
@@ -206,6 +213,7 @@ public class GcStatusMonitor
                                 taskStats.getCreateTime().toString(),
                                 Long.toString(taskStats.getUserMemoryReservationInBytes()),
                                 Long.toString(taskStats.getSystemMemoryReservationInBytes()),
+                                Long.toString(taskStats.getRevocableMemoryReservationInBytes()),
                                 Long.toString(taskIOStats.getInputDataSize().getTotalCount()),
                                 Long.toString(taskIOStats.getOutputDataSize().getTotalCount()),
                                 Long.toString(taskIOStats.getInputPositions().getTotalCount()),
@@ -221,6 +229,7 @@ public class GcStatusMonitor
                             "Created Ts",
                             "User Memory",
                             "System Memory",
+                            "Revocable Memory",
                             "Input Bytes",
                             "Output Bytes",
                             "Input Row Count",

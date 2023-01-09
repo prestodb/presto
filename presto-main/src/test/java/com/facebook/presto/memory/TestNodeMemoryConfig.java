@@ -36,8 +36,8 @@ public class TestNodeMemoryConfig
                 .setMaxQueryBroadcastMemory(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
                 .setMaxQueryMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
                 .setSoftMaxQueryMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
-                .setMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
-                .setSoftMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
+                .setMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.2, BYTE))
+                .setSoftMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.2, BYTE))
                 .setHeapHeadroom(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
                 .setReservedPoolEnabled(true)
                 .setVerboseExceededMemoryLimitErrorsEnabled(true));

@@ -13,20 +13,36 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Map;
+
+@ThriftStruct
 public class SplitOperatorInfo
         implements OperatorInfo
 {
     // NOTE: this deserializes to a map instead of the expected type
-    private final Object splitInfo;
+    private Object splitInfo;
+    private Map<String, String> splitInfoMap;
 
     @JsonCreator
     public SplitOperatorInfo(
             @JsonProperty("splitInfo") Object splitInfo)
     {
         this.splitInfo = splitInfo;
+    }
+
+    @ThriftConstructor
+    public SplitOperatorInfo(
+            Map<String, String> splitInfoMap)
+    {
+        this.splitInfoMap = splitInfoMap;
+        this.splitInfo = splitInfoMap;
     }
 
     @Override
@@ -39,5 +55,12 @@ public class SplitOperatorInfo
     public Object getSplitInfo()
     {
         return splitInfo;
+    }
+
+    @JsonIgnore
+    @ThriftField(1)
+    public Map<String, String> getSplitInfoMap()
+    {
+        return splitInfoMap;
     }
 }

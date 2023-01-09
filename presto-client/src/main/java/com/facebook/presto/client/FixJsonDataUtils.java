@@ -51,6 +51,7 @@ import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
+import static com.facebook.presto.common.type.StandardTypes.UUID;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -91,7 +92,9 @@ final class FixJsonDataUtils
         if (value == null) {
             return null;
         }
-
+        if (signature.isDistinctType()) {
+            return fixValue(signature.getDistinctTypeInfo().getBaseType(), value);
+        }
         if (signature.getBase().equals(ARRAY)) {
             List<Object> fixedValue = new ArrayList<>();
             for (Object object : List.class.cast(value)) {
@@ -183,6 +186,7 @@ final class FixJsonDataUtils
             case DECIMAL:
             case CHAR:
             case GEOMETRY:
+            case UUID:
                 return String.class.cast(value);
             case BING_TILE:
                 // Bing tiles are serialized as strings when used as map keys,

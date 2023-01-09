@@ -22,19 +22,21 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.Optional;
 
 import static com.facebook.presto.atop.LocalAtopQueryRunner.createQueryRunner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
 
 public class TestAtopSecurity
 {
     private QueryRunner queryRunner;
 
     @BeforeClass
-    public void setUp()
+    public void setUp() throws IOException
     {
-        String path = this.getClass().getResource("security.json").getPath();
+        String path = getResourceFile("com/facebook/presto/atop/security.json").getPath();
         queryRunner = createQueryRunner(ImmutableMap.of("atop.security", "file", "security.config-file", path), TestingAtopFactory.class);
     }
 

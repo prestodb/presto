@@ -56,7 +56,7 @@ public class TestH2QueryRunner
 
         // date, which midnight was skipped in JVM zone
         LocalDate forwardOffsetChangeAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(forwardOffsetChangeAtMidnightInJvmZone.atStartOfDay()).size() == 0, "This test assumes certain JVM time zone");
+        checkState(ZoneId.systemDefault().getRules().getValidOffsets(forwardOffsetChangeAtMidnightInJvmZone.atStartOfDay()).isEmpty(), "This test assumes certain JVM time zone");
         rows = h2QueryRunner.execute(TEST_SESSION, DateTimeFormatter.ofPattern("'SELECT DATE '''uuuu-MM-dd''").format(forwardOffsetChangeAtMidnightInJvmZone), ImmutableList.of(TIMESTAMP));
         assertEquals(rows.getOnlyValue(), forwardOffsetChangeAtMidnightInJvmZone.atStartOfDay());
     }

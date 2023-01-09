@@ -66,7 +66,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -83,6 +82,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -102,7 +102,7 @@ import static org.joda.time.DateTimeZone.UTC;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@OutputTimeUnit(MILLISECONDS)
 @Fork(2)
 @Warmup(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
 @Measurement(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
@@ -268,7 +268,7 @@ public class BenchmarkSelectiveStreamReaders
             }
 
             // Use writeOrcColumnsPresto so that orcType and varchar length can be written in file footer
-            writeOrcColumnsPresto(orcFile, ORC_12, NONE, Optional.empty(), Collections.nCopies(channelCount, type), values, new OrcWriterStats());
+            writeOrcColumnsPresto(orcFile, ORC_12, NONE, Optional.empty(), Collections.nCopies(channelCount, type), values, NOOP_WRITER_STATS);
         }
 
         @TearDown
@@ -309,7 +309,6 @@ public class BenchmarkSelectiveStreamReaders
                     0,
                     dataSource.getSize(),
                     UTC, // arbitrary
-                    true,
                     new TestingHiveOrcAggregatedMemoryContext(),
                     Optional.empty(),
                     INITIAL_BATCH_SIZE);
@@ -425,7 +424,7 @@ public class BenchmarkSelectiveStreamReaders
             if (type == TIMESTAMP) {
                 // We use int because longs will be converted to int when being written.
                 long value = random.nextInt();
-                return new SqlTimestamp(value, TimeZoneKey.UTC_KEY);
+                return new SqlTimestamp(value, TimeZoneKey.UTC_KEY, MILLISECONDS);
             }
 
             if (type == REAL) {

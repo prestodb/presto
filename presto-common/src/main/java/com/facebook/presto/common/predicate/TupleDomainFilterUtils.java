@@ -62,12 +62,12 @@ public class TupleDomainFilterUtils
         boolean nullAllowed = domain.isNullAllowed();
 
         if (values.isAll()) {
-            checkArgument(!nullAllowed, "Unexpected allways-true filter");
+            checkArgument(!nullAllowed, "Unexpected always-true filter");
             return IS_NOT_NULL;
         }
 
         if (values.isNone()) {
-            checkArgument(nullAllowed, "Unexpected allways-false filter");
+            checkArgument(nullAllowed, "Unexpected always-false filter");
             return IS_NULL;
         }
 

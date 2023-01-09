@@ -493,9 +493,9 @@ public class TestTupleDomainFilterUtils
         return new IsNullPredicate(expression);
     }
 
-    private InPredicate in(Expression expression, Type expressisonType, List<?> values)
+    private InPredicate in(Expression expression, Type expressionType, List<?> values)
     {
-        List<Type> types = nCopies(values.size(), expressisonType);
+        List<Type> types = nCopies(values.size(), expressionType);
         List<Expression> expressions = literalEncoder.toExpressions(values, types);
         return new InPredicate(expression, new InListExpression(expressions));
     }

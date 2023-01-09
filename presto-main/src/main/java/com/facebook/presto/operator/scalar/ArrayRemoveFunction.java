@@ -78,8 +78,42 @@ public final class ArrayRemoveFunction
             @SqlType("array(E)") Block array,
             @SqlType("E") Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, array.getPositionCount());
+        int found = -1;
         for (int i = 0; i < array.getPositionCount(); i++) {
+            // First see if the element to remove exists in the input array.
+            Object element = readNativeValue(type, array, i);
+            if (element != null) {
+                try {
+                    Boolean result = (Boolean) equalsFunction.invoke(element, value);
+
+                    if (result == null) {
+                        throw new PrestoException(NOT_SUPPORTED, "array_remove does not support arrays with elements that are null or contain null");
+                    }
+
+                    if (result) {
+                        found = i;
+                        break;
+                    }
+                }
+                catch (Throwable t) {
+                    throw internalError(t);
+                }
+            }
+        }
+
+        if (found == -1) {
+            // The element doesn't exist
+            return array;
+        }
+
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, array.getPositionCount() - 1);
+        // first let's copy all the elements up to found.
+        for (int i = 0; i < found; i++) {
+            type.appendTo(array, i, blockBuilder);
+        }
+
+        // skip the (first) found element and apply remove to the remaining array elements.
+        for (int i = found + 1; i < array.getPositionCount(); i++) {
             Object element = readNativeValue(type, array, i);
             if (element == null) {
                 blockBuilder.appendNull();

@@ -14,6 +14,7 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.google.common.base.Splitter;
 import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.collect.ImmutableList;
@@ -27,8 +28,11 @@ import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static com.facebook.presto.pinot.PinotPushdownUtils.PINOT_DISTINCT_COUNT_FUNCTION_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -36,10 +40,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class PinotConfig
 {
     public static final int DEFAULT_LIMIT_LARGE_FOR_SEGMENT = Integer.MAX_VALUE;
-    public static final int DEFAULT_MAX_BACKLOG_PER_SERVER = 30;
-    public static final int DEFAULT_MAX_CONNECTIONS_PER_SERVER = 30;
-    public static final int DEFAULT_MIN_CONNECTIONS_PER_SERVER = 10;
-    public static final int DEFAULT_THREAD_POOL_SIZE = 30;
     public static final int DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = 25_000;
     public static final int DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES = (int) new DataSize(128, MEGABYTE).toBytes();
 
@@ -48,39 +48,34 @@ public class PinotConfig
     public static final int DEFAULT_TOPN_LARGE = 10_000;
     public static final int DEFAULT_PROXY_GRPC_PORT = 8124;
 
-    private static final Duration DEFAULT_IDLE_TIMEOUT = new Duration(5, TimeUnit.MINUTES);
+    public static final String DEFAULT_GRPC_TLS_STORE_TYPE = "PKCS12";
+
     private static final Duration DEFAULT_CONNECTION_TIMEOUT = new Duration(1, TimeUnit.MINUTES);
     private static final int DEFAULT_ESTIMATED_SIZE_IN_BYTES_FOR_NON_NUMERIC_COLUMN = 20;
 
     private static final Splitter LIST_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings();
     private static final MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator(":");
 
-    private int maxConnectionsPerServer = DEFAULT_MAX_CONNECTIONS_PER_SERVER;
     private String controllerRestService;
     private String serviceHeaderParam = "RPC-Service";
     private String callerHeaderValue = "presto";
     private String callerHeaderParam = "RPC-Caller";
 
     private List<String> controllerUrls = ImmutableList.of();
-    private String restProxyUrl;
     private String restProxyServiceForQuery;
 
     private int limitLargeForSegment = DEFAULT_LIMIT_LARGE_FOR_SEGMENT;
     private int topNLarge = DEFAULT_TOPN_LARGE;
 
-    private Duration idleTimeout = DEFAULT_IDLE_TIMEOUT;
     private Duration connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
 
-    private int threadPoolSize = DEFAULT_THREAD_POOL_SIZE;
-    private int minConnectionsPerServer = DEFAULT_MIN_CONNECTIONS_PER_SERVER;
-    private int maxBacklogPerServer = DEFAULT_MAX_BACKLOG_PER_SERVER;
     private int estimatedSizeInBytesForNonNumericColumn = DEFAULT_ESTIMATED_SIZE_IN_BYTES_FOR_NON_NUMERIC_COLUMN;
     private Map<String, String> extraHttpHeaders = ImmutableMap.of();
     private Duration metadataCacheExpiry = new Duration(2, TimeUnit.MINUTES);
 
-    private boolean allowMultipleAggregations = true;
     private boolean forbidBrokerQueries;
     private boolean forbidSegmentQueries;
+    private boolean attemptBrokerQueries;
 
     // Infer Pinot time fields to Presto Date/Timestamp type
     private boolean inferDateTypeInSchema = true;
@@ -89,10 +84,7 @@ public class PinotConfig
     // Retry on data fetch exceptions, e.g. timeout from the server side.
     private boolean markDataFetchExceptionsAsRetriable = true;
 
-    // Requires Pinot version >= 0.4.0.
-    private boolean usePinotSqlForBrokerQueries = true;
     // Requires Pinot version >= 0.6.0.
-    private boolean useStreamingForSegmentQueries;
     private int streamingServerGrpcMaxInboundMessageBytes = DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES;
 
     private int numSegmentsPerSplit = 1;
@@ -100,16 +92,29 @@ public class PinotConfig
     private int fetchRetryCount = 2;
     private boolean useDateTrunc;
     private int nonAggregateLimitForBrokerQueries = DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES;
-    private boolean pushdownTopNBrokerQueries;
-    private boolean useProxyGrpcEndpoint;
-    private String proxyGrpcHost;
-    private int proxyGrpcPort = DEFAULT_PROXY_GRPC_PORT;
-    private boolean useProxyForBrokerRequest;
-    private boolean useHttpsForController;
-    private boolean useHttpsForBroker;
-    private boolean useHttpsForProxy;
+    private boolean pushdownTopNBrokerQueries = true;
+    private boolean pushdownProjectExpressions = true;
+    private String grpcHost;
+    private int grpcPort = DEFAULT_PROXY_GRPC_PORT;
+    private boolean useProxy;
+    private boolean useSecureConnection;
     private Map<String, String> extraGrpcMetadata = ImmutableMap.of();
     private String overrideDistinctCountFunction = PINOT_DISTINCT_COUNT_FUNCTION_NAME;
+    private String grpcTlsKeyStorePath;
+    private String grpcTlsKeyStorePassword;
+    private String grpcTlsKeyStoreType = DEFAULT_GRPC_TLS_STORE_TYPE;
+    private String grpcTlsTrustStorePath;
+    private String grpcTlsTrustStorePassword;
+    private String grpcTlsTrustStoreType = DEFAULT_GRPC_TLS_STORE_TYPE;
+
+    private String controllerAuthenticationType = "NONE";
+    private String controllerAuthenticationUser;
+    private String controllerAuthenticationPassword;
+    private String brokerAuthenticationType = "NONE";
+    private String brokerAuthenticationUser;
+    private String brokerAuthenticationPassword;
+
+    private String queryOptions;
 
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
@@ -151,19 +156,6 @@ public class PinotConfig
     }
 
     @Nullable
-    public String getRestProxyUrl()
-    {
-        return restProxyUrl;
-    }
-
-    @Config("pinot.rest-proxy-url")
-    public PinotConfig setRestProxyUrl(String restProxyUrl)
-    {
-        this.restProxyUrl = restProxyUrl;
-        return this;
-    }
-
-    @Nullable
     public String getControllerRestService()
     {
         return controllerRestService;
@@ -173,19 +165,6 @@ public class PinotConfig
     public PinotConfig setControllerRestService(String controllerRestService)
     {
         this.controllerRestService = controllerRestService;
-        return this;
-    }
-
-    @NotNull
-    public boolean isAllowMultipleAggregations()
-    {
-        return allowMultipleAggregations;
-    }
-
-    @Config("pinot.allow-multiple-aggregations")
-    public PinotConfig setAllowMultipleAggregations(boolean allowMultipleAggregations)
-    {
-        this.allowMultipleAggregations = allowMultipleAggregations;
         return this;
     }
 
@@ -212,86 +191,6 @@ public class PinotConfig
     public PinotConfig setTopNLarge(int topNLarge)
     {
         this.topNLarge = topNLarge;
-        return this;
-    }
-
-    @NotNull
-    public int getThreadPoolSize()
-    {
-        return threadPoolSize;
-    }
-
-    @Config("pinot.thread-pool-size")
-    public PinotConfig setThreadPoolSize(int threadPoolSize)
-    {
-        this.threadPoolSize = threadPoolSize;
-        return this;
-    }
-
-    @NotNull
-    public int getMinConnectionsPerServer()
-    {
-        return minConnectionsPerServer;
-    }
-
-    @Config("pinot.min-connections-per-server")
-    public PinotConfig setMinConnectionsPerServer(int minConnectionsPerServer)
-    {
-        this.minConnectionsPerServer = minConnectionsPerServer;
-        return this;
-    }
-
-    @NotNull
-    public int getMaxConnectionsPerServer()
-    {
-        return maxConnectionsPerServer;
-    }
-
-    @Config("pinot.max-connections-per-server")
-    public PinotConfig setMaxConnectionsPerServer(int maxConnectionsPerServer)
-    {
-        this.maxConnectionsPerServer = maxConnectionsPerServer;
-        return this;
-    }
-
-    @NotNull
-    public int getMaxBacklogPerServer()
-    {
-        return maxBacklogPerServer;
-    }
-
-    @Config("pinot.max-backlog-per-server")
-    public PinotConfig setMaxBacklogPerServer(int maxBacklogPerServer)
-    {
-        this.maxBacklogPerServer = maxBacklogPerServer;
-        return this;
-    }
-
-    @MinDuration("15s")
-    @NotNull
-    public Duration getIdleTimeout()
-    {
-        return idleTimeout;
-    }
-
-    @Config("pinot.idle-timeout")
-    public PinotConfig setIdleTimeout(Duration idleTimeout)
-    {
-        this.idleTimeout = idleTimeout;
-        return this;
-    }
-
-    @MinDuration("15s")
-    @NotNull
-    public Duration getConnectionTimeout()
-    {
-        return connectionTimeout;
-    }
-
-    @Config("pinot.connection-timeout")
-    public PinotConfig setConnectionTimeout(Duration connectionTimeout)
-    {
-        this.connectionTimeout = connectionTimeout;
         return this;
     }
 
@@ -385,6 +284,18 @@ public class PinotConfig
         return this;
     }
 
+    public boolean isAttemptBrokerQueries()
+    {
+        return attemptBrokerQueries;
+    }
+
+    @Config("pinot.attempt-broker-queries")
+    public PinotConfig setAttemptBrokerQueries(boolean attemptBrokerQueries)
+    {
+        this.attemptBrokerQueries = attemptBrokerQueries;
+        return this;
+    }
+
     @Nullable
     public String getRestProxyServiceForQuery()
     {
@@ -420,18 +331,6 @@ public class PinotConfig
     {
         checkArgument(numSegmentsPerSplit > 0, "Number of segments per split must be more than zero");
         this.numSegmentsPerSplit = numSegmentsPerSplit;
-        return this;
-    }
-
-    public boolean isIgnoreEmptyResponses()
-    {
-        return ignoreEmptyResponses;
-    }
-
-    @Config("pinot.ignore-empty-responses")
-    public PinotConfig setIgnoreEmptyResponses(boolean ignoreEmptyResponses)
-    {
-        this.ignoreEmptyResponses = ignoreEmptyResponses;
         return this;
     }
 
@@ -495,18 +394,6 @@ public class PinotConfig
         return this;
     }
 
-    public boolean isUsePinotSqlForBrokerQueries()
-    {
-        return usePinotSqlForBrokerQueries;
-    }
-
-    @Config("pinot.use-pinot-sql-for-broker-queries")
-    public PinotConfig setUsePinotSqlForBrokerQueries(boolean usePinotSqlForBrokerQueries)
-    {
-        this.usePinotSqlForBrokerQueries = usePinotSqlForBrokerQueries;
-        return this;
-    }
-
     public boolean isPushdownTopNBrokerQueries()
     {
         return pushdownTopNBrokerQueries;
@@ -521,15 +408,15 @@ public class PinotConfig
         return this;
     }
 
-    public boolean isUseStreamingForSegmentQueries()
+    public boolean isPushdownProjectExpressions()
     {
-        return useStreamingForSegmentQueries;
+        return pushdownProjectExpressions;
     }
 
-    @Config("pinot.use-streaming-for-segment-queries")
-    public PinotConfig setUseStreamingForSegmentQueries(boolean useStreamingForSegmentQueries)
+    @Config("pinot.pushdown-project-expressions")
+    public PinotConfig setPushdownProjectExpressions(boolean pushdownProjectExpressions)
     {
-        this.useStreamingForSegmentQueries = useStreamingForSegmentQueries;
+        this.pushdownProjectExpressions = pushdownProjectExpressions;
         return this;
     }
 
@@ -545,87 +432,51 @@ public class PinotConfig
         return this;
     }
 
-    public boolean isUseProxyForBrokerRequest()
+    public boolean isUseProxy()
     {
-        return this.useProxyForBrokerRequest;
+        return this.useProxy;
     }
 
-    @Config("pinot.use-proxy-for-broker-request")
-    public PinotConfig setUseProxyForBrokerRequest(boolean useProxyForBrokerRequest)
+    @Config("pinot.proxy-enabled")
+    public PinotConfig setUseProxy(boolean useProxy)
     {
-        this.useProxyForBrokerRequest = useProxyForBrokerRequest;
+        this.useProxy = useProxy;
         return this;
     }
 
-    public boolean isUseProxyGrpcEndpoint()
+    public String getGrpcHost()
     {
-        return this.useProxyGrpcEndpoint;
+        return grpcHost;
     }
 
-    @Config("pinot.use-proxy-grpc-endpoint")
-    public PinotConfig setUseProxyGrpcEndpoint(boolean useProxyGrpcEndpoint)
+    @Config("pinot.grpc-host")
+    public PinotConfig setGrpcHost(String grpcHost)
     {
-        this.useProxyGrpcEndpoint = useProxyGrpcEndpoint;
+        this.grpcHost = grpcHost;
         return this;
     }
 
-    public String getProxyGrpcHost()
+    public int getGrpcPort()
     {
-        return proxyGrpcHost;
+        return grpcPort;
     }
 
-    @Config("pinot.proxy-grpc-host")
-    public PinotConfig setProxyGrpcHost(String proxyGrpcHost)
+    @Config("pinot.grpc-port")
+    public PinotConfig setGrpcPort(int grpcPort)
     {
-        this.proxyGrpcHost = proxyGrpcHost;
+        this.grpcPort = grpcPort;
         return this;
     }
 
-    public int getProxyGrpcPort()
+    public boolean isUseSecureConnection()
     {
-        return proxyGrpcPort;
+        return this.useSecureConnection;
     }
 
-    @Config("pinot.proxy-grpc-port")
-    public PinotConfig setProxyGrpcPort(int proxyGrpcPort)
+    @Config("pinot.secure-connection")
+    public PinotConfig setUseSecureConnection(boolean useSecureConnection)
     {
-        this.proxyGrpcPort = proxyGrpcPort;
-        return this;
-    }
-
-    public boolean isUseHttpsForController()
-    {
-        return this.useHttpsForController;
-    }
-
-    @Config("pinot.use-https-for-controller")
-    public PinotConfig setUseHttpsForController(boolean useHttpsForController)
-    {
-        this.useHttpsForController = useHttpsForController;
-        return this;
-    }
-
-    public boolean isUseHttpsForBroker()
-    {
-        return this.useHttpsForBroker;
-    }
-
-    @Config("pinot.use-https-for-broker")
-    public PinotConfig setUseHttpsForBroker(boolean useHttpsForBroker)
-    {
-        this.useHttpsForBroker = useHttpsForBroker;
-        return this;
-    }
-
-    public boolean isUseHttpsForProxy()
-    {
-        return this.useHttpsForProxy;
-    }
-
-    @Config("pinot.use-https-for-proxy")
-    public PinotConfig setUseHttpsForProxy(boolean useHttpsForProxy)
-    {
-        this.useHttpsForProxy = useHttpsForProxy;
+        this.useSecureConnection = useSecureConnection;
         return this;
     }
 
@@ -638,6 +489,180 @@ public class PinotConfig
     public PinotConfig setOverrideDistinctCountFunction(String overrideDistinctCountFunction)
     {
         this.overrideDistinctCountFunction = overrideDistinctCountFunction;
+        return this;
+    }
+
+    public String getGrpcTlsKeyStorePath()
+    {
+        return grpcTlsKeyStorePath;
+    }
+
+    @Config("pinot.grpc-tls-key-store-path")
+    public PinotConfig setGrpcTlsKeyStorePath(String grpcTlsKeyStorePath)
+    {
+        this.grpcTlsKeyStorePath = grpcTlsKeyStorePath;
+        return this;
+    }
+
+    public String getGrpcTlsKeyStorePassword()
+    {
+        return grpcTlsKeyStorePassword;
+    }
+
+    @Config("pinot.grpc-tls-key-store-password")
+    public PinotConfig setGrpcTlsKeyStorePassword(String grpcTlsKeyStorePassword)
+    {
+        this.grpcTlsKeyStorePassword = grpcTlsKeyStorePassword;
+        return this;
+    }
+
+    public String getGrpcTlsKeyStoreType()
+    {
+        return grpcTlsKeyStoreType;
+    }
+
+    @Config("pinot.grpc-tls-key-store-type")
+    public PinotConfig setGrpcTlsKeyStoreType(String grpcTlsKeyStoreType)
+    {
+        this.grpcTlsKeyStoreType = grpcTlsKeyStoreType;
+        return this;
+    }
+
+    public String getGrpcTlsTrustStorePath()
+    {
+        return grpcTlsTrustStorePath;
+    }
+
+    @Config("pinot.grpc-tls-trust-store-path")
+    public PinotConfig setGrpcTlsTrustStorePath(String grpcTlsTrustStorePath)
+    {
+        this.grpcTlsTrustStorePath = grpcTlsTrustStorePath;
+        return this;
+    }
+
+    public String getGrpcTlsTrustStorePassword()
+    {
+        return grpcTlsTrustStorePassword;
+    }
+
+    @Config("pinot.grpc-tls-trust-store-password")
+    public PinotConfig setGrpcTlsTrustStorePassword(String grpcTlsTrustStorePassword)
+    {
+        this.grpcTlsTrustStorePassword = grpcTlsTrustStorePassword;
+        return this;
+    }
+
+    public String getGrpcTlsTrustStoreType()
+    {
+        return grpcTlsTrustStoreType;
+    }
+
+    @Config("pinot.grpc-tls-trust-store-type")
+    public PinotConfig setGrpcTlsTrustStoreType(String grpcTlsTrustStoreType)
+    {
+        this.grpcTlsTrustStoreType = grpcTlsTrustStoreType;
+        return this;
+    }
+
+    @NotNull
+    public String getControllerAuthenticationType()
+    {
+        return controllerAuthenticationType;
+    }
+
+    @Config("pinot.controller-authentication-type")
+    public PinotConfig setControllerAuthenticationType(String controllerAuthenticationType)
+    {
+        this.controllerAuthenticationType = controllerAuthenticationType;
+        return this;
+    }
+
+    public String getControllerAuthenticationUser()
+    {
+        return controllerAuthenticationUser;
+    }
+
+    @Config("pinot.controller-authentication-user")
+    public PinotConfig setControllerAuthenticationUser(String controllerAuthenticationUser)
+    {
+        this.controllerAuthenticationUser = controllerAuthenticationUser;
+        return this;
+    }
+
+    public String getControllerAuthenticationPassword()
+    {
+        return controllerAuthenticationPassword;
+    }
+
+    @Config("pinot.controller-authentication-password")
+    @ConfigSecuritySensitive
+    public PinotConfig setControllerAuthenticationPassword(String controllerAuthenticationPassword)
+    {
+        this.controllerAuthenticationPassword = controllerAuthenticationPassword;
+        return this;
+    }
+
+    @NotNull
+    public String getBrokerAuthenticationType()
+    {
+        return brokerAuthenticationType;
+    }
+
+    @Config("pinot.broker-authentication-type")
+    public PinotConfig setBrokerAuthenticationType(String brokerAuthenticationType)
+    {
+        this.brokerAuthenticationType = brokerAuthenticationType;
+        return this;
+    }
+
+    public String getBrokerAuthenticationUser()
+    {
+        return brokerAuthenticationUser;
+    }
+
+    @Config("pinot.broker-authentication-user")
+    public PinotConfig setBrokerAuthenticationUser(String brokerAuthenticationUser)
+    {
+        this.brokerAuthenticationUser = brokerAuthenticationUser;
+        return this;
+    }
+
+    public String getBrokerAuthenticationPassword()
+    {
+        return brokerAuthenticationPassword;
+    }
+
+    @Config("pinot.broker-authentication-password")
+    @ConfigSecuritySensitive
+    public PinotConfig setBrokerAuthenticationPassword(String brokerAuthenticationPassword)
+    {
+        this.brokerAuthenticationPassword = brokerAuthenticationPassword;
+        return this;
+    }
+
+    /**
+     * Randomly select one controller from the property in pinot controller list.
+     *
+     * @return one URL string of pinot controller
+     */
+    public String getControllerUrl()
+    {
+        List<String> controllerUrls = getControllerUrls();
+        if (controllerUrls.isEmpty()) {
+            throw new PinotException(PINOT_INVALID_CONFIGURATION, Optional.empty(), "No pinot controllers specified");
+        }
+        return controllerUrls.get(ThreadLocalRandom.current().nextInt(controllerUrls.size()));
+    }
+
+    public String getQueryOptions()
+    {
+        return queryOptions;
+    }
+
+    @Config("pinot.query-options")
+    public PinotConfig setQueryOptions(String options)
+    {
+        queryOptions = options;
         return this;
     }
 }

@@ -33,7 +33,7 @@ public class TestHiveDecimalParser
         checkParseDecimal("3.11", 2, 1, new BigDecimal("3.1"));
         checkParseDecimal("3.16", 2, 1, new BigDecimal("3.2"));
 
-        // rouding of half (odd and even)
+        // rounding of half (odd and even)
         checkParseDecimal("3.15", 2, 1, new BigDecimal("3.2"));
         checkParseDecimal("3.25", 2, 1, new BigDecimal("3.3"));
 

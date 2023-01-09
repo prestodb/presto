@@ -63,6 +63,7 @@ public class TestQueryManagerConfig
                 .setQueryMaxExecutionTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
                 .setQueryMaxScanRawInputBytes(new DataSize(1000, PETABYTE))
+                .setQueryMaxOutputPositions(Long.MAX_VALUE)
                 .setQueryMaxOutputSize(new DataSize(1000, PETABYTE))
                 .setRequiredWorkers(1)
                 .setRequiredWorkersMaxWait(new Duration(5, TimeUnit.MINUTES))
@@ -74,7 +75,10 @@ public class TestQueryManagerConfig
                 .setPerQueryRetryLimit(0)
                 .setPerQueryRetryMaxExecutionTime(new Duration(5, MINUTES))
                 .setGlobalQueryRetryFailureLimit(150)
-                .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES)));
+                .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES))
+                .setRateLimiterBucketMaxSize(100)
+                .setRateLimiterCacheLimit(1000)
+                .setRateLimiterCacheWindowMinutes(5));
     }
 
     @Test
@@ -108,6 +112,7 @@ public class TestQueryManagerConfig
                 .put("query.max-execution-time", "3h")
                 .put("query.max-cpu-time", "2d")
                 .put("query.max-scan-raw-input-bytes", "1MB")
+                .put("query.max-output-positions", "259")
                 .put("query.max-output-size", "100MB")
                 .put("query.use-streaming-exchange-for-mark-distinct", "true")
                 .put("query-manager.required-workers", "333")
@@ -120,6 +125,9 @@ public class TestQueryManagerConfig
                 .put("per-query-retry-max-execution-time", "1h")
                 .put("global-query-retry-failure-limit", "200")
                 .put("global-query-retry-failure-window", "1h")
+                .put("query-manager.rate-limiter-bucket-max-size", "200")
+                .put("query-manager.rate-limiter-cache-limit", "10000")
+                .put("query-manager.rate-limiter-cache-window-minutes", "60")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -150,6 +158,7 @@ public class TestQueryManagerConfig
                 .setQueryMaxExecutionTime(new Duration(3, TimeUnit.HOURS))
                 .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS))
                 .setQueryMaxScanRawInputBytes(new DataSize(1, MEGABYTE))
+                .setQueryMaxOutputPositions(259)
                 .setQueryMaxOutputSize(new DataSize(100, MEGABYTE))
                 .setRequiredWorkers(333)
                 .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES))
@@ -161,8 +170,10 @@ public class TestQueryManagerConfig
                 .setPerQueryRetryLimit(10)
                 .setPerQueryRetryMaxExecutionTime(new Duration(1, HOURS))
                 .setGlobalQueryRetryFailureLimit(200)
-                .setGlobalQueryRetryFailureWindow(new Duration(1, HOURS));
-
+                .setGlobalQueryRetryFailureWindow(new Duration(1, HOURS))
+                .setRateLimiterBucketMaxSize(200)
+                .setRateLimiterCacheLimit(10000)
+                .setRateLimiterCacheWindowMinutes(60);
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 }

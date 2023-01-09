@@ -75,6 +75,8 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
@@ -113,6 +115,7 @@ public class TestHashJoinOperator
     private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators();
     private static final SingleStreamSpillerFactory SINGLE_STREAM_SPILLER_FACTORY = new DummySpillerFactory();
     private static final PartitioningSpillerFactory PARTITIONING_SPILLER_FACTORY = new GenericPartitioningSpillerFactory(SINGLE_STREAM_SPILLER_FACTORY);
+    private static final String PAGE_BUFFER = "PageBuffer";
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -444,7 +447,7 @@ public class TestHashJoinOperator
             ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(17, new PlanNodeId("values"), probePages.build());
 
             PageBuffer pageBuffer = new PageBuffer(10);
-            PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(18, new PlanNodeId("pageBuffer"), pageBuffer);
+            PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(18, new PlanNodeId(PAGE_BUFFER), pageBuffer, PAGE_BUFFER);
 
             Driver joinDriver = Driver.createDriver(
                     joinDriverContext,
@@ -561,7 +564,7 @@ public class TestHashJoinOperator
         ValuesOperatorFactory valuesOperatorFactory2 = new ValuesOperatorFactory(18, new PlanNodeId("values2"), probe2Pages.build());
         ValuesOperatorFactory valuesOperatorFactory3 = new ValuesOperatorFactory(18, new PlanNodeId("values3"), ImmutableList.of());
         PageBuffer pageBuffer = new PageBuffer(10);
-        PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(19, new PlanNodeId("pageBuffer"), pageBuffer);
+        PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(19, new PlanNodeId(PAGE_BUFFER), pageBuffer, PAGE_BUFFER);
 
         Driver joinDriver1 = Driver.createDriver(
                 joinDriverContext1,
@@ -1204,6 +1207,41 @@ public class TestHashJoinOperator
                 buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY, true);
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(buildSideSetup);
+    }
+
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of.* \\[Estimated Spilled:.*")
+    public void testSpillMemoryLimit()
+    {
+        Session session = testSessionBuilder().setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "1000B").build();
+
+        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, session, getQueryMaxMemoryPerNode(session));
+        RowPagesBuilder buildPages = rowPagesBuilder(true, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
+                .addSequencePage(1000, 2000, 3000, 4000);
+        BuildSideSetup buildSideSetup = setupBuildSide(true,
+                taskContext,
+                Ints.asList(0),
+                buildPages,
+                Optional.empty(),
+                true,
+                SINGLE_STREAM_SPILLER_FACTORY);
+        instantiateBuildDrivers(buildSideSetup, taskContext);
+
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+        PartitionedLookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
+        ListenableFuture<LookupSourceProvider> lookupSourceProvider = lookupSourceFactory.createLookupSourceProvider();
+        List<Driver> buildDrivers = buildSideSetup.getBuildDrivers();
+
+        while (!lookupSourceProvider.isDone()) {
+            for (int i = 0; i < buildDrivers.size(); i++) {
+                revokeMemory(buildSideSetup.getBuildOperators().get(i));
+                buildDrivers.get(i).process();
+            }
+        }
+        getFutureValue(lookupSourceProvider).close();
+
+        for (Driver buildDriver : buildDrivers) {
+            runDriverInThread(executor, buildDriver);
+        }
     }
 
     @Test(dataProvider = "hashJoinTestValues")

@@ -38,6 +38,8 @@ public interface TransactionManager
 
     List<TransactionInfo> getAllTransactionInfos();
 
+    void tryRegisterTransaction(TransactionInfo transactionInfo);
+
     TransactionId beginTransaction(boolean autoCommitContext);
 
     TransactionId beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommitContext);

@@ -16,10 +16,7 @@ package com.facebook.presto.pinot;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
-
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
@@ -32,20 +29,37 @@ public class TestPinotSessionProperties
     }
 
     @Test
-    public void testConnectionTimeoutParsedProperly()
-    {
-        PinotConfig pinotConfig = new PinotConfig().setConnectionTimeout(new Duration(15, TimeUnit.SECONDS));
-        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
-        ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
-        assertEquals(PinotSessionProperties.getConnectionTimeout(session), new Duration(0.25, TimeUnit.MINUTES));
-    }
-
-    @Test
     public void testDistinctCountFunctionNameParsedProperly()
     {
         PinotConfig pinotConfig = new PinotConfig().setOverrideDistinctCountFunction("distinctCountBitmap");
         PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
         ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
         assertEquals(PinotSessionProperties.getOverrideDistinctCountFunction(session), "distinctCountBitmap");
+    }
+
+    @Test
+    public void testQueryOptionsParsedProperly()
+    {
+        PinotConfig pinotConfig = new PinotConfig().setQueryOptions(",,enableNullHandling:true,skipUpsert:true,");
+        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
+        ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
+        String queryOptionsProperty = PinotSessionProperties.getQueryOptions(session);
+        assertEquals(queryOptionsProperty, ",,enableNullHandling:true,skipUpsert:true,");
+        assertEquals(
+                PinotQueryOptionsUtils.getQueryOptionsAsString(queryOptionsProperty),
+                " option(enableNullHandling=true,skipUpsert=true) ");
+    }
+
+    @Test
+    public void testQuotedQueryOptionsParsedProperly()
+    {
+        PinotConfig pinotConfig = new PinotConfig().setQueryOptions(",,`enableNullHandling`:true,\"skipUpsert\":true,");
+        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
+        ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
+        String queryOptionsProperty = PinotSessionProperties.getQueryOptions(session);
+        assertEquals(queryOptionsProperty, ",,`enableNullHandling`:true,\"skipUpsert\":true,");
+        assertEquals(
+                PinotQueryOptionsUtils.getQueryOptionsAsString(queryOptionsProperty),
+                " option(enableNullHandling=true,skipUpsert=true) ");
     }
 }

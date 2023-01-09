@@ -68,6 +68,7 @@ import static com.google.common.collect.Iterators.advance;
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -505,7 +506,7 @@ public class TestMapFlatBatchStreamReader
 
     private static SqlTimestamp intToTimestamp(int i)
     {
-        return new SqlTimestamp(i, TimeZoneKey.UTC_KEY);
+        return new SqlTimestamp(i, TimeZoneKey.UTC_KEY, MILLISECONDS);
     }
 
     private static List<Integer> intToList(int i)

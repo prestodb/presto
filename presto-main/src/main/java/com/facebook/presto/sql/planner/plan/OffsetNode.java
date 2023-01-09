@@ -44,7 +44,17 @@ public class OffsetNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, count);
+    }
+
+    public OffsetNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            long count)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         requireNonNull(source, "source is null");
         checkArgument(count >= 0, "count must be greater than or equal to zero");
@@ -86,6 +96,12 @@ public class OffsetNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new OffsetNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), count);
+        return new OffsetNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), count);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new OffsetNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, count);
     }
 }

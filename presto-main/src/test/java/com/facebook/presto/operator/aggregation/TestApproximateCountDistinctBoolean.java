@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Booleans;
@@ -31,9 +32,9 @@ public class TestApproximateCountDistinctBoolean
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public InternalAggregationFunction getAggregationFunction()
+    public JavaAggregationFunctionImplementation getAggregationFunction()
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
                 FUNCTION_AND_TYPE_MANAGER.lookupFunction("approx_distinct", fromTypes(BOOLEAN, DOUBLE)));
     }
 

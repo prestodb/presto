@@ -57,7 +57,7 @@ public class ScalarFunctionImplementationChoice
 
         if (instanceFactory.isPresent()) {
             Class<?> instanceType = instanceFactory.get().type().returnType();
-            checkArgument(instanceFactory.get().type().parameterList().size() == 0, "instanceFactory should have no parameter");
+            checkArgument(instanceFactory.get().type().parameterList().isEmpty(), "instanceFactory should have no parameter");
             checkArgument(instanceType.equals(methodHandle.type().parameterType(0)), "methodHandle is not an instance method");
         }
 

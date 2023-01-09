@@ -12,16 +12,19 @@ from different data sources.
     connector/bigquery
     connector/blackhole
     connector/cassandra
+    connector/clickhouse
     connector/deltalake
     connector/druid
     connector/elasticsearch
     connector/hive
     connector/hive-security
+    connector/hudi
     connector/iceberg
     connector/jmx
     connector/kafka
     connector/kafka-tutorial
     connector/kudu
+    connector/larksheets
     connector/localfile
     connector/memory
     connector/mongodb

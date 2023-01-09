@@ -45,6 +45,12 @@
           "maxQueued": 4
         },
         {
+          "name": "control",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
           "name": "other",
           "softMemoryLimit": "2MB",
           "hardConcurrencyLimit": 3,
@@ -77,6 +83,10 @@
     {
       "queryType" : "data_definition",
       "group": "global.data_definition"
+    },
+    {
+      "queryType" : "control",
+      "group": "global.control"
     },
     {
       "group": "global.other"

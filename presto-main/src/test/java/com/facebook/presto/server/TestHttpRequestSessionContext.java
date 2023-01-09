@@ -105,7 +105,8 @@ public class TestHttpRequestSessionContext
                                 urlEncode(SERIALIZED_SQL_FUNCTION_ID_ADD_1_TO_INT_ARRAY),
                                 urlEncode(SERIALIZED_SQL_FUNCTION_ADD_1_to_INT_ARRAY)))
                         .build(),
-                "testRemote");
+                "testRemote",
+                ImmutableMap.of());
 
         HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
         assertEquals(context.getSource(), "testSource");
@@ -145,7 +146,8 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_CLIENT_INFO, "null")
                         .put(PRESTO_PREPARED_STATEMENT, "query1=abcdefg")
                         .build(),
-                "testRemote");
+                "testRemote",
+                ImmutableMap.of());
         new HttpRequestSessionContext(request, new SqlParserOptions());
     }
 
@@ -163,7 +165,8 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_CLIENT_INFO, "null")
                         .put(PRESTO_PREPARED_STATEMENT, "query1=select * from tbl:ns")
                         .build(),
-                "testRemote");
+                "testRemote",
+                ImmutableMap.of());
         SqlParserOptions options = new SqlParserOptions();
         options.allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class));
 
@@ -193,7 +196,8 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_EXTRA_CREDENTIAL, "test.json=" + urlEncode("{\"a\" : \"b\", \"c\" : \"d=\"}") + ", test.token.key3 = abc=cd")
                         .put(PRESTO_EXTRA_CREDENTIAL, "test.token.abc=xyz")
                         .build(),
-                "testRemote");
+                "testRemote",
+                ImmutableMap.of());
 
         HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
         assertEquals(

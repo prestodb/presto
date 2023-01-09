@@ -31,9 +31,11 @@ public class SimpleTracer
     public final Map<String, SimpleTracerBlock> blockMap = new ConcurrentHashMap<>();
     public final Map<String, SimpleTracerBlock> recorderBlockMap = new LinkedHashMap<>();
     public final List<SimpleTracerPoint> pointList = new CopyOnWriteArrayList<>();
+    public final String traceToken;
 
-    public SimpleTracer()
+    public SimpleTracer(String traceToken)
     {
+        this.traceToken = traceToken;
         addPoint("Start tracing");
     }
 
@@ -86,7 +88,10 @@ public class SimpleTracer
     @Override
     public String getTracerId()
     {
-        return "simple_dummy_id";
+        if (traceToken != null) {
+            return traceToken;
+        }
+        return tracerName;
     }
 
     public String toString()

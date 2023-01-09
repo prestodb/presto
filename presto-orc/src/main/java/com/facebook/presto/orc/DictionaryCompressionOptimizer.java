@@ -67,8 +67,23 @@ import static java.util.Objects.requireNonNull;
 public class DictionaryCompressionOptimizer
 {
     private static final double DICTIONARY_MIN_COMPRESSION_RATIO = 1.25;
+    // ORC used Base 128 varint from Protobuf. https://developers.google.com/protocol-buffers/docs/encoding
+    // In Varint encoding, numbers 1.. (2^8 -1) are encoded using 1 byte.
+    // 2^8 to 2^14 -1 are encoded using two bytes and so on.
+    private static final int TWO_BYTES_VARINT_MIN = 1 << 7;
+    private static final int THREE_BYTES_VARINT_MIN = 1 << 14;
+    private static final int FOUR_BYTES_VARINT_MIN = 1 << 21;
 
     static final DataSize DIRECT_COLUMN_SIZE_RANGE = new DataSize(4, MEGABYTE);
+
+    // Dictionary writer stores nulls in rowGroupIndex (min 1 byte to max 4 bytes), direct writer uses bit.
+    // Dictionary column's nulls are not included in dictionary bytes or Index bytes.
+    // But nulls are stored in the rowGroupIndexes and the null memory is unaccounted for and causes OOMs.
+    // This constant defines how many nulls in a dictionary column to be counted as 1 byte.
+    // Setting this to 1 means, 1 null will be counted as 1 dictionary byte and might abandon some dictionary
+    // prematurely. Setting to 8 means, 8 nulls will count as 1 byte, but most likely will result in OOM.
+    // For the few files that were having issues, 4 worked the best, so starting this value with 4.
+    static final int NUMBER_OF_NULLS_FOR_DICTIONARY_BYTE = 4;
 
     private final List<DictionaryColumnManager> allWriters;
     private final List<DictionaryColumnManager> directConversionCandidates = new ArrayList<>();
@@ -170,15 +185,16 @@ public class DictionaryCompressionOptimizer
     {
         // recompute the dictionary memory usage
         int totalDictionaryBytes = 0;
+        long totalNullBytes = 0;
         for (DictionaryColumnManager writer : allWriters) {
             if (!writer.isDirectEncoded()) {
                 totalDictionaryBytes += writer.getDictionaryBytes();
+                totalNullBytes += writer.getDictionaryColumn().getNullValueCount();
                 writer.updateHistory(stripeRowCount);
             }
         }
         dictionaryMemoryBytes = totalDictionaryBytes;
-
-        boolean isDictionaryAlmostFull = dictionaryMemoryBytes > dictionaryMemoryMaxBytesLow;
+        boolean isDictionaryAlmostFull = dictionaryMemoryBytes + (totalNullBytes / NUMBER_OF_NULLS_FOR_DICTIONARY_BYTE) > dictionaryMemoryMaxBytesLow;
 
         if (isDictionaryAlmostFull || isUsefulCheckRequired(dictionaryMemoryBytes)) {
             updateDirectConversionCandidates();
@@ -308,7 +324,7 @@ public class DictionaryCompressionOptimizer
 
         for (DictionaryColumnManager column : allWriters) {
             if (!column.isDirectEncoded()) {
-                uncompressedBytes += column.getRawBytes();
+                uncompressedBytes += column.getRawBytesEstimate();
                 compressedBytes += column.getDictionaryBytes();
             }
         }
@@ -345,7 +361,7 @@ public class DictionaryCompressionOptimizer
 
         for (DictionaryColumnManager column : allWriters) {
             if (!column.isDirectEncoded()) {
-                totalDictionaryRawBytes += column.getRawBytes();
+                totalDictionaryRawBytes += column.getRawBytesEstimate();
                 totalDictionaryBytes += column.getDictionaryBytes();
                 totalDictionaryIndexBytes += column.getIndexBytes();
 
@@ -361,7 +377,7 @@ public class DictionaryCompressionOptimizer
         for (int index = 0; index < directConversionCandidates.size(); index++) {
             DictionaryColumnManager column = directConversionCandidates.get(index);
             // determine the size of the currently written stripe if we were convert this column to direct
-            long currentRawBytes = totalNonDictionaryBytes + column.getRawBytes();
+            long currentRawBytes = totalNonDictionaryBytes + column.getRawBytesEstimate();
             long currentDictionaryBytes = totalDictionaryBytes - column.getDictionaryBytes();
             long currentIndexBytes = totalDictionaryIndexBytes - column.getIndexBytes();
             long currentTotalBytes = currentRawBytes + currentDictionaryBytes + currentIndexBytes;
@@ -398,14 +414,14 @@ public class DictionaryCompressionOptimizer
 
     public static int estimateIndexBytesPerValue(int dictionaryEntries)
     {
-        // assume basic byte packing
-        if (dictionaryEntries <= 256) {
+        // Dictionary indexes are var-int encoded in ORC.
+        if (dictionaryEntries < TWO_BYTES_VARINT_MIN) {
             return 1;
         }
-        if (dictionaryEntries <= 65_536) {
+        if (dictionaryEntries < THREE_BYTES_VARINT_MIN) {
             return 2;
         }
-        if (dictionaryEntries <= 16_777_216) {
+        if (dictionaryEntries < FOUR_BYTES_VARINT_MIN) {
             return 3;
         }
         return 4;
@@ -417,7 +433,9 @@ public class DictionaryCompressionOptimizer
 
         long getNonNullValueCount();
 
-        long getRawBytes();
+        long getNullValueCount();
+
+        long getRawBytesEstimate();
 
         int getDictionaryEntries();
 
@@ -477,16 +495,16 @@ public class DictionaryCompressionOptimizer
             }
         }
 
-        public long getRawBytes()
+        public long getRawBytesEstimate()
         {
             checkState(!isDirectEncoded());
-            return dictionaryColumn.getRawBytes();
+            return dictionaryColumn.getRawBytesEstimate();
         }
 
         public double getRawBytesPerRow()
         {
             checkState(!isDirectEncoded());
-            return 1.0 * getRawBytes() / rowCount;
+            return 1.0 * getRawBytesEstimate() / rowCount;
         }
 
         public int getDictionaryBytes()
@@ -531,7 +549,7 @@ public class DictionaryCompressionOptimizer
             if (bufferedBytes == 0) {
                 return 0;
             }
-            return 1.0 * getRawBytes() / bufferedBytes;
+            return 1.0 * getRawBytesEstimate() / bufferedBytes;
         }
 
         public long getBufferedBytes()

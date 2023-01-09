@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -40,13 +41,13 @@ public class TestEntropyAggregation
 {
     private static final String FUNCTION_NAME = "entropy";
 
-    private InternalAggregationFunction entropyFunction;
+    private JavaAggregationFunctionImplementation entropyFunction;
 
     @BeforeClass
     public void setUp()
     {
         FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
-        entropyFunction = functionAndTypeManager.getAggregateFunctionImplementation(
+        entropyFunction = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction(TestEntropyAggregation.FUNCTION_NAME, fromTypes(BIGINT)));
     }
 

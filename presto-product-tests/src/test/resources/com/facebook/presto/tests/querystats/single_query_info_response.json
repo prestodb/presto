@@ -61,6 +61,8 @@
     "rawInputPositions": 0,
     "processedInputDataSize": "0B",
     "processedInputPositions": 0,
+    "shuffledDataSize": "0B",
+    "shuffledPositions": 0,
     "outputDataSize": "0B",
     "outputPositions": 0,
     "writtenOutputPositions": 0,

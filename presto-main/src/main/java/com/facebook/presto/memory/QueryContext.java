@@ -20,8 +20,10 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.context.MemoryReservationHandler;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
+import com.facebook.presto.operator.OperatorMemoryReservationSummary;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spiller.SpillSpaceTracker;
@@ -42,9 +44,9 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
@@ -54,6 +56,8 @@ import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalUser
 import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static com.facebook.presto.spi.ErrorCause.LOW_PARTITION_COUNT;
+import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -172,10 +176,10 @@ public class QueryContext
         return queryMemoryContext;
     }
 
-    public synchronized void updateBroadcastMemory(long delta)
+    public synchronized void updateBroadcastMemory(long delta, String allocationTag)
     {
         if (delta >= 0) {
-            enforceBroadcastMemoryLimit(broadcastUsed, delta, maxBroadcastUsedMemory);
+            enforceBroadcastMemoryLimit(broadcastUsed, delta, maxBroadcastUsedMemory, allocationTag);
         }
         broadcastUsed += delta;
     }
@@ -189,9 +193,9 @@ public class QueryContext
     private synchronized ListenableFuture<?> updateUserMemory(String allocationTag, long delta)
     {
         if (delta >= 0) {
-            enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
+            enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory, allocationTag);
             long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
-            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
+            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory, allocationTag);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
         memoryPool.free(queryId, allocationTag, -delta);
@@ -203,7 +207,7 @@ public class QueryContext
     {
         long totalRevocableMemory = memoryPool.getQueryRevocableMemoryReservation(queryId);
         if (delta >= 0) {
-            enforceRevocableMemoryLimit(totalRevocableMemory, delta, maxRevocableMemory);
+            enforceRevocableMemoryLimit(totalRevocableMemory, delta, maxRevocableMemory, allocationTag);
             return memoryPool.reserveRevocable(queryId, delta);
         }
         memoryPool.freeRevocable(queryId, -delta);
@@ -231,7 +235,7 @@ public class QueryContext
         // RootAggregatedMemoryContext instance and this will be acquired in the same order).
         if (delta >= 0) {
             long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
-            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
+            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory, allocationTag);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
         memoryPool.free(queryId, allocationTag, -delta);
@@ -441,13 +445,13 @@ public class QueryContext
     {
         private final BiFunction<String, Long, ListenableFuture<?>> reserveMemoryFunction;
         private final BiPredicate<String, Long> tryReserveMemoryFunction;
-        private final Consumer<Long> updateBroadcastMemoryFunction;
+        private final BiConsumer<Long, String> updateBroadcastMemoryFunction;
         private final Predicate<Long> tryUpdateBroadcastMemoryFunction;
 
         public QueryMemoryReservationHandler(
                 BiFunction<String, Long, ListenableFuture<?>> reserveMemoryFunction,
                 BiPredicate<String, Long> tryReserveMemoryFunction,
-                Consumer<Long> updateBroadcastMemoryFunction,
+                BiConsumer<Long, String> updateBroadcastMemoryFunction,
                 Predicate<Long> tryUpdateBroadcastMemoryFunction)
         {
             this.reserveMemoryFunction = requireNonNull(reserveMemoryFunction, "reserveMemoryFunction is null");
@@ -459,20 +463,20 @@ public class QueryContext
         @Override
         public ListenableFuture<?> reserveMemory(String allocationTag, long delta, boolean enforceBroadcastMemoryLimit)
         {
-            ListenableFuture<?> future = reserveMemoryFunction.apply(allocationTag, delta);
             if (enforceBroadcastMemoryLimit) {
-                updateBroadcastMemoryFunction.accept(delta);
+                updateBroadcastMemoryFunction.accept(delta, allocationTag);
             }
+            ListenableFuture<?> future = reserveMemoryFunction.apply(allocationTag, delta);
             return future;
         }
 
         @Override
         public boolean tryReserveMemory(String allocationTag, long delta, boolean enforceBroadcastMemoryLimit)
         {
-            if (!tryReserveMemoryFunction.test(allocationTag, delta)) {
+            if (enforceBroadcastMemoryLimit && !tryUpdateBroadcastMemoryFunction.test(delta)) {
                 return false;
             }
-            return !enforceBroadcastMemoryLimit || tryUpdateBroadcastMemoryFunction.test(delta);
+            return tryReserveMemoryFunction.test(allocationTag, delta);
         }
     }
 
@@ -482,45 +486,70 @@ public class QueryContext
     }
 
     @GuardedBy("this")
-    private void enforceBroadcastMemoryLimit(long allocated, long delta, long maxMemory)
+    private void enforceBroadcastMemoryLimit(long allocated, long delta, long maxMemory, String allocationTag)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalBroadcastMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+            throw exceededLocalBroadcastMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta, allocationTag));
         }
     }
 
     @GuardedBy("this")
-    private void enforceUserMemoryLimit(long allocated, long delta, long maxMemory)
+    private void enforceUserMemoryLimit(long allocated, long delta, long maxMemory, String allocationTag)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
+            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory),
+                    getAdditionalFailureInfo(allocated, delta, allocationTag),
+                    heapDumpOnExceededMemoryLimitEnabled,
+                    heapDumpFilePath,
+                    getErrorCause());
         }
     }
 
     @GuardedBy("this")
-    private void enforceTotalMemoryLimit(long allocated, long delta, long maxMemory)
+    private ErrorCause getErrorCause()
+    {
+        if (hasLowPartitionCount()) {
+            return LOW_PARTITION_COUNT;
+        }
+        else {
+            return UNKNOWN;
+        }
+    }
+
+    @GuardedBy("this")
+    private void enforceTotalMemoryLimit(long allocated, long delta, long maxMemory, String allocationTag)
     {
         long totalMemory = allocated + delta;
         peakNodeTotalMemory = Math.max(totalMemory, peakNodeTotalMemory);
         if (totalMemory > maxMemory) {
-            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
+            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory),
+                    getAdditionalFailureInfo(allocated, delta, allocationTag),
+                    heapDumpOnExceededMemoryLimitEnabled,
+                    heapDumpFilePath,
+                    getErrorCause());
         }
     }
 
     @GuardedBy("this")
-    private void enforceRevocableMemoryLimit(long allocated, long delta, long maxMemory)
+    private void enforceRevocableMemoryLimit(long allocated, long delta, long maxMemory, String allocationTag)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalRevocableMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
+            throw exceededLocalRevocableMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta, allocationTag), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         }
     }
 
     @GuardedBy("this")
-    public String getAdditionalFailureInfo(long allocated, long delta)
+    public String getAdditionalFailureInfo(long allocated, long delta, String allocationTag)
     {
         Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations(queryId);
 
-        String additionalInfo = format("Allocated: %s, Delta: %s", succinctBytes(allocated), succinctBytes(delta));
+        String additionalInfo;
+        if (allocationTag != null && !allocationTag.isEmpty()) {
+            additionalInfo = format("Allocated: %s, Delta: %s (%s)", succinctBytes(allocated), succinctBytes(delta), allocationTag);
+        }
+        else {
+            additionalInfo = format("Allocated: %s, Delta: %s", succinctBytes(allocated), succinctBytes(delta));
+        }
 
         // It's possible that a query tries allocating more than the available memory
         // failing immediately before any allocation of that query is tagged
@@ -537,14 +566,53 @@ public class QueryContext
         String message = format("%s, Top Consumers: %s", additionalInfo, topConsumers);
 
         if (verboseExceededMemoryLimitErrorsEnabled) {
-            List<TaskMemoryReservationSummary> memoryReservationSummaries = taskContexts.values().stream()
-                    .map(TaskContext::getMemoryReservationSummary)
-                    .filter(summary -> summary.getReservation().toBytes() > 0)
-                    .sorted(comparing(TaskMemoryReservationSummary::getReservation).reversed())
-                    .limit(3)
-                    .collect(toImmutableList());
+            List<TaskMemoryReservationSummary> memoryReservationSummaries = getTaskMemoryReservationSummaries();
             message += ", Details: " + memoryReservationSummaryJsonCodec.toJson(memoryReservationSummaries);
         }
         return message;
+    }
+
+    @GuardedBy("this")
+    private List<TaskMemoryReservationSummary> getTaskMemoryReservationSummaries()
+    {
+        List<TaskMemoryReservationSummary> memoryReservationSummaries = taskContexts.values().stream()
+                .map(TaskContext::getMemoryReservationSummary)
+                .filter(summary -> summary.getReservation().toBytes() > 0)
+                .sorted(comparing(TaskMemoryReservationSummary::getReservation).reversed())
+                .limit(3)
+                .collect(toImmutableList());
+        return memoryReservationSummaries;
+    }
+
+    @GuardedBy("this")
+    private boolean hasLowPartitionCount()
+    {
+        List<TaskMemoryReservationSummary> memoryReservationSummaries = getTaskMemoryReservationSummaries();
+        if (memoryReservationSummaries == null || memoryReservationSummaries.isEmpty()) {
+            return false;
+        }
+        TaskMemoryReservationSummary topTask = memoryReservationSummaries.get(0);
+        List<OperatorMemoryReservationSummary> hashBuilderAllocations = topTask
+                .getTopConsumers()
+                .stream()
+                .filter(a -> "HashBuilderOperator".equalsIgnoreCase(a.getType()))
+                .collect(toList());
+        if (hashBuilderAllocations.isEmpty()) {
+            return false;
+        }
+        else {
+            return canPartitionsBrokenDown(hashBuilderAllocations.get(0).getReservations());
+        }
+    }
+
+    private boolean canPartitionsBrokenDown(List<DataSize> dataSizes)
+    {
+        if (dataSizes == null || dataSizes.isEmpty()) {
+            return false;
+        }
+        // If biggest data size is no more than 2x of smallest, we can break down partition
+        // This is done to avoid skew scenario for which we need different strategy of breaking down just the partitions with skew
+        List<DataSize> sortedDataSizes = dataSizes.stream().filter(a -> a.toBytes() > 0).sorted().collect(toList());
+        return sortedDataSizes.get(0).toBytes() * 2 >= sortedDataSizes.get(sortedDataSizes.size() - 1).toBytes();
     }
 }

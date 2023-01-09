@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.base.Joiner;
 import org.testng.annotations.Test;
 
@@ -84,7 +85,7 @@ public abstract class TestStatisticalDigestAggregationFunction
                 LongStream.range(-1000, 1000).asDoubleStream().toArray());
     }
 
-    protected abstract InternalAggregationFunction getAggregationFunction(Type... type);
+    protected abstract JavaAggregationFunctionImplementation getAggregationFunction(Type... type);
 
     private void testAggregationDouble(Block longsBlock, Block weightsBlock, double parameter, double... inputs)
     {
@@ -110,7 +111,7 @@ public abstract class TestStatisticalDigestAggregationFunction
 
     abstract double getParameter();
 
-    abstract void testAggregationDoubles(InternalAggregationFunction function, Page page, double maxError, double... inputs);
+    abstract void testAggregationDoubles(JavaAggregationFunctionImplementation function, Page page, double maxError, double... inputs);
 
     abstract Object getExpectedValueDoubles(double maxError, double... values);
 

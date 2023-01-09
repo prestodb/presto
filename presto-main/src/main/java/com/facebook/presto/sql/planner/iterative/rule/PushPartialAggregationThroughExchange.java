@@ -19,8 +19,8 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationByteReductionThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationStrategy;
+import static com.facebook.presto.SystemSessionProperties.isStreamingForPartialAggregationEnabled;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomposable;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
@@ -186,7 +187,7 @@ public class PushPartialAggregationThroughExchange
         for (PlanNode node : partials) {
             verify(aggregation.getOutputVariables().equals(node.getOutputVariables()));
         }
-        // Since this exchange source is now guaranteed to have the same symbols as the inputs to the the partial
+        // Since this exchange source is now guaranteed to have the same symbols as the inputs to the partial
         // aggregation, we don't need to rewrite symbols in the partitioning function
         List<VariableReferenceExpression> aggregationOutputs = aggregation.getOutputVariables();
         PartitioningScheme partitioning = new PartitioningScheme(
@@ -217,7 +218,7 @@ public class PushPartialAggregationThroughExchange
             AggregationNode.Aggregation originalAggregation = entry.getValue();
             String functionName = functionAndTypeManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName().getObjectName();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
-            InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
+            JavaAggregationFunctionImplementation function = functionAndTypeManager.getJavaAggregateFunctionImplementation(functionHandle);
             VariableReferenceExpression intermediateVariable = context.getVariableAllocator().newVariable(entry.getValue().getCall().getSourceLocation(), functionName, function.getIntermediateType());
 
             checkState(!originalAggregation.getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
@@ -254,6 +255,14 @@ public class PushPartialAggregationThroughExchange
                             Optional.empty()));
         }
 
+        // We can always enable streaming aggregation for partial aggregations. But if the table is not pre-group by the groupby columns, it may have regressions.
+        // This session property is just a solution to force enabling when we know the execution would benefit from partial streaming aggregation.
+        // We can work on determining it based on the input table properties later.
+        List<VariableReferenceExpression> preGroupedSymbols = ImmutableList.of();
+        if (isStreamingForPartialAggregationEnabled(context.getSession())) {
+            preGroupedSymbols = ImmutableList.copyOf(node.getGroupingSets().getGroupingKeys());
+        }
+
         PlanNode partial = new AggregationNode(
                 node.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
@@ -262,7 +271,7 @@ public class PushPartialAggregationThroughExchange
                 node.getGroupingSets(),
                 // preGroupedSymbols reflect properties of the input. Splitting the aggregation and pushing partial aggregation
                 // through the exchange may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
-                ImmutableList.of(),
+                preGroupedSymbols,
                 PARTIAL,
                 node.getHashVariable(),
                 node.getGroupIdVariable());
@@ -286,8 +295,8 @@ public class PushPartialAggregationThroughExchange
         StatsProvider stats = context.getStatsProvider();
         PlanNodeStatsEstimate exchangeStats = stats.getStats(exchangeNode);
         PlanNodeStatsEstimate aggregationStats = stats.getStats(aggregationNode);
-        double inputBytes = exchangeStats.getOutputSizeInBytes(exchangeNode.getOutputVariables());
-        double outputBytes = aggregationStats.getOutputSizeInBytes(aggregationNode.getOutputVariables());
+        double inputBytes = exchangeStats.getOutputSizeInBytes(exchangeNode);
+        double outputBytes = aggregationStats.getOutputSizeInBytes(aggregationNode);
         double byteReductionThreshold = getPartialAggregationByteReductionThreshold(context.getSession());
 
         return exchangeStats.isConfident() && outputBytes > inputBytes * byteReductionThreshold;

@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.pinot.query;
 
-import com.facebook.presto.pinot.PinotScatterGatherQueryClient;
-import com.facebook.presto.pinot.grpc.Constants;
-import com.facebook.presto.pinot.grpc.GrpcRequestBuilder;
+import com.facebook.presto.pinot.PinotErrorCode;
+import com.facebook.presto.pinot.PinotException;
 import org.apache.pinot.common.proto.Server;
+import org.apache.pinot.common.utils.grpc.GrpcRequestBuilder;
+import org.apache.pinot.spi.utils.CommonConstants;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class PinotProxyGrpcRequestBuilder
         extends GrpcRequestBuilder
@@ -77,7 +79,7 @@ public class PinotProxyGrpcRequestBuilder
 
     public PinotProxyGrpcRequestBuilder setSql(String sql)
     {
-        payloadType = Constants.Request.PayloadType.SQL;
+        payloadType = CommonConstants.Query.Request.PayloadType.SQL;
         this.sql = sql;
         return this;
     }
@@ -97,17 +99,17 @@ public class PinotProxyGrpcRequestBuilder
     public Server.ServerRequest build()
     {
         if (payloadType == null || segments.isEmpty()) {
-            throw new PinotScatterGatherQueryClient.PinotException(PinotScatterGatherQueryClient.ErrorCode.PINOT_UNCLASSIFIED_ERROR, "Query and segmentsToQuery must be set");
+            throw new PinotException(PinotErrorCode.PINOT_INVALID_SEGMENT_QUERY_GENERATED, Optional.empty(), "Query and segmentsToQuery must be set");
         }
-        if (!payloadType.equals(Constants.Request.PayloadType.SQL)) {
+        if (!payloadType.equals(CommonConstants.Query.Request.PayloadType.SQL)) {
             throw new RuntimeException("Only [SQL] Payload type is allowed: " + payloadType);
         }
         Map<String, String> metadata = new HashMap<>();
-        metadata.put(Constants.Request.MetadataKeys.REQUEST_ID, Integer.toString(requestId));
-        metadata.put(Constants.Request.MetadataKeys.BROKER_ID, brokerId);
-        metadata.put(Constants.Request.MetadataKeys.ENABLE_TRACE, Boolean.toString(enableTrace));
-        metadata.put(Constants.Request.MetadataKeys.ENABLE_STREAMING, Boolean.toString(enableStreaming));
-        metadata.put(Constants.Request.MetadataKeys.PAYLOAD_TYPE, payloadType);
+        metadata.put(CommonConstants.Query.Request.MetadataKeys.REQUEST_ID, Integer.toString(requestId));
+        metadata.put(CommonConstants.Query.Request.MetadataKeys.BROKER_ID, brokerId);
+        metadata.put(CommonConstants.Query.Request.MetadataKeys.ENABLE_TRACE, Boolean.toString(enableTrace));
+        metadata.put(CommonConstants.Query.Request.MetadataKeys.ENABLE_STREAMING, Boolean.toString(enableStreaming));
+        metadata.put(CommonConstants.Query.Request.MetadataKeys.PAYLOAD_TYPE, payloadType);
         if (this.hostName != null) {
             metadata.put(KEY_OF_PROXY_GRPC_FORWARD_HOST, this.hostName);
         }

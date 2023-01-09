@@ -925,6 +925,10 @@ export class QueryDetail extends React.Component {
                 $('#query').each((i, block) => {
                     hljs.highlightBlock(block);
                 });
+
+                $('#prepared-query').each((i, block) => {
+                    hljs.highlightBlock(block);
+                });
             }
 
             this.setState({
@@ -964,6 +968,29 @@ export class QueryDetail extends React.Component {
                         <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage}/>
                     </div>
                 </div>
+            </div>
+        );
+    }
+
+    renderPreparedQuery() {
+        const query = this.state.query;
+        if (!query.hasOwnProperty('preparedQuery') || query.preparedQuery === null) {
+            return;
+        }
+
+        return (
+            <div className="col-xs-12">
+                <h3>
+                    Prepared Query
+                        <a className="btn copy-button" data-clipboard-target="#prepared-query-text" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                            <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                        </a>
+                </h3>
+                <pre id="prepared-query">
+                    <code className="lang-sql" id="prepared-query-text">
+                        {query.preparedQuery}
+                    </code>
+                </pre>
             </div>
         );
     }
@@ -1046,13 +1073,19 @@ export class QueryDetail extends React.Component {
         }
     }
 
-    renderMetricValue(name, value) {
-      if (name.includes("Nanos")) return formatDuration(parseDuration(value+ "ns"));
-      return formatCount(value);
+    renderMetricValue(unit, value) {
+      if (unit === "NANO") {
+          return formatDuration(parseDuration(value+ "ns"));
+      }
+      if (unit === "BYTE") {
+          return formatDataSize(value);
+      }
+      return formatCount(value); // NONE
     }
 
     renderRuntimeStats() {
         const query = this.state.query;
+        if (query.queryStats.runtimeStats === undefined) return null;
         if (Object.values(query.queryStats.runtimeStats).length == 0) return null;
         return (
             <div className="row">
@@ -1075,10 +1108,10 @@ export class QueryDetail extends React.Component {
                              .map((metric) =>
                                  <tr>
                                      <td className="info-text">{metric.name}</td>
-                                     <td className="info-text">{this.renderMetricValue(metric.name, metric.sum)}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.sum)}</td>
                                      <td className="info-text">{formatCount(metric.count)}</td>
-                                     <td className="info-text">{this.renderMetricValue(metric.name, metric.min)}</td>
-                                     <td className="info-text">{this.renderMetricValue(metric.name, metric.max)}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.min)}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.max)}</td>
                                  </tr>
                              )
                          }
@@ -1387,6 +1420,26 @@ export class QueryDetail extends React.Component {
                                             {query.queryStats.rawInputDataSize}
                                         </td>
                                     </tr>
+                                   <tr>
+                                        <td className="info-title">
+                                            <span className="text" data-toggle="tooltip" data-placement="right" title="The total number of rows shuffled across all query stages">
+                                                Shuffled Rows
+                                            </span>
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.shuffledPositions)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            <span className="text" data-toggle="tooltip" data-placement="right" title="The total number of bytes shuffled across all query stages">
+                                                Shuffled Data
+                                            </span>
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.shuffledDataSize}
+                                        </td>
+                                    </tr>
                                     <tr>
                                         <td className="info-title">
                                             Peak User Memory
@@ -1583,6 +1636,7 @@ export class QueryDetail extends React.Component {
                             </code>
                         </pre>
                     </div>
+                    {this.renderPreparedQuery()}
                 </div>
                 {this.renderStages()}
             </div>

@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
@@ -22,6 +23,7 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
+import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
@@ -32,6 +34,8 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
+import com.facebook.presto.orc.metadata.statistics.MapStatistics;
+import com.facebook.presto.orc.metadata.statistics.MapStatisticsEntry;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.ByteString;
@@ -42,7 +46,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import com.sun.management.ThreadMXBean;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
@@ -85,10 +88,13 @@ public class DwrfMetadataReader
     private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
 
     private final RuntimeStats runtimeStats;
+    private final boolean readMapStatistics;
 
-    public DwrfMetadataReader(RuntimeStats runtimeStats)
+    public DwrfMetadataReader(RuntimeStats runtimeStats, OrcReaderOptions readerOptions)
     {
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+        requireNonNull(readerOptions, "readerOptions is null");
+        this.readMapStatistics = readerOptions.readMapStatistics();
     }
 
     @Override
@@ -107,7 +113,7 @@ public class DwrfMetadataReader
             stripeCacheLength = OptionalInt.of(postScript.getCacheSize());
             stripeCacheMode = Optional.of(toStripeCacheMode(postScript.getCacheMode()));
         }
-        runtimeStats.addMetricValue("DwrfReadPostScriptTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("DwrfReadPostScriptTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
         return new PostScript(
                 ImmutableList.of(),
@@ -149,7 +155,7 @@ public class DwrfMetadataReader
             EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(encryption.get().getKeyProvider());
             fileStats = decryptAndCombineFileStatistics(hiveWriterVersion, encryption.get(), encryptionLibrary, fileStats, fileStripes, keys, orcDataSource, decompressor);
         }
-        runtimeStats.addMetricValue("DwrfReadFooterTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("DwrfReadFooterTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
         OptionalLong rawSize = footer.hasRawDataSize() ? OptionalLong.of(footer.getRawDataSize()) : OptionalLong.empty();
         return new Footer(
@@ -259,7 +265,7 @@ public class DwrfMetadataReader
 
     private static List<EncryptionGroup> toEncryptionGroups(List<DwrfProto.EncryptionGroup> encryptionGroups)
     {
-        ImmutableList.Builder<EncryptionGroup> encryptionGroupBuilder = ImmutableList.builder();
+        ImmutableList.Builder<EncryptionGroup> encryptionGroupBuilder = ImmutableList.builderWithExpectedSize(encryptionGroups.size());
         for (DwrfProto.EncryptionGroup dwrfEncryptionGroup : encryptionGroups) {
             encryptionGroupBuilder.add(new EncryptionGroup(
                     dwrfEncryptionGroup.getNodesList(),
@@ -283,7 +289,7 @@ public class DwrfMetadataReader
 
     private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> stripeInformationList)
     {
-        ImmutableList.Builder<StripeInformation> stripeInfoBuilder = ImmutableList.builder();
+        ImmutableList.Builder<StripeInformation> stripeInfoBuilder = ImmutableList.builderWithExpectedSize(stripeInformationList.size());
         List<byte[]> previousKeyMetadata = ImmutableList.of();
         for (DwrfProto.StripeInformation dwrfStripeInfo : stripeInformationList) {
             StripeInformation prestoStripeInfo = toStripeInformation(dwrfStripeInfo, previousKeyMetadata);
@@ -319,7 +325,7 @@ public class DwrfMetadataReader
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.StripeFooter stripeFooter = DwrfProto.StripeFooter.parseFrom(input);
-        runtimeStats.addMetricValue("DwrfReadStripeFooterTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("DwrfReadStripeFooterTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new StripeFooter(
                 toStream(orcDataSourceId, stripeFooter.getStreamsList()),
                 toColumnEncoding(types, stripeFooter.getColumnsList()),
@@ -393,7 +399,6 @@ public class DwrfMetadataReader
     private static Map<Integer, ColumnEncoding> toColumnEncoding(List<OrcType> types, List<DwrfProto.ColumnEncoding> columnEncodings)
     {
         Map<Integer, List<DwrfProto.ColumnEncoding>> groupedColumnEncodings = new HashMap<>(columnEncodings.size());
-        ImmutableMap.Builder<Integer, ColumnEncoding> resultBuilder = ImmutableMap.builder();
 
         for (int i = 0; i < columnEncodings.size(); i++) {
             DwrfProto.ColumnEncoding columnEncoding = columnEncodings.get(i);
@@ -407,9 +412,9 @@ public class DwrfMetadataReader
             groupedColumnEncodings.computeIfAbsent(column, key -> new ArrayList<>()).add(columnEncoding);
         }
 
+        ImmutableMap.Builder<Integer, ColumnEncoding> resultBuilder = ImmutableMap.builderWithExpectedSize(groupedColumnEncodings.size());
         for (Map.Entry<Integer, List<DwrfProto.ColumnEncoding>> entry : groupedColumnEncodings.entrySet()) {
             OrcType type = types.get(entry.getKey());
-
             resultBuilder.put(
                     entry.getKey(),
                     toColumnEncoding(type, entry.getValue()));
@@ -425,7 +430,7 @@ public class DwrfMetadataReader
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.RowIndex rowIndex = DwrfProto.RowIndex.parseFrom(input);
-        runtimeStats.addMetricValue("DwrfReadRowIndexesTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("DwrfReadRowIndexesTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return IntStream.range(0, rowIndex.getEntryCount())
                 .mapToObj(i -> toRowGroupIndex(hiveWriterVersion, rowIndex.getEntry(i), bloomFilters == null || bloomFilters.isEmpty() ? null : bloomFilters.get(i)))
                 .collect(toImmutableList());
@@ -438,27 +443,30 @@ public class DwrfMetadataReader
         return ImmutableList.of();
     }
 
-    private static RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, DwrfProto.RowIndexEntry rowIndexEntry, HiveBloomFilter bloomFilter)
+    private RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, DwrfProto.RowIndexEntry rowIndexEntry, HiveBloomFilter bloomFilter)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
-        ImmutableList.Builder<Integer> positions = ImmutableList.builder();
+        int[] positions = new int[positionsList.size()];
         for (int index = 0; index < positionsList.size(); index++) {
             long longPosition = positionsList.get(index);
             int intPosition = (int) longPosition;
 
             checkState(intPosition == longPosition, "Expected checkpoint position %s, to be an integer", index);
 
-            positions.add(intPosition);
+            positions[index] = intPosition;
         }
-        return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true, bloomFilter));
+        return new RowGroupIndex(positions, toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true, bloomFilter));
     }
 
-    private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<DwrfProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
+    private List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<DwrfProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
     {
         if (columnStatistics == null) {
             return ImmutableList.of();
         }
-        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup, null)));
+
+        return columnStatistics.stream()
+                .map(statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup, null))
+                .collect(toImmutableList());
     }
 
     private Map<String, Slice> toUserMetadata(List<DwrfProto.UserMetadataItem> metadataList)
@@ -473,7 +481,8 @@ public class DwrfMetadataReader
         return mapBuilder.build();
     }
 
-    private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.ColumnStatistics statistics, boolean isRowGroup, HiveBloomFilter bloomFilter)
+    @VisibleForTesting
+    ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.ColumnStatistics statistics, boolean isRowGroup, HiveBloomFilter bloomFilter)
     {
         return createColumnStatistics(
                 statistics.getNumberOfValues(),
@@ -484,6 +493,7 @@ public class DwrfMetadataReader
                 null,
                 null,
                 statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
+                readMapStatistics && statistics.hasMapStatistics() ? toMapStatistics(statistics.getMapStatistics(), hiveWriterVersion, isRowGroup, bloomFilter) : null,
                 bloomFilter);
     }
 
@@ -541,6 +551,19 @@ public class DwrfMetadataReader
         return new BinaryStatistics(binaryStatistics.getSum());
     }
 
+    private MapStatistics toMapStatistics(DwrfProto.MapStatistics mapStatistics, HiveWriterVersion hiveWriterVersion, boolean isRowGroup, HiveBloomFilter bloomFilter)
+    {
+        ImmutableList.Builder<MapStatisticsEntry> mapStatisticsEntries = ImmutableList.builderWithExpectedSize(mapStatistics.getStatsCount());
+        for (DwrfProto.MapEntryStatistics mapEntryStatistics : mapStatistics.getStatsList()) {
+            DwrfProto.ColumnStatistics dwrfStatistics = mapEntryStatistics.getStats();
+            ColumnStatistics columnStatistics = toColumnStatistics(hiveWriterVersion, dwrfStatistics, isRowGroup, bloomFilter);
+            DwrfProto.KeyInfo key = mapEntryStatistics.getKey();
+
+            mapStatisticsEntries.add(new MapStatisticsEntry(key, columnStatistics));
+        }
+        return new MapStatistics(mapStatisticsEntries.build());
+    }
+
     private static OrcType toType(DwrfProto.Type type)
     {
         return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -548,7 +571,9 @@ public class DwrfMetadataReader
 
     private static List<OrcType> toType(List<DwrfProto.Type> types)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toType));
+        return types.stream()
+                .map(DwrfMetadataReader::toType)
+                .collect(toImmutableList());
     }
 
     private static OrcTypeKind toTypeKind(DwrfProto.Type.Kind kind)

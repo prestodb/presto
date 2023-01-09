@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 
 import javax.servlet.AsyncContext;
@@ -46,11 +47,13 @@ public class MockHttpServletRequest
 {
     private final ListMultimap<String, String> headers;
     private final String remoteAddress;
+    private final Map<String, Object> attributes;
 
-    public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress)
+    public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, Map<String, Object> attributes)
     {
         this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
         this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress is null");
+        this.attributes = ImmutableMap.copyOf(requireNonNull(attributes, "attributes is null"));
     }
 
     @Override
@@ -93,6 +96,12 @@ public class MockHttpServletRequest
     public Enumeration<String> getHeaderNames()
     {
         return enumeration(headers.keySet());
+    }
+
+    @Override
+    public Object getAttribute(String name)
+    {
+        return attributes.get(name);
     }
 
     @Override
@@ -247,12 +256,6 @@ public class MockHttpServletRequest
 
     @Override
     public <T extends HttpUpgradeHandler> T upgrade(Class<T> handlerClass)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Object getAttribute(String name)
     {
         throw new UnsupportedOperationException();
     }

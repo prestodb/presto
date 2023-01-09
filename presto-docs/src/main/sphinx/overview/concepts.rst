@@ -27,8 +27,18 @@ general to most specific.
 Server Types
 ------------
 
-There are two types of Presto servers: coordinators and workers. The
-following section explains the difference between the two.
+There are three types of Presto servers: resource manager, coordinators and workers. The
+following section explains the difference between them.
+
+Resource Manager
+^^^^^^^^^^^
+
+The Presto resource manager is the server that aggregates
+data from all coordinators and workers and constructs a global view of the cluster.
+Presto installation with disaggregated coordinator must need resource manager.
+Clusters support multiple resource managers, each acting as a primary.
+
+Coordinators and workers communicate with Resource managers using thrift API.
 
 Coordinator
 ^^^^^^^^^^^

@@ -21,6 +21,8 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionResult;
+import com.facebook.presto.common.type.DistinctType;
+import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -29,9 +31,9 @@ import com.facebook.presto.common.type.TypeSignatureBase;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -40,6 +42,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
@@ -102,6 +105,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class FunctionAndTypeManager
@@ -138,6 +142,7 @@ public class FunctionAndTypeManager
         this.functionCache = CacheBuilder.newBuilder()
                 .recordStats()
                 .maximumSize(1000)
+                .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> resolveBuiltInFunction(key.functionName, fromTypeSignatures(key.parameterTypes))));
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
         this.functionSignatureMatcher = new FunctionSignatureMatcher(this);
@@ -197,6 +202,10 @@ public class FunctionAndTypeManager
     public Type getType(TypeSignature signature)
     {
         if (signature.getTypeSignatureBase().hasStandardType()) {
+            // Some info about Type has been materialized in the signature itself, so directly use it instead of fetching it
+            if (signature.isDistinctType()) {
+                return getDistinctType(signature.getParameters().get(0).getDistinctTypeInfo());
+            }
             Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
                 if (signature.getTypeSignatureBase().hasTypeName()) {
@@ -206,14 +215,7 @@ public class FunctionAndTypeManager
             }
         }
 
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
-        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
-        Optional<UserDefinedType> userDefinedType = functionNamespaceManager.get().getUserDefinedType(signature.getTypeSignatureBase().getTypeName());
-        if (!userDefinedType.isPresent()) {
-            throw new IllegalArgumentException("Unknown type " + signature);
-        }
-        checkArgument(userDefinedType.get().getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "UserDefinedType must be based on static types.");
-        return getType(new TypeSignature(userDefinedType.get()));
+        return getUserDefinedType(signature);
     }
 
     @Override
@@ -422,6 +424,13 @@ public class FunctionAndTypeManager
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
     }
 
+    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
+        return functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle);
+    }
+
     public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
@@ -434,9 +443,13 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.getWindowFunctionImplementation(functionHandle);
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    public JavaAggregationFunctionImplementation getJavaAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
-        return builtInTypeAndFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle);
+        AggregationFunctionImplementation implementation = getAggregateFunctionImplementation(functionHandle);
+        checkArgument(
+                implementation instanceof JavaAggregationFunctionImplementation,
+                format("Implementation of function %s is not a JavaAggregationFunctionImplementationAdapter", getFunctionMetadata(functionHandle).getName()));
+        return (JavaAggregationFunctionImplementation) implementation;
     }
 
     public JavaScalarFunctionImplementation getJavaScalarFunctionImplementation(FunctionHandle functionHandle)
@@ -501,20 +514,52 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), match.get());
     }
 
-    public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)
+    public FunctionHandle lookupCast(CastType castType, Type fromType, Type toType)
     {
-        Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType, singletonList(fromType), false);
+        // For casts, specialize() can load more info about types, that we might not be able to get back due to
+        // several layers of conversion between type and type signatures.
+        // So, we manually load this info here and store it in signature which will be sent to worker.
+        getCommonSuperType(fromType, toType);
+        Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType.getTypeSignature(), singletonList(fromType.getTypeSignature()), false);
 
         try {
             builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(signature);
         }
         catch (PrestoException e) {
             if (castType.isOperatorType() && e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(toOperatorType(castType), ImmutableList.of(fromType), toType);
+                throw new OperatorNotFoundException(toOperatorType(castType), ImmutableList.of(fromType.getTypeSignature()), toType.getTypeSignature());
             }
             throw e;
         }
         return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), signature);
+    }
+
+    protected Type getType(UserDefinedType userDefinedType)
+    {
+        // Distinct type
+        if (userDefinedType.isDistinctType()) {
+            return getDistinctType(userDefinedType.getPhysicalTypeSignature().getParameters().get(0).getDistinctTypeInfo());
+        }
+        // Enum type
+        return getType(new TypeSignature(userDefinedType));
+    }
+
+    private DistinctType getDistinctType(DistinctTypeInfo distinctTypeInfo)
+    {
+        return new DistinctType(distinctTypeInfo,
+                getType(distinctTypeInfo.getBaseType()),
+                name -> (DistinctType) getType(new TypeSignature(name)));
+    }
+
+    private Type getUserDefinedType(TypeSignature signature)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
+        UserDefinedType userDefinedType = functionNamespaceManager.get()
+                .getUserDefinedType(signature.getTypeSignatureBase().getTypeName())
+                .orElseThrow(() -> new IllegalArgumentException("Unknown type " + signature));
+        checkArgument(userDefinedType.getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "A UserDefinedType must be based on static types.");
+        return getType(userDefinedType);
     }
 
     private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)

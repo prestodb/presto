@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.Scope;
@@ -25,11 +25,10 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.control.TryCatch;
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -48,7 +47,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -66,6 +64,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getSta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.setStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.subtract;
 import static com.facebook.presto.bytecode.instruction.VariableInstruction.incrementVariable;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -85,7 +84,6 @@ public final class MapTransformValueFunction
         extends SqlScalarFunction
 {
     public static final MapTransformValueFunction MAP_TRANSFORM_VALUE_FUNCTION = new MapTransformValueFunction();
-    private static final MethodHandle STATE_FACTORY = methodHandle(MapTransformKeyFunction.class, "createState", MapType.class);
 
     private MapTransformValueFunction()
     {
@@ -131,14 +129,7 @@ public final class MapTransformValueFunction
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
-                generateTransform(keyType, valueType, transformedValueType, resultMapType),
-                Optional.of(STATE_FACTORY.bindTo(resultMapType)));
-    }
-
-    @UsedByGeneratedCode
-    public static Object createState(MapType mapType)
-    {
-        return new PageBuilder(ImmutableList.of(mapType));
+                generateTransform(keyType, valueType, transformedValueType, resultMapType));
     }
 
     private static MethodHandle generateTransform(Type keyType, Type valueType, Type transformedValueType, Type resultMapType)
@@ -154,21 +145,23 @@ public final class MapTransformValueFunction
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
+        // Add a root blockbuilder
+        FieldDefinition rootBlockBuilder = definition.declareField(a(PRIVATE, STATIC, FINAL), "BLOCK_BUILDER", BlockBuilder.class);
+        definition.getClassInitializer().getBody().append(setStatic(rootBlockBuilder, constantType(binder, resultMapType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(10))));
+
         // define transform method
-        Parameter state = arg("state", Object.class);
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "transform",
                 type(Block.class),
-                ImmutableList.of(state, block, function));
+                ImmutableList.of(block, function));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
         Variable positionCount = scope.declareVariable(int.class, "positionCount");
         Variable position = scope.declareVariable(int.class, "position");
-        Variable pageBuilder = scope.declareVariable(PageBuilder.class, "pageBuilder");
         Variable mapBlockBuilder = scope.declareVariable(BlockBuilder.class, "mapBlockBuilder");
         Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder");
         Variable keyElement = scope.declareVariable(keyJavaType, "keyElement");
@@ -179,11 +172,7 @@ public final class MapTransformValueFunction
         body.append(positionCount.set(block.invoke("getPositionCount", int.class)));
 
         // prepare the single map block builder
-        body.append(pageBuilder.set(state.cast(PageBuilder.class)));
-        body.append(new IfStatement()
-                .condition(pageBuilder.invoke("isFull", boolean.class))
-                .ifTrue(pageBuilder.invoke("reset", void.class)));
-        body.append(mapBlockBuilder.set(pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, constantInt(0))));
+        body.append(mapBlockBuilder.set(getStatic(rootBlockBuilder).invoke("newBlockBuilderLike", BlockBuilder.class, constantNull(BlockBuilderStatus.class), positionCount)));
         body.append(blockBuilder.set(mapBlockBuilder.invoke("beginBlockEntry", BlockBuilder.class)));
 
         // throw null key exception block
@@ -248,7 +237,6 @@ public final class MapTransformValueFunction
                                                 .cast(transformedValueJavaType)),
                                         new BytecodeBlock()
                                                 .append(mapBlockBuilder.invoke("closeEntry", BlockBuilder.class).pop())
-                                                .append(pageBuilder.invoke("declarePosition", void.class))
                                                 .putVariable(transformationException)
                                                 .append(invokeStatic(Throwables.class, "throwIfUnchecked", void.class, transformationException))
                                                 .append(newInstance(RuntimeException.class, transformationException))
@@ -260,7 +248,6 @@ public final class MapTransformValueFunction
         body.append(mapBlockBuilder
                 .invoke("closeEntry", BlockBuilder.class)
                 .pop());
-        body.append(pageBuilder.invoke("declarePosition", void.class));
         body.append(constantType(binder, resultMapType)
                 .invoke(
                         "getObject",
@@ -270,6 +257,6 @@ public final class MapTransformValueFunction
                 .ret());
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformValueFunction.class.getClassLoader());
-        return methodHandle(generatedClass, "transform", Object.class, Block.class, BinaryFunctionInterface.class);
+        return methodHandle(generatedClass, "transform", Block.class, BinaryFunctionInterface.class);
     }
 }

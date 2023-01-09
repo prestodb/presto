@@ -82,7 +82,20 @@ public class LateralJoinNode
             @JsonProperty("type") Type type,
             @JsonProperty("originSubqueryError") String originSubqueryError)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), input, subquery, correlation, type, originSubqueryError);
+    }
+
+    public LateralJoinNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode input,
+            PlanNode subquery,
+            List<VariableReferenceExpression> correlation,
+            Type type,
+            String originSubqueryError)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         requireNonNull(input, "input is null");
         requireNonNull(subquery, "right is null");
         requireNonNull(correlation, "correlation is null");
@@ -146,7 +159,13 @@ public class LateralJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new LateralJoinNode(getSourceLocation(), getId(), newChildren.get(0), newChildren.get(1), correlation, type, originSubqueryError);
+        return new LateralJoinNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), newChildren.get(1), correlation, type, originSubqueryError);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new LateralJoinNode(getSourceLocation(), getId(), statsEquivalentPlanNode, input, subquery, correlation, type, originSubqueryError);
     }
 
     @Override

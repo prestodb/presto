@@ -14,6 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.UpdateMemory;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 
 import java.util.List;
 

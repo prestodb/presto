@@ -21,7 +21,7 @@ import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import static java.lang.Math.min;
 
 public abstract class AbstractVariableWidthType
-        extends AbstractType
+        extends AbstractPrimitiveType
         implements VariableWidthType
 {
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;

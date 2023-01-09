@@ -160,12 +160,12 @@ public class TestScalarValidation
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Annotated method \\[.*\\] must be public")
-    public void testNonPublicAnnnotatedMethod()
+    public void testNonPublicAnnotatedMethod()
     {
-        extractScalars(NonPublicAnnnotatedMethod.class);
+        extractScalars(NonPublicAnnotatedMethod.class);
     }
 
-    public static final class NonPublicAnnnotatedMethod
+    public static final class NonPublicAnnotatedMethod
     {
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.CanonicalTableScanNode.CanonicalTableHandle;
@@ -29,12 +30,12 @@ import static java.util.Objects.requireNonNull;
 
 public class CanonicalPlanFragment
 {
-    private final PlanNode plan;
+    private final CanonicalPlan plan;
     private final CanonicalPartitioningScheme partitioningScheme;
 
     @JsonCreator
     public CanonicalPlanFragment(
-            @JsonProperty("plan") PlanNode plan,
+            @JsonProperty("plan") CanonicalPlan plan,
             @JsonProperty("partitionScheme") CanonicalPartitioningScheme partitioningScheme)
     {
         this.plan = requireNonNull(plan, "plan is null");
@@ -42,7 +43,7 @@ public class CanonicalPlanFragment
     }
 
     @JsonProperty
-    public PlanNode getPlan()
+    public CanonicalPlan getPlan()
     {
         return plan;
     }
@@ -84,7 +85,7 @@ public class CanonicalPlanFragment
 
     public CanonicalPlanFragment updateRuntimeInformation(ConnectorSplit split)
     {
-        return new CanonicalPlanFragment(rewriteWith(new RuntimeInformationRewriter(split), plan), partitioningScheme);
+        return new CanonicalPlanFragment(new CanonicalPlan(rewriteWith(new RuntimeInformationRewriter(split), plan.getPlan()), plan.getStrategy()), partitioningScheme);
     }
 
     private static class RuntimeInformationRewriter
@@ -101,7 +102,7 @@ public class CanonicalPlanFragment
         public PlanNode visitCanonicalTableScan(CanonicalTableScanNode node, RewriteContext<Void> context)
         {
             CanonicalTableHandle originalTableHandle = node.getTable();
-            Optional<Object> newLayoutIdentifier = originalTableHandle.getLayoutHandle().map(handle -> handle.getIdentifier(Optional.of(split)));
+            Optional<Object> newLayoutIdentifier = originalTableHandle.getLayoutHandle().map(handle -> handle.getIdentifier(Optional.of(split), PlanCanonicalizationStrategy.DEFAULT));
 
             return new CanonicalTableScanNode(
                     node.getSourceLocation(),

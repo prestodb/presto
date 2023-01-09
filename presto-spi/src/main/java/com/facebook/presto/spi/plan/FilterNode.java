@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class FilterNode
@@ -42,7 +43,17 @@ public final class FilterNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("predicate") RowExpression predicate)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, predicate);
+    }
+
+    public FilterNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            RowExpression predicate)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         this.source = source;
         this.predicate = predicate;
@@ -86,13 +97,26 @@ public final class FilterNode
     }
 
     @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new FilterNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, predicate);
+    }
+
+    @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         // FilterNode only expects a single upstream PlanNode
         if (newChildren == null || newChildren.size() != 1) {
             throw new IllegalArgumentException("Expect exactly one child to replace");
         }
-        return new FilterNode(getSourceLocation(), getId(), newChildren.get(0), predicate);
+        return new FilterNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), predicate);
+    }
+
+    @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getFilterProperties(this);
     }
 
     @Override

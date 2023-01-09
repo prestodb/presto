@@ -25,6 +25,8 @@ import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationT
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 import org.testng.internal.collections.Ints;
@@ -45,6 +47,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertTrue;
 
@@ -55,7 +58,7 @@ public class TestArrayAggregation
     @Test
     public void testEmpty()
     {
-        InternalAggregationFunction bigIntAgg = getAggregation(BIGINT);
+        JavaAggregationFunctionImplementation bigIntAgg = getAggregation(BIGINT);
         assertAggregation(
                 bigIntAgg,
                 null,
@@ -65,7 +68,7 @@ public class TestArrayAggregation
     @Test
     public void testNullOnly()
     {
-        InternalAggregationFunction bigIntAgg = getAggregation(BIGINT);
+        JavaAggregationFunctionImplementation bigIntAgg = getAggregation(BIGINT);
         assertAggregation(
                 bigIntAgg,
                 Arrays.asList(null, null, null),
@@ -75,7 +78,7 @@ public class TestArrayAggregation
     @Test
     public void testNullPartial()
     {
-        InternalAggregationFunction bigIntAgg = getAggregation(BIGINT);
+        JavaAggregationFunctionImplementation bigIntAgg = getAggregation(BIGINT);
         assertAggregation(
                 bigIntAgg,
                 Arrays.asList(null, 2L, null, 3L, null),
@@ -85,7 +88,7 @@ public class TestArrayAggregation
     @Test
     public void testBoolean()
     {
-        InternalAggregationFunction booleanAgg = getAggregation(BOOLEAN);
+        JavaAggregationFunctionImplementation booleanAgg = getAggregation(BOOLEAN);
         assertAggregation(
                 booleanAgg,
                 Arrays.asList(true, false),
@@ -95,7 +98,7 @@ public class TestArrayAggregation
     @Test
     public void testBigInt()
     {
-        InternalAggregationFunction bigIntAgg = getAggregation(BIGINT);
+        JavaAggregationFunctionImplementation bigIntAgg = getAggregation(BIGINT);
         assertAggregation(
                 bigIntAgg,
                 Arrays.asList(2L, 1L, 2L),
@@ -105,7 +108,7 @@ public class TestArrayAggregation
     @Test
     public void testVarchar()
     {
-        InternalAggregationFunction varcharAgg = getAggregation(VARCHAR);
+        JavaAggregationFunctionImplementation varcharAgg = getAggregation(VARCHAR);
         assertAggregation(
                 varcharAgg,
                 Arrays.asList("hello", "world"),
@@ -115,7 +118,7 @@ public class TestArrayAggregation
     @Test
     public void testDate()
     {
-        InternalAggregationFunction varcharAgg = getAggregation(DATE);
+        JavaAggregationFunctionImplementation varcharAgg = getAggregation(DATE);
         assertAggregation(
                 varcharAgg,
                 Arrays.asList(new SqlDate(1), new SqlDate(2), new SqlDate(4)),
@@ -125,7 +128,7 @@ public class TestArrayAggregation
     @Test
     public void testArray()
     {
-        InternalAggregationFunction varcharAgg = getAggregation(new ArrayType(BIGINT));
+        JavaAggregationFunctionImplementation varcharAgg = getAggregation(new ArrayType(BIGINT));
         assertAggregation(
                 varcharAgg,
                 Arrays.asList(Arrays.asList(1L), Arrays.asList(1L, 2L), Arrays.asList(1L, 2L, 3L)),
@@ -135,8 +138,8 @@ public class TestArrayAggregation
     @Test
     public void testEmptyStateOutputsNull()
     {
-        InternalAggregationFunction bigIntAgg = getAggregation(BIGINT);
-        GroupedAccumulator groupedAccumulator = bigIntAgg.bind(Ints.asList(new int[] {}), Optional.empty())
+        JavaAggregationFunctionImplementation bigIntAgg = getAggregation(BIGINT);
+        GroupedAccumulator groupedAccumulator = generateAccumulatorFactory(bigIntAgg, Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator(UpdateMemory.NOOP);
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
 
@@ -147,7 +150,7 @@ public class TestArrayAggregation
     @Test
     public void testWithMultiplePages()
     {
-        InternalAggregationFunction varcharAgg = getAggregation(VARCHAR);
+        JavaAggregationFunctionImplementation varcharAgg = getAggregation(VARCHAR);
 
         AggregationTestInputBuilder testInputBuilder = new AggregationTestInputBuilder(
                 new Block[] {
@@ -162,7 +165,7 @@ public class TestArrayAggregation
     @Test
     public void testMultipleGroupsWithMultiplePages()
     {
-        InternalAggregationFunction varcharAgg = getAggregation(VARCHAR);
+        JavaAggregationFunctionImplementation varcharAgg = getAggregation(VARCHAR);
 
         Block block1 = createStringsBlock("a", "b", "c", "d", "e");
         Block block2 = createStringsBlock("f", "g", "h", "i", "j");
@@ -187,7 +190,7 @@ public class TestArrayAggregation
     public void testManyValues()
     {
         // Test many values so multiple BlockBuilders will be used to store group state.
-        InternalAggregationFunction varcharAgg = getAggregation(VARCHAR);
+        JavaAggregationFunctionImplementation varcharAgg = getAggregation(VARCHAR);
 
         int numGroups = 50000;
         int arraySize = 30;
@@ -214,16 +217,16 @@ public class TestArrayAggregation
         }
     }
 
-    private GroupedAccumulator createGroupedAccumulator(InternalAggregationFunction function)
+    private GroupedAccumulator createGroupedAccumulator(JavaAggregationFunctionImplementation function)
     {
         int[] args = GroupByAggregationTestUtils.createArgs(function);
 
-        return function.bind(Ints.asList(args), Optional.empty())
+        return generateAccumulatorFactory(function, Ints.asList(args), Optional.empty())
                 .createGroupedAccumulator(UpdateMemory.NOOP);
     }
 
-    private InternalAggregationFunction getAggregation(Type... arguments)
+    private JavaAggregationFunctionImplementation getAggregation(Type... arguments)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("array_agg", fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("array_agg", fromTypes(arguments)));
     }
 }

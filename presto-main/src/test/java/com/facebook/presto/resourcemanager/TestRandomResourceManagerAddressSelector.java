@@ -58,9 +58,36 @@ public class TestRandomResourceManagerAddressSelector
         InMemoryNodeManager internalNodeManager = new InMemoryNodeManager();
         RandomResourceManagerAddressSelector selector = new RandomResourceManagerAddressSelector(internalNodeManager, hostAndPorts -> Optional.of(hostAndPorts.get(0)));
 
-        internalNodeManager.addNode(CONNECTOR_ID, new InternalNode("1", URI.create("local://localhost:123/1"), OptionalInt.empty(), "1", false, true));
-        internalNodeManager.addNode(CONNECTOR_ID, new InternalNode("2", URI.create("local://localhost:456/1"), OptionalInt.of(2), "1", false, true));
-        internalNodeManager.addNode(CONNECTOR_ID, new InternalNode("3", URI.create("local://localhost:789/2"), OptionalInt.of(3), "1", false, true));
+        internalNodeManager.addNode(
+                CONNECTOR_ID,
+                new InternalNode(
+                    "1",
+                    URI.create("local://localhost:123/1"),
+                    OptionalInt.empty(),
+                    "1",
+                    false,
+                    true,
+                    false));
+        internalNodeManager.addNode(
+                CONNECTOR_ID,
+                new InternalNode(
+                        "2",
+                        URI.create("local://localhost:456/1"),
+                        OptionalInt.of(2),
+                        "1",
+                        false,
+                        true,
+                        false));
+        internalNodeManager.addNode(
+                CONNECTOR_ID,
+                new InternalNode(
+                        "3",
+                        URI.create("local://localhost:789/2"),
+                        OptionalInt.of(3),
+                        "1",
+                        false,
+                        true,
+                        false));
 
         Optional<SimpleAddressSelector.SimpleAddress> address = selector.selectAddress(Optional.empty());
         assertTrue(address.isPresent());

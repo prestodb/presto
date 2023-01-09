@@ -31,7 +31,7 @@ public class TestPositionalFilter
         PositionalFilter filter = new PositionalFilter();
 
         // a[1] = '1' and a[3] = '3' The test data is converted to byte[]'s and the comparison is done using testLength()
-        // followed by testBytes() so as to cover the double use of the position when testLength succeeeds and testBytes
+        // followed by testBytes() so as to cover the double use of the position when testLength succeeds and testBytes
         // fails.
         TupleDomainFilter[] filters = new TupleDomainFilter[] {
                 equals(1), null, equals(3), null,

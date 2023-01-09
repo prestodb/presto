@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.presto.hadoop.FileSystemFactory;
+import com.facebook.presto.hive.CopyOnFirstWriteConfiguration;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.JobConf;
@@ -53,6 +54,9 @@ public final class ConfigurationUtils
 
     public static Configuration copy(Configuration configuration)
     {
+        if (configuration instanceof CopyOnFirstWriteConfiguration) {
+            return new CopyOnFirstWriteConfiguration(copy(((CopyOnFirstWriteConfiguration) configuration).getConfig()));
+        }
         Configuration copy = new Configuration(false);
         copy(configuration, copy);
         return copy;

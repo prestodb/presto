@@ -127,12 +127,14 @@ public class TestHashSemiJoinOperator
         List<Page> probeInput = rowPagesBuilderProbe
                 .addSequencePage(10, 30, 0)
                 .build();
+        Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                probeHashChannel);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -146,6 +148,71 @@ public class TestHashSemiJoinOperator
                 .row(37L, 7L, true)
                 .row(38L, 8L, false)
                 .row(39L, 9L, false)
+                .build();
+
+        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testSemiJoinOnVarcharType(boolean hashEnabled)
+    {
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+
+        // build
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), VARCHAR);
+        Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
+                .row("10")
+                .row("30")
+                .row("30")
+                .row("35")
+                .row("36")
+                .row("37")
+                .row("50")
+                .build());
+        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
+                1,
+                new PlanNodeId("test"),
+                rowPagesBuilder.getTypes().get(0),
+                0,
+                rowPagesBuilder.getHashChannel(),
+                10,
+                new JoinCompiler(createTestMetadataManager(), new FeaturesConfig()));
+        Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
+
+        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
+        while (!driver.isFinished()) {
+            driver.process();
+        }
+
+        // probe
+        List<Type> probeTypes = ImmutableList.of(VARCHAR, BIGINT);
+        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(hashEnabled, Ints.asList(0), VARCHAR, BIGINT);
+        List<Page> probeInput = rowPagesBuilderProbe
+                .addSequencePage(10, 30, 0)
+                .build();
+        Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
+        OperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
+                2,
+                new PlanNodeId("test"),
+                setBuilderOperatorFactory.getSetProvider(),
+                rowPagesBuilderProbe.getTypes(),
+                0,
+                probeHashChannel);
+        //probeHashChannel);
+
+        // expected
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+                .row("30", 0L, true)
+                .row("31", 1L, false)
+                .row("32", 2L, false)
+                .row("33", 3L, false)
+                .row("34", 4L, false)
+                .row("35", 5L, true)
+                .row("36", 6L, true)
+                .row("37", 7L, true)
+                .row("38", 8L, false)
+                .row("39", 9L, false)
                 .build();
 
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
@@ -218,12 +285,14 @@ public class TestHashSemiJoinOperator
         List<Page> probeInput = rowPagesBuilderProbe
                 .addSequencePage(4, 1)
                 .build();
+        Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                probeHashChannel);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -274,12 +343,14 @@ public class TestHashSemiJoinOperator
                 .row(1L)
                 .row(2L)
                 .build();
+        Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                probeHashChannel);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -331,12 +402,14 @@ public class TestHashSemiJoinOperator
                 .row(1L)
                 .row(2L)
                 .build();
+        Optional<Integer> probeHashChannel = hashEnabled ? Optional.of(probeTypes.size()) : Optional.empty();
         HashSemiJoinOperatorFactory joinOperatorFactory = new HashSemiJoinOperatorFactory(
                 2,
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                probeHashChannel);
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))

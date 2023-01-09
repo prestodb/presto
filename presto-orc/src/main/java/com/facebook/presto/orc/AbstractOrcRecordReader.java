@@ -120,6 +120,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private final Optional<OrcWriteValidation.StatisticsValidation> rowGroupStatisticsValidation;
     private final Optional<OrcWriteValidation.StatisticsValidation> stripeStatisticsValidation;
     private final Optional<OrcWriteValidation.StatisticsValidation> fileStatisticsValidation;
+    private final Optional<OrcFileIntrospector> fileIntrospector;
 
     private final RuntimeStats runtimeStats;
 
@@ -153,7 +154,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
             boolean cacheable,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            Optional<OrcFileIntrospector> fileIntrospector)
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
@@ -176,6 +178,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.systemMemoryUsage = systemMemoryUsage;
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+        this.fileIntrospector = requireNonNull(fileIntrospector, "fileIntrospector is null");
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -258,7 +261,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 stripeMetadataSource,
                 cacheable,
                 this.dwrfEncryptionGroupMap,
-                runtimeStats);
+                runtimeStats,
+                fileIntrospector);
 
         this.streamReaders = requireNonNull(streamReaders, "streamReaders is null");
         for (int columnId = 0; columnId < root.getFieldCount(); columnId++) {
@@ -670,6 +674,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
             rowGroups = stripe.getRowGroups().iterator();
         }
+        fileIntrospector.ifPresent(introspector -> introspector.onStripe(stripeInformation, stripe));
     }
 
     @VisibleForTesting
@@ -759,30 +764,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         return systemMemoryUsage.getBytes();
     }
 
-    protected static StreamDescriptor createStreamDescriptor(String parentStreamName, String fieldName, int typeId, List<OrcType> types, OrcDataSource dataSource)
-    {
-        OrcType type = types.get(typeId);
-
-        if (!fieldName.isEmpty()) {
-            parentStreamName += "." + fieldName;
-        }
-
-        ImmutableList.Builder<StreamDescriptor> nestedStreams = ImmutableList.builder();
-        if (type.getOrcTypeKind() == STRUCT) {
-            for (int i = 0; i < type.getFieldCount(); ++i) {
-                nestedStreams.add(createStreamDescriptor(parentStreamName, type.getFieldName(i), type.getFieldTypeIndex(i), types, dataSource));
-            }
-        }
-        else if (type.getOrcTypeKind() == OrcType.OrcTypeKind.LIST) {
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "item", type.getFieldTypeIndex(0), types, dataSource));
-        }
-        else if (type.getOrcTypeKind() == OrcType.OrcTypeKind.MAP) {
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "key", type.getFieldTypeIndex(0), types, dataSource));
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "value", type.getFieldTypeIndex(1), types, dataSource));
-        }
-        return new StreamDescriptor(parentStreamName, typeId, fieldName, type, dataSource, nestedStreams.build());
-    }
-
     protected boolean shouldValidateWritePageChecksum()
     {
         return writeChecksumBuilder.isPresent();
@@ -796,6 +777,11 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             stripeStatisticsValidation.get().addPage(page);
             fileStatisticsValidation.get().addPage(page);
         }
+    }
+
+    protected OrcDataSourceId getOrcDataSourceId()
+    {
+        return orcDataSource.getId();
     }
 
     private static class StripeInfo
@@ -849,7 +835,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         public static OrcBatchRecordReader.LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
         {
-            if (stripes.size() == 0) {
+            if (stripes.isEmpty()) {
                 return new OrcBatchRecordReader.LinearProbeRangeFinder(ImmutableList.of());
             }
 

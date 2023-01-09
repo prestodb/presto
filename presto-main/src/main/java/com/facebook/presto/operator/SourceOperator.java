@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.metadata.Split;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
 
@@ -25,7 +25,7 @@ public interface SourceOperator
 {
     PlanNodeId getSourceId();
 
-    Supplier<Optional<UpdatablePageSource>> addSplit(Split split);
+    Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit split);
 
     void noMoreSplits();
 }

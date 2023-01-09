@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.resourceGroups;
 
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
@@ -99,6 +99,7 @@ public abstract class AbstractResourceConfigurationManager
                     spec.getClientTags(),
                     spec.getResourceEstimate(),
                     spec.getQueryType(),
+                    spec.getClientInfoRegex(),
                     spec.getGroup()));
         }
         return selectors.build();

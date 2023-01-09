@@ -60,6 +60,7 @@ public class PrestoSparkSession
             Map<String, String> systemProperties,
             Map<String, Map<String, String>> catalogSessionProperties,
             Optional<String> traceToken)
+
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");

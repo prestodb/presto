@@ -5,6 +5,11 @@ Properties Reference
 This section describes the most important config properties that
 may be used to tune Presto or alter its behavior when required.
 
+The following pages are not a complete list of all configuration and
+session properties available in Presto, and do not include any connector-specific
+catalog configuration properties. For more information on catalog configuration
+properties, refer to the :doc:`connector documentation </connector/>`.
+
 .. contents::
     :local:
     :backlinks: none
@@ -18,7 +23,7 @@ General Properties
 
     * **Type:** ``string``
     * **Allowed values:** ``AUTOMATIC``, ``PARTITIONED``, ``BROADCAST``
-    * **Default value:** ``PARTITIONED``
+    * **Default value:** ``AUTOMATIC``
 
     The type of distributed join to use.  When set to ``PARTITIONED``, presto will
     use hash distributed joins.  When set to ``BROADCAST``, it will broadcast the
@@ -70,7 +75,7 @@ Memory Management Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
-    * **Default value:** ``JVM max memory * 0.3``
+    * **Default value:** ``query.max-memory-per-node * 2``
 
     This is the max amount of user and system memory a query can use on a worker.
     System memory is allocated during execution for things that are not directly
@@ -710,7 +715,7 @@ Optimizer Properties
 
     * **Type:** ``string``
     * **Allowed values:** ``AUTOMATIC``, ``ELIMINATE_CROSS_JOINS``, ``NONE``
-    * **Default value:** ``ELIMINATE_CROSS_JOINS``
+    * **Default value:** ``AUTOMATIC``
 
     The join reordering strategy to use.  ``NONE`` maintains the order the tables are listed in the
     query.  ``ELIMINATE_CROSS_JOINS`` reorders joins to eliminate cross joins where possible and
@@ -731,6 +736,18 @@ Optimizer Properties
 
     .. warning:: The number of possible join orders scales factorially with the number of relations,
                  so increasing this value can cause serious performance issues.
+
+Planner Properties
+--------------------------------------
+
+``planner.query-analyzer-timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Default value:** ``3m``
+
+    Maximum running time for the query analyzer in case the processing takes too long or is stuck in an infinite loop.
+    When timeout expires the planner thread is interrupted and throws exception.
 
 Regular Expression Function Properties
 --------------------------------------

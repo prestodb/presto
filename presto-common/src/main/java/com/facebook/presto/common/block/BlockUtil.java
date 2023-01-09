@@ -196,12 +196,28 @@ public final class BlockUtil
         return Arrays.copyOfRange(array, index, index + length);
     }
 
-    static int countUsedPositions(boolean[] positions)
+    static int countSelectedPositionsFromOffsets(boolean[] positions, int[] offsets, int offsetBase)
     {
+        checkArrayRange(offsets, offsetBase, positions.length);
         int used = 0;
-        for (boolean position : positions) {
-            if (position) {
-                used++;
+        for (int i = 0; i < positions.length; i++) {
+            int offsetStart = offsets[offsetBase + i];
+            int offsetEnd = offsets[offsetBase + i + 1];
+            used += ((positions[i] ? 1 : 0) * (offsetEnd - offsetStart));
+        }
+        return used;
+    }
+
+    static int countAndMarkSelectedPositionsFromOffsets(boolean[] positions, int[] offsets, int offsetBase, boolean[] elementPositions)
+    {
+        checkArrayRange(offsets, offsetBase, positions.length);
+        int used = 0;
+        for (int i = 0; i < positions.length; i++) {
+            int offsetStart = offsets[offsetBase + i];
+            int offsetEnd = offsets[offsetBase + i + 1];
+            if (positions[i]) {
+                used += (offsetEnd - offsetStart);
+                Arrays.fill(elementPositions, offsetStart, offsetEnd, true);
             }
         }
         return used;

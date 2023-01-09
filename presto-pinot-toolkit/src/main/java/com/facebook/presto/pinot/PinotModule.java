@@ -15,6 +15,8 @@ package com.facebook.presto.pinot;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.pinot.auth.PinotBrokerAuthenticationProvider;
+import com.facebook.presto.pinot.auth.PinotControllerAuthenticationProvider;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
@@ -64,6 +66,8 @@ public class PinotModule
         binder.bind(PinotSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(PinotPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(PinotClusterInfoFetcher.class).in(Scopes.SINGLETON);
+        binder.bind(PinotControllerAuthenticationProvider.class).in(Scopes.SINGLETON);
+        binder.bind(PinotBrokerAuthenticationProvider.class).in(Scopes.SINGLETON);
         binder.bind(Executor.class).annotatedWith(ForPinot.class)
                 .toInstance(newSingleThreadExecutor(threadsNamed("pinot-metadata-fetcher-" + catalogName)));
 

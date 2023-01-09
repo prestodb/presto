@@ -41,6 +41,7 @@ import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
@@ -57,9 +58,9 @@ import java.util.OptionalLong;
 import java.util.function.Consumer;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
-import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -91,6 +92,11 @@ public abstract class AbstractTestQueryFramework
             throws Exception
     {
         return new H2QueryRunner();
+    }
+
+    protected ObjectMapper createObjectMapper()
+    {
+        return new ObjectMapper();
     }
 
     @AfterClass(alwaysRun = true)
@@ -128,6 +134,11 @@ public abstract class AbstractTestQueryFramework
         return computeActual(sql).getOnlyValue();
     }
 
+    protected Object computeScalar(Session session, @Language("SQL") String sql)
+    {
+        return computeActual(session, sql).getOnlyValue();
+    }
+
     protected void assertQuery(@Language("SQL") String sql)
     {
         assertQuery(getSession(), sql);
@@ -146,6 +157,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
         QueryAssertions.assertQuery(queryRunner, session, actual, expectedQueryRunner, expected, false, false);
+    }
+
+    protected void assertQuery(Session actualSession, @Language("SQL") String actual, Session expectedSession, @Language("SQL") String expected)
+    {
+        QueryAssertions.assertQuery(queryRunner, actualSession, actual, expectedQueryRunner, expectedSession, expected, false, false);
     }
 
     protected void assertQuery(Session session, @Language("SQL") String sql, Consumer<Plan> planAssertion)
@@ -386,6 +402,21 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
+    protected Plan plan(@Language("SQL") String sql, Session session)
+    {
+        QueryExplainer explainer = getQueryExplainer();
+        try {
+            return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                    .singleStatement()
+                    .execute(session, transactionSession -> {
+                        return explainer.getLogicalPlan(transactionSession, sqlParser.createStatement(sql, createParsingOptions(transactionSession)), emptyList(), WarningCollector.NOOP);
+                    });
+        }
+        catch (RuntimeException e) {
+            throw new AssertionError("Planning failed for SQL: " + sql, e);
+        }
+    }
+
     protected SubPlan subplan(String sql)
     {
         return subplan(sql, queryRunner.getDefaultSession());
@@ -426,7 +457,8 @@ public abstract class AbstractTestQueryFramework
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
-                new PartitioningProviderManager()).getPlanningTimeOptimizers();
+                new PartitioningProviderManager())
+                .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), sqlParser, new FeaturesConfig()),

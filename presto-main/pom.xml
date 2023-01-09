@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.269-SNAPSHOT</version>
+        <version>0.279-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -39,6 +39,11 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-analyzer</artifactId>
         </dependency>
 
         <dependency>
@@ -272,6 +277,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.jayway.jsonpath</groupId>
+            <artifactId>json-path</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
         </dependency>
@@ -335,6 +345,11 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analyzers-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
         </dependency>
 
         <!-- for testing -->
@@ -435,10 +450,70 @@
             <artifactId>presto-testng-services</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.ratis</groupId>
+            <artifactId>ratis-server</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ratis</groupId>
+            <artifactId>ratis-grpc</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ratis</groupId>
+            <artifactId>ratis-server-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ratis</groupId>
+            <artifactId>ratis-common</artifactId>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredDependencies>
+                        <dependency>
+                            <groupId>org.apache.ratis</groupId>
+                            <artifactId>ratis-client</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.ratis</groupId>
+                            <artifactId>ratis-common</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.ratis</groupId>
+                            <artifactId>ratis-server</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.ratis</groupId>
+                            <artifactId>ratis-grpc</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.ratis</groupId>
+                            <artifactId>ratis-metrics</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.ratis</groupId>
+                            <artifactId>ratis-proto</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.ratis</groupId>
+                            <artifactId>ratis-server-api</artifactId>
+                        </dependency>
+                    </ignoredDependencies>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.gaul</groupId>
                 <artifactId>modernizer-maven-plugin</artifactId>

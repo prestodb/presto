@@ -56,7 +56,21 @@ public class IndexSourceNode
             @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments,
             @JsonProperty("currentConstraint") TupleDomain<ColumnHandle> currentConstraint)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), indexHandle, tableHandle, lookupVariables, outputVariables, assignments, currentConstraint);
+    }
+
+    public IndexSourceNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            IndexHandle indexHandle,
+            TableHandle tableHandle,
+            Set<VariableReferenceExpression> lookupVariables,
+            List<VariableReferenceExpression> outputVariables,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
+            TupleDomain<ColumnHandle> currentConstraint)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.lookupVariables = ImmutableSet.copyOf(requireNonNull(lookupVariables, "lookupVariables is null"));
@@ -123,5 +137,11 @@ public class IndexSourceNode
     {
         checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return this;
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new IndexSourceNode(getSourceLocation(), getId(), statsEquivalentPlanNode, indexHandle, tableHandle, lookupVariables, outputVariables, assignments, currentConstraint);
     }
 }

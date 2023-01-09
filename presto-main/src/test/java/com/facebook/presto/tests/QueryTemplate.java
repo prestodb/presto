@@ -95,7 +95,7 @@ public class QueryTemplate
 
     private void replaceAll(String queryTemplate, Consumer<String> queryConsumer, List<List<Parameter>> parametersLists)
     {
-        if (parametersLists.size() == 0) {
+        if (parametersLists.isEmpty()) {
             checkQueryHasAllParametersReplaced(queryTemplate);
             queryConsumer.accept(queryTemplate);
         }

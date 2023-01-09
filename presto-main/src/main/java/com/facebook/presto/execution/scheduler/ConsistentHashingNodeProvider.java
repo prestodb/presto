@@ -20,9 +20,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 import static com.facebook.presto.common.type.encoding.StringUtils.UTF_8;
@@ -35,6 +38,7 @@ public class ConsistentHashingNodeProvider
 {
     private static final HashFunction HASH_FUNCTION = murmur3_32();
     private final NavigableMap<Integer, InternalNode> candidates;
+    private final int nodeCount;
 
     static ConsistentHashingNodeProvider create(Collection<InternalNode> nodes, int weight)
     {
@@ -44,27 +48,49 @@ public class ConsistentHashingNodeProvider
                 activeNodesByConsistentHashing.put(murmur3_32().hashString(format("%s%d", node.getNodeIdentifier(), i), UTF_8).asInt(), node);
             }
         }
-        return new ConsistentHashingNodeProvider(activeNodesByConsistentHashing);
+        return new ConsistentHashingNodeProvider(activeNodesByConsistentHashing, nodes.size());
     }
 
-    public ConsistentHashingNodeProvider(NavigableMap<Integer, InternalNode> candidates)
+    private ConsistentHashingNodeProvider(NavigableMap<Integer, InternalNode> candidates, int nodeCount)
     {
         this.candidates = requireNonNull(candidates, "candidates is null");
+        this.nodeCount = nodeCount;
     }
 
     @Override
     public List<HostAddress> get(String key, int count)
     {
+        if (count > nodeCount) {
+            count = nodeCount;
+        }
         ImmutableList.Builder<HostAddress> nodes = ImmutableList.builder();
-        for (int i = 0; i < count; i++) {
-            int hashKey = HASH_FUNCTION.hashString(format("%s%d", key, i), UTF_8).asInt();
-            Map.Entry<Integer, InternalNode> entry = candidates.ceilingEntry(hashKey);
-            if (entry != null) {
-                nodes.add(candidates.ceilingEntry(hashKey).getValue().getHostAndPort());
+        Set<HostAddress> unique = new HashSet<>();
+        int hashKey = HASH_FUNCTION.hashString(format("%s", key), UTF_8).asInt();
+        Map.Entry<Integer, InternalNode> entry = candidates.ceilingEntry(hashKey);
+        HostAddress candidate;
+        SortedMap<Integer, InternalNode> nextEntries;
+        if (entry != null) {
+            candidate = entry.getValue().getHostAndPort();
+            nextEntries = candidates.tailMap(entry.getKey(), false);
+        }
+        else {
+            candidate = candidates.firstEntry().getValue().getHostAndPort();
+            nextEntries = candidates.tailMap(candidates.firstKey(), false);
+        }
+        unique.add(candidate);
+        nodes.add(candidate);
+        while (unique.size() < count) {
+            for (Map.Entry<Integer, InternalNode> next : nextEntries.entrySet()) {
+                candidate = next.getValue().getHostAndPort();
+                if (!unique.contains(candidate)) {
+                    unique.add(candidate);
+                    nodes.add(candidate);
+                    if (unique.size() == count) {
+                        break;
+                    }
+                }
             }
-            else {
-                nodes.add(candidates.firstEntry().getValue().getHostAndPort());
-            }
+            nextEntries = candidates;
         }
         return nodes.build();
     }

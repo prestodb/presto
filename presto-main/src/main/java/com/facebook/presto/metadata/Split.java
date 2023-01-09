@@ -26,6 +26,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
@@ -91,9 +92,19 @@ public final class Split
         return splitContext;
     }
 
+    /**
+     * This method returns a raw object.
+     * <p> Instead use {@link #getInfoMap()} method which returns a <pre>{@code Map<String, String>}</pre>
+     */
+    @Deprecated
     public Object getInfo()
     {
         return connectorSplit.getInfo();
+    }
+
+    public Map<String, String> getInfoMap()
+    {
+        return connectorSplit.getInfoMap();
     }
 
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)

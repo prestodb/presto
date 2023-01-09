@@ -604,6 +604,6 @@ This allows the raw data to be mapped onto a Presto timestamp column:
     (5 rows)
 
 The Kafka connector contains converters for ISO 8601, RFC 2822 text
-formats and for number-based timestamps using seconds or miilliseconds
+formats and for number-based timestamps using seconds or milliseconds
 since the epoch. There is also a generic, text-based formatter which uses
 Joda-Time format strings to parse text columns.

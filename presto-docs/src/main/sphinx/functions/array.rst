@@ -48,18 +48,11 @@ Array Functions
 
     Returns a set of elements that occur more than once in ``array``.
 
-    ``T`` must be coercible to ``bigint`` or ``varchar``.
-
 .. function:: array_except(x, y) -> array
 
     Returns an array of elements in ``x`` but not in ``y``, without duplicates.
 
-.. function:: array_frequency(array(bigint)) -> map(bigint, int)
-
-    Returns a map: keys are the unique elements in the ``array``, values are how many times the key appears.
-    Ignores null elements. Empty array returns empty map.
-
-.. function:: array_frequency(array(varchar)) -> map(varchar, int)
+.. function:: array_frequency(array(E)) -> map(E, int)
 
     Returns a map: keys are the unique elements in the ``array``, values are how many times the key appears.
     Ignores null elements. Empty array returns empty map.
@@ -68,16 +61,13 @@ Array Functions
 
     Returns a boolean: whether ``array`` has any elements that occur more than once.
 
-    ``T`` must be coercible to ``bigint`` or ``varchar``.
-
 .. function:: array_intersect(x, y) -> array
 
     Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
 
-.. function:: array_intersect(array(array(E))) -> array(bigint/double)
+.. function:: array_intersect(array(array(E))) -> array(E)
 
     Returns an array of the elements in the intersection of all arrays in the given array, without duplicates.
-    E must be coercible to ``double``. Returns ``bigint`` if T is coercible to ``bigint``. Otherwise, returns ``double``.
 
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
@@ -90,6 +80,20 @@ Array Functions
 .. function:: array_min(x) -> x
 
     Returns the minimum value of input array.
+
+.. function:: array_max_by(array(T), function(T, U)) -> T
+
+    Applies the provided function to each element, and returns the element that gives the maximum value.
+    ``U`` can be any orderable type. ::
+
+        SELECT array_max_by(ARRAY ['a', 'bbb', 'cc'], x -> LENGTH(x)) -- 'bbb'
+
+.. function:: array_min_by(array(T), function(T, U)) -> T
+
+    Applies the provided function to each element, and returns the element that gives the minimum value.
+    ``U`` can be any orderable type. ::
+
+        SELECT array_min_by(ARRAY ['a', 'bbb', 'cc'], x -> LENGTH(x)) -- 'a'
 
 .. function:: array_normalize(x, p) -> array
 
@@ -146,6 +150,15 @@ Array Functions
                           (x, y) -> IF(cardinality(x) < cardinality(y),
                                        -1,
                                        IF(cardinality(x) = cardinality(y), 0, 1))); -- [[1, 2], [2, 3, 1], [4, 2, 1, 4]]
+
+.. function:: array_sort_desc(x) -> array
+
+    Returns the ``array`` sorted in the descending order. Elements of the ``array`` must be orderable.
+    Null elements will be placed at the end of the returned array.
+
+        SELECT array_sort_desc(ARRAY [100, 1, 10, 50]); -- [100, 50, 10, 1]
+        SELECT array_sort_desc(ARRAY [null, 100, null, 1, 10, 50]); -- [100, 50, 10, 1, null, null]
+        SELECT array_sort_desc(ARRAY [ARRAY ["a", null], null, ARRAY ["a"]); -- [["a", null], ["a"], null]
 
 .. function:: array_sum(array(T)) -> bigint/double
 
@@ -208,6 +221,21 @@ Array Functions
 
     Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
 
+.. function:: find_first(array(E), function(T,boolean)) -> E
+
+    Returns the first element of ``array`` which returns true for ``function(T,boolean)``. Returns ``NULL`` if no such element exists.
+
+.. function:: find_first(array(E), index, function(T,boolean)) -> E
+
+    Returns the first element of ``array`` which returns true for ``function(T,boolean)``. Returns ``NULL`` if no such element exists.
+    If ``index`` > 0, the search for element starts at position ``index`` until the end of array.
+    If ``index`` < 0, the search for element starts at position ``abs(index)`` counting from last, until the start of array. ::
+
+        SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x > 0); -- 4
+        SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 0); -- 5
+        SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x < 4); -- NULL
+        SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 5); -- NULL
+
 .. function:: ngrams(array(T), n) -> array(array(T))
 
     Returns ``n``-grams for the ``array``::
@@ -243,6 +271,10 @@ Array Functions
                       CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)),
                       (s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)),
                       s -> IF(s.count = 0, NULL, s.sum / s.count));
+
+.. function:: remove_nulls(array(T)) -> array
+
+    Remove all null elements in the array.
 
 .. function:: repeat(element, count) -> array
 
@@ -285,6 +317,16 @@ Array Functions
 
     Subsets array ``x`` starting from index ``start`` (or starting from the end
     if ``start`` is negative) with a length of ``length``.
+
+.. function:: trim_array(x, n) -> array
+
+    Remove ``n`` elements from the end of array::
+
+        SELECT trim_array(ARRAY[1, 2, 3, 4], 1);
+        -- [1, 2, 3]
+
+        SELECT trim_array(ARRAY[1, 2, 3, 4], 2);
+        -- [1, 2]
 
 .. function:: transform(array(T), function(T,U)) -> array(U)
 

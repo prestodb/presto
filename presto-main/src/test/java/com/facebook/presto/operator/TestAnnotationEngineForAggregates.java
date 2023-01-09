@@ -24,9 +24,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.aggregation.AggregationImplementation;
-import com.facebook.presto.operator.aggregation.AggregationMetadata;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.aggregation.LazyAccumulatorFactoryBinder;
+import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
 import com.facebook.presto.operator.aggregation.ParametricAggregation;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleStateSerializer;
@@ -53,6 +51,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
@@ -90,19 +89,19 @@ public class TestAnnotationEngineForAggregates
         @InputFunction
         public static void input(@AggregationState NullableDoubleState state, @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
         public static void combine(@AggregationState NullableDoubleState combine1, @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction(DOUBLE)
         public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -129,7 +128,7 @@ public class TestAnnotationEngineForAggregates
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "simple_exact_aggregate");
@@ -142,19 +141,19 @@ public class TestAnnotationEngineForAggregates
         @InputFunction
         public static void input(@SqlType(DOUBLE) double value, @AggregationState NullableDoubleState state)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
         public static void combine(@AggregationState NullableDoubleState combine1, @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction(DOUBLE)
         public static void output(BlockBuilder out, @AggregationState NullableDoubleState state)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -183,19 +182,19 @@ public class TestAnnotationEngineForAggregates
         @InputFunction
         public static void input(NullableDoubleState state, @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
         public static void combine(NullableDoubleState combine1, NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction(DOUBLE)
         public static void output(NullableDoubleState state, BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -208,7 +207,7 @@ public class TestAnnotationEngineForAggregates
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "no_aggregation_state_aggregate");
@@ -228,7 +227,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -236,13 +235,13 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction(DOUBLE)
         public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @AggregationStateSerializerFactory(NullableDoubleState.class)
@@ -259,9 +258,8 @@ public class TestAnnotationEngineForAggregates
         AggregationImplementation implementation = getOnlyElement(aggregation.getImplementations().getExactImplementations().values());
         assertTrue(implementation.getStateSerializerFactory().isPresent());
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
-        AccumulatorStateSerializer<?> createdSerializer = getOnlyElement(((LazyAccumulatorFactoryBinder) specialized.getAccumulatorFactoryBinder())
-                .getGenericAccumulatorFactoryBinder().getStateDescriptors()).getSerializer();
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        AccumulatorStateSerializer<?> createdSerializer = getOnlyElement(specialized.getAggregationMetadata().getAccumulatorStateDescriptors()).getSerializer();
         Class<?> serializerFactory = implementation.getStateSerializerFactory().get().type().returnType();
         assertTrue(serializerFactory.isInstance(createdSerializer));
     }
@@ -275,7 +273,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -283,7 +281,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction(DOUBLE)
@@ -291,7 +289,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @AggregationStateSerializerFactory(NullableDoubleState.class)
@@ -315,7 +313,7 @@ public class TestAnnotationEngineForAggregates
         assertTrue(aggregation.isDeterministic());
         assertEquals(aggregation.getSignature(), expectedSignature);
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertFalse(specialized.isDecomposable());
         assertEquals(specialized.name(), "custom_decomposable_aggregate");
@@ -331,7 +329,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("T") double value)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @InputFunction
@@ -340,7 +338,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @SqlType("T") long value)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -348,7 +346,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @AggregationState NullableLongState otherState)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -356,7 +354,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @AggregationState NullableDoubleState otherState)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("T")
@@ -364,7 +362,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("T")
@@ -372,7 +370,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -411,7 +409,7 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementationLong.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
         assertEquals(implementationLong.getStateClass(), NullableLongState.class);
 
-        InternalAggregationFunction specialized = aggregation.specialize(
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(
                 BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(),
                 1,
                 FUNCTION_AND_TYPE_MANAGER);
@@ -431,7 +429,7 @@ public class TestAnnotationEngineForAggregates
                 @BlockPosition @SqlType(DOUBLE) Block value,
                 @BlockIndex int id)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -439,7 +437,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction(DOUBLE)
@@ -447,7 +445,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -474,7 +472,7 @@ public class TestAnnotationEngineForAggregates
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL, AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX);
         assertEquals(implementation.getInputParameterMetadataTypes(), expectedMetadataTypes);
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "block_input_aggregate");
@@ -490,7 +488,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("array(T)") Block arrayBlock, @SqlType("T") double additionalValue)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @InputFunction
@@ -499,7 +497,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @SqlType("array(T)") Block arrayBlock, @SqlType("T") long additionalValue)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -507,7 +505,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @AggregationState NullableLongState otherState)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -515,7 +513,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @AggregationState NullableDoubleState otherState)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("T")
@@ -523,7 +521,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("T")
@@ -531,7 +529,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -565,7 +563,7 @@ public class TestAnnotationEngineForAggregates
         assertFalse(implementation2.hasSpecializedTypeParameters());
         assertTrue(implementation2.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "implicit_specialized_aggregate");
@@ -582,7 +580,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("array(T)") Block arrayBlock)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @InputFunction
@@ -591,7 +589,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @SqlType("array(T)") Block arrayBlock)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -599,7 +597,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 @AggregationState NullableLongState otherState)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -607,7 +605,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @AggregationState NullableDoubleState otherState)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("T")
@@ -615,7 +613,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableLongState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("T")
@@ -623,7 +621,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -656,7 +654,7 @@ public class TestAnnotationEngineForAggregates
         assertFalse(implementation2.hasSpecializedTypeParameters());
         assertTrue(implementation2.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "implicit_specialized_aggregate");
@@ -671,7 +669,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -679,7 +677,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @AggregationFunction("multi_output_aggregate_1")
@@ -689,7 +687,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @AggregationFunction("multi_output_aggregate_2")
@@ -698,7 +696,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -743,7 +741,7 @@ public class TestAnnotationEngineForAggregates
         assertFalse(implementation.hasSpecializedTypeParameters());
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation1.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        BuiltInAggregationFunctionImplementation specialized = aggregation1.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "multi_output_aggregate_1");
@@ -759,7 +757,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType(DOUBLE) double value)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -768,7 +766,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction(DOUBLE)
@@ -777,7 +775,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @AggregationStateSerializerFactory(NullableDoubleState.class)
@@ -820,7 +818,7 @@ public class TestAnnotationEngineForAggregates
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(BoundVariables.builder().build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "inject_operator_aggregate");
@@ -837,7 +835,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("T") double value)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -846,7 +844,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("T")
@@ -855,7 +853,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @AggregationStateSerializerFactory(NullableDoubleState.class)
@@ -902,7 +900,7 @@ public class TestAnnotationEngineForAggregates
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "inject_type_aggregate");
@@ -919,7 +917,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState SliceState state,
                 @SqlType("varchar(x)") Slice slice)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -928,7 +926,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState SliceState combine1,
                 @AggregationState SliceState combine2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("varchar(x)")
@@ -937,7 +935,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState SliceState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @AggregationStateSerializerFactory(SliceState.class)
@@ -981,7 +979,7 @@ public class TestAnnotationEngineForAggregates
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setLongVariable("x", 17L).build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(BoundVariables.builder().setLongVariable("x", 17L).build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), VarcharType.createVarcharType(17));
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "inject_literal_aggregate");
@@ -999,7 +997,7 @@ public class TestAnnotationEngineForAggregates
                 @SqlType("varchar(x)") Slice slice1,
                 @SqlType("varchar(y)") Slice slice2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -1007,7 +1005,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState SliceState combine1,
                 @AggregationState SliceState combine2)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("varchar(z)")
@@ -1015,7 +1013,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState SliceState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -1051,7 +1049,7 @@ public class TestAnnotationEngineForAggregates
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(
                 BoundVariables.builder()
                         .setLongVariable("x", 17L)
                         .setLongVariable("y", 13L)
@@ -1072,7 +1070,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("double") double value)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -1081,7 +1079,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @AggregationState NullableDoubleState otherState)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("double")
@@ -1090,7 +1088,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -1134,7 +1132,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @SqlType("double") double value)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -1145,7 +1143,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @AggregationState NullableDoubleState otherState)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("double")
@@ -1156,7 +1154,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -1187,7 +1185,7 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementationDouble.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
         assertEquals(implementationDouble.getStateClass(), NullableDoubleState.class);
 
-        InternalAggregationFunction specialized = aggregation.specialize(
+        BuiltInAggregationFunctionImplementation specialized = aggregation.specialize(
                 BoundVariables.builder().setTypeVariable("T1", DoubleType.DOUBLE).setTypeVariable("T2", DoubleType.DOUBLE).build(),
                 1,
                 FUNCTION_AND_TYPE_MANAGER);

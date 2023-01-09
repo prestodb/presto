@@ -204,7 +204,7 @@ public class AccumuloClient
             if (columnMapping.get().values().stream()
                     .filter(pair -> pair.getKey().equals(reservedRowIdColumn) && pair.getValue().equals(reservedRowIdColumn))
                     .count() > 0) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Column familiy/qualifier mapping of %s:%s is reserved", reservedRowIdColumn, reservedRowIdColumn));
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Column family/qualifier mapping of %s:%s is reserved", reservedRowIdColumn, reservedRowIdColumn));
             }
         }
         else if (AccumuloTableProperties.isExternal(meta.getProperties())) {

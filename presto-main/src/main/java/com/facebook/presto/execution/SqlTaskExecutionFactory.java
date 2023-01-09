@@ -103,10 +103,7 @@ public class SqlTaskExecutionFactory
             try {
                 localExecutionPlan = planner.plan(
                         taskContext,
-                        fragment.getRoot(),
-                        fragment.getPartitioningScheme(),
-                        fragment.getStageExecutionDescriptor(),
-                        fragment.getTableScanSchedulingOrder(),
+                        fragment,
                         outputBuffer,
                         new HttpRemoteSourceFactory(blockEncodingSerde, taskExchangeClientManager, orderingCompiler),
                         tableWriteInfo);

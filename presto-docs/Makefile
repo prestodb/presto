@@ -10,7 +10,7 @@ SOURCEDIR     = src/main/sphinx
 
 # User-friendly check for sphinx-build
 ifeq ($(shell which $(PYTHON3) >/dev/null 2>&1; echo $$?), 1)
-$(error The '$(PYTHON3)' command was not found. Make sure you have Python3 instaled. You can grab it from https://www.python.org/)
+$(error The '$(PYTHON3)' command was not found. Make sure you have Python3 installed. You can grab it from https://www.python.org/)
 endif
 
 # Internal variables.

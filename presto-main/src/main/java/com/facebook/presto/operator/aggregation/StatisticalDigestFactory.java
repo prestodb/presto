@@ -14,9 +14,11 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.airlift.stats.QuantileDigest;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.tdigest.TDigest;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class StatisticalDigestFactory
@@ -54,9 +56,14 @@ public class StatisticalDigestFactory
         @Override
         public void merge(StatisticalDigest other)
         {
-            checkArgument(other instanceof StatisticalTDigest);
-            StatisticalTDigest toMerge = (StatisticalTDigest) other;
-            tDigest.merge(toMerge.tDigest);
+            try {
+                checkArgument(other instanceof StatisticalTDigest);
+                StatisticalTDigest toMerge = (StatisticalTDigest) other;
+                tDigest.merge(toMerge.tDigest);
+            }
+            catch (IllegalArgumentException ex) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, ex.getMessage(), ex);
+            }
         }
 
         @Override
@@ -103,9 +110,14 @@ public class StatisticalDigestFactory
         @Override
         public void merge(StatisticalDigest other)
         {
-            checkArgument(other instanceof StatisticalQuantileDigest);
-            StatisticalQuantileDigest toMerge = (StatisticalQuantileDigest) other;
-            this.qdigest.merge(toMerge.qdigest);
+            try {
+                checkArgument(other instanceof StatisticalQuantileDigest);
+                StatisticalQuantileDigest toMerge = (StatisticalQuantileDigest) other;
+                this.qdigest.merge(toMerge.qdigest);
+            }
+            catch (IllegalArgumentException ex) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, ex.getMessage(), ex);
+            }
         }
 
         @Override

@@ -35,6 +35,7 @@ import com.facebook.presto.hive.pagefile.PageInputFormat;
 import com.facebook.presto.hive.util.FooterAwareRecordReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
@@ -125,6 +126,8 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.TypeUtils.isDistinctType;
+import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -148,6 +151,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_BUCKETING_IS_IGN
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.hive.util.CustomSplitConversionUtils.recreateSplitWithCustomInfo;
@@ -183,6 +187,13 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 public final class HiveUtil
 {
     public static final String CUSTOM_FILE_SPLIT_CLASS_KEY = "custom_split_class";
+
+    public static final String PRESTO_QUERY_ID = "presto_query_id";
+    public static final String PRESTO_QUERY_SOURCE = "presto_query_source";
+    public static final String PRESTO_CLIENT_INFO = "presto_client_info";
+    public static final String PRESTO_USER_NAME = "presto_user_name";
+    public static final String PRESTO_METASTORE_HEADER = "presto_metastore_header";
+
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
 
     private static final String VIEW_PREFIX = "/* Presto View: ";
@@ -364,7 +375,7 @@ public final class HiveUtil
         return (Class<? extends InputFormat<?, ?>>) clazz.asSubclass(InputFormat.class);
     }
 
-    static String getInputFormatName(Properties schema)
+    public static String getInputFormatName(Properties schema)
     {
         String name = schema.getProperty(FILE_INPUT_FORMAT);
         checkCondition(name != null, HIVE_INVALID_METADATA, "Table or partition is missing Hive input format property: %s", FILE_INPUT_FORMAT);
@@ -384,14 +395,19 @@ public final class HiveUtil
                 .anyMatch(USE_RECORD_READER_FROM_INPUT_FORMAT_ANNOTATION::equals);
     }
 
-    static boolean shouldUseFileSplitsFromInputFormat(InputFormat<?, ?> inputFormat, Configuration conf, String tablePath)
+    static boolean shouldUseFileSplitsFromInputFormat(InputFormat<?, ?> inputFormat, DirectoryLister directoryLister)
     {
-        boolean hasUseSplitsAnnotation = Arrays.stream(inputFormat.getClass().getAnnotations())
-                .map(Annotation::annotationType)
-                .map(Class::getSimpleName)
-                .anyMatch(USE_FILE_SPLITS_FROM_INPUT_FORMAT_ANNOTATION::equals);
+        if (directoryLister instanceof HudiDirectoryLister) {
+            boolean hasUseSplitsAnnotation = Arrays.stream(inputFormat.getClass().getAnnotations())
+                    .map(Annotation::annotationType)
+                    .map(Class::getSimpleName)
+                    .anyMatch(USE_FILE_SPLITS_FROM_INPUT_FORMAT_ANNOTATION::equals);
 
-        return hasUseSplitsAnnotation && (!isHudiParquetInputFormat(inputFormat) || shouldUseFileSplitsForHudi(inputFormat, conf, tablePath));
+            return hasUseSplitsAnnotation &&
+                    (!isHudiParquetInputFormat(inputFormat) || shouldUseFileSplitsForHudi(inputFormat, ((HudiDirectoryLister) directoryLister).getMetaClient()));
+        }
+
+        return false;
     }
 
     static boolean isHudiParquetInputFormat(InputFormat<?, ?> inputFormat)
@@ -399,14 +415,13 @@ public final class HiveUtil
         return inputFormat instanceof HoodieParquetInputFormat;
     }
 
-    private static boolean shouldUseFileSplitsForHudi(InputFormat<?, ?> inputFormat, Configuration conf, String tablePath)
+    private static boolean shouldUseFileSplitsForHudi(InputFormat<?, ?> inputFormat, HoodieTableMetaClient metaClient)
     {
         if (inputFormat instanceof HoodieParquetRealtimeInputFormat) {
             return true;
         }
 
-        HoodieTableMetaClient hoodieTableMetaClient = HoodieTableMetaClient.builder().setConf(conf).setBasePath(tablePath).build();
-        return hoodieTableMetaClient.getTableConfig().getBootstrapBasePath().isPresent();
+        return metaClient.getTableConfig().getBootstrapBasePath().isPresent();
     }
 
     public static long parseHiveDate(String value)
@@ -567,7 +582,9 @@ public final class HiveUtil
                 DATE.equals(type) ||
                 TIMESTAMP.equals(type) ||
                 isVarcharType(type) ||
-                isCharType(type);
+                isCharType(type) ||
+                isEnumType(type) ||
+                isDistinctType(type);
     }
 
     public static NullableValue parsePartitionValue(HivePartitionKey key, Type type, DateTimeZone timeZone)
@@ -964,13 +981,13 @@ public final class HiveUtil
         return partitionKey ? "partition key" : null;
     }
 
-    public static Optional<String> getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber, long fileSize, long fileModifiedTime)
+    public static Optional<String> getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, HiveFileSplit fileSplit, OptionalInt bucketNumber)
     {
         if (partitionKey != null) {
             return partitionKey.getValue();
         }
         if (isPathColumnHandle(columnHandle)) {
-            return Optional.of(path.toString());
+            return Optional.of(fileSplit.getPath());
         }
         if (isBucketColumnHandle(columnHandle)) {
             if (!bucketNumber.isPresent()) {
@@ -979,10 +996,10 @@ public final class HiveUtil
             return Optional.of(String.valueOf(bucketNumber.getAsInt()));
         }
         if (isFileSizeColumnHandle(columnHandle)) {
-            return Optional.of(String.valueOf(fileSize));
+            return Optional.of(String.valueOf(fileSplit.getFileSize()));
         }
         if (isFileModifiedTimeColumnHandle(columnHandle)) {
-            return Optional.of(String.valueOf(fileModifiedTime));
+            return Optional.of(String.valueOf(fileSplit.getFileModifiedTime()));
         }
 
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
@@ -1108,7 +1125,7 @@ public final class HiveUtil
             Integer physicalOrdinal = physicalNameOrdinalMap.get(column.getName());
             if (physicalOrdinal == null) {
                 // if the column is missing from the file, assign it a column number larger than the number of columns in the
-                // file so the reader will fill it with nulls.  If the index is negative, i.e. this is a sythesized column like
+                // file so the reader will fill it with nulls.  If the index is negative, i.e. this is a synthesized column like
                 // a partitioning key, $bucket or $path, leave it as is.
                 if (column.getHiveColumnIndex() < 0) {
                     physicalOrdinal = column.getHiveColumnIndex();
@@ -1244,5 +1261,16 @@ public final class HiveUtil
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public static Map<String, String> buildDirectoryContextProperties(ConnectorSession session)
+    {
+        ImmutableMap.Builder<String, String> directoryContextProperties = ImmutableMap.builder();
+        directoryContextProperties.put(PRESTO_QUERY_ID, session.getQueryId());
+        session.getSource().ifPresent(source -> directoryContextProperties.put(PRESTO_QUERY_SOURCE, source));
+        session.getClientInfo().ifPresent(clientInfo -> directoryContextProperties.put(PRESTO_CLIENT_INFO, clientInfo));
+        getMetastoreHeaders(session).ifPresent(metastoreHeaders -> directoryContextProperties.put(PRESTO_METASTORE_HEADER, metastoreHeaders));
+        directoryContextProperties.put(PRESTO_USER_NAME, session.getUser());
+        return directoryContextProperties.build();
     }
 }

@@ -42,6 +42,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
@@ -89,6 +90,7 @@ import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Sets.difference;
@@ -99,6 +101,7 @@ import static java.lang.String.format;
 import static java.util.AbstractMap.SimpleEntry;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 
 public class ClusterMemoryManager
@@ -234,15 +237,11 @@ public class ClusterMemoryManager
         return pools.containsKey(poolId);
     }
 
-    public synchronized void process(Iterable<QueryExecution> runningQueries, Supplier<List<BasicQueryInfo>> allQueryInfoSupplier)
+    public synchronized void process(Iterable<QueryExecution> runningQueries)
     {
         if (!enabled) {
             return;
         }
-
-        // TODO revocable memory reservations can also leak and may need to be detected in the future
-        // We are only concerned about the leaks in general pool.
-        memoryLeakDetector.checkForMemoryLeaks(allQueryInfoSupplier, pools.get(GENERAL_POOL).getQueryMemoryReservations());
 
         boolean outOfMemory = isClusterOutOfMemory();
         if (!outOfMemory) {
@@ -331,6 +330,32 @@ public class ClusterMemoryManager
             assignmentsRequest = new MemoryPoolAssignmentsRequest(coordinatorId, Long.MIN_VALUE, ImmutableList.of());
         }
         updateNodes(assignmentsRequest);
+    }
+
+    public synchronized void checkForLeaks(Supplier<List<BasicQueryInfo>> allQueryInfoSupplier)
+    {
+        if (!enabled) {
+            return;
+        }
+
+        Map<QueryId, Optional<BasicQueryInfo>> allRunningQueries;
+        if (memoryManagerService.isPresent()) {
+            // We are in the multi-coordinator codepath, and thus care about the globally running queries
+            allRunningQueries = getClusterInfo(GENERAL_POOL)
+                            .getRunningQueries()
+                            .orElse(ImmutableList.of())
+                            .stream().collect(toImmutableMap(identity(), t -> Optional.empty()));
+        }
+        else {
+            // We are in the single coordinator setup, and thus care about the local queries. Ie, global queries
+            // does not make sense.
+            allRunningQueries = Maps.uniqueIndex(
+                    allQueryInfoSupplier.get().stream()
+                        .map(Optional::of)
+                        .iterator(),
+                    queryInfo -> queryInfo.get().getQueryId());
+        }
+        memoryLeakDetector.checkForMemoryLeaks(allRunningQueries, pools.get(GENERAL_POOL).getQueryMemoryReservations());
     }
 
     private synchronized void callOomKiller(Iterable<QueryExecution> runningQueries)
@@ -630,6 +655,12 @@ public class ClusterMemoryManager
     public int getNumberOfLeakedQueries()
     {
         return memoryLeakDetector.getNumberOfLeakedQueries();
+    }
+
+    @Managed
+    public long getLeakedBytes()
+    {
+        return memoryLeakDetector.getLeakedBytes();
     }
 
     @Managed

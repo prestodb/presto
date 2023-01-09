@@ -694,6 +694,22 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testSecureRandom()
+    {
+        // secure_random is non-deterministic
+        functionAssertions.tryEvaluateWithAll("secure_rand()", DOUBLE, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_random()", DOUBLE, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_random(0, 1000)", INTEGER, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_random(0, 3000000000)", BIGINT, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_random(-3000000000, -1)", BIGINT, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_rand(-3000000000, 3000000000)", BIGINT, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("secure_random(DECIMAL '0.0', DECIMAL '1.0')", DOUBLE, TEST_SESSION);
+
+        assertInvalidFunction("secure_random(1, 1)", "upper bound must be greater than lower bound");
+        assertInvalidFunction("secure_random(DECIMAL '5.0', DECIMAL '-5.0')", "upper bound must be greater than lower bound");
+    }
+
+    @Test
     public void testRound()
     {
         assertFunction("round(TINYINT '3')", TINYINT, (byte) 3);
@@ -1449,6 +1465,33 @@ public class TestMathFunctions
 
         assertInvalidFunction("chi_squared_cdf(-3, 0.3)", "df must be greater than 0");
         assertInvalidFunction("chi_squared_cdf(3, -10)", "value must non-negative");
+    }
+
+    @Test
+    public void testInverseLaplaceCdf()
+    {
+        assertFunction("inverse_laplace_cdf(5, 1, 0.5)", DOUBLE, 5.0);
+        assertFunction("inverse_laplace_cdf(5, 2, 0.5)", DOUBLE, 5.0);
+        assertFunction("round(inverse_laplace_cdf(5, 2, 0.6), 4)", DOUBLE, 5.0 + 0.4463);
+        assertFunction("round(inverse_laplace_cdf(-5, 2, 0.4), 4)", DOUBLE, -5.0 - 0.4463);
+
+        assertInvalidFunction("inverse_laplace_cdf(5, 2, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_laplace_cdf(5, 2, 1.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_laplace_cdf(5, 0, 0.5)", "scale must be greater than 0");
+        assertInvalidFunction("inverse_laplace_cdf(5, -1, 0.5)", "scale must be greater than 0");
+    }
+
+    @Test
+    public void testLaplaceCdf()
+            throws Exception
+    {
+        assertFunction("laplace_cdf(4, 1, 4)", DOUBLE, 0.5);
+        assertFunction("laplace_cdf(4, 2, 4.0)", DOUBLE, 0.5);
+        assertFunction("round(laplace_cdf(4, 2, 4.0 - 0.4463), 2)", DOUBLE, 0.4);
+        assertFunction("round(laplace_cdf(-4, 2, -4.0 + 0.4463), 4)", DOUBLE, 0.6);
+
+        assertInvalidFunction("laplace_cdf(5, 0, 10)", "scale must be greater than 0");
+        assertInvalidFunction("laplace_cdf(5, -1, 10)", "scale must be greater than 0");
     }
 
     @Test

@@ -14,8 +14,9 @@
 package com.facebook.presto.execution.warnings;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.presto.common.WarningHandlingLevel;
 
-import static com.facebook.presto.execution.warnings.WarningHandlingLevel.NORMAL;
+import static com.facebook.presto.common.WarningHandlingLevel.NORMAL;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class WarningCollectorConfig

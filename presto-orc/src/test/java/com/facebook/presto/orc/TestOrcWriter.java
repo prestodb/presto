@@ -20,11 +20,12 @@ import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
-import com.facebook.presto.orc.StreamLayout.ByColumnSize;
-import com.facebook.presto.orc.StreamLayout.ByStreamSize;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
+import com.facebook.presto.orc.writer.StreamLayoutFactory;
+import com.facebook.presto.orc.writer.StreamLayoutFactory.ColumnSizeLayoutFactory;
+import com.facebook.presto.orc.writer.StreamLayoutFactory.StreamSizeLayoutFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
@@ -43,6 +44,7 @@ import java.util.function.Supplier;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
@@ -73,7 +75,7 @@ public class TestOrcWriter
     public void testWriteOutputStreamsInOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level)
             throws IOException
     {
-        testStreamOrder(encoding, kind, level, new ByStreamSize(), () -> new Consumer<Stream>()
+        testStreamOrder(encoding, kind, level, new StreamSizeLayoutFactory(), () -> new Consumer<Stream>()
         {
             int size;
 
@@ -92,7 +94,7 @@ public class TestOrcWriter
     public void testOutputStreamsByColumnSize(OrcEncoding encoding, CompressionKind kind, OptionalInt level)
             throws IOException
     {
-        testStreamOrder(encoding, kind, level, new ByColumnSize(), () -> new Consumer<Stream>()
+        testStreamOrder(encoding, kind, level, new ColumnSizeLayoutFactory(), () -> new Consumer<Stream>()
         {
             int previousColumnSize;
             int currentColumnSize;
@@ -117,17 +119,19 @@ public class TestOrcWriter
         });
     }
 
-    private void testStreamOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level, StreamLayout streamLayout, Supplier<Consumer<Stream>> streamConsumerFactory)
+    private void testStreamOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level, StreamLayoutFactory streamLayoutFactory, Supplier<Consumer<Stream>> streamConsumerFactory)
             throws IOException
     {
         OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
-                .withStripeMinSize(new DataSize(0, MEGABYTE))
-                .withStripeMaxSize(new DataSize(32, MEGABYTE))
-                .withStripeMaxRowCount(ORC_STRIPE_SIZE)
+                .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
+                        .withStripeMinSize(new DataSize(0, MEGABYTE))
+                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                        .withStripeMaxRowCount(ORC_STRIPE_SIZE)
+                        .build())
                 .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                 .withDictionaryMaxMemory(new DataSize(32, MEGABYTE))
                 .withCompressionLevel(level)
-                .withStreamLayout(streamLayout)
+                .withStreamLayoutFactory(streamLayoutFactory)
                 .build();
         for (OrcWriteValidationMode validationMode : OrcWriteValidationMode.values()) {
             TempFile tempFile = new TempFile();
@@ -144,7 +148,7 @@ public class TestOrcWriter
                     HIVE_STORAGE_TIME_ZONE,
                     true,
                     validationMode,
-                    new OrcWriterStats());
+                    NOOP_WRITER_STATS);
 
             // write down some data with unsorted streams
             String[] data = new String[] {"a", "bbbbb", "ccc", "dd", "eeee"};
@@ -194,9 +198,11 @@ public class TestOrcWriter
                 Optional.empty(),
                 NO_ENCRYPTION,
                 OrcWriterOptions.builder()
-                        .withStripeMinSize(new DataSize(0, MEGABYTE))
-                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
-                        .withStripeMaxRowCount(10)
+                        .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
+                                .withStripeMinSize(new DataSize(0, MEGABYTE))
+                                .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                                .withStripeMaxRowCount(10)
+                                .build())
                         .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                         .withDictionaryMaxMemory(new DataSize(32, MEGABYTE))
                         .build(),
@@ -204,7 +210,7 @@ public class TestOrcWriter
                 HIVE_STORAGE_TIME_ZONE,
                 false,
                 null,
-                new OrcWriterStats());
+                NOOP_WRITER_STATS);
 
         int entries = 65536;
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);

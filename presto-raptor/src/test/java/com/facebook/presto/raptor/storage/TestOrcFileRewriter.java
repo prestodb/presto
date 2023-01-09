@@ -30,7 +30,6 @@ import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
@@ -76,6 +75,7 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.raptor.filesystem.FileSystemUtil.DEFAULT_RAPTOR_CONTEXT;
@@ -714,7 +714,7 @@ public class TestOrcFileRewriter
                 new OutputStreamDataSink(new FileOutputStream(file)),
                 writeMetadata,
                 true,
-                new OrcWriterStats(),
+                NOOP_WRITER_STATS,
                 createTestFunctionAndTypeManager(),
                 ZSTD);
     }
@@ -724,7 +724,7 @@ public class TestOrcFileRewriter
         return new OrcFileRewriter(
                 READER_ATTRIBUTES,
                 true,
-                new OrcWriterStats(),
+                NOOP_WRITER_STATS,
                 createTestFunctionAndTypeManager(),
                 new LocalOrcDataEnvironment(),
                 ZSTD,

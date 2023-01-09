@@ -122,7 +122,7 @@ public class TestValidateAggregationsWithDefaultValues
                         .source(builder.exchange(e -> e
                                 .type(REPARTITION)
                                 .scope(REMOTE_STREAMING)
-                                .fixedHashDistributionParitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
+                                .fixedHashDistributionPartitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
                                 .addInputsSet(variable)
                                 .addSource(builder.aggregation(ap -> ap
                                         .step(PARTIAL)
@@ -140,7 +140,7 @@ public class TestValidateAggregationsWithDefaultValues
                         .source(builder.exchange(e -> e
                                 .type(REPARTITION)
                                 .scope(LOCAL)
-                                .fixedHashDistributionParitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
+                                .fixedHashDistributionPartitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
                                 .addInputsSet(variable)
                                 .addSource(builder.aggregation(ap -> ap
                                         .step(PARTIAL)
@@ -160,7 +160,7 @@ public class TestValidateAggregationsWithDefaultValues
                                 builder.exchange(e -> e
                                         .type(REPARTITION)
                                         .scope(LOCAL)
-                                        .fixedHashDistributionParitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
+                                        .fixedHashDistributionPartitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
                                         .addInputsSet(variable)
                                         .addSource(builder.aggregation(ap -> ap
                                                 .step(PARTIAL)

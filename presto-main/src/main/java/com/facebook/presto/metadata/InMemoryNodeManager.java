@@ -121,7 +121,8 @@ public class InMemoryNodeManager
                 ImmutableSet.of(),
                 shuttingDownNodesBuilder.build(),
                 concat(Stream.of(localNode), remoteNodes.values().stream()).collect(toImmutableSet()).stream().filter(InternalNode::isCoordinator).collect(toImmutableSet()),
-                concat(Stream.of(localNode), remoteNodes.values().stream()).collect(toImmutableSet()).stream().filter(InternalNode::isResourceManager).collect(toImmutableSet()));
+                concat(Stream.of(localNode), remoteNodes.values().stream()).collect(toImmutableSet()).stream().filter(InternalNode::isResourceManager).collect(toImmutableSet()),
+                concat(Stream.of(localNode), remoteNodes.values().stream()).collect(toImmutableSet()).stream().filter(InternalNode::isCatalogServer).collect(toImmutableSet()));
     }
 
     @Override
@@ -147,6 +148,12 @@ public class InMemoryNodeManager
     public Set<InternalNode> getResourceManagers()
     {
         return getAllNodes().getActiveResourceManagers();
+    }
+
+    @Override
+    public Set<InternalNode> getCatalogServers()
+    {
+        return getAllNodes().getActiveCatalogServers();
     }
 
     @Override

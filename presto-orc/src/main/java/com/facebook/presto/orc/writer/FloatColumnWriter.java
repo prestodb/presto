@@ -17,8 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
-import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
-import com.facebook.presto.orc.checkpoint.FloatStreamCheckpoint;
+import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.MetadataWriter;
@@ -43,6 +42,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
+import static com.facebook.presto.orc.writer.ColumnWriterUtils.buildRowGroupIndexes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Float.intBitsToFloat;
@@ -53,8 +53,10 @@ public class FloatColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatColumnWriter.class).instanceSize();
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
+    private static final long TYPE_SIZE = Float.BYTES;
 
     private final int column;
+    private final int sequence;
     private final Type type;
     private final boolean compressed;
     private final FloatOutputStream dataStream;
@@ -68,13 +70,15 @@ public class FloatColumnWriter
 
     private boolean closed;
 
-    public FloatColumnWriter(int column, Type type, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, MetadataWriter metadataWriter)
+    public FloatColumnWriter(int column, int sequence, Type type, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        checkArgument(sequence >= 0, "sequence is negative");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
+        this.sequence = sequence;
         this.type = requireNonNull(type, "type is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.dataStream = new FloatOutputStream(columnWriterOptions, dwrfEncryptor);
@@ -117,7 +121,7 @@ public class FloatColumnWriter
                 nonNullValueCount++;
             }
         }
-        return nonNullValueCount * Float.BYTES + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+        return nonNullValueCount * TYPE_SIZE + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
     }
 
     @Override
@@ -147,38 +151,15 @@ public class FloatColumnWriter
     }
 
     @Override
-    public List<StreamDataOutput> getIndexStreams()
+    public List<StreamDataOutput> getIndexStreams(Optional<List<? extends StreamCheckpoint>> prependCheckpoints)
             throws IOException
     {
         checkState(closed);
 
-        ImmutableList.Builder<RowGroupIndex> rowGroupIndexes = ImmutableList.builder();
-
-        List<FloatStreamCheckpoint> dataCheckpoints = dataStream.getCheckpoints();
-        Optional<List<BooleanStreamCheckpoint>> presentCheckpoints = presentStream.getCheckpoints();
-        for (int i = 0; i < rowGroupColumnStatistics.size(); i++) {
-            int groupId = i;
-            ColumnStatistics columnStatistics = rowGroupColumnStatistics.get(groupId);
-            FloatStreamCheckpoint dataCheckpoint = dataCheckpoints.get(groupId);
-            Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
-            List<Integer> positions = createFloatColumnPositionList(compressed, dataCheckpoint, presentCheckpoint);
-            rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
-        }
-
-        Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        List<RowGroupIndex> rowGroupIndexes = buildRowGroupIndexes(compressed, rowGroupColumnStatistics, prependCheckpoints, presentStream, dataStream);
+        Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes);
+        Stream stream = new Stream(column, sequence, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
-    }
-
-    private static List<Integer> createFloatColumnPositionList(
-            boolean compressed,
-            FloatStreamCheckpoint dataCheckpoint,
-            Optional<BooleanStreamCheckpoint> presentCheckpoint)
-    {
-        ImmutableList.Builder<Integer> positionList = ImmutableList.builder();
-        presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
-        positionList.addAll(dataCheckpoint.toPositionList(compressed));
-        return positionList.build();
     }
 
     @Override
@@ -187,8 +168,8 @@ public class FloatColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(dataStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(column, sequence).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getStreamDataOutput(column, sequence));
         return outputDataStreams.build();
     }
 

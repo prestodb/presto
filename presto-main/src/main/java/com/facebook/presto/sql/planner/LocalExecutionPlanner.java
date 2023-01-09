@@ -109,8 +109,7 @@ import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.aggregation.LambdaProvider;
+import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
@@ -135,8 +134,10 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.function.aggregation.LambdaProvider;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
@@ -164,6 +165,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.spiller.StandaloneSpillerFactory;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
@@ -263,6 +265,7 @@ import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExp
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOrderByAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOrderBySpillEnabled;
+import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isWindowSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -288,6 +291,7 @@ import static com.facebook.presto.operator.TableWriterUtils.FRAGMENT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterUtils.ROW_COUNT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -323,6 +327,7 @@ import static com.facebook.presto.util.SpatialJoinUtils.ST_TOUCHES;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_WITHIN;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -365,8 +370,9 @@ public class LocalExecutionPlanner
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
     private final LogicalRowExpressions logicalRowExpressions;
     private final FragmentResultCacheManager fragmentResultCacheManager;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper sortedMapObjectMapper;
     private final boolean tableFinishOperatorMemoryTrackingEnabled;
+    private final StandaloneSpillerFactory standaloneSpillerFactory;
 
     private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
@@ -397,7 +403,8 @@ public class LocalExecutionPlanner
             JsonCodec<TableCommitContext> tableCommitContextCodec,
             DeterminismEvaluator determinismEvaluator,
             FragmentResultCacheManager fragmentResultCacheManager,
-            ObjectMapper objectMapper)
+            ObjectMapper objectMapper,
+            StandaloneSpillerFactory standaloneSpillerFactory)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -429,38 +436,51 @@ public class LocalExecutionPlanner
                 new FunctionResolution(metadata.getFunctionAndTypeManager()),
                 metadata.getFunctionAndTypeManager());
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
-        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.sortedMapObjectMapper = requireNonNull(objectMapper, "objectMapper is null")
+                .copy()
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
         this.tableFinishOperatorMemoryTrackingEnabled = requireNonNull(memoryManagerConfig, "memoryManagerConfig is null").isTableFinishOperatorMemoryTrackingEnabled();
+        this.standaloneSpillerFactory = requireNonNull(standaloneSpillerFactory, "standaloneSpillerFactory is null");
     }
 
     public LocalExecutionPlan plan(
             TaskContext taskContext,
-            PlanNode plan,
-            PartitioningScheme partitioningScheme,
-            StageExecutionDescriptor stageExecutionDescriptor,
-            List<PlanNodeId> partitionedSourceOrder,
+            PlanFragment planFragment,
             OutputBuffer outputBuffer,
             RemoteSourceFactory remoteSourceFactory,
             TableWriteInfo tableWriteInfo)
     {
         return plan(
                 taskContext,
-                plan,
-                partitioningScheme,
-                stageExecutionDescriptor,
-                partitionedSourceOrder,
-                createOutputFactory(taskContext, partitioningScheme, outputBuffer),
+                planFragment,
+                createOutputFactory(taskContext, planFragment.getPartitioningScheme(), outputBuffer),
                 remoteSourceFactory,
                 tableWriteInfo,
-                false);
+                false,
+                ImmutableList.of());
     }
 
     public LocalExecutionPlan plan(
             TaskContext taskContext,
-            PlanNode plan,
-            PartitioningScheme partitioningScheme,
-            StageExecutionDescriptor stageExecutionDescriptor,
-            List<PlanNodeId> partitionedSourceOrder,
+            PlanFragment planFragment,
+            OutputBuffer outputBuffer,
+            RemoteSourceFactory remoteSourceFactory,
+            TableWriteInfo tableWriteInfo,
+            List<CustomPlanTranslator> customPlanTranslators)
+    {
+        return plan(
+                taskContext,
+                planFragment,
+                createOutputFactory(taskContext, planFragment.getPartitioningScheme(), outputBuffer),
+                remoteSourceFactory,
+                tableWriteInfo,
+                false,
+                customPlanTranslators);
+    }
+
+    public LocalExecutionPlan plan(
+            TaskContext taskContext,
+            PlanFragment planFragment,
             OutputFactory outputFactory,
             RemoteSourceFactory remoteSourceFactory,
             TableWriteInfo tableWriteInfo,
@@ -468,15 +488,33 @@ public class LocalExecutionPlanner
     {
         return plan(
                 taskContext,
-                stageExecutionDescriptor,
-                plan,
-                partitioningScheme,
-                partitionedSourceOrder,
+                planFragment,
                 outputFactory,
-                createOutputPartitioning(taskContext, partitioningScheme),
+                createOutputPartitioning(taskContext, planFragment.getPartitioningScheme()),
                 remoteSourceFactory,
                 tableWriteInfo,
-                pageSinkCommitRequired);
+                pageSinkCommitRequired,
+                ImmutableList.of());
+    }
+
+    public LocalExecutionPlan plan(
+            TaskContext taskContext,
+            PlanFragment planFragment,
+            OutputFactory outputFactory,
+            RemoteSourceFactory remoteSourceFactory,
+            TableWriteInfo tableWriteInfo,
+            boolean pageSinkCommitRequired,
+            List<CustomPlanTranslator> customPlanTranslators)
+    {
+        return plan(
+                taskContext,
+                planFragment,
+                outputFactory,
+                createOutputPartitioning(taskContext, planFragment.getPartitioningScheme()),
+                remoteSourceFactory,
+                tableWriteInfo,
+                pageSinkCommitRequired,
+                customPlanTranslators);
     }
 
     private OutputFactory createOutputFactory(TaskContext taskContext, PartitioningScheme partitioningScheme, OutputBuffer outputBuffer)
@@ -559,20 +597,20 @@ public class LocalExecutionPlanner
     @VisibleForTesting
     public LocalExecutionPlan plan(
             TaskContext taskContext,
-            StageExecutionDescriptor stageExecutionDescriptor,
-            PlanNode plan,
-            PartitioningScheme partitioningScheme,
-            List<PlanNodeId> partitionedSourceOrder,
+            PlanFragment planFragment,
             OutputFactory outputOperatorFactory,
             Optional<OutputPartitioning> outputPartitioning,
             RemoteSourceFactory remoteSourceFactory,
             TableWriteInfo tableWriteInfo,
-            boolean pageSinkCommitRequired)
+            boolean pageSinkCommitRequired,
+            List<CustomPlanTranslator> customPlanTranslators)
     {
+        PartitioningScheme partitioningScheme = planFragment.getPartitioningScheme();
         List<VariableReferenceExpression> outputLayout = partitioningScheme.getOutputLayout();
         Session session = taskContext.getSession();
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, tableWriteInfo);
-        PhysicalOperation physicalOperation = plan.accept(new Visitor(session, stageExecutionDescriptor, remoteSourceFactory, pageSinkCommitRequired), context);
+        PlanNode plan = planFragment.getRoot();
+        PhysicalOperation physicalOperation = plan.accept(new Visitor(session, planFragment, remoteSourceFactory, pageSinkCommitRequired, customPlanTranslators), context);
 
         Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
@@ -595,7 +633,7 @@ public class LocalExecutionPlanner
                         .build(),
                 context.getDriverInstanceCount(),
                 physicalOperation.getPipelineExecutionStrategy(),
-                createFragmentResultCacheContext(fragmentResultCacheManager, plan, partitioningScheme, session, objectMapper));
+                createFragmentResultCacheContext(fragmentResultCacheManager, plan, partitioningScheme, session, sortedMapObjectMapper));
 
         addLookupOuterDrivers(context);
 
@@ -607,7 +645,7 @@ public class LocalExecutionPlanner
                 .map(LocalPlannerAware.class::cast)
                 .forEach(LocalPlannerAware::localPlannerComplete);
 
-        return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder, stageExecutionDescriptor);
+        return new LocalExecutionPlan(context.getDriverFactories(), planFragment.getTableScanSchedulingOrder(), planFragment.getStageExecutionDescriptor());
     }
 
     private static void addLookupOuterDrivers(LocalExecutionPlanContext context)
@@ -640,7 +678,7 @@ public class LocalExecutionPlanner
         }
     }
 
-    private static class LocalExecutionPlanContext
+    public static class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
         private final List<DriverFactory> driverFactories;
@@ -729,7 +767,7 @@ public class LocalExecutionPlanner
             return nextPipelineId.getAndIncrement();
         }
 
-        private int getNextOperatorId()
+        public int getNextOperatorId()
         {
             return nextOperatorId++;
         }
@@ -824,6 +862,35 @@ public class LocalExecutionPlanner
         }
     }
 
+    public abstract static class CustomPlanTranslator
+    {
+        protected ImmutableMap<VariableReferenceExpression, Integer> makeLayout(PlanNode node)
+        {
+            return makeLayoutFromOutputVariables(node.getOutputVariables());
+        }
+
+        private ImmutableMap<VariableReferenceExpression, Integer> makeLayoutFromOutputVariables(List<VariableReferenceExpression> outputVariables)
+        {
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
+            int channel = 0;
+            for (VariableReferenceExpression variable : outputVariables) {
+                outputMappings.put(variable, channel);
+                channel++;
+            }
+            return outputMappings.build();
+        }
+
+        /**
+         * The implementer of this method needs to return either a PhysicalOperator if the given PlanNode is recognizable by current customTranslator or an Optional.empty()
+         * to indicate the translation failure. Inside the method, after the translation of the given node, the implementer can use the passed in default visitor to
+         * do future node translation.
+         */
+        public abstract Optional<PhysicalOperation> translate(
+                PlanNode node,
+                LocalExecutionPlanContext context,
+                InternalPlanVisitor<PhysicalOperation, LocalExecutionPlanContext> visitor);
+    }
+
     private class Visitor
             extends InternalPlanVisitor<PhysicalOperation, LocalExecutionPlanContext>
     {
@@ -831,13 +898,22 @@ public class LocalExecutionPlanner
         private final StageExecutionDescriptor stageExecutionDescriptor;
         private final RemoteSourceFactory remoteSourceFactory;
         private final boolean pageSinkCommitRequired;
+        private final PlanFragment fragment;
+        private final List<CustomPlanTranslator> customPlanTranslators;
 
-        private Visitor(Session session, StageExecutionDescriptor stageExecutionDescriptor, RemoteSourceFactory remoteSourceFactory, boolean pageSinkCommitRequired)
+        private Visitor(
+                Session session,
+                PlanFragment fragment,
+                RemoteSourceFactory remoteSourceFactory,
+                boolean pageSinkCommitRequired,
+                List<CustomPlanTranslator> customPlanTranslators)
         {
             this.session = requireNonNull(session, "session is null");
-            this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
+            this.fragment = requireNonNull(fragment, "fragment is null");
+            this.stageExecutionDescriptor = requireNonNull(fragment.getStageExecutionDescriptor(), "stageExecutionDescriptor is null");
             this.remoteSourceFactory = requireNonNull(remoteSourceFactory, "remoteSourceFactory is null");
             this.pageSinkCommitRequired = pageSinkCommitRequired;
+            this.customPlanTranslators = requireNonNull(customPlanTranslators, "customPlanTranslators is null");
         }
 
         @Override
@@ -1308,6 +1384,16 @@ public class LocalExecutionPlanner
             return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, node.getAssignments(), node.getOutputVariables(), node.getLocality());
         }
 
+        private int getFilterProjectMinRowCount(PlanNode projectSource)
+        {
+            // For final DistinctLimit, this project simply drops the hash variable so for better user experience, we set the limit to 1 so that results are shown quicker
+            if (isQuickDistinctLimitEnabled(session) && projectSource instanceof DistinctLimitNode && !((DistinctLimitNode) projectSource).isPartial()) {
+                return 1;
+            }
+
+            return getFilterAndProjectMinOutputPageRowCount(session);
+        }
+
         // TODO: This should be refactored, so that there's an optimizer that merges scan-filter-project into a single PlanNode
         private PhysicalOperation visitScanFilterAndProject(
                 LocalExecutionPlanContext context,
@@ -1440,7 +1526,7 @@ public class LocalExecutionPlanner
                             pageProcessor,
                             projections.stream().map(RowExpression::getType).collect(toImmutableList()),
                             getFilterAndProjectMinOutputPageSize(session),
-                            getFilterAndProjectMinOutputPageRowCount(session));
+                            getFilterProjectMinRowCount(sourceNode));
 
                     return new PhysicalOperation(operatorFactory, outputMappings, context, source);
                 }
@@ -1683,7 +1769,7 @@ public class LocalExecutionPlanner
             // The probe key channels will be handed to the index according to probeVariable order
             Map<VariableReferenceExpression, Integer> probeKeyLayout = new HashMap<>();
             for (int i = 0; i < probeVariables.size(); i++) {
-                // Duplicate variables can appear and we only need to take take one of the Inputs
+                // Duplicate variables can appear and we only need to take one of the Inputs
                 probeKeyLayout.put(probeVariables.get(i), i);
             }
 
@@ -2450,6 +2536,7 @@ public class LocalExecutionPlanner
             int buildChannel = buildSource.getLayout().get(node.getFilteringSourceJoinVariable());
 
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashVariable().map(variableChannelGetter(buildSource));
+            Optional<Integer> probeHashChannel = node.getSourceHashVariable().map(variableChannelGetter(probeSource));
 
             SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -2485,7 +2572,7 @@ public class LocalExecutionPlanner
                     .put(node.getSemiJoinOutput(), probeSource.getLayout().size())
                     .build();
 
-            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel);
+            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel, probeHashChannel);
             return new PhysicalOperation(operator, outputMappings, context, probeSource);
         }
 
@@ -2526,6 +2613,7 @@ public class LocalExecutionPlanner
                         aggregation.getAggregations(),
                         ImmutableSet.of(),
                         groupingVariables,
+                        ImmutableList.of(),
                         PARTIAL,
                         Optional.empty(),
                         Optional.empty(),
@@ -2631,6 +2719,7 @@ public class LocalExecutionPlanner
                         aggregation.getAggregations(),
                         ImmutableSet.of(),
                         groupingVariables,
+                        ImmutableList.of(),
                         INTERMEDIATE,
                         Optional.empty(),
                         Optional.empty(),
@@ -2685,6 +2774,7 @@ public class LocalExecutionPlanner
                         aggregation.getAggregations(),
                         ImmutableSet.of(),
                         groupingVariables,
+                        ImmutableList.of(),
                         FINAL,
                         Optional.empty(),
                         Optional.empty(),
@@ -2827,7 +2917,7 @@ public class LocalExecutionPlanner
                     operatorFactories,
                     subContext.getDriverInstanceCount(),
                     source.getPipelineExecutionStrategy(),
-                    createFragmentResultCacheContext(fragmentResultCacheManager, sourceNode, node.getPartitioningScheme(), session, objectMapper));
+                    createFragmentResultCacheContext(fragmentResultCacheManager, sourceNode, node.getPartitioningScheme(), session, sortedMapObjectMapper));
             // the main driver is not an input... the exchange sources are the input for the plan
             context.setInputDriver(false);
 
@@ -2916,7 +3006,7 @@ public class LocalExecutionPlanner
                         operatorFactories,
                         subContext.getDriverInstanceCount(),
                         source.getPipelineExecutionStrategy(),
-                        createFragmentResultCacheContext(fragmentResultCacheManager, node.getSources().get(i), node.getPartitioningScheme(), session, objectMapper));
+                        createFragmentResultCacheContext(fragmentResultCacheManager, node.getSources().get(i), node.getPartitioningScheme(), session, sortedMapObjectMapper));
             }
 
             // the main driver is not an input... the exchange sources are the input for the plan
@@ -2932,6 +3022,12 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitPlan(PlanNode node, LocalExecutionPlanContext context)
         {
+            for (CustomPlanTranslator translator : customPlanTranslators) {
+                Optional<PhysicalOperation> physicalOperation = translator.translate(node, context, this);
+                if (physicalOperation.isPresent()) {
+                    return physicalOperation.get();
+                }
+            }
             throw new UnsupportedOperationException("not yet implemented");
         }
 
@@ -2953,7 +3049,7 @@ public class LocalExecutionPlanner
                 boolean spillEnabled)
         {
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-            InternalAggregationFunction internalAggregationFunction = functionAndTypeManager.getAggregateFunctionImplementation(aggregation.getFunctionHandle());
+            JavaAggregationFunctionImplementation javaAggregateFunctionImplementation = functionAndTypeManager.getJavaAggregateFunctionImplementation(aggregation.getFunctionHandle());
 
             List<Integer> valueChannels = new ArrayList<>();
             for (RowExpression argument : aggregation.getArguments()) {
@@ -2968,8 +3064,10 @@ public class LocalExecutionPlanner
                     .filter(LambdaDefinitionExpression.class::isInstance)
                     .map(LambdaDefinitionExpression.class::cast)
                     .collect(toImmutableList());
+            checkState(lambdas.isEmpty() || javaAggregateFunctionImplementation instanceof BuiltInAggregationFunctionImplementation,
+                    "Only BuiltInAggregationFunctionImplementation Support Lambdas Interfaces");
             for (int i = 0; i < lambdas.size(); i++) {
-                List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
+                List<Class> lambdaInterfaces = ((BuiltInAggregationFunctionImplementation) javaAggregateFunctionImplementation).getLambdaInterfaces();
                 Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(
                         lambdas.get(i),
                         metadata,
@@ -2992,8 +3090,8 @@ public class LocalExecutionPlanner
                 sortKeys = orderBy.getOrderByVariables();
                 sortOrders = getOrderingList(orderBy);
             }
-
-            return internalAggregationFunction.bind(
+            return generateAccumulatorFactory(
+                    javaAggregateFunctionImplementation,
                     valueChannels,
                     maskChannel,
                     source.getTypes(),
@@ -3004,7 +3102,8 @@ public class LocalExecutionPlanner
                     joinCompiler,
                     lambdaProviders,
                     spillEnabled,
-                    session);
+                    session,
+                    standaloneSpillerFactory);
         }
 
         private PhysicalOperation planGlobalAggregation(AggregationNode node, PhysicalOperation source, LocalExecutionPlanContext context)
@@ -3059,6 +3158,7 @@ public class LocalExecutionPlanner
                     node.getAggregations(),
                     node.getGlobalGroupingSets(),
                     node.getGroupingKeys(),
+                    node.getPreGroupedVariables(),
                     node.getStep(),
                     node.getHashVariable(),
                     node.getGroupIdVariable(),
@@ -3083,6 +3183,7 @@ public class LocalExecutionPlanner
                 Map<VariableReferenceExpression, Aggregation> aggregations,
                 Set<Integer> globalGroupingSets,
                 List<VariableReferenceExpression> groupbyVariables,
+                List<VariableReferenceExpression> preGroupedVariables,
                 Step step,
                 Optional<VariableReferenceExpression> hashVariable,
                 Optional<VariableReferenceExpression> groupIdVariable,
@@ -3151,11 +3252,13 @@ public class LocalExecutionPlanner
             }
             else {
                 Optional<Integer> hashChannel = hashVariable.map(variableChannelGetter(source));
+                List<Integer> preGroupedChannels = getChannelsForVariables(preGroupedVariables, source.getLayout());
                 return new HashAggregationOperatorFactory(
                         context.getNextOperatorId(),
                         planNodeId,
                         groupByTypes,
                         groupByChannels,
+                        preGroupedChannels,
                         ImmutableList.copyOf(globalGroupingSets),
                         step,
                         hasDefaultOutput,
@@ -3268,7 +3371,7 @@ public class LocalExecutionPlanner
     /**
      * Encapsulates an physical operator plus the mapping of logical variables to channel/field
      */
-    private static class PhysicalOperation
+    public static class PhysicalOperation
     {
         private final List<OperatorFactory> operatorFactories;
         private final Map<VariableReferenceExpression, Integer> layout;

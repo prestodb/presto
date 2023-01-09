@@ -126,6 +126,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -146,12 +147,15 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.orc.AbstractTestOrcReader.intsBetween;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
@@ -211,7 +215,6 @@ public class OrcTester
     public static final DataSize MAX_BLOCK_SIZE = new DataSize(1, Unit.MEGABYTE);
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
-    private static final boolean LEGACY_MAP_SUBSCRIPT = true;
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
     private static final List<Integer> PRIME_NUMBERS = ImmutableList.of(5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97);
 
@@ -279,6 +282,21 @@ public class OrcTester
     private Set<Format> formats = ImmutableSet.of();
     private Set<CompressionKind> compressions = ImmutableSet.of();
     private boolean useSelectiveOrcReader;
+    private boolean flattenAllColumns;
+
+    public static OrcTester quickDwrfFlatMapTester()
+    {
+        OrcTester orcTester = new OrcTester();
+        orcTester.nullTestsEnabled = true;
+        orcTester.skipBatchTestsEnabled = true;
+        orcTester.skipStripeTestsEnabled = true;
+        orcTester.formats = ImmutableSet.of(DWRF);
+        orcTester.compressions = ImmutableSet.of(ZLIB);
+        orcTester.dwrfEncryptionEnabled = true;
+        orcTester.flattenAllColumns = true;
+        orcTester.useSelectiveOrcReader = true;
+        return orcTester;
+    }
 
     public static OrcTester quickOrcTester()
     {
@@ -616,7 +634,14 @@ public class OrcTester
         assertEquals(writeTypes.size(), writeValues.size());
         assertEquals(writeTypes.size(), readValues.size());
 
-        OrcWriterStats stats = new OrcWriterStats();
+        AtomicLong totalSize = new AtomicLong(0);
+        WriterStats stats = NOOP_WRITER_STATS;
+
+        Set<Integer> flattenedColumns = ImmutableSet.of();
+        if (flattenAllColumns) {
+            flattenedColumns = intsBetween(0, writeTypes.size()).stream().collect(toImmutableSet());
+        }
+
         for (Format format : formats) {
             if (!readTypes.stream().allMatch(readType -> format.supportsType(readType))) {
                 return;
@@ -624,7 +649,7 @@ public class OrcTester
 
             OrcEncoding orcEncoding = format.getOrcEncoding();
             for (CompressionKind compression : compressions) {
-                boolean hiveSupported = (compression != LZ4) && (compression != ZSTD);
+                boolean hiveSupported = (compression != LZ4) && (compression != ZSTD) && (flattenedColumns.isEmpty());
 
                 // write Hive, read Presto
                 if (hiveSupported) {
@@ -636,7 +661,7 @@ public class OrcTester
 
                 // write Presto, read Hive and Presto
                 try (TempFile tempFile = new TempFile()) {
-                    writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.empty(), writeTypes, writeValues, stats);
+                    writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.empty(), writeTypes, writeValues, stats, flattenedColumns);
 
                     if (verifyWithHiveReader && hiveSupported) {
                         assertFileContentsHive(readTypes, tempFile, format, readValues);
@@ -656,7 +681,7 @@ public class OrcTester
                 if (dwrfEncryptionEnabled && format == DWRF) {
                     try (TempFile tempFile = new TempFile()) {
                         DwrfWriterEncryption dwrfWriterEncryption = generateWriterEncryption();
-                        writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.of(dwrfWriterEncryption), writeTypes, writeValues, stats);
+                        writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.of(dwrfWriterEncryption), writeTypes, writeValues, stats, flattenedColumns);
 
                         ImmutableMap.Builder<Integer, Slice> intermediateKeysBuilder = ImmutableMap.builder();
                         for (int i = 0; i < dwrfWriterEncryption.getWriterEncryptionGroups().size(); i++) {
@@ -712,7 +737,7 @@ public class OrcTester
             }
         }
 
-        assertEquals(stats.getWriterSizeInBytes(), 0);
+        assertEquals(totalSize.get(), 0);
     }
 
     public static class OrcReaderSettings
@@ -899,7 +924,8 @@ public class OrcTester
                 includedColumns,
                 outputColumns,
                 false,
-                new TestingHiveOrcAggregatedMemoryContext())) {
+                new TestingHiveOrcAggregatedMemoryContext(),
+                false)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
             assertFileContentsPresto(types, recordReader, expectedValues, outputColumns);
@@ -966,7 +992,7 @@ public class OrcTester
         throw new UnsupportedOperationException("Unsupported filter type: " + filter.getClass().getSimpleName());
     }
 
-    private static void assertFileContentsPresto(
+    public static void assertFileContentsPresto(
             List<Type> types,
             TempFile tempFile,
             List<List<?>> expectedValues,
@@ -1388,18 +1414,22 @@ public class OrcTester
 
             List<Entry<?, ?>> expectedEntries = new ArrayList<>(expectedMap.entrySet());
             for (Entry<?, ?> actualEntry : actualMap.entrySet()) {
+                boolean matchFound = false;
                 for (Iterator<Entry<?, ?>> iterator = expectedEntries.iterator(); iterator.hasNext(); ) {
                     Entry<?, ?> expectedEntry = iterator.next();
                     try {
                         assertColumnValueEquals(keyType, actualEntry.getKey(), expectedEntry.getKey());
                         assertColumnValueEquals(valueType, actualEntry.getValue(), expectedEntry.getValue());
                         iterator.remove();
+                        matchFound = true;
+                        break;
                     }
                     catch (AssertionError ignored) {
                     }
                 }
+                assertTrue(matchFound);
             }
-            assertTrue(expectedEntries.isEmpty(), "Unmatched entries " + expectedEntries);
+            assertTrue(expectedEntries.isEmpty());
         }
         else if (StandardTypes.ROW.equals(baseType)) {
             List<Type> fieldTypes = type.getTypeParameters();
@@ -1440,7 +1470,17 @@ public class OrcTester
     static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, List<Type> types, int initialBatchSize, boolean cacheable, boolean mapNullKeysEnabled)
             throws IOException
     {
-        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, types, initialBatchSize, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), cacheable, ImmutableMap.of(), mapNullKeysEnabled);
+        return createCustomOrcRecordReader(
+                tempFile,
+                orcEncoding,
+                predicate,
+                types,
+                initialBatchSize,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource(),
+                cacheable,
+                ImmutableMap.of(),
+                mapNullKeysEnabled);
     }
 
     static OrcBatchRecordReader createCustomOrcRecordReader(
@@ -1463,13 +1503,12 @@ public class OrcTester
                 orcFileTailSource,
                 stripeMetadataSource,
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                new OrcReaderOptions(
-                        new DataSize(1, MEGABYTE),
-                        new DataSize(1, MEGABYTE),
-                        MAX_BLOCK_SIZE,
-                        false,
-                        mapNullKeysEnabled,
-                        false),
+                OrcReaderOptions.builder()
+                        .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+                        .withTinyStripeThreshold(new DataSize(1, MEGABYTE))
+                        .withMaxBlockSize(MAX_BLOCK_SIZE)
+                        .withMapNullKeysEnabled(mapNullKeysEnabled)
+                        .build(),
                 cacheable,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 DwrfKeyProvider.of(intermediateEncryptionKeys),
@@ -1498,13 +1537,12 @@ public class OrcTester
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                new OrcReaderOptions(
-                        new DataSize(1, MEGABYTE),
-                        new DataSize(1, MEGABYTE),
-                        MAX_BLOCK_SIZE,
-                        false,
-                        mapNullKeysEnabled,
-                        false),
+                OrcReaderOptions.builder()
+                        .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+                        .withTinyStripeThreshold(new DataSize(1, MEGABYTE))
+                        .withMaxBlockSize(MAX_BLOCK_SIZE)
+                        .withMapNullKeysEnabled(mapNullKeysEnabled)
+                        .build(),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 DwrfKeyProvider.of(intermediateEncryptionKeys),
@@ -1515,13 +1553,31 @@ public class OrcTester
     public static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, List<?> values)
             throws Exception
     {
-        writeOrcColumnsPresto(outputFile, format, compression, Optional.empty(), ImmutableList.of(type), ImmutableList.of(values), new OrcWriterStats());
+        writeOrcColumnsPresto(outputFile, format, compression, Optional.empty(), ImmutableList.of(type), ImmutableList.of(values), new NoOpOrcWriterStats());
     }
 
     public static void writeOrcColumnsPresto(File outputFile, Format format, CompressionKind compression, Optional<DwrfWriterEncryption> dwrfWriterEncryption, List<Type> types, List<List<?>> values, WriterStats stats)
             throws Exception
     {
-        OrcWriter writer = createOrcWriter(outputFile, format.orcEncoding, compression, dwrfWriterEncryption, types, OrcWriterOptions.builder().build(), stats);
+        writeOrcColumnsPresto(outputFile, format, compression, dwrfWriterEncryption, types, values, stats, ImmutableSet.of());
+    }
+
+    public static void writeOrcColumnsPresto(
+            File outputFile,
+            Format format,
+            CompressionKind compression,
+            Optional<DwrfWriterEncryption> dwrfWriterEncryption,
+            List<Type> types,
+            List<List<?>> values,
+            WriterStats stats,
+            Set<Integer> flattenedColumns)
+            throws Exception
+    {
+        OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
+                .withFlattenedColumns(flattenedColumns)
+                .build();
+
+        OrcWriter writer = createOrcWriter(outputFile, format.orcEncoding, compression, dwrfWriterEncryption, types, orcWriterOptions, stats);
 
         Block[] blocks = new Block[types.size()];
         for (int i = 0; i < types.size(); i++) {
@@ -1548,6 +1604,7 @@ public class OrcTester
     {
         return getFileMetadata(inputFile, encoding).getStripeFooters();
     }
+
     public static FileMetadata getFileMetadata(File inputFile, OrcEncoding encoding)
             throws IOException
     {
@@ -1555,17 +1612,19 @@ public class OrcTester
         DataSize dataSize = new DataSize(1, MEGABYTE);
         OrcDataSource orcDataSource = new FileOrcDataSource(inputFile, dataSize, dataSize, dataSize, true);
         RuntimeStats runtimeStats = new RuntimeStats();
+        OrcReaderOptions orcReaderOptions = OrcReaderOptions.builder()
+                .withMaxMergeDistance(dataSize)
+                .withTinyStripeThreshold(dataSize)
+                .withMaxBlockSize(dataSize)
+                .withZstdJniDecompressionEnabled(zstdJniDecompressionEnabled)
+                .build();
         OrcReader reader = new OrcReader(
                 orcDataSource,
                 encoding,
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                new OrcReaderOptions(
-                        dataSize,
-                        dataSize,
-                        dataSize,
-                        zstdJniDecompressionEnabled),
+                orcReaderOptions,
                 false,
                 NO_ENCRYPTION,
                 DwrfKeyProvider.EMPTY,
@@ -1587,7 +1646,7 @@ public class OrcTester
                     Optional.empty(),
                     new TestingHiveOrcAggregatedMemoryContext(),
                     tailBuffer.length)) {
-                StripeFooter stripeFooter = encoding.createMetadataReader(runtimeStats).readStripeFooter(orcDataSource.getId(), footer.getTypes(), inputStream);
+                StripeFooter stripeFooter = encoding.createMetadataReader(runtimeStats, orcReaderOptions).readStripeFooter(orcDataSource.getId(), footer.getTypes(), inputStream);
                 stripes.add(stripeFooter);
             }
         }
@@ -1636,7 +1695,8 @@ public class OrcTester
             OrcPredicate predicate,
             Type type,
             int initialBatchSize,
-            boolean mapNullKeysEnabled)
+            boolean mapNullKeysEnabled,
+            boolean appendRowNumber)
             throws IOException
     {
         return createCustomOrcSelectiveRecordReader(
@@ -1654,7 +1714,8 @@ public class OrcTester
                 ImmutableMap.of(0, type),
                 ImmutableList.of(0),
                 mapNullKeysEnabled,
-                new TestingHiveOrcAggregatedMemoryContext());
+                new TestingHiveOrcAggregatedMemoryContext(),
+                appendRowNumber);
     }
 
     public static OrcSelectiveRecordReader createCustomOrcSelectiveRecordReader(
@@ -1672,7 +1733,8 @@ public class OrcTester
             Map<Integer, Type> includedColumns,
             List<Integer> outputColumns,
             boolean mapNullKeysEnabled,
-            OrcAggregatedMemoryContext systemMemoryUsage)
+            OrcAggregatedMemoryContext systemMemoryUsage,
+            boolean appendRowNumber)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
@@ -1682,13 +1744,13 @@ public class OrcTester
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                new OrcReaderOptions(
-                        new DataSize(1, MEGABYTE),
-                        new DataSize(1, MEGABYTE),
-                        MAX_BLOCK_SIZE,
-                        false,
-                        mapNullKeysEnabled,
-                        false),
+                OrcReaderOptions.builder()
+                        .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+                        .withTinyStripeThreshold(new DataSize(1, MEGABYTE))
+                        .withMaxBlockSize(MAX_BLOCK_SIZE)
+                        .withMapNullKeysEnabled(mapNullKeysEnabled)
+                        .withAppendRowNumber(appendRowNumber)
+                        .build(),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 DwrfKeyProvider.of(intermediateEncryptionKeys),
@@ -1709,7 +1771,6 @@ public class OrcTester
                 0,
                 orcDataSource.getSize(),
                 HIVE_STORAGE_TIME_ZONE,
-                LEGACY_MAP_SUBSCRIPT,
                 systemMemoryUsage,
                 Optional.empty(),
                 initialBatchSize);
@@ -1758,6 +1819,10 @@ public class OrcTester
             else if (TIMESTAMP.equals(type)) {
                 long millis = ((SqlTimestamp) value).getMillisUtc();
                 type.writeLong(blockBuilder, millis);
+            }
+            else if (TIMESTAMP_MICROSECONDS.equals(type)) {
+                long micros = ((SqlTimestamp) value).getMicrosUtc();
+                type.writeLong(blockBuilder, micros);
             }
             else {
                 String baseType = type.getTypeSignature().getBase();
@@ -2101,7 +2166,7 @@ public class OrcTester
         if (type.equals(DATE)) {
             return javaDateObjectInspector;
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP) || type.equals(TIMESTAMP_MICROSECONDS)) {
             return javaTimestampObjectInspector;
         }
         if (type instanceof DecimalType) {

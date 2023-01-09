@@ -93,6 +93,13 @@ public class FunctionListBuilder
         return this;
     }
 
+    public FunctionListBuilder override(BuiltInFunction oldFunction, BuiltInFunction newFunction)
+    {
+        functions.remove(oldFunction);
+        function(newFunction);
+        return this;
+    }
+
     public List<SqlFunction> getFunctions()
     {
         return ImmutableList.copyOf(functions);

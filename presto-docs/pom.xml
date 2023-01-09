@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.269-SNAPSHOT</version>
+        <version>0.279-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-docs</artifactId>
@@ -26,6 +26,8 @@
                         <excludes combine.children="append">
                             <exclude>**/*.conf</exclude>
                             <exclude>**/*.css</exclude>
+                            <exclude>**/*.fragment</exclude>
+                            <exclude>**/*.graffle</exclude>
                         </excludes>
                     </configuration>
                 </plugin>

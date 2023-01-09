@@ -37,29 +37,57 @@ public final class ValuesNode
 {
     private final List<VariableReferenceExpression> outputVariables;
     private final List<List<RowExpression>> rows;
+    // valuesNodeLabel is to record the original table information if the ValuesNode is converted from a table scan.
+    // Only used in query plan print, does not affect execution.
+    private final Optional<String> valuesNodeLabel;
 
     @JsonCreator
     public ValuesNode(
-            Optional<SourceLocation> sourceLocation,
+            @JsonProperty("location") Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
-            @JsonProperty("rows") List<List<RowExpression>> rows)
+            @JsonProperty("rows") List<List<RowExpression>> rows,
+            @JsonProperty("valuesNodeLabel") Optional<String> valuesNodeLabel)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), outputVariables, rows, valuesNodeLabel);
+    }
+
+    public ValuesNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            List<VariableReferenceExpression> outputVariables,
+            List<List<RowExpression>> rows,
+            Optional<String> valuesNodeLabel)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.outputVariables = immutableListCopyOf(outputVariables);
         this.rows = immutableListCopyOf(requireNonNull(rows, "lists is null").stream().map(ValuesNode::immutableListCopyOf).collect(Collectors.toList()));
 
         for (List<RowExpression> row : rows) {
-            if (!(row.size() == outputVariables.size() || row.size() == 0)) {
+            if (!(row.size() == outputVariables.size() || row.isEmpty())) {
                 throw new IllegalArgumentException(format("Expected row to have %s values, but row has %s values", outputVariables.size(), row.size()));
             }
         }
+        this.valuesNodeLabel = valuesNodeLabel;
+    }
+
+    public Optional<String> getValuesNodeLabel()
+    {
+        return valuesNodeLabel;
     }
 
     @JsonProperty
     public List<List<RowExpression>> getRows()
     {
         return rows;
+    }
+
+    @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getValuesProperties(this);
     }
 
     @Override
@@ -79,6 +107,12 @@ public final class ValuesNode
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitValues(this, context);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new ValuesNode(getSourceLocation(), getId(), statsEquivalentPlanNode, outputVariables, rows, valuesNodeLabel);
     }
 
     @Override

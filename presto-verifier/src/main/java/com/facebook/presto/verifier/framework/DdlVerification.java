@@ -21,6 +21,7 @@ import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
+import com.google.common.util.concurrent.ListeningExecutorService;
 
 import java.util.Optional;
 
@@ -48,9 +49,10 @@ public abstract class DdlVerification<S extends Statement>
             SqlExceptionClassifier exceptionClassifier,
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
-            ResultSetConverter<String> checksumConverter)
+            ResultSetConverter<String> checksumConverter,
+            ListeningExecutorService executor)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig);
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig, executor);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser");
         this.checksumConverter = requireNonNull(checksumConverter, "checksumConverter is null");
     }

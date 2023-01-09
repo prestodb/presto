@@ -132,5 +132,11 @@ public final class OriginalExpressionUtils
         {
             throw new UnsupportedOperationException("OriginalExpression cannot appear in a RowExpression tree");
         }
+
+        @Override
+        public RowExpression canonicalize()
+        {
+            return this;
+        }
     }
 }

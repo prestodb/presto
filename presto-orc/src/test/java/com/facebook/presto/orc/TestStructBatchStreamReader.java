@@ -49,6 +49,7 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
@@ -231,9 +232,11 @@ public class TestStructBatchStreamReader
                 Optional.empty(),
                 NO_ENCRYPTION,
                 OrcWriterOptions.builder()
-                        .withStripeMinSize(new DataSize(0, MEGABYTE))
-                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
-                        .withStripeMaxRowCount(ORC_STRIPE_SIZE)
+                        .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
+                                .withStripeMinSize(new DataSize(0, MEGABYTE))
+                                .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                                .withStripeMaxRowCount(ORC_STRIPE_SIZE)
+                                .build())
                         .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                         .withDictionaryMaxMemory(new DataSize(32, MEGABYTE))
                         .build(),
@@ -241,7 +244,7 @@ public class TestStructBatchStreamReader
                 HIVE_STORAGE_TIME_ZONE,
                 true,
                 BOTH,
-                new OrcWriterStats());
+                NOOP_WRITER_STATS);
 
         // write down some data with unsorted streams
         Block[] fieldBlocks = new Block[data.size()];
@@ -276,11 +279,11 @@ public class TestStructBatchStreamReader
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                new OrcReaderOptions(
-                        dataSize,
-                        dataSize,
-                        dataSize,
-                        false),
+                OrcReaderOptions.builder()
+                        .withMaxMergeDistance(dataSize)
+                        .withTinyStripeThreshold(dataSize)
+                        .withMaxBlockSize(dataSize)
+                        .build(),
                 false,
                 NO_ENCRYPTION,
                 DwrfKeyProvider.EMPTY,

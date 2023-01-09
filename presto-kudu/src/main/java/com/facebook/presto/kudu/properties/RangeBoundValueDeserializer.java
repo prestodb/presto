@@ -28,7 +28,7 @@ public class RangeBoundValueDeserializer
         extends JsonDeserializer
 {
     @Override
-    public RangeBoundValue deserialize(JsonParser jp, DeserializationContext ctxt)
+    public RangeBoundValue deserialize(JsonParser jp, DeserializationContext ctx)
             throws IOException
     {
         JsonNode node = jp.getCodec().readTree(jp);

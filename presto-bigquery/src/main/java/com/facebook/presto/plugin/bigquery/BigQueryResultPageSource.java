@@ -71,6 +71,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class BigQueryResultPageSource
         implements ConnectorPageSource
@@ -79,8 +80,7 @@ public class BigQueryResultPageSource
     private static final Logger log = Logger.get(BigQueryResultPageSource.class);
     private final BigQueryStorageClient bigQueryStorageClient;
     private final BigQuerySplit split;
-    private final BigQueryTableHandle table;
-    private final ImmutableList<BigQueryColumnHandle> columns;
+    private final List<String> columnNames;
     private final ImmutableList<Type> columnTypes;
     private final AtomicLong readBytes;
     private final PageBuilder pageBuilder;
@@ -92,15 +92,18 @@ public class BigQueryResultPageSource
             BigQueryStorageClientFactory bigQueryStorageClientFactory,
             int maxReadRowsRetries,
             BigQuerySplit split,
-            BigQueryTableHandle table,
             ImmutableList<BigQueryColumnHandle> columns)
     {
         this.bigQueryStorageClient = bigQueryStorageClientFactory.createBigQueryStorageClient();
         this.split = split;
-        this.table = table;
-        this.columns = columns;
+        requireNonNull(columns, "columns is null");
+        this.columnNames = columns.stream()
+                .map(BigQueryColumnHandle::getName)
+                .collect(toImmutableList());
         this.readBytes = new AtomicLong();
-        this.columnTypes = columns.stream().map(BigQueryColumnHandle::getPrestoType).collect(toImmutableList());
+        this.columnTypes = columns.stream()
+                .map(BigQueryColumnHandle::getPrestoType)
+                .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(columnTypes);
 
         log.debug("Starting to read from %s", split.getStreamName());
@@ -146,7 +149,7 @@ public class BigQueryResultPageSource
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                appendTo(columnTypes.get(column), record.get(column), output);
+                appendTo(columnTypes.get(column), record.get(columnNames.get(column)), output);
             }
         }
 

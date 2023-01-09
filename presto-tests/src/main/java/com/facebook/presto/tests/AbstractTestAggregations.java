@@ -857,8 +857,8 @@ public abstract class AbstractTestAggregations
         List<MaterializedRow> actualRows = actual.getMaterializedRows();
         assertEquals(actualRows.size(), 1);
         assertTrue(Double.isNaN(((List<Double>) actualRows.get(0).getField(0)).get(0)));
-        assertEquals(((List<Double>) actualRows.get(0).getField(0)).get(1), 2.0);
-        assertEquals(((List<Double>) actualRows.get(0).getField(0)).get(2), 3.0);
+        assertEquals(((List<Double>) actualRows.get(0).getField(0)).get(1).doubleValue(), 2.0);
+        assertEquals(((List<Double>) actualRows.get(0).getField(0)).get(2).doubleValue(), 3.0);
     }
 
     @Test
@@ -1362,6 +1362,17 @@ public abstract class AbstractTestAggregations
                         "   GROUP BY orderkey" +
                         ")",
                 "SELECT 15000, 15000");
+    }
+
+    @Test
+    public void testRemoveRedundantDistinctOverGroupBy()
+    {
+        String trigger = "SELECT DISTINCT suppkey, COUNT(*) FROM lineitem GROUP BY suppkey";
+        assertQuery(trigger, trigger);
+
+        String doNotTrigger = "SELECT DISTINCT suppkey, cnt FROM (SELECT suppkey, COUNT(*) AS cnt FROM lineitem GROUP BY suppkey " +
+                "UNION ALL SELECT suppkey, COUNT(*) AS cnt FROM lineitem GROUP BY suppkey) order by 1, 2";
+        assertQuery(doNotTrigger, doNotTrigger);
     }
 
     @DataProvider(name = "getType")

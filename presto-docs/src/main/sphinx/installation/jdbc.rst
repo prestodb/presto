@@ -59,7 +59,7 @@ examples are equivalent:
 
 .. code-block:: java
 
-    // URL parameters
+    // properties
     String url = "jdbc:presto://example.net:8080/hive/sales";
     Properties properties = new Properties();
     properties.setProperty("user", "test");
@@ -67,7 +67,7 @@ examples are equivalent:
     properties.setProperty("SSL", "true");
     Connection connection = DriverManager.getConnection(url, properties);
 
-    // properties
+    // URL parameters
     String url = "jdbc:presto://example.net:8443/hive/sales?user=test&password=secret&SSL=true";
     Connection connection = DriverManager.getConnection(url);
 
@@ -92,6 +92,8 @@ Name                              Description
                                   If neither this property nor ``ApplicationName`` are set, the source
                                   for the query will be ``presto-jdbc``.
 ``accessToken``                   Access token for token based authentication.
+``timeZoneId``                    Timezone to be used for timestamp columns in query output.
+                                  Example: ``timeZoneId=UTC``.
 ``SSL``                           Use HTTPS for connections
 ``SSLKeyStorePath``               The location of the Java KeyStore file that contains the certificate
                                   and private key to use for authentication.

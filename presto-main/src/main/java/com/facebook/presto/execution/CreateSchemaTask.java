@@ -34,6 +34,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_EXISTS;
+import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class CreateSchemaTask
@@ -60,7 +61,7 @@ public class CreateSchemaTask
 
         accessControl.checkCanCreateSchema(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), schema);
 
-        if (metadata.schemaExists(session, schema)) {
+        if (metadata.getMetadataResolver(session).schemaExists(schema)) {
             if (!statement.isNotExists()) {
                 throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
             }
@@ -76,7 +77,7 @@ public class CreateSchemaTask
                 mapFromProperties(statement.getProperties()),
                 session,
                 metadata,
-                parameters);
+                parameterExtractor(statement, parameters));
 
         metadata.createSchema(session, schema, properties);
 

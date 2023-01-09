@@ -26,6 +26,7 @@ ARTIFACTS = {
     'benchmark-driver': ('presto-benchmark-driver', 'jar', 'executable'),
     'spark-package': ('presto-spark-package', 'tar.gz', None),
     'spark-launcher': ('presto-spark-launcher', 'jar', None),
+    'router': ('presto-router', 'tar.gz', None),
 }
 
 

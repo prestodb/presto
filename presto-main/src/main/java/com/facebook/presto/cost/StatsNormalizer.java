@@ -52,7 +52,7 @@ public class StatsNormalizer
 
     private PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Optional<Collection<VariableReferenceExpression>> outputVariables)
     {
-        if (stats.isOutputRowCountUnknown()) {
+        if (stats.isOutputRowCountUnknown() && stats.isTotalSizeUnknown()) {
             return PlanNodeStatsEstimate.unknown();
         }
 

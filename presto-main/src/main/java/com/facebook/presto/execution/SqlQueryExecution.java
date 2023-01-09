@@ -15,10 +15,10 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
@@ -39,12 +39,12 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InputExtractor;
@@ -52,6 +52,7 @@ import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.OutputExtractor;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
@@ -75,9 +76,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.getExecutionPolicy;
+import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseLegacyScheduler;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
@@ -86,6 +90,8 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTI
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
+import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -111,6 +117,7 @@ public class SqlQueryExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final ExecutorService queryExecutor;
+    private final ScheduledExecutorService timeoutThreadExecutor;
     private final SectionExecutionFactory sectionExecutionFactory;
     private final InternalNodeManager internalNodeManager;
 
@@ -126,9 +133,10 @@ public class SqlQueryExecution
     private final AtomicReference<PlanVariableAllocator> variableAllocator = new AtomicReference<>();
     private final PartialResultQueryManager partialResultQueryManager;
     private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
+    private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
 
     private SqlQueryExecution(
-            PreparedQuery preparedQuery,
+            BuiltInPreparedQuery preparedQuery,
             QueryStateMachine stateMachine,
             String slug,
             int retryCount,
@@ -142,6 +150,7 @@ public class SqlQueryExecution
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             ExecutorService queryExecutor,
+            ScheduledExecutorService timeoutThreadExecutor,
             SectionExecutionFactory sectionExecutionFactory,
             InternalNodeManager internalNodeManager,
             QueryExplainer queryExplainer,
@@ -151,7 +160,8 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             WarningCollector warningCollector,
             PlanChecker planChecker,
-            PartialResultQueryManager partialResultQueryManager)
+            PartialResultQueryManager partialResultQueryManager,
+            PlanCanonicalInfoProvider planCanonicalInfoProvider)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -164,6 +174,7 @@ public class SqlQueryExecution
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+            this.timeoutThreadExecutor = requireNonNull(timeoutThreadExecutor, "timeoutThreadExecutor is null");
             this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
             this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
@@ -172,6 +183,7 @@ public class SqlQueryExecution
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
+            this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planCanonicalInfoProvider is null");
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
@@ -184,9 +196,15 @@ public class SqlQueryExecution
                     accessControl,
                     Optional.of(queryExplainer),
                     preparedQuery.getParameters(),
+                    parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
                     warningCollector);
 
-            this.analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
+            try (TimeoutThread unused = new TimeoutThread(
+                    Thread.currentThread(),
+                    timeoutThreadExecutor,
+                    getQueryAnalyzerTimeout(getSession()))) {
+                this.analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
+            }
             stateMachine.setUpdateType(analysis.getUpdateType());
             stateMachine.setExpandedQuery(analysis.getExpandedQuery());
 
@@ -237,6 +255,11 @@ public class SqlQueryExecution
         stateMachine.setMemoryPool(poolId);
     }
 
+    /**
+     * If query has not started executing, return 0
+     * If the query is executing, gets the size of the current user memory consumed by the query
+     * If the query has finished executing, gets the value of the final query info's {@link QueryStats#getUserMemoryReservation()}
+     */
     @Override
     public DataSize getUserMemoryReservation()
     {
@@ -254,6 +277,9 @@ public class SqlQueryExecution
         return succinctBytes(scheduler.getUserMemoryReservation());
     }
 
+    /**
+     * Gets the current total memory reserved for this query
+     */
     @Override
     public DataSize getTotalMemoryReservation()
     {
@@ -271,12 +297,19 @@ public class SqlQueryExecution
         return succinctBytes(scheduler.getTotalMemoryReservation());
     }
 
+    /**
+     * Gets the timestamp this query was registered for execution with the query state machine
+     */
     @Override
     public DateTime getCreateTime()
     {
         return stateMachine.getCreateTime();
     }
 
+    /**
+     * For a query that has started executing, returns the timestamp when this query started executing
+     * Otherwise returns a {@link Optional#empty()}
+     */
     @Override
     public Optional<DateTime> getExecutionStartTime()
     {
@@ -289,12 +322,19 @@ public class SqlQueryExecution
         return stateMachine.getLastHeartbeat();
     }
 
+    /**
+     * For a query that has finished execution, returns the timestamp when this query stopped executing
+     * Otherwise returns a {@link Optional#empty()}
+     */
     @Override
     public Optional<DateTime> getEndTime()
     {
         return stateMachine.getEndTime();
     }
 
+    /**
+     * Gets the total cputime spent in executing the query
+     */
     @Override
     public Duration getTotalCpuTime()
     {
@@ -324,6 +364,20 @@ public class SqlQueryExecution
     }
 
     @Override
+    public long getOutputPositions()
+    {
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get().getQueryStats().getOutputPositions();
+        }
+        if (scheduler == null) {
+            return 0;
+        }
+        return scheduler.getOutputPositions();
+    }
+
+    @Override
     public DataSize getOutputDataSize()
     {
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
@@ -345,12 +399,20 @@ public class SqlQueryExecution
                 .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.ofNullable(queryScheduler.get()).map(SqlQuerySchedulerInterface::getBasicStageStats)));
     }
 
+    /**
+     * Gets the number of tasks associated with this query that are still running
+     */
     @Override
     public int getRunningTaskCount()
     {
         return stateMachine.getCurrentRunningTaskCount();
     }
 
+    /**
+     * Start the execution of the query. At a high level steps are :
+     * 1. Build the logical and physical execution plan of the query
+     * 2. Start the query execution by calling {@link SqlQuerySchedulerInterface#start()}
+     */
     @Override
     public void start()
     {
@@ -362,8 +424,16 @@ public class SqlQueryExecution
                     return;
                 }
 
-                // analyze query
-                PlanRoot plan = analyzeQuery();
+                PlanRoot plan;
+
+                // set a thread timeout in case query analyzer ends up in an infinite loop
+                try (TimeoutThread unused = new TimeoutThread(
+                        Thread.currentThread(),
+                        timeoutThreadExecutor,
+                        getQueryAnalyzerTimeout(getSession()))) {
+                    // create logical plan for the query
+                    plan = createLogicalPlan();
+                }
 
                 metadata.beginQuery(getSession(), plan.getConnectors());
 
@@ -390,6 +460,10 @@ public class SqlQueryExecution
         }
     }
 
+    /**
+     * Adds a listener to be notified about {@link QueryState} changes
+     * @param stateChangeListener The state change listener
+     */
     @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
@@ -424,48 +498,45 @@ public class SqlQueryExecution
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
     }
 
-    private PlanRoot analyzeQuery()
+    private PlanRoot createLogicalPlan()
     {
         try {
-            return doAnalyzeQuery();
+            // time analysis phase
+            stateMachine.beginAnalysis();
+
+            // plan query
+            LogicalPlanner logicalPlanner = new LogicalPlanner(false, stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector(), planChecker);
+            Plan plan = getSession().getRuntimeStats().profileNanos(
+                    LOGICAL_PLANNER_TIME_NANOS,
+                    () -> logicalPlanner.plan(analysis));
+            queryPlan.set(plan);
+            stateMachine.setPlanStatsAndCosts(plan.getStatsAndCosts());
+            stateMachine.setPlanCanonicalInfo(getCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
+
+            // extract inputs
+            List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());
+            stateMachine.setInputs(inputs);
+
+            // extract output
+            Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
+            stateMachine.setOutput(output);
+
+            // fragment the plan
+            // the variableAllocator is finally passed to SqlQueryScheduler for runtime cost-based optimizations
+            variableAllocator.set(new PlanVariableAllocator(plan.getTypes().allVariables()));
+            SubPlan fragmentedPlan = getSession().getRuntimeStats().profileNanos(
+                    FRAGMENT_PLAN_TIME_NANOS,
+                    () -> planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, variableAllocator.get(), stateMachine.getWarningCollector()));
+
+            // record analysis time
+            stateMachine.endAnalysis();
+
+            boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
+            return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
         }
         catch (StackOverflowError e) {
             throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
         }
-    }
-
-    private PlanRoot doAnalyzeQuery()
-    {
-        // time analysis phase
-        stateMachine.beginAnalysis();
-
-        // plan query
-        LogicalPlanner logicalPlanner = new LogicalPlanner(false, stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector(), planChecker);
-        Plan plan = getSession().getRuntimeStats().profileNanos(
-                LOGICAL_PLANNER_TIME_NANOS,
-                () -> logicalPlanner.plan(analysis));
-        queryPlan.set(plan);
-
-        // extract inputs
-        List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());
-        stateMachine.setInputs(inputs);
-
-        // extract output
-        Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
-        stateMachine.setOutput(output);
-
-        // fragment the plan
-        // the variableAllocator is finally passed to SqlQueryScheduler for runtime cost-based optimizations
-        variableAllocator.set(new PlanVariableAllocator(plan.getTypes().allVariables()));
-        SubPlan fragmentedPlan = getSession().getRuntimeStats().profileNanos(
-                FRAGMENT_PLAN_TIME_NANOS,
-                () -> planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, variableAllocator.get(), stateMachine.getWarningCollector()));
-
-        // record analysis time
-        stateMachine.endAnalysis();
-
-        boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
-        return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
     }
 
     private static Set<ConnectorId> extractConnectors(Analysis analysis)
@@ -574,12 +645,20 @@ public class SqlQueryExecution
         }
     }
 
+    /**
+     * Try to cancel the execution of the query.
+     * TODO : Add more details on how cancellation request is propagated to tasks, connectors etc
+     */
     @Override
     public void cancelQuery()
     {
         stateMachine.transitionToCanceled();
     }
 
+    /**
+     * Try to cancel the execution of a specific stage
+     * @param stageId id of the stage to cancel
+     */
     @Override
     public void cancelStage(StageId stageId)
     {
@@ -593,6 +672,10 @@ public class SqlQueryExecution
         }
     }
 
+    /**
+     * Fail the execution of the query with a specific cause
+     * @param cause The cause for failing the query execution
+     */
     @Override
     public void fail(Throwable cause)
     {
@@ -607,24 +690,39 @@ public class SqlQueryExecution
         stateMachine.updateQueryInfo(Optional.ofNullable(scheduler).map(SqlQuerySchedulerInterface::getStageInfo));
     }
 
+    /**
+     * Checks if the query is done executing
+     */
     @Override
     public boolean isDone()
     {
         return getState().isDone();
     }
 
+    /**
+     * Register a listener to be notified about new {@link QueryOutputInfo} buffers created as tasks execute in this query
+     * @param listener the listener
+     */
     @Override
     public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
         stateMachine.addOutputInfoListener(listener);
     }
 
+    /**
+     * Gets a future that completes when the current query state has changed
+     *
+     * @param currentState The current query state. If the query state is not equal to this state, the future returned will already be completed
+     */
     @Override
     public ListenableFuture<QueryState> getStateChange(QueryState currentState)
     {
         return stateMachine.getStateChange(currentState);
     }
 
+    /**
+     * Record a heartbeat with the query state machine
+     */
     @Override
     public void recordHeartbeat()
     {
@@ -643,6 +741,10 @@ public class SqlQueryExecution
         return stateMachine.getQueryId();
     }
 
+    /**
+     * If the query is still executing, build and return a {@link QueryInfo} of the current query state
+     * If the query has finished executing, return the final {@link QueryInfo} stored in the query state machine
+     */
     @Override
     public QueryInfo getQueryInfo()
     {
@@ -662,6 +764,9 @@ public class SqlQueryExecution
         return stateMachine.getQueryState();
     }
 
+    /**
+     * Gets the logical query plan
+     */
     @Override
     public Plan getQueryPlan()
     {
@@ -727,6 +832,7 @@ public class SqlQueryExecution
         private final RemoteTaskFactory remoteTaskFactory;
         private final QueryExplainer queryExplainer;
         private final LocationFactory locationFactory;
+        private final ScheduledExecutorService timeoutThreadExecutor;
         private final ExecutorService queryExecutor;
         private final SectionExecutionFactory sectionExecutionFactory;
         private final InternalNodeManager internalNodeManager;
@@ -735,9 +841,11 @@ public class SqlQueryExecution
         private final CostCalculator costCalculator;
         private final PlanChecker planChecker;
         private final PartialResultQueryManager partialResultQueryManager;
+        private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
 
         @Inject
-        SqlQueryExecutionFactory(QueryManagerConfig config,
+        SqlQueryExecutionFactory(
+                QueryManagerConfig config,
                 Metadata metadata,
                 AccessControl accessControl,
                 SqlParser sqlParser,
@@ -747,6 +855,7 @@ public class SqlQueryExecution
                 PlanFragmenter planFragmenter,
                 RemoteTaskFactory remoteTaskFactory,
                 @ForQueryExecution ExecutorService queryExecutor,
+                @ForTimeoutThread ScheduledExecutorService timeoutThreadExecutor,
                 SectionExecutionFactory sectionExecutionFactory,
                 InternalNodeManager internalNodeManager,
                 QueryExplainer queryExplainer,
@@ -755,7 +864,8 @@ public class SqlQueryExecution
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator,
                 PlanChecker planChecker,
-                PartialResultQueryManager partialResultQueryManager)
+                PartialResultQueryManager partialResultQueryManager,
+                HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -768,6 +878,7 @@ public class SqlQueryExecution
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+            this.timeoutThreadExecutor = requireNonNull(timeoutThreadExecutor, "timeoutThreadExecutor is null");
             this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
             this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
@@ -778,18 +889,19 @@ public class SqlQueryExecution
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
             this.partialResultQueryManager = requireNonNull(partialResultQueryManager, "partialResultQueryManager is null");
+            this.historyBasedPlanStatisticsManager = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null");
         }
 
         @Override
         public QueryExecution createQueryExecution(
-                PreparedQuery preparedQuery,
+                BuiltInPreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
                 Optional<QueryType> queryType)
         {
-            String executionPolicyName = SystemSessionProperties.getExecutionPolicy(stateMachine.getSession());
+            String executionPolicyName = getExecutionPolicy(stateMachine.getSession());
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
             checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
 
@@ -808,6 +920,7 @@ public class SqlQueryExecution
                     remoteTaskFactory,
                     locationFactory,
                     queryExecutor,
+                    timeoutThreadExecutor,
                     sectionExecutionFactory,
                     internalNodeManager,
                     queryExplainer,
@@ -817,7 +930,8 @@ public class SqlQueryExecution
                     costCalculator,
                     warningCollector,
                     planChecker,
-                    partialResultQueryManager);
+                    partialResultQueryManager,
+                    historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider());
 
             return execution;
         }

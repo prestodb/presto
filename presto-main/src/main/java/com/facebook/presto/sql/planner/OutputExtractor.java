@@ -18,11 +18,13 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.base.VerifyException;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.connector.ConnectorCommitHandle.EMPTY_COMMIT_OUTPUT;
 import static com.google.common.base.Preconditions.checkState;
 
 public class OutputExtractor
@@ -39,7 +41,8 @@ public class OutputExtractor
         return Optional.of(new Output(
                 visitor.getConnectorId(),
                 visitor.getSchemaTableName().getSchemaName(),
-                visitor.getSchemaTableName().getTableName()));
+                visitor.getSchemaTableName().getTableName(),
+                EMPTY_COMMIT_OUTPUT));
     }
 
     private class Visitor
@@ -56,6 +59,13 @@ public class OutputExtractor
             checkState(schemaTableName == null || schemaTableName.equals(writerTarget.getSchemaTableName()),
                     "cannot have more than a single create, insert or delete in a query");
             schemaTableName = writerTarget.getSchemaTableName();
+            return null;
+        }
+
+        @Override
+        public Void visitNativeExecution(NativeExecutionNode node, Void context)
+        {
+            node.getSubPlan().accept(this, context);
             return null;
         }
 

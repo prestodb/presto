@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.common.block.BlockEncoding;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
@@ -24,7 +25,9 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.storage.TempStorageFactory;
+import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.spi.ttl.ClusterTtlProviderFactory;
 import com.facebook.presto.spi.ttl.NodeTtlFetcherFactory;
 
@@ -106,6 +109,24 @@ public interface Plugin
     }
 
     default Iterable<ClusterTtlProviderFactory> getClusterTtlProviderFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProviders()
+    {
+        return emptyList();
+    }
+
+    /**
+     * Return list of tracer providers specified by tracer plugin
+     */
+    default Iterable<TracerProvider> getTracerProviders()
+    {
+        return emptyList();
+    }
+
+    default Iterable<AnalyzerProvider> getAnalyzerProviders()
     {
         return emptyList();
     }

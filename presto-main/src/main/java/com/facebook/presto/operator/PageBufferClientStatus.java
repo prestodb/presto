@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.joda.time.DateTime;
@@ -24,6 +27,7 @@ import java.util.OptionalLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class PageBufferClientStatus
 {
     private final URI uri;
@@ -40,6 +44,7 @@ public class PageBufferClientStatus
     private final String httpRequestState;
 
     @JsonCreator
+    @ThriftConstructor
     public PageBufferClientStatus(@JsonProperty("uri") URI uri,
             @JsonProperty("state") String state,
             @JsonProperty("lastUpdate") DateTime lastUpdate,
@@ -66,66 +71,77 @@ public class PageBufferClientStatus
     }
 
     @JsonProperty
+    @ThriftField(1)
     public URI getUri()
     {
         return uri;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public String getState()
     {
         return state;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public DateTime getLastUpdate()
     {
         return lastUpdate;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public long getRowsReceived()
     {
         return rowsReceived;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public int getPagesReceived()
     {
         return pagesReceived;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public OptionalLong getRowsRejected()
     {
         return rowsRejected;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public OptionalInt getPagesRejected()
     {
         return pagesRejected;
     }
 
     @JsonProperty
+    @ThriftField(8)
     public int getRequestsScheduled()
     {
         return requestsScheduled;
     }
 
     @JsonProperty
+    @ThriftField(9)
     public int getRequestsCompleted()
     {
         return requestsCompleted;
     }
 
     @JsonProperty
+    @ThriftField(10)
     public int getRequestsFailed()
     {
         return requestsFailed;
     }
 
     @JsonProperty
+    @ThriftField(11)
     public String getHttpRequestState()
     {
         return httpRequestState;

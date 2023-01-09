@@ -20,8 +20,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.UpdateMemory;
-import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -32,6 +32,7 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertEquals;
 
@@ -44,9 +45,9 @@ public class TestEvaluateClassifierPredictions
     public void testEvaluateClassifierPredictions()
     {
         metadata.registerBuiltInFunctions(extractFunctions(new MLPlugin().getFunctions()));
-        InternalAggregationFunction aggregation = functionAndTypeManager.getAggregateFunctionImplementation(
+        JavaAggregationFunctionImplementation aggregation = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("evaluate_classifier_predictions", fromTypes(BIGINT, BIGINT)));
-        Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator(UpdateMemory.NOOP);
+        Accumulator accumulator = generateAccumulatorFactory(aggregation, ImmutableList.of(0, 1), Optional.empty()).createAccumulator(UpdateMemory.NOOP);
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(null, 1);
         accumulator.evaluateFinal(finalOut);

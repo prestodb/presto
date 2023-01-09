@@ -189,7 +189,7 @@ public final class TDigestUtils
                 swap(order, from++, to--);
             }
             if (from == low) {
-                // ran out of things to copy.  This means that the the last destination is the boundary
+                // ran out of things to copy.  This means that the last destination is the boundary
                 low = to + 1;
             }
             else {
@@ -221,7 +221,7 @@ public final class TDigestUtils
      * reordered as well in the same way.
      *
      * @param key    Values to sort on
-     * @param values The auxilliary values to sort.
+     * @param values The auxiliary values to sort.
      */
     public static void sort(double[] key, double[]... values)
     {
@@ -234,7 +234,7 @@ public final class TDigestUtils
      *  @param key    Values to sort on
      * @param start  The first element to sort
      * @param n      The number of values to sort
-     * @param values The auxilliary values to sort.
+     * @param values The auxiliary values to sort.
      */
     public static void sort(double[] key, int start, int n, double[]... values)
     {
@@ -246,7 +246,7 @@ public final class TDigestUtils
      * Standard quick sort except that sorting rearranges parallel arrays
      *
      * @param key    Values to sort on
-     * @param values The auxilliary values to sort.
+     * @param values The auxiliary values to sort.
      * @param start  The beginning of the values to sort
      * @param end    The value after the last value to sort
      * @param limit  The minimum size to recurse down to.
@@ -357,7 +357,7 @@ public final class TDigestUtils
                 swap(from++, to--, key, values);
             }
             if (from == low) {
-                // ran out of things to copy.  This means that the the last destination is the boundary
+                // ran out of things to copy.  This means that the last destination is the boundary
                 low = to + 1;
             }
             else {

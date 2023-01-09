@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -46,13 +47,13 @@ public abstract class TestPrecisionRecallAggregation
     private static final double MAX_FALSE_PRED = 0.5;
 
     private final String functionName;
-    private InternalAggregationFunction precisionRecallFunction;
+    private JavaAggregationFunctionImplementation precisionRecallFunction;
 
     @BeforeClass
     public void setUp()
     {
         FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
-        precisionRecallFunction = functionAndTypeManager.getAggregateFunctionImplementation(
+        precisionRecallFunction = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction(
                         this.functionName,
                         fromTypes(BIGINT, BOOLEAN, DOUBLE, DOUBLE)));

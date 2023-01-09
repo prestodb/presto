@@ -48,6 +48,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -272,13 +273,13 @@ public class BenchmarkParquetReader
                 throws IOException
         {
             FileParquetDataSource dataSource = new FileParquetDataSource(file);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, file.length()).getParquetMetadata();
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, file.length(), Optional.empty(), false).getParquetMetadata();
             MessageType schema = parquetMetadata.getFileMetaData().getSchema();
             MessageColumnIO messageColumnIO = getColumnIO(schema, schema);
 
             this.field = ColumnIOConverter.constructField(getType(), messageColumnIO.getChild(0)).get();
 
-            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableOptimizedReader, enableVerification);
+            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableOptimizedReader, enableVerification, null, null, false, Optional.empty());
         }
 
         protected boolean getNullability()

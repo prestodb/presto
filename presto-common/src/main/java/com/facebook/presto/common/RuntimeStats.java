@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -22,11 +25,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Metrics exposed by presto operators or connectors. These will be aggregated at the query level.
  */
+@ThriftStruct
 public class RuntimeStats
 {
     private final ConcurrentMap<String, RuntimeMetric> metrics = new ConcurrentHashMap<>();
@@ -36,10 +41,11 @@ public class RuntimeStats
     }
 
     @JsonCreator
+    @ThriftConstructor
     public RuntimeStats(Map<String, RuntimeMetric> metrics)
     {
         requireNonNull(metrics, "metrics is null");
-        metrics.forEach((name, newMetric) -> this.metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(newMetric));
+        metrics.forEach((name, newMetric) -> this.metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).mergeWith(newMetric));
     }
 
     public static RuntimeStats copyOf(RuntimeStats stats)
@@ -74,22 +80,23 @@ public class RuntimeStats
     }
 
     @JsonValue
+    @ThriftField(1)
     public Map<String, RuntimeMetric> getMetrics()
     {
         return Collections.unmodifiableMap(metrics);
     }
 
-    public void addMetricValue(String name, long value)
+    public void addMetricValue(String name, RuntimeUnit unit, long value)
     {
-        metrics.computeIfAbsent(name, RuntimeMetric::new).addValue(value);
+        metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, unit)).addValue(value);
     }
 
-    public void addMetricValueIgnoreZero(String name, long value)
+    public void addMetricValueIgnoreZero(String name, RuntimeUnit unit, long value)
     {
         if (value == 0) {
             return;
         }
-        addMetricValue(name, value);
+        addMetricValue(name, unit, value);
     }
 
     /**
@@ -97,7 +104,7 @@ public class RuntimeStats
      */
     public void mergeMetric(String name, RuntimeMetric metric)
     {
-        metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(metric);
+        metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, metric.getUnit())).mergeWith(metric);
     }
 
     /**
@@ -108,7 +115,7 @@ public class RuntimeStats
         if (stats == null) {
             return;
         }
-        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(newMetric));
+        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).mergeWith(newMetric));
     }
 
     /**
@@ -120,14 +127,14 @@ public class RuntimeStats
         if (stats == null) {
             return;
         }
-        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, RuntimeMetric::new).set(newMetric));
+        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).set(newMetric));
     }
 
     public <V> V profileNanos(String tag, Supplier<V> supplier)
     {
         long startTime = System.nanoTime();
         V result = supplier.get();
-        addMetricValueIgnoreZero(tag, System.nanoTime() - startTime);
+        addMetricValueIgnoreZero(tag, NANO, System.nanoTime() - startTime);
         return result;
     }
 }

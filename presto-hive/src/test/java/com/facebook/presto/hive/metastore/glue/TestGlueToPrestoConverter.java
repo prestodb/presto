@@ -24,6 +24,7 @@ import com.facebook.presto.hive.metastore.glue.converter.GlueToPrestoConverter;
 import com.facebook.presto.hive.metastore.glue.converter.GlueToPrestoConverter.GluePartitionConverter;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -32,6 +33,10 @@ import java.util.HashMap;
 import java.util.List;
 
 import static com.amazonaws.util.CollectionUtils.isNullOrEmpty;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.DELTA_LAKE_PROVIDER;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.ICEBERG_TABLE_TYPE_NAME;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.ICEBERG_TABLE_TYPE_VALUE;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.SPARK_TABLE_PROVIDER_KEY;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getGlueTestColumn;
 import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getGlueTestDatabase;
@@ -184,6 +189,24 @@ public class TestGlueToPrestoConverter
         table.setTableType(null);
         com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(table, testDb.getName());
         assertEquals(prestoTable.getTableType(), EXTERNAL_TABLE);
+    }
+
+    @Test
+    public void testIcebergTableNonNullStorageDescriptor()
+    {
+        testTbl.setParameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE));
+        assertNotNull(testTbl.getStorageDescriptor());
+        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        assertEquals(prestoTable.getDataColumns().size(), 1);
+    }
+
+    @Test
+    public void testDeltaTableNonNullStorageDescriptor()
+    {
+        testTbl.setParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
+        assertNotNull(testTbl.getStorageDescriptor());
+        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        assertEquals(prestoTable.getDataColumns().size(), 1);
     }
 
     private static void assertColumnList(List<Column> actual, List<com.amazonaws.services.glue.model.Column> expected)

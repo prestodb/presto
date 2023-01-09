@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
@@ -23,7 +24,6 @@ import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -1105,6 +1105,7 @@ public class TestArrayOperators
     public void testSlice()
     {
         assertFunction("SLICE(ARRAY [1, 2, 3, 4, 5], 1, 4)", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3, 4));
+        assertFunction("SLICE(ARRAY [1, 2, 3], 1, 3)", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));
         assertFunction("SLICE(ARRAY [1, 2], 1, 4)", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("SLICE(ARRAY [1, 2, 3, 4, 5], 3, 2)", new ArrayType(INTEGER), ImmutableList.of(3, 4));
         assertFunction("SLICE(ARRAY ['1', '2', '3', '4'], 2, 1)", new ArrayType(createVarcharType(1)), ImmutableList.of("2"));
@@ -1589,6 +1590,19 @@ public class TestArrayOperators
         assertInvalidFunction("ARRAY_REMOVE(ARRAY [ARRAY[CAST(null AS BIGINT)]], ARRAY[CAST(1 AS BIGINT)])", NOT_SUPPORTED);
         assertInvalidFunction("ARRAY_REMOVE(ARRAY [ARRAY[CAST(null AS BIGINT)]], ARRAY[CAST(null AS BIGINT)])", NOT_SUPPORTED);
         assertInvalidFunction("ARRAY_REMOVE(ARRAY [ARRAY[CAST(1 AS BIGINT)]], ARRAY[CAST(null AS BIGINT)])", NOT_SUPPORTED);
+    }
+
+    @Test
+    public void testRemoveNulls()
+    {
+        assertFunction("REMOVE_NULLS(ARRAY ['foo', 'bar'])", new ArrayType(createVarcharType(3)), asList("foo", "bar"));
+        assertFunction("REMOVE_NULLS(ARRAY ['foo', NULL, 'bar'])", new ArrayType(createVarcharType(3)), asList("foo", "bar"));
+        assertFunction("REMOVE_NULLS(ARRAY [1, NULL, NULL, 3])", new ArrayType(INTEGER), asList(1, 3));
+        assertFunction("REMOVE_NULLS(ARRAY [ARRAY ['foo'], NULL, ARRAY['bar']])", new ArrayType(new ArrayType(createVarcharType(3))), asList(singletonList("foo"), singletonList("bar")));
+        assertFunction("REMOVE_NULLS(ARRAY [TRUE, FALSE, TRUE])", new ArrayType(BOOLEAN), asList(true, false, true));
+        assertFunction("REMOVE_NULLS(ARRAY [TRUE, FALSE, NULL])", new ArrayType(BOOLEAN), asList(true, false));
+        assertFunction("REMOVE_NULLS(ARRAY [ARRAY[NULL]])", new ArrayType(new ArrayType(UNKNOWN)), ImmutableList.of(singletonList(null)));
+        assertFunction("REMOVE_NULLS(ARRAY [ARRAY[NULL], NULL])", new ArrayType(new ArrayType(UNKNOWN)), ImmutableList.of(singletonList(null)));
     }
 
     @Test

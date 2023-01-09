@@ -17,25 +17,24 @@ import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.CreateTable;
-import com.facebook.presto.sql.tree.CreateTableAsSelect;
-import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Except;
-import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.Literal;
+import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.Offset;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
-import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForTest;
@@ -376,17 +375,14 @@ public class VerificationManager
         }
     }
 
-    private class LimitWithoutOrderByChecker
+    static class LimitWithoutOrderByChecker
             extends AstVisitor<Boolean, Integer>
     {
         @Override
         protected Boolean visitQuerySpecification(QuerySpecification node, Integer level)
         {
-            if (node.getFrom().isPresent()) {
-                Relation relation = node.getFrom().get();
-                if (process(relation, level)) {
-                    return true;
-                }
+            if (node.getChildren().stream().anyMatch(n -> process(n, level))) {
+                return true;
             }
             //Check if node is not at root level and limit clause is present without order by
             return level != 0 && node.getLimit().isPresent() && !node.getOrderBy().isPresent();
@@ -395,62 +391,60 @@ public class VerificationManager
         @Override
         protected Boolean visitQuery(Query node, Integer level)
         {
-            if (node.getWith().isPresent()) {
-                With with = node.getWith().get();
-                for (WithQuery query : with.getQueries()) {
-                    if (process(query.getQuery(), level + 1)) {
-                        return true;
-                    }
-                }
+            if (node.getChildren().stream().anyMatch(n -> process(n, level))) {
+                return true;
             }
-
-            return process(node.getQueryBody(), level);
+            //Check if node is not at root level and limit clause is present without order by
+            return level != 0 && node.getLimit().isPresent() && !node.getOrderBy().isPresent();
         }
 
         @Override
-        protected Boolean visitInsert(Insert node, Integer level)
+        protected Boolean visitWithQuery(WithQuery node, Integer level)
         {
-            return process(node.getQuery(), level);
+            return process(node.getQuery(), level + 1);
         }
 
         @Override
-        protected Boolean visitJoin(Join node, Integer level)
+        protected Boolean visitTableSubquery(TableSubquery node, Integer level)
         {
-            return false;
+            //Incrementing level when we reach a sub-query
+            return process(node.getQuery(), level + 1);
+        }
+
+        @Override
+        protected Boolean visitSubqueryExpression(SubqueryExpression node, Integer level)
+        {
+            return process(node.getQuery(), level + 1);
+        }
+
+        @Override
+        protected Boolean visitNode(Node node, Integer level)
+        {
+            return node.getChildren().stream().anyMatch(n -> process(n, level));
         }
 
         @Override
         protected Boolean visitUnion(Union node, Integer level)
         {
-            for (Relation relation : node.getRelations()) {
-                if (process(relation, level)) {
-                    return true;
-                }
-            }
-            return false;
+            return node.getChildren().stream().anyMatch(n -> process(n, level));
         }
 
         @Override
         protected Boolean visitIntersect(Intersect node, Integer level)
         {
-            for (Relation relation : node.getRelations()) {
-                if (process(relation, level)) {
-                    return true;
-                }
-            }
-            return false;
+            return node.getChildren().stream().anyMatch(n -> process(n, level));
         }
 
         @Override
         protected Boolean visitExcept(Except node, Integer level)
         {
-            return process(node.getLeft(), level) || process(node.getRight(), level);
+            return node.getChildren().stream().anyMatch(n -> process(n, level));
         }
 
         @Override
-        protected Boolean visitAliasedRelation(AliasedRelation node, Integer level)
+        protected Boolean visitJoin(Join node, Integer level)
         {
-            return process(node.getRelation(), level);
+            return node.getChildren().stream().anyMatch(n -> process(n, level));
         }
 
         @Override
@@ -466,32 +460,31 @@ public class VerificationManager
         }
 
         @Override
-        protected Boolean visitTableSubquery(TableSubquery node, Integer level)
-        {
-            //Incrementing level when we reach a sub-query
-            return process(node.getQuery(), level + 1);
-        }
-
-        @Override
         protected Boolean visitCreateTable(CreateTable node, Integer level)
         {
             return false;
         }
 
         @Override
-        protected Boolean visitCreateTableAsSelect(CreateTableAsSelect node, Integer level)
-        {
-            return process(node.getQuery(), level);
-        }
-
-        @Override
-        protected Boolean visitCreateView(CreateView node, Integer level)
-        {
-            return process(node.getQuery(), level);
-        }
-
-        @Override
         protected Boolean visitValues(Values node, Integer level)
+        {
+            return false;
+        }
+
+        @Override
+        protected Boolean visitLiteral(Literal node, Integer context)
+        {
+            return false;
+        }
+
+        @Override
+        protected Boolean visitOrderBy(OrderBy node, Integer context)
+        {
+            return false;
+        }
+
+        @Override
+        protected Boolean visitOffset(Offset node, Integer context)
         {
             return false;
         }

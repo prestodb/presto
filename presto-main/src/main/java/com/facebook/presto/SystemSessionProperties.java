@@ -13,15 +13,16 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
-import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
+import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spiller.NodeSpillConfig;
@@ -34,6 +35,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrateg
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -55,6 +57,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
@@ -73,6 +76,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
+    public static final String SIZE_BASED_JOIN_DISTRIBUTION_TYPE = "size_based_join_distribution_type";
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
@@ -98,6 +102,7 @@ public final class SystemSessionProperties
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String QUERY_MAX_SCAN_RAW_INPUT_BYTES = "query_max_scan_raw_input_bytes";
+    public static final String QUERY_MAX_OUTPUT_POSITIONS = "query_max_output_positions";
     public static final String QUERY_MAX_OUTPUT_SIZE = "query_max_output_size";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
@@ -120,6 +125,7 @@ public final class SystemSessionProperties
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
     public static final String OPTIMIZE_METADATA_QUERIES_IGNORE_STATS = "optimize_metadata_queries_ignore_stats";
+    public static final String OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD = "optimize_metadata_queries_call_threshold";
     public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
@@ -127,6 +133,8 @@ public final class SystemSessionProperties
     public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
     public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
     public static final String DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED = "dedup_based_distinct_aggregation_spill_enabled";
+    public static final String DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED = "distinct_aggregation_large_block_spill_enabled";
+    public static final String DISTINCT_AGGREGATION_LARGE_BLOCK_SIZE_THRESHOLD = "distinct_aggregation_large_block_size_threshold";
     public static final String ORDER_BY_AGGREGATION_SPILL_ENABLED = "order_by_aggregation_spill_enabled";
     public static final String WINDOW_SPILL_ENABLED = "window_spill_enabled";
     public static final String ORDER_BY_SPILL_ENABLED = "order_by_spill_enabled";
@@ -138,6 +146,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_MAP_SUBSCRIPT = "do_not_use_legacy_map_subscript";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
+    public static final String QUERY_ANALYZER_TIMEOUT = "query_analyzer_timeout";
     public static final String RUNTIME_OPTIMIZER_ENABLED = "runtime_optimizer_enabled";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
     public static final String EXCHANGE_CHECKSUM = "exchange_checksum";
@@ -151,10 +160,12 @@ public final class SystemSessionProperties
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
     public static final String DISTRIBUTED_SORT = "distributed_sort";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
+    public static final String EXPLOIT_CONSTRAINTS = "exploit_constraints";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String PARTIAL_AGGREGATION_STRATEGY = "partial_aggregation_strategy";
     public static final String PARTIAL_AGGREGATION_BYTE_REDUCTION_THRESHOLD = "partial_aggregation_byte_reduction_threshold";
     public static final String OPTIMIZE_TOP_N_ROW_NUMBER = "optimize_top_n_row_number";
+    public static final String OPTIMIZE_CASE_EXPRESSION_PREDICATE = "optimize_case_expression_predicate";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
     public static final String LEGACY_UNNEST = "legacy_unnest";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
@@ -166,6 +177,7 @@ public final class SystemSessionProperties
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
+    public static final String OPTIMIZE_CONSTANT_GROUPING_KEYS = "optimize_constant_grouping_keys";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
     public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
@@ -191,6 +203,7 @@ public final class SystemSessionProperties
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
+    public static final String CHECK_ACCESS_CONTROL_WITH_SUBFIELDS = "check_access_control_with_subfields";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
     public static final String ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR = "enforce_fixed_distribution_for_output_operator";
@@ -207,6 +220,7 @@ public final class SystemSessionProperties
     public static final String OFFSET_CLAUSE_ENABLED = "offset_clause_enabled";
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
     public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
+    public static final String CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS = "consider-query-filters-for-materialized-view-partitions";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
@@ -214,12 +228,35 @@ public final class SystemSessionProperties
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
     public static final String DISTRIBUTED_TRACING_MODE = "distributed_tracing_mode";
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
-
-    //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
-    public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
+    public static final String STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED = "streaming_for_partial_aggregation_enabled";
+    public static final String MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING = "max_stage_count_for_eager_scheduling";
+    public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
+    public static final String PREFER_MERGE_JOIN = "prefer_merge_join";
+    public static final String SEGMENTED_AGGREGATION_ENABLED = "segmented_aggregation_enabled";
+    public static final String USE_HISTORY_BASED_PLAN_STATISTICS = "use_history_based_plan_statistics";
+    public static final String TRACK_HISTORY_BASED_PLAN_STATISTICS = "track_history_based_plan_statistics";
+    public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
+    public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
+    public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
+    public static final String OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD = "optimize_multiple_approx_percentile_on_same_field";
+    public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY = "randomize_outer_join_null_key";
+    public static final String IN_PREDICATES_AS_INNER_JOINS_ENABLED = "in_predicates_as_inner_joins_enabled";
+    public static final String PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD = "push_aggregation_below_join_byte_reduction_threshold";
     public static final String KEY_BASED_SAMPLING_ENABLED = "key_based_sampling_enabled";
     public static final String KEY_BASED_SAMPLING_PERCENTAGE = "key_based_sampling_percentage";
     public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
+    public static final String QUICK_DISTINCT_LIMIT_ENABLED = "quick_distinct_limit_enabled";
+    public static final String OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED = "optimize_conditional_aggregation_enabled";
+    public static final String ANALYZER_TYPE = "analyzer_type";
+    public static final String REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED = "remove_redundant_distinct_aggregation_enabled";
+
+    // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
+    public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
+    public static final String NATIVE_AGGREGATION_SPILL_MEMORY_THRESHOLD = "aggregation_spill_memory_threshold";
+    public static final String NATIVE_JOIN_SPILL_MEMORY_THRESHOLD = "join_spill_memory_threshold";
+    public static final String NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD = "order_by_spill_memory_threshold";
+    public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
+    public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -234,7 +271,9 @@ public final class SystemSessionProperties
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
-                new TracingConfig());
+                new TracingConfig(),
+                new CompilerConfig(),
+                new SecurityConfig());
     }
 
     @Inject
@@ -247,7 +286,9 @@ public final class SystemSessionProperties
             WarningCollectorConfig warningCollectorConfig,
             NodeSchedulerConfig nodeSchedulerConfig,
             NodeSpillConfig nodeSpillConfig,
-            TracingConfig tracingConfig)
+            TracingConfig tracingConfig,
+            CompilerConfig compilerConfig,
+            SecurityConfig securityConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -286,6 +327,11 @@ public final class SystemSessionProperties
                         true,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
+                booleanProperty(
+                        SIZE_BASED_JOIN_DISTRIBUTION_TYPE,
+                        "Consider source table size when determining join distribution type when CBO fails",
+                        featuresConfig.isSizeBasedJoinDistributionTypeEnabled(),
+                        false),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
                         "Distribute index joins on join keys instead of executing inline",
@@ -486,6 +532,11 @@ public final class SystemSessionProperties
                         "Maximum scan raw input bytes of a query",
                         queryManagerConfig.getQueryMaxScanRawInputBytes(),
                         false),
+                longProperty(
+                        QUERY_MAX_OUTPUT_POSITIONS,
+                        "Maximum number of output rows that can be fetched by a query",
+                        queryManagerConfig.getQueryMaxOutputPositions(),
+                        false),
                 dataSizeProperty(
                         QUERY_MAX_OUTPUT_SIZE,
                         "Maximum data that can be fetched by a query",
@@ -526,6 +577,11 @@ public final class SystemSessionProperties
                         featuresConfig.isOptimizeMetadataQueriesIgnoreStats(),
                         false),
                 integerProperty(
+                        OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD,
+                        "The threshold number of service calls to metastore, used in optimization for metadata queries",
+                        featuresConfig.getOptimizeMetadataQueriesCallThreshold(),
+                        false),
+                integerProperty(
                         QUERY_PRIORITY,
                         "The priority of queries. Larger numbers are higher priority",
                         1,
@@ -554,7 +610,7 @@ public final class SystemSessionProperties
                         JoinReorderingStrategy::name),
                 new PropertyMetadata<>(
                         PARTIAL_MERGE_PUSHDOWN_STRATEGY,
-                        format("Experimental: Partial merge pushdown strategy to use. Optionas are %s",
+                        format("Experimental: Partial merge pushdown strategy to use. Options are %s",
                                 Stream.of(PartialMergePushdownStrategy.values())
                                         .map(PartialMergePushdownStrategy::name)
                                         .collect(joining(","))),
@@ -644,6 +700,20 @@ public final class SystemSessionProperties
                         featuresConfig.isDedupBasedDistinctAggregationSpillEnabled(),
                         false),
                 booleanProperty(
+                        DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED,
+                        "Spill large block to a separate spill file",
+                        featuresConfig.isDistinctAggregationLargeBlockSpillEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        DISTINCT_AGGREGATION_LARGE_BLOCK_SIZE_THRESHOLD,
+                        "Block size threshold beyond which it will be spilled into a separate spill file",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getDistinctAggregationLargeBlockSizeThreshold(),
+                        false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                booleanProperty(
                         ORDER_BY_AGGREGATION_SPILL_ENABLED,
                         "Enable spill for order-by aggregations if spill_enabled and aggregation_spill_enabled",
                         featuresConfig.isOrderByAggregationSpillEnabled(),
@@ -660,7 +730,7 @@ public final class SystemSessionProperties
                         false),
                 new PropertyMetadata<>(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
-                        "Experimental: How much memory can should be allocated per aggragation operator in unspilling process",
+                        "Experimental: How much memory can should be allocated per aggregation operator in unspilling process",
                         VARCHAR,
                         DataSize.class,
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
@@ -711,6 +781,15 @@ public final class SystemSessionProperties
                         VARCHAR,
                         Duration.class,
                         featuresConfig.getIterativeOptimizerTimeout(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
+                new PropertyMetadata<>(
+                        QUERY_ANALYZER_TIMEOUT,
+                        "Maximum processing time for query analyzer",
+                        VARCHAR,
+                        Duration.class,
+                        featuresConfig.getQueryAnalyzerTimeout(),
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
@@ -784,6 +863,11 @@ public final class SystemSessionProperties
                         featuresConfig.isUseMarkDistinct(),
                         false),
                 booleanProperty(
+                        EXPLOIT_CONSTRAINTS,
+                        "Exploit table constraints.",
+                        featuresConfig.isExploitConstraints(),
+                        false),
+                booleanProperty(
                         PREFER_PARTIAL_AGGREGATION,
                         "Prefer splitting aggregations into partial and final stages",
                         null,
@@ -809,6 +893,11 @@ public final class SystemSessionProperties
                         OPTIMIZE_TOP_N_ROW_NUMBER,
                         "Use top N row number optimization",
                         featuresConfig.isOptimizeTopNRowNumber(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_CASE_EXPRESSION_PREDICATE,
+                        "Optimize case expression predicates",
+                        featuresConfig.isOptimizeCaseExpressionPredicate(),
                         false),
                 integerProperty(
                         MAX_GROUPING_SETS,
@@ -868,6 +957,11 @@ public final class SystemSessionProperties
                         PUSH_LIMIT_THROUGH_OUTER_JOIN,
                         "push limits to the outer side of an outer join",
                         featuresConfig.isPushLimitThroughOuterJoin(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_CONSTANT_GROUPING_KEYS,
+                        "Pull constant grouping keys above the group by",
+                        featuresConfig.isOptimizeConstantGroupingKeys(),
                         false),
                 integerProperty(
                         MAX_CONCURRENT_MATERIALIZATIONS,
@@ -1033,6 +1127,11 @@ public final class SystemSessionProperties
                         featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
                         false),
                 booleanProperty(
+                        CHECK_ACCESS_CONTROL_WITH_SUBFIELDS,
+                        "Apply access control rules with subfield information from columns containing row types",
+                        featuresConfig.isCheckAccessControlWithSubfields(),
+                        false),
+                booleanProperty(
                         ALLOW_WINDOW_ORDER_BY_LITERALS,
                         "Allow ORDER BY literals in window functions",
                         featuresConfig.isAllowWindowOrderByLiterals(),
@@ -1120,6 +1219,11 @@ public final class SystemSessionProperties
                         featuresConfig.isMaterializedViewDataConsistencyEnabled(),
                         false),
                 booleanProperty(
+                        CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS,
+                        "When enabled and counting materialized view partitions, filters partition domains not in base query",
+                        featuresConfig.isMaterializedViewPartitionFilteringEnabled(),
+                        false),
+                booleanProperty(
                         QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED,
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
@@ -1134,6 +1238,22 @@ public final class SystemSessionProperties
                         "Enable logging all runtime stats",
                         featuresConfig.isVerboseRuntimeStatsEnabled(),
                         false),
+                booleanProperty(
+                        STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED,
+                        "Enable streaming for partial aggregation",
+                        featuresConfig.isStreamingForPartialAggregationEnabled(),
+                        false),
+                booleanProperty(
+                        PREFER_MERGE_JOIN,
+                        "Prefer merge join for sorted join inputs, e.g., tables pre-sorted, pre-partitioned by join columns." +
+                                "To make it work, the connector needs to guarantee and expose the data properties of the underlying table.",
+                        featuresConfig.isPreferMergeJoin(),
+                        true),
+                booleanProperty(
+                        SEGMENTED_AGGREGATION_ENABLED,
+                        "Enable segmented aggregation.",
+                        featuresConfig.isSegmentedAggregationEnabled(),
+                        false),
                 new PropertyMetadata<>(
                         AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY,
                         format("Set the strategy used to rewrite AGG IF to AGG FILTER. Options are %s",
@@ -1146,11 +1266,6 @@ public final class SystemSessionProperties
                         false,
                         value -> AggregationIfToFilterRewriteStrategy.valueOf(((String) value).toUpperCase()),
                         AggregationIfToFilterRewriteStrategy::name),
-                booleanProperty(
-                        PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
-                        "Enable simplified path in expression evaluation",
-                        false,
-                        false),
                 new PropertyMetadata<>(
                         RESOURCE_AWARE_SCHEDULING_STRATEGY,
                         format("Task assignment strategy to use. Options are %s",
@@ -1163,6 +1278,11 @@ public final class SystemSessionProperties
                         false,
                         value -> ResourceAwareSchedulingStrategy.valueOf(((String) value).toUpperCase()),
                         ResourceAwareSchedulingStrategy::name),
+                stringProperty(
+                        ANALYZER_TYPE,
+                        "Analyzer type to use.",
+                        "BUILTIN",
+                        true),
                 booleanProperty(
                         HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED,
                         "Trigger heap dump to `EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_PATH` on exceeded memory limit exceptions",
@@ -1187,6 +1307,109 @@ public final class SystemSessionProperties
                         KEY_BASED_SAMPLING_FUNCTION,
                         "Sampling function for key based sampling",
                         "key_sampling_percent",
+                        false),
+                integerProperty(
+                        MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING,
+                        "Maximum stage count to use eager scheduling when using the adaptive scheduling policy",
+                        featuresConfig.getMaxStageCountForEagerScheduling(),
+                        false),
+                doubleProperty(
+                        HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD,
+                        "Threshold for obtaining precise results from aggregation functions",
+                        featuresConfig.getHyperloglogStandardErrorWarningThreshold(),
+                        false),
+                booleanProperty(
+                        QUICK_DISTINCT_LIMIT_ENABLED,
+                        "Enable quick distinct limit queries that give results as soon as a new distinct value is found",
+                        featuresConfig.isQuickDistinctLimitEnabled(),
+                        false),
+                booleanProperty(
+                        USE_HISTORY_BASED_PLAN_STATISTICS,
+                        "Use history based plan statistics service in query optimizer",
+                        featuresConfig.isUseHistoryBasedPlanStatistics(),
+                        false),
+                booleanProperty(
+                        TRACK_HISTORY_BASED_PLAN_STATISTICS,
+                        "Track history based plan statistics service in query optimizer",
+                        featuresConfig.isTrackHistoryBasedPlanStatistics(),
+                        false),
+                new PropertyMetadata<>(
+                        MAX_LEAF_NODES_IN_PLAN,
+                        "Maximum number of leaf nodes in the logical plan of SQL statement",
+                        INTEGER,
+                        Integer.class,
+                        compilerConfig.getLeafNodeLimit(),
+                        false,
+                        value -> validateIntegerValue(value, MAX_LEAF_NODES_IN_PLAN, 0, false),
+                        object -> object),
+                booleanProperty(
+                        LEAF_NODE_LIMIT_ENABLED,
+                        "Throw exception if the number of leaf nodes in logical plan exceeds threshold set in max_leaf_nodes_in_plan",
+                        compilerConfig.getLeafNodeLimitEnabled(),
+                        false),
+                booleanProperty(
+                        PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID,
+                        "Enable optimization rule to push remote exchange through GroupId",
+                        featuresConfig.isPushRemoteExchangeThroughGroupId(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD,
+                        "Combine individual approx_percentile calls on individual field to evaluation on an array",
+                        featuresConfig.isOptimizeMultipleApproxPercentileOnSameFieldEnabled(),
+                        false),
+                booleanProperty(
+                        NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
+                        "Native Execution only. Enable simplified path in expression evaluation",
+                        false,
+                        false),
+                integerProperty(
+                        NATIVE_AGGREGATION_SPILL_MEMORY_THRESHOLD,
+                        "Native Execution only. The max memory that a final aggregation can use before spilling. If it is 0, then there is no limit",
+                        0,
+                        false),
+                integerProperty(
+                        NATIVE_JOIN_SPILL_MEMORY_THRESHOLD,
+                        "Native Execution only. The max memory that hash join can use before spilling. If it is 0, then there is no limit",
+                        0,
+                        false),
+                integerProperty(
+                        NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD,
+                        "Native Execution only. The max memory that order by can use before spilling. If it is 0, then there is no limit",
+                        0,
+                        false),
+                booleanProperty(
+                        NATIVE_EXECUTION_ENABLED,
+                        "Enable execution on native engine",
+                        featuresConfig.isNativeExecutionEnabled(),
+                        false),
+                stringProperty(
+                        NATIVE_EXECUTION_EXECUTABLE_PATH,
+                        "The native engine executable file path for native engine execution",
+                        featuresConfig.getNativeExecutionExecutablePath(),
+                        false),
+                booleanProperty(
+                        RANDOMIZE_OUTER_JOIN_NULL_KEY,
+                        "Randomize null join key for outer join",
+                        featuresConfig.isRandomizeOuterJoinNullKeyEnabled(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED,
+                        "Enable rewriting IF(condition, AGG(x)) to AGG(x) with condition included in mask",
+                        featuresConfig.isOptimizeConditionalAggregationEnabled(),
+                        false),
+                booleanProperty(
+                        REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED,
+                        "Enable removing distinct aggregation node if input is already distinct",
+                        featuresConfig.isRemoveRedundantDistinctAggregationEnabled(),
+                        false),
+                booleanProperty(IN_PREDICATES_AS_INNER_JOINS_ENABLED,
+                        "Enable transformation of IN predicates to inner joins",
+                        featuresConfig.isInPredicatesAsInnerJoinsEnabled(),
+                        false),
+                doubleProperty(
+                        PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD,
+                        "Byte reduction ratio threshold at which to disable pushdown of aggregation below inner join",
+                        featuresConfig.getPushAggregationBelowJoinByteReductionThreshold(),
                         false));
     }
 
@@ -1257,6 +1480,11 @@ public final class SystemSessionProperties
     public static DataSize getJoinMaxBroadcastTableSize(Session session)
     {
         return session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class);
+    }
+
+    public static boolean isSizeBasedJoinDistributionTypeEnabled(Session session)
+    {
+        return session.getSystemProperty(SIZE_BASED_JOIN_DISTRIBUTION_TYPE, Boolean.class);
     }
 
     public static boolean isDistributedIndexJoinEnabled(Session session)
@@ -1371,6 +1599,11 @@ public final class SystemSessionProperties
     public static boolean isOptimizeMetadataQueriesIgnoreStats(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_METADATA_QUERIES_IGNORE_STATS, Boolean.class);
+    }
+
+    public static int getOptimizeMetadataQueriesCallThreshold(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD, Integer.class);
     }
 
     public static DataSize getQueryMaxMemory(Session session)
@@ -1504,6 +1737,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_MAX_SCAN_RAW_INPUT_BYTES, DataSize.class);
     }
 
+    public static long getQueryMaxOutputPositions(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_OUTPUT_POSITIONS, Long.class);
+    }
+
     public static DataSize getQueryMaxOutputSize(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_OUTPUT_SIZE, DataSize.class);
@@ -1532,6 +1770,16 @@ public final class SystemSessionProperties
     public static boolean isDedupBasedDistinctAggregationSpillEnabled(Session session)
     {
         return session.getSystemProperty(DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED, Boolean.class);
+    }
+
+    public static boolean isDistinctAggregationLargeBlockSpillEnabled(Session session)
+    {
+        return session.getSystemProperty(DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getDistinctAggregationLargeBlockSizeThreshold(Session session)
+    {
+        return session.getSystemProperty(DISTINCT_AGGREGATION_LARGE_BLOCK_SIZE_THRESHOLD, DataSize.class);
     }
 
     public static boolean isOrderByAggregationSpillEnabled(Session session)
@@ -1604,6 +1852,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, Duration.class);
     }
 
+    public static Duration getQueryAnalyzerTimeout(Session session)
+    {
+        return session.getSystemProperty(QUERY_ANALYZER_TIMEOUT, Duration.class);
+    }
+
     public static boolean isExchangeCompressionEnabled(Session session)
     {
         return session.getSystemProperty(EXCHANGE_COMPRESSION, Boolean.class);
@@ -1654,6 +1907,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(USE_MARK_DISTINCT, Boolean.class);
     }
 
+    public static boolean isExploitConstraints(Session session)
+    {
+        return session.getSystemProperty(EXPLOIT_CONSTRAINTS, Boolean.class);
+    }
+
     public static PartialAggregationStrategy getPartialAggregationStrategy(Session session)
     {
         Boolean preferPartialAggregation = session.getSystemProperty(PREFER_PARTIAL_AGGREGATION, Boolean.class);
@@ -1674,6 +1932,11 @@ public final class SystemSessionProperties
     public static boolean isOptimizeTopNRowNumber(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_TOP_N_ROW_NUMBER, Boolean.class);
+    }
+
+    public static boolean isOptimizeCaseExpressionPredicate(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_CASE_EXPRESSION_PREDICATE, Boolean.class);
     }
 
     public static boolean isDistributedSortEnabled(Session session)
@@ -1775,6 +2038,11 @@ public final class SystemSessionProperties
     public static boolean isPushLimitThroughOuterJoin(Session session)
     {
         return session.getSystemProperty(PUSH_LIMIT_THROUGH_OUTER_JOIN, Boolean.class);
+    }
+
+    public static boolean isOptimizeConstantGroupingKeys(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_CONSTANT_GROUPING_KEYS, Boolean.class);
     }
 
     public static int getMaxConcurrentMaterializations(Session session)
@@ -1903,6 +2171,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, Boolean.class);
     }
 
+    public static boolean isCheckAccessControlWithSubfields(Session session)
+    {
+        return session.getSystemProperty(CHECK_ACCESS_CONTROL_WITH_SUBFIELDS, Boolean.class);
+    }
+
     public static boolean isEnforceFixedDistributionForOutputOperator(Session session)
     {
         return session.getSystemProperty(ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR, Boolean.class);
@@ -1963,6 +2236,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, Boolean.class);
     }
 
+    public static boolean isMaterializedViewPartitionFilteringEnabled(Session session)
+    {
+        return session.getSystemProperty(CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS, Boolean.class);
+    }
+
     public static boolean isQueryOptimizationWithMaterializedViewEnabled(Session session)
     {
         return session.getSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, Boolean.class);
@@ -1971,6 +2249,36 @@ public final class SystemSessionProperties
     public static boolean isVerboseRuntimeStatsEnabled(Session session)
     {
         return session.getSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isLeafNodeLimitEnabled(Session session)
+    {
+        return session.getSystemProperty(LEAF_NODE_LIMIT_ENABLED, Boolean.class);
+    }
+
+    public static int getMaxLeafNodesInPlan(Session session)
+    {
+        return session.getSystemProperty(MAX_LEAF_NODES_IN_PLAN, Integer.class);
+    }
+
+    public static boolean isStreamingForPartialAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean preferMergeJoin(Session session)
+    {
+        return session.getSystemProperty(PREFER_MERGE_JOIN, Boolean.class);
+    }
+
+    public static boolean isSegmentedAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(SEGMENTED_AGGREGATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isCombineApproxPercentileEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD, Boolean.class);
     }
 
     public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)
@@ -1983,6 +2291,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(RESOURCE_AWARE_SCHEDULING_STRATEGY, ResourceAwareSchedulingStrategy.class);
     }
 
+    public static String getAnalyzerType(Session session)
+    {
+        return session.getSystemProperty(ANALYZER_TYPE, String.class);
+    }
+
     public static Boolean isHeapDumpOnExceededMemoryLimitEnabled(Session session)
     {
         return session.getSystemProperty(HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED, Boolean.class);
@@ -1991,5 +2304,70 @@ public final class SystemSessionProperties
     public static String getHeapDumpFileDirectory(Session session)
     {
         return session.getSystemProperty(EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY, String.class);
+    }
+
+    public static int getMaxStageCountForEagerScheduling(Session session)
+    {
+        return session.getSystemProperty(MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING, Integer.class);
+    }
+
+    public static double getHyperloglogStandardErrorWarningThreshold(Session session)
+    {
+        return session.getSystemProperty(HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD, Double.class);
+    }
+
+    public static boolean isQuickDistinctLimitEnabled(Session session)
+    {
+        return session.getSystemProperty(QUICK_DISTINCT_LIMIT_ENABLED, Boolean.class);
+    }
+
+    public static boolean useHistoryBasedPlanStatisticsEnabled(Session session)
+    {
+        return session.getSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, Boolean.class);
+    }
+
+    public static boolean trackHistoryBasedPlanStatisticsEnabled(Session session)
+    {
+        return session.getSystemProperty(TRACK_HISTORY_BASED_PLAN_STATISTICS, Boolean.class);
+    }
+
+    public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)
+    {
+        return session.getSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, Boolean.class);
+    }
+
+    public static boolean isNativeExecutionEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static String getNativeExecutionExecutablePath(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, String.class);
+    }
+
+    public static boolean randomizeOuterJoinNullKeyEnabled(Session session)
+    {
+        return session.getSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, Boolean.class);
+    }
+
+    public static boolean isOptimizeConditionalAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRemoveRedundantDistinctAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isInPredicatesAsInnerJoinsEnabled(Session session)
+    {
+        return session.getSystemProperty(IN_PREDICATES_AS_INNER_JOINS_ENABLED, Boolean.class);
+    }
+
+    public static double getPushAggregationBelowJoinByteReductionThreshold(Session session)
+    {
+        return session.getSystemProperty(PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD, Double.class);
     }
 }

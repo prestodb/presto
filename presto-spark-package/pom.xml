@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.269-SNAPSHOT</version>
+        <version>0.279-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-spark-package</artifactId>
@@ -32,14 +32,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-ml</artifactId>
-            <version>${project.version}</version>
-            <type>zip</type>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-geospatial</artifactId>
             <version>${project.version}</version>
             <type>zip</type>
             <scope>provided</scope>
@@ -144,6 +136,14 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-sqlserver</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-session-property-managers</artifactId>
             <version>${project.version}</version>
             <type>zip</type>
             <scope>provided</scope>

@@ -94,7 +94,8 @@ public class TestWindowNode
                 Optional.empty(),
                 newId(),
                 ImmutableList.of(columnA, columnB, columnC),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
     }
 
     @Test

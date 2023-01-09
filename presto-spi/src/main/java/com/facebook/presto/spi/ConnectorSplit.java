@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalLong;
 
 public interface ConnectorSplit
@@ -37,7 +38,17 @@ public interface ConnectorSplit
      */
     List<HostAddress> getPreferredNodes(NodeProvider nodeProvider);
 
+    /**
+     * This method returns a raw object.
+     * <p> Instead use {@link #getInfoMap()} method which returns a <pre>{@code Map<String, String>}</pre>
+     */
+    @Deprecated
     Object getInfo();
+
+    default Map<String, String> getInfoMap()
+    {
+        return null;
+    }
 
     default Object getSplitIdentifier()
     {

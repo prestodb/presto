@@ -30,11 +30,11 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 public final class DeltaSessionProperties
 {
     private static final String CACHE_ENABLED = "cache_enabled";
-    private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
+    public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -49,11 +49,6 @@ public final class DeltaSessionProperties
                         CACHE_ENABLED,
                         "Enable cache for Delta tables",
                         cacheConfig.isCachingEnabled(),
-                        false),
-                booleanProperty(
-                        PARQUET_FAIL_WITH_CORRUPTED_STATISTICS,
-                        "Parquet: Fail when scanning Parquet files with corrupted statistics",
-                        hiveClientConfig.isFailOnCorruptedParquetStatistics(),
                         false),
                 dataSizeSessionProperty(
                         PARQUET_MAX_READ_BLOCK_SIZE,
@@ -74,6 +69,11 @@ public final class DeltaSessionProperties
                         PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
                         "Is dereference pushdown expression pushdown into Parquet reader enabled?",
                         deltaConfigConfig.isParquetDereferencePushdownEnabled(),
+                        false),
+                booleanProperty(
+                        READ_MASKED_VALUE_ENABLED,
+                        "Return null when access is denied for an encrypted parquet column",
+                        hiveClientConfig.getReadNullMaskedParquetEncryptedValue(),
                         false));
     }
 
@@ -85,11 +85,6 @@ public final class DeltaSessionProperties
     public static boolean isCacheEnabled(ConnectorSession session)
     {
         return session.getProperty(CACHE_ENABLED, Boolean.class);
-    }
-
-    public static boolean isFailOnCorruptedParquetStatistics(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_FAIL_WITH_CORRUPTED_STATISTICS, Boolean.class);
     }
 
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
@@ -110,5 +105,10 @@ public final class DeltaSessionProperties
     public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
+    {
+        return session.getProperty(READ_MASKED_VALUE_ENABLED, Boolean.class);
     }
 }

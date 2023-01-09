@@ -52,6 +52,7 @@ import static com.facebook.presto.druid.DruidErrorCode.DRUID_PUSHDOWN_UNSUPPORTE
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DruidPushdownUtils
 {
@@ -202,7 +203,7 @@ public class DruidPushdownUtils
     private static String getTimestampLiteralAsString(ConnectorSession session, long millisUtc)
     {
         SqlTimestamp sqlTimestamp = session.getSqlFunctionProperties().isLegacyTimestamp() ?
-                new SqlTimestamp(millisUtc, session.getSqlFunctionProperties().getTimeZoneKey()) : new SqlTimestamp(millisUtc);
+                new SqlTimestamp(millisUtc, session.getSqlFunctionProperties().getTimeZoneKey(), MILLISECONDS) : new SqlTimestamp(millisUtc, MILLISECONDS);
         return "TIMESTAMP '" + sqlTimestamp.toString() + "'";
     }
 }

@@ -37,16 +37,16 @@ public final class IcebergQueryRunner
 
     private IcebergQueryRunner() {}
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties) throws Exception
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties)
+            throws Exception
     {
         return createIcebergQueryRunner(extraProperties, ImmutableMap.of());
     }
 
-    public static DistributedQueryRunner createNativeIcebergQueryRunner(Map<String, String> extraProperties, CatalogType catalogType) throws Exception
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, CatalogType catalogType)
+            throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, ImmutableMap.of(
-                "iceberg.native-mode", "true",
-                "iceberg.catalog.type", catalogType.name()));
+        return createIcebergQueryRunner(extraProperties, ImmutableMap.of("iceberg.catalog.type", catalogType.name()));
     }
 
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, Map<String, String> extraConnectorProperties)
@@ -81,15 +81,15 @@ public final class IcebergQueryRunner
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
-        Path catalogDir = dataDir.getParent().resolve("catalog");
+        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("iceberg_data");
+        Path catalogDirectory = dataDirectory.getParent().resolve("catalog");
 
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDir.toFile().toURI().toString())
+                .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
                 .put("iceberg.file-format", format.name())
-                .put("iceberg.catalog.warehouse", dataDir.getParent().toFile().toURI().toString())
+                .put("iceberg.catalog.warehouse", dataDirectory.getParent().toFile().toURI().toString())
                 .putAll(extraConnectorProperties)
                 .build();
 

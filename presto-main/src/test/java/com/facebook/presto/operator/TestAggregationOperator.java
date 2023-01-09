@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.ByteArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
@@ -22,12 +23,16 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.spiller.SpillerStats;
+import com.facebook.presto.spiller.TempStorageStandaloneSpillerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.TestingTempStorageManager;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -49,6 +54,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -65,11 +71,11 @@ public class TestAggregationOperator
 {
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
-    private static final InternalAggregationFunction LONG_AVERAGE = getAggregation("avg", BIGINT);
-    private static final InternalAggregationFunction DOUBLE_SUM = getAggregation("sum", DOUBLE);
-    private static final InternalAggregationFunction LONG_SUM = getAggregation("sum", BIGINT);
-    private static final InternalAggregationFunction REAL_SUM = getAggregation("sum", REAL);
-    private static final InternalAggregationFunction COUNT = getAggregation("count", BIGINT);
+    private static final JavaAggregationFunctionImplementation LONG_AVERAGE = getAggregation("avg", BIGINT);
+    private static final JavaAggregationFunctionImplementation DOUBLE_SUM = getAggregation("sum", DOUBLE);
+    private static final JavaAggregationFunctionImplementation LONG_SUM = getAggregation("sum", BIGINT);
+    private static final JavaAggregationFunctionImplementation REAL_SUM = getAggregation("sum", REAL);
+    private static final JavaAggregationFunctionImplementation COUNT = getAggregation("count", BIGINT);
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -91,8 +97,8 @@ public class TestAggregationOperator
     @Test
     public void testAggregation()
     {
-        InternalAggregationFunction countVarcharColumn = getAggregation("count", VARCHAR);
-        InternalAggregationFunction maxVarcharColumn = getAggregation("max", VARCHAR);
+        JavaAggregationFunctionImplementation countVarcharColumn = getAggregation("count", VARCHAR);
+        JavaAggregationFunctionImplementation maxVarcharColumn = getAggregation("max", VARCHAR);
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, REAL, DOUBLE, VARCHAR)
                 .addSequencePage(100, 0, 0, 300, 500, 400, 500, 500)
                 .build();
@@ -101,15 +107,15 @@ public class TestAggregationOperator
                 0,
                 new PlanNodeId("test"),
                 Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(1), Optional.empty()),
-                        LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty()),
-                        countVarcharColumn.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
-                        REAL_SUM.bind(ImmutableList.of(4), Optional.empty()),
-                        DOUBLE_SUM.bind(ImmutableList.of(5), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(6), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(LONG_SUM, ImmutableList.of(1), Optional.empty()),
+                        generateAccumulatorFactory(LONG_AVERAGE, ImmutableList.of(1), Optional.empty()),
+                        generateAccumulatorFactory(maxVarcharColumn, ImmutableList.of(2), Optional.empty()),
+                        generateAccumulatorFactory(countVarcharColumn, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(LONG_SUM, ImmutableList.of(3), Optional.empty()),
+                        generateAccumulatorFactory(REAL_SUM, ImmutableList.of(4), Optional.empty()),
+                        generateAccumulatorFactory(DOUBLE_SUM, ImmutableList.of(5), Optional.empty()),
+                        generateAccumulatorFactory(maxVarcharColumn, ImmutableList.of(6), Optional.empty())),
                 false);
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
@@ -128,7 +134,7 @@ public class TestAggregationOperator
     @Test
     public void testDistinctMaskWithNull()
     {
-        AccumulatorFactory distinctFactory = COUNT.bind(
+        AccumulatorFactory distinctFactory = generateAccumulatorFactory(COUNT,
                 ImmutableList.of(0),
                 Optional.of(1),
                 ImmutableList.of(BIGINT, BOOLEAN),
@@ -139,7 +145,8 @@ public class TestAggregationOperator
                 new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()),
                 ImmutableList.of(),
                 false,
-                TEST_SESSION);
+                TEST_SESSION,
+                new TempStorageStandaloneSpillerFactory(new TestingTempStorageManager(), new BlockEncodingManager(), new NodeSpillConfig(), new FeaturesConfig(), new SpillerStats()));
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
@@ -187,7 +194,7 @@ public class TestAggregationOperator
                 0,
                 new PlanNodeId("test"),
                 Step.SINGLE,
-                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
                 useSystemMemory);
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
@@ -214,8 +221,8 @@ public class TestAggregationOperator
         assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
-    private static InternalAggregationFunction getAggregation(String name, Type... arguments)
+    private static JavaAggregationFunctionImplementation getAggregation(String name, Type... arguments)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(name, fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(name, fromTypes(arguments)));
     }
 }

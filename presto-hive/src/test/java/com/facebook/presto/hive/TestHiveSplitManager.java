@@ -50,7 +50,6 @@ import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -472,13 +471,14 @@ public class TestHiveSplitManager
                         Optional.empty(),
                         false,
                         true,
+                        0,
                         0),
                 PARTITION_NAME,
                 partitionStatistics);
 
         HiveClientConfig hiveClientConfig = new HiveClientConfig().setPartitionStatisticsBasedOptimizationEnabled(true);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(
-                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, new MetastoreClientConfig()), ImmutableSet.of()),
+                new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, new MetastoreClientConfig()), ImmutableSet.of(), hiveClientConfig),
                 new MetastoreClientConfig(),
                 new NoHdfsAuthentication());
         HiveMetadataFactory metadataFactory = new HiveMetadataFactory(
@@ -495,6 +495,7 @@ public class TestHiveSplitManager
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionsPerScan(),
                 false,
+                10_000,
                 FUNCTION_AND_TYPE_MANAGER,
                 new HiveLocationService(hdfsEnvironment),
                 FUNCTION_RESOLUTION,
@@ -526,7 +527,6 @@ public class TestHiveSplitManager
                 hiveClientConfig.getMaxOutstandingSplitsSize(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
-                hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),
@@ -549,28 +549,33 @@ public class TestHiveSplitManager
                 .transform(HiveColumnHandle.class::cast)
                 .transform(column -> new Subfield(column.getName(), ImmutableList.of()));
 
+        SchemaTableName schemaTableName = new SchemaTableName("test_schema", "test_table");
+        HiveTableHandle hiveTableHandle = new HiveTableHandle(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        HiveTableLayoutHandle layoutHandle = new HiveTableLayoutHandle.Builder()
+                .setSchemaTableName(schemaTableName)
+                .setTablePath("test_path")
+                .setPartitionColumns(ImmutableList.of(partitionColumn))
+                .setDataColumns(COLUMNS)
+                .setTableParameters(ImmutableMap.of())
+                .setDomainPredicate(domainPredicate)
+                .setRemainingPredicate(TRUE_CONSTANT)
+                .setPredicateColumns(ImmutableMap.of(partitionColumn.getName(), partitionColumn, columnHandle.getName(), columnHandle))
+                .setPartitionColumnPredicate(queryTupleDomain)
+                .setPartitions(partitions)
+                .setBucketHandle(Optional.empty())
+                .setBucketFilter(Optional.empty())
+                .setPushdownFilterEnabled(false)
+                .setLayoutString("layout")
+                .setRequestedColumns(Optional.empty())
+                .setPartialAggregationsPushedDown(false)
+                .setAppendRowNumberEnabled(false)
+                .setHiveTableHandle(hiveTableHandle)
+                .build();
+
         ConnectorSplitSource splitSource = splitManager.getSplits(
                 new HiveTransactionHandle(),
                 new TestingConnectorSession(new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties()),
-                new HiveTableLayoutHandle(
-                        new SchemaTableName("test_schema", "test_table"),
-                        "test_path",
-                        ImmutableList.of(partitionColumn),
-                        COLUMNS,
-                        ImmutableMap.of(),
-                        partitions,
-                        domainPredicate,
-                        TRUE_CONSTANT,
-                        ImmutableMap.of(
-                                partitionColumn.getName(), partitionColumn,
-                                columnHandle.getName(), columnHandle),
-                        queryTupleDomain,
-                        Optional.empty(),
-                        Optional.empty(),
-                        false,
-                        "layout",
-                        Optional.empty(),
-                        false),
+                layoutHandle,
                 SPLIT_SCHEDULING_CONTEXT);
         List<Set<ColumnHandle>> actualRedundantColumnDomains = splitSource.getNextBatch(NOT_PARTITIONED, 100).get().getSplits().stream()
                 .map(HiveSplit.class::cast)
@@ -631,7 +636,7 @@ public class TestHiveSplitManager
             implements DirectoryLister
     {
         @Override
-        public Iterator<HiveFileInfo> list(ExtendedFileSystem fileSystem, Table table, Path path, NamenodeStats namenodeStats, PathFilter pathFilter, HiveDirectoryContext hiveDirectoryContext)
+        public Iterator<HiveFileInfo> list(ExtendedFileSystem fileSystem, Table table, Path path, Optional<Partition> partition, NamenodeStats namenodeStats, HiveDirectoryContext hiveDirectoryContext)
         {
             try {
                 return ImmutableList.of(

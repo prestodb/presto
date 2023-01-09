@@ -83,7 +83,7 @@ public class TestJdbcConnection
         server.installPlugin(new HiveHadoop2Plugin());
         server.createCatalog("hive", "hive-hadoop2", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toFile().toURI().toString())
+                .put("hive.metastore.catalog.dir", server.getDataDirectory().resolve("hive").toFile().toURI().toString())
                 .put("hive.security", "sql-standard")
                 .build());
 
@@ -146,6 +146,26 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testImmediateCommit()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            connection.setAutoCommit(false);
+            connection.commit();
+        }
+    }
+
+    @Test
+    public void testImmediateRollback()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            connection.setAutoCommit(false);
+            connection.rollback();
+        }
+    }
+
+    @Test
     public void testUse()
             throws SQLException
     {
@@ -182,7 +202,7 @@ public class TestJdbcConnection
     {
         try (Connection connection = createConnection("sessionProperties=query_max_run_time:2d;max_failed_task_percentage:0.6")) {
             assertThat(listSession(connection))
-                    .contains("join_distribution_type|PARTITIONED|PARTITIONED")
+                    .contains("join_distribution_type|AUTOMATIC|AUTOMATIC")
                     .contains("exchange_compression|false|false")
                     .contains("query_max_run_time|2d|100.00d")
                     .contains("max_failed_task_percentage|0.6|0.3");
@@ -192,7 +212,7 @@ public class TestJdbcConnection
             }
 
             assertThat(listSession(connection))
-                    .contains("join_distribution_type|BROADCAST|PARTITIONED")
+                    .contains("join_distribution_type|BROADCAST|AUTOMATIC")
                     .contains("exchange_compression|false|false");
 
             try (Statement statement = connection.createStatement()) {
@@ -200,7 +220,7 @@ public class TestJdbcConnection
             }
 
             assertThat(listSession(connection))
-                    .contains("join_distribution_type|BROADCAST|PARTITIONED")
+                    .contains("join_distribution_type|BROADCAST|AUTOMATIC")
                     .contains("exchange_compression|true|false");
         }
     }
@@ -281,6 +301,15 @@ public class TestJdbcConnection
         assertTrue(connection instanceof PrestoConnection);
         PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
         assertEquals(prestoConnection.getCustomHeaders(), customHeadersMap);
+    }
+
+    @Test
+    public void testClientTags()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("clientTags=c2,c3")) {
+            assertEquals(connection.getClientInfo("ClientTags"), "c2,c3");
+        }
     }
 
     @Test

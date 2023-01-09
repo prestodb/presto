@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
@@ -29,10 +32,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
@@ -44,6 +49,9 @@ import java.net.URI;
 import java.util.Iterator;
 import java.util.Optional;
 
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_BINARY;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_COMPACT;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_FB_COMPACT;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.google.common.base.Preconditions.checkState;
@@ -87,14 +95,15 @@ public class ClusterStatsResource
     }
 
     @GET
-    @Produces(MediaType.APPLICATION_JSON)
+    @Produces({MediaType.APPLICATION_JSON, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public void getClusterStats(
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended AsyncResponse asyncResponse,
+            @QueryParam("includeLocalInfoOnly") @DefaultValue("false") boolean includeLocalInfoOnly)
     {
-        if (resourceManagerEnabled) {
+        if (resourceManagerEnabled && !includeLocalInfoOnly) {
             proxyClusterStats(servletRequest, asyncResponse, xForwardedProto, uriInfo);
             return;
         }
@@ -202,6 +211,7 @@ public class ClusterStatsResource
         }
     }
 
+    @ThriftStruct
     public static class ClusterStats
     {
         private final long runningQueries;
@@ -219,6 +229,7 @@ public class ClusterStatsResource
         private final long adjustedQueueSize;
 
         @JsonCreator
+        @ThriftConstructor
         public ClusterStats(
                 @JsonProperty("runningQueries") long runningQueries,
                 @JsonProperty("blockedQueries") long blockedQueries,
@@ -246,66 +257,77 @@ public class ClusterStatsResource
         }
 
         @JsonProperty
+        @ThriftField(1)
         public long getRunningQueries()
         {
             return runningQueries;
         }
 
         @JsonProperty
+        @ThriftField(2)
         public long getBlockedQueries()
         {
             return blockedQueries;
         }
 
         @JsonProperty
+        @ThriftField(3)
         public long getQueuedQueries()
         {
             return queuedQueries;
         }
 
         @JsonProperty
+        @ThriftField(4)
         public long getActiveWorkers()
         {
             return activeWorkers;
         }
 
         @JsonProperty
+        @ThriftField(5)
         public long getRunningDrivers()
         {
             return runningDrivers;
         }
 
         @JsonProperty
+        @ThriftField(6)
         public long getRunningTasks()
         {
             return runningTasks;
         }
 
         @JsonProperty
+        @ThriftField(7)
         public double getReservedMemory()
         {
             return reservedMemory;
         }
 
         @JsonProperty
+        @ThriftField(8)
         public long getTotalInputRows()
         {
             return totalInputRows;
         }
 
         @JsonProperty
+        @ThriftField(9)
         public long getTotalInputBytes()
         {
             return totalInputBytes;
         }
 
         @JsonProperty
+        @ThriftField(10)
         public long getTotalCpuTimeSecs()
         {
             return totalCpuTimeSecs;
         }
 
         @JsonProperty
+        @ThriftField(11)
         public long getAdjustedQueueSize()
         {
             return adjustedQueueSize;

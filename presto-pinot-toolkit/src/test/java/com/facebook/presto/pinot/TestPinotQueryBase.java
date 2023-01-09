@@ -90,7 +90,9 @@ public class TestPinotQueryBase
 
     protected static ConnectorId pinotConnectorId = new ConnectorId("id");
     protected static PinotTableHandle realtimeOnlyTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "realtimeOnly");
+    protected static PinotTableHandle offlineOnlyTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "offlineOnly");
     protected static PinotTableHandle hybridTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "hybrid");
+    protected static PinotTableHandle hybridTableWithTsTimeColumn = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "hybridTableWithTsTimeColumn");
     protected static PinotColumnHandle regionId = new PinotColumnHandle("regionId", BIGINT, REGULAR);
     protected static PinotColumnHandle distinctCountDim = new PinotColumnHandle("distinctCountDim", BIGINT, REGULAR);
     protected static PinotColumnHandle city = new PinotColumnHandle("city", VARCHAR, REGULAR);
@@ -114,13 +116,14 @@ public class TestPinotQueryBase
                     .put(new VariableReferenceExpression(Optional.empty(), "scores", new ArrayType(DOUBLE)), new PinotQueryGeneratorContext.Selection("scores", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression(Optional.empty(), "fare", DOUBLE), new PinotQueryGeneratorContext.Selection("fare", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression(Optional.empty(), "distinctCountDim", DOUBLE), new PinotQueryGeneratorContext.Selection("distinctCountDim", TABLE_COLUMN)) // direct column reference
-                    .put(new VariableReferenceExpression(Optional.empty(), "totalfare", DOUBLE), new PinotQueryGeneratorContext.Selection("(fare + trip)", DERIVED)) // derived column
+                    .put(new VariableReferenceExpression(Optional.empty(), "totalfare", DOUBLE), new PinotQueryGeneratorContext.Selection("(\"fare\" + \"trip\")", DERIVED)) // derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "count_regionid", BIGINT), new PinotQueryGeneratorContext.Selection("count(regionid)", DERIVED))// derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "sum_fare", BIGINT), new PinotQueryGeneratorContext.Selection("sum(fare)", DERIVED))// derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "array_min_0", DOUBLE), new PinotQueryGeneratorContext.Selection("array_min(scores)", DERIVED)) // derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "array_max_0", DOUBLE), new PinotQueryGeneratorContext.Selection("array_max(scores)", DERIVED)) // derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "array_sum_0", DOUBLE), new PinotQueryGeneratorContext.Selection("reduce(scores, cast(0 as double), (s, x) -> s + x, s -> s)", DERIVED)) // derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "array_average_0", DOUBLE), new PinotQueryGeneratorContext.Selection("reduce(scores, CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)), (s,x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)), s -> IF(s.count = 0, NULL, s.sum / s.count))", DERIVED)) // derived column
+                    .put(new VariableReferenceExpression(Optional.empty(), "trim_city", VARCHAR), new PinotQueryGeneratorContext.Selection("trim(city)", DERIVED)) //derived column
                     .put(new VariableReferenceExpression(Optional.empty(), "secondssinceepoch", BIGINT), new PinotQueryGeneratorContext.Selection("secondsSinceEpoch", TABLE_COLUMN)) // column for datetime functions
                     .put(new VariableReferenceExpression(Optional.empty(), "dayssinceepoch", DATE), new PinotQueryGeneratorContext.Selection("daysSinceEpoch", TABLE_COLUMN)) // column for date functions
                     .put(new VariableReferenceExpression(Optional.empty(), "millissinceepoch", TIMESTAMP), new PinotQueryGeneratorContext.Selection("millisSinceEpoch", TABLE_COLUMN)) // column for timestamp functions
@@ -139,9 +142,9 @@ public class TestPinotQueryBase
             session = TestingSession.testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties().getSessionProperties())).build();
         }
 
-        public SessionHolder(boolean useDateTrunc, boolean useSqlSyntax)
+        public SessionHolder(boolean useDateTrunc)
         {
-            this(new PinotConfig().setUseDateTrunc(useDateTrunc).setUsePinotSqlForBrokerQueries(useSqlSyntax));
+            this(new PinotConfig().setUseDateTrunc(useDateTrunc));
         }
 
         public ConnectorSession getConnectorSession()
@@ -230,7 +233,7 @@ public class TestPinotQueryBase
                 new SqlParser(),
                 typeProvider,
                 expression,
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 WarningCollector.NOOP);
         return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionAndTypeManager, session);
     }

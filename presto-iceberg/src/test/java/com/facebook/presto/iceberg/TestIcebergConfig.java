@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.hive.HiveCompressionCodec;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -23,6 +22,7 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
+import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.ORC;
@@ -36,12 +36,12 @@ public class TestIcebergConfig
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(GZIP)
-                .setNativeMode(false)
-                .setCatalogType(HADOOP)
+                .setCatalogType(HIVE)
                 .setCatalogWarehouse(null)
-                .setCatalogUri(null)
                 .setCatalogCacheSize(10)
-                .setHadoopConfigResources(null));
+                .setHadoopConfigResources(null)
+                .setMaxPartitionsPerWriter(100)
+                .setMinimumAssignedSplitWeight(0.05));
     }
 
     @Test
@@ -50,23 +50,23 @@ public class TestIcebergConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("iceberg.file-format", "ORC")
                 .put("iceberg.compression-codec", "NONE")
-                .put("iceberg.native-mode", "true")
-                .put("iceberg.catalog.type", "HIVE")
+                .put("iceberg.catalog.type", "HADOOP")
                 .put("iceberg.catalog.warehouse", "path")
-                .put("iceberg.catalog.uri", "uri")
                 .put("iceberg.catalog.cached-catalog-num", "6")
                 .put("iceberg.hadoop.config.resources", "/etc/hadoop/conf/core-site.xml")
+                .put("iceberg.max-partitions-per-writer", "222")
+                .put("iceberg.minimum-assigned-split-weight", "0.01")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(ORC)
-                .setCompressionCodec(HiveCompressionCodec.NONE)
-                .setNativeMode(true)
-                .setCatalogType(HIVE)
+                .setCompressionCodec(NONE)
+                .setCatalogType(HADOOP)
                 .setCatalogWarehouse("path")
-                .setCatalogUri("uri")
                 .setCatalogCacheSize(6)
-                .setHadoopConfigResources("/etc/hadoop/conf/core-site.xml");
+                .setHadoopConfigResources("/etc/hadoop/conf/core-site.xml")
+                .setMaxPartitionsPerWriter(222)
+                .setMinimumAssignedSplitWeight(0.01);
 
         assertFullMapping(properties, expected);
     }

@@ -14,16 +14,19 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
+import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -40,8 +43,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.execution.StageInfo.getAllStages;
+import static com.facebook.presto.util.QueryInfoUtils.computeQueryHash;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -55,8 +59,10 @@ public class QueryInfo
     private final URI self;
     private final List<String> fieldNames;
     private final String query;
+    private final String queryHash;
     // expand the original query to a more accurate one if the data flow indicated by the original query is too obscure.
     private final Optional<String> expandedQuery;
+    private final Optional<String> preparedQuery;
     private final QueryStats queryStats;
     private final Optional<String> setCatalog;
     private final Optional<String> setSchema;
@@ -75,7 +81,7 @@ public class QueryInfo
     private final List<PrestoWarning> warnings;
     private final Set<Input> inputs;
     private final Optional<Output> output;
-    private final boolean completeInfo;
+    private final boolean finalQueryInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<QueryType> queryType;
     // failedTasks is only available for final query info because the construction is expensive.
@@ -84,6 +90,10 @@ public class QueryInfo
     private final Optional<List<StageId>> runtimeOptimizedStages;
     private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions;
     private final Set<SqlFunctionId> removedSessionFunctions;
+    private final StatsAndCosts planStatsAndCosts;
+    private final List<PlanOptimizerInformation> optimizerInformation;
+    // Using a list rather than map, to avoid implementing map key deserializer
+    private final List<CanonicalPlanWithInfo> planCanonicalInfo;
 
     @JsonCreator
     public QueryInfo(
@@ -96,6 +106,7 @@ public class QueryInfo
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
             @JsonProperty("expandedQuery") Optional<String> expandedQuery,
+            @JsonProperty("preparedQuery") Optional<String> preparedQuery,
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setCatalog") Optional<String> setCatalog,
             @JsonProperty("setSchema") Optional<String> setSchema,
@@ -113,13 +124,16 @@ public class QueryInfo
             @JsonProperty("warnings") List<PrestoWarning> warnings,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
-            @JsonProperty("completeInfo") boolean completeInfo,
+            @JsonProperty("finalQueryInfo") boolean finalQueryInfo,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("queryType") Optional<QueryType> queryType,
             @JsonProperty("failedTasks") Optional<List<TaskId>> failedTasks,
             @JsonProperty("runtimeOptimizedStages") Optional<List<StageId>> runtimeOptimizedStages,
             @JsonProperty("addedSessionFunctions") Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions,
-            @JsonProperty("removedSessionFunctions") Set<SqlFunctionId> removedSessionFunctions)
+            @JsonProperty("removedSessionFunctions") Set<SqlFunctionId> removedSessionFunctions,
+            @JsonProperty("planStatsAndCosts") StatsAndCosts planStatsAndCosts,
+            @JsonProperty("optimizerInformation") List<PlanOptimizerInformation> optimizerInformation,
+            List<CanonicalPlanWithInfo> planCanonicalInfo)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -131,11 +145,12 @@ public class QueryInfo
         requireNonNull(setSchema, "setSchema is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
-        requireNonNull(addedPreparedStatements, "addedPreparedStatemetns is null");
+        requireNonNull(addedPreparedStatements, "addedPreparedStatements is null");
         requireNonNull(deallocatedPreparedStatements, "deallocatedPreparedStatements is null");
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(query, "query is null");
         requireNonNull(expandedQuery, "expandedQuery is null");
+        requireNonNull(preparedQuery, "preparedQuery is null");
         requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
@@ -146,6 +161,8 @@ public class QueryInfo
         requireNonNull(runtimeOptimizedStages, "runtimeOptimizedStages is null");
         requireNonNull(addedSessionFunctions, "addedSessionFunctions is null");
         requireNonNull(removedSessionFunctions, "removedSessionFunctions is null");
+        requireNonNull(planStatsAndCosts, "planStatsAndCosts is null");
+        requireNonNull(optimizerInformation, "optimizerInformation is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -155,7 +172,9 @@ public class QueryInfo
         this.self = self;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
+        this.queryHash = computeQueryHash(query);
         this.expandedQuery = expandedQuery;
+        this.preparedQuery = preparedQuery;
         this.queryStats = queryStats;
         this.setCatalog = setCatalog;
         this.setSchema = setSchema;
@@ -174,13 +193,19 @@ public class QueryInfo
         this.warnings = ImmutableList.copyOf(warnings);
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
-        this.completeInfo = completeInfo;
+        this.finalQueryInfo = finalQueryInfo;
+        if (finalQueryInfo) {
+            checkArgument(state.isDone(), "finalQueryInfo without a terminal query state: %s", state);
+        }
         this.resourceGroupId = resourceGroupId;
         this.queryType = queryType;
         this.failedTasks = failedTasks;
         this.runtimeOptimizedStages = runtimeOptimizedStages;
         this.addedSessionFunctions = ImmutableMap.copyOf(addedSessionFunctions);
         this.removedSessionFunctions = ImmutableSet.copyOf(removedSessionFunctions);
+        this.planStatsAndCosts = planStatsAndCosts;
+        this.optimizerInformation = optimizerInformation;
+        this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
     }
 
     @JsonProperty
@@ -232,9 +257,21 @@ public class QueryInfo
     }
 
     @JsonProperty
+    public String getQueryHash()
+    {
+        return queryHash;
+    }
+
+    @JsonProperty
     public Optional<String> getExpandedQuery()
     {
         return expandedQuery;
+    }
+
+    @JsonProperty
+    public Optional<String> getPreparedQuery()
+    {
+        return preparedQuery;
     }
 
     @JsonProperty
@@ -340,7 +377,7 @@ public class QueryInfo
     @JsonProperty
     public boolean isFinalQueryInfo()
     {
-        return state.isDone() && getAllStages(outputStage).stream().allMatch(StageInfo::isFinalStageInfo);
+        return finalQueryInfo;
     }
 
     @JsonProperty
@@ -391,6 +428,24 @@ public class QueryInfo
         return removedSessionFunctions;
     }
 
+    @JsonProperty
+    public StatsAndCosts getPlanStatsAndCosts()
+    {
+        return planStatsAndCosts;
+    }
+
+    @JsonProperty
+    public List<PlanOptimizerInformation> getOptimizerInformation()
+    {
+        return optimizerInformation;
+    }
+
+    // Don't serialize this field because it can be big
+    public List<CanonicalPlanWithInfo> getPlanCanonicalInfo()
+    {
+        return planCanonicalInfo;
+    }
+
     @Override
     public String toString()
     {
@@ -399,10 +454,5 @@ public class QueryInfo
                 .add("state", state)
                 .add("fieldNames", fieldNames)
                 .toString();
-    }
-
-    public boolean isCompleteInfo()
-    {
-        return completeInfo;
     }
 }

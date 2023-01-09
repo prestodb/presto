@@ -292,6 +292,7 @@ public class TestEliminateCrossJoins
                 Optional.empty(),
                 idAllocator.getNextId(),
                 Arrays.asList(variables),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
     }
 }

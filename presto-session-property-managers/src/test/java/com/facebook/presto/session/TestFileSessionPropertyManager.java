@@ -15,7 +15,7 @@
 package com.facebook.presto.session;
 
 import com.facebook.airlift.testing.TempFile;
-import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
@@ -170,7 +170,7 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 defaultProperties);
 
-        // PROPERTY1 should be an override property with the value from the default (non-override, higher precendence)
+        // PROPERTY1 should be an override property with the value from the default (non-override, higher precedence)
         // spec.
         // PROPERTY2 should be a default property
         assertProperties(defaultProperties, ImmutableMap.of("PROPERTY1", "VALUE2"), specOverride, specDefault);

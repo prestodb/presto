@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -33,7 +35,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -54,7 +58,18 @@ public class CanonicalTableScanNode
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), table, outputVariables, assignments);
+    }
+
+    public CanonicalTableScanNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            CanonicalTableHandle table,
+            List<VariableReferenceExpression> outputVariables,
+            Map<VariableReferenceExpression, ColumnHandle> assignments)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.table = requireNonNull(table, "table is null");
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
@@ -79,6 +94,12 @@ public class CanonicalTableScanNode
     {
         checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return this;
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Cannot assign canonical plan id to Canonical table scan node: %s", this));
     }
 
     @JsonProperty
@@ -130,12 +151,12 @@ public class CanonicalTableScanNode
         // we do not serialize this field.
         private final Optional<ConnectorTableLayoutHandle> layoutHandle;
 
-        public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle)
+        public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle, PlanCanonicalizationStrategy strategy)
         {
             return new CanonicalTableHandle(
                     tableHandle.getConnectorId(),
                     tableHandle.getConnectorHandle(),
-                    tableHandle.getLayout().map(layout -> layout.getIdentifier(Optional.empty())),
+                    tableHandle.getLayout().map(layout -> layout.getIdentifier(Optional.empty(), strategy)),
                     tableHandle.getLayout());
         }
 

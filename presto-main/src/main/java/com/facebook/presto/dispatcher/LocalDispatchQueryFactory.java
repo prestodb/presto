@@ -14,21 +14,22 @@
 package com.facebook.presto.dispatcher;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.analyzer.PreparedQuery;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.QueryStateMachine;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.tracing.NoopTracerProvider;
 import com.facebook.presto.tracing.QueryStateTracingListener;
 import com.facebook.presto.transaction.TransactionManager;
@@ -42,9 +43,12 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * The local dispatch query factory is responsible for creating a query in {@link QueryManager} that will begin to execute the query
+ */
 public class LocalDispatchQueryFactory
         implements DispatchQueryFactory
 {
@@ -57,11 +61,25 @@ public class LocalDispatchQueryFactory
 
     private final ClusterSizeMonitor clusterSizeMonitor;
 
-    private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
+    private final Map<QueryType, QueryExecutionFactory<?>> executionFactories;
     private final ListeningExecutorService executor;
 
     private final QueryPrerequisitesManager queryPrerequisitesManager;
 
+    /**
+     * Instantiates a new Local dispatch query factory.
+     *
+     * @param queryManager the query manager
+     * @param transactionManager the transaction manager
+     * @param accessControl the access control
+     * @param metadata the metadata
+     * @param queryMonitor the query monitor
+     * @param locationFactory the location factory
+     * @param executionFactories the execution factories
+     * @param clusterSizeMonitor the cluster size monitor
+     * @param dispatchExecutor the dispatch executor
+     * @param queryPrerequisitesManager the query prerequisites manager
+     */
     @Inject
     public LocalDispatchQueryFactory(
             QueryManager queryManager,
@@ -70,7 +88,7 @@ public class LocalDispatchQueryFactory
             Metadata metadata,
             QueryMonitor queryMonitor,
             LocationFactory locationFactory,
-            Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
+            Map<QueryType, QueryExecutionFactory<?>> executionFactories,
             ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor,
             QueryPrerequisitesManager queryPrerequisitesManager)
@@ -89,6 +107,27 @@ public class LocalDispatchQueryFactory
         this.queryPrerequisitesManager = requireNonNull(queryPrerequisitesManager, "queryPrerequisitesManager is null");
     }
 
+    /**
+     *  This method instantiates a new dispatch query object as part of preparing phase for pre-query execution.
+     *
+     *  The dispatch query is submitted to the {@link ResourceGroupManager} which enqueues the query.
+     *  The event of creating the dispatch query is logged after registering to the query tracker which is used to keep track of the state of the query.
+     *  The log is done by adding a state change listener to the query.
+     *  The state transition listener is useful to understand the state when a query has moved from created to running, running to error completed.
+     *  Once dispatch query object is created and it's registered with the query tracker, start sending heard beat to indicate that this query is now running
+     *  to the {@link ResourceGroupManager}. This is no-op for no disaggregated coordinator setup
+     *
+     * @param session the session
+     * @param query the query
+     * @param preparedQuery the prepared query
+     * @param slug the unique query slug for each {@code Query} object
+     * @param retryCount the query retry count
+     * @param resourceGroup the resource group to be used
+     * @param queryType the query type derived from the {@code PreparedQuery statement}
+     * @param warningCollector the warning collector
+     * @param queryQueuer the query queuer is invoked when a query is to submit to the {@link com.facebook.presto.execution.resourceGroups.ResourceGroupManager}
+     * @return
+     */
     @Override
     public DispatchQuery createDispatchQuery(
             Session session,
@@ -103,11 +142,12 @@ public class LocalDispatchQueryFactory
     {
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 query,
+                preparedQuery.getPrepareSql(),
                 session,
                 locationFactory.createQueryLocation(session.getQueryId()),
                 resourceGroup,
                 queryType,
-                isTransactionControlStatement(preparedQuery.getStatement()),
+                preparedQuery.isTransactionControlStatement(),
                 transactionManager,
                 accessControl,
                 executor,
@@ -118,12 +158,14 @@ public class LocalDispatchQueryFactory
         queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
 
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
-            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());
+            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(queryType.get());
             if (queryExecutionFactory == null) {
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatementClass().getSimpleName());
             }
 
-            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType);
+            //TODO: PreparedQuery should be passed all the way to analyzer
+            checkState(preparedQuery instanceof BuiltInQueryPreparer.BuiltInPreparedQuery, "Unsupported prepared query type: %s", preparedQuery.getClass().getSimpleName());
+            return queryExecutionFactory.createQueryExecution((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType);
         });
 
         return new LocalDispatchQuery(

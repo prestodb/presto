@@ -19,6 +19,7 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkServiceFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
@@ -58,7 +59,7 @@ public class PrestoSparkRunner
                 distribution.getPackageSupplier(),
                 distribution.getConfigProperties(),
                 distribution.getCatalogProperties(),
-                distribution.getMetadataStorageType(),
+                distribution.getPrestoSparkProperties(),
                 distribution.getEventListenerProperties(),
                 distribution.getAccessControlProperties(),
                 distribution.getSessionPropertyConfigurationProperties(),
@@ -88,34 +89,73 @@ public class PrestoSparkRunner
             Optional<String> queryDataOutputLocation)
     {
         IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
-
-        PrestoSparkSession session = new PrestoSparkSession(
+        PrestoSparkRunnerContext prestoSparkRunnerContext = new PrestoSparkRunnerContext(
                 user,
                 principal,
                 extraCredentials,
-                Optional.ofNullable(catalog),
-                Optional.ofNullable(schema),
+                catalog,
+                schema,
                 source,
                 userAgent,
                 clientInfo,
                 clientTags,
-                Optional.empty(),
-                Optional.empty(),
                 sessionProperties,
                 catalogSessionProperties,
-                traceToken);
-
-        IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
-                distribution.getSparkContext(),
-                session,
                 sqlText,
                 sqlLocation,
                 sqlFileHexHash,
                 sqlFileSizeInBytes,
+                traceToken,
                 sparkQueueName,
-                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
                 queryStatusInfoOutputLocation,
-                queryDataOutputLocation);
+                queryDataOutputLocation,
+                Optional.empty());
+        try {
+            execute(queryExecutionFactory, prestoSparkRunnerContext);
+        }
+        catch (PrestoSparkFailure failure) {
+            if (failure.getRetryExecutionStrategy().isPresent()) {
+                PrestoSparkRunnerContext retryRunnerContext = new PrestoSparkRunnerContext.Builder(prestoSparkRunnerContext)
+                        .setRetryExecutionStrategy(failure.getRetryExecutionStrategy())
+                        .build();
+                execute(queryExecutionFactory, retryRunnerContext);
+                return;
+            }
+
+            throw failure;
+        }
+    }
+
+    private void execute(IPrestoSparkQueryExecutionFactory queryExecutionFactory, PrestoSparkRunnerContext prestoSparkRunnerContext)
+    {
+        PrestoSparkSession session = new PrestoSparkSession(
+                prestoSparkRunnerContext.getUser(),
+                prestoSparkRunnerContext.getPrincipal(),
+                prestoSparkRunnerContext.getExtraCredentials(),
+                Optional.ofNullable(prestoSparkRunnerContext.getCatalog()),
+                Optional.ofNullable(prestoSparkRunnerContext.getSchema()),
+                prestoSparkRunnerContext.getSource(),
+                prestoSparkRunnerContext.getUserAgent(),
+                prestoSparkRunnerContext.getClientInfo(),
+                prestoSparkRunnerContext.getClientTags(),
+                Optional.empty(),
+                Optional.empty(),
+                prestoSparkRunnerContext.getSessionProperties(),
+                prestoSparkRunnerContext.getCatalogSessionProperties(),
+                prestoSparkRunnerContext.getTraceToken());
+
+        IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
+                distribution.getSparkContext(),
+                session,
+                prestoSparkRunnerContext.getSqlText(),
+                prestoSparkRunnerContext.getSqlLocation(),
+                prestoSparkRunnerContext.getSqlFileHexHash(),
+                prestoSparkRunnerContext.getSqlFileSizeInBytes(),
+                prestoSparkRunnerContext.getSparkQueueName(),
+                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
+                prestoSparkRunnerContext.getQueryStatusInfoOutputLocation(),
+                prestoSparkRunnerContext.getQueryDataOutputLocation(),
+                prestoSparkRunnerContext.getRetryExecutionStrategy());
 
         List<List<Object>> results = queryExecution.execute();
 
@@ -158,7 +198,7 @@ public class PrestoSparkRunner
             PackageSupplier packageSupplier,
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
-            String metadataStorageType,
+            Map<String, String> prestoSparkProperties,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
@@ -171,7 +211,7 @@ public class PrestoSparkRunner
                 configProperties,
                 pluginsDirectory.getAbsolutePath(),
                 catalogProperties,
-                metadataStorageType,
+                prestoSparkProperties,
                 eventListenerProperties,
                 accessControlProperties,
                 sessionPropertyConfigurationProperties,
@@ -190,9 +230,9 @@ public class PrestoSparkRunner
             implements PrestoSparkTaskExecutorFactoryProvider
     {
         private final PackageSupplier packageSupplier;
-        private final String metadataStorageType;
         private final Map<String, String> configProperties;
         private final Map<String, Map<String, String>> catalogProperties;
+        private final Map<String, String> prestoSparkProperties;
         private final Map<String, String> eventListenerProperties;
         private final Map<String, String> accessControlProperties;
         private final Map<String, String> sessionPropertyConfigurationProperties;
@@ -203,9 +243,9 @@ public class PrestoSparkRunner
         {
             requireNonNull(distribution, "distribution is null");
             this.packageSupplier = distribution.getPackageSupplier();
-            this.metadataStorageType = distribution.getMetadataStorageType();
             this.configProperties = distribution.getConfigProperties();
             this.catalogProperties = distribution.getCatalogProperties();
+            this.prestoSparkProperties = distribution.getPrestoSparkProperties();
             // Optional is not Serializable
             this.eventListenerProperties = distribution.getEventListenerProperties().orElse(null);
             this.accessControlProperties = distribution.getAccessControlProperties().orElse(null);
@@ -224,9 +264,9 @@ public class PrestoSparkRunner
 
         private static IPrestoSparkService service;
         private static String currentPackagePath;
-        private static String currentMetadataStorageType;
         private static Map<String, String> currentConfigProperties;
         private static Map<String, Map<String, String>> currentCatalogProperties;
+        private static Map<String, String> currentPrestoSparkProperties;
         private static Map<String, String> currentEventListenerProperties;
         private static Map<String, String> currentAccessControlProperties;
         private static Map<String, String> currentSessionPropertyConfigurationProperties;
@@ -242,17 +282,17 @@ public class PrestoSparkRunner
                             packageSupplier,
                             configProperties,
                             catalogProperties,
-                            metadataStorageType,
+                            prestoSparkProperties,
                             Optional.ofNullable(eventListenerProperties),
                             Optional.ofNullable(accessControlProperties),
                             Optional.ofNullable(sessionPropertyConfigurationProperties),
                             Optional.ofNullable(functionNamespaceProperties),
                             Optional.ofNullable(tempStorageProperties));
 
-                    currentMetadataStorageType = metadataStorageType;
                     currentPackagePath = getPackagePath(packageSupplier);
                     currentConfigProperties = configProperties;
                     currentCatalogProperties = catalogProperties;
+                    currentPrestoSparkProperties = prestoSparkProperties;
                     currentEventListenerProperties = eventListenerProperties;
                     currentAccessControlProperties = accessControlProperties;
                     currentSessionPropertyConfigurationProperties = sessionPropertyConfigurationProperties;
@@ -261,9 +301,9 @@ public class PrestoSparkRunner
                 }
                 else {
                     checkEquals("packagePath", currentPackagePath, getPackagePath(packageSupplier));
-                    checkEquals("metadataStorageType", currentMetadataStorageType, metadataStorageType);
                     checkEquals("configProperties", currentConfigProperties, configProperties);
                     checkEquals("catalogProperties", currentCatalogProperties, catalogProperties);
+                    checkEquals("prestoSparkProperties", currentPrestoSparkProperties, prestoSparkProperties);
                     checkEquals("eventListenerProperties", currentEventListenerProperties, eventListenerProperties);
                     checkEquals("accessControlProperties", currentAccessControlProperties, accessControlProperties);
                     checkEquals("sessionPropertyConfigurationProperties",

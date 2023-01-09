@@ -19,6 +19,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.client.MongoCollection;
 import org.bson.Document;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -76,7 +77,8 @@ public class TestMongoIntegrationSmokeTest
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
-                ", ObjectId('ffffffffffffffffffffffff') _objectid";
+                ", ObjectId('ffffffffffffffffffffffff') _objectid" +
+                ", cast(ObjectId('ffffffffffffffffffffffff') as varchar) _objectid_string";
 
         assertUpdate(query, 1);
 
@@ -90,6 +92,7 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(row.getField(4), true);
         assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
         assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
+        assertEquals(row.getField(8), "ffffffffffffffffffffffff");
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
@@ -250,5 +253,21 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(results.getRowCount(), 1);
         assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
         assertNotNull(results.getMaterializedRows().get(0).getField(0));
+    }
+
+    @Test
+    public void testRenameTable()
+    {
+        assertUpdate("CREATE TABLE test_rename.tmp_rename_table (value bigint)");
+        MongoCollection<Document> collection = mongoQueryRunner.getMongoClient().getDatabase("test_rename").getCollection("tmp_rename_table");
+        collection.insertOne(new Document(ImmutableMap.of("value", 1)));
+        assertQuery("SHOW TABLES IN test_rename", "SELECT 'tmp_rename_table'");
+        assertQuery("SELECT value FROM test_rename.tmp_rename_table", "SELECT 1");
+
+        assertUpdate("ALTER TABLE test_rename.tmp_rename_table RENAME TO test_rename.tmp_rename_new_table");
+
+        assertQuery("SHOW TABLES IN test_rename", "SELECT 'tmp_rename_new_table'");
+        assertQuery("SELECT value FROM test_rename.tmp_rename_new_table", "SELECT 1");
+        assertUpdate("DROP TABLE test_rename.tmp_rename_new_table");
     }
 }

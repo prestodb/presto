@@ -126,7 +126,7 @@ public final class Rectangle
      *
      * @return if xMax==xMin and yMax==yMin
      */
-    public boolean isPointlike()
+    public boolean isPointLike()
     {
         return xMin == xMax && yMin == yMax;
     }

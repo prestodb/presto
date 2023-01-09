@@ -99,7 +99,7 @@ public class BenchmarkJsonToMapCast
         {
             MetadataManager metadata = createTestMetadataManager();
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-            FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CAST, JSON.getTypeSignature(), mapType(VARCHAR, BIGINT).getTypeSignature());
+            FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CAST, JSON, mapType(VARCHAR, BIGINT));
 
             Type valueType;
             switch (valueTypeName) {

@@ -13,10 +13,19 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.TestingBlockEncodingSerde;
+import com.facebook.presto.common.block.TestingBlockJsonSerde;
+import com.facebook.presto.common.type.TestingTypeDeserializer;
+import com.facebook.presto.common.type.TestingTypeManager;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
@@ -29,6 +38,8 @@ import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -42,13 +53,20 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
+import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.CREATED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static com.google.common.base.Strings.nullToEmpty;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.testng.Assert.fail;
 
 public class BasePlanTest
 {
     private final LocalQueryRunnerSupplier queryRunnerSupplier;
+    private final ObjectMapper objectMapper;
+
     private LocalQueryRunner queryRunner;
 
     public BasePlanTest()
@@ -59,11 +77,30 @@ public class BasePlanTest
     public BasePlanTest(Map<String, String> sessionProperties)
     {
         this.queryRunnerSupplier = () -> createQueryRunner(sessionProperties);
+        this.objectMapper = createObjectMapper();
     }
 
     public BasePlanTest(LocalQueryRunnerSupplier supplier)
     {
         this.queryRunnerSupplier = requireNonNull(supplier, "queryRunnerSupplier is null");
+        this.objectMapper = createObjectMapper();
+    }
+
+    public ObjectMapper getObjectMapper()
+    {
+        return objectMapper;
+    }
+
+    private static ObjectMapper createObjectMapper()
+    {
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+        return new JsonObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)))
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
 
     private static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties)
@@ -75,7 +112,7 @@ public class BasePlanTest
 
         sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
-        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build());
+        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(), new FeaturesConfig(), new NodeSpillConfig(), false, false, createObjectMapper());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
@@ -112,16 +149,26 @@ public class BasePlanTest
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
     }
 
+    protected void assertPlan(String sql, Session session, PlanMatchPattern pattern)
+    {
+        assertPlan(sql, session, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern, queryRunner.getPlanOptimizers(true));
+    }
+
+    protected void assertPlan(String sql, Session session, PlanMatchPattern pattern, boolean forceSingleNode)
+    {
+        assertPlan(sql, session, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern, queryRunner.getPlanOptimizers(forceSingleNode));
+    }
+
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
 
-        assertPlan(sql, stage, pattern, optimizers);
+        assertPlan(sql, queryRunner.getDefaultSession(), stage, pattern, optimizers);
     }
 
     protected void assertPlan(String sql, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+        assertPlan(sql, queryRunner.getDefaultSession(), LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
 
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, Predicate<PlanOptimizer> optimizerPredicate)
@@ -130,12 +177,12 @@ public class BasePlanTest
                 .filter(optimizerPredicate)
                 .collect(toList());
 
-        assertPlan(sql, stage, pattern, optimizers);
+        assertPlan(sql, queryRunner.getDefaultSession(), stage, pattern, optimizers);
     }
 
-    protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    protected void assertPlan(String sql, Session session, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
-        queryRunner.inTransaction(transactionSession -> {
+        queryRunner.inTransaction(session, transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(
                     transactionSession,
                     sql,
@@ -171,7 +218,7 @@ public class BasePlanTest
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 getExpressionTranslator()); // To avoid assert plan failure not printing out plan (#12885)
 
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+        assertPlan(sql, queryRunner.getDefaultSession(), LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
@@ -193,6 +240,38 @@ public class BasePlanTest
         });
     }
 
+    protected void assertPlanValidatorWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, Consumer<Plan> planValidator)
+    {
+        queryRunner.inTransaction(session, transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+            planValidator.accept(actualPlan);
+            return null;
+        });
+    }
+
+    protected void assertPlanFailedWithException(String sql, Session session, @Language("RegExp") String expectedExceptionRegex)
+    {
+        try {
+            queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, CREATED, true, WarningCollector.NOOP));
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException ex) {
+            if (!nullToEmpty(ex.getMessage()).matches(expectedExceptionRegex)) {
+                fail(format("Expected exception message '%s' to match '%s' for query: %s", ex.getMessage(), expectedExceptionRegex, sql), ex);
+            }
+        }
+    }
+
+    protected void assertPlanSucceeded(String sql, Session session)
+    {
+        try {
+            queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, CREATED, true, WarningCollector.NOOP));
+        }
+        catch (RuntimeException ex) {
+            fail(format("Query %s failed with exception message '%s'", sql, ex.getMessage()), ex);
+        }
+    }
+
     protected Plan plan(String sql)
     {
         return plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
@@ -207,6 +286,21 @@ public class BasePlanTest
     {
         try {
             return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
+        }
+        catch (RuntimeException e) {
+            throw new AssertionError("Planning failed for SQL: " + sql, e);
+        }
+    }
+
+    protected Plan plan(String sql, LogicalPlanner.Stage stage, Session session)
+    {
+        return plan(sql, stage, true, session);
+    }
+
+    protected Plan plan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, Session session)
+    {
+        try {
+            return queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
         }
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);

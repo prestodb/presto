@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.util.Collection;
+import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 
@@ -81,6 +82,11 @@ public interface ValueSet
     static ValueSet ofRanges(Range first, Range... rest)
     {
         return SortedRangeSet.of(first, rest);
+    }
+
+    static ValueSet ofRanges(List<Range> ranges)
+    {
+        return SortedRangeSet.of(ranges);
     }
 
     static ValueSet copyOfRanges(Type type, Collection<Range> ranges)
@@ -149,4 +155,17 @@ public interface ValueSet
     }
 
     String toString(SqlFunctionProperties properties);
+
+    /**
+     * @return A canonicalized ValueSet with a consistent representation.
+     *
+     * When removeSafeConstants is true, we return a ValueSet with all point constants removed,
+     * and range constants are kept.
+     * Example:
+     * `x = 1` is equivalent to `x = 1000`
+     * `x >= 1` is NOT equivalent to `x >= 1000`
+     *
+     * All types and bounds information is preserved.
+     */
+    ValueSet canonicalize(boolean removeSafeConstants);
 }

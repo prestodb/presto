@@ -29,7 +29,8 @@ public class TestSecurityConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SecurityConfig.class)
-                .setAuthenticationTypes(""));
+                .setAuthenticationTypes("")
+                .setAuthorizedIdentitySelectionEnabled(false));
     }
 
     @Test
@@ -37,10 +38,12 @@ public class TestSecurityConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("http-server.authentication.type", "KERBEROS,PASSWORD")
+                .put("permissions.authorized-identity-selection-enabled", "true")
                 .build();
 
         SecurityConfig expected = new SecurityConfig()
-                .setAuthenticationTypes(ImmutableList.of(KERBEROS, PASSWORD));
+                .setAuthenticationTypes(ImmutableList.of(KERBEROS, PASSWORD))
+                .setAuthorizedIdentitySelectionEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -18,6 +18,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
@@ -358,7 +359,7 @@ public final class SqlToRowExpressionTranslator
             return call(
                     getSourceLocation(node),
                     CAST.name(),
-                    functionAndTypeManager.lookupCast(CAST, VARCHAR.getTypeSignature(), getType(node).getTypeSignature()),
+                    functionAndTypeManager.lookupCast(CAST, VARCHAR, getType(node)),
                     getType(node),
                     constant(utf8Slice(node.getValue()), VARCHAR));
         }
@@ -548,10 +549,10 @@ public final class SqlToRowExpressionTranslator
             RowExpression value = process(node.getExpression(), context);
 
             if (node.isSafe()) {
-                return call(getSourceLocation(node), TRY_CAST.name(), functionAndTypeManager.lookupCast(TRY_CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
+                return call(getSourceLocation(node), TRY_CAST.name(), functionAndTypeManager.lookupCast(TRY_CAST, value.getType(), getType(node)), getType(node), value);
             }
 
-            return call(getSourceLocation(node), CAST.name(), functionAndTypeManager.lookupCast(CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
+            return call(getSourceLocation(node), CAST.name(), functionAndTypeManager.lookupCast(CAST, value.getType(), getType(node)), getType(node), value);
         }
 
         @Override
@@ -611,6 +612,10 @@ public final class SqlToRowExpressionTranslator
 
             if (baseType instanceof TypeWithName) {
                 baseType = ((TypeWithName) baseType).getType();
+            }
+
+            if (baseType instanceof DistinctType) {
+                baseType = ((DistinctType) baseType).getBaseType();
             }
             RowType rowType = (RowType) baseType;
             String fieldName = node.getField().getValue();
@@ -752,7 +757,7 @@ public final class SqlToRowExpressionTranslator
                 return likeFunctionCall(value, call(getSourceLocation(node), "LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
-            return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeManager.lookupCast(CAST, VARCHAR.getTypeSignature(), LIKE_PATTERN.getTypeSignature()), LIKE_PATTERN, pattern));
+            return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeManager.lookupCast(CAST, VARCHAR, LIKE_PATTERN), LIKE_PATTERN, pattern));
         }
 
         private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)

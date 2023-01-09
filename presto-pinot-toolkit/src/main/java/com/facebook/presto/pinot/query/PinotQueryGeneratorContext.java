@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.pinot.PinotColumnHandle;
 import com.facebook.presto.pinot.PinotConfig;
 import com.facebook.presto.pinot.PinotException;
+import com.facebook.presto.pinot.PinotQueryOptionsUtils;
 import com.facebook.presto.pinot.PinotSessionProperties;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -48,7 +49,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Encapsulates the components needed to construct a PQL query and provides methods to update the current context with new operations.
+ * Encapsulates the components needed to construct a SQL query and provides methods to update the current context with new operations.
  */
 public class PinotQueryGeneratorContext
 {
@@ -68,7 +69,6 @@ public class PinotQueryGeneratorContext
     private final Optional<String> filter;
     private final OptionalInt limit;
     private final int aggregations;
-    private final boolean useSqlSyntax;
 
     @Override
     public String toString()
@@ -84,20 +84,18 @@ public class PinotQueryGeneratorContext
                 .add("filter", filter)
                 .add("limit", limit)
                 .add("aggregations", aggregations)
-                .add("useSqlSyntax", useSqlSyntax)
                 .toString();
     }
 
-    public PinotQueryGeneratorContext(boolean usePinotSqlSyntax)
+    public PinotQueryGeneratorContext()
     {
-        this(new HashMap<>(), new LinkedHashSet<>(), null, usePinotSqlSyntax);
+        this(new HashMap<>(), new LinkedHashSet<>(), null);
     }
 
     PinotQueryGeneratorContext(
             Map<VariableReferenceExpression, Selection> selections,
             LinkedHashSet<VariableReferenceExpression> outputs,
-            String from,
-            boolean useSqlSyntax)
+            String from)
     {
         this(
                 selections,
@@ -109,8 +107,7 @@ public class PinotQueryGeneratorContext
                 new LinkedHashMap<>(),
                 OptionalInt.empty(),
                 new HashSet<>(),
-                new HashSet<>(),
-                useSqlSyntax);
+                new HashSet<>());
     }
 
     private PinotQueryGeneratorContext(
@@ -123,8 +120,7 @@ public class PinotQueryGeneratorContext
             LinkedHashMap<VariableReferenceExpression, OrderingColumnInformation> topNColumnInformationMap,
             OptionalInt limit,
             Set<VariableReferenceExpression> variablesInAggregation,
-            Set<VariableReferenceExpression> hiddenColumnSet,
-            boolean useSqlSyntax)
+            Set<VariableReferenceExpression> hiddenColumnSet)
     {
         this.selections = new HashMap<>(requireNonNull(selections, "selections can't be null"));
         this.outputs = new LinkedHashSet<>(requireNonNull(outputs, "outputs can't be null."));
@@ -136,7 +132,6 @@ public class PinotQueryGeneratorContext
         this.limit = requireNonNull(limit, "limit is null");
         this.hiddenColumnSet = requireNonNull(hiddenColumnSet, "hidden column set is null");
         this.variablesInAggregation = requireNonNull(variablesInAggregation, "variables in aggregation is null");
-        this.useSqlSyntax = useSqlSyntax;
     }
 
     /**
@@ -157,8 +152,7 @@ public class PinotQueryGeneratorContext
                 topNColumnInformationMap,
                 limit,
                 variablesInAggregation,
-                hiddenColumnSet,
-                useSqlSyntax);
+                hiddenColumnSet);
     }
 
     /**
@@ -188,10 +182,7 @@ public class PinotQueryGeneratorContext
         }
         checkSupported(!hasLimit(), "Pinot doesn't support aggregation on top of the limit");
 
-        if (!useSqlSyntax) {
-            checkSupported(aggregations > 0, "Invalid number of aggregations");
-        }
-        return new PinotQueryGeneratorContext(newSelections, newOutputs, from, filter, aggregations, groupByColumns, topNColumnInformationMap, limit, variablesInAggregation, hiddenColumnSet, useSqlSyntax);
+        return new PinotQueryGeneratorContext(newSelections, newOutputs, from, filter, aggregations, groupByColumns, topNColumnInformationMap, limit, variablesInAggregation, hiddenColumnSet);
     }
 
     /**
@@ -199,9 +190,7 @@ public class PinotQueryGeneratorContext
      */
     public PinotQueryGeneratorContext withProject(Map<VariableReferenceExpression, Selection> newSelections, LinkedHashSet<VariableReferenceExpression> newOutputs)
     {
-        if (!useSqlSyntax) {
-            checkSupported(!hasGroupBy(), "Pinot doesn't yet support new selections on top of the grouped by data");
-        }
+        checkSupported(!newOutputs.isEmpty(), "Missing output expression in Pinot query context");
         return new PinotQueryGeneratorContext(
                 newSelections,
                 newOutputs,
@@ -212,8 +201,7 @@ public class PinotQueryGeneratorContext
                 topNColumnInformationMap,
                 limit,
                 variablesInAggregation,
-                hiddenColumnSet,
-                useSqlSyntax);
+                hiddenColumnSet);
     }
 
     private static int checkForValidLimit(long limit)
@@ -241,8 +229,7 @@ public class PinotQueryGeneratorContext
                 topNColumnInformationMap,
                 OptionalInt.of(intLimit),
                 variablesInAggregation,
-                hiddenColumnSet,
-                useSqlSyntax);
+                hiddenColumnSet);
     }
 
     /**
@@ -251,9 +238,6 @@ public class PinotQueryGeneratorContext
     public PinotQueryGeneratorContext withTopN(LinkedHashMap<VariableReferenceExpression, SortOrder> orderByColumnOrderingMap, long limit)
     {
         checkSupported(!hasLimit(), "Limit already exists. Pinot doesn't support order by limit on top of another limit");
-        if (!useSqlSyntax) {
-            checkSupported(!hasAggregation(), "Pinot doesn't support ordering on top of the aggregated data");
-        }
         int intLimit = checkForValidLimit(limit);
 
         LinkedHashMap<VariableReferenceExpression, OrderingColumnInformation> orderByColumnInformation = new LinkedHashMap<>();
@@ -269,8 +253,7 @@ public class PinotQueryGeneratorContext
                 orderByColumnInformation,
                 OptionalInt.of(intLimit),
                 variablesInAggregation,
-                hiddenColumnSet,
-                useSqlSyntax);
+                hiddenColumnSet);
     }
 
     private boolean hasFilter()
@@ -315,83 +298,13 @@ public class PinotQueryGeneratorContext
 
     public PinotQueryGenerator.GeneratedPinotQuery toQuery(PinotConfig pinotConfig, ConnectorSession session)
     {
-        return useSqlSyntax ? toSqlQuery(pinotConfig, session) : toPqlQuery(pinotConfig, session);
-    }
-
-    /**
-     * Convert the current context to a PQL
-     */
-    public PinotQueryGenerator.GeneratedPinotQuery toPqlQuery(PinotConfig pinotConfig, ConnectorSession session)
-    {
-        int nonAggregateShortQueryLimit = PinotSessionProperties.getNonAggregateLimitForBrokerQueries(session);
-        boolean isQueryShort = hasAggregation() || limit.orElse(Integer.MAX_VALUE) < nonAggregateShortQueryLimit;
-        boolean forBroker = !PinotSessionProperties.isForbidBrokerQueries(session) && isQueryShort;
-        if (!pinotConfig.isAllowMultipleAggregations() && aggregations > 1 && hasGroupBy()) {
-            throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Multiple aggregates in the presence of group by is forbidden");
-        }
-
-        if (hasLimit() && aggregations > 1 && hasGroupBy()) {
-            throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Multiple aggregates in the presence of group by and limit is forbidden");
-        }
-
-        String expressions = outputs.stream()
-                .filter(o -> !groupByColumns.contains(o)) // remove the group by columns from the query as Pinot barfs if the group by column is an expression
-                .map(o -> updateSelection(selections.get(o).getDefinition(), session))
-                .collect(Collectors.joining(", "));
-
-        if (expressions.isEmpty()) {
-            throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Empty PQL expressions: " + toString());
-        }
-        String tableName = from.orElseThrow(() -> new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Table name not encountered yet"));
-        // Rules for limit:
-        // - If its a selection query:
-        //      + given limit or configured limit
-        // - Else if has group by:
-        //      + ensure that only one aggregation
-        //      + default limit or configured top limit
-        // - Fail if limit is invalid
-        String limitKeyWord = "";
-        int queryLimit = -1;
-
-        if (!hasAggregation()) {
-            if (!limit.isPresent() && forBroker) {
-                throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Broker non aggregate queries have to have a limit");
-            }
-            else {
-                queryLimit = limit.orElse(PinotSessionProperties.getLimitLargerForSegment(session));
-            }
-            limitKeyWord = "LIMIT";
-        }
-        else if (hasGroupBy()) {
-            limitKeyWord = "TOP";
-            if (limit.isPresent()) {
-                if (aggregations > 1) {
-                    throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.of(
-                            generatePinotQueryHelper(forBroker, expressions, tableName, "")),
-                            "Pinot has weird semantics with group by and multiple aggregation functions and limits");
-                }
-                else {
-                    queryLimit = limit.getAsInt();
-                }
-            }
-            else {
-                queryLimit = PinotSessionProperties.getTopNLarge(session);
-            }
-        }
-        String limitClause = "";
-        if (!limitKeyWord.isEmpty()) {
-            limitClause = " " + limitKeyWord + " " + queryLimit;
-        }
-        String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause);
-        LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments(false);
-        List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
-        return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.PQL, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
+        return toSqlQuery(pinotConfig, session);
     }
 
     // Generate Pinot query:
     // - takes arguments of expressions/table name/limit clause;
     // - handles the common logic to generate where/groupBy/orderBy clauses.
-    private String generatePinotQueryHelper(boolean forBroker, String expressions, String tableName, String limitClause)
+    private String generatePinotQueryHelper(boolean forBroker, String expressions, String tableName, String limitClause, String queryOptions)
     {
         String query = "SELECT " + expressions + " FROM " + tableName + (forBroker ? "" : TABLE_NAME_SUFFIX_TEMPLATE);
         if (filter.isPresent()) {
@@ -414,6 +327,7 @@ public class PinotQueryGeneratorContext
             query = query + " ORDER BY " + orderByExpressions;
         }
         query = query + limitClause;
+        query = query + queryOptions;
         return query;
     }
 
@@ -424,10 +338,13 @@ public class PinotQueryGeneratorContext
     {
         int nonAggregateShortQueryLimit = PinotSessionProperties.getNonAggregateLimitForBrokerQueries(session);
         boolean isQueryShort = (hasAggregation() || hasGroupBy()) || limit.orElse(Integer.MAX_VALUE) < nonAggregateShortQueryLimit;
-        boolean forBroker = !PinotSessionProperties.isForbidBrokerQueries(session) && isQueryShort;
+        boolean attemptBrokerQueries = PinotSessionProperties.isAttemptBrokerQueries(session) || isQueryShort;
+        boolean forBroker = !PinotSessionProperties.isForbidBrokerQueries(session) && attemptBrokerQueries;
         String groupByExpressions = groupByColumns.stream()
                 .map(x -> selections.get(x).getDefinition())
                 .collect(Collectors.joining(", "));
+
+        checkSupported(!outputs.isEmpty(), "Unable to generate Pinot query without output expression");
         String selectExpressions = outputs.stream()
                 .filter(o -> !groupByColumns.contains(o))
                 .map(o -> updateSelection(selections.get(o).getDefinition(), session))
@@ -449,7 +366,7 @@ public class PinotQueryGeneratorContext
         // - Fail if limit is invalid
         int queryLimit = -1;
         if (!hasAggregation() && !hasGroupBy()) {
-            if (!limit.isPresent() && forBroker) {
+            if (!limit.isPresent() && forBroker && !attemptBrokerQueries) {
                 throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Broker non aggregate queries have to have a limit");
             }
             else {
@@ -468,10 +385,12 @@ public class PinotQueryGeneratorContext
         if (queryLimit > 0) {
             limitClause = " LIMIT " + queryLimit;
         }
-        String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause);
-        LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments(true);
+        String queryOptionsProperty = PinotSessionProperties.getQueryOptions(session);
+        String queryOptions = PinotQueryOptionsUtils.getQueryOptionsAsString(queryOptionsProperty);
+        String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause, queryOptions);
+        LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments();
         List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
-        return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.SQL, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
+        return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, indices, filter.isPresent(), forBroker);
     }
 
     private String updateSelection(String definition, ConnectorSession session)
@@ -507,21 +426,11 @@ public class PinotQueryGeneratorContext
             expressionsInPinotOrder.put(outputColumn, outputColumnDefinition);
         }
 
-        if (useSqlSyntax) {
-            checkSupported(
-                    assignments.size() <= expressionsInPinotOrder.keySet().stream().filter(key -> !hiddenColumnSet.contains(key)).count(),
-                    "Expected returned expressions %s is a superset of selections %s",
-                    Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder),
-                    Joiner.on(",").withKeyValueSeparator("=").join(assignments));
-        }
-        else {
-            checkSupported(
-                    assignments.size() == expressionsInPinotOrder.keySet().stream()
-                        .filter(key -> !hiddenColumnSet.contains(key)).count(),
-                    "Expected returned expressions %s to match selections %s",
-                    Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder),
-                    Joiner.on(",").withKeyValueSeparator("=").join(assignments));
-        }
+        checkSupported(
+                assignments.size() <= expressionsInPinotOrder.keySet().stream().filter(key -> !hiddenColumnSet.contains(key)).count(),
+                "Expected returned expressions %s is a superset of selections %s",
+                Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder),
+                Joiner.on(",").withKeyValueSeparator("=").join(assignments));
 
         Map<VariableReferenceExpression, Integer> assignmentToIndex = new HashMap<>();
         Iterator<Map.Entry<VariableReferenceExpression, PinotColumnHandle>> assignmentsIterator = assignments.entrySet().iterator();
@@ -540,33 +449,17 @@ public class PinotQueryGeneratorContext
                 index = -1; // negative output index means to skip this value returned by pinot at query time
             }
             else {
-                index = assignmentToIndex.get(expression.getKey());
-            }
-            if (index == null) {
-                if (useSqlSyntax) {
-                    index = -1; // negative output index means to skip this value returned by pinot at query time
-                }
-                else {
-                    throw new PinotException(
-                            PINOT_UNSUPPORTED_EXPRESSION, Optional.of(query),
-                            format(
-                                    "Expected to find a Pinot column handle for the expression %s, but we have %s",
-                                    expression,
-                                    Joiner.on(",").withKeyValueSeparator(":").join(assignmentToIndex)));
-                }
+                index = assignmentToIndex.getOrDefault(expression.getKey(), -1); // negative output index means to skip this value returned by pinot at query time
             }
             outputIndices.add(index);
         }
         return outputIndices.build();
     }
 
-    public LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> getAssignments(boolean isSqlSyntax)
+    public LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> getAssignments()
     {
         LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> result = new LinkedHashMap<>();
         LinkedHashSet<VariableReferenceExpression> outputFields = new LinkedHashSet<>();
-        if (!isSqlSyntax) {
-            outputFields.addAll(groupByColumns);
-        }
         outputFields.addAll(outputs.stream().filter(variable -> !hiddenColumnSet.contains(variable)).collect(Collectors.toList()));
         outputFields.stream().forEach(variable -> {
             Selection selection = selections.get(variable);
@@ -582,7 +475,7 @@ public class PinotQueryGeneratorContext
         outputColumns.forEach(o -> requireNonNull(selections.get(o), String.format("Cannot find the selection %s in the original context %s", o, this)));
         // Hidden columns flow as is from the previous
         selections.entrySet().stream().filter(e -> hiddenColumnSet.contains(e.getKey())).forEach(e -> newOutputs.add(e.getKey()));
-        return new PinotQueryGeneratorContext(selections, newOutputs, from, filter, aggregations, groupByColumns, topNColumnInformationMap, limit, variablesInAggregation, hiddenColumnSet, useSqlSyntax);
+        return new PinotQueryGeneratorContext(selections, newOutputs, from, filter, aggregations, groupByColumns, topNColumnInformationMap, limit, variablesInAggregation, hiddenColumnSet);
     }
 
     public PinotQueryGeneratorContext withVariablesInAggregation(Set<VariableReferenceExpression> newVariablesInAggregation)
@@ -597,14 +490,12 @@ public class PinotQueryGeneratorContext
                 topNColumnInformationMap,
                 limit,
                 newVariablesInAggregation,
-                hiddenColumnSet,
-                useSqlSyntax);
+                hiddenColumnSet);
     }
 
     public PinotQueryGeneratorContext withDistinctLimit(LinkedHashSet<VariableReferenceExpression> newGroupByColumns, long limit)
     {
         int intLimit = checkForValidLimit(limit);
-        checkSupported(useSqlSyntax, "DistinctLimit is only supported in SQL mode");
         checkSupported(!hasLimit(), "Limit already exists. Pinot doesn't support limit on top of another limit");
         checkSupported(!hasGroupBy(), "GroupBy already exists. Pinot doesn't support Distinct on top of another Group By");
         checkSupported(!hasAggregation(), "Aggregation already exists. Pinot doesn't support Distinct Limit on top of Aggregation");
@@ -618,8 +509,7 @@ public class PinotQueryGeneratorContext
                 topNColumnInformationMap,
                 OptionalInt.of(intLimit),
                 variablesInAggregation,
-                hiddenColumnSet,
-                true);
+                hiddenColumnSet);
     }
 
     /**
@@ -640,8 +530,8 @@ public class PinotQueryGeneratorContext
 
         public Selection(String definition, Origin origin)
         {
-            this.definition = definition;
             this.origin = origin;
+            this.definition = (origin == Origin.TABLE_COLUMN) ? (definition.startsWith("\"") ? definition : String.format("\"%s\"", definition)) : definition;
         }
 
         public String getDefinition()

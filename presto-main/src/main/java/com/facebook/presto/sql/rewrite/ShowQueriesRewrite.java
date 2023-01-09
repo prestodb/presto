@@ -19,11 +19,10 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
-import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -37,8 +36,10 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.QueryUtil;
+import com.facebook.presto.sql.analyzer.MetadataResolver;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -57,7 +58,9 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -113,7 +116,6 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
 import static com.facebook.presto.sql.QueryUtil.aliasedNullToEmpty;
@@ -139,12 +141,14 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.LogicalBinaryExpression.and;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.MATERIALIZED_VIEW;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
+import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -164,6 +168,7 @@ final class ShowQueriesRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
@@ -178,6 +183,7 @@ final class ShowQueriesRewrite
         private final SqlParser sqlParser;
         final List<Expression> parameters;
         private final AccessControl accessControl;
+        private final MetadataResolver metadataResolver;
         private Optional<QueryExplainer> queryExplainer;
         private final WarningCollector warningCollector;
 
@@ -190,6 +196,7 @@ final class ShowQueriesRewrite
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.metadataResolver = metadata.getMetadataResolver(session);
         }
 
         @Override
@@ -211,11 +218,11 @@ final class ShowQueriesRewrite
 
             accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), schema);
 
-            if (!metadata.catalogExists(session, schema.getCatalogName())) {
+            if (!metadataResolver.catalogExists(schema.getCatalogName())) {
                 throw new SemanticException(MISSING_CATALOG, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
             }
 
-            if (!metadata.schemaExists(session, schema)) {
+            if (!metadataResolver.schemaExists(schema)) {
                 throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schema.getSchemaName());
             }
 
@@ -247,7 +254,7 @@ final class ShowQueriesRewrite
             if (tableName.isPresent()) {
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
 
-                if (!metadata.getView(session, qualifiedTableName).isPresent() &&
+                if (!metadataResolver.getView(qualifiedTableName).isPresent() &&
                         !metadata.getTableHandle(session, qualifiedTableName).isPresent()) {
                     throw new SemanticException(MISSING_TABLE, showGrants, "Table '%s' does not exist", tableName);
                 }
@@ -372,7 +379,7 @@ final class ShowQueriesRewrite
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = Optional.of(new LikePredicate(identifier("Catalog"), new StringLiteral(likePattern.get()), Optional.empty()));
+                predicate = Optional.of(new LikePredicate(identifier("Catalog"), new StringLiteral(likePattern.get()), node.getEscape().map(StringLiteral::new)));
             }
 
             return simpleQuery(
@@ -387,7 +394,7 @@ final class ShowQueriesRewrite
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
 
-            if (!metadata.getView(session, tableName).isPresent() &&
+            if (!metadataResolver.getView(tableName).isPresent() &&
                     !metadata.getTableHandle(session, tableName).isPresent()) {
                 throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
             }
@@ -444,8 +451,8 @@ final class ShowQueriesRewrite
         protected Node visitShowCreate(ShowCreate node, Void context)
         {
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
-            Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
-            Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = metadata.getMaterializedView(session, objectName);
+            Optional<ViewDefinition> viewDefinition = metadataResolver.getView(objectName);
+            Optional<MaterializedViewDefinition> materializedViewDefinition = metadataResolver.getMaterializedView(objectName);
 
             if (node.getType() == VIEW) {
                 if (!viewDefinition.isPresent()) {
@@ -610,7 +617,7 @@ final class ShowQueriesRewrite
                 String propertyName = propertyEntry.getKey();
                 Object value = propertyEntry.getValue();
                 if (value == null) {
-                    throw new PrestoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifedName(objectName, columnName)));
+                    throw new PrestoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifiedName(objectName, columnName)));
                 }
 
                 PropertyMetadata<?> property = allProperties.get(propertyName);
@@ -618,7 +625,7 @@ final class ShowQueriesRewrite
                     throw new PrestoException(errorCode, format(
                             "Property %s for %s should have value of type %s, not %s",
                             propertyName,
-                            toQualifedName(objectName, columnName),
+                            toQualifiedName(objectName, columnName),
                             property.getJavaType().getName(),
                             value.getClass().getName()));
                 }
@@ -632,7 +639,7 @@ final class ShowQueriesRewrite
                     .collect(toImmutableList());
         }
 
-        private static String toQualifedName(Object objectName, Optional<String> columnName)
+        private static String toQualifiedName(Object objectName, Optional<String> columnName)
         {
             return columnName.map(s -> format("column %s of table %s", s, objectName))
                     .orElseGet(() -> "table " + objectName);
@@ -735,6 +742,15 @@ final class ShowQueriesRewrite
             // add bogus row so we can support empty sessions
             rows.add(row(new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), new StringLiteral(""), FALSE_LITERAL));
 
+            Expression predicate = identifier("include");
+            Optional<String> likePattern = node.getLikePattern();
+            if (likePattern.isPresent()) {
+                predicate = and(predicate, new LikePredicate(
+                        identifier("name"),
+                        new StringLiteral(likePattern.get()),
+                        node.getEscape().map(StringLiteral::new)));
+            }
+
             return simpleQuery(
                     selectList(
                             aliasedName("name", "Name"),
@@ -746,7 +762,7 @@ final class ShowQueriesRewrite
                             new Values(rows.build()),
                             "session",
                             ImmutableList.of("name", "value", "default", "type", "description", "include")),
-                    identifier("include"));
+                    predicate);
         }
 
         private Query parseView(String view, QualifiedObjectName name, Node node)

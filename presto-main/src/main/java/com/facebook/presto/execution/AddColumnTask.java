@@ -21,7 +21,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
@@ -46,6 +46,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
@@ -70,7 +71,7 @@ public class AddColumnTask
             return immediateFuture(null);
         }
 
-        Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, tableName);
+        Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMetadataResolver(session).getMaterializedView(tableName);
         if (optionalMaterializedView.isPresent()) {
             if (!statement.isTableExists()) {
                 throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, and add column is not supported", tableName);
@@ -113,7 +114,7 @@ public class AddColumnTask
                 sqlProperties,
                 session,
                 metadata,
-                parameters);
+                parameterExtractor(statement, parameters));
 
         ColumnMetadata column = new ColumnMetadata(
                 element.getName().getValue(),

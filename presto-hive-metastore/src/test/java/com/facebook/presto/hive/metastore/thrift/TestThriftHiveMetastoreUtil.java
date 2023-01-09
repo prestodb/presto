@@ -29,6 +29,7 @@ import org.apache.hadoop.hive.metastore.api.DateColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.DecimalColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.DoubleColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.LongColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.StringColumnStatsData;
 import org.testng.annotations.Test;
 
@@ -373,5 +374,18 @@ public class TestThriftHiveMetastoreUtil
     private static void testBasicStatisticsRoundTrip(HiveBasicStatistics expected)
     {
         assertEquals(getHiveBasicStatistics(updateStatisticsParameters(ImmutableMap.of(), expected)), expected);
+    }
+
+    @Test
+    public void testGetLastDataCommitTimeFromParams()
+    {
+        Partition partition = new Partition();
+        assertEquals(ThriftMetastoreUtil.getLastDataCommitTime(partition), 0);
+
+        partition.setParameters(ImmutableMap.of("lastDataCommitTime", "1"));
+        assertEquals(ThriftMetastoreUtil.getLastDataCommitTime(partition), 1);
+
+        partition.setParameters(ImmutableMap.of("lastDataCommitTime", "a"));
+        assertEquals(ThriftMetastoreUtil.getLastDataCommitTime(partition), 0);
     }
 }

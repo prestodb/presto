@@ -86,7 +86,7 @@ public class TestOptimizeMixedDistinctAggregations
                 aggregation(singleGroupingSet(groupByKeysSecond), aggregationsSecond, ImmutableMap.of(), Optional.empty(), SINGLE,
                         project(
                                 aggregation(singleGroupingSet(groupByKeysFirst), aggregationsFirst, ImmutableMap.of(), Optional.empty(), SINGLE,
-                                        groupingSet(groups.build(), group,
+                                        groupingSet(groups.build(), ImmutableMap.of(), group,
                                                 anyTree(tableScan))))));
 
         assertUnitPlan(sql, expectedPlanPattern);

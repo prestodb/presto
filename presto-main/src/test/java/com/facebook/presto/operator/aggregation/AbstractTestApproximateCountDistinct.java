@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -41,7 +42,7 @@ import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestApproximateCountDistinct
 {
-    public abstract InternalAggregationFunction getAggregationFunction();
+    public abstract JavaAggregationFunctionImplementation getAggregationFunction();
 
     public abstract Type getValueType();
 

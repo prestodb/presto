@@ -45,7 +45,18 @@ public class DeleteNode
             @JsonProperty("rowId") VariableReferenceExpression rowId,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, rowId, outputVariables);
+    }
+
+    public DeleteNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            VariableReferenceExpression rowId,
+            List<VariableReferenceExpression> outputVariables)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         this.source = requireNonNull(source, "source is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
@@ -86,6 +97,12 @@ public class DeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new DeleteNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), rowId, outputVariables);
+        return new DeleteNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), rowId, outputVariables);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new DeleteNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, rowId, outputVariables);
     }
 }

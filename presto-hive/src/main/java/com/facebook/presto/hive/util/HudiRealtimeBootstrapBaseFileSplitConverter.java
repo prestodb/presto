@@ -16,7 +16,9 @@ package com.facebook.presto.hive.util;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
-import org.apache.hudi.hadoop.realtime.RealtimeBootstrapBaseFileSplit;
+import org.apache.hudi.common.model.HoodieLogFile;
+import org.apache.hudi.common.util.Option;
+import org.apache.hudi.hadoop.realtime.HoodieRealtimeBootstrapBaseFileSplit;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -24,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -43,11 +46,11 @@ public class HudiRealtimeBootstrapBaseFileSplitConverter
     @Override
     public Optional<Map<String, String>> extractCustomSplitInfo(FileSplit split)
     {
-        if (split instanceof RealtimeBootstrapBaseFileSplit) {
+        if (split instanceof HoodieRealtimeBootstrapBaseFileSplit) {
             ImmutableMap.Builder<String, String> customSplitInfo = ImmutableMap.builder();
-            RealtimeBootstrapBaseFileSplit hudiSplit = (RealtimeBootstrapBaseFileSplit) split;
+            HoodieRealtimeBootstrapBaseFileSplit hudiSplit = (HoodieRealtimeBootstrapBaseFileSplit) split;
 
-            customSplitInfo.put(CUSTOM_FILE_SPLIT_CLASS_KEY, RealtimeBootstrapBaseFileSplit.class.getName());
+            customSplitInfo.put(CUSTOM_FILE_SPLIT_CLASS_KEY, HoodieRealtimeBootstrapBaseFileSplit.class.getName());
             customSplitInfo.put(BASE_PATH_KEY, hudiSplit.getBasePath());
             customSplitInfo.put(MAX_COMMIT_TIME_KEY, hudiSplit.getMaxCommitTime());
             customSplitInfo.put(DELTA_FILE_PATHS_KEY, String.join(",", hudiSplit.getDeltaLogPaths()));
@@ -65,16 +68,17 @@ public class HudiRealtimeBootstrapBaseFileSplitConverter
     {
         requireNonNull(customSplitInfo);
         String customFileSplitClass = customSplitInfo.get(CUSTOM_FILE_SPLIT_CLASS_KEY);
-        if (!isNullOrEmpty(customFileSplitClass) && RealtimeBootstrapBaseFileSplit.class.getName().equals(customFileSplitClass)) {
+        if (!isNullOrEmpty(customFileSplitClass) && HoodieRealtimeBootstrapBaseFileSplit.class.getName().equals(customFileSplitClass)) {
             String deltaFilePaths = customSplitInfo.get(DELTA_FILE_PATHS_KEY);
             List<String> deltaLogPaths = isNullOrEmpty(deltaFilePaths) ? Collections.emptyList() : Arrays.asList(deltaFilePaths.split(","));
+            List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new Path(p))).collect(Collectors.toList());
             FileSplit bootstrapFileSplit = new FileSplit(
                     new Path(customSplitInfo.get(BOOTSTRAP_FILE_SPLIT_PATH)),
                     parseLong(customSplitInfo.get(BOOTSTRAP_FILE_SPLIT_START)),
                     parseLong(customSplitInfo.get(BOOTSTRAP_FILE_SPLIT_LEN)),
                     (String[]) null);
-            split = new RealtimeBootstrapBaseFileSplit(split, customSplitInfo.get(BASE_PATH_KEY), deltaLogPaths,
-                    customSplitInfo.get(MAX_COMMIT_TIME_KEY), bootstrapFileSplit);
+            split = new HoodieRealtimeBootstrapBaseFileSplit(split, customSplitInfo.get(BASE_PATH_KEY), deltaLogFiles,
+                    customSplitInfo.get(MAX_COMMIT_TIME_KEY), bootstrapFileSplit, false, Option.empty());
             return Optional.of(split);
         }
         return Optional.empty();

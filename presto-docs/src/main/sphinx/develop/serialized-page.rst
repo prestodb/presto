@@ -177,8 +177,8 @@ MAP Encoding
 
 * Keys column
 * Values column
-* Hash table size - 4 bytes
-* [optional] Hash table
+* Hash table size (number of 4-byte chunks in the Hash table) - 4 bytes
+* [optional] Hash table: <Hash table size> * <4 bytes>
 * Number of rows - 4 bytes
 * Offsets - (number of rows + 1) * 4 bytes; 4 bytes per offset
 * Null flags

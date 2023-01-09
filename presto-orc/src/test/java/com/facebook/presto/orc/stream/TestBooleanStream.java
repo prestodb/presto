@@ -17,7 +17,6 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.TestingHiveOrcAggregatedMemoryContext;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.metadata.Stream;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
@@ -30,6 +29,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static org.testng.Assert.assertEquals;
 
 public class TestBooleanStream
@@ -181,10 +181,10 @@ public class TestBooleanStream
             throws OrcCorruptionException
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
+        StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33, DEFAULT_SEQUENCE_ID);
         streamDataOutput.writeData(sliceOutput);
         Stream stream = streamDataOutput.getStream();
-        assertEquals(stream.getStreamKind(), StreamKind.DATA);
+        assertEquals(stream.getStreamKind(), getExpectedStreamKind());
         assertEquals(stream.getColumn(), 33);
         assertEquals(stream.getLength(), sliceOutput.size());
 

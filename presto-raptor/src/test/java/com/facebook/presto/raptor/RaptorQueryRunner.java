@@ -66,27 +66,27 @@ public final class RaptorQueryRunner
         queryRunner.createCatalog("tpch", "tpch");
 
         queryRunner.installPlugin(new RaptorPlugin());
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().toFile();
+        File dataDirectory = queryRunner.getCoordinator().getDataDirectory().toFile();
 
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         builder.putAll(extraRaptorProperties)
                 .put("metadata.db.type", "h2")
                 .put("metadata.db.connections.max", "100")
-                .put("metadata.db.filename", new File(baseDir, "db").getAbsolutePath())
+                .put("metadata.db.filename", new File(dataDirectory, "db").getAbsolutePath())
                 .put("storage.max-shard-rows", "2000");
 
         if (useHdfs) {
             builder.put("storage.file-system", "hdfs")
-                    .put("cache.base-directory", "file://" + new File(baseDir, "cache").getAbsolutePath())
+                    .put("cache.base-directory", "file://" + new File(dataDirectory, "cache").getAbsolutePath())
                     .put("cache.max-in-memory-cache-size", "100MB")
                     .put("cache.validation-enabled", "true")
-                    .put("storage.data-directory", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile().toURI().toString());
+                    .put("storage.data-directory", queryRunner.getCoordinator().getDataDirectory().resolve("hive_data").toFile().toURI().toString());
         }
         else {
             builder.put("backup.provider", "file")
-                    .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
+                    .put("backup.directory", new File(dataDirectory, "backup").getAbsolutePath())
                     .put("storage.file-system", "file")
-                    .put("storage.data-directory", new File(baseDir, "data").toURI().toString());
+                    .put("storage.data-directory", new File(dataDirectory, "data").toURI().toString());
         }
 
         Map<String, String> raptorProperties = builder.build();

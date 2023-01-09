@@ -30,6 +30,7 @@ import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableScan;
@@ -44,7 +45,7 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
@@ -68,7 +69,7 @@ public final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static Table getIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
+    public static Table getHiveIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
     {
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         TableOperations operations = new HiveTableOperations(
@@ -79,6 +80,11 @@ public final class IcebergUtil
                 table.getSchemaName(),
                 table.getTableName());
         return new BaseTable(operations, quotedTableName(table));
+    }
+
+    public static Table getNativeIcebergTable(IcebergResourceFactory resourceFactory, ConnectorSession session, SchemaTableName table)
+    {
+        return resourceFactory.getCatalog(session).loadTable(toIcebergTableIdentifier(table));
     }
 
     public static long resolveSnapshotId(Table table, long snapshotId)
@@ -94,14 +100,21 @@ public final class IcebergUtil
                 .orElseThrow(() -> new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", snapshotId, table)));
     }
 
+    public static Optional<Long> resolveSnapshotIdByName(Table table, IcebergTableName name)
+    {
+        if (name.getSnapshotId().isPresent()) {
+            if (table.snapshot(name.getSnapshotId().get()) == null) {
+                throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", name.getSnapshotId().get(), table));
+            }
+            return name.getSnapshotId();
+        }
+        return Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId);
+    }
+
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
     {
         return schema.columns().stream()
-                .map(column -> new IcebergColumnHandle(
-                        column.fieldId(),
-                        column.name(),
-                        toPrestoType(column.type(), typeManager),
-                        Optional.ofNullable(column.doc())))
+                .map(column -> IcebergColumnHandle.create(column, typeManager))
                 .collect(toImmutableList());
     }
 

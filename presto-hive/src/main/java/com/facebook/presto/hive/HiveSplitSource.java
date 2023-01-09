@@ -488,15 +488,20 @@ class HiveSplitSource
                     splitBytes = internalSplit.getEnd() - internalSplit.getStart();
                 }
 
-                resultBuilder.add(new HiveSplit(
-                        databaseName,
-                        tableName,
-                        internalSplit.getPartitionName(),
+                HiveFileSplit fileSplit = new HiveFileSplit(
                         internalSplit.getPath(),
                         internalSplit.getStart(),
                         splitBytes,
                         internalSplit.getFileSize(),
                         internalSplit.getFileModifiedTime(),
+                        internalSplit.getExtraFileInfo(),
+                        internalSplit.getCustomSplitInfo());
+
+                resultBuilder.add(new HiveSplit(
+                        fileSplit,
+                        databaseName,
+                        tableName,
+                        internalSplit.getPartitionName(),
                         internalSplit.getPartitionInfo().getStorage(),
                         internalSplit.getPartitionKeys(),
                         block.getAddresses(),
@@ -507,10 +512,8 @@ class HiveSplitSource
                         internalSplit.getTableToPartitionMapping(),
                         internalSplit.getBucketConversion(),
                         internalSplit.isS3SelectPushdownEnabled(),
-                        internalSplit.getExtraFileInfo(),
                         cacheQuotaRequirement,
                         internalSplit.getEncryptionInformation(),
-                        internalSplit.getCustomSplitInfo(),
                         internalSplit.getPartitionInfo().getRedundantColumnDomains(),
                         splitWeightProvider.weightForSplitSizeInBytes(splitBytes)));
 

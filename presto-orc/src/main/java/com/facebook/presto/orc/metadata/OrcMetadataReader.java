@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcDataSource;
@@ -56,6 +57,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
@@ -96,7 +98,7 @@ public class OrcMetadataReader
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
         OrcProto.PostScript postScript = OrcProto.PostScript.parseFrom(input);
-        runtimeStats.addMetricValue("OrcReadPostScriptTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("OrcReadPostScriptTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
         return new PostScript(
                 postScript.getVersionList(),
@@ -125,7 +127,7 @@ public class OrcMetadataReader
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Metadata metadata = OrcProto.Metadata.parseFrom(input);
-        runtimeStats.addMetricValue("OrcReadMetadataTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("OrcReadMetadataTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new Metadata(toStripeStatistics(hiveWriterVersion, metadata.getStripeStatsList()));
     }
 
@@ -154,7 +156,7 @@ public class OrcMetadataReader
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Footer footer = OrcProto.Footer.parseFrom(input);
-        runtimeStats.addMetricValue("OrcReadFooterTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("OrcReadFooterTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
@@ -193,13 +195,13 @@ public class OrcMetadataReader
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.StripeFooter stripeFooter = OrcProto.StripeFooter.parseFrom(input);
-        runtimeStats.addMetricValue("OrcReadStripeFooterTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("OrcReadStripeFooterTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(stripeFooter.getColumnsList()), ImmutableList.of());
     }
 
     private static Stream toStream(OrcProto.Stream stream)
     {
-        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), true);
+        return new Stream(stream.getColumn(), DEFAULT_SEQUENCE_ID, toStreamKind(stream.getKind()), toIntExact(stream.getLength()), true);
     }
 
     private static List<Stream> toStream(List<OrcProto.Stream> streams)
@@ -228,7 +230,7 @@ public class OrcMetadataReader
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.RowIndex rowIndex = OrcProto.RowIndex.parseFrom(input);
-        runtimeStats.addMetricValue("OrcReadRowIndexesTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
+        runtimeStats.addMetricValue("OrcReadRowIndexesTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return IntStream.range(0, rowIndex.getEntryCount())
                 .mapToObj(i -> toRowGroupIndex(hiveWriterVersion, rowIndex.getEntry(i), bloomFilters == null || bloomFilters.isEmpty() ? null : bloomFilters.get(i)))
                 .collect(toImmutableList());
@@ -251,16 +253,16 @@ public class OrcMetadataReader
     private static RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, RowIndexEntry rowIndexEntry, HiveBloomFilter bloomFilter)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
-        ImmutableList.Builder<Integer> positions = ImmutableList.builder();
+        int[] positions = new int[positionsList.size()];
         for (int index = 0; index < positionsList.size(); index++) {
             long longPosition = positionsList.get(index);
             int intPosition = (int) longPosition;
 
             checkState(intPosition == longPosition, "Expected checkpoint position %s, to be an integer", index);
 
-            positions.add(intPosition);
+            positions[index] = intPosition;
         }
-        return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true, bloomFilter));
+        return new RowGroupIndex(positions, toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true, bloomFilter));
     }
 
     private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.ColumnStatistics statistics, boolean isRowGroup, HiveBloomFilter bloomFilter)
@@ -274,6 +276,7 @@ public class OrcMetadataReader
                 statistics.hasDateStatistics() ? toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup) : null,
                 statistics.hasDecimalStatistics() ? toDecimalStatistics(statistics.getDecimalStatistics()) : null,
                 statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
+                null,
                 bloomFilter);
     }
 

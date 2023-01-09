@@ -15,8 +15,8 @@ package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
@@ -36,7 +36,7 @@ public class TestIllegalMethodAggregation
     public void testIllegalMethod()
     {
         FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
-        InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
+        JavaAggregationFunctionImplementation function = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction(
                         "differential_entropy",
                         fromTypes(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE, DOUBLE)));
@@ -54,7 +54,7 @@ public class TestIllegalMethodAggregation
     public void testNullMethod()
     {
         FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
-        InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
+        JavaAggregationFunctionImplementation function = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction(
                         "differential_entropy",
                         fromTypes(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE, DOUBLE)));

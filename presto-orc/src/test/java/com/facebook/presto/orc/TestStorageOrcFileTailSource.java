@@ -48,6 +48,12 @@ public class TestStorageOrcFileTailSource
     private static final DataSize DEFAULT_SIZE = new DataSize(1, MEGABYTE);
     private static final int FOOTER_READ_SIZE_IN_BYTES = (int) DEFAULT_SIZE.toBytes();
 
+    private final OrcReaderOptions orcReaderOptions = OrcReaderOptions.builder()
+            .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+            .withTinyStripeThreshold(new DataSize(1, MEGABYTE))
+            .withMaxBlockSize(new DataSize(1, MEGABYTE))
+            .build();
+
     private TempFile file;
     private MetadataReader metadataReader;
 
@@ -56,7 +62,7 @@ public class TestStorageOrcFileTailSource
             throws Exception
     {
         this.file = new TempFile();
-        this.metadataReader = new DwrfMetadataReader(new RuntimeStats());
+        this.metadataReader = new DwrfMetadataReader(new RuntimeStats(), orcReaderOptions);
     }
 
     @AfterMethod(alwaysRun = true)

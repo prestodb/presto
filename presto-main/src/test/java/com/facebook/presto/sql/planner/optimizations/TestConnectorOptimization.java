@@ -336,6 +336,7 @@ public class TestConnectorOptimization
                                 Optional.of(new TestConnectorTableLayoutHandle(node.getPredicate()))),
                         tableScanNode.getOutputVariables(),
                         tableScanNode.getAssignments(),
+                        tableScanNode.getTableConstraints(),
                         TupleDomain.all(),
                         TupleDomain.all());
             }

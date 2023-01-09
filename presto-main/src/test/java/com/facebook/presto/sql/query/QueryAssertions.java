@@ -26,19 +26,21 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-class QueryAssertions
+public class QueryAssertions
         implements Closeable
 {
-    private final QueryRunner runner;
+    protected QueryRunner runner;
 
     public QueryAssertions()
     {
@@ -48,9 +50,23 @@ class QueryAssertions
                 .build());
     }
 
+    public QueryAssertions(Map<String, String> systemProperties)
+    {
+        Session.SessionBuilder builder = testSessionBuilder()
+                .setCatalog("local")
+                .setSchema("default");
+        systemProperties.forEach(builder::setSystemProperty);
+        runner = new LocalQueryRunner(builder.build());
+    }
+
     public QueryAssertions(Session session)
     {
-        runner = new LocalQueryRunner(session);
+        this(new LocalQueryRunner(requireNonNull(session, "session is null")));
+    }
+
+    public QueryAssertions(QueryRunner runner)
+    {
+        this.runner = requireNonNull(runner, "runner is null");
     }
 
     public QueryRunner getQueryRunner()

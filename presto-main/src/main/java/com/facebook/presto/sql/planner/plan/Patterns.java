@@ -50,6 +50,11 @@ public class Patterns
         return typeOf(AggregationNode.class);
     }
 
+    public static Pattern<GroupIdNode> groupId()
+    {
+        return typeOf(GroupIdNode.class);
+    }
+
     public static Pattern<ApplyNode> applyNode()
     {
         return typeOf(ApplyNode.class);
@@ -118,6 +123,11 @@ public class Patterns
     public static Pattern<ProjectNode> project()
     {
         return typeOf(ProjectNode.class);
+    }
+
+    public static Pattern<RemoteSourceNode> remoteSource()
+    {
+        return typeOf(RemoteSourceNode.class);
     }
 
     public static Pattern<SampleNode> sample()

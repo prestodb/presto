@@ -23,7 +23,6 @@ import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -31,6 +30,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -42,7 +42,6 @@ import java.util.Map;
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
-import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -152,6 +151,11 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidFunction(projection, expectedErrorCode);
     }
 
+    protected void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
+    {
+        functionAssertions.assertFunctionThrowsIncorrectly(projection, throwableClass, message);
+    }
+
     protected void assertNumericOverflow(String projection, String message)
     {
         functionAssertions.assertNumericOverflow(projection, message);
@@ -162,7 +166,7 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidCast(projection);
     }
 
-    protected void assertInvalidCast(String projection, String message)
+    protected void assertInvalidCast(@Language("SQL") String projection, String message)
     {
         functionAssertions.assertInvalidCast(projection, message);
     }
@@ -217,18 +221,6 @@ public abstract class AbstractTestFunctions
                 .scalar(clazz)
                 .getFunctions();
         metadata.getFunctionAndTypeManager().registerBuiltInFunctions(functions);
-    }
-
-    protected void registerFunctions(Plugin plugin)
-    {
-        functionAssertions.getMetadata().registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
-    }
-
-    protected void registerTypes(Plugin plugin)
-    {
-        for (Type type : plugin.getTypes()) {
-            functionAssertions.getFunctionAndTypeManager().addType(type);
-        }
     }
 
     protected static SqlDecimal decimal(String decimalString)

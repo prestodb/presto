@@ -4,7 +4,7 @@
 #
 # ./run_kudu_tests.sh <nodes> <inferSchemaPrefix>
 #
-# <nodes>                Number of tablet servers (1 oder 3). Also used for number of replicas.
+# <nodes>                Number of tablet servers (1 or 3). Also used for number of replicas.
 # <inferSchemaPrefix>    InferSchema setup: "null" = disabled,
 #                                           ""     = enabled, using empty prefix,
 #                                           "presto::" = enabled, using standard prefix

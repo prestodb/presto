@@ -18,6 +18,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -107,6 +108,7 @@ public class BaseJdbcClient
             .put(TIME_WITH_TIME_ZONE, "time with timezone")
             .put(TIMESTAMP, "timestamp")
             .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with timezone")
+            .put(UuidType.UUID, "uuid")
             .build();
 
     protected final String connectorId;
@@ -234,6 +236,7 @@ public class BaseJdbcClient
                 while (resultSet.next()) {
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             resultSet.getInt("DATA_TYPE"),
+                            resultSet.getString("TYPE_NAME"),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"));
                     Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);
@@ -536,6 +539,21 @@ public class BaseJdbcClient
         StringBuilder sql = new StringBuilder()
                 .append("DROP TABLE ")
                 .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            execute(connection, sql.toString());
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void truncateTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle)
+    {
+        StringBuilder sql = new StringBuilder()
+                .append("TRUNCATE TABLE ")
+                .append(quoted(jdbcTableHandle.getCatalogName(), jdbcTableHandle.getSchemaName(), jdbcTableHandle.getTableName()));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, sql.toString());

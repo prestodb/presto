@@ -50,4 +50,30 @@ public final class OrcDataSourceId
     {
         return id;
     }
+
+    /**
+     * Add the ORC file path to an exception to provide mode debug context.
+     */
+    public void attachToException(Throwable throwable)
+    {
+        requireNonNull(throwable, "throwable is null");
+        throwable.addSuppressed(new OrcDataSourceIdStackInfoException(this));
+    }
+
+    /**
+     * This exception is supposed to provide extra context by being used as a
+     * suppressed exception attached to a main exception.
+     * <p>
+     * Attaching as a suppressed exception allows to avoid modification
+     * of top level exception just for the sake of providing more debug info.
+     */
+    private static class OrcDataSourceIdStackInfoException
+            extends RuntimeException
+    {
+        public OrcDataSourceIdStackInfoException(OrcDataSourceId orcDataSourceId)
+        {
+            super("Failed to read ORC file: " + orcDataSourceId);
+            this.setStackTrace(new StackTraceElement[0]); // we are not interested in the stack
+        }
+    }
 }

@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
@@ -31,10 +30,7 @@ public interface HiveBatchPageSourceFactory
     Optional<? extends ConnectorPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
+            HiveFileSplit fileSplit,
             Storage storage,
             SchemaTableName tableName,
             Map<String, String> tableParameters,

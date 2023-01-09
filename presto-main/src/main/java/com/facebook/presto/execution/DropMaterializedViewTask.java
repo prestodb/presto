@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropMaterializedView;
@@ -46,7 +46,7 @@ public class DropMaterializedViewTask
     {
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
-        Optional<ConnectorMaterializedViewDefinition> view = metadata.getMaterializedView(session, name);
+        Optional<MaterializedViewDefinition> view = metadata.getMetadataResolver(session).getMaterializedView(name);
         if (!view.isPresent()) {
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_MATERIALIZED_VIEW, statement, "Materialized view '%s' does not exist", name);

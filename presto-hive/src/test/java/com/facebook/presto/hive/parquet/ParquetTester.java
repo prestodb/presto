@@ -133,6 +133,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.COMPRESSION;
@@ -603,7 +604,7 @@ public class ParquetTester
             return new SqlDate(((Long) fieldFromCursor).intValue());
         }
         if (TIMESTAMP.equals(type)) {
-            return new SqlTimestamp((long) fieldFromCursor, UTC_KEY);
+            return new SqlTimestamp((long) fieldFromCursor, UTC_KEY, MILLISECONDS);
         }
         return fieldFromCursor;
     }
@@ -858,7 +859,8 @@ public class ParquetTester
             List<String> columnNames,
             List<Type> columnTypes,
             ParquetMetadataSource parquetMetadataSource,
-            File dataFile)
+            File dataFile,
+            long modificationTime)
     {
         HiveClientConfig config = new HiveClientConfig()
                 .setHiveStorageFormat(HiveStorageFormat.PARQUET)
@@ -871,7 +873,7 @@ public class ParquetTester
                 new CacheConfig()).getSessionProperties());
 
         HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, new FileFormatDataSourceStats(), parquetMetadataSource);
-        ConnectorPageSource connectorPageSource = createPageSource(pageSourceFactory, session, dataFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
+        ConnectorPageSource connectorPageSource = createPageSource(pageSourceFactory, session, dataFile, columnNames, columnTypes, HiveStorageFormat.PARQUET, modificationTime);
 
         Iterator<?>[] expectedValues = stream(readValues).map(Iterable::iterator).toArray(size -> new Iterator<?>[size]);
         if (connectorPageSource instanceof RecordPageSource) {

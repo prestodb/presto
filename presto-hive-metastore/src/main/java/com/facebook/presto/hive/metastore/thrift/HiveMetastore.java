@@ -15,18 +15,23 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
+import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -49,11 +54,11 @@ public interface HiveMetastore
 
     void alterDatabase(MetastoreContext metastoreContext, String databaseName, Database database);
 
-    void createTable(MetastoreContext metastoreContext, Table table);
+    MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table);
 
     void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData);
 
-    void alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table table);
+    MetastoreOperationResult alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table table);
 
     List<String> getAllDatabases(MetastoreContext metastoreContext);
 
@@ -63,11 +68,19 @@ public interface HiveMetastore
 
     Optional<Database> getDatabase(MetastoreContext metastoreContext, String databaseName);
 
-    void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions);
+    MetastoreOperationResult addPartitions(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            List<PartitionWithStatistics> partitions);
 
     void dropPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> parts, boolean deleteData);
 
-    void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partition);
+    MetastoreOperationResult alterPartition(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            PartitionWithStatistics partition);
 
     Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName);
 
@@ -80,11 +93,24 @@ public interface HiveMetastore
         throw new UnsupportedOperationException();
     }
 
-    Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues);
+    Optional<Partition> getPartition(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            List<String> partitionValues);
 
-    List<Partition> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames);
+    List<Partition> getPartitionsByNames(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            List<String> partitionNames);
 
-    Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName);
+    Optional<Table> getTable(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName);
+
+    Optional<Table> getTable(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle);
 
     Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type);
 
@@ -114,6 +140,16 @@ public interface HiveMetastore
 
     Set<HivePrivilegeInfo> listTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal principal);
 
+    default long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void unlock(MetastoreContext metastoreContext, long lockId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
     {
         throw new UnsupportedOperationException();
@@ -138,5 +174,15 @@ public interface HiveMetastore
         }
 
         return Optional.of(table.get().getSd().getCols());
+    }
+
+    default Optional<PrimaryKeyConstraint<String>> getPrimaryKey(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        return Optional.empty();
+    }
+
+    default List<UniqueConstraint<String>> getUniqueConstraints(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        return ImmutableList.of();
     }
 }

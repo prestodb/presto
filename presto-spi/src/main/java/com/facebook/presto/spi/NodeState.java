@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
+@ThriftEnum
 public enum NodeState
 {
     ACTIVE(1),
@@ -42,6 +46,7 @@ public enum NodeState
     }
 
     // the value will be used for SerDe like thrift
+    @ThriftEnumValue
     public int getValue()
     {
         return value;

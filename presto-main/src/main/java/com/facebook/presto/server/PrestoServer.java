@@ -50,6 +50,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.storage.TempStorageModule;
+import com.facebook.presto.tracing.TracerProviderManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
@@ -174,6 +175,9 @@ public class PrestoServer
             injector.getInstance(QueryPrerequisitesManager.class).loadQueryPrerequisites();
             injector.getInstance(NodeTtlFetcherManager.class).loadNodeTtlFetcher();
             injector.getInstance(ClusterTtlProviderManager.class).loadClusterTtlProvider();
+            injector.getInstance(TracerProviderManager.class).loadTracerProvider();
+
+            startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();
 
@@ -188,6 +192,10 @@ public class PrestoServer
     protected Iterable<? extends Module> getAdditionalModules()
     {
         return ImmutableList.of();
+    }
+
+    protected void startAssociatedProcesses(Injector injector)
+    {
     }
 
     private static void updateConnectorIds(Announcer announcer, CatalogManager metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)

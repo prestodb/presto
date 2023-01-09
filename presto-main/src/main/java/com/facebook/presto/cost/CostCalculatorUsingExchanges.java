@@ -111,7 +111,7 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanCostEstimate visitAssignUniqueId(AssignUniqueId node, Void context)
         {
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(ImmutableList.of(node.getIdVariable())));
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeForVariables(ImmutableList.of(node.getIdVariable())));
             return costForStreaming(node, localCost);
         }
 
@@ -128,8 +128,8 @@ public class CostCalculatorUsingExchanges
                         .build();
             }
             PlanNodeStatsEstimate stats = getStats(node);
-            double cpuCost = stats.getOutputSizeInBytes(variables);
-            double memoryCost = node.getPartitionBy().isEmpty() ? 0 : stats.getOutputSizeInBytes(node.getSource().getOutputVariables());
+            double cpuCost = stats.getOutputSizeForVariables(variables);
+            double memoryCost = node.getPartitionBy().isEmpty() ? 0 : stats.getOutputSizeForVariables(node.getSource().getOutputVariables());
             LocalCostEstimate localCost = LocalCostEstimate.of(cpuCost, memoryCost, 0);
             return costForStreaming(node, localCost);
         }
@@ -144,21 +144,21 @@ public class CostCalculatorUsingExchanges
         public PlanCostEstimate visitTableScan(TableScanNode node, Void context)
         {
             // TODO: add network cost, based on input size in bytes? Or let connector provide this cost?
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputVariables()));
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node));
             return costForSource(node, localCost);
         }
 
         @Override
         public PlanCostEstimate visitFilter(FilterNode node, Void context)
         {
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node.getSource()).getOutputSizeInBytes(node.getOutputVariables()));
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node.getSource()).getOutputSizeInBytes(node.getSource()));
             return costForStreaming(node, localCost);
         }
 
         @Override
         public PlanCostEstimate visitProject(ProjectNode node, Void context)
         {
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputVariables()));
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node));
             return costForStreaming(node, localCost);
         }
 
@@ -170,8 +170,8 @@ public class CostCalculatorUsingExchanges
             }
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());
-            double cpuCost = sourceStats.getOutputSizeInBytes(node.getSource().getOutputVariables());
-            double memoryCost = aggregationStats.getOutputSizeInBytes(node.getOutputVariables());
+            double cpuCost = sourceStats.getOutputSizeInBytes(node.getSource());
+            double memoryCost = aggregationStats.getOutputSizeInBytes(node);
             LocalCostEstimate localCost = LocalCostEstimate.of(cpuCost, memoryCost, 0);
             return costForAccumulation(node, localCost);
         }
@@ -202,7 +202,7 @@ public class CostCalculatorUsingExchanges
         private LocalCostEstimate calculateJoinOutputCost(PlanNode join)
         {
             PlanNodeStatsEstimate outputStats = getStats(join);
-            double joinOutputSize = outputStats.getOutputSizeInBytes(join.getOutputVariables());
+            double joinOutputSize = outputStats.getOutputSizeInBytes(join);
             return LocalCostEstimate.ofCpu(joinOutputSize);
         }
 
@@ -214,7 +214,7 @@ public class CostCalculatorUsingExchanges
 
         private LocalCostEstimate calculateExchangeCost(ExchangeNode node)
         {
-            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputVariables());
+            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node);
             switch (node.getScope()) {
                 case LOCAL:
                     switch (node.getType()) {
@@ -288,7 +288,7 @@ public class CostCalculatorUsingExchanges
             // so proper cost estimation is not that important. Second, since LimitNode can lead to incomplete evaluation
             // of the source, true cost estimation should be implemented as a "constraint" enforced on a sub-tree and
             // evaluated in context of actual source node type (and their sources).
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputVariables()));
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node));
             return costForStreaming(node, localCost);
         }
 
@@ -304,8 +304,8 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanCostEstimate visitSort(SortNode node, Void context)
         {
-            double cpuCost = getStats(node).getOutputSizeInBytes(node.getOutputVariables());
-            double memoryCost = getStats(node).getOutputSizeInBytes(node.getOutputVariables());
+            double cpuCost = getStats(node).getOutputSizeInBytes(node);
+            double memoryCost = getStats(node).getOutputSizeInBytes(node);
             LocalCostEstimate localCost = LocalCostEstimate.of(cpuCost, memoryCost, 0);
             return costForAccumulation(node, localCost);
         }
@@ -313,7 +313,7 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanCostEstimate visitSample(SampleNode node, Void context)
         {
-            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node.getSource()).getOutputSizeInBytes(node.getOutputVariables()));
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node.getSource()).getOutputSizeForVariables(node.getOutputVariables()));
             return costForStreaming(node, localCost);
         }
 

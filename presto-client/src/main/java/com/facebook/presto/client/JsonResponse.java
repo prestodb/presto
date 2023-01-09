@@ -67,7 +67,7 @@ public final class JsonResponse<T>
             value = jsonCodec.fromJson(responseBody);
         }
         catch (IllegalArgumentException e) {
-            exception = new IllegalArgumentException(format("Unable to create %s from JSON response:\n[%s]", jsonCodec.getType(), responseBody), e);
+            exception = new IllegalArgumentException(format("Unable to create %s from JSON response:%n[%s]", jsonCodec.getType(), responseBody), e);
         }
         this.hasValue = (exception == null);
         this.value = value;

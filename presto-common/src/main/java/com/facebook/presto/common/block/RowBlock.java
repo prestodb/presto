@@ -17,8 +17,10 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.ensureBlocksAreLoaded;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -34,13 +36,14 @@ public class RowBlock
     private final int startOffset;
     private final int positionCount;
 
+    @Nullable
     private final boolean[] rowIsNull;
     private final int[] fieldBlockOffsets;
     private final Block[] fieldBlocks;
+    private final long retainedSizeInBytes;
 
     private volatile long sizeInBytes;
     private volatile long logicalSizeInBytes;
-    private final long retainedSizeInBytes;
 
     /**
      * Create a row block directly from columnar nulls and field blocks.
@@ -234,14 +237,16 @@ public class RowBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         for (int i = 0; i < numFields; i++) {
             consumer.accept(fieldBlocks[i], fieldBlocks[i].getRetainedSizeInBytes());
         }
         consumer.accept(fieldBlockOffsets, sizeOf(fieldBlockOffsets));
-        consumer.accept(rowIsNull, sizeOf(rowIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        if (rowIsNull != null) {
+            consumer.accept(rowIsNull, sizeOf(rowIsNull));
+        }
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -264,5 +269,36 @@ public class RowBlock
                 rowIsNull,
                 fieldBlockOffsets,
                 loadedFieldBlocks);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        RowBlock other = (RowBlock) obj;
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes as it makes the implementation non-deterministic.
+        return this.startOffset == other.startOffset &&
+                this.positionCount == other.positionCount &&
+                Arrays.equals(this.rowIsNull, other.rowIsNull) &&
+                Arrays.equals(this.fieldBlockOffsets, other.fieldBlockOffsets) &&
+                Arrays.equals(this.fieldBlocks, other.fieldBlocks) &&
+                this.retainedSizeInBytes == other.retainedSizeInBytes;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes as it makes the implementation non-deterministic.
+        return Objects.hash(startOffset,
+                positionCount,
+                Arrays.hashCode(rowIsNull),
+                Arrays.hashCode(fieldBlockOffsets),
+                Arrays.hashCode(fieldBlocks),
+                retainedSizeInBytes);
     }
 }

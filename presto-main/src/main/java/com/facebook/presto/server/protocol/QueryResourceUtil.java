@@ -14,6 +14,7 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
@@ -27,14 +28,19 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.net.URLEncoder;
+import java.util.Base64;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -44,16 +50,20 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_SESSION_FUNC
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREFIX_URL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_REMOVED_SESSION_FUNCTION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_ROLE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
+import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 
 public final class QueryResourceUtil
 {
+    private static final Logger log = Logger.get(QueryResourceUtil.class);
     private static final JsonCodec<SqlFunctionId> SQL_FUNCTION_ID_JSON_CODEC = jsonCodec(SqlFunctionId.class);
     private static final JsonCodec<SqlInvokedFunction> SQL_INVOKED_FUNCTION_JSON_CODEC = jsonCodec(SqlInvokedFunction.class);
 
@@ -120,17 +130,70 @@ public final class QueryResourceUtil
         return response.build();
     }
 
+    public static Response toResponse(Query query, QueryResults queryResults, String xPrestoPrefixUri, boolean compressionEnabled)
+    {
+        QueryResults resultsClone = new QueryResults(
+                queryResults.getId(),
+                prependUri(queryResults.getInfoUri(), xPrestoPrefixUri),
+                prependUri(queryResults.getPartialCancelUri(), xPrestoPrefixUri),
+                prependUri(queryResults.getNextUri(), xPrestoPrefixUri),
+                queryResults.getColumns(),
+                queryResults.getData(),
+                queryResults.getStats(),
+                queryResults.getError(),
+                queryResults.getWarnings(),
+                queryResults.getUpdateType(),
+                queryResults.getUpdateCount());
+
+        return toResponse(query, resultsClone, compressionEnabled);
+    }
+
+    public static void abortIfPrefixUrlInvalid(String xPrestoPrefixUrl)
+    {
+        if (xPrestoPrefixUrl != null) {
+            try {
+                URL url = new URL(xPrestoPrefixUrl);
+            }
+            catch (java.net.MalformedURLException e) {
+                throw new WebApplicationException(
+                        Response.status(Response.Status.BAD_REQUEST)
+                                .type(TEXT_PLAIN_TYPE)
+                                .entity(PRESTO_PREFIX_URL + " is not a valid URL")
+                                .build());
+            }
+        }
+    }
+
+    public static URI prependUri(URI backendUri, String xPrestoPrefixUrl)
+    {
+        if (!isNullOrEmpty(xPrestoPrefixUrl) && (backendUri != null)) {
+            String encodedBackendUri = Base64.getUrlEncoder().encodeToString(backendUri.toASCIIString().getBytes());
+
+            try {
+                return new URI(xPrestoPrefixUrl + encodedBackendUri);
+            }
+            catch (URISyntaxException e) {
+                log.error(e, "Unable to add Proxy Prefix to URL");
+            }
+        }
+
+        return backendUri;
+    }
+
     public static StatementStats toStatementStats(QueryInfo queryInfo)
     {
         QueryStats queryStats = queryInfo.getQueryStats();
         StageInfo outputStage = queryInfo.getOutputStage().orElse(null);
+
+        Set<String> globalUniqueNodes = new HashSet<>();
+        StageStats rootStageStats = toStageStats(outputStage, globalUniqueNodes);
 
         return StatementStats.builder()
                 .setState(queryInfo.getState().toString())
                 .setWaitingForPrerequisites(queryInfo.getState() == QueryState.WAITING_FOR_PREREQUISITES)
                 .setQueued(queryInfo.getState() == QueryState.QUEUED)
                 .setScheduled(queryInfo.isScheduled())
-                .setNodes(globalUniqueNodes(outputStage).size())
+                .setNodes(globalUniqueNodes.size())
                 .setTotalSplits(queryStats.getTotalDrivers())
                 .setQueuedSplits(queryStats.getQueuedDrivers())
                 .setRunningSplits(queryStats.getRunningDrivers() + queryStats.getBlockedDrivers())
@@ -146,7 +209,7 @@ public final class QueryResourceUtil
                 .setPeakTotalMemoryBytes(queryStats.getPeakTotalMemoryReservation().toBytes())
                 .setPeakTaskTotalMemoryBytes(queryStats.getPeakTaskTotalMemory().toBytes())
                 .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
-                .setRootStage(toStageStats(outputStage))
+                .setRootStage(rootStageStats)
                 .setRuntimeStats(queryStats.getRuntimeStats())
                 .build();
     }
@@ -161,25 +224,7 @@ public final class QueryResourceUtil
         }
     }
 
-    public static Set<String> globalUniqueNodes(StageInfo stageInfo)
-    {
-        if (stageInfo == null) {
-            return ImmutableSet.of();
-        }
-        ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
-        for (TaskInfo task : stageInfo.getLatestAttemptExecutionInfo().getTasks()) {
-            // todo add nodeId to TaskInfo
-            URI uri = task.getTaskStatus().getSelf();
-            nodes.add(uri.getHost() + ":" + uri.getPort());
-        }
-
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            nodes.addAll(globalUniqueNodes(subStage));
-        }
-        return nodes.build();
-    }
-
-    private static StageStats toStageStats(StageInfo stageInfo)
+    private static StageStats toStageStats(StageInfo stageInfo, Set<String> globalUniqueNodeIds)
     {
         if (stageInfo == null) {
             return null;
@@ -188,23 +233,11 @@ public final class QueryResourceUtil
         StageExecutionInfo currentStageExecutionInfo = stageInfo.getLatestAttemptExecutionInfo();
         StageExecutionStats stageExecutionStats = currentStageExecutionInfo.getStats();
 
-        ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            subStages.add(toStageStats(subStage));
-        }
-
-        Set<String> uniqueNodes = new HashSet<>();
-        for (TaskInfo task : currentStageExecutionInfo.getTasks()) {
-            // todo add nodeId to TaskInfo
-            URI uri = task.getTaskStatus().getSelf();
-            uniqueNodes.add(uri.getHost() + ":" + uri.getPort());
-        }
-
-        return StageStats.builder()
+        // Store current stage details into a builder
+        StageStats.Builder builder = StageStats.builder()
                 .setStageId(String.valueOf(stageInfo.getStageId().getId()))
                 .setState(currentStageExecutionInfo.getState().toString())
                 .setDone(currentStageExecutionInfo.getState().isDone())
-                .setNodes(uniqueNodes.size())
                 .setTotalSplits(stageExecutionStats.getTotalDrivers())
                 .setQueuedSplits(stageExecutionStats.getQueuedDrivers())
                 .setRunningSplits(stageExecutionStats.getRunningDrivers() + stageExecutionStats.getBlockedDrivers())
@@ -213,7 +246,32 @@ public final class QueryResourceUtil
                 .setWallTimeMillis(stageExecutionStats.getTotalScheduledTime().toMillis())
                 .setProcessedRows(stageExecutionStats.getRawInputPositions())
                 .setProcessedBytes(stageExecutionStats.getRawInputDataSize().toBytes())
-                .setSubStages(subStages.build())
-                .build();
+                .setNodes(countStageAndAddGlobalUniqueNodes(currentStageExecutionInfo.getTasks(), globalUniqueNodeIds));
+
+        // Recurse into child stages to create their StageStats
+        List<StageInfo> subStages = stageInfo.getSubStages();
+        if (subStages.isEmpty()) {
+            builder.setSubStages(ImmutableList.of());
+        }
+        else {
+            ImmutableList.Builder<StageStats> subStagesBuilder = ImmutableList.builderWithExpectedSize(subStages.size());
+            for (StageInfo subStage : subStages) {
+                subStagesBuilder.add(toStageStats(subStage, globalUniqueNodeIds));
+            }
+            builder.setSubStages(subStagesBuilder.build());
+        }
+
+        return builder.build();
+    }
+
+    private static int countStageAndAddGlobalUniqueNodes(List<TaskInfo> tasks, Set<String> globalUniqueNodes)
+    {
+        Set<String> stageUniqueNodes = Sets.newHashSetWithExpectedSize(tasks.size());
+        for (TaskInfo task : tasks) {
+            String nodeId = task.getNodeId();
+            stageUniqueNodes.add(nodeId);
+            globalUniqueNodes.add(nodeId);
+        }
+        return stageUniqueNodes.size();
     }
 }

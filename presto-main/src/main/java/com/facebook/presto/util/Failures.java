@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.client.ErrorLocation;
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
-import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
@@ -35,6 +37,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.google.common.base.Functions.toStringFunction;
@@ -60,6 +63,20 @@ public final class Failures
     public static ExecutionFailureInfo toFailure(Throwable failure)
     {
         return toFailure(failure, newIdentityHashSet());
+    }
+
+    public static void checkArgument(boolean expression, String errorMessage)
+    {
+        if (!expression) {
+            throw new PrestoException(StandardErrorCode.INVALID_ARGUMENTS, errorMessage);
+        }
+    }
+
+    public static void checkArgument(boolean expression, String errorMessageTemplate, Object... errorMessageArgs)
+    {
+        if (!expression) {
+            throw new PrestoException(StandardErrorCode.INVALID_ARGUMENTS, String.format(errorMessageTemplate, errorMessageArgs));
+        }
     }
 
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
@@ -96,7 +113,7 @@ public final class Failures
         }
 
         if (seenFailures.contains(throwable)) {
-            return new ExecutionFailureInfo(type, "[cyclic] " + throwable.getMessage(), null, ImmutableList.of(), ImmutableList.of(), null, GENERIC_INTERNAL_ERROR.toErrorCode(), remoteHost);
+            return new ExecutionFailureInfo(type, "[cyclic] " + throwable.getMessage(), null, ImmutableList.of(), ImmutableList.of(), null, GENERIC_INTERNAL_ERROR.toErrorCode(), remoteHost, UNKNOWN);
         }
         seenFailures.add(throwable);
 
@@ -121,7 +138,8 @@ public final class Failures
                 Lists.transform(asList(throwable.getStackTrace()), toStringFunction()),
                 getErrorLocation(throwable),
                 errorCode,
-                remoteHost);
+                remoteHost,
+                toErrorCause(throwable));
     }
 
     @Nullable
@@ -134,8 +152,8 @@ public final class Failures
         }
         else if (throwable instanceof SemanticException) {
             SemanticException e = (SemanticException) throwable;
-            if (e.getNode().getLocation().isPresent()) {
-                NodeLocation nodeLocation = e.getNode().getLocation().get();
+            if (e.getLocation().isPresent()) {
+                NodeLocation nodeLocation = e.getLocation().get();
                 return new ErrorLocation(nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());
             }
         }
@@ -157,6 +175,16 @@ public final class Failures
             return SYNTAX_ERROR.toErrorCode();
         }
         return null;
+    }
+
+    private static ErrorCause toErrorCause(Throwable throwable)
+    {
+        requireNonNull(throwable);
+
+        if (throwable instanceof ExceededMemoryLimitException) {
+            return ((ExceededMemoryLimitException) throwable).getErrorCause();
+        }
+        return UNKNOWN;
     }
 
     public static PrestoException internalError(Throwable t)

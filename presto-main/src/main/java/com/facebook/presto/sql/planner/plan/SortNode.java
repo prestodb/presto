@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.plan.LogicalProperties;
+import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -43,7 +45,18 @@ public class SortNode
             @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
             @JsonProperty("isPartial") boolean isPartial)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, orderingScheme, isPartial);
+    }
+
+    public SortNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            OrderingScheme orderingScheme,
+            boolean isPartial)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         requireNonNull(source, "source is null");
         requireNonNull(orderingScheme, "orderingScheme is null");
@@ -63,6 +76,13 @@ public class SortNode
     public PlanNode getSource()
     {
         return source;
+    }
+
+    @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getSortProperties(this);
     }
 
     @Override
@@ -92,6 +112,12 @@ public class SortNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new SortNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), orderingScheme, isPartial);
+        return new SortNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), orderingScheme, isPartial);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new SortNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, orderingScheme, isPartial);
     }
 }

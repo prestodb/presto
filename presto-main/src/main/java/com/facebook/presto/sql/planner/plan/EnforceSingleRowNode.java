@@ -41,7 +41,16 @@ public class EnforceSingleRowNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source);
+    }
+
+    public EnforceSingleRowNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         this.source = requireNonNull(source, "source is null");
     }
@@ -73,6 +82,12 @@ public class EnforceSingleRowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new EnforceSingleRowNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren));
+        return new EnforceSingleRowNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren));
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new EnforceSingleRowNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source);
     }
 }

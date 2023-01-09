@@ -20,6 +20,7 @@ import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveFileSplit;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -28,7 +29,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkState;
 
 public class ParquetSelectivePageSourceFactory
         implements HiveSelectivePageSourceFactory
@@ -57,10 +58,7 @@ public class ParquetSelectivePageSourceFactory
     public Optional<? extends ConnectorPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
+            HiveFileSplit fileSplit,
             Storage storage,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
@@ -71,12 +69,14 @@ public class ParquetSelectivePageSourceFactory
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            boolean appendRowNumberEnabled,
+            boolean footerStatsUnreliable)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
         }
-
+        checkState(!appendRowNumberEnabled, "append row number is not supported for Parquet Reader");
         throw new PrestoException(NOT_SUPPORTED, "Parquet reader doesn't support filter pushdown yet");
     }
 }

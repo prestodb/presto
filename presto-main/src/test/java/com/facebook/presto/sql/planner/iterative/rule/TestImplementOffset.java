@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
 import com.facebook.presto.sql.planner.assertions.RowNumberSymbolMatcher;
@@ -38,6 +39,29 @@ public class TestImplementOffset
     {
         tester().assertThat(new ImplementOffset())
                 .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    return p.offset(
+                            2,
+                            p.values(a, b));
+                })
+                .matches(
+                        strictProject(
+                                ImmutableMap.of("a", new ExpressionMatcher("a"), "b", new ExpressionMatcher("b")),
+                                filter(
+                                        "row_num > BIGINT '2'",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
+                                                values("a", "b"))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher()))));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Offset support is not enabled")
+    public void testOffsetClauseDisabled()
+    {
+        tester().assertThat(new ImplementOffset())
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression b = p.variable("b");

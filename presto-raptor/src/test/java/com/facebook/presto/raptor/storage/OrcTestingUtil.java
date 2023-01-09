@@ -27,7 +27,6 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcReaderOptions;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
@@ -44,6 +43,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
+import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
@@ -124,15 +124,15 @@ final class OrcTestingUtil
             throws IOException
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        return new OrcFileWriter(columnIds, columnTypes, new OutputStreamDataSink(new FileOutputStream(file)), true, true, new OrcWriterStats(), functionAndTypeManager, ZSTD);
+        return new OrcFileWriter(columnIds, columnTypes, new OutputStreamDataSink(new FileOutputStream(file)), true, true, NOOP_WRITER_STATS, functionAndTypeManager, ZSTD);
     }
 
     public static OrcReaderOptions createDefaultTestConfig()
     {
-        return new OrcReaderOptions(
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                false);
+        return OrcReaderOptions.builder()
+                .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+                .withTinyStripeThreshold(new DataSize(1, MEGABYTE))
+                .withMaxBlockSize(new DataSize(1, MEGABYTE))
+                .build();
     }
 }

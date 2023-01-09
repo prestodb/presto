@@ -18,11 +18,11 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.OrcFileWriter;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfWriterEncryption;
+import com.facebook.presto.orc.NoOpOrcWriterStats;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcWriteValidation;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -37,10 +37,10 @@ import io.airlift.slice.Slice;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Conversions;
-import org.joda.time.DateTimeZone;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -74,10 +74,10 @@ public class IcebergOrcFileWriter
             OrcWriterOptions options,
             int[] fileInputColumnIndexes,
             Map<String, String> metadata,
-            DateTimeZone hiveStorageTimeZone,
+            ZoneId hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
             OrcWriteValidation.OrcWriteValidationMode validationMode,
-            OrcWriterStats stats,
+            NoOpOrcWriterStats stats,
             DwrfEncryptionProvider dwrfEncryptionProvider,
             Optional<DwrfWriterEncryption> dwrfWriterEncryption)
     {
@@ -95,7 +95,7 @@ public class IcebergOrcFileWriter
     private static Metrics computeMetrics(Schema icebergSchema, List<OrcType> orcRowTypes, long fileRowCount, List<ColumnStatistics> columnStatistics)
     {
         if (columnStatistics.isEmpty()) {
-            return new Metrics(fileRowCount, null, null, null, null, null);
+            return new Metrics(fileRowCount, null, null, null, null, null, null);
         }
         // Columns that are descendants of LIST or MAP types are excluded because:
         // 1. Their stats are not used by Apache Iceberg to filter out data files
@@ -136,6 +136,7 @@ public class IcebergOrcFileWriter
                 null, // TODO: Add column size accounting to ORC column writers
                 valueCounts.isEmpty() ? null : valueCounts,
                 nullCounts.isEmpty() ? null : nullCounts,
+                null,
                 lowerBounds.isEmpty() ? null : lowerBounds,
                 upperBounds.isEmpty() ? null : upperBounds);
     }

@@ -198,9 +198,9 @@ public class SimpleFilterProjectSemiJoinStatsRule
 
     private static boolean isSemiJoinOutputReference(Expression conjunct, VariableReferenceExpression semiJoinOutput)
     {
-        SymbolReference semiJoinOuputSymbolReference = createSymbolReference(semiJoinOutput);
-        return conjunct.equals(semiJoinOuputSymbolReference) ||
-                (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOuputSymbolReference));
+        SymbolReference semiJoinOutputSymbolReference = createSymbolReference(semiJoinOutput);
+        return conjunct.equals(semiJoinOutputSymbolReference) ||
+                (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOutputSymbolReference));
     }
 
     private boolean isNotFunction(RowExpression expression)

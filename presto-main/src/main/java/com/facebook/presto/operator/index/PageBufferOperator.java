@@ -33,18 +33,20 @@ public class PageBufferOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final PageBuffer pageBuffer;
+        private final String operatorType;
 
-        public PageBufferOperatorFactory(int operatorId, PlanNodeId planNodeId, PageBuffer pageBuffer)
+        public PageBufferOperatorFactory(int operatorId, PlanNodeId planNodeId, PageBuffer pageBuffer, String operatorType)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.pageBuffer = requireNonNull(pageBuffer, "pageBuffer is null");
+            this.operatorType = requireNonNull(operatorType, "operatorType is null");
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PageBufferOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, operatorType);
             return new PageBufferOperator(operatorContext, pageBuffer);
         }
 
@@ -56,7 +58,7 @@ public class PageBufferOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new PageBufferOperatorFactory(operatorId, planNodeId, pageBuffer);
+            return new PageBufferOperatorFactory(operatorId, planNodeId, pageBuffer, operatorType);
         }
     }
 

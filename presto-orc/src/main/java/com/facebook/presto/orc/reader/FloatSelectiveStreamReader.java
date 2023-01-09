@@ -36,7 +36,8 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getFloatMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -57,8 +58,8 @@ public class FloatSelectiveStreamReader
     private final OrcLocalMemoryContext systemMemoryContext;
     private final boolean nonDeterministicFilter;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
-    private InputStreamSource<FloatInputStream> dataStreamSource = missingStreamSource(FloatInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
+    private InputStreamSource<FloatInputStream> dataStreamSource = getFloatMissingStreamSource();
     private BooleanInputStream presentStream;
     private FloatInputStream dataStream;
 
@@ -90,8 +91,8 @@ public class FloatSelectiveStreamReader
     @Override
     public void startStripe(Stripe stripe)
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        dataStreamSource = missingStreamSource(FloatInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
+        dataStreamSource = getFloatMissingStreamSource();
         readOffset = 0;
         presentStream = null;
         dataStream = null;

@@ -84,6 +84,6 @@ public class TestStripeReader
 
     private static List<RowGroupIndex> createRowGroupIndex(ColumnStatistics columnStatistics)
     {
-        return ImmutableList.of(new RowGroupIndex(ImmutableList.of(0, 0, 0, 0), columnStatistics));
+        return ImmutableList.of(new RowGroupIndex(new int[]{0, 0, 0, 0}, columnStatistics));
     }
 }

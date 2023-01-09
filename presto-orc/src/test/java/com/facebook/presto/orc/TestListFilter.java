@@ -17,20 +17,22 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.PositionalFilter;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.reader.ListFilter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.INT;
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LIST;
+import static com.facebook.presto.orc.StreamDescriptorFactory.createStreamDescriptor;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -66,6 +68,29 @@ public class TestListFilter
 
         assertPositionalFilter(ImmutableMap.of(
                 2, BigintRange.of(25, 50, false)), data);
+    }
+
+    @Test
+    public void testArrayFilterCodeOverflowBug()
+    {
+        Integer[][] data = new Integer[ROW_COUNT][];
+        for (int i = 0; i < data.length; i++) {
+            data[i] = new Integer[100];
+            for (int j = 0; j < data[i].length; j++) {
+                data[i][j] = j;
+            }
+        }
+
+        // build filters checking for exact value from the data
+        ImmutableMap.Builder<Integer, TupleDomainFilter> filters = ImmutableMap.builder();
+
+        // ListFilter allows up to 64 filters
+        for (int j = 1; j <= 64; j++) {
+            long value = j - 1;
+            filters.put(j, BigintRange.of(value, value, false));
+        }
+
+        assertPositionalFilter(filters.build(), data);
     }
 
     private void assertPositionalFilter(Map<Integer, TupleDomainFilter> filters, Integer[][] data)
@@ -188,8 +213,8 @@ public class TestListFilter
         int[] lengths = Arrays.stream(data).mapToInt(v -> v.length).toArray();
         filter.populateElementFilters(data.length, null, lengths, Arrays.stream(lengths).sum());
 
-        int[] nestedLenghts = Arrays.stream(data).flatMap(Arrays::stream).mapToInt(v -> v.length).toArray();
-        ((ListFilter) filter.getChild()).populateElementFilters(Arrays.stream(lengths).sum(), null, nestedLenghts, Arrays.stream(nestedLenghts).sum());
+        int[] nestedLengths = Arrays.stream(data).flatMap(Arrays::stream).mapToInt(v -> v.length).toArray();
+        ((ListFilter) filter.getChild()).populateElementFilters(Arrays.stream(lengths).sum(), null, nestedLengths, Arrays.stream(nestedLengths).sum());
 
         return filter;
     }
@@ -198,15 +223,13 @@ public class TestListFilter
     {
         NoopOrcDataSource orcDataSource = NoopOrcDataSource.INSTANCE;
 
-        OrcType intType = new OrcType(INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
-        OrcType listType = new OrcType(LIST, ImmutableList.of(1), ImmutableList.of("item"), Optional.empty(), Optional.empty(), Optional.empty());
-
-        StreamDescriptor streamDescriptor = new StreamDescriptor("a", 0, "a", intType, orcDataSource, ImmutableList.of());
+        Type elementType = IntegerType.INTEGER;
         for (int i = 0; i < levels; i++) {
-            streamDescriptor = new StreamDescriptor("a", 0, "a", listType, orcDataSource, ImmutableList.of(streamDescriptor));
+            elementType = new ArrayType(elementType);
         }
+        List<OrcType> orcTypes = OrcType.toOrcType(0, elementType);
 
-        return streamDescriptor;
+        return createStreamDescriptor(orcTypes, orcDataSource);
     }
 
     private static Subfield toSubfield(RowAndColumn indices)

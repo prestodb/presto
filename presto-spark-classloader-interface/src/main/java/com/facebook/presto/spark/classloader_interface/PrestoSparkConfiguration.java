@@ -23,10 +23,13 @@ import static java.util.stream.Collectors.toMap;
 
 public class PrestoSparkConfiguration
 {
+    public static final String METADATA_STORAGE_TYPE_KEY = "metadata_storage_type";
+    public static final String METADATA_STORAGE_TYPE_LOCAL = "LOCAL";
+
     private final Map<String, String> configProperties;
     private final String pluginsDirectoryPath;
     private final Map<String, Map<String, String>> catalogProperties;
-    private final String metadataStorageType;
+    private final Map<String, String> prestoSparkProperties;
     private final Optional<Map<String, String>> eventListenerProperties;
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
@@ -37,7 +40,7 @@ public class PrestoSparkConfiguration
             Map<String, String> configProperties,
             String pluginsDirectoryPath,
             Map<String, Map<String, String>> catalogProperties,
-            String metadataStorageType,
+            Map<String, String> prestoSparkProperties,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
@@ -48,7 +51,8 @@ public class PrestoSparkConfiguration
         this.pluginsDirectoryPath = requireNonNull(pluginsDirectoryPath, "pluginsDirectoryPath is null");
         this.catalogProperties = unmodifiableMap(requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
                 .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
-        this.metadataStorageType = requireNonNull(metadataStorageType, "metadataStorageType is null");
+        this.prestoSparkProperties = unmodifiableMap(new HashMap<>(requireNonNull(prestoSparkProperties, "prestoSparkProperties is null")));
+        requireNonNull(prestoSparkProperties.get(METADATA_STORAGE_TYPE_KEY), "prestoSparkProperties must contain " + METADATA_STORAGE_TYPE_KEY);
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
         this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null")
@@ -78,9 +82,14 @@ public class PrestoSparkConfiguration
         return catalogProperties;
     }
 
+    public Map<String, String> getPrestoSparkProperties()
+    {
+        return prestoSparkProperties;
+    }
+
     public String getMetadataStorageType()
     {
-        return metadataStorageType;
+        return prestoSparkProperties.get(METADATA_STORAGE_TYPE_KEY);
     }
 
     public Optional<Map<String, String>> getEventListenerProperties()

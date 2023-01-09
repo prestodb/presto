@@ -51,9 +51,12 @@ import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QU
 import static com.facebook.presto.verifier.framework.SkippedReason.SYNTAX_ERROR;
 import static com.facebook.presto.verifier.framework.SkippedReason.UNSUPPORTED_QUERY_TYPE;
 import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_INTERNAL_ERROR;
+import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_STATS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestVerificationManager
@@ -223,5 +226,237 @@ public class TestVerificationManager
                 new QueryConfigurationOverridesConfig(),
                 new QueryConfigurationOverridesConfig(),
                 verifierConfig);
+    }
+
+    public static class TestLimitWithoutOrderByChecker
+    {
+        @Test
+        public void testQueryWithTableSampleToPass()
+        {
+            String query = "INSERT INTO output_table (\"col1\", \"col2\", \"col3\", \"imps\", \"ds\") " +
+                    "SELECT " +
+                    "  col1, col2, col3, imps, '2021-11-20' AS ds " +
+                    "FROM (" +
+                    "  SELECT col1, col2, col3, COUNT(1) AS imps " +
+                    "  FROM " +
+                    "    source_table TABLESAMPLE BERNOULLI(0.1) " +
+                    "  WHERE " +
+                    "    ds = '2021-11-20' " +
+                    "    AND pair_id IS NOT NULL " +
+                    "  GROUP BY 1, 2, 3 " +
+                    ")";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertFalse(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToPassWithLimitWithoutOrderInPrimaryQuery()
+        {
+            String query = "INSERT INTO output_table (\"col1\", \"col2\", \"col3\") " +
+                    " Select * from input_table limit 10";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertFalse(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToFailWhenLimitWithoutOrderInSubQuery()
+        {
+            String query = "INSERT INTO output_table (\"col1\", \"col2\", \"col3\") " +
+                    " SELECT col1, col2, col3 " +
+                    " FROM (Select * from input_table limit 10)";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertTrue(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToPassWhenLimitWithOrderInSubQuery()
+        {
+            String query = "INSERT INTO output_table (\"col1\", \"col2\", \"col3\") " +
+                    " SELECT col1, col2, col3 " +
+                    " FROM (Select * from input_table order by col1 desc limit 10)";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertFalse(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToAllowOrderWithoutLimitInSubQuery()
+        {
+            String query = "INSERT INTO output_table (\"col1\", \"col2\", \"col3\") " +
+                    " SELECT col1, col2, col3 " +
+                    " FROM (Select * from input_table order by col1 desc)";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertFalse(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToFailLimitWithoutOrderInPredicate()
+        {
+            String query = "INSERT INTO output_table (\"col1\", \"col2\", \"col3\") " +
+                    " SELECT col1, col2, col3 " +
+                    " FROM table1 " +
+                    " WHERE col1 IN (SELECT col1 FROM table2 limit 10) OR col2 = 10";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertTrue(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToFailLimitWithoutOrderInWithQuery()
+        {
+            String query = "INSERT INTO output_table (\"col1\", \"col2\", \"col3\") " +
+                    " WITH sample as (SELECT * FROM input_table limit 10) " +
+                    " SELECT col1, col2, col3 " +
+                    " FROM sample";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertTrue(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToFailLimitWithoutOrderInCreateAsQuery()
+        {
+            String query = "CREATE TABLE output_table AS " +
+                    "SELECT col1, col2, col3 " +
+                    "FROM (Select * from input_table LIMIT 10)";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertTrue(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToPassLimitWithoutOrderInCreateAsQuery()
+        {
+            String query = "CREATE TABLE output_table AS " +
+                    "SELECT col1, col2, col3 " +
+                    "FROM (Select * from input_table ORDER BY col1 LIMIT 10)";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertFalse(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToFailOnUnionQuery()
+        {
+            String query = "CREATE TABLE output_table AS " +
+                    "SELECT col1, col2, col3 " +
+                    "FROM (" +
+                    "  SELECT * FROM input_table1 " +
+                    "  UNION ALL " +
+                    "  SELECT * " +
+                    "  FROM input_table2 " +
+                    "  LIMIT 10 " +
+                    ")";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertTrue(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToFailOnUnionQueryWithLimitInSubQuery()
+        {
+            String query = "CREATE TABLE output_table AS " +
+                    "SELECT col1, col2, col3 " +
+                    "FROM (" +
+                    "  SELECT * FROM input_table1 " +
+                    "  UNION ALL " +
+                    "  ( SELECT * " +
+                    "    FROM input_table2 " +
+                    "    LIMIT 10 " +
+                    "  )" +
+                    ")";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertTrue(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToFailOnIntersectQuery()
+        {
+            String query = "CREATE TABLE output_table AS " +
+                    "SELECT col1, col2, col3 " +
+                    "FROM (" +
+                    "  SELECT * FROM input_table1 " +
+                    "  INTERSECT ALL " +
+                    "  SELECT * " +
+                    "  FROM input_table2 " +
+                    "  LIMIT 10 " +
+                    ")";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertTrue(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToFailOnIntersectQueryWithLimitInSubQuery()
+        {
+            String query = "CREATE TABLE output_table AS " +
+                    "SELECT col1, col2, col3 " +
+                    "FROM (" +
+                    "  SELECT * FROM input_table1 " +
+                    "  INTERSECT ALL " +
+                    "  ( SELECT * " +
+                    "    FROM input_table2 " +
+                    "    LIMIT 10 " +
+                    "  )" +
+                    ")";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertTrue(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToFailOnExceptQuery()
+        {
+            String query = "CREATE TABLE output_table AS " +
+                    "SELECT col1, col2, col3 " +
+                    "FROM (" +
+                    "  SELECT * FROM input_table1 " +
+                    "  EXCEPT " +
+                    "  SELECT * " +
+                    "  FROM input_table2 " +
+                    "  LIMIT 10 " +
+                    ")";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertTrue(checker.process(statement, 0));
+        }
+
+        @Test
+        public void testQueryToFailOnExceptQueryWithLimitInSubQuery()
+        {
+            String query = "CREATE TABLE output_table AS " +
+                    "SELECT col1, col2, col3 " +
+                    "FROM (" +
+                    "  SELECT * FROM input_table1 " +
+                    "  EXCEPT " +
+                    "  ( SELECT * " +
+                    "    FROM input_table2 " +
+                    "    LIMIT 10 " +
+                    "  )" +
+                    ")";
+            Statement statement = SQL_PARSER.createStatement(query, PARSING_OPTIONS);
+            VerificationManager.LimitWithoutOrderByChecker checker = new VerificationManager.LimitWithoutOrderByChecker();
+
+            assertTrue(checker.process(statement, 0));
+        }
     }
 }

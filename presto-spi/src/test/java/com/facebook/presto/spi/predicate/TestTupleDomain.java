@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import static com.facebook.presto.common.predicate.TupleDomain.columnWiseUnion;
+import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -47,6 +48,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestTupleDomain
@@ -57,6 +59,20 @@ public class TestTupleDomain
     private static final ColumnHandle D = new TestingColumnHandle("d");
     private static final ColumnHandle E = new TestingColumnHandle("e");
     private static final ColumnHandle F = new TestingColumnHandle("f");
+
+    private final ObjectMapper mapper;
+
+    public TestTupleDomain()
+    {
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+
+        this.mapper = new JsonObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+    }
 
     @Test
     public void testNone()
@@ -653,6 +669,31 @@ public class TestTupleDomain
         TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
 
         domain.transform(input -> "x");
+    }
+
+    @Test
+    public void testCanonicalize()
+            throws Exception
+    {
+        TupleDomain<String> domain1 = withColumnDomains(ImmutableMap.of(
+                "col1", Domain.singleValue(VARCHAR, utf8Slice("abc")),
+                "col2", Domain.singleValue(VARCHAR, utf8Slice("def"))));
+
+        TupleDomain<String> domain2 = withColumnDomains(ImmutableMap.of(
+                "col1", Domain.singleValue(VARCHAR, utf8Slice("abcd")),
+                "col2", Domain.singleValue(VARCHAR, utf8Slice("def"))));
+
+        TupleDomain<String> domain3 = withColumnDomains(ImmutableMap.of(
+                "col1", Domain.singleValue(VARCHAR, utf8Slice("abc")),
+                "col2", Domain.singleValue(VARCHAR, utf8Slice("defg"))));
+
+        assertEquals(
+                mapper.writeValueAsString(domain1.canonicalize(key -> key.equals("col1"))),
+                mapper.writeValueAsString(domain2.canonicalize(key -> key.equals("col1"))));
+
+        assertNotEquals(
+                mapper.writeValueAsString(domain1.canonicalize(key -> key.equals("col1"))),
+                mapper.writeValueAsString(domain3.canonicalize(key -> key.equals("col1"))));
     }
 
     private boolean overlaps(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)

@@ -21,9 +21,11 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
@@ -86,6 +88,16 @@ public class InformationSchemaSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public Map<String, String> getInfoMap()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("tableHandle", tableHandle.toString())
+                .put("prefixes", prefixes.toString())
+                .put("addresses", addresses.toString())
+                .build();
     }
 
     @Override

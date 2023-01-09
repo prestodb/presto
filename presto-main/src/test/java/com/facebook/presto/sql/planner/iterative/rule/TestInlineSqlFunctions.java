@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -131,7 +132,7 @@ public class TestInlineSqlFunctions
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
-                                null),
+                                new NoopSqlFunctionExecutor()),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(SQL_FUNCTION_SQUARE, true);
         functionAndTypeManager.createFunction(THRIFT_FUNCTION_FOO, true);
@@ -222,7 +223,7 @@ public class TestInlineSqlFunctions
                 tester.getSqlParser(),
                 viewOf(variableTypes),
                 inputSqlExpression,
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 WarningCollector.NOOP);
         Expression inlinedExpression = InlineSqlFunctions.InlineSqlFunctionsRewriter.rewrite(
                 inputSqlExpression,

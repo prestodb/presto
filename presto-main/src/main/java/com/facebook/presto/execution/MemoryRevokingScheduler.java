@@ -300,7 +300,7 @@ public class MemoryRevokingScheduler
                     long revokedBytes = operatorContext.requestMemoryRevoking();
                     if (revokedBytes > 0) {
                         remainingBytesToRevoke.addAndGet(-revokedBytes);
-                        log.debug("memoryPool=%s: requested revoking %s; remaining %s", memoryPoolId, revokedBytes, remainingBytesToRevoke.get());
+                        log.debug("memoryPool=%s, operatorContext: %s: requested revoking %s; remaining %s", memoryPoolId, operatorContext, revokedBytes, remainingBytesToRevoke.get());
                     }
                 }
                 return null;

@@ -15,6 +15,7 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.array.IntBigArray;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -24,8 +25,6 @@ import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-// TODO this class is not memory efficient.  We can bypass all of the Presto type and block code
-// since we are only interested in a hash of byte arrays.
 public class SliceDictionaryBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryBuilder.class).instanceSize();
@@ -78,25 +77,27 @@ public class SliceDictionaryBuilder
         return segmentedSliceBuilder.getSliceLength(position);
     }
 
-    public Slice getSlice(int position, int length)
+    @VisibleForTesting
+    Slice getSlice(int position, int length)
     {
         return segmentedSliceBuilder.getSlice(position, 0, length);
     }
 
-    public Slice getRawSlice(int position)
+    public Block getBlock()
+    {
+        return segmentedSliceBuilder;
+    }
+
+    @VisibleForTesting
+    Slice getRawSlice(int position)
     {
         return segmentedSliceBuilder.getRawSlice(position);
     }
 
-    public int getRawSliceOffset(int position)
+    @VisibleForTesting
+    int getRawSliceOffset(int position)
     {
         return segmentedSliceBuilder.getPositionOffset(position);
-    }
-
-    public void clear()
-    {
-        slicePositionByHash.fill(EMPTY_SLOT);
-        segmentedSliceBuilder.reset();
     }
 
     public int getEntryCount()

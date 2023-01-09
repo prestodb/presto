@@ -32,7 +32,7 @@ public class TestHiveDistributedQueriesWithOptimizedRepartitioning
                 getTables(),
                 ImmutableMap.of(
                         "experimental.optimized-repartitioning", "true",
-                        // Use small SerialiedPages to force flushing
+                        // Use small SerializedPages to force flushing
                         "driver.max-page-partitioning-buffer-size", "10000B"),
                 Optional.empty());
     }

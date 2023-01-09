@@ -16,6 +16,7 @@ package com.facebook.presto.cache.alluxio;
 import alluxio.client.file.cache.CacheManager;
 import alluxio.metrics.MetricKey;
 import alluxio.metrics.MetricsSystem;
+import alluxio.shaded.client.org.apache.commons.lang3.NotImplementedException;
 import alluxio.util.io.FileUtils;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.hive.CacheQuota;
@@ -43,6 +44,7 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -119,6 +121,10 @@ public class TestAlluxioCachingFileSystem
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig();
         Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
         AlluxioCachingFileSystem fileSystem = cachingFileSystem(configuration);
+        Path p = new Path("/tmp");
+        assertEquals(fileSystem.getDefaultBlockSize(p), 1024L);
+        assertEquals(fileSystem.getDefaultReplication(p), 10);
+
         byte[] buffer = new byte[PAGE_SIZE * 2];
         int pageOffset = PAGE_SIZE;
 
@@ -496,7 +502,17 @@ public class TestAlluxioCachingFileSystem
     private int readFully(AlluxioCachingFileSystem fileSystem, CacheQuota quota, long position, byte[] buffer, int offset, int length)
             throws Exception
     {
-        try (FSDataInputStream stream = fileSystem.openFile(new Path(testFilePath), new HiveFileContext(true, quota, Optional.empty(), Optional.of((long) DATA_LENGTH), 0, false))) {
+        try (FSDataInputStream stream = fileSystem.openFile(
+                new Path(testFilePath),
+                new HiveFileContext(
+                        true,
+                        quota,
+                        Optional.empty(),
+                        OptionalLong.of(DATA_LENGTH),
+                        OptionalLong.of(offset),
+                        OptionalLong.of(length),
+                        0,
+                        false))) {
             return stream.read(position, buffer, offset, length);
         }
     }
@@ -583,6 +599,30 @@ public class TestAlluxioCachingFileSystem
         public boolean mkdirs(Path path, FsPermission permission)
         {
             return false;
+        }
+
+        @Override
+        public short getDefaultReplication()
+        {
+            throw new NotImplementedException("getDefaultReplication not implemented");
+        }
+
+        @Override
+        public short getDefaultReplication(Path path)
+        {
+            return 10;
+        }
+
+        @Override
+        public long getDefaultBlockSize()
+        {
+            throw new NotImplementedException("getDefaultBlockSize not implemented");
+        }
+
+        @Override
+        public long getDefaultBlockSize(Path path)
+        {
+            return 1024L;
         }
 
         private static class ByteArrayDataInputStream

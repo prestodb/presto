@@ -15,6 +15,8 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -36,12 +38,14 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
+import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.transaction.TransactionManager;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
@@ -217,7 +221,7 @@ public class TestLocalDispatchQuery
     {
         QueryStateMachine stateMachine = createStateMachine();
         CountingEventListener eventListener = new CountingEventListener();
-        CompletableFuture<?> prequisitesFuture = new CompletableFuture<>();
+        CompletableFuture<?> prerequisitesFuture = new CompletableFuture<>();
         AtomicBoolean queryFinishedCalled = new AtomicBoolean();
 
         LocalDispatchQuery query = new LocalDispatchQuery(
@@ -233,7 +237,7 @@ public class TestLocalDispatchQuery
                     @Override
                     public CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context, WarningCollector warningCollector)
                     {
-                        return prequisitesFuture;
+                        return prerequisitesFuture;
                     }
 
                     @Override
@@ -247,7 +251,7 @@ public class TestLocalDispatchQuery
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
 
         query.startWaitingForPrerequisites();
-        prequisitesFuture.complete(null);
+        prerequisitesFuture.complete(null);
         query.fail(new PrestoException(ABANDONED_QUERY, "foo"));
 
         assertTrue(queryFinishedCalled.get());
@@ -258,7 +262,7 @@ public class TestLocalDispatchQuery
     {
         QueryStateMachine stateMachine = createStateMachine();
         CountingEventListener eventListener = new CountingEventListener();
-        CompletableFuture<?> prequisitesFuture = new CompletableFuture<>();
+        CompletableFuture<?> prerequisitesFuture = new CompletableFuture<>();
 
         LocalDispatchQuery query = new LocalDispatchQuery(
                 stateMachine,
@@ -269,7 +273,7 @@ public class TestLocalDispatchQuery
                 dispatchQuery -> {},
                 execution -> {},
                 false,
-                (queryId, context, warningCollector) -> prequisitesFuture);
+                (queryId, context, warningCollector) -> prerequisitesFuture);
 
         assertEquals(query.getBasicQueryInfo().getState(), WAITING_FOR_PREREQUISITES);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -277,7 +281,7 @@ public class TestLocalDispatchQuery
         query.startWaitingForPrerequisites();
         query.fail(new PrestoException(ABANDONED_QUERY, "foo"));
 
-        assertTrue(prequisitesFuture.isCancelled());
+        assertTrue(prerequisitesFuture.isCancelled());
     }
 
     @Test
@@ -449,7 +453,8 @@ public class TestLocalDispatchQuery
                 UNKNOWN,
                 new SessionPropertyManager(),
                 metadata,
-                new QueryMonitorConfig());
+                new QueryMonitorConfig(),
+                new HistoryBasedPlanStatisticsManager(new ObjectMapper(), new SessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig()));
     }
 
     private EventListenerManager createEventListenerManager(CountingEventListener countingEventListener)
@@ -505,6 +510,12 @@ public class TestLocalDispatchQuery
         public void queryCreated(QueryCreatedEvent queryCreatedEvent)
         {
             fail("Query creation events should not be created in this test");
+        }
+
+        @Override
+        public void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
+        {
+            fail("Query update events should not be created in this test");
         }
 
         @Override

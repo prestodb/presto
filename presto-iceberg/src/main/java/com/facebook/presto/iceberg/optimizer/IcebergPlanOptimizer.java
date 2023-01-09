@@ -20,6 +20,7 @@ import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
@@ -27,12 +28,10 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
@@ -40,6 +39,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergPlanOptimizer
@@ -60,11 +60,11 @@ public class IcebergPlanOptimizer
     @Override
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return maxSubplan.accept(new FilterPushdownVisitor(functionResolution, rowExpressionService, typeManager, idAllocator, session), null);
+        return rewriteWith(new FilterPushdownRewriter(functionResolution, rowExpressionService, typeManager, idAllocator, session), maxSubplan);
     }
 
-    private static class FilterPushdownVisitor
-            extends PlanVisitor<PlanNode, Void>
+    private static class FilterPushdownRewriter
+            extends ConnectorPlanRewriter<Void>
     {
         private final ConnectorSession session;
         private final RowExpressionService rowExpressionService;
@@ -72,7 +72,7 @@ public class IcebergPlanOptimizer
         private final TypeManager typeManager;
         private final PlanNodeIdAllocator idAllocator;
 
-        public FilterPushdownVisitor(
+        public FilterPushdownRewriter(
                 StandardFunctionResolution functionResolution,
                 RowExpressionService rowExpressionService,
                 TypeManager typeManager,
@@ -87,26 +87,7 @@ public class IcebergPlanOptimizer
         }
 
         @Override
-        public PlanNode visitPlan(PlanNode node, Void context)
-        {
-            ImmutableList.Builder<PlanNode> children = ImmutableList.builder();
-            boolean changed = false;
-            for (PlanNode child : node.getSources()) {
-                PlanNode newChild = child.accept(this, null);
-                if (newChild != child) {
-                    changed = true;
-                }
-                children.add(newChild);
-            }
-
-            if (!changed) {
-                return node;
-            }
-            return node.replaceChildren(children.build());
-        }
-
-        @Override
-        public PlanNode visitFilter(FilterNode filter, Void context)
+        public PlanNode visitFilter(FilterNode filter, RewriteContext<Void> context)
         {
             if (!(filter.getSource() instanceof TableScanNode)) {
                 return visitPlan(filter, context);

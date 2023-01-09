@@ -21,10 +21,8 @@ local exchange (GATHER, SINGLE, [])
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [i_item_sk_1])
                                                 join (INNER, PARTITIONED):
-                                                    remote exchange (REPARTITION, HASH, [i_brand_id_8, i_category_id_12, i_class_id_10])
-                                                        scan item
                                                     final aggregation over (expr_216, expr_217, expr_218)
-                                                        local exchange (GATHER, SINGLE, [])
+                                                        local exchange (REPARTITION, HASH, [expr_216, expr_217, expr_218])
                                                             remote exchange (REPARTITION, HASH, [i_brand_id_53, i_category_id_57, i_class_id_55])
                                                                 partial aggregation over (i_brand_id_53, i_category_id_57, i_class_id_55)
                                                                     join (INNER, REPLICATED):
@@ -58,6 +56,9 @@ local exchange (GATHER, SINGLE, [])
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                 scan item
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPARTITION, HASH, [i_brand_id_8, i_category_id_12, i_class_id_10])
+                                                            scan item
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             local exchange (GATHER, SINGLE, [])
@@ -106,10 +107,8 @@ local exchange (GATHER, SINGLE, [])
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [i_item_sk_578])
                                                 join (INNER, PARTITIONED):
-                                                    remote exchange (REPARTITION, HASH, [i_brand_id_585, i_category_id_589, i_class_id_587])
-                                                        scan item
                                                     final aggregation over (expr_862, expr_863, expr_864)
-                                                        local exchange (GATHER, SINGLE, [])
+                                                        local exchange (REPARTITION, HASH, [expr_862, expr_863, expr_864])
                                                             remote exchange (REPARTITION, HASH, [i_brand_id_630, i_category_id_634, i_class_id_632])
                                                                 partial aggregation over (i_brand_id_630, i_category_id_634, i_class_id_632)
                                                                     join (INNER, REPLICATED):
@@ -143,6 +142,9 @@ local exchange (GATHER, SINGLE, [])
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                 scan item
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPARTITION, HASH, [i_brand_id_585, i_category_id_589, i_class_id_587])
+                                                            scan item
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             local exchange (GATHER, SINGLE, [])

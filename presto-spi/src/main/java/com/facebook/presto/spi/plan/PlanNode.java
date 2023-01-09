@@ -32,12 +32,21 @@ public abstract class PlanNode
 {
     private final Optional<SourceLocation> sourceLocation;
     private final PlanNodeId id;
+    /**
+     * A statistically equivalent version of plan node, i.e. number of output rows/size remains similar.
+     * This is assigned by Presto optimizer.
+     * Once assigned by the planner, further optimizer rules should respect this id when changing the plan.
+     *
+     * For example, when doing pushdown: Filter(TableScan()) -> TableScan(),
+     * output TableScan should have same statsEquivalentPlanNode as input Filter node
+     */
+    private final Optional<PlanNode> statsEquivalentPlanNode;
 
-    protected PlanNode(Optional<SourceLocation> sourceLocation, PlanNodeId id)
+    protected PlanNode(Optional<SourceLocation> sourceLocation, PlanNodeId id, Optional<PlanNode> statsEquivalentPlanNode)
     {
         this.sourceLocation = sourceLocation;
-        requireNonNull(id, "id is null");
-        this.id = id;
+        this.id = requireNonNull(id, "id is null");
+        this.statsEquivalentPlanNode = requireNonNull(statsEquivalentPlanNode, "statsEquivalentPlanNode is null");
     }
 
     @JsonProperty("id")
@@ -52,10 +61,24 @@ public abstract class PlanNode
         return sourceLocation;
     }
 
+    public Optional<PlanNode> getStatsEquivalentPlanNode()
+    {
+        return statsEquivalentPlanNode;
+    }
+
     /**
      * Get the upstream PlanNodes (i.e., children) of the current PlanNode.
      */
     public abstract List<PlanNode> getSources();
+
+    /**
+     * Logical properties are a function of source properties and the operation performed by the plan node
+     */
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getDefaultProperties();
+    }
 
     /**
      * The output from the upstream PlanNodes.
@@ -75,4 +98,9 @@ public abstract class PlanNode
     {
         return visitor.visitPlan(this, context);
     }
+
+    /**
+     * Assigns statsEquivalentPlanNode to the plan node
+     */
+    public abstract PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode);
 }

@@ -81,4 +81,16 @@ public class ResourceManagerServer
     {
         executor.execute(() -> clusterStateProvider.registerNodeHeartbeat(nodeStatus));
     }
+
+    @ThriftMethod
+    public void resourceGroupRuntimeHeartbeat(String node, List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos)
+    {
+        executor.execute(() -> clusterStateProvider.registerResourceGroupRuntimeHeartbeat(node, resourceGroupRuntimeInfos));
+    }
+
+    @ThriftMethod
+    public ListenableFuture<Integer> getRunningTaskCount()
+    {
+        return executor.submit(clusterStateProvider::getRunningTaskCount);
+    }
 }

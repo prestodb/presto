@@ -172,6 +172,14 @@ public class TestClusterSizeMonitor
     private void addResourceManager(InMemoryNodeManager nodeManager)
     {
         String identifier = "resource_manager/" + numResourceManagers.incrementAndGet();
-        nodeManager.addNode(CONNECTOR_ID, new InternalNode(identifier, URI.create("localhost/" + identifier), new NodeVersion("1"), false, true));
+        nodeManager.addNode(
+                CONNECTOR_ID,
+                new InternalNode(
+                        identifier,
+                        URI.create("localhost/" + identifier),
+                        new NodeVersion("1"),
+                        false,
+                        true,
+                        false));
     }
 }

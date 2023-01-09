@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AccessControlContext;
@@ -30,10 +31,9 @@ import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.facebook.presto.spi.tracing.Tracer;
-import com.facebook.presto.sql.tree.Execute;
+import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -90,8 +90,10 @@ public final class Session
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
     private final AccessControlContext context;
     private final Optional<Tracer> tracer;
+    private final WarningCollector warningCollector;
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
+    private final OptimizerInformationCollector optimizerInformationCollector = new OptimizerInformationCollector();
 
     public Session(
             QueryId queryId,
@@ -116,7 +118,8 @@ public final class Session
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
-            Optional<Tracer> tracer)
+            Optional<Tracer> tracer,
+            WarningCollector warningCollector)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -156,6 +159,7 @@ public final class Session
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
         this.context = new AccessControlContext(queryId, clientInfo, source);
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
     public QueryId getQueryId()
@@ -279,11 +283,6 @@ public final class Session
         return preparedStatements;
     }
 
-    public String getPreparedStatementFromExecute(Execute execute)
-    {
-        return getPreparedStatement(execute.getName().getValue());
-    }
-
     public String getPreparedStatement(String name)
     {
         String sql = preparedStatements.get(name);
@@ -309,6 +308,16 @@ public final class Session
     public Optional<Tracer> getTracer()
     {
         return tracer;
+    }
+
+    public WarningCollector getWarningCollector()
+    {
+        return warningCollector;
+    }
+
+    public OptimizerInformationCollector getOptimizerInformationCollector()
+    {
+        return optimizerInformationCollector;
     }
 
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
@@ -382,7 +391,9 @@ public final class Session
                         identity.getPrincipal(),
                         roles.build(),
                         identity.getExtraCredentials(),
-                        identity.getExtraAuthenticators()),
+                        identity.getExtraAuthenticators(),
+                        identity.getSelectedUser(),
+                        identity.getReasonForSelect()),
                 source,
                 catalog,
                 schema,
@@ -401,7 +412,8 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 sessionFunctions,
-                tracer);
+                tracer,
+                warningCollector);
     }
 
     public Session withDefaultProperties(
@@ -455,7 +467,8 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 sessionFunctions,
-                tracer);
+                tracer,
+                warningCollector);
     }
 
     public ConnectorSession toConnectorSession()
@@ -475,6 +488,7 @@ public final class Session
                 .setSessionStartTime(getStartTime())
                 .setSessionLocale(getLocale())
                 .setSessionUser(getUser())
+                .setExtraCredentials(identity.getExtraCredentials())
                 .build();
     }
 
@@ -548,7 +562,6 @@ public final class Session
         return new SessionBuilder(sessionPropertyManager);
     }
 
-    @VisibleForTesting
     public static SessionBuilder builder(Session session)
     {
         return new SessionBuilder(session);
@@ -574,10 +587,12 @@ public final class Session
         private Optional<Tracer> tracer = Optional.empty();
         private long startTime = System.currentTimeMillis();
         private final Map<String, String> systemProperties = new HashMap<>();
+        private final Map<ConnectorId, Map<String, String>> connectorProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
         private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions = new HashMap<>();
+        private WarningCollector warningCollector = WarningCollector.NOOP;
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -609,6 +624,7 @@ public final class Session
             this.preparedStatements.putAll(session.preparedStatements);
             this.sessionFunctions.putAll(session.sessionFunctions);
             this.tracer = requireNonNull(session.tracer, "tracer is null");
+            this.warningCollector = requireNonNull(session.warningCollector, "warningCollector is null");
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -724,6 +740,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setConnectionProperty(ConnectorId connectorId, String propertyName, String propertyValue)
+        {
+            connectorProperties.computeIfAbsent(connectorId, id -> new HashMap<>()).put(propertyName, propertyValue);
+            return this;
+        }
+
         /**
          * Sets a catalog property for the session.  The property name and value must
          * only contain characters from US-ASCII and must not be for '='.
@@ -747,6 +769,17 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setWarningCollector(WarningCollector warningCollector)
+        {
+            this.warningCollector = warningCollector;
+            return this;
+        }
+
+        public <T> T getSystemProperty(String name, Class<T> type)
+        {
+            return sessionPropertyManager.decodeSystemPropertyValue(name, systemProperties.get(name), type);
+        }
+
         public Session build()
         {
             return new Session(
@@ -767,12 +800,13 @@ public final class Session
                     Optional.ofNullable(resourceEstimates).orElse(new ResourceEstimateBuilder().build()),
                     startTime,
                     systemProperties,
-                    ImmutableMap.of(),
+                    connectorProperties,
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements,
                     sessionFunctions,
-                    tracer);
+                    tracer,
+                    warningCollector);
         }
     }
 

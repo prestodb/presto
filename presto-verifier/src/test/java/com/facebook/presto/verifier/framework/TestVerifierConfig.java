@@ -47,7 +47,8 @@ public class TestVerifierConfig
                 .setTeardownOnMainClusters(true)
                 .setSkipControl(false)
                 .setSkipChecksum(false)
-                .setExplain(false));
+                .setExplain(false)
+                .setConcurrentControlAndTest(false));
     }
 
     @Test
@@ -74,6 +75,7 @@ public class TestVerifierConfig
                 .put("skip-control", "true")
                 .put("skip-checksum", "true")
                 .put("explain", "true")
+                .put("concurrent-control-and-test", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setWhitelist("a,b,c")
@@ -95,7 +97,8 @@ public class TestVerifierConfig
                 .setTeardownOnMainClusters(false)
                 .setSkipControl(true)
                 .setSkipChecksum(true)
-                .setExplain(true);
+                .setExplain(true)
+                .setConcurrentControlAndTest(true);
 
         assertFullMapping(properties, expected);
     }

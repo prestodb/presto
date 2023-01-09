@@ -78,6 +78,10 @@ public class TestHiveScalarFunctions
         check(selectF("upper", "c_varchar"), VARCHAR, "VARCHAR");
         check(selectF("upper", "c_varchar_10"), VARCHAR, "VARCHAR10");
         check(selectF("upper", "c_char_10"), VARCHAR, "CHAR10");
+
+        // non-generic UDFs
+        check(select("asin", "0"), DOUBLE, 0.0);
+        check(select("acos", "1"), DOUBLE, 0.0);
     }
 
     @Test
@@ -171,10 +175,10 @@ public class TestHiveScalarFunctions
     private static void assertNaN(Object o)
     {
         if (o instanceof Double) {
-            assertEquals((Double) o, Double.NaN);
+            assertEquals(((Double) o).doubleValue(), Double.NaN);
         }
         else if (o instanceof Float) {
-            assertEquals((Float) o, Float.NaN);
+            assertEquals(((Float) o).floatValue(), Float.NaN);
         }
         else {
             fail("Unexpected " + o);

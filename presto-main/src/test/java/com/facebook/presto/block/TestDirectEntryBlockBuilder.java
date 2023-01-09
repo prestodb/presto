@@ -101,13 +101,13 @@ public class TestDirectEntryBlockBuilder
             directEntryBlockBuilder.closeEntry();
         }
 
-        Slice beginEntrySlice = getSlilce(beginEntryBlockBuilder);
-        Slice directEntrySlice = getSlilce(directEntryBlockBuilder);
+        Slice beginEntrySlice = getSlice(beginEntryBlockBuilder);
+        Slice directEntrySlice = getSlice(directEntryBlockBuilder);
 
         assertEquals(beginEntrySlice.compareTo(directEntrySlice), 0);
     }
 
-    private Slice getSlilce(BlockBuilder beginEntryBlockBuilder)
+    private Slice getSlice(BlockBuilder beginEntryBlockBuilder)
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         blockEncodingSerde.writeBlock(sliceOutput, beginEntryBlockBuilder);
@@ -213,8 +213,8 @@ public class TestDirectEntryBlockBuilder
             directEntryBlockBuilder.appendNull();
         }
 
-        Slice beginEntrySlice = getSlilce(beginEntryBlockBuilder);
-        Slice directEntrySlice = getSlilce(directEntryBlockBuilder);
+        Slice beginEntrySlice = getSlice(beginEntryBlockBuilder);
+        Slice directEntrySlice = getSlice(directEntryBlockBuilder);
         assertEquals(beginEntrySlice.compareTo(directEntrySlice), 0);
     }
 
@@ -289,8 +289,8 @@ public class TestDirectEntryBlockBuilder
             directEntryBlockBuilder.closeEntry();
         }
 
-        Slice beginEntrySlice = getSlilce(beginEntryBlockBuilder);
-        Slice directEntrySlice = getSlilce(directEntryBlockBuilder);
+        Slice beginEntrySlice = getSlice(beginEntryBlockBuilder);
+        Slice directEntrySlice = getSlice(directEntryBlockBuilder);
         assertEquals(beginEntrySlice.compareTo(directEntrySlice), 0);
     }
 }

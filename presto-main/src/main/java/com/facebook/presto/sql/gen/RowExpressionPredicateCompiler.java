@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -170,6 +171,7 @@ public class RowExpressionPredicateCompiler
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression predicate)
     {
+        AtomicInteger lambdaCounter = new AtomicInteger(0);
         Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> compiledLambdaMap = generateMethodsForLambda(
                 classDefinition,
                 callSiteBinder,
@@ -177,7 +179,8 @@ public class RowExpressionPredicateCompiler
                 predicate,
                 metadata,
                 sqlFunctionProperties,
-                sessionFunctions);
+                sessionFunctions,
+                lambdaCounter);
 
         Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter page = arg("page", Page.class);
@@ -209,7 +212,8 @@ public class RowExpressionPredicateCompiler
                 metadata,
                 sqlFunctionProperties,
                 sessionFunctions,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                lambdaCounter);
 
         Variable result = scope.declareVariable(boolean.class, "result");
         body.append(compiler.compile(predicate, scope, Optional.empty()))

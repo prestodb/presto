@@ -20,6 +20,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 public class DoubleStatistics
         implements RangeStatistics<Double>, Hashable
@@ -54,10 +55,22 @@ public class DoubleStatistics
         return hasMinimum ? minimum : null;
     }
 
+    public double getMinPrimitive()
+    {
+        checkState(hasMinimum, "minimum value is missing");
+        return minimum;
+    }
+
     @Override
     public Double getMax()
     {
         return hasMaximum ? maximum : null;
+    }
+
+    public double getMaxPrimitive()
+    {
+        checkState(hasMaximum, "maximum value is missing");
+        return maximum;
     }
 
     @Override

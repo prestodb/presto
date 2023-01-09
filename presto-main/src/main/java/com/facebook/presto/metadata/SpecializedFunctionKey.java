@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 
 import java.util.Objects;
 
+import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static java.util.Objects.requireNonNull;
 
 public class SpecializedFunctionKey
@@ -45,6 +47,11 @@ public class SpecializedFunctionKey
     public int getArity()
     {
         return arity;
+    }
+
+    public Signature getBoundSignature()
+    {
+        return applyBoundVariables(function.getSignature(), boundVariables, arity);
     }
 
     @Override

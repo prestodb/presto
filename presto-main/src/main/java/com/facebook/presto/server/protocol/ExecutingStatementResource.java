@@ -14,6 +14,8 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.stats.TimeStat;
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.QueryId;
@@ -21,6 +23,8 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -39,11 +43,14 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREFIX_URL;
+import static com.facebook.presto.server.protocol.QueryResourceUtil.abortIfPrefixUrlInvalid;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toResponse;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
@@ -61,16 +68,26 @@ public class ExecutingStatementResource
     private final BoundedExecutor responseExecutor;
     private final LocalQueryProvider queryProvider;
     private final boolean compressionEnabled;
+    private final QueryBlockingRateLimiter queryRateLimiter;
 
     @Inject
     public ExecutingStatementResource(
             @ForStatementResource BoundedExecutor responseExecutor,
             LocalQueryProvider queryProvider,
-            ServerConfig serverConfig)
+            ServerConfig serverConfig,
+            QueryBlockingRateLimiter queryRateLimiter)
     {
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.queryProvider = requireNonNull(queryProvider, "queryProvider is null");
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
+        this.queryRateLimiter = requireNonNull(queryRateLimiter, "queryRateLimiter is null");
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getRateLimiterBlockTime()
+    {
+        return queryRateLimiter.getRateLimiterBlockTime();
     }
 
     @GET
@@ -83,6 +100,7 @@ public class ExecutingStatementResource
             @QueryParam("maxWait") Duration maxWait,
             @QueryParam("targetResultSize") DataSize targetResultSize,
             @HeaderParam(X_FORWARDED_PROTO) String proto,
+            @HeaderParam(PRESTO_PREFIX_URL) String xPrestoPrefixUrl,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
@@ -97,10 +115,22 @@ public class ExecutingStatementResource
             proto = uriInfo.getRequestUri().getScheme();
         }
 
+        abortIfPrefixUrlInvalid(xPrestoPrefixUrl);
+
         Query query = queryProvider.getQuery(queryId, slug);
+        ListenableFuture<Double> acquirePermitAsync = queryRateLimiter.acquire(queryId);
+        String effectiveFinalProto = proto;
+        DataSize effectiveFinalTargetResultSize = targetResultSize;
+        ListenableFuture<QueryResults> waitForResultsAsync = transformAsync(
+                acquirePermitAsync,
+                acquirePermitTimeSeconds -> {
+                    queryRateLimiter.addRateLimiterBlockTime(new Duration(acquirePermitTimeSeconds, SECONDS));
+                    return query.waitForResults(token, uriInfo, effectiveFinalProto, wait, effectiveFinalTargetResultSize);
+                },
+                responseExecutor);
         ListenableFuture<Response> queryResultsFuture = transform(
-                query.waitForResults(token, uriInfo, proto, wait, targetResultSize),
-                results -> toResponse(query, results, compressionEnabled),
+                waitForResultsAsync,
+                results -> toResponse(query, results, xPrestoPrefixUrl, compressionEnabled),
                 directExecutor());
         bindAsyncResponse(asyncResponse, queryResultsFuture, responseExecutor);
     }

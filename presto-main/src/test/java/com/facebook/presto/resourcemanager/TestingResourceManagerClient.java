@@ -26,14 +26,17 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-class TestingResourceManagerClient
+public class TestingResourceManagerClient
         implements ResourceManagerClient
 {
     private final AtomicInteger queryHeartbeats = new AtomicInteger();
     private final AtomicInteger nodeHeartbeats = new AtomicInteger();
+    private final AtomicInteger resourceGroupRuntimeHeartbeats = new AtomicInteger();
     private final Map<String, Integer> resourceGroupInfoCalls = new ConcurrentHashMap<>();
 
     private volatile List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = ImmutableList.of();
+
+    private int runningTaskCount;
 
     @Override
     public void queryHeartbeat(String internalNode, BasicQueryInfo basicQueryInfo, long sequenceId)
@@ -54,6 +57,11 @@ class TestingResourceManagerClient
         this.resourceGroupRuntimeInfos = ImmutableList.copyOf(resourceGroupRuntimeInfos);
     }
 
+    public void setRunningTaskCount(int runningTaskCount)
+    {
+        this.runningTaskCount = runningTaskCount;
+    }
+
     @Override
     public void nodeHeartbeat(NodeStatus nodeStatus)
     {
@@ -64,6 +72,12 @@ class TestingResourceManagerClient
     public Map<MemoryPoolId, ClusterMemoryPoolInfo> getMemoryPoolInfo()
     {
         return ImmutableMap.of();
+    }
+
+    @Override
+    public void resourceGroupRuntimeHeartbeat(String node, List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo)
+    {
+        resourceGroupRuntimeHeartbeats.incrementAndGet();
     }
 
     public int getQueryHeartbeats()
@@ -79,5 +93,15 @@ class TestingResourceManagerClient
     public int getResourceGroupInfoCalls(String identifier)
     {
         return resourceGroupInfoCalls.get(identifier);
+    }
+
+    public int getResourceGroupRuntimeHeartbeats()
+    {
+        return resourceGroupRuntimeHeartbeats.get();
+    }
+
+    public int getRunningTaskCount()
+    {
+        return runningTaskCount;
     }
 }

@@ -102,7 +102,7 @@ public class StreamingAggregationOperator
     public StreamingAggregationOperator(OperatorContext operatorContext, List<Type> sourceTypes, List<Type> groupByTypes, List<Integer> groupByChannels, Step step, List<AccumulatorFactory> accumulatorFactories, JoinCompiler joinCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(StreamingAggregationOperator.class.getSimpleName());
+        this.systemMemoryContext = operatorContext.localSystemMemoryContext();
         this.userMemoryContext = operatorContext.localUserMemoryContext();
         this.groupByTypes = ImmutableList.copyOf(requireNonNull(groupByTypes, "groupByTypes is null"));
         this.groupByChannels = Ints.toArray(requireNonNull(groupByChannels, "groupByChannels is null"));

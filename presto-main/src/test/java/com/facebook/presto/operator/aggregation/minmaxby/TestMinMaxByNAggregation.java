@@ -18,8 +18,8 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -45,7 +45,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleDouble()
     {
-        InternalAggregationFunction function = getMaxByAggregation(DOUBLE, DOUBLE, BIGINT);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(DOUBLE, DOUBLE, BIGINT);
         assertAggregation(
                 function,
                 Arrays.asList((Double) null),
@@ -99,7 +99,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleDouble()
     {
-        InternalAggregationFunction function = getMinByAggregation(DOUBLE, DOUBLE, BIGINT);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(DOUBLE, DOUBLE, BIGINT);
         assertAggregation(
                 function,
                 Arrays.asList((Double) null),
@@ -132,7 +132,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleVarchar()
     {
-        InternalAggregationFunction function = getMinByAggregation(VARCHAR, DOUBLE, BIGINT);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(VARCHAR, DOUBLE, BIGINT);
         assertAggregation(
                 function,
                 ImmutableList.of("z", "a"),
@@ -158,7 +158,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleVarchar()
     {
-        InternalAggregationFunction function = getMaxByAggregation(VARCHAR, DOUBLE, BIGINT);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(VARCHAR, DOUBLE, BIGINT);
         assertAggregation(
                 function,
                 ImmutableList.of("a", "z"),
@@ -184,7 +184,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharDouble()
     {
-        InternalAggregationFunction function = getMinByAggregation(DOUBLE, VARCHAR, BIGINT);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(DOUBLE, VARCHAR, BIGINT);
         assertAggregation(
                 function,
                 ImmutableList.of(2.0, 3.0),
@@ -210,7 +210,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharDouble()
     {
-        InternalAggregationFunction function = getMaxByAggregation(DOUBLE, VARCHAR, BIGINT);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(DOUBLE, VARCHAR, BIGINT);
         assertAggregation(
                 function,
                 ImmutableList.of(1.0, 2.0),
@@ -236,7 +236,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharArray()
     {
-        InternalAggregationFunction function = getMinByAggregation(new ArrayType(BIGINT), VARCHAR, BIGINT);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(new ArrayType(BIGINT), VARCHAR, BIGINT);
         assertAggregation(
                 function,
                 ImmutableList.of(ImmutableList.of(2L, 3L), ImmutableList.of(4L, 5L)),
@@ -248,7 +248,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharArray()
     {
-        InternalAggregationFunction function = getMaxByAggregation(new ArrayType(BIGINT), VARCHAR, BIGINT);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(new ArrayType(BIGINT), VARCHAR, BIGINT);
         assertAggregation(
                 function,
                 ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L, 4L)),
@@ -260,7 +260,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinArrayVarchar()
     {
-        InternalAggregationFunction function = getMinByAggregation(VARCHAR, new ArrayType(BIGINT), BIGINT);
+        JavaAggregationFunctionImplementation function = getMinByAggregation(VARCHAR, new ArrayType(BIGINT), BIGINT);
         assertAggregation(
                 function,
                 ImmutableList.of("b", "x", "z"),
@@ -272,7 +272,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxArrayVarchar()
     {
-        InternalAggregationFunction function = getMaxByAggregation(VARCHAR, new ArrayType(BIGINT), BIGINT);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(VARCHAR, new ArrayType(BIGINT), BIGINT);
         assertAggregation(
                 function,
                 ImmutableList.of("a", "z", "x"),
@@ -284,7 +284,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testOutOfBound()
     {
-        InternalAggregationFunction function = getMaxByAggregation(VARCHAR, BIGINT, BIGINT);
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(VARCHAR, BIGINT, BIGINT);
         try {
             groupedAggregation(function, new Page(createStringsBlock("z"), createLongsBlock(0), createLongsBlock(10001)));
         }
@@ -293,15 +293,15 @@ public class TestMinMaxByNAggregation
         }
     }
 
-    private InternalAggregationFunction getMaxByAggregation(Type... arguments)
+    private JavaAggregationFunctionImplementation getMaxByAggregation(Type... arguments)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
                 FUNCTION_AND_TYPE_MANAGER.lookupFunction("max_by", fromTypes(arguments)));
     }
 
-    private InternalAggregationFunction getMinByAggregation(Type... arguments)
+    private JavaAggregationFunctionImplementation getMinByAggregation(Type... arguments)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
                 FUNCTION_AND_TYPE_MANAGER.lookupFunction("min_by", fromTypes(arguments)));
     }
 }

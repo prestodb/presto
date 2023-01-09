@@ -20,7 +20,7 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 public final class KdbTreeType
-        extends AbstractType
+        extends AbstractPrimitiveType
 {
     public static final KdbTreeType KDB_TREE = new KdbTreeType();
     public static final String NAME = "KdbTree";

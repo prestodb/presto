@@ -14,12 +14,15 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.presto.orc.DefaultOrcWriterFlushPolicy;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.StreamLayout;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
+import com.facebook.presto.orc.writer.StreamLayoutFactory;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
+
+import java.util.OptionalInt;
 
 import static com.facebook.presto.hive.OrcFileWriterConfig.StreamLayoutType.BY_COLUMN_SIZE;
 
@@ -32,9 +35,12 @@ public class OrcFileWriterConfig
         BY_COLUMN_SIZE,
     }
 
-    private DataSize stripeMinSize = OrcWriterOptions.DEFAULT_STRIPE_MIN_SIZE;
-    private DataSize stripeMaxSize = OrcWriterOptions.DEFAULT_STRIPE_MAX_SIZE;
-    private int stripeMaxRowCount = OrcWriterOptions.DEFAULT_STRIPE_MAX_ROW_COUNT;
+    public static final int DEFAULT_COMPRESSION_LEVEL = Integer.MIN_VALUE;
+    private static final boolean DEFAULT_FLAT_MAP_WRITER_ENABLED = false;
+
+    private DataSize stripeMinSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MIN_SIZE;
+    private DataSize stripeMaxSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MAX_SIZE;
+    private int stripeMaxRowCount = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MAX_ROW_COUNT;
     private int rowGroupMaxRowCount = OrcWriterOptions.DEFAULT_ROW_GROUP_MAX_ROW_COUNT;
     private DataSize dictionaryMaxMemory = OrcWriterOptions.DEFAULT_DICTIONARY_MAX_MEMORY;
     private DataSize stringStatisticsLimit = OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
@@ -43,22 +49,37 @@ public class OrcFileWriterConfig
     private boolean isDwrfStripeCacheEnabled;
     private DataSize dwrfStripeCacheMaxSize = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
     private DwrfStripeCacheMode dwrfStripeCacheMode = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MODE;
+    private int compressionLevel = DEFAULT_COMPRESSION_LEVEL;
+    private boolean isIntegerDictionaryEncodingEnabled = OrcWriterOptions.DEFAULT_INTEGER_DICTIONARY_ENCODING_ENABLED;
+    private boolean isStringDictionaryEncodingEnabled = OrcWriterOptions.DEFAULT_STRING_DICTIONARY_ENCODING_ENABLED;
+    private boolean isStringDictionarySortingEnabled = OrcWriterOptions.DEFAULT_STRING_DICTIONARY_SORTING_ENABLED;
+    private boolean isFlatMapWriterEnabled = DEFAULT_FLAT_MAP_WRITER_ENABLED;
 
     public OrcWriterOptions.Builder toOrcWriterOptionsBuilder()
     {
-        // Give separate copy to callers for isolation.
-        return OrcWriterOptions.builder()
+        DefaultOrcWriterFlushPolicy flushPolicy = DefaultOrcWriterFlushPolicy.builder()
                 .withStripeMinSize(stripeMinSize)
                 .withStripeMaxSize(stripeMaxSize)
                 .withStripeMaxRowCount(stripeMaxRowCount)
+                .build();
+
+        OptionalInt resolvedCompressionLevel = OptionalInt.empty();
+        if (compressionLevel != DEFAULT_COMPRESSION_LEVEL) {
+            resolvedCompressionLevel = OptionalInt.of(compressionLevel);
+        }
+
+        // Give separate copy to callers for isolation.
+        return OrcWriterOptions.builder()
+                .withFlushPolicy(flushPolicy)
                 .withRowGroupMaxRowCount(rowGroupMaxRowCount)
                 .withDictionaryMaxMemory(dictionaryMaxMemory)
                 .withMaxStringStatisticsLimit(stringStatisticsLimit)
                 .withMaxCompressionBufferSize(maxCompressionBufferSize)
-                .withStreamLayout(getStreamLayout(streamLayoutType))
+                .withStreamLayoutFactory(getStreamLayoutFactory(streamLayoutType))
                 .withDwrfStripeCacheEnabled(isDwrfStripeCacheEnabled)
                 .withDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize)
-                .withDwrfStripeCacheMode(dwrfStripeCacheMode);
+                .withDwrfStripeCacheMode(dwrfStripeCacheMode)
+                .withCompressionLevel(resolvedCompressionLevel);
     }
 
     @NotNull
@@ -121,6 +142,66 @@ public class OrcFileWriterConfig
     public OrcFileWriterConfig setDictionaryMaxMemory(DataSize dictionaryMaxMemory)
     {
         this.dictionaryMaxMemory = dictionaryMaxMemory;
+        return this;
+    }
+
+    public boolean isIntegerDictionaryEncodingEnabled()
+    {
+        return isIntegerDictionaryEncodingEnabled;
+    }
+
+    @Config("hive.orc.writer.integer-dictionary-encoding-enabled")
+    public OrcFileWriterConfig setIntegerDictionaryEncodingEnabled(boolean isIntegerDictionaryEncodingEnabled)
+    {
+        this.isIntegerDictionaryEncodingEnabled = isIntegerDictionaryEncodingEnabled;
+        return this;
+    }
+
+    public boolean isStringDictionaryEncodingEnabled()
+    {
+        return isStringDictionaryEncodingEnabled;
+    }
+
+    @Config("hive.orc.writer.string-dictionary-encoding-enabled")
+    public OrcFileWriterConfig setStringDictionaryEncodingEnabled(boolean isStringDictionaryEncodingEnabled)
+    {
+        this.isStringDictionaryEncodingEnabled = isStringDictionaryEncodingEnabled;
+        return this;
+    }
+
+    public boolean isStringDictionarySortingEnabled()
+    {
+        return isStringDictionarySortingEnabled;
+    }
+
+    @Config("hive.orc.writer.string-dictionary-sorting-enabled")
+    public OrcFileWriterConfig setStringDictionarySortingEnabled(boolean isStringDictionarySortingEnabled)
+    {
+        this.isStringDictionarySortingEnabled = isStringDictionarySortingEnabled;
+        return this;
+    }
+
+    public boolean isFlatMapWriterEnabled()
+    {
+        return isFlatMapWriterEnabled;
+    }
+
+    @Config("hive.orc.writer.flat-map-writer-enabled")
+    public OrcFileWriterConfig setFlatMapWriterEnabled(boolean isFlatMapWriterEnabled)
+    {
+        this.isFlatMapWriterEnabled = isFlatMapWriterEnabled;
+        return this;
+    }
+
+    public int getCompressionLevel()
+    {
+        return compressionLevel;
+    }
+
+    @Config("hive.orc.writer.compression-level")
+    public OrcFileWriterConfig setCompressionLevel(int compressionLevel)
+    {
+        this.compressionLevel = compressionLevel;
         return this;
     }
 
@@ -201,13 +282,13 @@ public class OrcFileWriterConfig
         return this;
     }
 
-    private static StreamLayout getStreamLayout(StreamLayoutType type)
+    private static StreamLayoutFactory getStreamLayoutFactory(StreamLayoutType type)
     {
         switch (type) {
             case BY_COLUMN_SIZE:
-                return new StreamLayout.ByColumnSize();
+                return new StreamLayoutFactory.ColumnSizeLayoutFactory();
             case BY_STREAM_SIZE:
-                return new StreamLayout.ByStreamSize();
+                return new StreamLayoutFactory.StreamSizeLayoutFactory();
             default:
                 throw new RuntimeException("Unrecognized type " + type);
         }

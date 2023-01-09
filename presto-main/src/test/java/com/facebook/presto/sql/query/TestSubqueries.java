@@ -48,12 +48,14 @@ public class TestSubqueries
 {
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
 
-    private QueryAssertions assertions;
+    protected QueryAssertions assertions;
+    protected QueryAssertions tpchAssertions;
 
     @BeforeClass
     public void init()
     {
         assertions = new QueryAssertions();
+        tpchAssertions = new TpchQueryAssertions(ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
@@ -125,7 +127,7 @@ public class TestSubqueries
                 "SELECT (SELECT count(*) FROM (VALUES 1, 1, 3) t(a) WHERE t.a=t2.b LIMIT 1) FROM (VALUES 1) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertExistsRewrittenToAggregationBelowJoin(
-                "SELECT EXISTS(SELECT 1 FROM (values ('x', 1)) u(x, cid) WHERE x = 'x' AND t.cid = cid LIMIT 1) " +
+                "SELECT EXISTS(SELECT 1 FROM (values ('x', 1), ('y', 2)) u(x, cid) WHERE x = 'x' AND t.cid = cid LIMIT 1) " +
                         "FROM (values 1) t(cid)",
                 "VALUES true",
                 false);
@@ -240,6 +242,54 @@ public class TestSubqueries
         assertions.assertQuery(
                 "SELECT 1 FROM (VALUES 1, 2) t1(b) WHERE 1 = (SELECT cast(b as decimal(7,2)))",
                 "VALUES 1");
+    }
+
+    @Test
+    public void testEarlyOutJoins()
+    {
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM nation WHERE nationkey IN (SELECT custkey FROM orders)",
+                "VALUES BIGINT '16'");
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT (DISTINCT o.custkey) FROM orders o, nation n WHERE o.custkey = n.nationkey",
+                "VALUES BIGINT '16'");
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM orders WHERE custkey IN (SELECT custkey FROM customer WHERE name = 'unknown')",
+                "VALUES BIGINT '0'");
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM (SELECT orderkey FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem))",
+                "VALUES BIGINT '15000'");
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM (SELECT DISTINCT l.orderkey, l.partkey, o.custkey FROM lineitem l, orders o WHERE l.orderkey = o.orderkey)",
+                "VALUES BIGINT '60113'");
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM nation WHERE nationkey IN (SELECT custkey FROM orders) AND nationkey IN (SELECT orderkey FROM lineitem)",
+                "VALUES BIGINT '5'");
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM nation WHERE nationkey IN (SELECT custkey FROM orders) AND regionkey IN (SELECT orderkey FROM lineitem)",
+                "VALUES BIGINT '13'");
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM nation WHERE nationkey IN (SELECT custkey FROM orders GROUP BY custkey)",
+                "VALUES BIGINT '16'");
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM (SELECT nationkey, name FROM nation HAVING nationkey IN (SELECT custkey FROM orders))",
+                "VALUES BIGINT '16'");
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM (SELECT nationkey, name FROM nation HAVING nationkey IN (SELECT custkey FROM orders) AND nationkey IN (SELECT orderkey FROM lineitem))",
+                "VALUES BIGINT '5'");
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM (SELECT nationkey, name FROM nation HAVING nationkey IN (SELECT custkey FROM orders) OR nationkey IN (SELECT orderkey FROM lineitem))",
+                "VALUES BIGINT '18'");
     }
 
     private void assertExistsRewrittenToAggregationBelowJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)

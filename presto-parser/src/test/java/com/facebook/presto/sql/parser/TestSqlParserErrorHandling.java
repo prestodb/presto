@@ -40,10 +40,10 @@ public class TestSqlParserErrorHandling
         return new Object[][] {
                 {"",
                  "line 1:1: mismatched input '<EOF>'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
-                         "'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'USE', <query>"},
+                         "'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'USE', <query>"},
                 {"@select",
                  "line 1:1: mismatched input '@'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
-                         "'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'USE', <query>"},
+                         "'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'USE', <query>"},
                 {"select * from foo where @what",
                  "line 1:25: mismatched input '@'. Expecting: <expression>"},
                 {"select * from 'oops",
@@ -115,7 +115,11 @@ public class TestSqlParserErrorHandling
                  "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', 'NATURAL', 'OFFSET', 'ORDER', " +
                          "'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>"},
                 {"SELECT * FROM t WHERE EXISTS (",
-                 "line 1:31: mismatched input '<EOF>'. Expecting: <query>"}};
+                 "line 1:31: mismatched input '<EOF>'. Expecting: <query>"},
+                {"SHOW SESSION LIKE '%$_%' ESCAPE",
+                        "line 1:32: mismatched input '<EOF>'. Expecting: <string>"},
+                {"SHOW CATALOGS LIKE '%$_%' ESCAPE",
+                        "line 1:33: mismatched input '<EOF>'. Expecting: <string>"}};
     }
 
     @Test(dataProvider = "statements")

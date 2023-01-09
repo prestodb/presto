@@ -186,7 +186,10 @@ public final class TaskTestUtils
                 jsonCodec(TableCommitContext.class),
                 new RowExpressionDeterminismEvaluator(metadata),
                 new NoOpFragmentResultCacheManager(),
-                new ObjectMapper());
+                new ObjectMapper(),
+                (session) -> {
+                    throw new UnsupportedOperationException();
+                });
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
@@ -211,6 +214,7 @@ public final class TaskTestUtils
     {
         return QueryStateMachine.begin(
                 sqlString,
+                Optional.empty(),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

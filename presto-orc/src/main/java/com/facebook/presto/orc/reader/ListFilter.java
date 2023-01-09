@@ -379,7 +379,7 @@ public class ListFilter
         long[] filterCodes = new long[maxSubscript + 1];
         for (int i = 0; i < subscripts.length; i++) {
             if (subscripts[i] != -1) {
-                filterCodes[subscripts[i]] |= 1 << i;
+                filterCodes[subscripts[i]] |= 1L << i;
             }
         }
 

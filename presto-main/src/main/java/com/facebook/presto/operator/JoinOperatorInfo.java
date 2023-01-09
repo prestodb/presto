@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -25,6 +28,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
+@ThriftStruct
 public class JoinOperatorInfo
         implements Mergeable<JoinOperatorInfo>, OperatorInfo
 {
@@ -45,6 +49,7 @@ public class JoinOperatorInfo
     }
 
     @JsonCreator
+    @ThriftConstructor
     public JoinOperatorInfo(
             @JsonProperty("joinType") JoinType joinType,
             @JsonProperty("logHistogramProbes") long[] logHistogramProbes,
@@ -60,18 +65,21 @@ public class JoinOperatorInfo
     }
 
     @JsonProperty
+    @ThriftField(1)
     public JoinType getJoinType()
     {
         return joinType;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public long[] getLogHistogramProbes()
     {
         return logHistogramProbes;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public long[] getLogHistogramOutput()
     {
         return logHistogramOutput;
@@ -81,6 +89,7 @@ public class JoinOperatorInfo
      * Estimated number of positions in on the build side
      */
     @JsonProperty
+    @ThriftField(4)
     public Optional<Long> getLookupSourcePositions()
     {
         return lookupSourcePositions;

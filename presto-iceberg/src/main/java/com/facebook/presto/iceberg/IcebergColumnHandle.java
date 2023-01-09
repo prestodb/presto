@@ -14,46 +14,54 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.iceberg.types.Types;
 
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.iceberg.ColumnIdentity.createColumnIdentity;
+import static com.facebook.presto.iceberg.ColumnIdentity.primitiveColumnIdentity;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergColumnHandle
         implements ColumnHandle
 {
-    private final int id;
-    private final String name;
+    private final ColumnIdentity columnIdentity;
     private final Type type;
     private final Optional<String> comment;
 
     @JsonCreator
     public IcebergColumnHandle(
-            @JsonProperty("id") int id,
-            @JsonProperty("name") String name,
+            @JsonProperty("columnIdentity") ColumnIdentity columnIdentity,
             @JsonProperty("type") Type type,
             @JsonProperty("comment") Optional<String> comment)
     {
-        this.id = id;
-        this.name = requireNonNull(name, "name is null");
+        this.columnIdentity = requireNonNull(columnIdentity, "columnIdentity is null");
         this.type = requireNonNull(type, "type is null");
         this.comment = requireNonNull(comment, "comment is null");
     }
 
     @JsonProperty
+    public ColumnIdentity getColumnIdentity()
+    {
+        return columnIdentity;
+    }
+
+    @JsonProperty
     public int getId()
     {
-        return id;
+        return columnIdentity.getId();
     }
 
     @JsonProperty
     public String getName()
     {
-        return name;
+        return columnIdentity.getName();
     }
 
     @JsonProperty
@@ -71,7 +79,7 @@ public class IcebergColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(id, name, type, comment);
+        return Objects.hash(columnIdentity, type, comment);
     }
 
     @Override
@@ -84,8 +92,7 @@ public class IcebergColumnHandle
             return false;
         }
         IcebergColumnHandle other = (IcebergColumnHandle) obj;
-        return this.id == other.id &&
-                Objects.equals(this.name, other.name) &&
+        return Objects.equals(this.columnIdentity, other.columnIdentity) &&
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.comment, other.comment);
     }
@@ -93,6 +100,19 @@ public class IcebergColumnHandle
     @Override
     public String toString()
     {
-        return id + ":" + name + ":" + type.getDisplayName();
+        return getId() + ":" + getName() + ":" + type.getDisplayName();
+    }
+
+    public static IcebergColumnHandle primitiveIcebergColumnHandle(int id, String name, Type type, Optional<String> comment)
+    {
+        return new IcebergColumnHandle(primitiveColumnIdentity(id, name), type, comment);
+    }
+
+    public static IcebergColumnHandle create(Types.NestedField column, TypeManager typeManager)
+    {
+        return new IcebergColumnHandle(
+                createColumnIdentity(column),
+                toPrestoType(column.type(), typeManager),
+                Optional.ofNullable(column.doc()));
     }
 }

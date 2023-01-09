@@ -564,7 +564,7 @@ public class DatabaseShardManager
      *
      * (A, B) won't happen at the same time
      * (A, C)
-     *        A first, B: after updating shard's delta, verfiy updated shard count
+     *        A first, B: after updating shard's delta, verify updated shard count
      *        B first, A: when deleting shard, check its delta, after deleting, verify deleted shard count
      * (A, D) won't happen at the same time
      * (B, C) won't happen at the same time
@@ -1081,9 +1081,9 @@ public class DatabaseShardManager
     }
 
     @Override
-    public List<BucketNode> getBucketNodes(long distibutionId)
+    public List<BucketNode> getBucketNodes(long distributionId)
     {
-        return dao.getBucketNodes(distibutionId);
+        return dao.getBucketNodes(distributionId);
     }
 
     @Override

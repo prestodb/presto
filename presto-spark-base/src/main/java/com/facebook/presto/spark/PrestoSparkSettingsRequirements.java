@@ -38,6 +38,7 @@ public class PrestoSparkSettingsRequirements
 {
     public static final String SPARK_TASK_CPUS_PROPERTY = "spark.task.cpus";
     public static final String SPARK_EXECUTOR_CORES_PROPERTY = "spark.executor.cores";
+    public static final String SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG = "spark.dynamicAllocation.maxExecutors";
 
     public void verify(SparkContext sparkContext, Session session)
     {

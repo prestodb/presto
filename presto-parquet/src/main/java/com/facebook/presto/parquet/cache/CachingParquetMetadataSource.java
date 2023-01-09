@@ -18,8 +18,10 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.ParquetDataSourceId;
 import com.google.common.cache.Cache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import org.apache.parquet.crypto.InternalFileDecryptor;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -38,14 +40,28 @@ public class CachingParquetMetadataSource
     }
 
     @Override
-    public ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable)
+    public ParquetFileMetadata getParquetMetadata(
+            ParquetDataSource parquetDataSource,
+            long fileSize,
+            boolean cacheable,
+            long modificationTime,
+            Optional<InternalFileDecryptor> fileDecryptor,
+            boolean readMaskedValue)
             throws IOException
     {
         try {
             if (cacheable) {
-                return cache.get(parquetDataSource.getId(), () -> delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable));
+                ParquetFileMetadata fileMetadataCache = cache.get(
+                        parquetDataSource.getId(),
+                        () -> delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable, modificationTime, fileDecryptor, readMaskedValue));
+                if (fileMetadataCache.getModificationTime() == modificationTime) {
+                    return fileMetadataCache;
+                }
+                else {
+                    cache.invalidate(parquetDataSource.getId());
+                }
             }
-            return delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable);
+            return delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable, modificationTime, fileDecryptor, readMaskedValue);
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), IOException.class);

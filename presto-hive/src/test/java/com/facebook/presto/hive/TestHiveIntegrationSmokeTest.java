@@ -19,7 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
+import com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
@@ -82,7 +82,9 @@ import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
+import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
@@ -123,6 +125,8 @@ import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
@@ -208,7 +212,9 @@ public class TestHiveIntegrationSmokeTest
                         Optional.empty(),
                         ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin"))),
                         ImmutableMap.of(),
-                        ImmutableMap.of()))
+                        ImmutableMap.of(),
+                        Optional.empty(),
+                        Optional.empty()))
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA new_schema");
@@ -216,6 +222,33 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "CREATE TABLE new_schema.test (x bigint)");
 
         assertQueryFails(admin, "DROP SCHEMA new_schema", "Schema not empty: new_schema");
+
+        assertUpdate(admin, "DROP TABLE new_schema.test");
+
+        assertUpdate(admin, "DROP SCHEMA new_schema");
+    }
+
+    @Test
+    public void testArrayPredicate()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(new Identity(
+                        "hive",
+                        Optional.empty(),
+                        ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin"))),
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
+                        Optional.empty(),
+                        Optional.empty()))
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA new_schema");
+
+        assertUpdate(admin, "CREATE TABLE new_schema.test (a array<varchar>)");
+
+        assertUpdate(admin, "INSERT INTO new_schema.test (values array['hi'])", 1);
+
+        assertQuery(admin, "SELECT * FROM new_schema.test where a <> array[]", "SELECT 'hi'");
 
         assertUpdate(admin, "DROP TABLE new_schema.test");
 
@@ -691,6 +724,24 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(session, "DROP TABLE test_create_partitioned_table_as");
 
         assertFalse(getQueryRunner().tableExists(session, "test_create_partitioned_table_as"));
+    }
+
+    @Test
+    public void testInlineRecursiveSqlFunctions()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(INLINE_SQL_FUNCTIONS, "false")
+                .build();
+
+        @Language("SQL") String createTable = "create table if not exists test_array_temp as select sequence(1, 10) x";
+        @Language("SQL") String queryTable = "SELECT\n" +
+                "\"array_sum\"(\"transform\"(x, (y) -> \"cardinality\"(x)))\n" +
+                ", \"array_sum\"(\"transform\"(x, (y) -> \"array_sum\"(\"transform\"(x, (check) -> IF((NOT random(10) > 10), 1, 0)))))\n" +
+                "FROM\n" +
+                "test_array_temp";
+
+        assertUpdate(session, createTable, 1);
+        assertQuerySucceeds(session, queryTable);
     }
 
     @Test
@@ -3321,7 +3372,7 @@ public class TestHiveIntegrationSmokeTest
                     "  test_mismatch_bucketingN\n" +
                     "ON key16=keyN";
 
-            assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(4));
+            assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(3));
             assertQuery(withoutMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
             assertUpdate(withoutMismatchOptimization, "DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
 
@@ -3340,11 +3391,19 @@ public class TestHiveIntegrationSmokeTest
         }
     }
 
+    private Session noReorderJoins(Session session)
+    {
+        return Session.builder(session)
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                .build();
+    }
+
     @Test
     public void testPartialMergePushdown()
     {
-        testPartialMergePushdown(getSession());
-        testPartialMergePushdown(materializeExchangesSession);
+        testPartialMergePushdown(noReorderJoins(getSession()));
+        testPartialMergePushdown(noReorderJoins(materializeExchangesSession));
     }
 
     public void testPartialMergePushdown(Session session)
@@ -4243,7 +4302,7 @@ public class TestHiveIntegrationSmokeTest
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
                 Metadata metadata = queryRunner.getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionAndTypeManager(), StatsAndCosts.empty(), session, 0);
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), StatsAndCosts.empty(), metadata.getFunctionAndTypeManager(), session, 0);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
                         expectedRemoteExchangesCount,
@@ -4924,13 +4983,13 @@ public class TestHiveIntegrationSmokeTest
 
     private String getAvroCreateTableSql(String tableName, String schemaFile)
     {
-        return format("CREATE TABLE %s.%s.%s (\n" +
-                        "   \"dummy_col\" varchar,\n" +
-                        "   \"another_dummy_col\" varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   avro_schema_url = '%s',\n" +
-                        "   format = 'AVRO'\n" +
+        return format("CREATE TABLE %s.%s.%s (%n" +
+                        "   \"dummy_col\" varchar,%n" +
+                        "   \"another_dummy_col\" varchar%n" +
+                        ")%n" +
+                        "WITH (%n" +
+                        "   avro_schema_url = '%s',%n" +
+                        "   format = 'AVRO'%n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -5583,14 +5642,14 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testShowCreateOnMaterializedView()
     {
-        String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_view_1\n" +
-                        "WITH (\n" +
+        String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_view_1%n" +
+                        "WITH (%n" +
                         "   format = 'ORC'," +
-                        "   partitioned_by = ARRAY['nationkey']\n" +
+                        "   partitioned_by = ARRAY['nationkey']%n" +
                         retentionDays(15) +
-                        ") AS SELECT\n" +
-                        "  name\n" +
-                        ", nationkey\n" +
+                        ") AS SELECT%n" +
+                        "  name%n" +
+                        ", nationkey%n" +
                         "FROM\n" +
                         "  test_customer_base_1",
                 getSession().getCatalog().get(),
@@ -5742,6 +5801,9 @@ public class TestHiveIntegrationSmokeTest
                         ", ds\n" +
                         "FROM\n" +
                         "  orders_partitioned\n");
+
+        computeActual("DROP TABLE orders_partitioned");
+        computeActual("DROP MATERIALIZED VIEW test_orders_view");
     }
 
     @Test
@@ -5811,6 +5873,29 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey = 1 OR nationkey = 24", ".*Only logical AND is supported in WHERE clause.*");
         assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey + nationkey = 25", ".*Only columns specified on literals are supported in WHERE clause.*");
         assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5", ".*mismatched input '<EOF>'\\. Expecting: '\\.', 'WHERE'.*");
+    }
+
+    @Test
+    public void testAlphaFormatDdl()
+    {
+        assertUpdate("CREATE TABLE test_alpha_ddl_table (col1 bigint) WITH (format = 'ALPHA')");
+        assertUpdate("ALTER TABLE test_alpha_ddl_table ADD COLUMN col2 bigint");
+        assertUpdate("ALTER TABLE test_alpha_ddl_table DROP COLUMN col2");
+        assertUpdate("DROP TABLE test_alpha_ddl_table");
+
+        assertUpdate("CREATE TABLE test_alpha_ddl_partitioned_table (col1 bigint, ds VARCHAR) WITH (format = 'ALPHA', partitioned_by = ARRAY['ds'])");
+        assertUpdate("ALTER TABLE test_alpha_ddl_partitioned_table ADD COLUMN col2 bigint");
+        assertUpdate("ALTER TABLE test_alpha_ddl_partitioned_table DROP COLUMN col2");
+        assertUpdate("DROP TABLE test_alpha_ddl_partitioned_table");
+    }
+
+    @Test
+    public void testAlphaFormatDml()
+    {
+        assertUpdate("CREATE TABLE test_alpha_dml_partitioned_table (col1 bigint, ds VARCHAR) WITH (format = 'ALPHA', partitioned_by = ARRAY['ds'])");
+        // Alpha does not support DML yet
+        assertQueryFails("INSERT INTO test_alpha_dml_partitioned_table VALUES (1, '2022-01-01')", "Serializer does not exist: com.facebook.alpha.AlphaSerde");
+        assertUpdate("DROP TABLE test_alpha_dml_partitioned_table");
     }
 
     protected String retentionDays(int days)
@@ -5929,6 +6014,10 @@ public class TestHiveIntegrationSmokeTest
         for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
             if (hiveStorageFormat == HiveStorageFormat.CSV) {
                 // CSV supports only unbounded VARCHAR type
+                continue;
+            }
+            if (hiveStorageFormat == HiveStorageFormat.ALPHA) {
+                // Alpha does not support DML yet
                 continue;
             }
             formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));

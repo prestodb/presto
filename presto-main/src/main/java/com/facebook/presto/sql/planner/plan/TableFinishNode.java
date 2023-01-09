@@ -52,7 +52,20 @@ public class TableFinishNode
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, statisticsAggregation, statisticsAggregationDescriptor);
+    }
+
+    public TableFinishNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            Optional<WriterTarget> target,
+            VariableReferenceExpression rowCountVariable,
+            Optional<StatisticAggregations> statisticsAggregation,
+            Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         checkArgument(target != null || source instanceof TableWriterNode);
         this.source = requireNonNull(source, "source is null");
@@ -117,7 +130,22 @@ public class TableFinishNode
         return new TableFinishNode(
                 getSourceLocation(),
                 getId(),
+                getStatsEquivalentPlanNode(),
                 Iterables.getOnlyElement(newChildren),
+                target,
+                rowCountVariable,
+                statisticsAggregation,
+                statisticsAggregationDescriptor);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new TableFinishNode(
+                getSourceLocation(),
+                getId(),
+                statsEquivalentPlanNode,
+                source,
                 target,
                 rowCountVariable,
                 statisticsAggregation,

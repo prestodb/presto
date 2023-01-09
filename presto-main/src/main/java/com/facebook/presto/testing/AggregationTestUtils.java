@@ -17,7 +17,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
@@ -31,19 +31,19 @@ public class AggregationTestUtils
     }
 
     @VisibleForTesting
-    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes)
+    public static BuiltInAggregationFunctionImplementation generateBuiltinAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes)
     {
-        return generateInternalAggregationFunction(clazz, outputType, inputTypes, createTestFunctionAndTypeManager());
+        return generateBuiltinAggregationFunction(clazz, outputType, inputTypes, createTestFunctionAndTypeManager());
     }
 
     @VisibleForTesting
-    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, FunctionAndTypeManager functionAndTypeManager)
+    public static BuiltInAggregationFunctionImplementation generateBuiltinAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, FunctionAndTypeManager functionAndTypeManager)
     {
-        return generateInternalAggregationFunction(clazz, outputType, inputTypes, functionAndTypeManager, BoundVariables.builder().build(), inputTypes.size());
+        return generateBuiltinAggregationFunction(clazz, outputType, inputTypes, functionAndTypeManager, BoundVariables.builder().build(), inputTypes.size());
     }
 
     @VisibleForTesting
-    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, FunctionAndTypeManager functionAndTypeManager, BoundVariables boundVariables, int arity)
+    public static BuiltInAggregationFunctionImplementation generateBuiltinAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, FunctionAndTypeManager functionAndTypeManager, BoundVariables boundVariables, int arity)
     {
         return AggregationFromAnnotationsParser.parseFunctionDefinitionWithTypesConstraint(clazz, outputType, inputTypes).specialize(boundVariables, arity, functionAndTypeManager);
     }

@@ -19,9 +19,12 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.transaction.TransactionId;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
+import java.security.cert.X509Certificate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -29,6 +32,11 @@ import java.util.Set;
 public interface SessionContext
 {
     Identity getIdentity();
+
+    default List<X509Certificate> getCertificates()
+    {
+        return ImmutableList.of();
+    }
 
     @Nullable
     String getCatalog();

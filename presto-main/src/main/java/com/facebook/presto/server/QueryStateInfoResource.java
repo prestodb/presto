@@ -44,11 +44,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
-import static com.facebook.presto.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.google.common.base.Preconditions.checkState;
@@ -86,42 +86,51 @@ public class QueryStateInfoResource
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public void getQueryStateInfos(@QueryParam("user") String user,
-            @QueryParam("includeLocalQueryOnly") @DefaultValue("false") boolean isIncludeLocalQueryOnly,
+    public void getQueryStateInfos(
+            @QueryParam("user") String user,
+            @QueryParam("includeLocalQueryOnly") @DefaultValue("false") boolean includeLocalQueryOnly,
+            @QueryParam("includeAllQueries") @DefaultValue("false") boolean includeAllQueries,
+            @QueryParam("includeAllQueryProgressStats") @DefaultValue("false") boolean includeAllQueryProgressStats,
+            @QueryParam("excludeResourceGroupPathInfo") @DefaultValue("false") boolean excludeResourceGroupPathInfo,
+            @QueryParam("queryTextSizeLimit") Integer queryTextSizeLimit,
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
             @Suspended AsyncResponse asyncResponse)
     {
-        if (resourceManagerEnabled && !isIncludeLocalQueryOnly) {
+        if (resourceManagerEnabled && !includeLocalQueryOnly) {
             proxyQueryStateInfo(servletRequest, asyncResponse, xForwardedProto, uriInfo);
         }
         else {
             List<BasicQueryInfo> queryInfos = dispatchManager.getQueries();
+            Optional<Pattern> userPattern = isNullOrEmpty(user) ? Optional.empty() : Optional.of(Pattern.compile(user));
 
-            if (!isNullOrEmpty(user)) {
-                queryInfos = queryInfos.stream()
-                        .filter(queryInfo -> Pattern.matches(user, queryInfo.getSession().getUser()))
-                        .collect(toImmutableList());
-            }
+            List<QueryStateInfo> queryStateInfos = queryInfos.stream()
+                    .filter(queryInfo -> includeAllQueries || !queryInfo.getState().isDone())
+                    .filter(queryInfo -> userPattern.map(pattern -> pattern.matcher(queryInfo.getSession().getUser()).matches()).orElse(true))
+                    .map(queryInfo -> getQueryStateInfo(
+                            queryInfo,
+                            includeAllQueryProgressStats,
+                            excludeResourceGroupPathInfo,
+                            queryTextSizeLimit == null ? OptionalInt.empty() : OptionalInt.of(queryTextSizeLimit)))
+                    .collect(toImmutableList());
 
-            asyncResponse.resume(Response.ok(queryInfos.stream()
-                    .filter(queryInfo -> !queryInfo.getState().isDone())
-                    .map(this::getQueryStateInfo)
-                    .collect(toImmutableList())).build());
+            asyncResponse.resume(Response.ok(queryStateInfos).build());
         }
     }
 
-    private QueryStateInfo getQueryStateInfo(BasicQueryInfo queryInfo)
+    private QueryStateInfo getQueryStateInfo(
+            BasicQueryInfo queryInfo,
+            boolean includeAllQueryProgressStats,
+            boolean excludeResourceGroupPathInfo,
+            OptionalInt queryTextSizeLimit)
     {
         Optional<ResourceGroupId> groupId = queryInfo.getResourceGroupId();
-        if (queryInfo.getState() == QUEUED) {
-            return createQueuedQueryStateInfo(
-                    queryInfo,
-                    groupId,
-                    groupId.map(resourceGroupManager::getPathToRoot));
-        }
-        return createQueryStateInfo(queryInfo, groupId);
+        return createQueryStateInfo(
+                queryInfo,
+                queryInfo.getState() == QUEUED && !excludeResourceGroupPathInfo ? groupId.map(resourceGroupManager::getPathToRoot) : Optional.empty(),
+                includeAllQueryProgressStats,
+                queryTextSizeLimit);
     }
 
     @GET
@@ -140,7 +149,7 @@ public class QueryStateInfoResource
             }
             else {
                 BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(queryID);
-                asyncResponse.resume(Response.ok(getQueryStateInfo(queryInfo)).build());
+                asyncResponse.resume(Response.ok(getQueryStateInfo(queryInfo, false, true, OptionalInt.empty())).build());
             }
         }
         catch (NoSuchElementException e) {

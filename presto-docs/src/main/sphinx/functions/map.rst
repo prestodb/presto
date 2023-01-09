@@ -67,11 +67,49 @@ Map Functions
         SELECT map_filter(MAP(ARRAY[10, 20, 30], ARRAY['a', NULL, 'c']), (k, v) -> v IS NOT NULL); -- {10 -> a, 30 -> c}
         SELECT map_filter(MAP(ARRAY['k1', 'k2', 'k3'], ARRAY[20, 3, 15]), (k, v) -> v > 10); -- {k1 -> 20, k3 -> 15}
 
+.. function:: map_remove_null_values(x(K,V)) -> map(K, V)
+
+    Removes all the entries where the value is null from the map ``x``.
+
+.. function:: map_subset(map(K,V), array(k)) -> map(K,V)
+
+    Constructs a map from those entries of ``map`` for which the key is in the array given::
+
+        SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[10]); -- {}
+        SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[1]); -- {1->'a'}
+        SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[1,3]); -- {1->'a'}
+        SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[]); -- {}
+        SELECT map_subset(MAP(ARRAY[], ARRAY[]), ARRAY[1,2]); -- {}
+
 .. function:: map_keys(x(K,V)) -> array(K)
 
     Returns all the keys in the map ``x``.
 
-.. function:: map_normalize(x(varchar,double)) -> array(varchar,double)
+.. function:: map_top_n_keys(x(K,V), n) -> array(K)
+
+    Returns top n keys in the map ``x``.
+    ``n`` must be a non-negative integer
+    For bottom ``n`` keys, use the function with lambda operator to perform custom sorting
+
+        SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2) --- ['c', 'b']
+
+.. function:: map_top_n_keys(x(K,V), n, function(K,K,int)) -> array(K)
+
+    Returns top n keys in the map ``x`` based on the given comparator ``function``. The comparator will take
+    two non-nullable arguments representing two keys of the ``map``. It returns -1, 0, or 1
+    as the first key is less than, equal to, or greater than the second key.
+    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error ::
+
+        SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- ['c', 'b']
+
+.. function:: map_top_n(x(K,V), n) -> map(K, V)
+
+    Truncates map items. Keeps only the top N elements by value.
+    ``n`` must be a non-negative integer
+
+        SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[2, 3, 1]), 2) --- {'b' -> 3, 'a' -> 2}
+
+.. function:: map_normalize(x(varchar,double)) -> map(varchar,double)
 
     Returns the map with the same keys but all non-null values are scaled proportionally so that the sum of values becomes 1.
     Map entries with null values remain unchanged.
@@ -79,6 +117,23 @@ Map Functions
 .. function:: map_values(x(K,V)) -> array(V)
 
     Returns all the values in the map ``x``.
+
+.. function:: map_top_n_values(x(K,V), n) -> array(K)
+
+    Returns top n values in the map ``x``.
+    ``n`` must be a positive integer
+    For bottom ``n`` values, use the function with lambda operator to perform custom sorting
+
+        SELECT map_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2) --- [3, 2]
+
+.. function:: map_top_n_values(x(K,V), n, function(V,V,int)) -> array(V)
+
+    Returns top n values in the map ``x`` based on the given comparator ``function``. The comparator will take
+    two nullable arguments representing two values of the ``map``. It returns -1, 0, or 1
+    as the first value is less than, equal to, or greater than the second value.
+    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error ::
+
+        SELECT map_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- [3, 2]
 
 .. function:: map_zip_with(map(K,V1), map(K,V2), function(K,V1,V2,V3)) -> map(K,V3)
 

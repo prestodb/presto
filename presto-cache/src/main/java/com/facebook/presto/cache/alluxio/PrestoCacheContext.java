@@ -19,6 +19,9 @@ import alluxio.client.quota.CacheScope;
 import com.facebook.presto.hive.HiveFileContext;
 import com.google.common.collect.ImmutableMap;
 
+import static com.facebook.presto.common.RuntimeUnit.BYTE;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoCacheContext
@@ -42,15 +45,25 @@ public class PrestoCacheContext
         }
         return context;
     }
+
     private PrestoCacheContext(HiveFileContext hiveFileContext)
     {
         this.hiveFileContext = requireNonNull(hiveFileContext, "hiveFileContext is null");
     }
 
     @Override
-    public void incrementCounter(String name, long value)
+    public void incrementCounter(String name, StatsUnit unit, long value)
     {
-        hiveFileContext.incrementCounter(name, value);
+        switch (unit) {
+            case BYTE:
+                hiveFileContext.incrementCounter(name, BYTE, value);
+                break;
+            case NANO:
+                hiveFileContext.incrementCounter(name, NANO, value);
+                break;
+            default:
+                hiveFileContext.incrementCounter(name, NONE, value);
+        }
     }
 
     public HiveFileContext getHiveFileContext()

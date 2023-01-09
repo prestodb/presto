@@ -371,7 +371,7 @@ public class IndexLookup
 
     private static void binRanges(int numRangesPerBin, List<Range> splitRanges, List<TabletSplitMetadata> prestoSplits)
     {
-        checkArgument(numRangesPerBin > 0, "number of ranges per bin must positivebe greater than zero");
+        checkArgument(numRangesPerBin > 0, "number of ranges per bin must be greater than zero");
         int toAdd = splitRanges.size();
         int fromIndex = 0;
         int toIndex = Math.min(toAdd, numRangesPerBin);

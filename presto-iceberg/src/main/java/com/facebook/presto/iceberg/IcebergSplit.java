@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -41,6 +42,7 @@ public class IcebergSplit
     private final List<HostAddress> addresses;
     private final Map<Integer, String> partitionKeys;
     private final NodeSelectionStrategy nodeSelectionStrategy;
+    private final SplitWeight splitWeight;
 
     @JsonCreator
     public IcebergSplit(
@@ -50,7 +52,8 @@ public class IcebergSplit
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionKeys") Map<Integer, String> partitionKeys,
-            @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy)
+            @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
+            @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
         requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.path = requireNonNull(path, "path is null");
@@ -60,6 +63,7 @@ public class IcebergSplit
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.partitionKeys = Collections.unmodifiableMap(requireNonNull(partitionKeys, "partitionKeys is null"));
         this.nodeSelectionStrategy = nodeSelectionStrategy;
+        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
     }
 
     @JsonProperty
@@ -113,6 +117,13 @@ public class IcebergSplit
         return addresses;
     }
 
+    @JsonProperty
+    @Override
+    public SplitWeight getSplitWeight()
+    {
+        return splitWeight;
+    }
+
     @Override
     public Object getInfo()
     {
@@ -121,6 +132,7 @@ public class IcebergSplit
                 .put("start", start)
                 .put("length", length)
                 .put("nodeSelectionStrategy", nodeSelectionStrategy)
+                .put("splitWeight", splitWeight)
                 .build();
     }
 
@@ -131,6 +143,8 @@ public class IcebergSplit
                 .addValue(path)
                 .addValue(start)
                 .addValue(length)
+                .addValue(nodeSelectionStrategy)
+                .addValue(splitWeight)
                 .toString();
     }
 }

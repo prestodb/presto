@@ -22,10 +22,12 @@ import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.tracing.TracingConfig;
 import org.testng.annotations.Test;
 
@@ -91,7 +93,7 @@ public class TestAnalyzer
     private static void assertHasWarning(WarningCollector warningCollector, StandardWarningCode code, String match)
     {
         List<PrestoWarning> warnings = warningCollector.getWarnings();
-        assertEquals(warnings.size(), 1);
+        assertTrue(warnings.size() > 0);
         PrestoWarning warning = warnings.get(0);
         assertEquals(warning.getWarningCode(), code.toWarningCode());
         assertTrue(warning.getMessage().startsWith(match));
@@ -164,7 +166,9 @@ public class TestAnalyzer
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
-                new TracingConfig()))).build();
+                new TracingConfig(),
+                new CompilerConfig(),
+                new SecurityConfig()))).build();
         assertFails(session, WINDOW_FUNCTION_ORDERBY_LITERAL,
                 "SELECT SUM(x) OVER (PARTITION BY y ORDER BY 1) AS s\n" +
                         "FROM (values (1,10), (2, 10)) AS T(x, y)");
@@ -557,7 +561,9 @@ public class TestAnalyzer
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
-                new TracingConfig()))).build();
+                new TracingConfig(),
+                new CompilerConfig(),
+                new SecurityConfig()))).build();
         analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
                 "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
                 "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
@@ -1116,6 +1122,66 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testApproxDistinctPerformanceWarning()
+    {
+        WarningCollector warningCollector = analyzeWithWarnings("SELECT approx_distinct(a) FROM t1 GROUP BY b");
+        List<PrestoWarning> warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 0);
+
+        warningCollector = analyzeWithWarnings("SELECT approx_distinct(a, 0.0025E0) FROM t1 GROUP BY b");
+        warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 1);
+
+        // Ensure warning is the performance warning we expect
+        PrestoWarning warning = warnings.get(0);
+        assertEquals(warning.getWarningCode(), PERFORMANCE_WARNING.toWarningCode());
+        assertTrue(warning.getMessage().startsWith("approx_distinct"));
+
+        // Ensure warning is only issued for values lower than threshold
+        warningCollector = analyzeWithWarnings("SELECT approx_distinct(a, 0.0055E0) FROM t1 GROUP BY b");
+        warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 0);
+    }
+
+    @Test
+    public void testApproxSetPerformanceWarning()
+    {
+        WarningCollector warningCollector = analyzeWithWarnings("SELECT approx_set(a) FROM t1 GROUP BY b");
+        List<PrestoWarning> warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 0);
+
+        warningCollector = analyzeWithWarnings("SELECT approx_set(a, 0.0015E0) FROM t1 GROUP BY b");
+        warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 1);
+
+        // Ensure warning is the performance warning we expect
+        PrestoWarning warning = warnings.get(0);
+        assertEquals(warning.getWarningCode(), PERFORMANCE_WARNING.toWarningCode());
+        assertTrue(warning.getMessage().startsWith("approx_set"));
+
+        // Ensure warning is only issued for values lower than threshold
+        warningCollector = analyzeWithWarnings("SELECT approx_set(a, 0.0055E0) FROM t1 GROUP BY b");
+        warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 0);
+    }
+
+    @Test
+    public void testApproxDistinctAndApproxSetPerformanceWarning()
+    {
+        WarningCollector warningCollector = analyzeWithWarnings("SELECT approx_distinct(a, 0.0025E0), approx_set(a, 0.0013E0) FROM t1 GROUP BY b");
+        List<PrestoWarning> warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 2);
+
+        // Ensure warnings are the performance warnings we expect
+        PrestoWarning approxDistinctWarning = warnings.get(0);
+        assertEquals(approxDistinctWarning.getWarningCode(), PERFORMANCE_WARNING.toWarningCode());
+        assertTrue(approxDistinctWarning.getMessage().startsWith("approx_distinct"));
+        PrestoWarning approxSetWarning = warnings.get(1);
+        assertEquals(approxSetWarning.getWarningCode(), PERFORMANCE_WARNING.toWarningCode());
+        assertTrue(approxSetWarning.getMessage().startsWith("approx_set"));
+    }
+
+    @Test
     public void testUnionNoPerformanceWarning()
     {
         // <= 3 fields
@@ -1598,6 +1664,18 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testUnnestInnerScalarAlias()
+    {
+        analyze("SELECT * FROM (SELECT array[1,2] a) a CROSS JOIN UNNEST(a) AS T(x)");
+    }
+
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "line 1:37: Scalar subqueries in UNNEST are not supported")
+    public void testUnnestInnerScalar()
+    {
+        analyze("SELECT * FROM (SELECT 1) CROSS JOIN UNNEST((SELECT array[1])) AS T(x)");
+    }
+
+    @Test
     public void testJoinLateral()
     {
         analyze("SELECT * FROM (VALUES array[2, 2]) a(x) CROSS JOIN LATERAL(VALUES x)");
@@ -1622,6 +1700,77 @@ public class TestAnalyzer
     public void testReplaceTemporaryFunctionFails()
     {
         assertFails(NOT_SUPPORTED, "CREATE OR REPLACE TEMPORARY FUNCTION foo() RETURNS INT RETURN 1");
+    }
+
+    @Test
+    public void testJoinOnPerformanceWarnings()
+    {
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t1.b"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a LEFT JOIN t3 ON t1.a = t2.a"),
+                PERFORMANCE_WARNING, "line 1:67: JOIN ON condition(s) do not reference the joined table 't3' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 a1 LEFT JOIN t2 a2 ON a1.a = a2.a LEFT JOIN t3 a3  ON a1.a = a2.a"),
+                PERFORMANCE_WARNING, "line 1:77: JOIN ON condition(s) do not reference the joined table 't3' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 a1 LEFT JOIN t2 a2 ON a1.a = a2.a LEFT JOIN t3 a3  ON a3.a = a1.a"));
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a LEFT JOIN t3 ON t3.a = t1.a"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a LEFT JOIN t3 ON t3.a = 1"),
+                PERFORMANCE_WARNING, "line 1:67: JOIN ON condition(s) do not reference the joined table 't3' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a LEFT JOIN t3 ON t1.a = 1 AND t3.a = t1.a"));
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a LEFT JOIN t3 ON t3.a = t1.a"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 a1 LEFT JOIN t2 a2 ON a1.a = a2.a LEFT JOIN t3 a3  ON a3.a = a3.b"),
+                PERFORMANCE_WARNING, "line 1:77: JOIN ON condition(s) do not reference the joined table 't3' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 a1 LEFT JOIN t2 a2 ON a1.a = a2.a LEFT JOIN t3 a3  ON a3.a = a3.b AND a3.b = a1.b"));
+        assertHasWarning(analyzeWithWarnings("select * from t1 inner join ( select t2.a as t2_a, t3.a from t2 inner join t3 on t2.a=t3.a) al ON t1.a = t1.a"),
+                PERFORMANCE_WARNING, "line 1:104: JOIN ON condition(s) do not reference the joined relation and other relation in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertHasWarning(analyzeWithWarnings("select * from t1 inner join (select t2.a as t2_a, t3.a t3_a from t2 inner join t3 on t2.a=t3.a) ON t2_a = t3_a"),
+                PERFORMANCE_WARNING, "line 1:105: JOIN ON condition(s) do not reference the joined relation and other relation in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * from t1 inner join (select t2.a as t2_a, t3.a t3_a from t2 inner join t3 on t2.a=t3.a) ON t2_a = a"));
+        assertNoWarning(analyzeWithWarnings("select * from (select ARBITRARY(a) aa from t1 group by b) _ join (select w from t13)  ON w = aa"));
+        assertNoWarning(analyzeWithWarnings("with tt1 as (select a,b from t1) select b,x from t13 JOIN tt1 ON w = a"));
+        assertHasWarning(analyzeWithWarnings("with tt1 as (select a,b from t1) select b,x from t13 JOIN tt1 ON x = y"),
+                PERFORMANCE_WARNING, "line 1:68: JOIN ON condition(s) do not reference the joined table 'tt1' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a + 1"));
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a + t2.a = t1.b + t2.b"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t1.b + 1"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t2.a * (t2.b + 1)"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t2 LEFT JOIN t1 ON t1.c = t1.a * (t1.b + 1)"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't1' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = -t2.a"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = -t1.b"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a = COALESCE(t1.a, t1.b, 1)"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a = COALESCE(t2.a, t2.b, 1)"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a = CASE WHEN t1.a > 0 THEN 1 WHEN t1.a < 0 THEN -1 WHEN t1.a = 0 THEN 0 END"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = CASE WHEN t1.a > 0 THEN 1 WHEN t1.a < 0 THEN -1 WHEN t1.a = 0 THEN 0 END"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a BETWEEN t1.a AND t1.b"));
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a BETWEEN t2.a AND t1.b"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t2.a BETWEEN t2.a AND t2.b"),
+                PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t6 LEFT JOIN t6 as t6_1 ON hamming_distance(t6.b, t6_1.b) > 0"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t6 LEFT JOIN t6 as t6_1 ON hamming_distance(t6.b, t6.b) > 0"),
+                PERFORMANCE_WARNING, "line 1:71: JOIN ON condition(s) do not reference the joined table 't6' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
+        assertNoWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t10 ON t1.a = t10.b.x.z"));
+        assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t10 ON t10.a = t10.b.x.z"),
+                PERFORMANCE_WARNING, "line 1:41: JOIN ON condition(s) do not reference the joined table 't10' and other tables in the same expression that can cause " +
+                        "performance issues as it may lead to a cross join with filter");
     }
 
     @Test

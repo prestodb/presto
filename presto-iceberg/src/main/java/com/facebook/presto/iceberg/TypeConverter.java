@@ -60,7 +60,6 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
@@ -116,6 +115,10 @@ public final class TypeConverter
                 return RealType.REAL;
             case INTEGER:
                 return IntegerType.INTEGER;
+            case TIME:
+                return TimeType.TIME;
+            case TIMESTAMP:
+                return TimestampType.TIMESTAMP;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
             case LIST:
@@ -175,13 +178,13 @@ public final class TypeConverter
             return fromMap((MapType) type);
         }
         if (type instanceof TimeType) {
-            throw new PrestoException(NOT_SUPPORTED, format("Time not supported for Iceberg."));
+            return Types.TimeType.get();
         }
         if (type instanceof TimestampType) {
-            throw new PrestoException(NOT_SUPPORTED, format("Timestamp not supported for Iceberg."));
+            return Types.TimestampType.withoutZone();
         }
         if (type instanceof TimestampWithTimeZoneType) {
-            throw new PrestoException(NOT_SUPPORTED, format("Timestamp with timezone not supported for Iceberg."));
+            return Types.TimestampType.withZone();
         }
         throw new PrestoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }
@@ -266,10 +269,6 @@ public final class TypeConverter
             return HIVE_DATE.getTypeInfo();
         }
         if (TIMESTAMP.equals(type)) {
-            return HIVE_TIMESTAMP.getTypeInfo();
-        }
-        if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-            // Hive does not have TIMESTAMP_WITH_TIME_ZONE, this is just a work around for iceberg.
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof DecimalType) {

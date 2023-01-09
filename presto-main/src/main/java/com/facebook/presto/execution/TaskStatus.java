@@ -168,7 +168,7 @@ public class TaskStatus
     }
 
     @JsonProperty
-    @ThriftField(5)
+    @ThriftField(value = 5, name = "selfUri")
     public URI getSelf()
     {
         return self;

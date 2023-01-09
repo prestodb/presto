@@ -132,6 +132,53 @@ public final class VarbinaryFunctions
         }
     }
 
+    @Description("Encode binary data as base32")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice toBase32(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        String encoded;
+        if (slice.hasByteArray()) {
+            encoded = BaseEncoding.base32().encode(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+        }
+        else {
+            encoded = BaseEncoding.base32().encode(slice.getBytes());
+        }
+        return Slices.utf8Slice(encoded);
+    }
+
+    @Description("Decode base32 encoded binary data")
+    @ScalarFunction("from_base32")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice fromBase32Varchar(@SqlType("varchar(x)") Slice slice)
+    {
+        return decodeBase32(slice);
+    }
+
+    @Description("Decode base32 encoded binary data")
+    @ScalarFunction("from_base32")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice fromBase32Varbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return decodeBase32(slice);
+    }
+
+    private static Slice decodeBase32(Slice slice)
+    {
+        try {
+            return Slices.wrappedBuffer(BaseEncoding.base32().decode(slice.toStringUtf8()));
+        }
+        catch (IllegalArgumentException e) {
+            // Get cause because the root exception contains the package name in the message:
+            // com.google.common.io.BaseEncoding$DecodingException: Invalid input length 1
+            if (e.getCause() instanceof BaseEncoding.DecodingException) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getCause().getMessage(), e);
+            }
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
     @Description("encode binary data as hex")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)

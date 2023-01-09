@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
@@ -68,7 +69,7 @@ public class PrestoSparkShufflePageInput
     }
 
     @Override
-    public Page getNextPage()
+    public Page getNextPage(UpdateMemory updateMemory)
     {
         SliceOutput output = new DynamicSliceOutput(types.isEmpty() ? 0 : BUFFER_SIZE);
         int rowCount = 0;

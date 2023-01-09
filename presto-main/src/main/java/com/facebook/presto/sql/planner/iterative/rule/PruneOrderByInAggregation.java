@@ -60,7 +60,7 @@ public class PruneOrderByInAggregation
                 aggregations.put(entry);
             }
             // getAggregateFunctionImplementation can be expensive, so check it last.
-            else if (functionAndTypeManager.getAggregateFunctionImplementation(aggregation.getFunctionHandle()).isOrderSensitive()) {
+            else if (functionAndTypeManager.getJavaAggregateFunctionImplementation(aggregation.getFunctionHandle()).isOrderSensitive()) {
                 aggregations.put(entry);
             }
             else {

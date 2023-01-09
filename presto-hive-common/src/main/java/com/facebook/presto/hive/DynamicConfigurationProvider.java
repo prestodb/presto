@@ -20,4 +20,9 @@ import java.net.URI;
 public interface DynamicConfigurationProvider
 {
     void updateConfiguration(Configuration configuration, HdfsContext context, URI uri);
+
+    default boolean isUriIndependentConfigurationProvider()
+    {
+        return false;
+    }
 }

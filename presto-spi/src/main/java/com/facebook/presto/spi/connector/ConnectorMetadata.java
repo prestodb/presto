@@ -18,7 +18,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -31,6 +30,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -324,6 +324,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Truncates the specified table
+     *
+     * @throws RuntimeException if the table cannot be truncated or table handle is no longer valid
+     */
+    default void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support truncating tables");
+    }
+
+    /**
      * Rename the specified table
      */
     default void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
@@ -565,7 +575,7 @@ public interface ConnectorMetadata
     /**
      * Gets the materialized view data for the specified materialized view name.
      */
-    default Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    default Optional<MaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
     }
@@ -573,7 +583,7 @@ public interface ConnectorMetadata
     /**
      * Create the specified materialized view. The data for the materialized view is opaque to the connector.
      */
-    default void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, ConnectorMaterializedViewDefinition viewDefinition, boolean ignoreExisting)
+    default void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating materialized views");
     }
@@ -588,7 +598,14 @@ public interface ConnectorMetadata
 
     /**
      * Get the materialized view status to inform the engine how much data has been materialized in the view
+     * @param baseQueryDomain The domain from which to consider missing partitions. For example, a query that
+     * selects a specific date range can consider only partitions from that range when determining view staleness.
      */
+    default MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName, TupleDomain<String> baseQueryDomain)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support getting materialized views status");
+    }
+
     default MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support getting materialized views status");

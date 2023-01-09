@@ -29,5 +29,13 @@ public interface LongValueStatisticsBuilder
         }
     }
 
+    @Override
+    default void addValue(Type type, Block block, int position)
+    {
+        if (!block.isNull(position)) {
+            addValue(type.getLong(block, position));
+        }
+    }
+
     void addValue(long value);
 }

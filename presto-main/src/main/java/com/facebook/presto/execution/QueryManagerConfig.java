@@ -75,6 +75,7 @@ public class QueryManagerConfig
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
 
     private DataSize queryMaxScanRawInputBytes = DataSize.succinctDataSize(1000, PETABYTE);
+    private long queryMaxOutputPositions = Long.MAX_VALUE;
     private DataSize queryMaxOutputSize = DataSize.succinctDataSize(1000, PETABYTE);
 
     private int requiredWorkers = 1;
@@ -89,6 +90,10 @@ public class QueryManagerConfig
     private Duration perQueryRetryMaxExecutionTime = new Duration(5, MINUTES);
     private int globalQueryRetryFailureLimit = 150;
     private Duration globalQueryRetryFailureWindow = new Duration(5, MINUTES);
+
+    private long rateLimiterBucketMaxSize = 100;
+    private int rateLimiterCacheLimit = 1000;
+    private int rateLimiterCacheWindowMinutes = 5;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -318,7 +323,7 @@ public class QueryManagerConfig
     }
 
     @Config("concurrency-threshold-to-enable-resource-group-refresh")
-    @ConfigDescription("Resource group concurrency threshold precentage, once crossed new queries won't run till updated resource group info comes from resource manager")
+    @ConfigDescription("Resource group concurrency threshold percentage, once crossed new queries won't run till updated resource group info comes from resource manager")
     public QueryManagerConfig setConcurrencyThresholdToEnableResourceGroupRefresh(double concurrencyThresholdToEnableResourceGroupRefresh)
     {
         this.concurrencyThresholdToEnableResourceGroupRefresh = concurrencyThresholdToEnableResourceGroupRefresh;
@@ -441,6 +446,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxScanRawInputBytes(DataSize queryMaxRawInputBytes)
     {
         this.queryMaxScanRawInputBytes = queryMaxRawInputBytes;
+        return this;
+    }
+
+    @Min(1)
+    public long getQueryMaxOutputPositions()
+    {
+        return queryMaxOutputPositions;
+    }
+
+    @Config("query.max-output-positions")
+    public QueryManagerConfig setQueryMaxOutputPositions(long queryMaxOutputPositions)
+    {
+        this.queryMaxOutputPositions = queryMaxOutputPositions;
         return this;
     }
 
@@ -619,6 +637,45 @@ public class QueryManagerConfig
     public QueryManagerConfig setGlobalQueryRetryFailureWindow(Duration globalQueryRetryFailureWindow)
     {
         this.globalQueryRetryFailureWindow = globalQueryRetryFailureWindow;
+        return this;
+    }
+
+    public long getRateLimiterBucketMaxSize()
+    {
+        return rateLimiterBucketMaxSize;
+    }
+
+    @Config("query-manager.rate-limiter-bucket-max-size")
+    @ConfigDescription("rate limiter token bucket max size, number of permits per second")
+    public QueryManagerConfig setRateLimiterBucketMaxSize(long rateLimiterBucketMaxSize)
+    {
+        this.rateLimiterBucketMaxSize = rateLimiterBucketMaxSize;
+        return this;
+    }
+
+    public int getRateLimiterCacheLimit()
+    {
+        return rateLimiterCacheLimit;
+    }
+
+    @Config("query-manager.rate-limiter-cache-limit")
+    @ConfigDescription("rate limiter cache size limit, used together with rateLimiterCacheWindowMinutes")
+    public QueryManagerConfig setRateLimiterCacheLimit(int rateLimiterCacheLimit)
+    {
+        this.rateLimiterCacheLimit = rateLimiterCacheLimit;
+        return this;
+    }
+
+    public int getRateLimiterCacheWindowMinutes()
+    {
+        return rateLimiterCacheWindowMinutes;
+    }
+
+    @Config("query-manager.rate-limiter-cache-window-minutes")
+    @ConfigDescription("rate limiter cache window size in minutes, used together with rateLimiterCacheLimit")
+    public QueryManagerConfig setRateLimiterCacheWindowMinutes(int rateLimiterCacheWindowMinutes)
+    {
+        this.rateLimiterCacheWindowMinutes = rateLimiterCacheWindowMinutes;
         return this;
     }
 

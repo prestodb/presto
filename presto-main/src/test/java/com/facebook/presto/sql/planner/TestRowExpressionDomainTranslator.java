@@ -611,7 +611,7 @@ public class TestRowExpressionDomainTranslator
     }
 
     @Test
-    void testNonImplictCastOnSymbolSide()
+    void testNonImplicitCastOnSymbolSide()
     {
         // we expect TupleDomain.all here().
         // see comment in ExpressionDomainTranslator.Visitor.visitComparisonExpression()
@@ -1233,7 +1233,7 @@ public class TestRowExpressionDomainTranslator
 
     private RowExpression cast(RowExpression expression, Type toType)
     {
-        FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, expression.getType().getTypeSignature(), toType.getTypeSignature());
+        FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, expression.getType(), toType);
         return call(CastType.CAST.name(), cast, toType, expression);
     }
 
@@ -1329,7 +1329,7 @@ public class TestRowExpressionDomainTranslator
         RowExpression random = call("random", metadata.getFunctionAndTypeManager().lookupFunction("random", fromTypes()), DOUBLE);
         return greaterThan(
                 expression,
-                call(CastType.CAST.name(), metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, DOUBLE.getTypeSignature(), expression.getType().getTypeSignature()), expression.getType(), random));
+                call(CastType.CAST.name(), metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, DOUBLE, expression.getType()), expression.getType(), random));
     }
 
     private void assertUnsupportedPredicate(RowExpression expression)

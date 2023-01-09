@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 
 import java.time.Instant;
 import java.util.List;
@@ -34,11 +35,14 @@ public class QueryCompletedEvent
     private final List<String> failedTasks;
     private final List<StageStatistics> stageStatistics;
     private final List<OperatorStatistics> operatorStatistics;
+    private final List<PlanStatisticsWithSourceInfo> planStatisticsRead;
+    private final List<PlanStatisticsWithSourceInfo> planStatisticsWritten;
 
     private final Instant createTime;
     private final Instant executionStartTime;
     private final Instant endTime;
     private final Optional<String> expandedQuery;
+    private final List<PlanOptimizerInformation> optimizerInformation;
 
     public QueryCompletedEvent(
             QueryMetadata metadata,
@@ -54,7 +58,10 @@ public class QueryCompletedEvent
             Instant endTime,
             List<StageStatistics> stageStatistics,
             List<OperatorStatistics> operatorStatistics,
-            Optional<String> expandedQuery)
+            List<PlanStatisticsWithSourceInfo> planStatisticsRead,
+            List<PlanStatisticsWithSourceInfo> planStatisticsWritten,
+            Optional<String> expandedQuery,
+            List<PlanOptimizerInformation> optimizerInformation)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statistics = requireNonNull(statistics, "statistics is null");
@@ -69,7 +76,10 @@ public class QueryCompletedEvent
         this.endTime = requireNonNull(endTime, "endTime is null");
         this.stageStatistics = requireNonNull(stageStatistics, "stageStatistics is null");
         this.operatorStatistics = requireNonNull(operatorStatistics, "operatorStatistics is null");
+        this.planStatisticsRead = requireNonNull(planStatisticsRead, "planStatisticsRead is null");
+        this.planStatisticsWritten = requireNonNull(planStatisticsWritten, "planStatisticsWritten is null");
         this.expandedQuery = requireNonNull(expandedQuery, "expandedQuery is null");
+        this.optimizerInformation = requireNonNull(optimizerInformation, "optimizerInformation is null");
     }
 
     public QueryMetadata getMetadata()
@@ -137,8 +147,23 @@ public class QueryCompletedEvent
         return operatorStatistics;
     }
 
+    public List<PlanStatisticsWithSourceInfo> getPlanStatisticsRead()
+    {
+        return planStatisticsRead;
+    }
+
+    public List<PlanStatisticsWithSourceInfo> getPlanStatisticsWritten()
+    {
+        return planStatisticsWritten;
+    }
+
     public Optional<String> getExpandedQuery()
     {
         return expandedQuery;
+    }
+
+    public List<PlanOptimizerInformation> getOptimizerInformation()
+    {
+        return optimizerInformation;
     }
 }

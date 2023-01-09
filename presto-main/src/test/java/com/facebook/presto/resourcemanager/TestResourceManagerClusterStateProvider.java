@@ -16,6 +16,7 @@ package com.facebook.presto.resourcemanager;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupSpecInfo;
 import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
@@ -35,6 +36,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -53,6 +55,7 @@ import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
@@ -212,40 +215,49 @@ public class TestResourceManagerClusterStateProvider
 
         assertEquals(provider.getClusterQueries(), ImmutableList.of());
 
-        provider.registerQueryHeartbeat("node1", createQueryInfo("1", QUEUED, "rg4", GENERAL_POOL), 0);
+        provider.registerQueryHeartbeat("node1", createQueryInfo("1", WAITING_FOR_PREREQUISITES, "rg4", GENERAL_POOL), 0);
         assertTrue(provider.getClusterResourceGroups("node1").isEmpty());
-        assertResourceGroup(provider, "node2", "rg4", 1, 0, DataSize.valueOf("1MB"));
+        assertResourceGroup(provider, "node2", "rg4", 0, 0, DataSize.valueOf("1MB"));
 
-        provider.registerQueryHeartbeat("node2", createQueryInfo("2", RUNNING, "rg4", GENERAL_POOL), 0);
-        assertResourceGroup(provider, "node1", "rg4", 0, 1, DataSize.valueOf("1MB"));
-        assertResourceGroup(provider, "node2", "rg4", 1, 0, DataSize.valueOf("1MB"));
-        assertResourceGroup(provider, "node3", "rg4", 1, 1, DataSize.valueOf("2MB"));
+        provider.registerQueryHeartbeat("node2", createQueryInfo("2", QUEUED, "rg4", GENERAL_POOL), 0);
+        assertResourceGroup(provider, "node1", "rg4", 1, 0, DataSize.valueOf("1MB"));
+        assertResourceGroup(provider, "node2", "rg4", 0, 0, DataSize.valueOf("1MB"));
+        assertResourceGroup(provider, "node3", "rg4", 1, 0, DataSize.valueOf("2MB"));
 
-        provider.registerQueryHeartbeat("node3", createQueryInfo("3", FINISHED, "rg4", GENERAL_POOL), 0);
-        assertResourceGroup(provider, "node1", "rg4", 0, 1, DataSize.valueOf("1MB"));
-        assertResourceGroup(provider, "node2", "rg4", 1, 0, DataSize.valueOf("1MB"));
-        assertResourceGroup(provider, "node3", "rg4", 1, 1, DataSize.valueOf("2MB"));
-        assertResourceGroup(provider, "node4", "rg4", 1, 1, DataSize.valueOf("2MB"));
+        provider.registerQueryHeartbeat("node3", createQueryInfo("3", RUNNING, "rg4", GENERAL_POOL), 0);
+        assertResourceGroup(provider, "node1", "rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertResourceGroup(provider, "node2", "rg4", 0, 1, DataSize.valueOf("2MB"));
+        assertResourceGroup(provider, "node3", "rg4", 1, 0, DataSize.valueOf("2MB"));
+        assertResourceGroup(provider, "node4", "rg4", 1, 1, DataSize.valueOf("3MB"));
 
-        provider.registerQueryHeartbeat("node4", createQueryInfo("4", FAILED, "rg4", GENERAL_POOL), 0);
-        assertResourceGroup(provider, "node1", "rg4", 0, 1, DataSize.valueOf("1MB"));
-        assertResourceGroup(provider, "node2", "rg4", 1, 0, DataSize.valueOf("1MB"));
-        assertResourceGroup(provider, "node3", "rg4", 1, 1, DataSize.valueOf("2MB"));
-        assertResourceGroup(provider, "node4", "rg4", 1, 1, DataSize.valueOf("2MB"));
-        assertResourceGroup(provider, "node5", "rg4", 1, 1, DataSize.valueOf("2MB"));
+        provider.registerQueryHeartbeat("node4", createQueryInfo("4", FINISHED, "rg4", GENERAL_POOL), 0);
+        assertResourceGroup(provider, "node1", "rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertResourceGroup(provider, "node2", "rg4", 0, 1, DataSize.valueOf("2MB"));
+        assertResourceGroup(provider, "node3", "rg4", 1, 0, DataSize.valueOf("2MB"));
+        assertResourceGroup(provider, "node4", "rg4", 1, 1, DataSize.valueOf("3MB"));
+        assertResourceGroup(provider, "node4", "rg4", 1, 1, DataSize.valueOf("3MB"));
+
+        provider.registerQueryHeartbeat("node5", createQueryInfo("5", FAILED, "rg4", GENERAL_POOL), 0);
+        assertResourceGroup(provider, "node1", "rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertResourceGroup(provider, "node2", "rg4", 0, 1, DataSize.valueOf("2MB"));
+        assertResourceGroup(provider, "node3", "rg4", 1, 0, DataSize.valueOf("2MB"));
+        assertResourceGroup(provider, "node4", "rg4", 1, 1, DataSize.valueOf("3MB"));
+        assertResourceGroup(provider, "node4", "rg4", 1, 1, DataSize.valueOf("3MB"));
+        assertResourceGroup(provider, "node5", "rg4", 1, 1, DataSize.valueOf("3MB"));
 
         // Add queries which are in non-terminal states other than RUNNING and QUEUED
-        provider.registerQueryHeartbeat("node1", createQueryInfo("5", WAITING_FOR_RESOURCES, "rg4", GENERAL_POOL), 0);
-        provider.registerQueryHeartbeat("node2", createQueryInfo("6", DISPATCHING, "rg4", GENERAL_POOL), 0);
-        provider.registerQueryHeartbeat("node3", createQueryInfo("7", PLANNING, "rg4", GENERAL_POOL), 0);
-        provider.registerQueryHeartbeat("node4", createQueryInfo("8", STARTING, "rg4", GENERAL_POOL), 0);
-        provider.registerQueryHeartbeat("node5", createQueryInfo("9", FINISHING, "rg4", GENERAL_POOL), 0);
-        assertResourceGroup(provider, "node1", "rg4", 0, 5, DataSize.valueOf("5MB"));
-        assertResourceGroup(provider, "node2", "rg4", 1, 4, DataSize.valueOf("5MB"));
-        assertResourceGroup(provider, "node3", "rg4", 1, 5, DataSize.valueOf("6MB"));
-        assertResourceGroup(provider, "node4", "rg4", 1, 5, DataSize.valueOf("6MB"));
-        assertResourceGroup(provider, "node5", "rg4", 1, 5, DataSize.valueOf("6MB"));
-        assertResourceGroup(provider, "node6", "rg4", 1, 6, DataSize.valueOf("7MB"));
+        provider.registerQueryHeartbeat("node1", createQueryInfo("6", WAITING_FOR_PREREQUISITES, "rg4", GENERAL_POOL), 0);
+        provider.registerQueryHeartbeat("node2", createQueryInfo("7", WAITING_FOR_RESOURCES, "rg4", GENERAL_POOL), 0);
+        provider.registerQueryHeartbeat("node3", createQueryInfo("8", DISPATCHING, "rg4", GENERAL_POOL), 0);
+        provider.registerQueryHeartbeat("node4", createQueryInfo("9", PLANNING, "rg4", GENERAL_POOL), 0);
+        provider.registerQueryHeartbeat("node5", createQueryInfo("10", STARTING, "rg4", GENERAL_POOL), 0);
+        provider.registerQueryHeartbeat("node6", createQueryInfo("11", FINISHING, "rg4", GENERAL_POOL), 0);
+        assertResourceGroup(provider, "node1", "rg4", 1, 6, DataSize.valueOf("7MB"));
+        assertResourceGroup(provider, "node2", "rg4", 0, 5, DataSize.valueOf("7MB"));
+        assertResourceGroup(provider, "node3", "rg4", 1, 4, DataSize.valueOf("7MB"));
+        assertResourceGroup(provider, "node4", "rg4", 1, 5, DataSize.valueOf("8MB"));
+        assertResourceGroup(provider, "node5", "rg4", 1, 5, DataSize.valueOf("8MB"));
+        assertResourceGroup(provider, "node6", "rg4", 1, 5, DataSize.valueOf("8MB"));
 
         // Expire running queries
         Thread.sleep(SECONDS.toMillis(5));
@@ -289,57 +301,72 @@ public class TestResourceManagerClusterStateProvider
 
         assertEquals(provider.getClusterQueries(), ImmutableList.of());
 
-        provider.registerQueryHeartbeat("node1", createQueryInfo("1", QUEUED, "root.rg4", GENERAL_POOL), query1Sequence++);
+        provider.registerQueryHeartbeat("node1", createQueryInfo("1", WAITING_FOR_PREREQUISITES, "root.rg4", GENERAL_POOL), query1Sequence++);
         assertTrue(provider.getClusterResourceGroups("node1").isEmpty());
-        assertResourceGroup(provider, "node2", "root.rg4", 1, 0, DataSize.valueOf("1MB"));
-        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 1, 0);
+        assertResourceGroup(provider, "node2", "root.rg4", 0, 0, DataSize.valueOf("1MB"));
 
-        provider.registerQueryHeartbeat("node2", createQueryInfo("2", RUNNING, "root.rg4", GENERAL_POOL), query2Sequence++);
-        assertResourceGroup(provider, "node1", "root.rg4", 0, 1, DataSize.valueOf("1MB"));
-        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 0, 1);
-        assertResourceGroup(provider, "node2", "root.rg4", 1, 0, DataSize.valueOf("1MB"));
-        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 0, 1);
-        assertResourceGroup(provider, "node3", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        provider.registerQueryHeartbeat("node2", createQueryInfo("2", QUEUED, "root.rg4", GENERAL_POOL), query2Sequence++);
+        assertResourceGroup(provider, "node1", "root.rg4", 1, 0, DataSize.valueOf("1MB"));
+        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 1, 0);
+        assertResourceGroup(provider, "node2", "root.rg4", 0, 0, DataSize.valueOf("1MB"));
+        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 0, 0);
+        assertResourceGroup(provider, "node3", "root.rg4", 1, 0, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node3", "root", 0, 0, 1, 0);
 
-        provider.registerQueryHeartbeat("node3", createQueryInfo("3", FINISHED, "root.rg4", GENERAL_POOL), query3Sequence++);
-        assertResourceGroup(provider, "node1", "root.rg4", 0, 1, DataSize.valueOf("1MB"));
-        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 0, 1);
-        assertResourceGroup(provider, "node2", "root.rg4", 1, 0, DataSize.valueOf("1MB"));
-        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 1, 0);
-        assertResourceGroup(provider, "node3", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
-        assertNonLeafResourceGroup(provider, "node3", "root", 0, 0, 1, 1);
-        assertResourceGroup(provider, "node4", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        provider.registerQueryHeartbeat("node3", createQueryInfo("3", RUNNING, "root.rg4", GENERAL_POOL), query3Sequence++);
+        assertResourceGroup(provider, "node1", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 1, 1);
+        assertResourceGroup(provider, "node2", "root.rg4", 0, 1, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 0, 1);
+        assertResourceGroup(provider, "node3", "root.rg4", 1, 0, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node3", "root", 0, 0, 1, 0);
+        assertResourceGroup(provider, "node4", "root.rg4", 1, 1, DataSize.valueOf("3MB"));
         assertNonLeafResourceGroup(provider, "node4", "root", 0, 0, 1, 1);
 
-        provider.registerQueryHeartbeat("node4", createQueryInfo("4", FAILED, "root.rg4", GENERAL_POOL), query4Sequence++);
-        assertResourceGroup(provider, "node1", "root.rg4", 0, 1, DataSize.valueOf("1MB"));
-        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 0, 1);
-        assertResourceGroup(provider, "node2", "root.rg4", 1, 0, DataSize.valueOf("1MB"));
-        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 1, 0);
-        assertResourceGroup(provider, "node3", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
-        assertNonLeafResourceGroup(provider, "node3", "root", 0, 0, 1, 1);
-        assertResourceGroup(provider, "node4", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        provider.registerQueryHeartbeat("node4", createQueryInfo("4", FINISHED, "root.rg4", GENERAL_POOL), query4Sequence++);
+        assertResourceGroup(provider, "node1", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 1, 1);
+        assertResourceGroup(provider, "node2", "root.rg4", 0, 1, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 0, 1);
+        assertResourceGroup(provider, "node3", "root.rg4", 1, 0, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node3", "root", 0, 0, 1, 0);
+        assertResourceGroup(provider, "node4", "root.rg4", 1, 1, DataSize.valueOf("3MB"));
         assertNonLeafResourceGroup(provider, "node4", "root", 0, 0, 1, 1);
-        assertResourceGroup(provider, "node5", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertResourceGroup(provider, "node5", "root.rg4", 1, 1, DataSize.valueOf("3MB"));
         assertNonLeafResourceGroup(provider, "node5", "root", 0, 0, 1, 1);
 
+        provider.registerQueryHeartbeat("node5", createQueryInfo("5", FAILED, "root.rg4", GENERAL_POOL), query5Sequence++);
+        assertResourceGroup(provider, "node1", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 1, 1);
+        assertResourceGroup(provider, "node2", "root.rg4", 0, 1, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 0, 1);
+        assertResourceGroup(provider, "node3", "root.rg4", 1, 0, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node3", "root", 0, 0, 1, 0);
+        assertResourceGroup(provider, "node4", "root.rg4", 1, 1, DataSize.valueOf("3MB"));
+        assertNonLeafResourceGroup(provider, "node4", "root", 0, 0, 1, 1);
+        assertResourceGroup(provider, "node5", "root.rg4", 1, 1, DataSize.valueOf("3MB"));
+        assertNonLeafResourceGroup(provider, "node5", "root", 0, 0, 1, 1);
+        assertResourceGroup(provider, "node6", "root.rg4", 1, 1, DataSize.valueOf("3MB"));
+        assertNonLeafResourceGroup(provider, "node6", "root", 0, 0, 1, 1);
+
         // Add queries which are in non-terminal states other than RUNNING and QUEUED
-        provider.registerQueryHeartbeat("node1", createQueryInfo("5", WAITING_FOR_RESOURCES, "root.rg4", GENERAL_POOL), query5Sequence++);
-        provider.registerQueryHeartbeat("node2", createQueryInfo("6", DISPATCHING, "root.rg4", GENERAL_POOL), query6Sequence++);
-        provider.registerQueryHeartbeat("node3", createQueryInfo("7", PLANNING, "root.rg4", GENERAL_POOL), query7Sequence++);
-        provider.registerQueryHeartbeat("node4", createQueryInfo("8", STARTING, "root.rg4", GENERAL_POOL), query8Sequence++);
-        provider.registerQueryHeartbeat("node5", createQueryInfo("9", FINISHING, "root.rg4", GENERAL_POOL), query9Sequence++);
-        assertResourceGroup(provider, "node1", "root.rg4", 0, 5, DataSize.valueOf("5MB"));
-        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 0, 5);
-        assertResourceGroup(provider, "node2", "root.rg4", 1, 4, DataSize.valueOf("5MB"));
-        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 1, 4);
-        assertResourceGroup(provider, "node3", "root.rg4", 1, 5, DataSize.valueOf("6MB"));
-        assertNonLeafResourceGroup(provider, "node3", "root", 0, 0, 1, 5);
-        assertResourceGroup(provider, "node4", "root.rg4", 1, 5, DataSize.valueOf("6MB"));
+        provider.registerQueryHeartbeat("node1", createQueryInfo("6", WAITING_FOR_PREREQUISITES, "root.rg4", GENERAL_POOL), query5Sequence++);
+        provider.registerQueryHeartbeat("node1", createQueryInfo("7", WAITING_FOR_RESOURCES, "root.rg4", GENERAL_POOL), query5Sequence++);
+        provider.registerQueryHeartbeat("node2", createQueryInfo("8", DISPATCHING, "root.rg4", GENERAL_POOL), query6Sequence++);
+        provider.registerQueryHeartbeat("node3", createQueryInfo("9", PLANNING, "root.rg4", GENERAL_POOL), query7Sequence++);
+        provider.registerQueryHeartbeat("node4", createQueryInfo("10", STARTING, "root.rg4", GENERAL_POOL), query8Sequence++);
+        provider.registerQueryHeartbeat("node5", createQueryInfo("11", FINISHING, "root.rg4", GENERAL_POOL), query9Sequence++);
+        assertResourceGroup(provider, "node1", "root.rg4", 1, 5, DataSize.valueOf("6MB"));
+        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 1, 5);
+        assertResourceGroup(provider, "node2", "root.rg4", 0, 5, DataSize.valueOf("7MB"));
+        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 0, 5);
+        assertResourceGroup(provider, "node3", "root.rg4", 1, 4, DataSize.valueOf("7MB"));
+        assertNonLeafResourceGroup(provider, "node3", "root", 0, 0, 1, 4);
+        assertResourceGroup(provider, "node4", "root.rg4", 1, 5, DataSize.valueOf("8MB"));
         assertNonLeafResourceGroup(provider, "node4", "root", 0, 0, 1, 5);
-        assertResourceGroup(provider, "node5", "root.rg4", 1, 5, DataSize.valueOf("6MB"));
+        assertResourceGroup(provider, "node5", "root.rg4", 1, 5, DataSize.valueOf("8MB"));
         assertNonLeafResourceGroup(provider, "node5", "root", 0, 0, 1, 5);
-        assertResourceGroup(provider, "node6", "root.rg4", 1, 6, DataSize.valueOf("7MB"));
+        assertResourceGroup(provider, "node6", "root.rg4", 1, 6, DataSize.valueOf("9MB"));
         assertNonLeafResourceGroup(provider, "node6", "root", 0, 0, 1, 6);
 
         // Expire running queries
@@ -416,6 +443,51 @@ public class TestResourceManagerClusterStateProvider
         assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0, Optional.empty());
     }
 
+    @DataProvider(name = "resourceRuntimeHeartbeat")
+    public static Object[][] resourceRuntimeHeartbeatTestData()
+    {
+        return new Object[][] {
+                {ImmutableMap.of(
+                        "node1", ImmutableList.of(ResourceGroupRuntimeInfo.builder(new ResourceGroupId("global-user1"))
+                                .addRunningQueries(2)
+                                .addQueuedQueries(3)
+                                .setResourceGroupSpecInfo(new ResourceGroupSpecInfo(20))
+                                .build()),
+                        "node2", ImmutableList.of(ResourceGroupRuntimeInfo.builder(new ResourceGroupId("global-user2"))
+                                .addRunningQueries(5)
+                                .addQueuedQueries(100)
+                                .setResourceGroupSpecInfo(new ResourceGroupSpecInfo(20))
+                                .build())
+                ), 18},
+                {ImmutableMap.of(
+                        "node1", ImmutableList.of(ResourceGroupRuntimeInfo.builder(new ResourceGroupId("global-user1"))
+                                .addRunningQueries(2)
+                                .addQueuedQueries(3)
+                                .setResourceGroupSpecInfo(new ResourceGroupSpecInfo(20))
+                                .build()),
+                        "node2", ImmutableList.of(ResourceGroupRuntimeInfo.builder(new ResourceGroupId("global-user1"))
+                                .addRunningQueries(5)
+                                .addQueuedQueries(100)
+                                .setResourceGroupSpecInfo(new ResourceGroupSpecInfo(20))
+                                .build())
+                ), 13}
+        };
+    }
+
+    @Test(timeOut = 15_000, dataProvider = "resourceRuntimeHeartbeat")
+    public void testAdjustedQueueSize(Map<String, List<ResourceGroupRuntimeInfo>> nodeHeartBeats, int expectedAdjustedQueueSize)
+            throws Exception
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeHeartBeats.keySet().stream().forEach(nodeIdentifier ->
+                nodeManager.addNode(new ConnectorId("x"), new InternalNode(nodeIdentifier, URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true)));
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        nodeHeartBeats.entrySet().stream().forEach(entry ->
+                provider.registerResourceGroupRuntimeHeartbeat(entry.getKey(), entry.getValue()));
+        Thread.sleep(SECONDS.toMillis(5));
+        assertEquals(provider.getAdjustedQueueSize(), expectedAdjustedQueueSize);
+    }
+
     @Test(timeOut = 15_000)
     public void testWorkerMemoryInfo()
             throws Exception
@@ -468,6 +540,34 @@ public class TestResourceManagerClusterStateProvider
         assertQueryInfos(provider.getClusterQueries(), 4, 3);
     }
 
+    @Test
+    public void testRunningTaskCount()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addShuttingDownNode(new InternalNode("node1", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+
+        assertEquals(provider.getRunningTaskCount(), 0);
+
+        long query1Sequence = 0;
+        long query2Sequence = 0;
+        long query3Sequence = 0;
+        long query4Sequence = 0;
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("1", QUEUED), query1Sequence++);
+        assertEquals(provider.getRunningTaskCount(), 0);
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("2", RUNNING), query2Sequence++);
+        assertEquals(provider.getRunningTaskCount(), 11);
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("3", FINISHED), query3Sequence++);
+        assertEquals(provider.getRunningTaskCount(), 11);
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("4", FAILED), query4Sequence++);
+        assertEquals(provider.getRunningTaskCount(), 11);
+    }
+
     void assertWorkerMemoryInfo(ResourceManagerClusterStateProvider provider, int count)
     {
         Map<String, MemoryInfo> workerMemoryInfo = provider.getWorkerMemoryInfo();
@@ -483,7 +583,7 @@ public class TestResourceManagerClusterStateProvider
                 "environment",
                 false,
                 new Duration(1, SECONDS),
-                "http://exernalAddress",
+                "http://externalAddress",
                 "http://internalAddress",
                 new MemoryInfo(new DataSize(1, MEGABYTE), ImmutableMap.of(memoryPoolId, memoryPoolInfo)),
                 1,
@@ -642,6 +742,7 @@ public class TestResourceManagerClusterStateProvider
                         OptionalDouble.of(20)),
                 null,
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
     }
 }

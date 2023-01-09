@@ -56,7 +56,7 @@ import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NOT_NULL
 import static com.facebook.presto.common.predicate.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -87,7 +87,7 @@ public class StructSelectiveStreamReader
     private int readOffset;
     private int nestedReadOffset;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
@@ -109,8 +109,8 @@ public class StructSelectiveStreamReader
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
-            boolean legacyMapSubscript,
-            OrcAggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext,
+            boolean isLowMemory)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null").newOrcLocalMemoryContext(StructSelectiveStreamReader.class.getSimpleName());
@@ -187,8 +187,8 @@ public class StructSelectiveStreamReader
                                 nestedRequiredSubfields,
                                 hiveStorageTimeZone,
                                 options,
-                                legacyMapSubscript,
-                                systemMemoryContext.newOrcAggregatedMemoryContext());
+                                systemMemoryContext.newOrcAggregatedMemoryContext(),
+                                isLowMemory);
                         nestedReaders.put(fieldName, nestedReader);
                     }
                     else {
@@ -628,7 +628,7 @@ public class StructSelectiveStreamReader
     public void startStripe(Stripe stripe)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
 
         readOffset = 0;
         nestedReadOffset = 0;
@@ -663,10 +663,11 @@ public class StructSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(outputPositions) + sizeOf(nestedPositions) + sizeOf(nestedOutputPositions) + sizeOf(nulls) +
-                nestedReaders.values().stream()
-                        .mapToLong(SelectiveStreamReader::getRetainedSizeInBytes)
-                        .sum();
+        long size = INSTANCE_SIZE + sizeOf(outputPositions) + sizeOf(nestedPositions) + sizeOf(nestedOutputPositions) + sizeOf(nulls);
+        for (SelectiveStreamReader reader : nestedReaders.values()) {
+            size += reader.getRetainedSizeInBytes();
+        }
+        return size;
     }
 
     private static Optional<TupleDomainFilter> getTopLevelFilter(Map<Subfield, TupleDomainFilter> filters)

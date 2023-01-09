@@ -116,10 +116,10 @@ public class TestHiveSplitSource
         hiveSplitSource.addToQueue(new TestSplit(1, OptionalInt.empty(), fileSize));
 
         HiveSplit first = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
-        assertEquals(first.getLength(), halfOfSize);
+        assertEquals(first.getFileSplit().getLength(), halfOfSize);
 
         HiveSplit second = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
-        assertEquals(second.getLength(), fileSize.toBytes() - halfOfSize);
+        assertEquals(second.getFileSplit().getLength(), fileSize.toBytes() - halfOfSize);
     }
 
     @Test

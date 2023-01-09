@@ -80,9 +80,9 @@ public class LongOutputStreamDwrf
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(int column, int sequence)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), true));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, sequence, streamKind, toIntExact(buffer.getOutputDataSize()), true));
     }
 
     @Override

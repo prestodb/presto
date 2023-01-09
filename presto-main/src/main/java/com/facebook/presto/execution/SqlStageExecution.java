@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
@@ -22,7 +23,6 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
@@ -286,9 +286,6 @@ public final class SqlStageExecution
             return;
         }
 
-        if (getAllTasks().stream().anyMatch(task -> getState() == StageExecutionState.RUNNING)) {
-            stateMachine.transitionToRunning();
-        }
         if (finishedTasks.size() == allTasks.size()) {
             stateMachine.transitionToFinished();
         }
@@ -669,7 +666,8 @@ public final class SqlStageExecution
                 executionFailureInfo.getStack(),
                 executionFailureInfo.getErrorLocation(),
                 REMOTE_HOST_GONE.toErrorCode(),
-                executionFailureInfo.getRemoteHost());
+                executionFailureInfo.getRemoteHost(),
+                executionFailureInfo.getErrorCause());
     }
 
     @Override

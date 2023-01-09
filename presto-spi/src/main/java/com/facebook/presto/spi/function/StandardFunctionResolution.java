@@ -48,6 +48,8 @@ public interface StandardFunctionResolution
 
     boolean isComparisonFunction(FunctionHandle functionHandle);
 
+    boolean isEqualsFunction(FunctionHandle functionHandle);
+
     FunctionHandle betweenFunction(Type valueType, Type lowerBoundType, Type upperBoundType);
 
     boolean isBetweenFunction(FunctionHandle functionHandle);
@@ -71,4 +73,12 @@ public interface StandardFunctionResolution
     boolean isMinFunction(FunctionHandle functionHandle);
 
     FunctionHandle minFunction(Type valueType);
+
+    boolean isApproximateCountDistinctFunction(FunctionHandle functionHandle);
+
+    FunctionHandle approximateCountDistinctFunction(Type valueType);
+
+    boolean isApproximateSetFunction(FunctionHandle functionHandle);
+
+    FunctionHandle approximateSetFunction(Type valueType);
 }

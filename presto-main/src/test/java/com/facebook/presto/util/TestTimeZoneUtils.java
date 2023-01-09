@@ -67,6 +67,22 @@ public class TestTimeZoneUtils
                 continue;
             }
 
+            if (zoneId.equals("Pacific/Kanton")) {
+                // TODO: remove Once Joda version supports this Timezone.
+                // JDK supported this timezone, but not Joda and was resulting in the test failure.
+                // https://www.joda.org/joda-time/timezones.html
+                continue;
+            }
+
+            if (zoneId.equals("Europe/Kyiv")) {
+                // TODO: remove Once this recently renamed Timezone is supported.
+                // Europe/Kiev was renamed to Europe/Kyiv.
+                // https://www.oracle.com/java/technologies/tzdata-versions.html
+                // Likely need to wait for Joda to supported this renamed timezone.
+                // https://www.joda.org/joda-time/timezones.html
+                continue;
+            }
+
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
 

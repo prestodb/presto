@@ -26,9 +26,9 @@ import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.builder.HashAggregationBuilder;
 import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.Spiller;
@@ -73,6 +73,7 @@ import static com.facebook.presto.operator.OperatorAssertion.assertPagesEqualIgn
 import static com.facebook.presto.operator.OperatorAssertion.dropChannel;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -99,9 +100,9 @@ public class TestHashAggregationOperator
 {
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
-    private static final InternalAggregationFunction LONG_AVERAGE = getAggregation("avg", BIGINT);
-    private static final InternalAggregationFunction LONG_SUM = getAggregation("sum", BIGINT);
-    private static final InternalAggregationFunction COUNT = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(
+    private static final JavaAggregationFunctionImplementation LONG_AVERAGE = getAggregation("avg", BIGINT);
+    private static final JavaAggregationFunctionImplementation LONG_SUM = getAggregation("sum", BIGINT);
+    private static final JavaAggregationFunctionImplementation COUNT = FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(
             FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", ImmutableList.of()));
 
     private static final int MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
@@ -159,9 +160,9 @@ public class TestHashAggregationOperator
     {
         // make operator produce multiple pages during finish phase
         int numberOfRows = 40_000;
-        InternalAggregationFunction countVarcharColumn = getAggregation("count", VARCHAR);
-        InternalAggregationFunction countBooleanColumn = getAggregation("count", BOOLEAN);
-        InternalAggregationFunction maxVarcharColumn = getAggregation("max", VARCHAR);
+        JavaAggregationFunctionImplementation countVarcharColumn = getAggregation("count", VARCHAR);
+        JavaAggregationFunctionImplementation countBooleanColumn = getAggregation("count", BOOLEAN);
+        JavaAggregationFunctionImplementation maxVarcharColumn = getAggregation("max", VARCHAR);
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN);
         List<Page> input = rowPagesBuilder
@@ -176,14 +177,15 @@ public class TestHashAggregationOperator
                 ImmutableList.of(VARCHAR),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 false,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
-                        LONG_AVERAGE.bind(ImmutableList.of(3), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty()),
-                        countVarcharColumn.bind(ImmutableList.of(0), Optional.empty()),
-                        countBooleanColumn.bind(ImmutableList.of(4), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(LONG_SUM, ImmutableList.of(3), Optional.empty()),
+                        generateAccumulatorFactory(LONG_AVERAGE, ImmutableList.of(3), Optional.empty()),
+                        generateAccumulatorFactory(maxVarcharColumn, ImmutableList.of(2), Optional.empty()),
+                        generateAccumulatorFactory(countVarcharColumn, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(countBooleanColumn, ImmutableList.of(4), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
@@ -213,9 +215,9 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
     public void testHashAggregationWithGlobals(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
-        InternalAggregationFunction countVarcharColumn = getAggregation("count", VARCHAR);
-        InternalAggregationFunction countBooleanColumn = getAggregation("count", BOOLEAN);
-        InternalAggregationFunction maxVarcharColumn = getAggregation("max", VARCHAR);
+        JavaAggregationFunctionImplementation countVarcharColumn = getAggregation("count", VARCHAR);
+        JavaAggregationFunctionImplementation countBooleanColumn = getAggregation("count", BOOLEAN);
+        JavaAggregationFunctionImplementation maxVarcharColumn = getAggregation("max", VARCHAR);
 
         Optional<Integer> groupIdChannel = Optional.of(1);
         List<Integer> groupByChannels = Ints.asList(1, 2);
@@ -228,15 +230,16 @@ public class TestHashAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR, BIGINT),
                 groupByChannels,
+                ImmutableList.of(),
                 globalAggregationGroupIds,
                 Step.SINGLE,
                 true,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(4), Optional.empty()),
-                        LONG_AVERAGE.bind(ImmutableList.of(4), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty()),
-                        countVarcharColumn.bind(ImmutableList.of(0), Optional.empty()),
-                        countBooleanColumn.bind(ImmutableList.of(5), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(LONG_SUM, ImmutableList.of(4), Optional.empty()),
+                        generateAccumulatorFactory(LONG_AVERAGE, ImmutableList.of(4), Optional.empty()),
+                        generateAccumulatorFactory(maxVarcharColumn, ImmutableList.of(2), Optional.empty()),
+                        generateAccumulatorFactory(countVarcharColumn, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(countBooleanColumn, ImmutableList.of(5), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 groupIdChannel,
                 100_000,
@@ -260,7 +263,7 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
     public void testHashAggregationMemoryReservation(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
-        InternalAggregationFunction arrayAggColumn = getAggregation("array_agg", BIGINT);
+        JavaAggregationFunctionImplementation arrayAggColumn = getAggregation("array_agg", BIGINT);
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, BIGINT, BIGINT);
@@ -280,9 +283,10 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 true,
-                ImmutableList.of(arrayAggColumn.bind(ImmutableList.of(0), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(arrayAggColumn, ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
@@ -302,7 +306,7 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B.*")
     public void testMemoryLimit(boolean hashEnabled)
     {
-        InternalAggregationFunction maxVarcharColumn = getAggregation("max", VARCHAR);
+        JavaAggregationFunctionImplementation maxVarcharColumn = getAggregation("max", VARCHAR);
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, BIGINT, VARCHAR, BIGINT);
@@ -322,11 +326,12 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
-                        LONG_AVERAGE.bind(ImmutableList.of(3), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(LONG_SUM, ImmutableList.of(3), Optional.empty()),
+                        generateAccumulatorFactory(LONG_AVERAGE, ImmutableList.of(3), Optional.empty()),
+                        generateAccumulatorFactory(maxVarcharColumn, ImmutableList.of(2), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
@@ -360,9 +365,10 @@ public class TestHashAggregationOperator
                 ImmutableList.of(VARCHAR),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 false,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
@@ -387,8 +393,9 @@ public class TestHashAggregationOperator
                 ImmutableList.of(type),
                 ImmutableList.of(0),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty())),
                 Optional.of(1),
                 Optional.empty(),
                 1,
@@ -439,8 +446,9 @@ public class TestHashAggregationOperator
                 ImmutableList.of(VARCHAR),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
@@ -472,9 +480,10 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(LONG_AVERAGE, ImmutableList.of(1), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
@@ -504,8 +513,9 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.PARTIAL,
-                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
@@ -585,9 +595,10 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(0),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 false,
-                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 1,
@@ -612,7 +623,7 @@ public class TestHashAggregationOperator
     @Test
     public void testSpillerFailure()
     {
-        InternalAggregationFunction maxVarcharColumn = getAggregation("max", VARCHAR);
+        JavaAggregationFunctionImplementation maxVarcharColumn = getAggregation("max", VARCHAR);
 
         List<Integer> hashChannels = Ints.asList(1);
         ImmutableList<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);
@@ -636,12 +647,13 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 false,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
-                        LONG_AVERAGE.bind(ImmutableList.of(3), Optional.empty()),
-                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(0), Optional.empty()),
+                        generateAccumulatorFactory(LONG_SUM, ImmutableList.of(3), Optional.empty()),
+                        generateAccumulatorFactory(LONG_AVERAGE, ImmutableList.of(3), Optional.empty()),
+                        generateAccumulatorFactory(maxVarcharColumn, ImmutableList.of(2), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
@@ -679,9 +691,10 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(0),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
                 false,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(1), Optional.of(2))),
+                ImmutableList.of(generateAccumulatorFactory(COUNT, ImmutableList.of(1), Optional.of(2))),
                 Optional.empty(),
                 Optional.empty(),
                 1,
@@ -723,8 +736,9 @@ public class TestHashAggregationOperator
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Step.SINGLE,
-                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
+                ImmutableList.of(generateAccumulatorFactory(LONG_SUM, ImmutableList.of(0), Optional.empty())),
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
@@ -779,9 +793,9 @@ public class TestHashAggregationOperator
         return ((InMemoryHashAggregationBuilder) aggregationBuilder).getCapacity();
     }
 
-    private static InternalAggregationFunction getAggregation(String name, Type... arguments)
+    private static JavaAggregationFunctionImplementation getAggregation(String name, Type... arguments)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(name, fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(name, fromTypes(arguments)));
     }
 
     private static class FailingSpillerFactory

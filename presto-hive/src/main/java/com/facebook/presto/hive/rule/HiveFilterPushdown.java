@@ -37,12 +37,14 @@ import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -53,7 +55,6 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -61,7 +62,6 @@ import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
@@ -76,8 +76,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.expressions.DynamicFilters.extractDynamicConjuncts;
-import static com.facebook.presto.expressions.DynamicFilters.extractStaticConjuncts;
+import static com.facebook.presto.expressions.DynamicFilters.isDynamicFilter;
 import static com.facebook.presto.expressions.DynamicFilters.removeNestedDynamicFilters;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -86,9 +85,12 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.extractConju
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetPushdownFilterEnabled;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
+import static com.facebook.presto.hive.HiveWarningCode.HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
+import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -101,6 +103,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -146,7 +149,25 @@ public class HiveFilterPushdown
     @Override
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return maxSubplan.accept(new Visitor(session, idAllocator), null);
+        return rewriteWith(new Rewriter(session, idAllocator), maxSubplan);
+    }
+
+    /**
+     * If this method returns true, the expression will not be pushed inside the TableScan node.
+     * This is exposed for dynamic or computed column functionality support.
+     * Consider the following case:
+     * Read a base row from the file. Modify the row to add a new column or update an existing column
+     * all inside the TableScan. If filters are pushed down inside the TableScan, it would try to apply
+     * it on base row. In these cases, override this method and return true. This will prevent the
+     * expression from being pushed into the TableScan but will wrap the TableScanNode in a FilterNode.
+     * @param expression expression to be evaluated.
+     * @param tableHandle tableHandler where the expression to be evaluated.
+     * @param columnHandleMap column name to column handle Map for all columns in the table.
+     * @return true, if this expression should not be pushed inside the table scan, else false.
+     */
+    protected boolean useDynamicFilter(RowExpression expression, ConnectorTableHandle tableHandle, Map<String, ColumnHandle> columnHandleMap)
+    {
+        return false;
     }
 
     protected ConnectorPushdownFilterResult pushdownFilter(
@@ -160,24 +181,15 @@ public class HiveFilterPushdown
                 session,
                 metadata,
                 metadata.getMetastore(),
-                rowExpressionService,
-                functionResolution,
-                partitionManager,
-                functionMetadataManager,
                 tableHandle,
                 filter,
                 currentLayoutHandle);
     }
 
-    @VisibleForTesting
-    public static ConnectorPushdownFilterResult pushdownFilter(
+    public ConnectorPushdownFilterResult pushdownFilter(
             ConnectorSession session,
             ConnectorMetadata metadata,
             SemiTransactionalHiveMetastore metastore,
-            RowExpressionService rowExpressionService,
-            StandardFunctionResolution functionResolution,
-            HivePartitionManager partitionManager,
-            FunctionMetadataManager functionMetadataManager,
             ConnectorTableHandle tableHandle,
             RowExpression filter,
             Optional<ConnectorTableLayoutHandle> currentLayoutHandle)
@@ -248,7 +260,7 @@ public class HiveFilterPushdown
                 .forEach(predicateColumnNames::add);
         // Include only columns referenced in the optimized expression. Although the expression is sent to the worker node
         // unoptimized, the worker is expected to optimize the expression before executing.
-        extractAll(optimizedRemainingExpression).stream()
+        extractVariableExpressions(optimizedRemainingExpression).stream()
                 .map(VariableReferenceExpression::getName)
                 .forEach(predicateColumnNames::add);
 
@@ -257,44 +269,63 @@ public class HiveFilterPushdown
                 .map(HiveColumnHandle.class::cast)
                 .collect(toImmutableMap(HiveColumnHandle::getName, Functions.identity()));
 
-        SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
 
         LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(rowExpressionService.getDeterminismEvaluator(), functionResolution, functionMetadataManager);
         List<RowExpression> conjuncts = extractConjuncts(decomposedFilter.getRemainingExpression());
-        RowExpression dynamicFilterExpression = extractDynamicConjuncts(conjuncts, logicalRowExpressions);
-        RowExpression remainingExpression = extractStaticConjuncts(conjuncts, logicalRowExpressions);
+        ImmutableList.Builder<RowExpression> dynamicConjuncts = ImmutableList.builder();
+        ImmutableList.Builder<RowExpression> staticConjuncts = ImmutableList.builder();
+        for (RowExpression conjunct : conjuncts) {
+            if (isDynamicFilter(conjunct) || useDynamicFilter(conjunct, tableHandle, columnHandles)) {
+                dynamicConjuncts.add(conjunct);
+            }
+            else {
+                staticConjuncts.add(conjunct);
+            }
+        }
+        RowExpression dynamicFilterExpression = logicalRowExpressions.combineConjuncts(dynamicConjuncts.build());
+        RowExpression remainingExpression = logicalRowExpressions.combineConjuncts(staticConjuncts.build());
         remainingExpression = removeNestedDynamicFilters(remainingExpression);
 
-        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), tableName.getSchemaName(), tableName.getTableName())
+        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider());
+        Table table = metastore.getTable(context, hiveTableHandle)
                 .orElseThrow(() -> new TableNotFoundException(tableName));
+        String layoutString = createTableLayoutString(
+                session,
+                rowExpressionService,
+                tableName,
+                hivePartitionResult.getBucketHandle(),
+                hivePartitionResult.getBucketFilter(),
+                remainingExpression,
+                domainPredicate);
+
+        Optional<Set<HiveColumnHandle>> requestedColumns = currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty());
+
+        boolean appendRowNumbereEnabled = currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).isAppendRowNumberEnabled()).orElse(false);
         return new ConnectorPushdownFilterResult(
                 metadata.getTableLayout(
                         session,
-                        new HiveTableLayoutHandle(
-                                tableName,
-                                table.getStorage().getLocation(),
-                                hivePartitionResult.getPartitionColumns(),
-                                // remove comments to optimize serialization costs
-                                pruneColumnComments(hivePartitionResult.getDataColumns()),
-                                hivePartitionResult.getTableParameters(),
-                                hivePartitionResult.getPartitions(),
-                                domainPredicate,
-                                remainingExpression,
-                                predicateColumns,
-                                hivePartitionResult.getEnforcedConstraint(),
-                                hivePartitionResult.getBucketHandle(),
-                                hivePartitionResult.getBucketFilter(),
-                                true,
-                                createTableLayoutString(
-                                        session,
-                                        rowExpressionService,
-                                        tableName,
-                                        hivePartitionResult.getBucketHandle(),
-                                        hivePartitionResult.getBucketFilter(),
-                                        remainingExpression,
-                                        domainPredicate),
-                                currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty()),
-                                false)),
+                        new HiveTableLayoutHandle.Builder()
+                                .setSchemaTableName(tableName)
+                                .setTablePath(table.getStorage().getLocation())
+                                .setPartitionColumns(hivePartitionResult.getPartitionColumns())
+                                .setDataColumns(pruneColumnComments(hivePartitionResult.getDataColumns()))
+                                .setTableParameters(hivePartitionResult.getTableParameters())
+                                .setDomainPredicate(domainPredicate)
+                                .setRemainingPredicate(remainingExpression)
+                                .setPredicateColumns(predicateColumns)
+                                .setPartitionColumnPredicate(hivePartitionResult.getEnforcedConstraint())
+                                .setPartitions(hivePartitionResult.getPartitions())
+                                .setBucketHandle(hivePartitionResult.getBucketHandle())
+                                .setBucketFilter(hivePartitionResult.getBucketFilter())
+                                .setPushdownFilterEnabled(true)
+                                .setLayoutString(layoutString)
+                                .setRequestedColumns(requestedColumns)
+                                .setPartialAggregationsPushedDown(false)
+                                .setAppendRowNumberEnabled(appendRowNumbereEnabled)
+                                .setHiveTableHandle(hiveTableHandle)
+                                .build()),
                 dynamicFilterExpression);
     }
 
@@ -320,39 +351,20 @@ public class HiveFilterPushdown
         }
     }
 
-    private class Visitor
-            extends PlanVisitor<PlanNode, Void>
+    private class Rewriter
+            extends ConnectorPlanRewriter<Void>
     {
         private final ConnectorSession session;
         private final PlanNodeIdAllocator idAllocator;
 
-        Visitor(ConnectorSession session, PlanNodeIdAllocator idAllocator)
+        Rewriter(ConnectorSession session, PlanNodeIdAllocator idAllocator)
         {
             this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         }
 
         @Override
-        public PlanNode visitPlan(PlanNode node, Void context)
-        {
-            ImmutableList.Builder<PlanNode> children = ImmutableList.builder();
-            boolean changed = false;
-            for (PlanNode child : node.getSources()) {
-                PlanNode newChild = child.accept(this, null);
-                if (newChild != child) {
-                    changed = true;
-                }
-                children.add(newChild);
-            }
-
-            if (!changed) {
-                return node;
-            }
-            return node.replaceChildren(children.build());
-        }
-
-        @Override
-        public PlanNode visitFilter(FilterNode filter, Void context)
+        public PlanNode visitFilter(FilterNode filter, RewriteContext<Void> context)
         {
             if (!(filter.getSource() instanceof TableScanNode)) {
                 return visitPlan(filter, context);
@@ -375,7 +387,8 @@ public class HiveFilterPushdown
             RowExpression replacedExpression = replaceExpression(expression, symbolToColumnMapping);
             // replaceExpression() may further optimize the expression; if the resulting expression is always false, then return empty Values node
             if (FALSE_CONSTANT.equals(replacedExpression)) {
-                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                session.getWarningCollector().add((new PrestoWarning(HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE, format("Table '%s' returns 0 rows, and is converted to an empty %s by %s", tableScan.getTable().getConnectorHandle(), ValuesNode.class.getSimpleName(), HiveFilterPushdown.class.getSimpleName()))));
+                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of(), Optional.of(tableScan.getTable().getConnectorHandle().toString()));
             }
             ConnectorPushdownFilterResult pushdownFilterResult = pushdownFilter(
                     session,
@@ -386,7 +399,8 @@ public class HiveFilterPushdown
 
             ConnectorTableLayout layout = pushdownFilterResult.getLayout();
             if (layout.getPredicate().isNone()) {
-                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                session.getWarningCollector().add((new PrestoWarning(HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE, format("Table '%s' returns 0 rows, and is converted to an empty %s by %s", tableScan.getTable().getConnectorHandle(), ValuesNode.class.getSimpleName(), HiveFilterPushdown.class.getSimpleName()))));
+                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of(), Optional.of(tableScan.getTable().getConnectorHandle().toString()));
             }
 
             TableScanNode node = new TableScanNode(
@@ -395,6 +409,7 @@ public class HiveFilterPushdown
                     new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle())),
                     tableScan.getOutputVariables(),
                     tableScan.getAssignments(),
+                    tableScan.getTableConstraints(),
                     layout.getPredicate(),
                     TupleDomain.all());
 
@@ -407,7 +422,7 @@ public class HiveFilterPushdown
         }
 
         @Override
-        public PlanNode visitTableScan(TableScanNode tableScan, Void context)
+        public PlanNode visitTableScan(TableScanNode tableScan, RewriteContext<Void> context)
         {
             if (!isPushdownFilterSupported(session, tableScan.getTable())) {
                 return tableScan;
@@ -421,17 +436,25 @@ public class HiveFilterPushdown
                     TRUE_CONSTANT,
                     handle.getLayout());
             if (pushdownFilterResult.getLayout().getPredicate().isNone()) {
-                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                session.getWarningCollector().add(new PrestoWarning(HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE, format("Table '%s' returns 0 rows, and is converted to an empty %s by %s", tableScan.getTable().getConnectorHandle(), ValuesNode.class.getSimpleName(), HiveFilterPushdown.class.getSimpleName())));
+                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of(), Optional.of(tableScan.getTable().getConnectorHandle().toString()));
             }
 
-            return new TableScanNode(
+            TableScanNode node = new TableScanNode(
                     tableScan.getSourceLocation(),
                     tableScan.getId(),
                     new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle())),
                     tableScan.getOutputVariables(),
                     tableScan.getAssignments(),
+                    tableScan.getTableConstraints(),
                     pushdownFilterResult.getLayout().getPredicate(),
                     TupleDomain.all());
+
+            RowExpression unenforcedFilter = pushdownFilterResult.getUnenforcedConstraint();
+            if (!TRUE_CONSTANT.equals(unenforcedFilter)) {
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Unenforced filter found %s but not handled", unenforcedFilter));
+            }
+            return node;
         }
     }
 
@@ -450,7 +473,7 @@ public class HiveFilterPushdown
             this.session = session;
             this.expression = expression;
 
-            arguments = ImmutableSet.copyOf(extractAll(expression)).stream()
+            arguments = ImmutableSet.copyOf(extractVariableExpressions(expression)).stream()
                     .map(VariableReferenceExpression::getName)
                     .map(assignments::get)
                     .collect(toImmutableSet());
@@ -515,7 +538,7 @@ public class HiveFilterPushdown
         return metadata.getColumnMetadata(session, tableHandle, columnHandle).getName();
     }
 
-    private boolean isPushdownFilterSupported(ConnectorSession session, TableHandle tableHandle)
+    protected boolean isPushdownFilterSupported(ConnectorSession session, TableHandle tableHandle)
     {
         checkArgument(tableHandle.getConnectorHandle() instanceof HiveTableHandle, "pushdownFilter is never supported on a non-hive TableHandle");
         if (((HiveTableHandle) tableHandle.getConnectorHandle()).getAnalyzePartitionValues().isPresent()) {
@@ -577,7 +600,7 @@ public class HiveFilterPushdown
                 .toString();
     }
 
-    private static Set<VariableReferenceExpression> extractAll(RowExpression expression)
+    public static Set<VariableReferenceExpression> extractVariableExpressions(RowExpression expression)
     {
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
         expression.accept(new VariableReferenceBuilderVisitor(), builder);

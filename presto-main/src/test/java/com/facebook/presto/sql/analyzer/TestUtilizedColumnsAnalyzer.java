@@ -70,7 +70,7 @@ public class TestUtilizedColumnsAnalyzer
         assertUtilizedTableColumns("SELECT x FROM (SELECT *, a as x FROM t1)",
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a")));
 
-        // Test alias expression wih multiple columns referenced in alias
+        // Test alias expression with multiple columns referenced in alias
         assertUtilizedTableColumns("SELECT x FROM (SELECT *, a + b as x FROM t1)",
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "b")));
 
@@ -485,6 +485,14 @@ public class TestUtilizedColumnsAnalyzer
         // Row constructor
         assertUtilizedTableColumns("SELECT * FROM (SELECT ROW(a, b) FROM t1)",
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "b")));
+    }
+
+    @Test
+    public void testDereference()
+    {
+        assertUtilizedTableColumns(
+                "SELECT b.x.y FROM t10",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t10"), ImmutableSet.of("b")));
     }
 
     @Test

@@ -26,13 +26,18 @@ public class RuntimeMetricName
 
     public static final String DRIVER_COUNT_PER_TASK = "driverCountPerTask";
     public static final String TASK_ELAPSED_TIME_NANOS = "taskElapsedTimeNanos";
-    public static final String OPTIMIZED_WITH_MATERIALIZED_VIEW = "optimizedWithMaterializedView";
+    public static final String OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT = "optimizedWithMaterializedViewCount";
+    public static final String OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT = "optimizedWithMaterializedViewSubqueryCount";
+    public static final String MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT = "manyPartitionsMissingInMaterializedViewCount";
+    public static final String SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT = "skipReadingFromMaterializedViewCount";
     public static final String FRAGMENT_RESULT_CACHE_HIT = "fragmentResultCacheHitCount";
     public static final String FRAGMENT_RESULT_CACHE_MISS = "fragmentResultCacheMissCount";
     public static final String GET_VIEW_TIME_NANOS = "getViewTimeNanos";
     public static final String GET_MATERIALIZED_VIEW_TIME_NANOS = "getMaterializedViewTimeNanos";
+    public static final String GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS = "getMaterializedViewStatusTimeNanos";
     public static final String GET_TABLE_HANDLE_TIME_NANOS = "getTableHandleTimeNanos";
     public static final String GET_TABLE_METADATA_TIME_NANOS = "getTableMetadataTimeNanos";
+    public static final String GET_COLUMN_METADATA_TIME_NANOS = "getColumnMetadataTimeNanos";
     public static final String GET_SPLITS_TIME_NANOS = "getSplitsTimeNanos";
     public static final String LOGICAL_PLANNER_TIME_NANOS = "logicalPlannerTimeNanos";
     public static final String FRAGMENT_PLAN_TIME_NANOS = "fragmentPlanTimeNanos";
@@ -44,4 +49,8 @@ public class RuntimeMetricName
     public static final String TASK_SCHEDULED_TIME_NANOS = "taskScheduledTimeNanos";
     // Blocked time for the operators due to waiting for inputs.
     public static final String TASK_BLOCKED_TIME_NANOS = "taskBlockedTimeNanos";
+    // Time taken for a read call to storage
+    public static final String STORAGE_READ_TIME_NANOS = "storageReadTimeNanos";
+    // Size of the data retrieved by read call to storage
+    public static final String STORAGE_READ_DATA_BYTES = "storageReadDataBytes";
 }

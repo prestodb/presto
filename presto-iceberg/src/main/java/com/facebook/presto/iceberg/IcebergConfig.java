@@ -20,25 +20,27 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.FileFormat;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
 
 import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
-import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.PARQUET;
 
 public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionCodec compressionCodec = GZIP;
-    private boolean nativeMode;
-    private CatalogType catalogType = HADOOP;
+    private CatalogType catalogType = HIVE;
     private String catalogWarehouse;
-    private String catalogUri;
     private int catalogCacheSize = 10;
+    private int maxPartitionsPerWriter = 100;
     private List<String> hadoopConfigResources = ImmutableList.of();
+    private double minimumAssignedSplitWeight = 0.05;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -63,19 +65,6 @@ public class IcebergConfig
     public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
-        return this;
-    }
-
-    public boolean isNativeMode()
-    {
-        return nativeMode;
-    }
-
-    @Config("iceberg.native-mode")
-    @ConfigDescription("if use Iceberg connector native catalog mode")
-    public IcebergConfig setNativeMode(boolean nativeMode)
-    {
-        this.nativeMode = nativeMode;
         return this;
     }
 
@@ -106,19 +95,6 @@ public class IcebergConfig
         return this;
     }
 
-    public String getCatalogUri()
-    {
-        return catalogUri;
-    }
-
-    @Config("iceberg.catalog.uri")
-    @ConfigDescription("Iceberg catalog connection URI")
-    public IcebergConfig setCatalogUri(String catalogUri)
-    {
-        this.catalogUri = catalogUri;
-        return this;
-    }
-
     @Min(1)
     public int getCatalogCacheSize()
     {
@@ -146,5 +122,34 @@ public class IcebergConfig
             this.hadoopConfigResources = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
         }
         return this;
+    }
+
+    @Min(1)
+    public int getMaxPartitionsPerWriter()
+    {
+        return maxPartitionsPerWriter;
+    }
+
+    @Config("iceberg.max-partitions-per-writer")
+    @ConfigDescription("Maximum number of partitions per writer")
+    public IcebergConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
+    {
+        this.maxPartitionsPerWriter = maxPartitionsPerWriter;
+        return this;
+    }
+
+    @Config("iceberg.minimum-assigned-split-weight")
+    @ConfigDescription("Minimum weight that a split can be assigned")
+    public IcebergConfig setMinimumAssignedSplitWeight(double minimumAssignedSplitWeight)
+    {
+        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        return this;
+    }
+
+    @DecimalMax("1")
+    @DecimalMin(value = "0", inclusive = false)
+    public double getMinimumAssignedSplitWeight()
+    {
+        return minimumAssignedSplitWeight;
     }
 }

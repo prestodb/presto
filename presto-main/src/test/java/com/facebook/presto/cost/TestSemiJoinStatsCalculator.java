@@ -214,7 +214,7 @@ public class TestSemiJoinStatsCalculator
                 .variableStats(z, stats -> stats.isEqualTo(zStats))
                 .outputRowsCount(inputStatistics.getOutputRowCount() * uStats.getValuesFraction() * (1 - xStats.getDistinctValuesCount() / uStats.getDistinctValuesCount()));
 
-        // overlapping ranges, everything filtered out (but we leave 0.5 due to safety coeeficient)
+        // overlapping ranges, everything filtered out (but we leave 0.5 due to safety coefficient)
         assertThat(computeAntiJoin(inputStatistics, inputStatistics, x, u))
                 .variableStats(x, stats -> stats
                         .lowValue(xStats.getLowValue())

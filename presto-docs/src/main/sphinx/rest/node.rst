@@ -57,7 +57,7 @@ Node Resource
 
 
          HTTP/1.1 200 OK
-	 Vry: Accept
+	 Vary: Accept
 	 Content-Type: text/javascript
 
 	 [

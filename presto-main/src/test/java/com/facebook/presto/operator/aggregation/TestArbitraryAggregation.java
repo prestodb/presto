@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -57,7 +58,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullBoolean()
     {
-        InternalAggregationFunction booleanAgg = getAggregation(BOOLEAN);
+        JavaAggregationFunctionImplementation booleanAgg = getAggregation(BOOLEAN);
         assertAggregation(
                 booleanAgg,
                 null,
@@ -67,7 +68,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidBoolean()
     {
-        InternalAggregationFunction booleanAgg = getAggregation(BOOLEAN);
+        JavaAggregationFunctionImplementation booleanAgg = getAggregation(BOOLEAN);
         assertAggregation(
                 booleanAgg,
                 true,
@@ -77,7 +78,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullLong()
     {
-        InternalAggregationFunction longAgg = getAggregation(BIGINT);
+        JavaAggregationFunctionImplementation longAgg = getAggregation(BIGINT);
         assertAggregation(
                 longAgg,
                 null,
@@ -87,7 +88,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidLong()
     {
-        InternalAggregationFunction longAgg = getAggregation(BIGINT);
+        JavaAggregationFunctionImplementation longAgg = getAggregation(BIGINT);
         assertAggregation(
                 longAgg,
                 1L,
@@ -97,7 +98,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullDouble()
     {
-        InternalAggregationFunction doubleAgg = getAggregation(DOUBLE);
+        JavaAggregationFunctionImplementation doubleAgg = getAggregation(DOUBLE);
         assertAggregation(
                 doubleAgg,
                 null,
@@ -107,7 +108,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidDouble()
     {
-        InternalAggregationFunction doubleAgg = getAggregation(DOUBLE);
+        JavaAggregationFunctionImplementation doubleAgg = getAggregation(DOUBLE);
         assertAggregation(
                 doubleAgg,
                 2.0,
@@ -117,7 +118,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullString()
     {
-        InternalAggregationFunction stringAgg = getAggregation(VARCHAR);
+        JavaAggregationFunctionImplementation stringAgg = getAggregation(VARCHAR);
         assertAggregation(
                 stringAgg,
                 null,
@@ -127,7 +128,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidString()
     {
-        InternalAggregationFunction stringAgg = getAggregation(VARCHAR);
+        JavaAggregationFunctionImplementation stringAgg = getAggregation(VARCHAR);
         assertAggregation(
                 stringAgg,
                 "a",
@@ -137,7 +138,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullArray()
     {
-        InternalAggregationFunction arrayAgg = getAggregation(new ArrayType(BIGINT));
+        JavaAggregationFunctionImplementation arrayAgg = getAggregation(new ArrayType(BIGINT));
         assertAggregation(
                 arrayAgg,
                 null,
@@ -147,7 +148,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidArray()
     {
-        InternalAggregationFunction arrayAgg = getAggregation(new ArrayType(BIGINT));
+        JavaAggregationFunctionImplementation arrayAgg = getAggregation(new ArrayType(BIGINT));
         assertAggregation(
                 arrayAgg,
                 ImmutableList.of(23L, 45L),
@@ -157,15 +158,15 @@ public class TestArbitraryAggregation
     @Test
     public void testValidInt()
     {
-        InternalAggregationFunction intAgg = getAggregation(INTEGER);
+        JavaAggregationFunctionImplementation intAgg = getAggregation(INTEGER);
         assertAggregation(
                 intAgg,
                 3,
                 createIntsBlock(3, 3, null));
     }
 
-    private static InternalAggregationFunction getAggregation(Type... arguments)
+    private static JavaAggregationFunctionImplementation getAggregation(Type... arguments)
     {
-        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("arbitrary", fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("arbitrary", fromTypes(arguments)));
     }
 }

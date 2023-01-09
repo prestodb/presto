@@ -71,14 +71,15 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 
@@ -90,20 +91,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
-import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
-import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
+import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
-import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static com.facebook.presto.iceberg.IcebergOrcColumn.ROOT_COLUMN_ID;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
@@ -112,6 +111,8 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcMaxMerg
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcTinyStripeThreshold;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetMaxReadBlockSize;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getReadNullMaskedParquetEncryptedValue;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
@@ -122,18 +123,20 @@ import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
+import static com.facebook.presto.parquet.cache.MetadataReader.findFirstNonHiddenColumnId;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
+import static com.facebook.presto.parquet.reader.ColumnIndexFilterUtils.getColumnIndexStore;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class IcebergPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -165,151 +168,44 @@ public class IcebergPageSourceProvider
         this.hiveClientConfig = requireNonNull(hiveClientConfig, "hiveClientConfig is null");
     }
 
-    @Override
-    public ConnectorPageSource createPageSource(
-            ConnectorTransactionHandle transaction,
-            ConnectorSession session,
-            ConnectorSplit connectorSplit,
-            ConnectorTableLayoutHandle layout,
-            List<ColumnHandle> columns,
-            SplitContext splitContext)
-    {
-        IcebergSplit split = (IcebergSplit) connectorSplit;
-        IcebergTableLayoutHandle icebergLayout = (IcebergTableLayoutHandle) layout;
-        IcebergTableHandle table = icebergLayout.getTable();
-
-        List<IcebergColumnHandle> icebergColumns = columns.stream()
-                .map(IcebergColumnHandle.class::cast)
-                .collect(toImmutableList());
-
-        Map<Integer, String> partitionKeys = split.getPartitionKeys();
-
-        List<IcebergColumnHandle> regularColumns = columns.stream()
-                .map(IcebergColumnHandle.class::cast)
-                .filter(column -> !partitionKeys.containsKey(column.getId()))
-                .collect(toImmutableList());
-
-        // TODO: pushdownFilter for icebergLayout
-        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
-        ConnectorPageSource dataPageSource = createDataPageSource(
-                session,
-                hdfsContext,
-                new Path(split.getPath()),
-                split.getStart(),
-                split.getLength(),
-                split.getFileFormat(),
-                table.getSchemaTableName(),
-                regularColumns,
-                table.getPredicate(),
-                splitContext.isCacheable());
-
-        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getSqlFunctionProperties().getTimeZoneKey());
-    }
-
-    private ConnectorPageSource createDataPageSource(
-            ConnectorSession session,
-            HdfsContext hdfsContext,
-            Path path,
-            long start,
-            long length,
-            FileFormat fileFormat,
-            SchemaTableName tableName,
-            List<IcebergColumnHandle> dataColumns,
-            TupleDomain<IcebergColumnHandle> predicate,
-            boolean isCacheable)
-    {
-        switch (fileFormat) {
-            case PARQUET:
-                return createParquetPageSource(
-                        hdfsEnvironment,
-                        session.getUser(),
-                        hdfsEnvironment.getConfiguration(hdfsContext, path),
-                        path,
-                        start,
-                        length,
-                        tableName,
-                        dataColumns,
-                        isUseParquetColumnNames(session),
-                        isFailOnCorruptedParquetStatistics(session),
-                        getParquetMaxReadBlockSize(session),
-                        isParquetBatchReadsEnabled(session),
-                        isParquetBatchReaderVerificationEnabled(session),
-                        predicate,
-                        fileFormatDataSourceStats);
-            case ORC:
-                FileStatus fileStatus = null;
-                try {
-                    fileStatus = hdfsEnvironment.doAs(session.getUser(), () -> hdfsEnvironment.getFileSystem(hdfsContext, path).getFileStatus(path));
-                }
-                catch (IOException e) {
-                    throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
-                }
-                long fileSize = fileStatus.getLen();
-                OrcReaderOptions readerOptions = new OrcReaderOptions(
-                        getOrcMaxMergeDistance(session),
-                        getOrcTinyStripeThreshold(session),
-                        getOrcMaxReadBlockSize(session),
-                        isOrcZstdJniDecompressionEnabled(session));
-
-                // TODO: Implement EncryptionInformation in IcebergSplit instead of Optional.empty()
-                return createBatchOrcPageSource(
-                        hdfsEnvironment,
-                        session.getUser(),
-                        hdfsEnvironment.getConfiguration(hdfsContext, path),
-                        path,
-                        start,
-                        length,
-                        fileSize,
-                        isCacheable,
-                        dataColumns,
-                        typeManager,
-                        predicate,
-                        readerOptions,
-                        ORC,
-                        getOrcMaxBufferSize(session),
-                        getOrcStreamBufferSize(session),
-                        getOrcLazyReadSmallRanges(session),
-                        isOrcBloomFiltersEnabled(session),
-                        hiveClientConfig.getDomainCompactionThreshold(),
-                        orcFileTailSource,
-                        stripeMetadataSourceFactory,
-                        fileFormatDataSourceStats,
-                        Optional.empty(),
-                        dwrfEncryptionProvider);
-        }
-        throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
-    }
-
     private static ConnectorPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
-            String user,
+            ConnectorSession session,
             Configuration configuration,
             Path path,
             long start,
             long length,
             SchemaTableName tableName,
             List<IcebergColumnHandle> regularColumns,
-            boolean useParquetColumnNames,
-            boolean failOnCorruptedParquetStatistics,
-            DataSize maxReadBlockSize,
-            boolean batchReaderEnabled,
-            boolean verificationEnabled,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
+        String user = session.getUser();
+        boolean readMaskedValue = getReadNullMaskedParquetEncryptedValue(session);
+
         ParquetDataSource dataSource = null;
         try {
-            ExtendedFileSystem filesystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            FileStatus fileStatus = filesystem.getFileStatus(path);
+            ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
+            FileStatus fileStatus = fileSystem.getFileStatus(path);
             long fileSize = fileStatus.getLen();
             long modificationTime = fileStatus.getModificationTime();
-            HiveFileContext hiveFileContext = new HiveFileContext(true, NO_CACHE_CONSTRAINTS,
-                    Optional.empty(), Optional.of(fileSize), modificationTime, false);
-            FSDataInputStream inputStream = filesystem.openFile(path, hiveFileContext);
-            dataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, fileSize).getParquetMetadata();
+            HiveFileContext hiveFileContext = new HiveFileContext(
+                    true,
+                    NO_CACHE_CONSTRAINTS,
+                    Optional.empty(),
+                    OptionalLong.of(fileSize),
+                    OptionalLong.of(start),
+                    OptionalLong.of(length),
+                    modificationTime,
+                    false);
+            FSDataInputStream inputStream = fileSystem.openFile(path, hiveFileContext);
+            // Lambda expression below requires final variable, so we define a new variable parquetDataSource.
+            final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
+            dataSource = parquetDataSource;
+            Optional<InternalFileDecryptor> fileDecryptor = createDecryptor(configuration, path);
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor, readMaskedValue).getParquetMetadata());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
@@ -333,13 +229,19 @@ public class IcebergPageSourceProvider
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
-
+            final ParquetDataSource finalDataSource = dataSource;
             List<BlockMetaData> blocks = new ArrayList<>();
+            List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
-                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
-                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics)) {
-                    blocks.add(block);
+                Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
+                if (firstIndex.isPresent()) {
+                    long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
+                    Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, false);
+                    if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
+                            predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, false, Optional.of(session.getWarningCollector()))) {
+                        blocks.add(block);
+                        blockIndexStores.add(columnIndexStore.orElse(null));
+                    }
                 }
             }
 
@@ -347,11 +249,16 @@ public class IcebergPageSourceProvider
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks,
+                    Optional.empty(),
                     dataSource,
                     systemMemoryContext,
-                    maxReadBlockSize,
-                    batchReaderEnabled,
-                    verificationEnabled);
+                    getParquetMaxReadBlockSize(session),
+                    isParquetBatchReadsEnabled(session),
+                    isParquetBatchReaderVerificationEnabled(session),
+                    parquetPredicate,
+                    blockIndexStores,
+                    false,
+                    fileDecryptor);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
@@ -426,7 +333,6 @@ public class IcebergPageSourceProvider
             Path path,
             long start,
             long length,
-            long fileSize,
             boolean isCacheable,
             List<IcebergColumnHandle> regularColumns,
             TypeManager typeManager,
@@ -446,8 +352,20 @@ public class IcebergPageSourceProvider
     {
         OrcDataSource orcDataSource = null;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
+            ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
+            FileStatus fileStatus = fileSystem.getFileStatus(path);
+            long fileSize = fileStatus.getLen();
+            long modificationTime = fileStatus.getModificationTime();
+            HiveFileContext hiveFileContext = new HiveFileContext(
+                    true,
+                    NO_CACHE_CONSTRAINTS,
+                    Optional.empty(),
+                    OptionalLong.of(fileSize),
+                    OptionalLong.of(start),
+                    OptionalLong.of(length),
+                    modificationTime,
+                    false);
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.openFile(path, hiveFileContext));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,
@@ -663,5 +581,107 @@ public class IcebergPageSourceProvider
                     .collect(toImmutableList());
         }
         return columnAttributes;
+    }
+
+    @Override
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit connectorSplit,
+            ConnectorTableLayoutHandle layout,
+            List<ColumnHandle> columns,
+            SplitContext splitContext)
+    {
+        IcebergSplit split = (IcebergSplit) connectorSplit;
+        IcebergTableLayoutHandle icebergLayout = (IcebergTableLayoutHandle) layout;
+        IcebergTableHandle table = icebergLayout.getTable();
+
+        List<IcebergColumnHandle> icebergColumns = columns.stream()
+                .map(IcebergColumnHandle.class::cast)
+                .collect(toImmutableList());
+
+        Map<Integer, String> partitionKeys = split.getPartitionKeys();
+
+        List<IcebergColumnHandle> regularColumns = columns.stream()
+                .map(IcebergColumnHandle.class::cast)
+                .filter(column -> !partitionKeys.containsKey(column.getId()))
+                .collect(toImmutableList());
+
+        // TODO: pushdownFilter for icebergLayout
+        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+        ConnectorPageSource dataPageSource = createDataPageSource(
+                session,
+                hdfsContext,
+                new Path(split.getPath()),
+                split.getStart(),
+                split.getLength(),
+                split.getFileFormat(),
+                table.getSchemaTableName(),
+                regularColumns,
+                table.getPredicate(),
+                splitContext.isCacheable());
+
+        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getSqlFunctionProperties().getTimeZoneKey());
+    }
+
+    private ConnectorPageSource createDataPageSource(
+            ConnectorSession session,
+            HdfsContext hdfsContext,
+            Path path,
+            long start,
+            long length,
+            FileFormat fileFormat,
+            SchemaTableName tableName,
+            List<IcebergColumnHandle> dataColumns,
+            TupleDomain<IcebergColumnHandle> predicate,
+            boolean isCacheable)
+    {
+        switch (fileFormat) {
+            case PARQUET:
+                return createParquetPageSource(
+                        hdfsEnvironment,
+                        session,
+                        hdfsEnvironment.getConfiguration(hdfsContext, path),
+                        path,
+                        start,
+                        length,
+                        tableName,
+                        dataColumns,
+                        predicate,
+                        fileFormatDataSourceStats);
+            case ORC:
+                OrcReaderOptions readerOptions = OrcReaderOptions.builder()
+                        .withMaxMergeDistance(getOrcMaxMergeDistance(session))
+                        .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
+                        .withMaxBlockSize(getOrcMaxReadBlockSize(session))
+                        .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
+                        .build();
+
+                // TODO: Implement EncryptionInformation in IcebergSplit instead of Optional.empty()
+                return createBatchOrcPageSource(
+                        hdfsEnvironment,
+                        session.getUser(),
+                        hdfsEnvironment.getConfiguration(hdfsContext, path),
+                        path,
+                        start,
+                        length,
+                        isCacheable,
+                        dataColumns,
+                        typeManager,
+                        predicate,
+                        readerOptions,
+                        ORC,
+                        getOrcMaxBufferSize(session),
+                        getOrcStreamBufferSize(session),
+                        getOrcLazyReadSmallRanges(session),
+                        isOrcBloomFiltersEnabled(session),
+                        hiveClientConfig.getDomainCompactionThreshold(),
+                        orcFileTailSource,
+                        stripeMetadataSourceFactory,
+                        fileFormatDataSourceStats,
+                        Optional.empty(),
+                        dwrfEncryptionProvider);
+        }
+        throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
 }

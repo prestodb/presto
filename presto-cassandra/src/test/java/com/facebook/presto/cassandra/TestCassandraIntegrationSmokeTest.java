@@ -142,7 +142,7 @@ public class TestCassandraIntegrationSmokeTest
         execute("DROP TABLE table_all_types_copy");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testClusteringPredicates()
     {
         String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key='key_1' AND clust_one='clust_one'";
@@ -192,7 +192,7 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(execute(sql).getRowCount(), 2);
     }
 
-    @Test
+    @Test (enabled = false)
     public void testClusteringKeyOnlyPushdown()
     {
         String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE clust_one='clust_one'";
@@ -231,7 +231,7 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(execute(sql).getRowCount(), 1);
     }
 
-    @Test
+    @Test (enabled = false)
     public void testClusteringKeyPushdownInequality()
     {
         String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one'";

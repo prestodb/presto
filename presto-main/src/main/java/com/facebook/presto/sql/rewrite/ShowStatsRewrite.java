@@ -49,7 +49,9 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -94,7 +96,15 @@ public class ShowStatsRewrite
     private static final Expression NULL_VARCHAR = new Cast(new NullLiteral(), VARCHAR);
 
     @Override
-    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters, AccessControl accessControl, WarningCollector warningCollector)
+    public Statement rewrite(Session session,
+                             Metadata metadata,
+                             SqlParser parser,
+                             Optional<QueryExplainer> queryExplainer,
+                             Statement node,
+                             List<Expression> parameters,
+                             Map<NodeRef<Parameter>, Expression> parameterLookup,
+                             AccessControl accessControl,
+                             WarningCollector warningCollector)
     {
         return (Statement) new Visitor(metadata, session, parameters, queryExplainer, warningCollector).process(node, null);
     }

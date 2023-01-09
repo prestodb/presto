@@ -14,16 +14,33 @@
 package com.facebook.presto.dispatcher;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
+import com.facebook.presto.common.analyzer.PreparedQuery;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
 import java.util.Optional;
 import java.util.function.Consumer;
 
+/**
+ * The interface for Dispatch query factory
+ */
 public interface DispatchQueryFactory
 {
+    /**
+     * This interface API is defined to setting up all preparation works for query before it being executed.
+     *
+     * @param session the session
+     * @param query the query
+     * @param preparedQuery the prepared query
+     * @param slug the unique query slug for each {@code Query} object
+     * @param retryCount the query retry count
+     * @param resourceGroup the resource group to be used
+     * @param queryType the query type derived from the {@code PreparedQuery statement}
+     * @param warningCollector the warning collector
+     * @param queryQueuer the query queuer is invoked when a query is to submit to the {@link com.facebook.presto.execution.resourceGroups.ResourceGroupManager}
+     * @return {@link DispatchQuery}
+     */
     DispatchQuery createDispatchQuery(
             Session session,
             String query,

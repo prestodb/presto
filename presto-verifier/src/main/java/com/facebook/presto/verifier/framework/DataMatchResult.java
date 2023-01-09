@@ -105,7 +105,7 @@ public class DataMatchResult
 
         checkState(controlRowCount.isPresent(), "controlRowCount is missing");
         checkState(testRowCount.isPresent(), "testRowCount is missing");
-        message.append(format("Control %s rows, Test %s rows\n", controlRowCount.getAsLong(), testRowCount.getAsLong()));
+        message.append(format("Control %s rows, Test %s rows%n", controlRowCount.getAsLong(), testRowCount.getAsLong()));
         if (matchType == ROW_COUNT_MISMATCH) {
             return message.toString();
         }

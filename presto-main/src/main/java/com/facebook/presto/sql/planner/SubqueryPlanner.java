@@ -39,12 +39,15 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.util.MorePredicates;
@@ -69,6 +72,7 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
 import static com.facebook.presto.sql.util.AstUtils.nodeContains;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -109,33 +113,34 @@ class SubqueryPlanner
         this.session = session;
     }
 
-    public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node)
+    public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node, SqlPlannerContext context)
     {
         for (Expression expression : expressions) {
-            builder = handleSubqueries(builder, expression, node, true);
+            builder = handleSubqueries(builder, expression, node, true, context);
         }
         return builder;
     }
 
-    public PlanBuilder handleUncorrelatedSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node)
+    public PlanBuilder handleUncorrelatedSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node, SqlPlannerContext context)
     {
         for (Expression expression : expressions) {
-            builder = handleSubqueries(builder, expression, node, false);
+            builder = handleSubqueries(builder, expression, node, false, context);
         }
         return builder;
     }
 
-    public PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node)
+    public PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node, SqlPlannerContext context)
     {
-        return handleSubqueries(builder, expression, node, true);
+        return handleSubqueries(builder, expression, node, true, context);
     }
 
-    private PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node, boolean correlationAllowed)
+    private PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node, boolean correlationAllowed, SqlPlannerContext context)
     {
-        builder = appendInPredicateApplyNodes(builder, collectInPredicateSubqueries(expression, node), correlationAllowed, node);
-        builder = appendScalarSubqueryApplyNodes(builder, collectScalarSubqueries(expression, node), correlationAllowed);
-        builder = appendExistsSubqueryApplyNodes(builder, collectExistsSubqueries(expression, node), correlationAllowed);
-        builder = appendQuantifiedComparisonApplyNodes(builder, collectQuantifiedComparisonSubqueries(expression, node), correlationAllowed, node);
+        boolean mayParticipateInAntiJoin = detectAntiJoinInExpression(expression);
+        builder = appendInPredicateApplyNodes(builder, collectInPredicateSubqueries(expression, node), correlationAllowed, mayParticipateInAntiJoin, node, context);
+        builder = appendScalarSubqueryApplyNodes(builder, collectScalarSubqueries(expression, node), correlationAllowed, context);
+        builder = appendExistsSubqueryApplyNodes(builder, collectExistsSubqueries(expression, node), correlationAllowed, mayParticipateInAntiJoin, context);
+        builder = appendQuantifiedComparisonApplyNodes(builder, collectQuantifiedComparisonSubqueries(expression, node), correlationAllowed, mayParticipateInAntiJoin, node, context);
         return builder;
     }
 
@@ -171,29 +176,29 @@ class SubqueryPlanner
                 .collect(toImmutableSet());
     }
 
-    private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Set<InPredicate> inPredicates, boolean correlationAllowed, Node node)
+    private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Set<InPredicate> inPredicates, boolean correlationAllowed, boolean mayParticipateInAntiJoin, Node node, SqlPlannerContext context)
     {
         for (InPredicate inPredicate : inPredicates) {
-            subPlan = appendInPredicateApplyNode(subPlan, inPredicate, correlationAllowed, node);
+            subPlan = appendInPredicateApplyNode(subPlan, inPredicate, correlationAllowed, mayParticipateInAntiJoin, node, context);
         }
         return subPlan;
     }
 
-    private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate, boolean correlationAllowed, Node node)
+    private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate, boolean correlationAllowed, boolean mayParticipateInAntiJoin, Node node, SqlPlannerContext context)
     {
         if (subPlan.canTranslate(inPredicate)) {
             // given subquery is already appended
             return subPlan;
         }
 
-        subPlan = handleSubqueries(subPlan, inPredicate.getValue(), node);
+        subPlan = handleSubqueries(subPlan, inPredicate.getValue(), node, context);
 
         subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), variableAllocator, idAllocator);
 
         checkState(inPredicate.getValueList() instanceof SubqueryExpression);
         SubqueryExpression valueListSubquery = (SubqueryExpression) inPredicate.getValueList();
         SubqueryExpression uncoercedValueListSubquery = uncoercedSubquery(valueListSubquery);
-        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedValueListSubquery);
+        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedValueListSubquery, context);
 
         subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(valueListSubquery), variableAllocator, idAllocator);
         SymbolReference valueList = createSymbolReference(subqueryPlan.translate(valueListSubquery));
@@ -204,18 +209,18 @@ class SubqueryPlanner
 
         subPlan.getTranslations().put(inPredicate, inPredicateSubqueryVariable);
 
-        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), Assignments.of(inPredicateSubqueryVariable, castToRowExpression(inPredicateSubqueryExpression)), correlationAllowed);
+        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), Assignments.of(inPredicateSubqueryVariable, castToRowExpression(inPredicateSubqueryExpression)), correlationAllowed, mayParticipateInAntiJoin);
     }
 
-    private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed)
+    private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed, SqlPlannerContext context)
     {
         for (SubqueryExpression scalarSubquery : scalarSubqueries) {
-            builder = appendScalarSubqueryApplyNode(builder, scalarSubquery, correlationAllowed);
+            builder = appendScalarSubqueryApplyNode(builder, scalarSubquery, correlationAllowed, context);
         }
         return builder;
     }
 
-    private PlanBuilder appendScalarSubqueryApplyNode(PlanBuilder subPlan, SubqueryExpression scalarSubquery, boolean correlationAllowed)
+    private PlanBuilder appendScalarSubqueryApplyNode(PlanBuilder subPlan, SubqueryExpression scalarSubquery, boolean correlationAllowed, SqlPlannerContext context)
     {
         if (subPlan.canTranslate(scalarSubquery)) {
             // given subquery is already appended
@@ -225,7 +230,7 @@ class SubqueryPlanner
         List<Expression> coercions = coercionsFor(scalarSubquery);
 
         SubqueryExpression uncoercedScalarSubquery = uncoercedSubquery(scalarSubquery);
-        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedScalarSubquery);
+        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedScalarSubquery, context);
         subqueryPlan = subqueryPlan.withNewRoot(new EnforceSingleRowNode(subPlan.getRoot().getSourceLocation(), idAllocator.getNextId(), subqueryPlan.getRoot()));
         subqueryPlan = subqueryPlan.appendProjections(coercions, variableAllocator, idAllocator);
 
@@ -261,10 +266,10 @@ class SubqueryPlanner
                         subQueryNotSupportedError(query, "Given correlated subquery")));
     }
 
-    private PlanBuilder appendExistsSubqueryApplyNodes(PlanBuilder builder, Set<ExistsPredicate> existsPredicates, boolean correlationAllowed)
+    private PlanBuilder appendExistsSubqueryApplyNodes(PlanBuilder builder, Set<ExistsPredicate> existsPredicates, boolean correlationAllowed, boolean mayParticipateInAntiJoin, SqlPlannerContext context)
     {
         for (ExistsPredicate existsPredicate : existsPredicates) {
-            builder = appendExistSubqueryApplyNode(builder, existsPredicate, correlationAllowed);
+            builder = appendExistSubqueryApplyNode(builder, existsPredicate, correlationAllowed, mayParticipateInAntiJoin, context);
         }
         return builder;
     }
@@ -278,14 +283,14 @@ class SubqueryPlanner
      *           -- subquery
      * </pre>
      */
-    private PlanBuilder appendExistSubqueryApplyNode(PlanBuilder subPlan, ExistsPredicate existsPredicate, boolean correlationAllowed)
+    private PlanBuilder appendExistSubqueryApplyNode(PlanBuilder subPlan, ExistsPredicate existsPredicate, boolean correlationAllowed, boolean mayParticipateInAntiJoin, SqlPlannerContext context)
     {
         if (subPlan.canTranslate(existsPredicate)) {
             // given subquery is already appended
             return subPlan;
         }
 
-        PlanBuilder subqueryPlan = createPlanBuilder(existsPredicate.getSubquery());
+        PlanBuilder subqueryPlan = createPlanBuilder(existsPredicate.getSubquery(), context);
 
         PlanNode subqueryPlanRoot = subqueryPlan.getRoot();
         if (isAggregationWithEmptyGroupBy(subqueryPlanRoot)) {
@@ -304,18 +309,19 @@ class SubqueryPlanner
                 existsPredicate.getSubquery(),
                 subqueryNode,
                 Assignments.of(exists, castToRowExpression(rewrittenExistsPredicate)),
-                correlationAllowed);
+                correlationAllowed,
+                mayParticipateInAntiJoin);
     }
 
-    private PlanBuilder appendQuantifiedComparisonApplyNodes(PlanBuilder subPlan, Set<QuantifiedComparisonExpression> quantifiedComparisons, boolean correlationAllowed, Node node)
+    private PlanBuilder appendQuantifiedComparisonApplyNodes(PlanBuilder subPlan, Set<QuantifiedComparisonExpression> quantifiedComparisons, boolean correlationAllowed, boolean mayParticipateInAntiJoin, Node node, SqlPlannerContext context)
     {
         for (QuantifiedComparisonExpression quantifiedComparison : quantifiedComparisons) {
-            subPlan = appendQuantifiedComparisonApplyNode(subPlan, quantifiedComparison, correlationAllowed, node);
+            subPlan = appendQuantifiedComparisonApplyNode(subPlan, quantifiedComparison, correlationAllowed, mayParticipateInAntiJoin, node, context);
         }
         return subPlan;
     }
 
-    private PlanBuilder appendQuantifiedComparisonApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed, Node node)
+    private PlanBuilder appendQuantifiedComparisonApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed, boolean mayParticipateInAntiJoin, Node node, SqlPlannerContext context)
     {
         if (subPlan.canTranslate(quantifiedComparison)) {
             // given subquery is already appended
@@ -325,12 +331,12 @@ class SubqueryPlanner
             case EQUAL:
                 switch (quantifiedComparison.getQuantifier()) {
                     case ALL:
-                        return planQuantifiedApplyNode(subPlan, quantifiedComparison, correlationAllowed);
+                        return planQuantifiedApplyNode(subPlan, quantifiedComparison, correlationAllowed, mayParticipateInAntiJoin, context);
                     case ANY:
                     case SOME:
                         // A = ANY B <=> A IN B
                         InPredicate inPredicate = new InPredicate(quantifiedComparison.getValue(), quantifiedComparison.getSubquery());
-                        subPlan = appendInPredicateApplyNode(subPlan, inPredicate, correlationAllowed, node);
+                        subPlan = appendInPredicateApplyNode(subPlan, inPredicate, correlationAllowed, mayParticipateInAntiJoin, node, context);
                         subPlan.getTranslations().put(quantifiedComparison, subPlan.translate(inPredicate));
                         return subPlan;
                 }
@@ -349,7 +355,7 @@ class SubqueryPlanner
                         // "A <> ALL B" is equivalent to "NOT (A = ANY B)" so add a rewrite for the initial quantifiedComparison to notAny
                         subPlan.getTranslations().put(quantifiedComparison, subPlan.getTranslations().rewrite(notAny));
                         // now plan "A = ANY B" part by calling ourselves for rewrittenAny
-                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAny, correlationAllowed, node);
+                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAny, correlationAllowed, true, node, context);
                     case ANY:
                     case SOME:
                         // A <> ANY B <=> min B <> max B || A <> min B <=> !(min B = max B && A = min B) <=> !(A = ALL B)
@@ -362,7 +368,7 @@ class SubqueryPlanner
                         // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
                         subPlan.getTranslations().put(quantifiedComparison, subPlan.getTranslations().rewrite(notAll));
                         // now plan "A = ALL B" part by calling ourselves for rewrittenAll
-                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAll, correlationAllowed, node);
+                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAll, correlationAllowed, true, node, context);
                 }
                 break;
 
@@ -370,14 +376,14 @@ class SubqueryPlanner
             case LESS_THAN_OR_EQUAL:
             case GREATER_THAN:
             case GREATER_THAN_OR_EQUAL:
-                return planQuantifiedApplyNode(subPlan, quantifiedComparison, correlationAllowed);
+                return planQuantifiedApplyNode(subPlan, quantifiedComparison, correlationAllowed, mayParticipateInAntiJoin, context);
         }
         // all cases are checked, so this exception should never be thrown
         throw new IllegalArgumentException(
                 format("Unexpected quantified comparison: '%s %s'", quantifiedComparison.getOperator().getValue(), quantifiedComparison.getQuantifier()));
     }
 
-    private PlanBuilder planQuantifiedApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed)
+    private PlanBuilder planQuantifiedApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed, boolean mayParticipateInAntiJoin, SqlPlannerContext context)
     {
         subPlan = subPlan.appendProjections(ImmutableList.of(quantifiedComparison.getValue()), variableAllocator, idAllocator);
 
@@ -385,7 +391,7 @@ class SubqueryPlanner
         SubqueryExpression quantifiedSubquery = (SubqueryExpression) quantifiedComparison.getSubquery();
 
         SubqueryExpression uncoercedQuantifiedSubquery = uncoercedSubquery(quantifiedSubquery);
-        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedQuantifiedSubquery);
+        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedQuantifiedSubquery, context);
         subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(quantifiedSubquery), variableAllocator, idAllocator);
 
         QuantifiedComparisonExpression coercedQuantifiedComparison = new QuantifiedComparisonExpression(
@@ -402,7 +408,8 @@ class SubqueryPlanner
                 quantifiedComparison.getSubquery(),
                 subqueryPlan.getRoot(),
                 Assignments.of(coercedQuantifiedComparisonVariable, castToRowExpression(coercedQuantifiedComparison)),
-                correlationAllowed);
+                correlationAllowed,
+                mayParticipateInAntiJoin);
     }
 
     private static boolean isAggregationWithEmptyGroupBy(PlanNode planNode)
@@ -434,7 +441,7 @@ class SubqueryPlanner
                 .collect(toImmutableList());
     }
 
-    private PlanBuilder appendApplyNode(PlanBuilder subPlan, Node subquery, PlanNode subqueryNode, Assignments subqueryAssignments, boolean correlationAllowed)
+    private PlanBuilder appendApplyNode(PlanBuilder subPlan, Node subquery, PlanNode subqueryNode, Assignments subqueryAssignments, boolean correlationAllowed, boolean mayParticipateInAntiJoin)
     {
         Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
@@ -454,7 +461,8 @@ class SubqueryPlanner
                         subqueryNode,
                         subqueryAssignments,
                         ImmutableList.copyOf(VariablesExtractor.extractUnique(correlation.values(), variableAllocator.getTypes())),
-                        subQueryNotSupportedError(subquery, "Given correlated subquery")));
+                        subQueryNotSupportedError(subquery, "Given correlated subquery"),
+                        mayParticipateInAntiJoin));
     }
 
     private Map<Expression, Expression> extractCorrelation(PlanBuilder subPlan, PlanNode subquery)
@@ -482,10 +490,10 @@ class SubqueryPlanner
         return Optional.empty();
     }
 
-    private PlanBuilder createPlanBuilder(Node node)
+    private PlanBuilder createPlanBuilder(Node node, SqlPlannerContext context)
     {
         RelationPlan relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
-                .process(node, null);
+                .process(node, context);
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
 
         // Make field->symbol mapping from underlying relation plan available for translations
@@ -603,7 +611,59 @@ class SubqueryPlanner
                     node.getSourceLocation(),
                     idAllocator.getNextId(),
                     rewrittenNode.getOutputVariables(),
-                    rewrittenRows);
+                    rewrittenRows,
+                    node.getValuesNodeLabel());
+        }
+    }
+
+    private boolean detectAntiJoinInExpression(Expression expression)
+    {
+        AntiJoinDetector antiJoinDetector = new AntiJoinDetector();
+        antiJoinDetector.process(expression);
+        return antiJoinDetector.getMayContainAntiJoin();
+    }
+
+    private static class AntiJoinDetector
+            extends DefaultExpressionTraversalVisitor<Void, Void>
+    {
+        private boolean mayContainAntiJoin;
+
+        @Override
+        protected Void visitNotExpression(NotExpression node, Void context)
+        {
+            mayContainAntiJoin = true;
+            return null;
+        }
+
+        @Override
+        protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        {
+            if (node.getOperator() == OR) {
+                mayContainAntiJoin = true;
+                return null;
+            }
+            process(node.getRight(), context);
+            process(node.getLeft(), context);
+            return null;
+        }
+
+        @Override
+        protected Void visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+        {
+            mayContainAntiJoin = true;
+            return null;
+        }
+
+        @Override
+        protected Void visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+        {
+            mayContainAntiJoin = true;
+            return null;
+        }
+
+        public boolean getMayContainAntiJoin()
+        {
+            return mayContainAntiJoin;
         }
     }
 }

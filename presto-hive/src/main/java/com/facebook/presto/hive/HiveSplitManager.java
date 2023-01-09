@@ -43,7 +43,6 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -87,6 +86,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURI
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TRANSACTION_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveSessionProperties.getHiveMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getLeaseDuration;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartitionStatisticsBasedOptimizationEnabled;
@@ -138,7 +138,6 @@ public class HiveSplitManager
     private final DataSize maxOutstandingSplitsSize;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
-    private final int maxInitialSplits;
     private final int splitLoaderConcurrency;
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
@@ -169,7 +168,6 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxOutstandingSplitsSize(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
-                hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 hiveClientConfig.getRecursiveDirWalkerEnabled(),
                 cacheQuotaRequirementProvider,
@@ -188,7 +186,6 @@ public class HiveSplitManager
             DataSize maxOutstandingSplitsSize,
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
-            int maxInitialSplits,
             int splitLoaderConcurrency,
             boolean recursiveDfsWalkerEnabled,
             CacheQuotaRequirementProvider cacheQuotaRequirementProvider,
@@ -206,7 +203,6 @@ public class HiveSplitManager
         this.maxOutstandingSplitsSize = maxOutstandingSplitsSize;
         this.minPartitionBatchSize = minPartitionBatchSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
-        this.maxInitialSplits = maxInitialSplits;
         this.splitLoaderConcurrency = splitLoaderConcurrency;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.cacheQuotaRequirementProvider = requireNonNull(cacheQuotaRequirementProvider, "cacheQuotaRequirementProvider is null");
@@ -229,8 +225,8 @@ public class HiveSplitManager
             throw new PrestoException(HIVE_TRANSACTION_NOT_FOUND, format("Transaction not found: %s", transaction));
         }
         SemiTransactionalHiveMetastore metastore = metadata.getMetastore();
-        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider());
+        Table table = layout.getTable(metastore, metastoreContext);
 
         if (!isOfflineDataDebugModeEnabled(session)) {
             // verify table is not marked as non-readable
@@ -296,6 +292,17 @@ public class HiveSplitManager
                 splitSchedulingContext.schedulerUsesHostAddresses(),
                 layout.isPartialAggregationsPushedDown());
 
+        HiveSplitSource splitSource = computeSplitSource(splitSchedulingContext, table, session, hiveSplitLoader);
+        hiveSplitLoader.start(splitSource);
+
+        return splitSource;
+    }
+
+    private HiveSplitSource computeSplitSource(SplitSchedulingContext splitSchedulingContext,
+                                               Table table,
+                                               ConnectorSession session,
+                                               HiveSplitLoader hiveSplitLoader)
+    {
         HiveSplitSource splitSource;
         CacheQuotaRequirement cacheQuotaRequirement = cacheQuotaRequirementProvider.getCacheQuotaRequirement(table.getDatabaseName(), table.getTableName());
         switch (splitSchedulingContext.getSplitSchedulingStrategy()) {
@@ -305,7 +312,7 @@ public class HiveSplitManager
                         table.getDatabaseName(),
                         table.getTableName(),
                         cacheQuotaRequirement,
-                        maxInitialSplits,
+                        getHiveMaxInitialSplitSize(session),
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
                         hiveSplitLoader,
@@ -318,7 +325,7 @@ public class HiveSplitManager
                         table.getDatabaseName(),
                         table.getTableName(),
                         cacheQuotaRequirement,
-                        maxInitialSplits,
+                        getHiveMaxInitialSplitSize(session),
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
                         hiveSplitLoader,
@@ -331,7 +338,7 @@ public class HiveSplitManager
                         table.getDatabaseName(),
                         table.getTableName(),
                         cacheQuotaRequirement,
-                        maxInitialSplits,
+                        getHiveMaxInitialSplitSize(session),
                         maxOutstandingSplitsSize,
                         hiveSplitLoader,
                         executor,
@@ -340,7 +347,6 @@ public class HiveSplitManager
             default:
                 throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingContext.getSplitSchedulingStrategy());
         }
-        hiveSplitLoader.start(splitSource);
 
         return splitSource;
     }
@@ -406,6 +412,23 @@ public class HiveSplitManager
         }
 
         Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
+        Iterable<List<HivePartitionMetadata>> partitionBatches = computePartitionMetadata(partitionNameBatches, session, table, metastore,
+                tableName, predicateColumns, domains, allRequestedColumns, hiveBucketHandle, resolvedHiveStorageFormat, warningCollector);
+        return concat(partitionBatches);
+    }
+
+    private Iterable<List<HivePartitionMetadata>> computePartitionMetadata(Iterable<List<HivePartition>> partitionNameBatches,
+                                                                           ConnectorSession session,
+                                                                           Table table,
+                                                                           SemiTransactionalHiveMetastore metastore,
+                                                                           SchemaTableName tableName,
+                                                                           Map<String, HiveColumnHandle> predicateColumns,
+                                                                           Optional<Map<Subfield, Domain>> domains,
+                                                                           Optional<Set<HiveColumnHandle>> allRequestedColumns,
+                                                                           Optional<HiveBucketHandle> hiveBucketHandle,
+                                                                           Optional<HiveStorageFormat> resolvedHiveStorageFormat,
+                                                                           WarningCollector warningCollector)
+    {
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
             Map<String, PartitionSplitInfo> partitionSplitInfo = getPartitionSplitInfo(session, metastore, tableName, partitionBatch, predicateColumns, domains);
             if (partitionBatch.size() != partitionSplitInfo.size()) {
@@ -511,7 +534,7 @@ public class HiveSplitManager
             }
             return results.build();
         });
-        return concat(partitionBatches);
+        return partitionBatches;
     }
 
     /**

@@ -46,7 +46,8 @@ public class TestVerifyOnlyOneOutputNode
                                 new ValuesNode(
                                         Optional.empty(),
                                         idAllocator.getNextId(),
-                                        ImmutableList.of(), ImmutableList.of()),
+                                        ImmutableList.of(), ImmutableList.of(),
+                                        Optional.empty()),
                                 Assignments.of()
                         ), ImmutableList.of(), ImmutableList.of());
         new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);
@@ -62,7 +63,7 @@ public class TestVerifyOnlyOneOutputNode
                                 new OutputNode(Optional.empty(), idAllocator.getNextId(),
                                         new ProjectNode(idAllocator.getNextId(),
                                                 new ValuesNode(Optional.empty(),
-                                                        idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
+                                                        idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(), Optional.empty()),
                                                 Assignments.of()
                                         ), ImmutableList.of(), ImmutableList.of()
                                 ), new VariableReferenceExpression(Optional.empty(), "a", BIGINT),

@@ -35,6 +35,8 @@ import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.GeometricDistribution;
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.distribution.PoissonDistribution;
+import org.apache.commons.math3.distribution.RealDistribution;
+import org.apache.commons.math3.distribution.UniformRealDistribution;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -55,6 +57,8 @@ public class TestTDigest
     private static final double STANDARD_ERROR = 0.01;
     private static final double[] quantile = {0.0001, 0.0200, 0.0300, 0.04000, 0.0500, 0.1000, 0.2000, 0.3000, 0.4000, 0.5000, 0.6000, 0.7000, 0.8000,
             0.9000, 0.9500, 0.9600, 0.9700, 0.9800, 0.9999};
+    private static final int TRIMMED_MEAN_COMPRESSION_FACTOR = 200;
+    private static final double TRIMMED_MEAN_ERROR_IN_DEVIATIONS = 0.05;
 
     @Test
     public void testAddElementsInOrder()
@@ -160,6 +164,47 @@ public class TestTDigest
 
         for (int i = 0; i < quantile.length; i++) {
             assertContinuousWithinBound(quantile[i], STANDARD_ERROR, list, tDigest);
+        }
+    }
+
+    @Test
+    public void testTrimmedMeanUniformDistribution()
+    {
+        testTrimmedMeanForRealDistribution(new UniformRealDistribution(0.0d, NUMBER_OF_ENTRIES));
+    }
+
+    @Test(enabled = false)
+    public void testTrimmedMeanNormalDistributionLowVariance()
+    {
+        testTrimmedMeanForRealDistribution(new NormalDistribution(1000, 1));
+    }
+
+    @Test(enabled = false)
+    public void testTrimmedMeanNormalDistributionHighVariance()
+    {
+        testTrimmedMeanForRealDistribution(new NormalDistribution(0, 1));
+    }
+
+    @Test(enabled = false)
+    public void testTrimmedMeanPoissonDistribution()
+    {
+        PoissonDistribution distribution = new PoissonDistribution(1);
+        TDigest tDigest = createTDigest(TRIMMED_MEAN_COMPRESSION_FACTOR);
+        List<Double> list = new ArrayList<>();
+
+        for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
+            double value = distribution.sample();
+            tDigest.add(value);
+            list.add(value);
+        }
+
+        sort(list);
+
+        // test all quantile combinations
+        for (int i = 0; i < quantile.length; i++) {
+            for (int j = i + 1; j < quantile.length; j++) {
+                assertTrimmedMean(quantile[i], quantile[j], Math.sqrt(distribution.getNumericalVariance()), TRIMMED_MEAN_ERROR_IN_DEVIATIONS, list, tDigest);
+            }
         }
     }
 
@@ -416,5 +461,38 @@ public class TestTDigest
     {
         double expectedSum = values.stream().reduce(0.0d, Double::sum);
         assertEquals(tDigest.getSum(), expectedSum, 0.0001);
+    }
+
+    private void testTrimmedMeanForRealDistribution(RealDistribution distribution)
+    {
+        TDigest tDigest = createTDigest(TRIMMED_MEAN_COMPRESSION_FACTOR);
+        List<Double> list = new ArrayList<>();
+
+        for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
+            double value = distribution.sample();
+            tDigest.add(value);
+            list.add(value);
+        }
+
+        sort(list);
+
+        // test all quantile combinations
+        for (int i = 0; i < quantile.length; i++) {
+            for (int j = i + 1; j < quantile.length; j++) {
+                assertTrimmedMean(quantile[i], quantile[j], Math.sqrt(distribution.getNumericalVariance()), TRIMMED_MEAN_ERROR_IN_DEVIATIONS, list, tDigest);
+            }
+        }
+    }
+
+    private void assertTrimmedMean(double lowerQuantileBound, double upperQuantileBound, double sd, double sigmaBound, List<Double> values, TDigest tDigest)
+    {
+        double expectedMean = values
+                .subList((int) (NUMBER_OF_ENTRIES * lowerQuantileBound), (int) (NUMBER_OF_ENTRIES * upperQuantileBound) + 1)
+                .stream()
+                .reduce(0.0d, Double::sum) / ((int) (NUMBER_OF_ENTRIES * upperQuantileBound) - (int) (NUMBER_OF_ENTRIES * lowerQuantileBound) + 1);
+        double returnValue = tDigest.trimmedMean(lowerQuantileBound, upperQuantileBound);
+        double standardizedError = Math.abs((returnValue - expectedMean) / sd);
+        assertTrue(standardizedError <= sigmaBound,
+                format("Returned trimmed mean %s is %s sigma > %s from the actual trimmed mean %s", returnValue, standardizedError, sigmaBound, expectedMean));
     }
 }

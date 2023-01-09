@@ -72,6 +72,7 @@ import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_M
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
 public class TestMapFlatSelectiveStreamReader
@@ -531,7 +532,7 @@ public class TestMapFlatSelectiveStreamReader
 
     private static SqlTimestamp intToTimestamp(int i)
     {
-        return new SqlTimestamp(i, TimeZoneKey.UTC_KEY);
+        return new SqlTimestamp(i, TimeZoneKey.UTC_KEY, MILLISECONDS);
     }
 
     private static List<Integer> intToList(int i)

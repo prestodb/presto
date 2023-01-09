@@ -22,6 +22,7 @@ public class SimpleTtlNodeSelectorConfig
 {
     private boolean useDefaultExecutionTimeEstimateAsFallback;
     private Duration defaultExecutionTimeEstimate = new Duration(30, TimeUnit.MINUTES);
+    private boolean fallbackToSimpleNodeSelection;
 
     public boolean getUseDefaultExecutionTimeEstimateAsFallback()
     {
@@ -44,6 +45,18 @@ public class SimpleTtlNodeSelectorConfig
     public SimpleTtlNodeSelectorConfig setDefaultExecutionTimeEstimate(Duration defaultExecutionTimeEstimate)
     {
         this.defaultExecutionTimeEstimate = defaultExecutionTimeEstimate;
+        return this;
+    }
+
+    public boolean getFallbackToSimpleNodeSelection()
+    {
+        return fallbackToSimpleNodeSelection;
+    }
+
+    @Config("simple-ttl-node-selector.fallback-to-simple-node-selection")
+    public SimpleTtlNodeSelectorConfig setFallbackToSimpleNodeSelection(boolean fallbackToSimpleNodeSelection)
+    {
+        this.fallbackToSimpleNodeSelection = fallbackToSimpleNodeSelection;
         return this;
     }
 }

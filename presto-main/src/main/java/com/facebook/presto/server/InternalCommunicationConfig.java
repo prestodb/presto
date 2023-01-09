@@ -38,6 +38,7 @@ public class InternalCommunicationConfig
     private boolean kerberosUseCanonicalHostname = true;
     private boolean binaryTransportEnabled;
     private boolean thriftTransportEnabled;
+    private boolean taskInfoThriftTransportEnabled;
     private Protocol thriftProtocol = Protocol.BINARY;
     private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
     private CommunicationProtocol taskCommunicationProtocol = CommunicationProtocol.HTTP;
@@ -176,6 +177,19 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setThriftTransportEnabled(boolean thriftTransportEnabled)
     {
         this.thriftTransportEnabled = thriftTransportEnabled;
+        return this;
+    }
+
+    public boolean isTaskInfoThriftTransportEnabled()
+    {
+        return taskInfoThriftTransportEnabled;
+    }
+
+    @Config("experimental.internal-communication.task-info-thrift-transport-enabled")
+    @ConfigDescription("Enables thrift encoding support for Task Info")
+    public InternalCommunicationConfig setTaskInfoThriftTransportEnabled(boolean taskInfoThriftTransportEnabled)
+    {
+        this.taskInfoThriftTransportEnabled = taskInfoThriftTransportEnabled;
         return this;
     }
 

@@ -42,6 +42,7 @@ public final class DoubleStreamCheckpoint
         return inputStreamCheckpoint;
     }
 
+    @Override
     public List<Integer> toPositionList(boolean compressed)
     {
         return createInputStreamPositionList(compressed, inputStreamCheckpoint);

@@ -289,7 +289,7 @@ public class TestMemo
 
         public GenericNode(PlanNodeId id, List<PlanNode> sources)
         {
-            super(Optional.empty(), id);
+            super(Optional.empty(), id, Optional.empty());
             this.sources = ImmutableList.copyOf(sources);
         }
 
@@ -309,6 +309,12 @@ public class TestMemo
         public PlanNode replaceChildren(List<PlanNode> newChildren)
         {
             return new GenericNode(getId(), newChildren);
+        }
+
+        @Override
+        public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+        {
+            return this;
         }
     }
 }

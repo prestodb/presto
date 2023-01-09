@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.AbstractType;
+import com.facebook.presto.common.type.AbstractPrimitiveType;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.google.common.net.InetAddresses;
@@ -32,7 +32,7 @@ import java.net.UnknownHostException;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
 public class IpPrefixType
-        extends AbstractType
+        extends AbstractPrimitiveType
         implements FixedWidthType
 {
     public static final IpPrefixType IPPREFIX = new IpPrefixType();

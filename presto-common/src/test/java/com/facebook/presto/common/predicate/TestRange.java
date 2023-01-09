@@ -34,6 +34,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -46,6 +47,20 @@ public class TestRange
             .setSessionLocale(ENGLISH)
             .setSessionUser("user")
             .build();
+
+    private final ObjectMapper mapper;
+
+    public TestRange()
+    {
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+
+        this.mapper = new JsonObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+    }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -265,15 +280,6 @@ public class TestRange
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new JsonObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
-
         Range range = Range.all(BIGINT);
         assertEquals(range, mapper.readValue(mapper.writeValueAsString(range), Range.class));
 
@@ -328,5 +334,52 @@ public class TestRange
 
         range = Range.equal(VARCHAR, utf8Slice("a, b"));
         assertEquals(range.toString(PROPERTIES), "[\"a, b\"]");
+    }
+
+    @Test
+    public void testCanonicalize()
+            throws Exception
+    {
+        assertSameRange(Range.greaterThan(BIGINT, 0L), Range.greaterThan(BIGINT, 0L), false);
+        assertSameRange(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 0L), false);
+        assertSameRange(Range.lessThanOrEqual(BIGINT, 0L), Range.lessThanOrEqual(BIGINT, 0L), false);
+        assertSameRange(Range.range(BIGINT, 0L, false, 2L, false), Range.range(BIGINT, 0L, false, 2L, false), false);
+        assertSameRange(Range.all(VARCHAR), Range.all(VARCHAR), false);
+
+        assertDifferentRange(Range.greaterThan(BIGINT, 0L), Range.greaterThan(BIGINT, 3L), false);
+        assertDifferentRange(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L), false);
+        assertDifferentRange(Range.lessThanOrEqual(BIGINT, 0L), Range.lessThanOrEqual(BIGINT, 6L), false);
+        assertDifferentRange(Range.range(BIGINT, 0L, false, 2L, false), Range.range(BIGINT, 0L, false, 3L, false), false);
+        assertDifferentRange(Range.all(VARCHAR), Range.all(BIGINT), false);
+
+        assertDifferentRange(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L), false);
+        assertDifferentRange(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L), false);
+        assertDifferentRange(Range.greaterThanOrEqual(BIGINT, 0L), Range.greaterThan(BIGINT, 0L), false);
+        assertDifferentRange(Range.range(BIGINT, 0L, false, 2L, false), Range.range(BIGINT, 0L, true, 2L, false), false);
+        assertDifferentRange(Range.all(VARCHAR), Range.all(BIGINT), false);
+
+        assertSameRange(Range.equal(BIGINT, 10L), Range.equal(BIGINT, 3L), true);
+        assertSameRange(Range.range(BIGINT, 0L, true, 0L, true), Range.range(BIGINT, 1L, true, 1L, true), true);
+
+        assertDifferentRange(Range.greaterThan(BIGINT, 0L), Range.greaterThan(BIGINT, 1L), true);
+        assertDifferentRange(Range.greaterThanOrEqual(BIGINT, 0L), Range.greaterThanOrEqual(BIGINT, 1L), true);
+        assertDifferentRange(Range.range(BIGINT, 0L, false, 2L, false), Range.range(BIGINT, 0L, false, 3L, false), true);
+
+        assertDifferentRange(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L), true);
+        assertDifferentRange(Range.greaterThanOrEqual(BIGINT, 0L), Range.greaterThan(BIGINT, 0L), true);
+        assertDifferentRange(Range.range(BIGINT, 0L, false, 2L, false), Range.range(BIGINT, 0L, false, 2L, true), true);
+        assertDifferentRange(Range.all(VARCHAR), Range.all(BIGINT), true);
+    }
+
+    private void assertSameRange(Range range1, Range range2, boolean removeSafeConstants)
+            throws Exception
+    {
+        assertEquals(mapper.writeValueAsString(range1.canonicalize(removeSafeConstants)), mapper.writeValueAsString(range2.canonicalize(removeSafeConstants)));
+    }
+
+    private void assertDifferentRange(Range range1, Range range2, boolean removeSafeConstants)
+            throws Exception
+    {
+        assertNotEquals(mapper.writeValueAsString(range1.canonicalize(removeSafeConstants)), mapper.writeValueAsString(range2.canonicalize(removeSafeConstants)));
     }
 }

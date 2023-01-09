@@ -23,6 +23,7 @@ public class PrestoSparkStorageHandle
     private final byte[] serializedStorageHandle;
     private final long uncompressedSizeInBytes;
     private final long compressedSizeInBytes;
+    private final long deserializedRetainedSizeInBytes;
     private final long checksum;
     private final int positionCount;
 
@@ -30,12 +31,14 @@ public class PrestoSparkStorageHandle
             byte[] serializedStorageHandle,
             long uncompressedSizeInBytes,
             long compressedSizeInBytes,
+            long deserializedRetainedSizeInBytes,
             long checksum,
             int positionCount)
     {
         this.serializedStorageHandle = requireNonNull(serializedStorageHandle, "serializedStorageHandle is null");
         this.uncompressedSizeInBytes = uncompressedSizeInBytes;
         this.compressedSizeInBytes = compressedSizeInBytes;
+        this.deserializedRetainedSizeInBytes = deserializedRetainedSizeInBytes;
         this.checksum = requireNonNull(checksum, "checksum is null");
         this.positionCount = positionCount;
     }
@@ -48,6 +51,11 @@ public class PrestoSparkStorageHandle
     public long getCompressedSizeInBytes()
     {
         return compressedSizeInBytes;
+    }
+
+    public long getDeserializedRetainedSizeInBytes()
+    {
+        return deserializedRetainedSizeInBytes;
     }
 
     public byte[] getSerializedStorageHandle()

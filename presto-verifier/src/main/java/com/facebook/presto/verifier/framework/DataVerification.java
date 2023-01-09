@@ -25,6 +25,7 @@ import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.google.common.util.concurrent.ListeningExecutorService;
 
 import java.util.List;
 import java.util.Optional;
@@ -57,9 +58,10 @@ public class DataVerification
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
             TypeManager typeManager,
-            ChecksumValidator checksumValidator)
+            ChecksumValidator checksumValidator,
+            ListeningExecutorService executor)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig);
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig, executor);
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
         this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");

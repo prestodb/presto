@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.MapType;
@@ -27,14 +31,13 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.security.ViewAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
@@ -44,14 +47,20 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.MaterializedViewUtils;
 import com.facebook.presto.sql.SqlFormatterUtil;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
+import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -138,6 +147,7 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
@@ -158,6 +168,7 @@ import com.google.common.collect.Multimap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -170,10 +181,14 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLiterals;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
+import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.GET_COLUMN_METADATA_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_MATERIALIZED_VIEW_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_HANDLE_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_METADATA_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_VIEW_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -193,7 +208,6 @@ import static com.facebook.presto.sql.MaterializedViewUtils.generateFalsePredica
 import static com.facebook.presto.sql.MaterializedViewUtils.getOwnerIdentity;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
-import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
@@ -256,6 +270,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
+import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -274,6 +289,7 @@ import static java.util.stream.Collectors.groupingBy;
 
 class StatementAnalyzer
 {
+    private static final Logger log = Logger.get(StatementAnalyzer.class);
     private static final int UNION_DISTINCT_FIELDS_WARNING_THRESHOLD = 3;
     private final Analysis analysis;
     private final Metadata metadata;
@@ -281,6 +297,7 @@ class StatementAnalyzer
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
     private final WarningCollector warningCollector;
+    private final MetadataResolver metadataResolver;
 
     public StatementAnalyzer(
             Analysis analysis,
@@ -296,6 +313,7 @@ class StatementAnalyzer
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.metadataResolver = requireNonNull(metadata.getMetadataResolver(session), "metadataResolver is null");
     }
 
     public Scope analyze(Node node, Scope outerQueryScope)
@@ -329,9 +347,7 @@ class StatementAnalyzer
         {
             Scope returnScope = super.process(node, scope);
             checkState(returnScope.getOuterQueryParent().equals(outerQueryScope), "result scope should have outer query scope equal with parameter outer query scope");
-            if (scope.isPresent()) {
-                checkState(hasScopeAsLocalParent(returnScope, scope.get()), "return scope should have context scope as one of ancestors");
-            }
+            scope.ifPresent(value -> checkState(hasScopeAsLocalParent(returnScope, value), "return scope should have context scope as one of ancestors"));
             return returnScope;
         }
 
@@ -351,11 +367,11 @@ class StatementAnalyzer
         {
             QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
 
-            if (metadata.getView(session, targetTable).isPresent()) {
+            if (metadataResolver.getView(targetTable).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
             }
 
-            if (metadata.getMaterializedView(session, targetTable).isPresent()) {
+            if (metadataResolver.getMaterializedView(targetTable).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
             }
 
@@ -525,11 +541,11 @@ class StatementAnalyzer
             Table table = node.getTable();
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
 
-            if (metadata.getView(session, tableName).isPresent()) {
+            if (metadataResolver.getView(tableName).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
-            if (metadata.getMaterializedView(session, tableName).isPresent()) {
+            if (metadataResolver.getMaterializedView(tableName).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Deleting from materialized views is not supported");
             }
 
@@ -560,7 +576,7 @@ class StatementAnalyzer
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
 
             // verify the target table exists and it's not a view
-            if (metadata.getView(session, tableName).isPresent()) {
+            if (metadataResolver.getView(tableName).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
 
@@ -579,11 +595,11 @@ class StatementAnalyzer
                     .orElseThrow(() -> (new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", tableName)));
 
             // user must have read and insert permission in order to analyze stats of a table
-            analysis.addTableColumnReferences(
+            analysis.addTableColumnAndSubfieldReferences(
                     accessControl,
                     session.getIdentity(),
-                    ImmutableMultimap.<QualifiedObjectName, String>builder()
-                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
+                    ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
+                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet()))
                             .build());
             try {
                 accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
@@ -605,8 +621,7 @@ class StatementAnalyzer
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
             analysis.setCreateTableDestination(targetTable);
 
-            Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
-            if (targetTableHandle.isPresent()) {
+            if (metadataResolver.tableExists(targetTable)) {
                 if (node.isNotExists()) {
                     analysis.setCreateTableAsSelectNoOp(true);
                     return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
@@ -630,7 +645,7 @@ class StatementAnalyzer
             if (node.getColumnAliases().isPresent()) {
                 validateColumnAliases(node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
 
-                // analzie only column types in subquery if column alias exists
+                // analyze only column types in subquery if column alias exists
                 for (Field field : queryScope.getRelationType().getVisibleFields()) {
                     if (field.getType().equals(UNKNOWN)) {
                         throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
@@ -671,8 +686,7 @@ class StatementAnalyzer
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
             analysis.setCreateTableDestination(viewName);
 
-            Optional<TableHandle> viewHandle = metadata.getTableHandle(session, viewName);
-            if (viewHandle.isPresent()) {
+            if (metadataResolver.tableExists(viewName)) {
                 if (node.isNotExists()) {
                     return createAndAssignScope(node, scope);
                 }
@@ -703,11 +717,11 @@ class StatementAnalyzer
 
             QualifiedObjectName viewName = createQualifiedObjectName(session, node.getTarget(), node.getTarget().getName());
 
-            ConnectorMaterializedViewDefinition view = metadata.getMaterializedView(session, viewName)
+            MaterializedViewDefinition view = metadataResolver.getMaterializedView(viewName)
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
 
             // the original refresh statement will always be one line
-            analysis.setExpandedQuery(format("-- Expanded Query: %s\nINSERT INTO %s %s",
+            analysis.setExpandedQuery(format("-- Expanded Query: %s%nINSERT INTO %s %s",
                     SqlFormatterUtil.getFormattedSql(node, sqlParser, Optional.empty()),
                     viewName.getObjectName(),
                     view.getOriginalSql()));
@@ -904,6 +918,12 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitTruncateTable(TruncateTable node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
         protected Scope visitDropTable(DropTable node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
@@ -1049,7 +1069,7 @@ class StatementAnalyzer
             for (Table baseTable : baseTables) {
                 QualifiedObjectName baseName = createQualifiedObjectName(session, baseTable, baseTable.getName());
 
-                Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, baseName);
+                Optional<MaterializedViewDefinition> optionalMaterializedView = metadataResolver.getMaterializedView(baseName);
                 if (optionalMaterializedView.isPresent()) {
                     throw new SemanticException(
                             NOT_SUPPORTED,
@@ -1110,6 +1130,12 @@ class StatementAnalyzer
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
             for (Expression expression : node.getExpressions()) {
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
+                if (!expressionAnalysis.getScalarSubqueries().isEmpty()) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            node,
+                            "Scalar subqueries in UNNEST are not supported");
+                }
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
                     Type elementType = ((ArrayType) expressionType).getElementType();
@@ -1210,14 +1236,14 @@ class StatementAnalyzer
 
             Optional<ViewDefinition> optionalView = session.getRuntimeStats().profileNanos(
                     GET_VIEW_TIME_NANOS,
-                    () -> metadata.getView(session, name));
+                    () -> metadataResolver.getView(name));
             if (optionalView.isPresent()) {
                 return processView(table, scope, name, optionalView);
             }
 
-            Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().profileNanos(
+            Optional<MaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().profileNanos(
                     GET_MATERIALIZED_VIEW_TIME_NANOS,
-                    () -> metadata.getMaterializedView(session, name));
+                    () -> metadataResolver.getMaterializedView(name));
             // Prevent INSERT and CREATE TABLE when selecting from a materialized view.
             if (optionalMaterializedView.isPresent()
                     && (analysis.getStatement() instanceof Insert || analysis.getStatement() instanceof CreateTableAsSelect)) {
@@ -1243,10 +1269,10 @@ class StatementAnalyzer
 
             Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadata.getTableHandle(session, name));
             if (!tableHandle.isPresent()) {
-                if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
+                if (!metadataResolver.catalogExists(name.getCatalogName())) {
                     throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
                 }
-                if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
+                if (!metadataResolver.schemaExists(new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
                     throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
                 }
                 throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
@@ -1288,6 +1314,35 @@ class StatementAnalyzer
                     if (descriptor.isPresent()) {
                         return createAndAssignScope(table, scope, descriptor.get());
                     }
+                }
+            }
+
+            return createAndAssignScope(table, scope, fields.build());
+        }
+
+        private Scope getScopeFromTable(Table table, Optional<Scope> scope)
+        {
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+
+            // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
+            ImmutableList.Builder<Field> fields = ImmutableList.builder();
+
+            Optional<List<ColumnMetadata>> columns = session.getRuntimeStats().profileNanos(
+                    GET_COLUMN_METADATA_TIME_NANOS,
+                    () -> metadataResolver.getColumns(tableName));
+
+            if (columns.isPresent()) {
+                for (ColumnMetadata column : columns.get()) {
+                    Field field = Field.newQualified(
+                            Optional.empty(),
+                            table.getName(),
+                            Optional.of(column.getName()),
+                            column.getType(),
+                            column.isHidden(),
+                            Optional.of(tableName),
+                            Optional.of(column.getName()),
+                            false);
+                    fields.add(field);
                 }
             }
 
@@ -1344,16 +1399,16 @@ class StatementAnalyzer
                 Table materializedView,
                 QualifiedObjectName materializedViewName,
                 Optional<Scope> scope,
-                ConnectorMaterializedViewDefinition materializedViewDefinition)
+                MaterializedViewDefinition materializedViewDefinition)
         {
             MaterializedViewPlanValidator.validate((Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session, warningCollector)));
 
-            String newSql = getMaterializedViewSQL(materializedView, materializedViewName, materializedViewDefinition);
+            analysis.registerMaterializedViewForAnalysis(materializedViewName, materializedView, materializedViewDefinition.getOriginalSql());
+            String newSql = getMaterializedViewSQL(materializedView, materializedViewName, materializedViewDefinition, scope);
 
             Query query = (Query) sqlParser.createStatement(newSql, createParsingOptions(session, warningCollector));
             analysis.registerNamedQuery(materializedView, query);
 
-            analysis.registerMaterializedViewForAnalysis(materializedViewName, materializedView, materializedViewDefinition.getOriginalSql());
             Scope queryScope = process(query, scope);
             RelationType relationType = queryScope.getRelationType().withAlias(materializedViewName.getObjectName(), null);
             analysis.unregisterMaterializedViewForAnalysis(materializedView);
@@ -1364,13 +1419,15 @@ class StatementAnalyzer
         private String getMaterializedViewSQL(
                 Table materializedView,
                 QualifiedObjectName materializedViewName,
-                ConnectorMaterializedViewDefinition connectorMaterializedViewDefinition)
+                MaterializedViewDefinition materializedViewDefinition,
+                Optional<Scope> scope)
         {
-            MaterializedViewStatus materializedViewStatus = metadata.getMaterializedViewStatus(session, materializedViewName);
+            MaterializedViewStatus materializedViewStatus = getMaterializedViewStatus(materializedViewName, scope, materializedView);
 
-            String materializedViewCreateSql = connectorMaterializedViewDefinition.getOriginalSql();
+            String materializedViewCreateSql = materializedViewDefinition.getOriginalSql();
 
             if (materializedViewStatus.isNotMaterialized() || materializedViewStatus.isTooManyPartitionsMissing()) {
+                session.getRuntimeStats().addMetricValue(SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT, NONE, 1);
                 return materializedViewCreateSql;
             }
 
@@ -1380,7 +1437,7 @@ class StatementAnalyzer
             if (materializedViewStatus.isFullyMaterialized()) {
                 // We need to include base table queries by Union in order to add required access control for the base tables and utilized columns during visit.
                 // Here we stitch with the predicate WHERE FALSE, and the optimizer will then prune the FALSE branch with no extra overhead introduced.
-                baseTablePredicates = generateFalsePredicates(connectorMaterializedViewDefinition.getBaseTables());
+                baseTablePredicates = generateFalsePredicates(materializedViewDefinition.getBaseTables());
             }
             else if (materializedViewStatus.isPartiallyMaterialized()) {
                 baseTablePredicates = generateBaseTablePredicates(materializedViewStatus.getPartitionsFromBaseTables(), metadata);
@@ -1406,6 +1463,68 @@ class StatementAnalyzer
             // can we return the above query object, instead of building a query string?
             // in case of returning the query object, make sure to clone the original query object.
             return SqlFormatterUtil.getFormattedSql(unionQuery, sqlParser, Optional.empty());
+        }
+
+        /**
+         * Returns materialized view status, considering filter conditions from query
+         */
+        private MaterializedViewStatus getMaterializedViewStatus(QualifiedObjectName materializedViewName, Optional<Scope> scope, Table table)
+        {
+            TupleDomain<String> baseQueryDomain = TupleDomain.all();
+            // We can use filter from base query WHERE clause to consider only relevant partitions when getting
+            // materialized view status
+            // TODO: Collect predicates in outer queries and apply the union to this criteria. i.e. in
+            //  SELECT x FROM (SELECT x FROM tbl WHERE y < 20) WHERE y > 5 where y is a partition key,
+            //  right now we would only remove partitions y >= 20. We should eventually consider y <= 5 as well.
+
+            checkArgument(analysis.getCurrentQuerySpecification().isPresent(), "Current subquery should be set when processing materialized view");
+            QuerySpecification currentSubquery = analysis.getCurrentQuerySpecification().get();
+
+            if (currentSubquery.getWhere().isPresent() && isMaterializedViewPartitionFilteringEnabled(session)) {
+                Optional<MaterializedViewDefinition> materializedViewDefinition = metadataResolver.getMaterializedView(materializedViewName);
+                if (!materializedViewDefinition.isPresent()) {
+                    log.warn("Materialized view definition not present as expected when fetching materialized view status");
+                    return metadata.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
+                }
+
+                Scope sourceScope = getScopeFromTable(table, scope);
+                Expression viewQueryWhereClause = currentSubquery.getWhere().get();
+
+                analyzeWhere(currentSubquery, sourceScope, viewQueryWhereClause);
+
+                DomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
+                RowExpression rowExpression = SqlToRowExpressionTranslator.translate(
+                        viewQueryWhereClause,
+                        analysis.getTypes(),
+                        ImmutableMap.of(),
+                        metadata.getFunctionAndTypeManager(),
+                        session);
+
+                TupleDomain<String> viewQueryDomain = MaterializedViewUtils.getDomainFromFilter(session, domainTranslator, rowExpression);
+
+                Map<String, Map<SchemaTableName, String>> directColumnMappings = materializedViewDefinition.get().getDirectColumnMappingsAsMap();
+
+                // Get base query domain we have mapped from view query- if there are not direct mappings, don't filter partition count for predicate
+                boolean mappedToOneTable = true;
+                Map<String, Domain> rewrittenDomain = new HashMap<>();
+
+                for (Map.Entry<String, Domain> entry : viewQueryDomain.getDomains().orElse(ImmutableMap.of()).entrySet()) {
+                    Map<SchemaTableName, String> baseTableMapping = directColumnMappings.get(entry.getKey());
+                    if (baseTableMapping == null || baseTableMapping.size() != 1) {
+                        mappedToOneTable = false;
+                        break;
+                    }
+
+                    String baseColumnName = baseTableMapping.entrySet().stream().findAny().get().getValue();
+                    rewrittenDomain.put(baseColumnName, entry.getValue());
+                }
+
+                if (mappedToOneTable) {
+                    baseQueryDomain = TupleDomain.withColumnDomains(rewrittenDomain);
+                }
+            }
+
+            return metadata.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
         }
 
         @Override
@@ -1488,9 +1607,17 @@ class StatementAnalyzer
             // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
             // to pass down to analyzeFrom
 
+            analysis.setCurrentSubquery(node);
             Scope sourceScope = analyzeFrom(node, scope);
 
-            node.getWhere().ifPresent(where -> analyzeWhere(node, sourceScope, where));
+            if (node.getWhere().isPresent()) {
+                Expression predicate = node.getWhere().get();
+                // If analysis already contains where clause information for this node, analyzeWhere
+                // was already called for this node when fetching materialized view status
+                if (analysis.getWhere(node) == null) {
+                    analyzeWhere(node, sourceScope, predicate);
+                }
+            }
 
             List<Expression> outputExpressions = analyzeSelect(node, sourceScope);
             List<Expression> groupByExpressions = analyzeGroupBy(node, sourceScope, outputExpressions);
@@ -1679,6 +1806,19 @@ class StatementAnalyzer
             return visitSetOperation(node, scope);
         }
 
+        private boolean isJoinOnConditionReferencesRelatedFields(Expression expression, Scope leftScope, Scope rightScope)
+        {
+            return ExpressionUtils.extractDisjuncts(expression).stream().allMatch(disjunct -> {
+                List<DereferenceExpression> dereferenceExpressions = extractExpressions(Arrays.asList(disjunct), DereferenceExpression.class);
+                List<Identifier> identifiers = extractExpressions(Arrays.asList(disjunct), Identifier.class);
+                boolean isJoinOnConditionReferencedVariableInLeftScope = dereferenceExpressions.stream().anyMatch(expr -> rightScope.tryResolveField(expr).isPresent()) ||
+                        identifiers.stream().anyMatch(expr -> rightScope.tryResolveField(expr).isPresent());
+                boolean isJoinOnConditionReferencedVariableInRightScope = dereferenceExpressions.stream().anyMatch(expr -> leftScope.tryResolveField(expr).isPresent()) ||
+                        identifiers.stream().anyMatch(expr -> leftScope.tryResolveField(expr).isPresent());
+                return isJoinOnConditionReferencedVariableInLeftScope && isJoinOnConditionReferencedVariableInRightScope;
+            });
+        }
+
         @Override
         protected Scope visitJoin(Join node, Optional<Scope> scope)
         {
@@ -1720,6 +1860,7 @@ class StatementAnalyzer
                     }
                 }
 
+                verifyJoinOnConditionReferencesRelatedFields(left, right, expression, node.getRight());
                 verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), expression, "JOIN clause");
 
                 analysis.recordSubqueries(node, expressionAnalysis);
@@ -1730,6 +1871,39 @@ class StatementAnalyzer
             }
 
             return output;
+        }
+
+        private void verifyJoinOnConditionReferencesRelatedFields(Scope leftScope, Scope rightScope, Expression expression, Relation rightRelation)
+        {
+            if (!isJoinOnConditionReferencesRelatedFields(expression, leftScope, rightScope)) {
+                Optional<String> tableName = tryGetTableName(rightRelation);
+                String warningMessage = tableName.isPresent() ?
+                        createWarningMessage(
+                                expression,
+                                format(
+                                        "JOIN ON condition(s) do not reference the joined table '%s' and other tables in the same " +
+                                                "expression that can cause performance issues as it may lead to a cross join with filter",
+                                        tableName.get())) :
+                        createWarningMessage(
+                                expression,
+                                "JOIN ON condition(s) do not reference the joined relation and other relation in the same " +
+                                        "expression that can cause performance issues as it may lead to a cross join with filter");
+                warningCollector.add(new PrestoWarning(PERFORMANCE_WARNING, warningMessage));
+            }
+        }
+
+        private Optional<String> tryGetTableName(Relation relation)
+        {
+            if (relation instanceof Table) {
+                return Optional.of(((Table) relation).getName().toString());
+            }
+            else if (relation instanceof AliasedRelation) {
+                AliasedRelation aliasedRelation = (AliasedRelation) relation;
+                if (aliasedRelation.getRelation() instanceof Table) {
+                    return Optional.of(((Table) aliasedRelation.getRelation()).getName().toString());
+                }
+            }
+            return Optional.empty();
         }
 
         private String createWarningMessage(Node node, String description)
@@ -1781,16 +1955,16 @@ class StatementAnalyzer
                 analysis.addColumnReference(NodeRef.of(column), FieldId.from(leftField.get()));
                 analysis.addColumnReference(NodeRef.of(column), FieldId.from(rightField.get()));
                 if (leftField.get().getField().getOriginTable().isPresent() && leftField.get().getField().getOriginColumnName().isPresent()) {
-                    analysis.addTableColumnReferences(
+                    analysis.addTableColumnAndSubfieldReferences(
                             accessControl,
                             session.getIdentity(),
-                            ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), leftField.get().getField().getOriginColumnName().get()));
+                            ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), new Subfield(leftField.get().getField().getOriginColumnName().get(), ImmutableList.of())));
                 }
                 if (rightField.get().getField().getOriginTable().isPresent() && rightField.get().getField().getOriginColumnName().isPresent()) {
-                    analysis.addTableColumnReferences(
+                    analysis.addTableColumnAndSubfieldReferences(
                             accessControl,
                             session.getIdentity(),
-                            ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), rightField.get().getField().getOriginColumnName().get()));
+                            ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), new Subfield(rightField.get().getField().getOriginColumnName().get(), ImmutableList.of())));
                 }
             }
 
@@ -2481,11 +2655,11 @@ class StatementAnalyzer
                         .collect(toImmutableList());
 
                 for (Expression expression : outputExpressions) {
-                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis, warningCollector);
+                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis, warningCollector, session);
                 }
 
                 for (Expression expression : orderByExpressions) {
-                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis, warningCollector);
+                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis, warningCollector, session);
                 }
             }
         }
@@ -2505,7 +2679,7 @@ class StatementAnalyzer
                     viewAccessControl = accessControl;
                 }
 
-                Session viewSession = Session.builder(metadata.getSessionPropertyManager())
+                Session.SessionBuilder viewSessionBuilder = Session.builder(metadata.getSessionPropertyManager())
                         .setQueryId(session.getQueryId())
                         .setTransactionId(session.getTransactionId().orElse(null))
                         .setIdentity(identity)
@@ -2517,9 +2691,9 @@ class StatementAnalyzer
                         .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                         .setUserAgent(session.getUserAgent().orElse(null))
                         .setClientInfo(session.getClientInfo().orElse(null))
-                        .setStartTime(session.getStartTime())
-                        .build();
-
+                        .setStartTime(session.getStartTime());
+                session.getConnectorProperties().forEach((connectorId, properties) -> properties.forEach((k, v) -> viewSessionBuilder.setConnectionProperty(connectorId, k, v)));
+                Session viewSession = viewSessionBuilder.build();
                 StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);

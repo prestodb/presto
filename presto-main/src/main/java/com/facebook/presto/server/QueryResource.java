@@ -47,6 +47,7 @@ import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -56,12 +57,17 @@ import java.util.Optional;
 
 import static com.facebook.presto.connector.system.KillQueryProcedure.createKillQueryException;
 import static com.facebook.presto.connector.system.KillQueryProcedure.createPreemptQueryException;
+import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static java.lang.String.format;
+import static java.util.Comparator.comparing;
+import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NO_CONTENT;
@@ -74,12 +80,26 @@ import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
 @RolesAllowed({USER, ADMIN})
 public class QueryResource
 {
-    // Sort returned queries: RUNNING - first, then QUEUED, then other non-completed, then FAILED and in each group we sort by create time.
-    private static final Comparator<BasicQueryInfo> QUERIES_ORDERING = Ordering.<BasicQueryInfo>from((o1, o2) -> Boolean.compare(o1.getState() == QueryState.RUNNING, o2.getState() == QueryState.RUNNING))
-            .compound((o1, o2) -> Boolean.compare(o1.getState() == QueryState.QUEUED, o2.getState() == QueryState.QUEUED))
-            .compound((o1, o2) -> Boolean.compare(!o1.getState().isDone(), !o2.getState().isDone()))
-            .compound((o1, o2) -> Boolean.compare(o1.getState() == QueryState.FAILED, o2.getState() == QueryState.FAILED))
-            .compound(Comparator.comparing(item -> item.getQueryStats().getCreateTime()));
+    public static final Comparator<BasicQueryInfo> QUERIES_ORDERING = Ordering
+            .<BasicQueryInfo>from(comparingInt(
+                    basicQueryInfo -> {
+                        if (basicQueryInfo.getState() == RUNNING) {
+                            return 0;
+                        }
+                        else if (basicQueryInfo.getState() == QUEUED) {
+                            return 1;
+                        }
+                        else if (!basicQueryInfo.getState().isDone()) {
+                            return 2;
+                        }
+                        else if (basicQueryInfo.getState() == FAILED) {
+                            return 3;
+                        }
+                        else {
+                            return 4;
+                        }
+                    }))
+            .compound(Collections.reverseOrder(comparing(item -> item.getQueryStats().getCreateTime())));
 
     // TODO There should be a combined interface for this
     private final boolean resourceManagerEnabled;
@@ -131,7 +151,7 @@ public class QueryResource
         // Filter list by the query state (if specified).
         if (stateFilter != null) {
             QueryState expectedState = QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
-            queries.removeIf(item -> item.getState() == expectedState);
+            queries.removeIf(item -> item.getState() != expectedState);
         }
 
         // If limit is smaller than number of queries, then ensure that the more recent items are at the front.

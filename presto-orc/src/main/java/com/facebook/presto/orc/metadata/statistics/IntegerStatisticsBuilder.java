@@ -46,17 +46,20 @@ public class IntegerStatisticsBuilder
         }
     }
 
+    public long getMaximum()
+    {
+        return maximum;
+    }
+
     private void addIntegerStatistics(long valueCount, IntegerStatistics value)
     {
         requireNonNull(value, "value is null");
-        requireNonNull(value.getMin(), "value.getMin() is null");
-        requireNonNull(value.getMax(), "value.getMax() is null");
 
         nonNullValueCount += valueCount;
-        minimum = Math.min(value.getMin(), minimum);
-        maximum = Math.max(value.getMax(), maximum);
+        minimum = Math.min(value.getMinPrimitive(), minimum);
+        maximum = Math.max(value.getMaxPrimitive(), maximum);
 
-        if (value.getSum() == null) {
+        if (!value.hasSum()) {
             // if input value does not have a sum tag this stat as overflowed
             // to prevent creation of the sum stats (since it was not provided
             // for these values).
@@ -64,7 +67,7 @@ public class IntegerStatisticsBuilder
         }
         else if (!overflow) {
             try {
-                sum = addExact(sum, value.getSum());
+                sum = addExact(sum, value.getSumPrimitive());
             }
             catch (ArithmeticException e) {
                 overflow = true;

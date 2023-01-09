@@ -31,6 +31,8 @@ import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -53,6 +55,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -128,16 +131,17 @@ public class CallTask
 
         // get argument values
         Object[] values = new Object[procedure.getArguments().size()];
+        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters);
         for (Entry<String, CallArgument> entry : names.entrySet()) {
             CallArgument callArgument = entry.getValue();
             int index = positions.get(entry.getKey());
             Argument argument = procedure.getArguments().get(index);
 
-            Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), callArgument.getValue());
+            Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
             Type type = metadata.getType(argument.getType());
             checkCondition(type != null, INVALID_PROCEDURE_DEFINITION, "Unknown procedure argument type: %s", argument.getType());
 
-            Object value = evaluateConstantExpression(expression, type, metadata, session, parameters);
+            Object value = evaluateConstantExpression(expression, type, metadata, session, parameterLookup);
 
             values[index] = toTypeObjectValue(session, type, value);
         }

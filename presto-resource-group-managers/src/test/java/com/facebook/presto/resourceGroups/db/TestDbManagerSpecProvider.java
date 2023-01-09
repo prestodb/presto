@@ -55,8 +55,8 @@ public class TestDbManagerSpecProvider
         // two resource groups are the same except the group for the prod environment has a larger softMemoryLimit
         dao.insertResourceGroup(1, "prod_global", "10MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", "1h", "1MB", "1h", null, prodEnvironment);
         dao.insertResourceGroup(2, "dev_global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", "1h", "1MB", "1h", null, devEnvironment);
-        dao.insertSelector(1, 1, ".*prod_user.*", null, null, null, null);
-        dao.insertSelector(2, 2, ".*dev_user.*", null, null, null, null);
+        dao.insertSelector(1, 1, ".*prod_user.*", null, null, null, null, null);
+        dao.insertSelector(2, 2, ".*dev_user.*", null, null, null, null, null);
 
         // check the prod configuration
         DbManagerSpecProvider dbManagerSpecProvider = new DbManagerSpecProvider(daoProvider.get(), prodEnvironment, new ReloadingResourceGroupConfig());
@@ -97,7 +97,7 @@ public class TestDbManagerSpecProvider
         for (int i = 0; i < numberOfUsers; i++) {
             int priority = randomPriorities[i];
             String user = String.valueOf(priority);
-            dao.insertSelector(1, priority, user, ".*", null, null, null);
+            dao.insertSelector(1, priority, user, ".*", null, null, null, null);
             expectedUsers.add(user);
         }
 
@@ -133,7 +133,7 @@ public class TestDbManagerSpecProvider
             assertTrue(ex.getCause() instanceof JdbcSQLIntegrityConstraintViolationException);
             assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
         }
-        dao.insertSelector(1, 1, null, null, null, null, null);
+        dao.insertSelector(1, 1, null, null, null, null, null, null);
         daoProvider = setup("test_dup_subs");
         dao = daoProvider.get();
         dao.createResourceGroupsGlobalPropertiesTable();
@@ -150,7 +150,7 @@ public class TestDbManagerSpecProvider
             assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
         }
 
-        dao.insertSelector(2, 2, null, null, null, null, null);
+        dao.insertSelector(2, 2, null, null, null, null, null, null);
     }
 
     @Test

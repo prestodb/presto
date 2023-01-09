@@ -30,6 +30,8 @@ import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationT
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -61,6 +63,7 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.operator.aggregation.histogram.Histogram.NAME;
 import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.NEW;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -77,7 +80,7 @@ public class TestHistogram
     @Test
     public void testSimpleHistograms()
     {
-        InternalAggregationFunction aggregationFunction = getAggregation(VARCHAR);
+        JavaAggregationFunctionImplementation aggregationFunction = getAggregation(VARCHAR);
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
@@ -105,7 +108,7 @@ public class TestHistogram
     @Test
     public void testSharedGroupBy()
     {
-        InternalAggregationFunction aggregationFunction = getAggregation(VARCHAR);
+        JavaAggregationFunctionImplementation aggregationFunction = getAggregation(VARCHAR);
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
@@ -133,7 +136,7 @@ public class TestHistogram
     @Test
     public void testDuplicateKeysValues()
     {
-        InternalAggregationFunction aggregationFunction = getAggregation(VARCHAR);
+        JavaAggregationFunctionImplementation aggregationFunction = getAggregation(VARCHAR);
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 2L, "b", 1L),
@@ -151,7 +154,7 @@ public class TestHistogram
     @Test
     public void testWithNulls()
     {
-        InternalAggregationFunction aggregationFunction = getAggregation(BIGINT);
+        JavaAggregationFunctionImplementation aggregationFunction = getAggregation(BIGINT);
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(1L, 1L, 2L, 1L),
@@ -166,7 +169,7 @@ public class TestHistogram
     public void testArrayHistograms()
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
-        InternalAggregationFunction aggregationFunction = getAggregation(arrayType);
+        JavaAggregationFunctionImplementation aggregationFunction = getAggregation(arrayType);
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(ImmutableList.of("a", "b", "c"), 1L, ImmutableList.of("d", "e", "f"), 1L, ImmutableList.of("c", "b", "a"), 1L),
@@ -177,7 +180,7 @@ public class TestHistogram
     public void testMapHistograms()
     {
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
-        InternalAggregationFunction aggregationFunction = getAggregation(innerMapType);
+        JavaAggregationFunctionImplementation aggregationFunction = getAggregation(innerMapType);
 
         BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
@@ -196,7 +199,7 @@ public class TestHistogram
         RowType innerRowType = RowType.from(ImmutableList.of(
                 RowType.field("f1", BIGINT),
                 RowType.field("f2", DOUBLE)));
-        InternalAggregationFunction aggregationFunction = getAggregation(innerRowType);
+        JavaAggregationFunctionImplementation aggregationFunction = getAggregation(innerRowType);
         BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 1L, 1.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 2L, 2.0));
@@ -211,7 +214,7 @@ public class TestHistogram
     @Test
     public void testLargerHistograms()
     {
-        InternalAggregationFunction aggregationFunction = getInternalDefaultVarCharAggregationn();
+        JavaAggregationFunctionImplementation aggregationFunction = getInternalDefaultVarcharAggregation();
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of("a", 25L, "b", 10L, "c", 12L, "d", 1L, "e", 2L),
@@ -221,8 +224,8 @@ public class TestHistogram
     @Test
     public void testEmptyHistogramOutputsNull()
     {
-        InternalAggregationFunction function = getInternalDefaultVarCharAggregationn();
-        GroupedAccumulator groupedAccumulator = function.bind(Ints.asList(new int[] {}), Optional.empty())
+        JavaAggregationFunctionImplementation function = getInternalDefaultVarcharAggregation();
+        GroupedAccumulator groupedAccumulator = generateAccumulatorFactory(function, Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator(UpdateMemory.NOOP);
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
 
@@ -233,8 +236,8 @@ public class TestHistogram
     @Test
     public void testSharedGroupByWithOverlappingValuesRunner()
     {
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        JavaAggregationFunctionImplementation classicFunction = getInternalDefaultVarcharAggregation();
+        JavaAggregationFunctionImplementation singleInstanceFunction = getInternalDefaultVarcharAggregation();
 
         testSharedGroupByWithOverlappingValuesRunner(classicFunction);
         testSharedGroupByWithOverlappingValuesRunner(singleInstanceFunction);
@@ -244,8 +247,8 @@ public class TestHistogram
     public void testSharedGroupByWithDistinctValuesPerGroup()
     {
         // test that two groups don't affect one another
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        JavaAggregationFunctionImplementation classicFunction = getInternalDefaultVarcharAggregation();
+        JavaAggregationFunctionImplementation singleInstanceFunction = getInternalDefaultVarcharAggregation();
         testSharedGroupByWithDistinctValuesPerGroupRunner(classicFunction);
         testSharedGroupByWithDistinctValuesPerGroupRunner(singleInstanceFunction);
     }
@@ -254,8 +257,8 @@ public class TestHistogram
     public void testSharedGroupByWithOverlappingValuesPerGroup()
     {
         // test that two groups don't affect one another
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        JavaAggregationFunctionImplementation classicFunction = getInternalDefaultVarcharAggregation();
+        JavaAggregationFunctionImplementation singleInstanceFunction = getInternalDefaultVarcharAggregation();
         testSharedGroupByWithOverlappingValuesPerGroupRunner(classicFunction);
         testSharedGroupByWithOverlappingValuesPerGroupRunner(singleInstanceFunction);
     }
@@ -264,15 +267,15 @@ public class TestHistogram
     public void testSharedGroupByWithManyGroups()
     {
         // uses a large enough data set to induce rehashing and test correctness
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        JavaAggregationFunctionImplementation classicFunction = getInternalDefaultVarcharAggregation();
+        JavaAggregationFunctionImplementation singleInstanceFunction = getInternalDefaultVarcharAggregation();
 
         // this is to validate the test as there have been test-bugs that looked like code bugs--if both fail, likely a test bug
         testManyValuesInducingRehash(classicFunction);
         testManyValuesInducingRehash(singleInstanceFunction);
     }
 
-    private void testManyValuesInducingRehash(InternalAggregationFunction aggregationFunction)
+    private void testManyValuesInducingRehash(JavaAggregationFunctionImplementation aggregationFunction)
     {
         double distinctFraction = 0.1f;
         int numGroups = 50000;
@@ -309,15 +312,15 @@ public class TestHistogram
         }
     }
 
-    private GroupedAccumulator createGroupedAccumulator(InternalAggregationFunction function)
+    private GroupedAccumulator createGroupedAccumulator(JavaAggregationFunctionImplementation function)
     {
         int[] args = GroupByAggregationTestUtils.createArgs(function);
 
-        return function.bind(Ints.asList(args), Optional.empty())
+        return generateAccumulatorFactory(function, Ints.asList(args), Optional.empty())
                 .createGroupedAccumulator(UpdateMemory.NOOP);
     }
 
-    private void testSharedGroupByWithOverlappingValuesPerGroupRunner(InternalAggregationFunction aggregationFunction)
+    private void testSharedGroupByWithOverlappingValuesPerGroupRunner(JavaAggregationFunctionImplementation aggregationFunction)
     {
         Block block1 = createStringsBlock("a", "b", "c");
         Block block2 = createStringsBlock("b", "c", "d");
@@ -338,7 +341,7 @@ public class TestHistogram
         test2.runPagesOnAccumulatorWithAssertion(255L, groupedAccumulator, aggregationTestOutput2);
     }
 
-    private void testSharedGroupByWithDistinctValuesPerGroupRunner(InternalAggregationFunction aggregationFunction)
+    private void testSharedGroupByWithDistinctValuesPerGroupRunner(JavaAggregationFunctionImplementation aggregationFunction)
     {
         Block block1 = createStringsBlock("a", "b", "c");
         Block block2 = createStringsBlock("d", "e", "f");
@@ -359,7 +362,7 @@ public class TestHistogram
         test2.runPagesOnAccumulatorWithAssertion(255L, groupedAccumulator, aggregationTestOutput2);
     }
 
-    private void testSharedGroupByWithOverlappingValuesRunner(InternalAggregationFunction aggregationFunction)
+    private void testSharedGroupByWithOverlappingValuesRunner(JavaAggregationFunctionImplementation aggregationFunction)
     {
         Block block1 = createStringsBlock("a", "b", "c", "d", "a1", "b2", "c3", "d4", "a", "b2", "c", "d4", "a3", "b3", "c3", "b2");
         AggregationTestInputBuilder testInputBuilder1 = new AggregationTestInputBuilder(
@@ -382,15 +385,15 @@ public class TestHistogram
         test1.runPagesOnAccumulatorWithAssertion(0L, test1.createGroupedAccumulator(), aggregationTestOutput1);
     }
 
-    private InternalAggregationFunction getInternalDefaultVarCharAggregationn()
+    private JavaAggregationFunctionImplementation getInternalDefaultVarcharAggregation()
     {
         return getAggregation(VARCHAR);
     }
 
-    private InternalAggregationFunction getAggregation(Type... arguments)
+    private JavaAggregationFunctionImplementation getAggregation(Type... arguments)
     {
         FunctionAndTypeManager functionAndTypeManager = getFunctionManager(NEW);
-        return functionAndTypeManager.getAggregateFunctionImplementation(functionAndTypeManager.lookupFunction(NAME, fromTypes(arguments)));
+        return functionAndTypeManager.getJavaAggregateFunctionImplementation(functionAndTypeManager.lookupFunction(NAME, fromTypes(arguments)));
     }
 
     public FunctionAndTypeManager getFunctionManager()

@@ -23,7 +23,7 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.planner.LiteralEncoder;
@@ -154,7 +154,7 @@ public class TestHiveMaterializedViewUtils
     }
 
     @Test
-    public void testMaterializedDataPredicatesWithIntParitionType()
+    public void testMaterializedDataPredicatesWithIntPartitionType()
     {
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingSemiTransactionalHiveMetastore testMetastore = TestingSemiTransactionalHiveMetastore.create();
@@ -651,10 +651,10 @@ public class TestHiveMaterializedViewUtils
         }
     }
 
-    private static ConnectorMaterializedViewDefinition getConnectorMaterializedViewDefinition(
+    private static MaterializedViewDefinition getConnectorMaterializedViewDefinition(
             List<SchemaTableName> tables,
             Map<String, Map<SchemaTableName, String>> originalColumnMapping)
     {
-        return new ConnectorMaterializedViewDefinition(SQL, SCHEMA_NAME, TABLE_NAME, tables, Optional.empty(), originalColumnMapping, originalColumnMapping, ImmutableList.of(), Optional.empty());
+        return new MaterializedViewDefinition(SQL, SCHEMA_NAME, TABLE_NAME, tables, Optional.empty(), originalColumnMapping, originalColumnMapping, ImmutableList.of(), Optional.empty());
     }
 }

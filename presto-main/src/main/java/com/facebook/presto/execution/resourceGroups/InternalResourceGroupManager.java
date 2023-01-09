@@ -29,9 +29,9 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.util.PeriodicTaskExecutor;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.weakref.jmx.JmxException;
@@ -96,7 +96,7 @@ public final class InternalResourceGroupManager<C>
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
     private final AtomicBoolean taskLimitExceeded = new AtomicBoolean();
     private final int maxTotalRunningTaskCountToNotExecuteNewQuery;
-    private final AtomicLong lastSchedulingCycleRunTimeMs = new AtomicLong(currentTimeMillis());
+    private final AtomicLong lastSchedulingCycleRunTimeMs = new AtomicLong(0L);
     private final ResourceGroupService resourceGroupService;
     private final AtomicReference<Map<ResourceGroupId, ResourceGroupRuntimeInfo>> resourceGroupRuntimeInfos = new AtomicReference<>(ImmutableMap.of());
     private final AtomicReference<Map<ResourceGroupId, ResourceGroupRuntimeInfo>> resourceGroupRuntimeInfosSnapshot = new AtomicReference<>(ImmutableMap.of());
@@ -143,7 +143,7 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
-    public void submit(Statement statement, ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
+    public void submit(ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
     {
         checkState(configurationManager.get() != null, "configurationManager not set");
         createGroupIfNecessary(selectionContext, executor);
@@ -230,6 +230,29 @@ public final class InternalResourceGroupManager<C>
             if (isResourceManagerEnabled) {
                 resourceGroupRuntimeExecutor.start();
             }
+        }
+    }
+
+    @Override
+    public List<ResourceGroupRuntimeInfo> getResourceGroupRuntimeInfos()
+    {
+        ImmutableList.Builder<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = ImmutableList.builder();
+        rootGroups.forEach(resourceGroup -> buildResourceGroupRuntimeInfo(resourceGroupRuntimeInfos, resourceGroup));
+        return resourceGroupRuntimeInfos.build();
+    }
+
+    private void buildResourceGroupRuntimeInfo(ImmutableList.Builder<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos, InternalResourceGroup resourceGroup)
+    {
+        if (!resourceGroup.subGroups().isEmpty()) {
+            resourceGroup.subGroups().stream().forEach(subGroup -> buildResourceGroupRuntimeInfo(resourceGroupRuntimeInfos, subGroup));
+            return;
+        }
+        if (resourceGroup.getQueuedQueries() > 0 || resourceGroup.getRunningQueries() > 0) {
+            ResourceGroupRuntimeInfo.Builder resourceGroupRuntimeInfo = ResourceGroupRuntimeInfo.builder(resourceGroup.getId());
+            resourceGroupRuntimeInfo.addRunningQueries(resourceGroup.getRunningQueries());
+            resourceGroupRuntimeInfo.addQueuedQueries(resourceGroup.getQueuedQueries());
+            resourceGroupRuntimeInfo.setResourceGroupSpecInfo(new ResourceGroupSpecInfo(resourceGroup.getSoftConcurrencyLimit()));
+            resourceGroupRuntimeInfos.add(resourceGroupRuntimeInfo.build());
         }
     }
 
@@ -391,7 +414,9 @@ public final class InternalResourceGroupManager<C>
     @Managed
     public long getLastSchedulingCycleRuntimeDelayMs()
     {
-        return currentTimeMillis() - lastSchedulingCycleRunTimeMs.get();
+        // When coordinator restarts/deploy, the initial 0 value make sure the metric won't spike. Without it, the first metric published will have larger value
+        // due to the delay from the initialization to the actual successful run of refreshAndStartQueries method
+        return lastSchedulingCycleRunTimeMs.get() == 0L ? lastSchedulingCycleRunTimeMs.get() : currentTimeMillis() - lastSchedulingCycleRunTimeMs.get();
     }
 
     private int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)

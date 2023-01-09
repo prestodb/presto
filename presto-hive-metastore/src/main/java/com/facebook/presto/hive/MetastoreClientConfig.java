@@ -49,6 +49,9 @@ public class MetastoreClientConfig
     private MetastoreCacheScope metastoreCacheScope = MetastoreCacheScope.ALL;
     private boolean metastoreImpersonationEnabled;
     private double partitionCacheValidationPercentage;
+    private int partitionCacheColumnCountLimit = 500;
+    private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
+    private boolean deleteFilesOnTableDrop;
 
     public HostAndPort getMetastoreSocksProxy()
     {
@@ -252,6 +255,52 @@ public class MetastoreClientConfig
     public MetastoreClientConfig setPartitionCacheValidationPercentage(double partitionCacheValidationPercentage)
     {
         this.partitionCacheValidationPercentage = partitionCacheValidationPercentage;
+        return this;
+    }
+
+    public int getPartitionCacheColumnCountLimit()
+    {
+        return partitionCacheColumnCountLimit;
+    }
+
+    @Config("hive.partition-cache-column-count-limit")
+    @ConfigDescription("The max limit on the column count for a partition to be cached")
+    public MetastoreClientConfig setPartitionCacheColumnCountLimit(int partitionCacheColumnCountLimit)
+    {
+        this.partitionCacheColumnCountLimit = partitionCacheColumnCountLimit;
+        return this;
+    }
+
+    public enum HiveMetastoreAuthenticationType
+    {
+        NONE,
+        KERBEROS
+    }
+
+    @NotNull
+    public HiveMetastoreAuthenticationType getHiveMetastoreAuthenticationType()
+    {
+        return hiveMetastoreAuthenticationType;
+    }
+
+    @Config("hive.metastore.authentication.type")
+    @ConfigDescription("Hive Metastore authentication type")
+    public MetastoreClientConfig setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType)
+    {
+        this.hiveMetastoreAuthenticationType = hiveMetastoreAuthenticationType;
+        return this;
+    }
+
+    public boolean isDeleteFilesOnTableDrop()
+    {
+        return deleteFilesOnTableDrop;
+    }
+
+    @Config("hive.metastore.thrift.delete-files-on-table-drop")
+    @ConfigDescription("Delete files on dropping table in case the metastore fails to do so")
+    public MetastoreClientConfig setDeleteFilesOnTableDrop(boolean deleteFilesOnTableDrop)
+    {
+        this.deleteFilesOnTableDrop = deleteFilesOnTableDrop;
         return this;
     }
 }

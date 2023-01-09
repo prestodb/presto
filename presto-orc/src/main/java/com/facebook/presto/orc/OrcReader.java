@@ -43,9 +43,11 @@ import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -76,6 +78,7 @@ public class OrcReader
     private final Metadata metadata;
 
     private final Optional<OrcWriteValidation> writeValidation;
+    private final Optional<OrcFileIntrospector> fileIntrospector;
 
     private final StripeMetadataSource stripeMetadataSource;
     private final OrcReaderOptions orcReaderOptions;
@@ -109,7 +112,8 @@ public class OrcReader
                 cacheable,
                 dwrfEncryptionProvider,
                 dwrfKeyProvider,
-                runtimeStats);
+                runtimeStats,
+                Optional.empty());
     }
 
     public OrcReader(
@@ -136,7 +140,8 @@ public class OrcReader
                 cacheable,
                 dwrfEncryptionProvider,
                 dwrfKeyProvider,
-                runtimeStats);
+                runtimeStats,
+                Optional.empty());
     }
 
     OrcReader(
@@ -150,7 +155,8 @@ public class OrcReader
             boolean cacheable,
             DwrfEncryptionProvider dwrfEncryptionProvider,
             DwrfKeyProvider dwrfKeyProvider,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            Optional<OrcFileIntrospector> fileIntrospector)
             throws IOException
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
@@ -158,11 +164,13 @@ public class OrcReader
         this.orcDataSource = orcDataSource;
         requireNonNull(orcEncoding, "orcEncoding is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
-        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), orcEncoding.createMetadataReader(runtimeStats));
-
+        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), orcEncoding.createMetadataReader(runtimeStats, orcReaderOptions));
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
+        this.fileIntrospector = requireNonNull(fileIntrospector, "fileIntrospector is null");
 
         OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable);
+        fileIntrospector.ifPresent(introspector -> introspector.onFileTail(orcFileTail));
+
         this.bufferSize = orcFileTail.getBufferSize();
         this.compressionKind = orcFileTail.getCompressionKind();
         this.decompressor = createOrcDecompressor(orcDataSource.getId(), compressionKind, bufferSize, orcReaderOptions.isOrcZstdJniDecompressionEnabled());
@@ -179,9 +187,11 @@ public class OrcReader
                 orcFileTail.getFooterSize())) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream, dwrfEncryptionProvider, dwrfKeyProvider, orcDataSource, decompressor);
         }
-        if (this.footer.getTypes().size() == 0) {
+        if (this.footer.getTypes().isEmpty()) {
             throw new OrcCorruptionException(orcDataSource.getId(), "File has no columns");
         }
+
+        fileIntrospector.ifPresent(introspector -> introspector.onFileFooter(footer));
 
         Optional<DwrfEncryption> encryption = footer.getEncryption();
         if (encryption.isPresent()) {
@@ -303,6 +313,26 @@ public class OrcReader
             OrcPredicate predicate,
             long offset,
             long length,
+            ZoneId hiveStorageTimeZone,
+            OrcAggregatedMemoryContext systemMemoryUsage,
+            int initialBatchSize)
+            throws OrcCorruptionException
+    {
+        return createBatchRecordReader(
+                includedColumns,
+                predicate,
+                offset,
+                length,
+                DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(hiveStorageTimeZone.getId()))),
+                systemMemoryUsage,
+                initialBatchSize);
+    }
+
+    public OrcBatchRecordReader createBatchRecordReader(
+            Map<Integer, Type> includedColumns,
+            OrcPredicate predicate,
+            long offset,
+            long length,
             DateTimeZone hiveStorageTimeZone,
             OrcAggregatedMemoryContext systemMemoryUsage,
             int initialBatchSize)
@@ -350,7 +380,6 @@ public class OrcReader
             long offset,
             long length,
             DateTimeZone hiveStorageTimeZone,
-            boolean legacyMapSubscript,
             OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize)
@@ -380,7 +409,6 @@ public class OrcReader
                 footer.getRowsInRowGroup(),
                 hiveStorageTimeZone,
                 new OrcRecordReaderOptions(orcReaderOptions),
-                legacyMapSubscript,
                 hiveWriterVersion,
                 metadataReader,
                 footer.getUserMetadata(),
@@ -389,7 +417,8 @@ public class OrcReader
                 initialBatchSize,
                 stripeMetadataSource,
                 cacheable,
-                runtimeStats);
+                runtimeStats,
+                fileIntrospector);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize, OrcAggregatedMemoryContext systemMemoryContext)
@@ -431,7 +460,8 @@ public class OrcReader
                     false,
                     dwrfEncryptionProvider,
                     dwrfKeyProvider,
-                    new RuntimeStats());
+                    new RuntimeStats(),
+                    Optional.empty());
             try (OrcBatchRecordReader orcRecordReader = orcReader.createBatchRecordReader(
                     readTypes.build(),
                     OrcPredicate.TRUE,

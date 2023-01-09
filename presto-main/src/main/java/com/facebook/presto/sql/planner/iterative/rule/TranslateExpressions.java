@@ -17,7 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -42,7 +43,7 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToE
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
 public class TranslateExpressions
         extends RowExpressionRewriteRuleSet
@@ -93,10 +94,12 @@ public class TranslateExpressions
                             .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
                             .map(typeSignature -> (FunctionType) (metadata.getFunctionAndTypeManager().getType(typeSignature)))
                             .collect(toImmutableList());
-                    InternalAggregationFunction internalAggregationFunction = metadata.getFunctionAndTypeManager().getAggregateFunctionImplementation(callExpression.getFunctionHandle());
-                    List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
-                    verify(lambdaExpressions.size() == functionTypes.size());
-                    verify(lambdaExpressions.size() == lambdaInterfaces.size());
+                    JavaAggregationFunctionImplementation javaAggregateFunctionImplementation = metadata.getFunctionAndTypeManager().getJavaAggregateFunctionImplementation(callExpression.getFunctionHandle());
+                    if (javaAggregateFunctionImplementation instanceof BuiltInAggregationFunctionImplementation) {
+                        List<Class> lambdaInterfaces = ((BuiltInAggregationFunctionImplementation) javaAggregateFunctionImplementation).getLambdaInterfaces();
+                        verify(lambdaExpressions.size() == functionTypes.size());
+                        verify(lambdaExpressions.size() == lambdaInterfaces.size());
+                    }
 
                     for (int i = 0; i < lambdaExpressions.size(); i++) {
                         LambdaExpression lambdaExpression = lambdaExpressions.get(i);
@@ -134,7 +137,7 @@ public class TranslateExpressions
                                         sqlParser,
                                         TypeProvider.copyOf(lambdaArgumentSymbolTypes),
                                         lambdaExpression.getBody(),
-                                        emptyList(),
+                                        emptyMap(),
                                         NOOP));
                     }
                 }
@@ -155,7 +158,7 @@ public class TranslateExpressions
                         sqlParser,
                         typeProvider,
                         expression,
-                        emptyList(),
+                        emptyMap(),
                         NOOP);
             }
 

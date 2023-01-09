@@ -26,6 +26,8 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveFileSplit;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.parquet.Field;
@@ -34,6 +36,7 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.predicate.Predicate;
+import com.facebook.presto.parquet.reader.ColumnIndexFilterUtils;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -43,15 +46,20 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.crypto.DecryptionPropertiesFactory;
+import org.apache.parquet.crypto.FileDecryptionProperties;
+import org.apache.parquet.crypto.HiddenColumnException;
+import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
@@ -63,6 +71,7 @@ import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -71,6 +80,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.RuntimeUnit.BYTE;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.CHAR;
@@ -94,8 +105,9 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
+import static com.facebook.presto.hive.HiveSessionProperties.columnIndexFilterEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
-import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
+import static com.facebook.presto.hive.HiveSessionProperties.getReadNullMaskedParquetEncryptedValue;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
@@ -116,12 +128,28 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
+import static org.apache.parquet.crypto.DecryptionPropertiesFactory.loadFactory;
+import static org.apache.parquet.crypto.HiddenColumnChunkMetaData.isHiddenColumn;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
 import static org.apache.parquet.io.ColumnIOConverter.findNestedColumnIO;
 
 public class ParquetPageSourceFactory
         implements HiveBatchPageSourceFactory
 {
+    /**
+     * If this object is passed as one of the columns for {@code createPageSource},
+     * it will be populated as an additional column containing the index of each
+     * row read.
+     */
+    public static final HiveColumnHandle PARQUET_ROW_INDEX_COLUMN = new HiveColumnHandle(
+            "$parquet$row_index",
+            HiveType.HIVE_LONG,
+            HiveType.HIVE_LONG.getTypeSignature(),
+            -1,
+            HiveColumnHandle.ColumnType.SYNTHESIZED, // no real column index
+            Optional.empty(),
+            Optional.empty());
+
     private static final Set<String> PARQUET_SERDE_CLASS_NAMES = ImmutableSet.<String>builder()
             .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
             .add("parquet.hive.serde.ParquetHiveSerDe")
@@ -147,65 +175,13 @@ public class ParquetPageSourceFactory
         this.parquetMetadataSource = requireNonNull(parquetMetadataSource, "parquetMetadataSource is null");
     }
 
-    @Override
-    public Optional<? extends ConnectorPageSource> createPageSource(
-            Configuration configuration,
-            ConnectorSession session,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
-            Storage storage,
-            SchemaTableName tableName,
-            Map<String, String> tableParameters,
-            List<HiveColumnHandle> columns,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
-            HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
-    {
-        if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
-            return Optional.empty();
-        }
-
-        return Optional.of(createParquetPageSource(
-                hdfsEnvironment,
-                session.getUser(),
-                configuration,
-                path,
-                start,
-                length,
-                fileSize,
-                columns,
-                tableName,
-                isUseParquetColumnNames(session),
-                isFailOnCorruptedParquetStatistics(session),
-                getParquetMaxReadBlockSize(session),
-                isParquetBatchReadsEnabled(session),
-                isParquetBatchReaderVerificationEnabled(session),
-                typeManager,
-                functionResolution,
-                effectivePredicate,
-                stats,
-                hiveFileContext,
-                parquetMetadataSource));
-    }
-
     public static ConnectorPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
-            String user,
+            ConnectorSession session,
             Configuration configuration,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
+            HiveFileSplit fileSplit,
             List<HiveColumnHandle> columns,
             SchemaTableName tableName,
-            boolean useParquetColumnNames,
-            boolean failOnCorruptedParquetStatistics,
-            DataSize maxReadBlockSize,
-            boolean batchReaderEnabled,
-            boolean verificationEnabled,
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -215,11 +191,26 @@ public class ParquetPageSourceFactory
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
+        String user = session.getUser();
+        boolean useParquetColumnNames = isUseParquetColumnNames(session);
+        boolean columnIndexFilterEnabled = columnIndexFilterEnabled(session);
+        boolean readMaskedValue = getReadNullMaskedParquetEncryptedValue(session);
+
         ParquetDataSource dataSource = null;
+        Path path = new Path(fileSplit.getPath());
         try {
             FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(user, path, configuration).openFile(path, hiveFileContext);
-            dataSource = buildHdfsParquetDataSource(inputStream, path, stats);
-            ParquetMetadata parquetMetadata = parquetMetadataSource.getParquetMetadata(dataSource, fileSize, hiveFileContext.isCacheable()).getParquetMetadata();
+            // Lambda expression below requires final variable, so we define a new variable parquetDataSource.
+            final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, stats);
+            dataSource = parquetDataSource;
+            Optional<InternalFileDecryptor> fileDecryptor = createDecryptor(configuration, path);
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> parquetMetadataSource.getParquetMetadata(
+                    parquetDataSource,
+                    fileSplit.getFileSize(),
+                    hiveFileContext.isCacheable(),
+                    hiveFileContext.getModificationTime(),
+                    fileDecryptor,
+                    readMaskedValue).getParquetMetadata());
 
             if (!columns.isEmpty() && columns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
                 return new AggregatedParquetPageSource(columns, parquetMetadata, typeManager, functionResolution);
@@ -239,46 +230,63 @@ public class ParquetPageSourceFactory
             MessageType requestedSchema = message.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
 
             ImmutableList.Builder<BlockMetaData> footerBlocks = ImmutableList.builder();
+
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
-                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                if (firstDataPage >= start && firstDataPage < start + length) {
-                    footerBlocks.add(block);
+                Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
+                if (firstIndex.isPresent()) {
+                    long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
+                    if (firstDataPage >= fileSplit.getStart() && firstDataPage < fileSplit.getStart() + fileSplit.getLength()) {
+                        footerBlocks.add(block);
+                    }
                 }
             }
-
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
             final ParquetDataSource finalDataSource = dataSource;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
+            List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
+
+            long nextStart = 0;
+            ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics)) {
+                Optional<ColumnIndexStore> columnIndexStore = ColumnIndexFilterUtils.getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled, Optional.of(session.getWarningCollector()))) {
                     blocks.add(block);
-                    hiveFileContext.incrementCounter("parquet.blocksRead", 1);
-                    hiveFileContext.incrementCounter("parquet.rowsRead", block.getRowCount());
-                    hiveFileContext.incrementCounter("parquet.totalBytesRead", block.getTotalByteSize());
+                    blockStarts.add(nextStart);
+                    blockIndexStores.add(columnIndexStore.orElse(null));
+                    hiveFileContext.incrementCounter("parquet.blocksRead", NONE, 1);
+                    hiveFileContext.incrementCounter("parquet.rowsRead", NONE, block.getRowCount());
+                    hiveFileContext.incrementCounter("parquet.totalBytesRead", BYTE, block.getTotalByteSize());
                 }
                 else {
-                    hiveFileContext.incrementCounter("parquet.blocksSkipped", 1);
-                    hiveFileContext.incrementCounter("parquet.rowsSkipped", block.getRowCount());
-                    hiveFileContext.incrementCounter("parquet.totalBytesSkipped", block.getTotalByteSize());
+                    hiveFileContext.incrementCounter("parquet.blocksSkipped", NONE, 1);
+                    hiveFileContext.incrementCounter("parquet.rowsSkipped", NONE, block.getRowCount());
+                    hiveFileContext.incrementCounter("parquet.totalBytesSkipped", BYTE, block.getTotalByteSize());
                 }
+                nextStart += block.getRowCount();
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks.build(),
+                    Optional.of(blockStarts.build()),
                     dataSource,
                     systemMemoryContext,
-                    maxReadBlockSize,
-                    batchReaderEnabled,
-                    verificationEnabled);
+                    getParquetMaxReadBlockSize(session),
+                    isParquetBatchReadsEnabled(session),
+                    isParquetBatchReaderVerificationEnabled(session),
+                    parquetPredicate,
+                    blockIndexStores,
+                    columnIndexFilterEnabled,
+                    fileDecryptor);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Boolean> rowIndexColumns = ImmutableList.builder();
             for (HiveColumnHandle column : columns) {
-                checkArgument(column.getColumnType() == REGULAR || column.getColumnType() == SYNTHESIZED, "column type must be regular or synthesized column");
+                checkArgument(column == PARQUET_ROW_INDEX_COLUMN || column.getColumnType() == REGULAR || column.getColumnType() == SYNTHESIZED, "column type must be REGULAR: %s", column);
 
                 String name = column.getName();
                 Type type = typeManager.getType(column.getTypeSignature());
@@ -286,15 +294,22 @@ public class ParquetPageSourceFactory
                 namesBuilder.add(name);
                 typesBuilder.add(type);
 
+                rowIndexColumns.add(column == PARQUET_ROW_INDEX_COLUMN);
+
                 if (column.getColumnType() == SYNTHESIZED) {
-                    Subfield pushedDownSubfield = getPushedDownSubfield(column);
-                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
-                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
-                    if (columnIO.isPresent()) {
-                        fieldsBuilder.add(constructField(type, columnIO.get()));
+                    if (column == PARQUET_ROW_INDEX_COLUMN) {
+                        fieldsBuilder.add(Optional.empty());
                     }
                     else {
-                        fieldsBuilder.add(Optional.empty());
+                        Subfield pushedDownSubfield = getPushedDownSubfield(column);
+                        List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
+                        Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
+                        if (columnIO.isPresent()) {
+                            fieldsBuilder.add(constructField(type, columnIO.get()));
+                        }
+                        else {
+                            fieldsBuilder.add(Optional.empty());
+                        }
                     }
                 }
                 else if (getParquetType(type, fileSchema, useParquetColumnNames, column, tableName, path).isPresent()) {
@@ -305,7 +320,7 @@ public class ParquetPageSourceFactory
                     fieldsBuilder.add(Optional.empty());
                 }
             }
-            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), namesBuilder.build(), hiveFileContext.getStats());
+            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), rowIndexColumns.build(), namesBuilder.build(), hiveFileContext.getStats());
         }
         catch (Exception e) {
             try {
@@ -328,9 +343,14 @@ public class ParquetPageSourceFactory
                     e instanceof FileNotFoundException) {
                 throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
             }
-            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
+            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, fileSplit.getStart(), fileSplit.getLength(), e.getMessage());
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
+            }
+            if (e instanceof HiddenColumnException) {
+                message = format("User does not have access to encryption key for encrypted column = %s. If returning 'null' for encrypted " +
+                        "columns is acceptable to your query, please add 'set session hive.read_null_masked_parquet_encrypted_value_enabled=true' before your query", ((HiddenColumnException) e).getColumn());
+                throw new PrestoException(PERMISSION_DENIED, message, e);
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
@@ -493,5 +513,57 @@ public class ParquetPageSourceFactory
             return getSubfieldType(messageType, pushedDownSubfield.getRootName(), nestedColumnPath(pushedDownSubfield));
         }
         return getParquetType(prestoType, messageType, useParquetColumnNames, column, tableName, path);
+    }
+
+    public static Optional<InternalFileDecryptor> createDecryptor(Configuration configuration, Path path)
+    {
+        DecryptionPropertiesFactory cryptoFactory = loadFactory(configuration);
+        FileDecryptionProperties fileDecryptionProperties = (cryptoFactory == null) ? null : cryptoFactory.getFileDecryptionProperties(configuration, path);
+        return (fileDecryptionProperties == null) ? Optional.empty() : Optional.of(new InternalFileDecryptor(fileDecryptionProperties));
+    }
+
+    private static Optional<Integer> findFirstNonHiddenColumnId(BlockMetaData block)
+    {
+        List<ColumnChunkMetaData> columns = block.getColumns();
+        for (int i = 0; i < columns.size(); i++) {
+            if (!isHiddenColumn(columns.get(i))) {
+                return Optional.of(i);
+            }
+        }
+        // all columns are hidden (encrypted but not accessible to current user)
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<? extends ConnectorPageSource> createPageSource(
+            Configuration configuration,
+            ConnectorSession session,
+            HiveFileSplit fileSplit,
+            Storage storage,
+            SchemaTableName tableName,
+            Map<String, String> tableParameters,
+            List<HiveColumnHandle> columns,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            DateTimeZone hiveStorageTimeZone,
+            HiveFileContext hiveFileContext,
+            Optional<EncryptionInformation> encryptionInformation)
+    {
+        if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
+            return Optional.empty();
+        }
+
+        return Optional.of(createParquetPageSource(
+                hdfsEnvironment,
+                session,
+                configuration,
+                fileSplit,
+                columns,
+                tableName,
+                typeManager,
+                functionResolution,
+                effectivePredicate,
+                stats,
+                hiveFileContext,
+                parquetMetadataSource));
     }
 }

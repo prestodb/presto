@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -29,12 +31,26 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class LookupJoinOperators
 {
+    @ThriftEnum
     public enum JoinType
     {
-        INNER,
-        PROBE_OUTER, // the Probe is the outer side of the join
-        LOOKUP_OUTER, // The LookupSource is the outer side of the join
-        FULL_OUTER,
+        INNER(0),
+        PROBE_OUTER(1), // the Probe is the outer side of the join
+        LOOKUP_OUTER(2), // The LookupSource is the outer side of the join
+        FULL_OUTER(3),;
+
+        private final int value;
+
+        JoinType(int value)
+        {
+            this.value = value;
+        }
+
+        @ThriftEnumValue
+        public int getValue()
+        {
+            return value;
+        }
     }
 
     @Inject

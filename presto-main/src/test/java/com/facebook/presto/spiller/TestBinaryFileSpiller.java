@@ -135,6 +135,7 @@ public class TestBinaryFileSpiller
             throws ExecutionException, InterruptedException
     {
         long spilledBytesBefore = spillerStats.getTotalSpilledBytes();
+        long spilledBytesReadBefore = spillerStats.getTotalSpilledBytesRead();
         long spilledBytes = 0;
 
         assertEquals(memoryContext.getBytes(), 0);
@@ -152,15 +153,19 @@ public class TestBinaryFileSpiller
         List<Iterator<Page>> actualSpills = spiller.getSpills();
         assertEquals(actualSpills.size(), spills.length);
 
+        long readSpilledBytes = 0;
         for (int i = 0; i < actualSpills.size(); i++) {
             List<Page> actualSpill = ImmutableList.copyOf(actualSpills.get(i));
             List<Page> expectedSpill = spills[i];
 
             assertEquals(actualSpill.size(), expectedSpill.size());
             for (int j = 0; j < actualSpill.size(); j++) {
-                assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
+                Page actualSpillPage = actualSpill.get(j);
+                assertPageEquals(types, actualSpillPage, expectedSpill.get(j));
+                readSpilledBytes += actualSpillPage.getSizeInBytes();
             }
         }
+        assertEquals(spillerStats.getTotalSpilledBytesRead() - spilledBytesReadBefore, readSpilledBytes);
         spiller.close();
         assertEquals(memoryContext.getBytes(), 0);
     }

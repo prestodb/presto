@@ -14,6 +14,10 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodecFactory;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.planPrinter.JsonRenderer.JsonRenderedNode;
 import com.facebook.presto.sql.tree.Explain;
@@ -25,12 +29,14 @@ import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListeningExecutorService;
 
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.JSON;
+import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType;
 import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.DETAILS_MISMATCH;
 import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.MATCH;
@@ -44,7 +50,7 @@ public class ExplainVerification
         extends AbstractVerification<QueryBundle, ExplainMatchResult, String>
 {
     private static final ResultSetConverter<String> QUERY_PLAN_RESULT_SET_CONVERTER = resultSet -> Optional.of(resultSet.getString("Query Plan"));
-    private static final JsonCodec<JsonRenderedNode> PLAN_CODEC = jsonCodec(JsonRenderedNode.class);
+    private static JsonCodec<JsonRenderedNode> planCodec;
     private final SqlParser sqlParser;
 
     public ExplainVerification(
@@ -53,10 +59,16 @@ public class ExplainVerification
             SqlExceptionClassifier exceptionClassifier,
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            ListeningExecutorService executor)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.of(QUERY_PLAN_RESULT_SET_CONVERTER), verifierConfig);
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.of(QUERY_PLAN_RESULT_SET_CONVERTER), verifierConfig, executor);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
+        provider.setJsonSerializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionSerializer()));
+        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(FUNCTION_AND_TYPE_MANAGER)));
+        JsonCodecFactory codecFactory = new JsonCodecFactory(provider, true);
+        planCodec = codecFactory.jsonCodec(JsonRenderedNode.class);
     }
 
     @Override
@@ -79,8 +91,8 @@ public class ExplainVerification
         checkArgument(controlQueryResult.isPresent(), "control query plan is missing");
         checkArgument(testQueryResult.isPresent(), "test query plan is missing");
 
-        JsonRenderedNode controlPlan = PLAN_CODEC.fromJson(getOnlyElement(controlQueryResult.get().getResults()));
-        JsonRenderedNode testPlan = PLAN_CODEC.fromJson(getOnlyElement(testQueryResult.get().getResults()));
+        JsonRenderedNode controlPlan = planCodec.fromJson(getOnlyElement(controlQueryResult.get().getResults()));
+        JsonRenderedNode testPlan = planCodec.fromJson(getOnlyElement(testQueryResult.get().getResults()));
 
         return new ExplainMatchResult(match(controlPlan, testPlan));
     }
@@ -112,7 +124,8 @@ public class ExplainVerification
             return STRUCTURE_MISMATCH;
         }
 
-        boolean detailsMismatched = !Objects.equals(controlPlan.getDetails(), testPlan.getDetails());
+        boolean detailsMismatched = !Objects.equals(controlPlan.getDetails(), testPlan.getDetails())
+                || !Objects.equals(controlPlan.getEstimates(), testPlan.getEstimates());
         for (int i = 0; i < controlPlan.getChildren().size(); i++) {
             MatchType childMatchType = match(controlPlan.getChildren().get(i), testPlan.getChildren().get(i));
             if (childMatchType == STRUCTURE_MISMATCH) {

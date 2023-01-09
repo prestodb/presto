@@ -439,7 +439,9 @@ public class TestHiveRecoverableExecution
                         .map(selectedRole -> ImmutableMap.of("hive", selectedRole))
                         .orElse(ImmutableMap.of()),
                 ImmutableMap.of(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
 
         return testSessionBuilder()
                 .setIdentity(identity)

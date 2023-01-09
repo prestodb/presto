@@ -20,6 +20,7 @@ import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.ParquetEncoding;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.spi.WarningCollector;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,6 +31,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.crypto.HiddenColumnChunkMetaData;
 import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
@@ -37,6 +39,7 @@ import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.schema.MessageType;
 
 import java.io.ByteArrayInputStream;
@@ -65,10 +68,8 @@ public final class PredicateUtils
     {
     }
 
-    public static boolean isStatisticsOverflow(Type type, ParquetIntegerStatistics parquetIntegerStatistics)
+    public static boolean isStatisticsOverflow(Type type, long min, long max)
     {
-        long min = parquetIntegerStatistics.getMin();
-        long max = parquetIntegerStatistics.getMax();
         return (type.equals(TINYINT) && (min < Byte.MIN_VALUE || max > Byte.MAX_VALUE)) ||
                 (type.equals(SMALLINT) && (min < Short.MIN_VALUE || max > Short.MAX_VALUE)) ||
                 (type.equals(INTEGER) && (min < Integer.MIN_VALUE || max > Integer.MAX_VALUE));
@@ -86,11 +87,44 @@ public final class PredicateUtils
         return new TupleDomainParquetPredicate(parquetTupleDomain, columnReferences.build());
     }
 
-    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain, boolean failOnCorruptedParquetStatistics)
+    public static boolean predicateMatches(
+            Predicate parquetPredicate,
+            BlockMetaData block,
+            ParquetDataSource dataSource,
+            Map<List<String>, RichColumnDescriptor> descriptorsByPath,
+            TupleDomain<ColumnDescriptor> parquetTupleDomain,
+            Optional<ColumnIndexStore> columnIndexStore,
+            boolean readColumnIndex)
             throws ParquetCorruptionException
     {
+        return predicateMatches(
+                parquetPredicate,
+                block,
+                dataSource,
+                descriptorsByPath,
+                parquetTupleDomain,
+                columnIndexStore,
+                readColumnIndex,
+                Optional.empty());
+    }
+
+    public static boolean predicateMatches(
+            Predicate parquetPredicate,
+            BlockMetaData block,
+            ParquetDataSource dataSource,
+            Map<List<String>, RichColumnDescriptor> descriptorsByPath,
+            TupleDomain<ColumnDescriptor> parquetTupleDomain,
+            Optional<ColumnIndexStore> columnIndexStore,
+            boolean readColumnIndex,
+            Optional<WarningCollector> warningCollector)
+    {
         Map<ColumnDescriptor, Statistics<?>> columnStatistics = getStatistics(block, descriptorsByPath);
-        if (!parquetPredicate.matches(block.getRowCount(), columnStatistics, dataSource.getId(), failOnCorruptedParquetStatistics)) {
+        if (!parquetPredicate.matches(block.getRowCount(), columnStatistics, dataSource.getId(), warningCollector)) {
+            return false;
+        }
+
+        // Page stats is finer grained but relatively more expensive, so we do the filtering after above block filtering.
+        if (columnIndexStore.isPresent() && readColumnIndex && !parquetPredicate.matches(block.getRowCount(), columnIndexStore)) {
             return false;
         }
 
@@ -101,10 +135,10 @@ public final class PredicateUtils
     {
         ImmutableMap.Builder<ColumnDescriptor, Statistics<?>> statistics = ImmutableMap.builder();
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
-            Statistics<?> columnStatistics = columnMetaData.getStatistics();
-            if (columnStatistics != null) {
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columnMetaData)) {
+                Statistics<?> columnStatistics = columnMetaData.getStatistics();
                 RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
-                if (descriptor != null) {
+                if (columnStatistics != null && descriptor != null) {
                     statistics.put(descriptor, columnStatistics);
                 }
             }
@@ -115,9 +149,9 @@ public final class PredicateUtils
     private static boolean dictionaryPredicatesMatch(Predicate parquetPredicate, BlockMetaData blockMetadata, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)
     {
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
-            RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
-            if (descriptor != null) {
-                if (isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columnMetaData)) {
+                RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
+                if (descriptor != null && isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
                     byte[] buffer = new byte[toIntExact(columnMetaData.getTotalSize())];
                     dataSource.readFully(columnMetaData.getStartingPos(), buffer);
                     //  Early abort, predicate already filters block so no more dictionaries need be read
@@ -141,9 +175,9 @@ public final class PredicateUtils
             }
 
             Slice compressedData = wrappedBuffer(data, data.length - inputStream.available(), pageHeader.getCompressed_page_size());
-            DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();
-            ParquetEncoding encoding = getParquetEncoding(Encoding.valueOf(dicHeader.getEncoding().name()));
-            int dictionarySize = dicHeader.getNum_values();
+            DictionaryPageHeader dictHeader = pageHeader.getDictionary_page_header();
+            ParquetEncoding encoding = getParquetEncoding(Encoding.valueOf(dictHeader.getEncoding().name()));
+            int dictionarySize = dictHeader.getNum_values();
 
             return Optional.of(new DictionaryPage(decompress(codecName, compressedData, pageHeader.getUncompressed_page_size()), dictionarySize, encoding));
         }

@@ -32,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class IndexBuildDriverFactoryProvider
 {
+    private static final String INDEX_BUILDER = "IndexBuilder";
     private final int pipelineId;
     private final int outputOperatorId;
     private final PlanNodeId planNodeId;
@@ -82,7 +83,7 @@ public class IndexBuildDriverFactoryProvider
                 false,
                 ImmutableList.<OperatorFactory>builder()
                         .addAll(coreOperatorFactories)
-                        .add(new PagesIndexBuilderOperatorFactory(outputOperatorId, planNodeId, indexSnapshotBuilder))
+                        .add(new PagesIndexBuilderOperatorFactory(outputOperatorId, planNodeId, indexSnapshotBuilder, INDEX_BUILDER))
                         .build(),
                 OptionalInt.empty(),
                 UNGROUPED_EXECUTION,
@@ -99,7 +100,7 @@ public class IndexBuildDriverFactoryProvider
             operatorFactories.add(dynamicTupleFilterFactory.get().filterWithTuple(indexKeyTuple));
         }
 
-        operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer));
+        operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer, INDEX_BUILDER));
 
         return new DriverFactory(pipelineId, inputDriver, false, operatorFactories.build(), OptionalInt.empty(), UNGROUPED_EXECUTION, Optional.empty());
     }

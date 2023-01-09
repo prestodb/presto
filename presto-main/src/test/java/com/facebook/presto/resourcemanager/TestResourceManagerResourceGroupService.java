@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -41,7 +42,7 @@ public class TestResourceManagerResourceGroupService
         assertTrue(resourceGroupInfos.isEmpty());
         assertEquals(resourceManagerClient.getResourceGroupInfoCalls("local"), 1);
 
-        resourceManagerClient.setResourceGroupRuntimeInfos(ImmutableList.of(new ResourceGroupRuntimeInfo(new ResourceGroupId("global"), 1, 2, 3, 0, 1)));
+        resourceManagerClient.setResourceGroupRuntimeInfos(ImmutableList.of(new ResourceGroupRuntimeInfo(new ResourceGroupId("global"), 1, 2, 3, 0, 1, Optional.empty())));
 
         Thread.sleep(SECONDS.toMillis(2));
 

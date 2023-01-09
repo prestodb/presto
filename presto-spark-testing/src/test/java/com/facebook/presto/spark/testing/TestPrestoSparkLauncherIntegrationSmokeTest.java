@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.hive.HiveHadoop2Plugin;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.session.SessionMatchSpec;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -27,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import io.airlift.units.Duration;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -39,15 +39,20 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.session.FileSessionPropertyManager.CODEC;
 import static com.facebook.presto.spark.testing.Processes.destroyProcess;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
@@ -85,7 +90,7 @@ import static org.testng.Assert.assertEquals;
 public class TestPrestoSparkLauncherIntegrationSmokeTest
 {
     private static final Logger log = Logger.get(TestPrestoSparkLauncherIntegrationSmokeTest.class);
-    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    private static final ZoneId TIME_ZONE = ZoneId.of("America/Bahia_Banderas");
 
     private File tempDir;
     private File sparkWorkDirectory;
@@ -99,12 +104,14 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
 
     private File configProperties;
     private File catalogDirectory;
+    private File sessionPropertyConfig;
+    private File sessionPropertyConfigJsonFile;
 
     @BeforeClass
     public void setUp()
             throws Exception
     {
-        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
+        assertEquals(ZoneId.systemDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
         // the default temporary directory location on MacOS is not sharable to docker
         tempDir = new File("/tmp", randomUUID().toString());
         createDirectories(tempDir.toPath());
@@ -136,7 +143,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 hiveConnectorFactory,
                 ImmutableMap.of(
                         "hive.metastore.uri", "thrift://127.0.0.1:9083",
-                        "hive.time-zone", TIME_ZONE.getID(),
+                        "hive.time-zone", TIME_ZONE.getId(),
                         "hive.experimental-optimized-partition-update-serialization-enabled", "true"));
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(), ImmutableMap.of());
         // it may take some time for the docker container to start
@@ -161,11 +168,27 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 // hadoop native cannot be run within the spark docker container
                 // the getnetgrent dependency is missing
                 "hive.dfs.require-hadoop-native", "false",
-                "hive.time-zone", TIME_ZONE.getID()));
+                "hive.time-zone", TIME_ZONE.getId()));
         storeProperties(new File(catalogDirectory, "tpch.properties"), ImmutableMap.of(
                 "connector.name", "tpch",
                 "tpch.splits-per-node", "4",
                 "tpch.partitioning-enabled", "false"));
+        Map<String, String> properties = ImmutableMap.of("query_max_execution_time", "5s");
+        SessionMatchSpec spec = new SessionMatchSpec(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(Pattern.compile("global.*")),
+                Optional.empty(),
+                Optional.empty(),
+                properties);
+        sessionPropertyConfigJsonFile = new File(tempDir, "session-property-config.json");
+        Files.write(sessionPropertyConfigJsonFile.toPath(), CODEC.toJsonBytes(Collections.singletonList(spec)));
+        sessionPropertyConfig = new File(tempDir, "session-property-configuration.properties");
+        storeProperties(sessionPropertyConfig, ImmutableMap.of(
+                "session-property-config.configuration-manager", "file",
+                "session-property-manager.config-file", "/presto/etc/session-property-config.json"));
     }
 
     private static void ensureHiveIsRunning(LocalQueryRunner localQueryRunner, Duration timeout)
@@ -274,6 +297,8 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "-v", format("%s:/presto/query.sql", queryFile.getAbsolutePath()),
                 "-v", format("%s:/presto/etc/config.properties", configProperties.getAbsolutePath()),
                 "-v", format("%s:/presto/etc/catalogs", catalogDirectory.getAbsolutePath()),
+                "-v", format("%s:/presto/etc/session-property-config.properties", sessionPropertyConfig.getAbsolutePath()),
+                "-v", format("%s:/presto/etc/session-property-config.json", sessionPropertyConfigJsonFile.getAbsolutePath()),
                 "spark-submit",
                 "/spark/bin/spark-submit",
                 "--executor-memory", "512m",
@@ -287,6 +312,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "--catalogs", "/presto/etc/catalogs",
                 "--catalog", "hive",
                 "--schema", "default",
+                "--session-property-config", "/presto/etc/session-property-config.properties",
                 "--file", "/presto/query.sql");
         assertEquals(exitCode, 0);
     }

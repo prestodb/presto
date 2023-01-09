@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.warnings;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.presto.common.WarningHandlingLevel;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 

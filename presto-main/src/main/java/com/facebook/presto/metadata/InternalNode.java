@@ -65,25 +65,46 @@ public class InternalNode
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
     private final boolean resourceManager;
+    private final boolean catalogServer;
     private final NodeStatus nodeStatus;
+    private final OptionalInt raftPort;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
-        this(nodeIdentifier, internalUri, nodeVersion, coordinator, false);
+        this(nodeIdentifier, internalUri, nodeVersion, coordinator, false, false);
     }
 
-    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager)
+    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, boolean catalogServer)
     {
-        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, resourceManager, ALIVE);
+        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, OptionalInt.empty());
     }
 
     @ThriftConstructor
-    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager)
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager, boolean catalogServer)
     {
-        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, ALIVE);
+        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, catalogServer, ALIVE, OptionalInt.empty());
     }
 
-    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, NodeStatus nodeStatus)
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager, OptionalInt raftPort)
+    {
+        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, false, ALIVE, raftPort);
+    }
+
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, NodeStatus nodeStatus, OptionalInt raftPort)
+    {
+        this(nodeIdentifier, internalUri, thriftPort, nodeVersion, coordinator, resourceManager, false, nodeStatus, raftPort);
+    }
+
+    public InternalNode(
+            String nodeIdentifier,
+            URI internalUri,
+            OptionalInt thriftPort,
+            NodeVersion nodeVersion,
+            boolean coordinator,
+            boolean resourceManager,
+            boolean catalogServer,
+            NodeStatus nodeStatus,
+            OptionalInt raftPort)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
@@ -92,7 +113,9 @@ public class InternalNode
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
         this.resourceManager = resourceManager;
+        this.catalogServer = catalogServer;
         this.nodeStatus = nodeStatus;
+        this.raftPort = requireNonNull(raftPort, "raftPort is null");
     }
 
     @ThriftField(1)
@@ -165,6 +188,18 @@ public class InternalNode
         return nodeStatus;
     }
 
+    @ThriftField(8)
+    @Override
+    public boolean isCatalogServer()
+    {
+        return catalogServer;
+    }
+
+    public OptionalInt getRaftPort()
+    {
+        return raftPort;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -194,6 +229,8 @@ public class InternalNode
                 .add("nodeVersion", nodeVersion)
                 .add("coordinator", coordinator)
                 .add("resourceManager", resourceManager)
+                .add("catalogServer", catalogServer)
+                .add("raftPort", raftPort)
                 .toString();
     }
 }

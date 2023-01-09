@@ -50,7 +50,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -117,8 +116,9 @@ public class PrestoConnection
         this.sessionProperties = new ConcurrentHashMap<>(uri.getSessionProperties());
         this.connectionProperties = uri.getProperties();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+        uri.getClientTags().ifPresent(tags -> clientInfo.put("ClientTags", tags));
 
-        timeZoneId.set(TimeZone.getDefault().getID());
+        timeZoneId.set(uri.getTimeZoneId());
         locale.set(Locale.getDefault());
 
         this.queryInterceptorInstances = ImmutableList.copyOf(uri.getQueryInterceptors());
@@ -184,6 +184,9 @@ public class PrestoConnection
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
         }
+        if (transactionId.get() == null) {
+            return;
+        }
         try (PrestoStatement statement = new PrestoStatement(this)) {
             statement.internalExecute("COMMIT");
         }
@@ -196,6 +199,9 @@ public class PrestoConnection
         checkOpen();
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
+        }
+        if (transactionId.get() == null) {
+            return;
         }
         try (PrestoStatement statement = new PrestoStatement(this)) {
             statement.internalExecute("ROLLBACK");

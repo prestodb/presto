@@ -15,13 +15,13 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.hive.ColumnConverter;
-import com.facebook.presto.hive.HiveColumnConverterProvider;
+import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
@@ -59,6 +59,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
+import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
@@ -84,7 +85,7 @@ public class InMemoryHiveMetastore
     @GuardedBy("this")
     private final Map<SchemaTableName, Table> views = new HashMap<>();
     @GuardedBy("this")
-    private final Map<PartitionName, Partition> partitions = new HashMap<>();
+    private final Map<PartitionName, com.facebook.presto.hive.metastore.Partition> partitions = new HashMap<>();
     @GuardedBy("this")
     private final Map<SchemaTableName, PartitionStatistics> columnStatistics = new HashMap<>();
     @GuardedBy("this")
@@ -92,7 +93,6 @@ public class InMemoryHiveMetastore
     @GuardedBy("this")
     private final Map<PrincipalTableKey, Set<HivePrivilegeInfo>> tablePrivileges = new HashMap<>();
 
-    private final ColumnConverter columnConverter = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER;
     private final File baseDirectory;
 
     public InMemoryHiveMetastore(File baseDirectory)
@@ -173,7 +173,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void createTable(MetastoreContext metastoreContext, Table table)
+    public synchronized MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table)
     {
         TableType tableType = TableType.valueOf(table.getTableType());
         checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(tableType), "Invalid table type: %s", tableType);
@@ -204,6 +204,8 @@ public class InMemoryHiveMetastore
         if (privileges != null) {
             throw new UnsupportedOperationException();
         }
+
+        return EMPTY_RESULT;
     }
 
     @Override
@@ -254,7 +256,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable)
+    public synchronized MetastoreOperationResult alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable)
     {
         SchemaTableName oldName = new SchemaTableName(databaseName, tableName);
         SchemaTableName newName = new SchemaTableName(newTable.getDbName(), newTable.getTableName());
@@ -264,7 +266,7 @@ public class InMemoryHiveMetastore
             if (relations.replace(oldName, newTable) == null) {
                 throw new TableNotFoundException(oldName);
             }
-            return;
+            return EMPTY_RESULT;
         }
 
         // remove old table definition and add the new one
@@ -277,6 +279,8 @@ public class InMemoryHiveMetastore
             throw new TableAlreadyExistsException(newName);
         }
         relations.remove(oldName);
+
+        return EMPTY_RESULT;
     }
 
     @Override
@@ -310,17 +314,15 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
+    public synchronized MetastoreOperationResult addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
     {
         for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
-            Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition(), columnConverter);
-            if (partition.getParameters() == null) {
-                partition.setParameters(ImmutableMap.of());
-            }
             PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionWithStatistics.getPartitionName());
-            partitions.put(partitionKey, partition);
+            partitions.put(partitionKey, partitionWithStatistics.getPartition());
             partitionColumnStatistics.put(partitionKey, partitionWithStatistics.getStatistics());
         }
+
+        return EMPTY_RESULT;
     }
 
     @Override
@@ -331,15 +333,13 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
+    public synchronized MetastoreOperationResult alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
     {
-        Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition(), columnConverter);
-        if (partition.getParameters() == null) {
-            partition.setParameters(ImmutableMap.of());
-        }
         PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionWithStatistics.getPartitionName());
-        partitions.put(partitionKey, partition);
+        partitions.put(partitionKey, partitionWithStatistics.getPartition());
         partitionColumnStatistics.put(partitionKey, partitionWithStatistics.getStatistics());
+
+        return EMPTY_RESULT;
     }
 
     @Override
@@ -355,7 +355,7 @@ public class InMemoryHiveMetastore
     public synchronized Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
     {
         PartitionName name = PartitionName.partition(databaseName, tableName, partitionValues);
-        Partition partition = partitions.get(name);
+        Partition partition = getPartitionFromInMemoryMap(metastoreContext, name);
         if (partition == null) {
             return Optional.empty();
         }
@@ -366,7 +366,7 @@ public class InMemoryHiveMetastore
     public synchronized Optional<List<String>> getPartitionNamesByParts(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> parts)
     {
         return Optional.of(partitions.entrySet().stream()
-                .filter(entry -> partitionMatches(entry.getValue(), databaseName, tableName, parts))
+                .filter(entry -> partitionMatches(getPartitionFromInMemoryMap(metastoreContext, entry.getKey()), databaseName, tableName, parts))
                 .map(entry -> entry.getKey().getPartitionName())
                 .collect(toList()));
     }
@@ -403,7 +403,7 @@ public class InMemoryHiveMetastore
         ImmutableList.Builder<Partition> builder = ImmutableList.builder();
         for (String name : partitionNames) {
             PartitionName partitionName = PartitionName.partition(databaseName, tableName, name);
-            Partition partition = partitions.get(partitionName);
+            Partition partition = getPartitionFromInMemoryMap(metastoreContext, partitionName);
             if (partition == null) {
                 return ImmutableList.of();
             }
@@ -415,8 +415,14 @@ public class InMemoryHiveMetastore
     @Override
     public synchronized Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
-        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
-        return Optional.ofNullable(relations.get(schemaTableName));
+        HiveTableHandle hiveTableHandle = new HiveTableHandle(databaseName, tableName);
+        return getTable(metastoreContext, hiveTableHandle);
+    }
+
+    @Override
+    public Optional<Table> getTable(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle)
+    {
+        return Optional.ofNullable(relations.get(hiveTableHandle.getSchemaTableName()));
     }
 
     @Override
@@ -516,6 +522,19 @@ public class InMemoryHiveMetastore
     public void revokeTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         throw new UnsupportedOperationException();
+    }
+
+    private Partition getPartitionFromInMemoryMap(MetastoreContext metastoreContext, PartitionName name)
+    {
+        com.facebook.presto.hive.metastore.Partition partition = partitions.get(name);
+        if (partition == null) {
+            return null;
+        }
+        Partition convertedPartition = toMetastoreApiPartition(partition, metastoreContext.getColumnConverter());
+        if (convertedPartition.getParameters() == null) {
+            convertedPartition.setParameters(ImmutableMap.of());
+        }
+        return convertedPartition;
     }
 
     private static boolean isParentDir(File directory, File baseDirectory)

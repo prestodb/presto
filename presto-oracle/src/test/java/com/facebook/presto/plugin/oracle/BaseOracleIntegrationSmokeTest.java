@@ -32,14 +32,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseOracleIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final TestingOracleServer oracleServer;
+    private final OracleServerTester oracleServer;
     private final QueryRunner queryRunner;
 
-    protected BaseOracleIntegrationSmokeTest(TestingOracleServer oracleServer)
+    protected BaseOracleIntegrationSmokeTest(OracleServerTester oracleServer)
             throws Exception
     {
         this.queryRunner = createOracleQueryRunner(oracleServer, ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
-        this.oracleServer = new TestingOracleServer();
+        this.oracleServer = new OracleServerTester();
     }
 
     @Override

@@ -33,11 +33,26 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestSortedRangeSet
 {
+    private final ObjectMapper mapper;
+
+    public TestSortedRangeSet()
+    {
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+
+        this.mapper = new JsonObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+    }
+
     @Test
     public void testEmptySet()
     {
@@ -404,15 +419,6 @@ public class TestSortedRangeSet
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new JsonObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
-
         SortedRangeSet set = SortedRangeSet.all(BIGINT);
         assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
 
@@ -424,6 +430,86 @@ public class TestSortedRangeSet
 
         set = SortedRangeSet.of(Range.equal(BOOLEAN, true), Range.equal(BOOLEAN, false));
         assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
+    }
+
+    @Test
+    public void testCanonicalize()
+            throws Exception
+    {
+        assertSameSet(SortedRangeSet.all(BIGINT), SortedRangeSet.all(BIGINT), false);
+        assertSameSet(
+                SortedRangeSet.of(
+                        Range.lessThan(BIGINT, 0L),
+                        Range.equal(BIGINT, 1L),
+                        Range.equal(BIGINT, 2L),
+                        Range.range(BIGINT, 5L, false, 9L, false),
+                        Range.greaterThanOrEqual(BIGINT, 11L)),
+                SortedRangeSet.of(
+                        Range.lessThan(BIGINT, 0L),
+                        Range.equal(BIGINT, 1L),
+                        Range.equal(BIGINT, 2L),
+                        Range.range(BIGINT, 5L, false, 9L, false),
+                        Range.greaterThanOrEqual(BIGINT, 11L)),
+                false);
+
+        assertDifferentSet(
+                SortedRangeSet.of(
+                        Range.lessThan(BIGINT, 0L),
+                        Range.equal(BIGINT, 1L),
+                        Range.equal(BIGINT, 2L),
+                        Range.range(BIGINT, 5L, false, 9L, false),
+                        Range.greaterThanOrEqual(BIGINT, 11L)),
+                SortedRangeSet.of(
+                        Range.lessThan(BIGINT, 0L),
+                        Range.equal(BIGINT, 1L),
+                        Range.equal(BIGINT, 3L),
+                        Range.range(BIGINT, 5L, false, 9L, false),
+                        Range.greaterThanOrEqual(BIGINT, 11L)),
+                false);
+        assertDifferentSet(SortedRangeSet.all(BIGINT), SortedRangeSet.none(BIGINT), false);
+        assertDifferentSet(SortedRangeSet.all(BIGINT), SortedRangeSet.all(VARCHAR), false);
+
+        assertSameSet(
+                SortedRangeSet.of(
+                        Range.lessThan(BIGINT, 0L),
+                        Range.equal(BIGINT, 1L),
+                        Range.equal(BIGINT, 2L),
+                        Range.range(BIGINT, 5L, false, 9L, false),
+                        Range.greaterThanOrEqual(BIGINT, 11L)),
+                SortedRangeSet.of(
+                        Range.lessThan(BIGINT, 0L),
+                        Range.equal(BIGINT, 3L),
+                        Range.equal(BIGINT, 4L),
+                        Range.range(BIGINT, 5L, false, 9L, false),
+                        Range.greaterThanOrEqual(BIGINT, 11L)),
+                true);
+        assertSameSet(SortedRangeSet.all(BIGINT), SortedRangeSet.all(BIGINT), true);
+
+        assertDifferentSet(
+                SortedRangeSet.of(
+                        Range.lessThan(BIGINT, 0L),
+                        Range.range(BIGINT, 0L, false, 2L, false),
+                        Range.range(BIGINT, 5L, false, 9L, false),
+                        Range.greaterThanOrEqual(BIGINT, 11L)),
+                SortedRangeSet.of(
+                        Range.lessThan(BIGINT, 0L),
+                        Range.range(BIGINT, 0L, false, 3L, false),
+                        Range.range(BIGINT, 5L, true, 9L, false),
+                        Range.greaterThanOrEqual(BIGINT, 11L)),
+                true);
+        assertDifferentSet(SortedRangeSet.all(BIGINT), SortedRangeSet.all(BOOLEAN), true);
+    }
+
+    private void assertSameSet(SortedRangeSet set1, SortedRangeSet set2, boolean removeSafeConstants)
+            throws Exception
+    {
+        assertEquals(mapper.writeValueAsString(set1.canonicalize(removeSafeConstants)), mapper.writeValueAsString(set2.canonicalize(removeSafeConstants)));
+    }
+
+    private void assertDifferentSet(SortedRangeSet set1, SortedRangeSet set2, boolean removeSafeConstants)
+            throws Exception
+    {
+        assertNotEquals(mapper.writeValueAsString(set1.canonicalize(removeSafeConstants)), mapper.writeValueAsString(set2.canonicalize(removeSafeConstants)));
     }
 
     private void assertUnion(SortedRangeSet first, SortedRangeSet second, SortedRangeSet expected)

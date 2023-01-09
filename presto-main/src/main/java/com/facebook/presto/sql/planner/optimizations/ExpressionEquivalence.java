@@ -62,7 +62,7 @@ import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.tr
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.min;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionEquivalence
@@ -115,7 +115,7 @@ public class ExpressionEquivalence
                 sqlParser,
                 types,
                 expression,
-                emptyList(), /* parameters have already been replaced */
+                emptyMap(), /* parameters have already been replaced */
                 WarningCollector.NOOP);
 
         // convert to row expression

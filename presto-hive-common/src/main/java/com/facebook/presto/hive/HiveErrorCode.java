@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.ErrorType;
 
-import static com.facebook.presto.spi.ErrorType.EXTERNAL;
-import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
-import static com.facebook.presto.spi.ErrorType.USER_ERROR;
+import static com.facebook.presto.common.ErrorType.EXTERNAL;
+import static com.facebook.presto.common.ErrorType.INTERNAL_ERROR;
+import static com.facebook.presto.common.ErrorType.USER_ERROR;
 
 public enum HiveErrorCode
         implements ErrorCodeSupplier
@@ -73,6 +73,8 @@ public enum HiveErrorCode
     HIVE_INVALID_FILE_NAMES(45, INTERNAL_ERROR),
     HIVE_CORRUPTED_PARTITION_CACHE(46, INTERNAL_ERROR),
     HIVE_METASTORE_USER_ERROR(47, USER_ERROR),
+    HIVE_RANGER_SERVER_ERROR(48, EXTERNAL),
+    HIVE_FUNCTION_INITIALIZATION_ERROR(49, EXTERNAL),
     /**/;
 
     private final ErrorCode errorCode;

@@ -62,7 +62,7 @@ public class RequestErrorTracker
 
     private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
-    private RequestErrorTracker(Object id, URI uri, ErrorCodeSupplier errorCode, String nodeErrorMessage, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    public RequestErrorTracker(Object id, URI uri, ErrorCodeSupplier errorCode, String nodeErrorMessage, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
     {
         this.id = requireNonNull(id, "id is null");
         this.uri = requireNonNull(uri, "uri is null");
@@ -116,7 +116,14 @@ public class RequestErrorTracker
         }
 
         if (reason instanceof RejectedExecutionException) {
-            throw new PrestoException(errorCode, reason);
+            if (reason.getMessage() == null) {
+                throw new PrestoException(errorCode, reason);
+            }
+
+            // We want to do exponential backoff to allow OOT killer to kill queries and not fail immediately.
+            if (!reason.getMessage().contains("Max requests queued per destination")) {
+                throw new PrestoException(errorCode, reason);
+            }
         }
 
         // log failure message

@@ -7,24 +7,6 @@
       "max" : 1500,
       "dataSize" : null
     },
-    "c_name" : {
-      "distinctValuesCount" : 1500,
-      "min" : "Customer#000000001",
-      "max" : "Customer#000001500",
-      "dataSize" : 27000
-    },
-    "c_address" : {
-      "distinctValuesCount" : 1500,
-      "min" : " ,cIZ,06Kg",
-      "max" : "zyWvi,SGc,tXTls",
-      "dataSize" : 37090
-    },
-    "c_nationkey" : {
-      "distinctValuesCount" : 25,
-      "min" : 0,
-      "max" : 24,
-      "dataSize" : null
-    },
     "c_phone" : {
       "distinctValuesCount" : 1500,
       "min" : "10-109-430-5638",
@@ -41,7 +23,25 @@
       "distinctValuesCount" : 5,
       "min" : "AUTOMOBILE",
       "max" : "MACHINERY",
-      "dataSize" : 45
+      "dataSize" : 13465
+    },
+    "c_address" : {
+      "distinctValuesCount" : 1500,
+      "min" : " ,cIZ,06Kg",
+      "max" : "zyWvi,SGc,tXTls",
+      "dataSize" : 37090
+    },
+    "c_nationkey" : {
+      "distinctValuesCount" : 25,
+      "min" : 0,
+      "max" : 24,
+      "dataSize" : null
+    },
+    "c_name" : {
+      "distinctValuesCount" : 1500,
+      "min" : "Customer#000000001",
+      "max" : "Customer#000001500",
+      "dataSize" : 27000
     },
     "c_comment" : {
       "distinctValuesCount" : 1500,

@@ -57,7 +57,7 @@ public class PlannerUtils
                 orderBy.getSortItems().stream()
                         .map(SortItem::getSortKey)
                         .map(item -> {
-                            checkArgument(item instanceof SymbolReference, "must be symbol reference");
+                            checkArgument(item instanceof SymbolReference, "Sort items in order by must be symbol reference");
                             return variable(getSourceLocation(item), ((SymbolReference) item).getName(), types.get(item));
                         }).collect(toImmutableList()),
                 orderBy.getSortItems().stream()

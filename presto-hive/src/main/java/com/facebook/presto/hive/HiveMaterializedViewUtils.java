@@ -21,7 +21,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -75,7 +75,7 @@ public class HiveMaterializedViewUtils
             SemiTransactionalHiveMetastore metastore,
             MetastoreContext metastoreContext,
             Table viewTable,
-            ConnectorMaterializedViewDefinition viewDefinition)
+            MaterializedViewDefinition viewDefinition)
     {
         SchemaTableName viewName = new SchemaTableName(viewTable.getDatabaseName(), viewTable.getTableName());
 
@@ -194,7 +194,7 @@ public class HiveMaterializedViewUtils
     // baseTable: t2, partitioned by [a]
     // Output: t1_a -> t2.a
     public static Optional<Map<String, String>> viewToBaseTableOnOuterJoinSideIndirectMappedPartitions(
-            ConnectorMaterializedViewDefinition viewDefinition,
+            MaterializedViewDefinition viewDefinition,
             Table baseTable)
     {
         SchemaTableName schemaBaseTable = new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName());

@@ -49,6 +49,12 @@
           "softMemoryLimit": "2MB",
           "hardConcurrencyLimit": 3,
           "maxQueued": 4
+        },
+        {
+          "name": "other-2",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
         }
       ]
     }
@@ -83,6 +89,11 @@
       "user" : "test_user",
       "queryType" : "data_definition",
       "group": "global.data_definition"
+    },
+    {
+      "user": "test_user",
+      "clientInfo" : "client2_.*",
+      "group": "global.other-2"
     },
     {
       "user": "test_user",

@@ -22,6 +22,7 @@ import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.TestingSession;
@@ -283,6 +284,38 @@ public class TestGroupByHash
 
         // assert we call update memory every time we rehash; the rehash count = log2(length / FILL_RATIO)
         assertEquals(rehashCount.get(), log2(length / 0.75, RoundingMode.FLOOR));
+    }
+
+    @Test(dataProvider = "dataType")
+    public void testEmptyPage(Type type)
+    {
+        // Create an empty page
+        int length = 0;
+        Block valuesBlock;
+        if (type == VARCHAR) {
+            valuesBlock = createStringSequenceBlock(0, length);
+        }
+        else if (type == BIGINT) {
+            valuesBlock = createLongSequenceBlock(0, length);
+        }
+        else {
+            throw new IllegalArgumentException("unsupported data type");
+        }
+        Block hashBlock = getHashBlock(ImmutableList.of(type), valuesBlock);
+        Page page = new Page(valuesBlock, hashBlock);
+        AtomicInteger currentQuota = new AtomicInteger(0);
+        AtomicInteger allowedQuota = new AtomicInteger(3);
+        UpdateMemory updateMemory = () -> {
+            if (currentQuota.get() < allowedQuota.get()) {
+                currentQuota.getAndIncrement();
+                return true;
+            }
+            return false;
+        };
+
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.of(1), 1, false, JOIN_COMPILER, updateMemory);
+        Work<?> addPageWork = groupByHash.addPage(page);
+        assertTrue(addPageWork.process());
     }
 
     @Test(dataProvider = "dataType")

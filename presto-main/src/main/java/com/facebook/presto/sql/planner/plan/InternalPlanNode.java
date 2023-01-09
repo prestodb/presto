@@ -25,9 +25,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 public abstract class InternalPlanNode
         extends PlanNode
 {
-    protected InternalPlanNode(Optional<SourceLocation> sourceLocation, PlanNodeId planNodeId)
+    protected InternalPlanNode(Optional<SourceLocation> sourceLocation, PlanNodeId planNodeId, Optional<PlanNode> statsEquivalentPlanNode)
     {
-        super(sourceLocation, planNodeId);
+        super(sourceLocation, planNodeId, statsEquivalentPlanNode);
     }
 
     public final <R, C> R accept(PlanVisitor<R, C> visitor, C context)

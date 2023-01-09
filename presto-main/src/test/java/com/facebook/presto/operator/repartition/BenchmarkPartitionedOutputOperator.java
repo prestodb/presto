@@ -280,7 +280,7 @@ public class BenchmarkPartitionedOutputOperator
                 default:
                     throw new UnsupportedOperationException("Unsupported dataType");
             }
-            // We built the dataPage with added pre-computed hash block at channel 0, so types needs to be udpated
+            // We built the dataPage with added pre-computed hash block at channel 0, so types needs to be updated
             types = updateBlockTypesWithHashBlockAndNullBlock(types, true, false);
         }
 

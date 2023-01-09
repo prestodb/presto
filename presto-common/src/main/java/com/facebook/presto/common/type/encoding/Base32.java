@@ -526,7 +526,7 @@ public class Base32
      * Returns whether or not the {@code octet} is in the Base32 alphabet.
      *
      * @param octet The value to test
-     * @return {@code true} if the value is defined in the the Base32 alphabet {@code false} otherwise.
+     * @return {@code true} if the value is defined in the Base32 alphabet {@code false} otherwise.
      */
     @Override
     public boolean isInAlphabet(final byte octet)

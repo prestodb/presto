@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.Duration;
@@ -26,6 +29,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public class ServerInfo
 {
     private final NodeVersion nodeVersion;
@@ -36,6 +40,7 @@ public class ServerInfo
     // optional to maintain compatibility with older servers
     private final Optional<Duration> uptime;
 
+    @ThriftConstructor
     @JsonCreator
     public ServerInfo(
             @JsonProperty("nodeVersion") NodeVersion nodeVersion,
@@ -51,30 +56,35 @@ public class ServerInfo
         this.uptime = requireNonNull(uptime, "uptime is null");
     }
 
+    @ThriftField(1)
     @JsonProperty
     public NodeVersion getNodeVersion()
     {
         return nodeVersion;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public String getEnvironment()
     {
         return environment;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public boolean isCoordinator()
     {
         return coordinator;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public boolean isStarting()
     {
         return starting;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public Optional<Duration> getUptime()
     {

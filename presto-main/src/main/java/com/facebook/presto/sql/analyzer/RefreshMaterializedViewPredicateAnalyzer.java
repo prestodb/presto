@@ -16,7 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -58,7 +58,7 @@ public class RefreshMaterializedViewPredicateAnalyzer
             Metadata metadata,
             Session session)
     {
-        ConnectorMaterializedViewDefinition viewDefinition = metadata.getMaterializedView(session, viewName)
+        MaterializedViewDefinition viewDefinition = metadata.getMetadataResolver(session).getMaterializedView(viewName)
                 .orElseThrow(() -> new MaterializedViewNotFoundException(toSchemaTableName(viewName)));
 
         Visitor visitor = new Visitor(viewDefinition, viewScope);
@@ -75,11 +75,11 @@ public class RefreshMaterializedViewPredicateAnalyzer
     {
         private final ImmutableMultimap.Builder<SchemaTableName, Expression> tablePredicatesBuilder = ImmutableMultimap.builder();
 
-        private final ConnectorMaterializedViewDefinition viewDefinition;
+        private final MaterializedViewDefinition viewDefinition;
         private final Scope viewScope;
 
         private Visitor(
-                ConnectorMaterializedViewDefinition viewDefinition,
+                MaterializedViewDefinition viewDefinition,
                 Scope viewScope)
         {
             this.viewDefinition = requireNonNull(viewDefinition, "viewDefinition is null");

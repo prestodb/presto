@@ -108,4 +108,14 @@ public class TestHiveClient
 
         super.testMismatchSchemaTable();
     }
+
+    @Override
+    public void testTableConstraints()
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Table constraints support is in Hive 3 and above. Disabling it for lower versions");
+        }
+
+        super.testTableConstraints();
+    }
 }

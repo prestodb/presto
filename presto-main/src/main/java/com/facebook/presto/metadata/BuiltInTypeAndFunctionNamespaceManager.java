@@ -21,6 +21,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionResult;
+import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -29,6 +30,16 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFunction;
+import com.facebook.presto.geospatial.BingTileFunctions;
+import com.facebook.presto.geospatial.BingTileOperators;
+import com.facebook.presto.geospatial.GeoFunctions;
+import com.facebook.presto.geospatial.KdbTreeCasts;
+import com.facebook.presto.geospatial.SpatialPartitioningAggregateFunction;
+import com.facebook.presto.geospatial.SpatialPartitioningInternalAggregateFunction;
+import com.facebook.presto.geospatial.SphericalGeoFunctions;
+import com.facebook.presto.geospatial.aggregation.ConvexHullAggregation;
+import com.facebook.presto.geospatial.aggregation.GeometryUnionAgg;
+import com.facebook.presto.operator.aggregation.AlternativeApproxPercentile;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
@@ -58,7 +69,6 @@ import com.facebook.presto.operator.aggregation.DoubleRegressionAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.EntropyAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.IntervalDayToSecondAverageAggregation;
 import com.facebook.presto.operator.aggregation.IntervalDayToSecondSumAggregation;
 import com.facebook.presto.operator.aggregation.IntervalYearToMonthAverageAggregation;
@@ -92,6 +102,8 @@ import com.facebook.presto.operator.scalar.ArrayElementAtFunction;
 import com.facebook.presto.operator.scalar.ArrayEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayExceptFunction;
 import com.facebook.presto.operator.scalar.ArrayFilterFunction;
+import com.facebook.presto.operator.scalar.ArrayFindFirstFirstFunction;
+import com.facebook.presto.operator.scalar.ArrayFindFirstWithOffsetFunction;
 import com.facebook.presto.operator.scalar.ArrayFunctions;
 import com.facebook.presto.operator.scalar.ArrayGreaterThanOperator;
 import com.facebook.presto.operator.scalar.ArrayGreaterThanOrEqualOperator;
@@ -109,11 +121,13 @@ import com.facebook.presto.operator.scalar.ArrayNotEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayPositionFunction;
 import com.facebook.presto.operator.scalar.ArrayPositionWithIndexFunction;
 import com.facebook.presto.operator.scalar.ArrayRemoveFunction;
+import com.facebook.presto.operator.scalar.ArrayRemoveNullsFunction;
 import com.facebook.presto.operator.scalar.ArrayReverseFunction;
 import com.facebook.presto.operator.scalar.ArrayShuffleFunction;
 import com.facebook.presto.operator.scalar.ArraySliceFunction;
 import com.facebook.presto.operator.scalar.ArraySortComparatorFunction;
 import com.facebook.presto.operator.scalar.ArraySortFunction;
+import com.facebook.presto.operator.scalar.ArrayTrimFunction;
 import com.facebook.presto.operator.scalar.ArrayUnionFunction;
 import com.facebook.presto.operator.scalar.ArraysOverlapFunction;
 import com.facebook.presto.operator.scalar.BitwiseFunctions;
@@ -143,6 +157,7 @@ import com.facebook.presto.operator.scalar.MapIndeterminateOperator;
 import com.facebook.presto.operator.scalar.MapKeys;
 import com.facebook.presto.operator.scalar.MapNotEqualOperator;
 import com.facebook.presto.operator.scalar.MapSubscriptOperator;
+import com.facebook.presto.operator.scalar.MapSubsetFunction;
 import com.facebook.presto.operator.scalar.MapValues;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions.LegacyLogFunction;
@@ -165,6 +180,7 @@ import com.facebook.presto.operator.scalar.WilsonInterval;
 import com.facebook.presto.operator.scalar.WordStemFunction;
 import com.facebook.presto.operator.scalar.sql.ArraySqlFunctions;
 import com.facebook.presto.operator.scalar.sql.MapNormalizeFunction;
+import com.facebook.presto.operator.scalar.sql.MapSqlFunctions;
 import com.facebook.presto.operator.scalar.sql.SimpleSamplingPercent;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
@@ -180,6 +196,7 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -256,6 +273,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -271,6 +289,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
+import static com.facebook.presto.common.type.KdbTreeType.KDB_TREE;
 import static com.facebook.presto.common.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
 import static com.facebook.presto.common.type.RealType.REAL;
@@ -283,9 +302,16 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharEnumParametricType.VARCHAR_ENUM;
+import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+import static com.facebook.presto.geospatial.type.BingTileType.BING_TILE;
+import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.aggregation.AlternativeArbitraryAggregationFunction.ALTERNATIVE_ARBITRARY_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.AlternativeMaxAggregationFunction.ALTERNATIVE_MAX;
+import static com.facebook.presto.operator.aggregation.AlternativeMinAggregationFunction.ALTERNATIVE_MIN;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
@@ -308,6 +334,8 @@ import static com.facebook.presto.operator.aggregation.TDigestAggregationFunctio
 import static com.facebook.presto.operator.aggregation.approxmostfrequent.ApproximateMostFrequent.APPROXIMATE_MOST_FREQUENT;
 import static com.facebook.presto.operator.aggregation.arrayagg.SetAggregationFunction.SET_AGG;
 import static com.facebook.presto.operator.aggregation.arrayagg.SetUnionFunction.SET_UNION;
+import static com.facebook.presto.operator.aggregation.minmaxby.AlternativeMaxByAggregationFunction.ALTERNATIVE_MAX_BY;
+import static com.facebook.presto.operator.aggregation.minmaxby.AlternativeMinByAggregationFunction.ALTERNATIVE_MIN_BY;
 import static com.facebook.presto.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
 import static com.facebook.presto.operator.aggregation.minmaxby.MaxByNAggregationFunction.MAX_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
@@ -335,6 +363,7 @@ import static com.facebook.presto.operator.scalar.JsonStringToRowCast.JSON_STRIN
 import static com.facebook.presto.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
 import static com.facebook.presto.operator.scalar.JsonToMapCast.JSON_TO_MAP;
 import static com.facebook.presto.operator.scalar.JsonToRowCast.JSON_TO_ROW;
+import static com.facebook.presto.operator.scalar.KDistinct.K_DISTINCT;
 import static com.facebook.presto.operator.scalar.Least.LEAST;
 import static com.facebook.presto.operator.scalar.MapConcatFunction.MAP_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
@@ -364,6 +393,17 @@ import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationCh
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
 import static com.facebook.presto.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static com.facebook.presto.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
+import static com.facebook.presto.operator.scalar.distinct.DistinctTypeBetweenOperator.DISTINCT_TYPE_BETWEEN_OPERATOR;
+import static com.facebook.presto.operator.scalar.distinct.DistinctTypeDistinctFromOperator.DISTINCT_TYPE_DISTINCT_FROM_OPERATOR;
+import static com.facebook.presto.operator.scalar.distinct.DistinctTypeEqualOperator.DISTINCT_TYPE_EQUAL_OPERATOR;
+import static com.facebook.presto.operator.scalar.distinct.DistinctTypeGreaterThanOperator.DISTINCT_TYPE_GREATER_THAN_OPERATOR;
+import static com.facebook.presto.operator.scalar.distinct.DistinctTypeGreaterThanOrEqualOperator.DISTINCT_TYPE_GREATER_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.operator.scalar.distinct.DistinctTypeHashCodeOperator.DISTINCT_TYPE_HASH_CODE_OPERATOR;
+import static com.facebook.presto.operator.scalar.distinct.DistinctTypeIndeterminateOperator.DISTINCT_TYPE_INDETERMINATE_OPERATOR;
+import static com.facebook.presto.operator.scalar.distinct.DistinctTypeLessThanOperator.DISTINCT_TYPE_LESS_THAN_OPERATOR;
+import static com.facebook.presto.operator.scalar.distinct.DistinctTypeLessThanOrEqualOperator.DISTINCT_TYPE_LESS_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.operator.scalar.distinct.DistinctTypeNotEqualOperator.DISTINCT_TYPE_NOT_EQUAL_OPERATOR;
+import static com.facebook.presto.operator.scalar.distinct.DistinctTypeXXHash64Operator.DISTINCT_TYPE_XX_HASH_64_OPERATOR;
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -419,6 +459,8 @@ import static com.facebook.presto.type.DecimalSaturatedFloorCasts.INTEGER_TO_DEC
 import static com.facebook.presto.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static com.facebook.presto.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static com.facebook.presto.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DistinctTypeCasts.DISTINCT_TYPE_FROM_CAST;
+import static com.facebook.presto.type.DistinctTypeCasts.DISTINCT_TYPE_TO_CAST;
 import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -431,7 +473,6 @@ import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
-import static com.facebook.presto.type.UuidType.UUID;
 import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -457,9 +498,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-    private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
+    private final LoadingCache<SpecializedFunctionKey, AggregationFunctionImplementation> specializedAggregationCache;
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
-    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
+    private final LoadingCache<ExactTypeSignature, Type> parametricTypeCache;
     private final MagicLiteralFunction magicLiteralFunction;
 
     private volatile FunctionMap functions = new FunctionMap();
@@ -475,6 +516,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
         specializedFunctionKeyCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
+                .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(this::doGetSpecializedFunctionKey));
 
         // TODO the function map should be updated, so that this cast can be removed
@@ -518,6 +560,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
         parametricTypeCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
+                .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(this::instantiateParametricType));
 
         registerBuiltInFunctions(getBuildInFunctions(featuresConfig));
@@ -561,6 +604,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(IPADDRESS);
         addType(IPPREFIX);
         addType(UUID);
+        addType(GEOMETRY);
+        addType(BING_TILE);
+        addType(KDB_TREE);
+        addType(SPHERICAL_GEOGRAPHY);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
@@ -592,15 +639,13 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregate(DefaultApproximateCountDistinctAggregation.class)
                 .aggregate(SumDataSizeForStats.class)
                 .aggregate(MaxDataSizeForStats.class)
+                .aggregate(ConvexHullAggregation.class)
+                .aggregate(GeometryUnionAgg.class)
+                .aggregate(SpatialPartitioningAggregateFunction.class)
+                .aggregate(SpatialPartitioningInternalAggregateFunction.class)
                 .aggregates(CountAggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
-                .aggregates(ApproximateLongPercentileAggregations.class)
-                .aggregates(ApproximateLongPercentileArrayAggregations.class)
-                .aggregates(ApproximateDoublePercentileAggregations.class)
-                .aggregates(ApproximateDoublePercentileArrayAggregations.class)
-                .aggregates(ApproximateRealPercentileAggregations.class)
-                .aggregates(ApproximateRealPercentileArrayAggregations.class)
                 .aggregates(CountIfAggregation.class)
                 .aggregates(BooleanAndAggregation.class)
                 .aggregates(BooleanOrAggregation.class)
@@ -660,6 +705,12 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(JsonFunctions.class)
                 .scalars(ColorFunctions.class)
                 .scalars(ColorOperators.class)
+                .scalars(GeoFunctions.class)
+                .scalars(BingTileFunctions.class)
+                .scalars(BingTileOperators.class)
+                .scalar(BingTileFunctions.BingTileCoordinatesFunction.class)
+                .scalars(SphericalGeoFunctions.class)
+                .scalars(KdbTreeCasts.class)
                 .scalar(ColorOperators.ColorDistinctFromOperator.class)
                 .scalars(HyperLogLogFunctions.class)
                 .scalars(QuantileDigestFunctions.class)
@@ -732,10 +783,12 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayLessThanOperator.class)
                 .scalar(ArrayLessThanOrEqualOperator.class)
                 .scalar(ArrayRemoveFunction.class)
+                .scalar(ArrayRemoveNullsFunction.class)
                 .scalar(ArrayGreaterThanOperator.class)
                 .scalar(ArrayGreaterThanOrEqualOperator.class)
                 .scalar(ArrayElementAtFunction.class)
                 .scalar(ArraySortFunction.class)
+                .scalar(MapSubsetFunction.class)
                 .scalar(ArraySortComparatorFunction.class)
                 .scalar(ArrayShuffleFunction.class)
                 .scalar(ArrayReverseFunction.class)
@@ -751,11 +804,14 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayUnionFunction.class)
                 .scalar(ArrayExceptFunction.class)
                 .scalar(ArraySliceFunction.class)
+                .scalar(ArrayTrimFunction.class)
                 .scalar(ArrayIndeterminateOperator.class)
                 .scalar(ArrayCombinationsFunction.class)
                 .scalar(ArrayNgramsFunction.class)
                 .scalar(ArrayAllMatchFunction.class)
                 .scalar(ArrayAnyMatchFunction.class)
+                .scalar(ArrayFindFirstFirstFunction.class)
+                .scalar(ArrayFindFirstWithOffsetFunction.class)
                 .scalar(ArrayNoneMatchFunction.class)
                 .scalar(ArrayNormalizeFunction.class)
                 .scalar(MapDistinctFromOperator.class)
@@ -825,6 +881,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
                 .function(TRY_CAST)
                 .function(APPROXIMATE_MOST_FREQUENT)
+                .function(K_DISTINCT)
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
@@ -841,11 +898,20 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .sqlInvokedScalar(MapNormalizeFunction.class)
                 .sqlInvokedScalars(ArraySqlFunctions.class)
                 .sqlInvokedScalars(ArrayIntersectFunction.class)
+                .sqlInvokedScalars(MapSqlFunctions.class)
                 .sqlInvokedScalars(SimpleSamplingPercent.class)
                 .scalar(DynamicFilterPlaceholderFunction.class)
                 .scalars(EnumCasts.class)
                 .scalars(LongEnumOperators.class)
                 .scalars(VarcharEnumOperators.class)
+                .functions(DISTINCT_TYPE_FROM_CAST, DISTINCT_TYPE_TO_CAST)
+                .functions(DISTINCT_TYPE_EQUAL_OPERATOR, DISTINCT_TYPE_NOT_EQUAL_OPERATOR)
+                .functions(DISTINCT_TYPE_LESS_THAN_OPERATOR, DISTINCT_TYPE_LESS_THAN_OR_EQUAL_OPERATOR)
+                .functions(DISTINCT_TYPE_GREATER_THAN_OPERATOR, DISTINCT_TYPE_GREATER_THAN_OR_EQUAL_OPERATOR)
+                .functions(DISTINCT_TYPE_BETWEEN_OPERATOR)
+                .function(DISTINCT_TYPE_DISTINCT_FROM_OPERATOR)
+                .functions(DISTINCT_TYPE_HASH_CODE_OPERATOR, DISTINCT_TYPE_XX_HASH_64_OPERATOR)
+                .function(DISTINCT_TYPE_INDETERMINATE_OPERATOR)
                 .codegenScalars(MapFilterFunction.class);
 
         switch (featuresConfig.getRegexLibrary()) {
@@ -862,6 +928,25 @@ public class BuiltInTypeAndFunctionNamespaceManager
         if (featuresConfig.isLegacyLogFunction()) {
             builder.scalar(LegacyLogFunction.class);
         }
+
+        // Replace some aggregations for Velox to override intermediate aggregation type.
+        if (featuresConfig.isUseAlternativeFunctionSignatures()) {
+            builder.override(ARBITRARY_AGGREGATION, ALTERNATIVE_ARBITRARY_AGGREGATION);
+            builder.override(MAX_AGGREGATION, ALTERNATIVE_MAX);
+            builder.override(MIN_AGGREGATION, ALTERNATIVE_MIN);
+            builder.override(MAX_BY, ALTERNATIVE_MAX_BY);
+            builder.override(MIN_BY, ALTERNATIVE_MIN_BY);
+            builder.functions(AlternativeApproxPercentile.getFunctions());
+        }
+        else {
+            builder.aggregates(ApproximateLongPercentileAggregations.class);
+            builder.aggregates(ApproximateLongPercentileArrayAggregations.class);
+            builder.aggregates(ApproximateDoublePercentileAggregations.class);
+            builder.aggregates(ApproximateDoublePercentileArrayAggregations.class);
+            builder.aggregates(ApproximateRealPercentileAggregations.class);
+            builder.aggregates(ApproximateRealPercentileArrayAggregations.class);
+        }
+
         return builder.getFunctions();
     }
 
@@ -1027,7 +1112,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         }
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
         checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
         Signature signature = ((BuiltInFunctionHandle) functionHandle).getSignature();
@@ -1071,7 +1156,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
             return Optional.of(type);
         }
         try {
-            return Optional.ofNullable(parametricTypeCache.getUnchecked(typeSignature));
+            return Optional.ofNullable(parametricTypeCache.getUnchecked(new ExactTypeSignature(typeSignature)));
         }
         catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
@@ -1103,8 +1188,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
         return parametricTypes.values();
     }
 
-    private Type instantiateParametricType(TypeSignature signature)
+    private Type instantiateParametricType(ExactTypeSignature exactSignature)
     {
+        TypeSignature signature = exactSignature.getTypeSignature();
         List<TypeParameter> parameters = new ArrayList<>();
 
         for (TypeSignatureParameter parameter : signature.getParameters()) {
@@ -1248,6 +1334,92 @@ public class BuiltInTypeAndFunctionNamespaceManager
         public Collection<SqlFunction> get(QualifiedObjectName name)
         {
             return functions.get(name);
+        }
+    }
+
+    /**
+     * TypeSignature but has overridden equals(). Here, we compare exact signature of any underlying distinct
+     * types. Some distinct types may have extra information on their lazily loaded parents, and same parent
+     * information is compared in equals(). This is needed to cache types in parametricTypesCache.
+     */
+    private static class ExactTypeSignature
+    {
+        private final TypeSignature typeSignature;
+
+        public ExactTypeSignature(TypeSignature typeSignature)
+        {
+            this.typeSignature = typeSignature;
+        }
+
+        public TypeSignature getTypeSignature()
+        {
+            return typeSignature;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(typeSignature);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            ExactTypeSignature other = (ExactTypeSignature) o;
+            return equals(typeSignature, other.typeSignature);
+        }
+
+        private static boolean equals(TypeSignature left, TypeSignature right)
+        {
+            if (!left.equals(right)) {
+                return false;
+            }
+
+            if (left.isDistinctType() && right.isDistinctType()) {
+                return equals(left.getDistinctTypeInfo(), right.getDistinctTypeInfo());
+            }
+            int index = 0;
+            for (TypeSignatureParameter leftParameter : left.getParameters()) {
+                TypeSignatureParameter rightParameter = right.getParameters().get(index++);
+                if (!leftParameter.getKind().equals(rightParameter.getKind())) {
+                    return false;
+                }
+
+                switch (leftParameter.getKind()) {
+                    case TYPE:
+                        if (!equals(leftParameter.getTypeSignature(), rightParameter.getTypeSignature())) {
+                            return false;
+                        }
+                        break;
+                    case NAMED_TYPE:
+                        if (!equals(leftParameter.getNamedTypeSignature().getTypeSignature(), rightParameter.getNamedTypeSignature().getTypeSignature())) {
+                            return false;
+                        }
+                        break;
+                    case DISTINCT_TYPE:
+                        if (!equals(leftParameter.getDistinctTypeInfo(), rightParameter.getDistinctTypeInfo())) {
+                            return false;
+                        }
+                        break;
+                }
+            }
+            return true;
+        }
+
+        private static boolean equals(DistinctTypeInfo left, DistinctTypeInfo right)
+        {
+            return Objects.equals(left.getName(), right.getName()) &&
+                    Objects.equals(left.getBaseType(), right.getBaseType()) &&
+                    Objects.equals(left.isOrderable(), right.isOrderable()) &&
+                    Objects.equals(left.getTopMostAncestor(), right.getTopMostAncestor()) &&
+                    Objects.equals(left.getOtherAncestors(), right.getOtherAncestors());
         }
     }
 

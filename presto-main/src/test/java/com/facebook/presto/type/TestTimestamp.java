@@ -36,6 +36,14 @@ public class TestTimestamp
                 TIMESTAMP,
                 sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
         assertFunction(
+                "cast('2001-1-22 03:04:05.321123 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
+        assertFunction(
+                "cast('2001-1-22 03:04:05.321123456 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
+        assertFunction(
                 "cast('2001-1-22 03:04:05 +07:09' as timestamp)",
                 TIMESTAMP,
                 sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5)));
@@ -50,6 +58,14 @@ public class TestTimestamp
 
         assertFunction(
                 "cast('2001-1-22 03:04:05.321 Asia/Oral' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
+        assertFunction(
+                "cast('2001-1-22 03:04:05.321123 Asia/Oral' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
+        assertFunction(
+                "cast('2001-1-22 03:04:05.321123456 Asia/Oral' as timestamp)",
                 TIMESTAMP,
                 sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
         assertFunction(

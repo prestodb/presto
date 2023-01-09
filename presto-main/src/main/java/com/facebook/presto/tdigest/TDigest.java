@@ -93,7 +93,7 @@ import static java.util.Collections.shuffle;
 public class TDigest
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TDigest.class).instanceSize();
-    private static final double MAX_COMPRESSION_FACTOR = 1_000;
+    static final double MAX_COMPRESSION_FACTOR = 1_000;
     private static final double sizeFudge = 30;
     private static final double EPSILON = 0.001;
 
@@ -142,7 +142,7 @@ public class TDigest
         this.compression = 2 * this.publicCompression;
 
         // having a big buffer is good for speed
-        this.maxBufferSize = 5 * (int) ceil(this.publicCompression + sizeFudge);
+        this.maxBufferSize = 5 * (int) ceil(this.compression + sizeFudge);
         this.maxCentroidCount = (int) ceil(this.compression + sizeFudge);
 
         this.weight = new double[1];
@@ -157,6 +157,26 @@ public class TDigest
     public static TDigest createTDigest(double compression)
     {
         return new TDigest(compression);
+    }
+
+    public static TDigest createTDigest(
+            double[] centroidMeans,
+            double[] centroidWeights,
+            double compression,
+            double min,
+            double max,
+            double sum,
+            int count)
+    {
+        TDigest tDigest = new TDigest(compression);
+        tDigest.setMinMax(min, max);
+        tDigest.setSum(sum);
+        tDigest.totalWeight = Arrays.stream(centroidWeights).sum(); // set totalWeight to sum of all centroidWeights
+        tDigest.activeCentroids = count;
+        tDigest.weight = centroidWeights;
+        tDigest.mean = centroidMeans;
+
+        return tDigest;
     }
 
     public static TDigest createTDigest(Slice slice)
@@ -566,6 +586,58 @@ public class TDigest
         return weightedAverage(mean[n - 1], z1, max, z2);
     }
 
+    public double trimmedMean(double lowerQuantileBound, double upperQuantileBound)
+    {
+        checkArgument(lowerQuantileBound >= 0 && lowerQuantileBound <= 1, "lowerQuantileBound should be in [0,1], got %s", lowerQuantileBound);
+        checkArgument(upperQuantileBound >= 0 && upperQuantileBound <= 1, "upperQuantileBound should be in [0,1], got %s", upperQuantileBound);
+
+        if (unmergedWeight > 0) {
+            compress();
+        }
+
+        if (activeCentroids == 0 || lowerQuantileBound >= upperQuantileBound) {
+            return Double.NaN;
+        }
+
+        if (lowerQuantileBound == 0 && upperQuantileBound == 1) {
+            return sum / totalWeight;
+        }
+
+        double lowerIndex = lowerQuantileBound * totalWeight;
+        double upperIndex = upperQuantileBound * totalWeight;
+
+        double weightSoFar = 0;
+        double sumInBounds = 0;
+        double weightInBounds = 0;
+        for (int i = 0; i < activeCentroids; i++) {
+            if (weightSoFar < lowerIndex && lowerIndex <= weightSoFar + weight[i] && upperIndex <= weightSoFar + weight[i]) {
+                // lower and upper bounds are so close together that they are in the same weight interval
+                return mean[i];
+            }
+            else if (weightSoFar < lowerIndex && lowerIndex <= weightSoFar + weight[i]) {
+                // the lower bound is between our current point and the next point
+                double addedWeight = weightSoFar + weight[i] - lowerIndex;
+                sumInBounds += mean[i] * addedWeight;
+                weightInBounds += addedWeight;
+            }
+            else if (upperIndex < weightSoFar + weight[i] && upperIndex > weightSoFar) {
+                // the upper bound is between our current point and the next point
+                double addedWeight = upperIndex - weightSoFar;
+                sumInBounds += mean[i] * addedWeight;
+                weightInBounds += addedWeight;
+                return sumInBounds / weightInBounds;
+            }
+            else if (lowerIndex <= weightSoFar && weightSoFar <= upperIndex) {
+                // we are somewhere in between the lower and upper bounds
+                sumInBounds += mean[i] * weight[i];
+                weightInBounds += weight[i];
+            }
+            weightSoFar += weight[i];
+        }
+
+        return sumInBounds / weightInBounds;
+    }
+
     public int centroidCount()
     {
         mergeNewValues();
@@ -700,7 +772,7 @@ public class TDigest
 
     public String toString()
     {
-        return format("TDigest\nCompression:%s\nCentroid Count:%s\nSize:%s\nMin:%s Median:%s Max:%s",
+        return format("TDigest%nCompression:%s%nCentroid Count:%s%nSize:%s%nMin:%s Median:%s Max:%s",
                 publicCompression, activeCentroids, totalWeight, min, getQuantile(0.5), max);
     }
 }

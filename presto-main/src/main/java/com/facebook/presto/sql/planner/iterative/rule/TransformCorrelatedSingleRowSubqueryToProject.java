@@ -72,7 +72,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
                 .where(node -> node instanceof ProjectNode && !node.getOutputVariables().equals(parent.getCorrelation()))
                 .findAll();
 
-        if (subqueryProjections.size() == 0) {
+        if (subqueryProjections.isEmpty()) {
             return Result.ofPlanNode(parent.getInput());
         }
         else if (subqueryProjections.size() == 1) {
@@ -93,6 +93,6 @@ public class TransformCorrelatedSingleRowSubqueryToProject
 
     private static boolean isSingleRowValuesWithNoColumns(ValuesNode values)
     {
-        return values.getRows().size() == 1 && values.getRows().get(0).size() == 0;
+        return values.getRows().size() == 1 && values.getRows().get(0).isEmpty();
     }
 }

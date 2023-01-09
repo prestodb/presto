@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +25,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
+@ThriftStruct
 public final class OutputBufferInfo
 {
     private final String type;
@@ -35,6 +39,7 @@ public final class OutputBufferInfo
     private final List<BufferInfo> buffers;
 
     @JsonCreator
+    @ThriftConstructor
     public OutputBufferInfo(
             @JsonProperty("type") String type,
             @JsonProperty("state") BufferState state,
@@ -58,54 +63,63 @@ public final class OutputBufferInfo
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getType()
     {
         return type;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public BufferState getState()
     {
         return state;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public List<BufferInfo> getBuffers()
     {
         return buffers;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public boolean isCanAddBuffers()
     {
         return canAddBuffers;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public boolean isCanAddPages()
     {
         return canAddPages;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public long getTotalBufferedBytes()
     {
         return totalBufferedBytes;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public long getTotalBufferedPages()
     {
         return totalBufferedPages;
     }
 
     @JsonProperty
+    @ThriftField(8)
     public long getTotalRowsSent()
     {
         return totalRowsSent;
     }
 
     @JsonProperty
+    @ThriftField(9)
     public long getTotalPagesSent()
     {
         return totalPagesSent;

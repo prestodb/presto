@@ -13,7 +13,7 @@ Steps
 -----
 
 Download the Presto Spark package tarball, :maven_download:`spark-package` 
-and the Presto Spark laucher, :maven_download:`spark-launcher`. Keep both the
+and the Presto Spark launcher, :maven_download:`spark-launcher`. Keep both the
 files at, say, *example* directory. We assume here a two node Spark cluster
 with four cores each, thus giving us eight total cores.
 

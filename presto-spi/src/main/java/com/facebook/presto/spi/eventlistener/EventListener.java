@@ -19,6 +19,14 @@ public interface EventListener
     {
     }
 
+    /**
+     * Called after queryCreated event and can be used to capture intermediate
+     * info like query_plan, partial stats while the query is running
+     */
+    default void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
+    {
+    }
+
     default void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
     }

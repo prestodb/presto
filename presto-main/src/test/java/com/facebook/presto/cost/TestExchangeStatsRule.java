@@ -39,7 +39,7 @@ public class TestExchangeStatsRule
                 .exchange(exchangeBuilder -> exchangeBuilder
                         .addInputsSet(pb.variable("i11", BIGINT), pb.variable("i12", BIGINT), pb.variable("i13", BIGINT), pb.variable("i14", BIGINT))
                         .addInputsSet(pb.variable("i21", BIGINT), pb.variable("i22", BIGINT), pb.variable("i23", BIGINT), pb.variable("i24", BIGINT))
-                        .fixedHashDistributionParitioningScheme(
+                        .fixedHashDistributionPartitioningScheme(
                                 ImmutableList.of(pb.variable("o1", BIGINT), pb.variable("o2", BIGINT), pb.variable("o3", BIGINT), pb.variable("o4", BIGINT)),
                                 emptyList())
                         .addSource(pb.values(pb.variable("i11", BIGINT), pb.variable("i12", BIGINT), pb.variable("i13", BIGINT), pb.variable("i14", BIGINT)))

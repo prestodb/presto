@@ -233,6 +233,17 @@ public class TestJdbcPreparedStatement
     }
 
     @Test
+    public void testCloseIdempotency()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            PreparedStatement statement = connection.prepareStatement("SELECT 123");
+            statement.close();
+            statement.close();
+        }
+    }
+
+    @Test
     public void testExecuteUpdate()
             throws Exception
     {

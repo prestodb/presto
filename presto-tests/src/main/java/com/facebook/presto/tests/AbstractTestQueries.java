@@ -54,7 +54,11 @@ import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENA
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
+import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
+import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -845,7 +849,7 @@ public abstract class AbstractTestQueries
                         "SELECT * FROM a",
                 "VALUES (1.1, 2), (sin(3.3), 2+2)");
 
-        // implicit coersions
+        // implicit coercions
         assertQuery("VALUES 1, 2.2, 3, 4.4");
         assertQuery("VALUES (1, 2), (3.3, 4.4)");
         assertQuery("VALUES true, 1.0 in (1, 2, 3)");
@@ -964,16 +968,34 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testDistinctLimitWithQuickDistinctLimitEnabled()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(QUICK_DISTINCT_LIMIT_ENABLED, "true")
+                .build();
+        testDistinctLimitInternal(session);
+    }
+
+    @Test
     public void testDistinctLimit()
     {
-        assertQuery("" +
-                "SELECT DISTINCT orderstatus, custkey " +
-                "FROM (SELECT orderstatus, custkey FROM orders ORDER BY orderkey LIMIT 10) " +
-                "LIMIT 10");
-        assertQuery("SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
-        assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
+        testDistinctLimitInternal(getSession());
+    }
 
-        assertQuery("" +
+    public void testDistinctLimitInternal(Session session)
+    {
+        assertQuery(session,
+                "SELECT DISTINCT orderstatus, custkey " +
+                        "FROM (SELECT orderstatus, custkey FROM orders ORDER BY orderkey LIMIT 10) " +
+                        "LIMIT 10");
+        assertQuery(session, "SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
+        assertQuery(session, "SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
+        assertQuery(session, "SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 10000");
+        assertQuery(session, "SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 15000");
+        assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 2");
+        assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 10000");
+
+        assertQuery(session, "" +
                         "SELECT DISTINCT x " +
                         "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
                         "LIMIT 100",
@@ -1273,6 +1295,54 @@ public abstract class AbstractTestQueries
 
         assertQuery("SELECT grouping(a) FROM (VALUES ('h', 'j', 11), ('k', 'l', 7)) AS t (a, b, c) GROUP BY GROUPING SETS (a,c), c*2",
                 "VALUES (0), (1), (0), (1)");
+    }
+
+    @Test
+    public void testGroupingSets()
+    {
+        Session sessionWithPushRemoteExchangeThroughGroupIdEnabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, "true")
+                .build();
+        Session sessionWithPushRemoteExchangeThroughGroupIdDisabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, "false")
+                .build();
+        testGroupingSets(sessionWithPushRemoteExchangeThroughGroupIdEnabled);
+        testGroupingSets(sessionWithPushRemoteExchangeThroughGroupIdDisabled);
+    }
+
+    private void testGroupingSets(Session session)
+    {
+        assertQuery(session,
+                "SELECT cast(sum(totalprice) as bigint), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderstatus, orderpriority))",
+                "VALUES (200872441, 'O', '5-LOW'), " +
+                        "        (199678223, 'O', '3-MEDIUM'), " +
+                        "        (206109275, 'F', '1-URGENT'), " +
+                        "        (210258874, 'O', '2-HIGH'), " +
+                        "        (13665497, 'P', '3-MEDIUM'), " +
+                        "        (12650639, 'P', '2-HIGH'), " +
+                        "        (1028376331, 'O', NULL), " +
+                        "        (205922827, 'F', '4-NOT SPECIFIED'), " +
+                        "        (1035681023, 'F', NULL), " +
+                        "        (208560811, 'O', '4-NOT SPECIFIED'), " +
+                        "        (210211977, 'F', '5-LOW'), " +
+                        "        (63339475, 'P', NULL), " +
+                        "        (202158746, 'F', '3-MEDIUM'), " +
+                        "        (209005981, 'O', '1-URGENT'), " +
+                        "        (211278198, 'F', '2-HIGH'), " +
+                        "        (12098256, 'P', '5-LOW'), " +
+                        "        (11233550, 'P', '1-URGENT'), " +
+                        "        (13691534, 'P', '4-NOT SPECIFIED') ");
+
+        assertQuery(session,
+                "SELECT cast(sum(totalprice) as bigint), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))",
+                "VALUES (1028376331, 'O', NULL), " +
+                        "        (1035681023, 'F', NULL), " +
+                        "        (63339475, 'P', NULL), " +
+                        "        (423182675, NULL, '5-LOW'), " +
+                        "        (434187712, NULL, '2-HIGH'), " +
+                        "        (426348806, NULL, '1-URGENT'), " +
+                        "        (428175171, NULL, '4-NOT SPECIFIED'), " +
+                        "        (415502467, NULL, '3-MEDIUM')");
     }
 
     @Test
@@ -1702,6 +1772,20 @@ public abstract class AbstractTestQueries
                 "   SELECT a, row_number() OVER (PARTITION BY a) rn\n" +
                 "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
                 "WHERE rn = 0");
+    }
+
+    @Test
+    public void testMinMaxN()
+    {
+        assertQuery("" +
+                "SELECT x FROM (" +
+                "SELECT min(orderkey, 3) t FROM orders" +
+                ") CROSS JOIN UNNEST(t) AS a(x)",
+                "VALUES 1, 2, 3");
+
+        assertQuery(
+                "SELECT orderkey, min(orderkey, 3) over() AS t FROM orders",
+                "SELECT orderkey, ARRAY[cast(1 as bigint), cast(2 as bigint), cast(3 as bigint)] t FROM orders");
     }
 
     @Test
@@ -2537,6 +2621,32 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testShowCatalogsLikeWithEscape()
+    {
+        try {
+            MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE ''");
+            assertTrue(false);
+        }
+        catch (Exception e) {
+            assertEquals("Escape string must be a single character", e.getMessage());
+        }
+
+        try {
+            MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE '$$'");
+            assertTrue(false);
+        }
+        catch (Exception e) {
+            assertEquals("Escape string must be a single character", e.getMessage());
+        }
+
+        MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE '%testing$_%' ESCAPE '$'");
+        assertEquals("[[testing_catalog]]", result.getMaterializedRows().toString());
+
+        result = computeActual(getSession(), "SHOW CATALOGS LIKE '$_%' ESCAPE '$'");
+        assertEquals("[]", result.getMaterializedRows().toString());
+    }
+
+    @Test
     public void testShowSchemas()
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
@@ -2651,7 +2761,7 @@ public abstract class AbstractTestQueries
 
         // Until we migrate all connectors to parametrized varchar we check two options
         assertTrue(actual.equals(expectedParametrizedVarchar) || actual.equals(expectedUnparametrizedVarchar),
-                format("%s does not matche neither of %s and %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar));
+                format("%s matches neither %s nor %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar));
     }
 
     @Test
@@ -2833,7 +2943,8 @@ public abstract class AbstractTestQueries
                 getQueryRunner().getMetadata().getSessionPropertyManager(),
                 getSession().getPreparedStatements(),
                 ImmutableMap.of(),
-                getSession().getTracer());
+                getSession().getTracer(),
+                getSession().getWarningCollector());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
         ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
@@ -2847,6 +2958,43 @@ public abstract class AbstractTestQueries
                 new MaterializedRow(1, TESTING_CATALOG + ".connector_string", "bar string", "connector default", "varchar", "connector string property"));
         assertEquals(properties.get(TESTING_CATALOG + ".connector_long"),
                 new MaterializedRow(1, TESTING_CATALOG + ".connector_long", "11", "33", "bigint", "connector long property"));
+
+        // Show session like
+        result = computeActual(session, "SHOW SESSION LIKE '%test%'");
+
+        properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
+            assertEquals(input.getFieldCount(), 5);
+            return (String) input.getField(0);
+        });
+
+        assertEquals(properties.get("test_string"), new MaterializedRow(1, "test_string", "foo string", "test default", "varchar", "test string property"));
+        assertEquals(properties.get("test_long"), new MaterializedRow(1, "test_long", "424242", "42", "bigint", "test long property"));
+
+        // Show session like with escape
+        result = computeActual(session, "SHOW SESSION LIKE '%test$_long%' ESCAPE '$'");
+
+        properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
+            assertEquals(input.getFieldCount(), 5);
+            return (String) input.getField(0);
+        });
+
+        assertEquals(properties.get("test_long"), new MaterializedRow(1, "test_long", "424242", "42", "bigint", "test long property"));
+
+        try {
+            computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE ''");
+            assertTrue(false);
+        }
+        catch (Exception e) {
+            assertEquals("Escape string must be a single character", e.getMessage());
+        }
+
+        try {
+            computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE '$$'");
+            assertTrue(false);
+        }
+        catch (Exception e) {
+            assertEquals("Escape string must be a single character", e.getMessage());
+        }
     }
 
     @Test
@@ -3964,7 +4112,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testTwoCorrelatedExistsSubqueries()
     {
-        // This is simpliefied TPC-H q21
+        // This is simplified TPC-H q21
         assertQuery("SELECT\n" +
                         "  count(*) AS numwait\n" +
                         "FROM\n" +
@@ -4737,6 +4885,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByWithConstants()
+    {
+        assertQuery("SELECT * FROM (SELECT regionkey, col, count(*) FROM (SELECT regionkey, 'bla' as col FROM nation) GROUP BY regionkey, col)");
+        assertQuery("select 'blah', * from (select regionkey, count(*) FROM nation GROUP BY regionkey)");
+        assertQuery("SELECT * FROM (SELECT col, count(*) FROM (SELECT 'bla' as col FROM nation) GROUP BY col)");
+        assertQuery("SELECT cnt FROM (SELECT col, count(*) as cnt FROM (SELECT 'bla' as col from nation) GROUP BY col)");
+        assertQuery("SELECT MIN(10), 1 as col1 GROUP BY 2");
+        assertQuery("SELECT col, 'bla' as const_col, count(*) FROM (SELECT 1 as col) GROUP BY 1,2");
+        assertQuery("SELECT 'bla' as const_col, count(*) FROM (SELECT 1 as col LIMIT 0) GROUP BY 1");
+        assertQuery("SELECT AVG(x) FROM (SELECT 1 AS x, orderstatus FROM orders) GROUP BY x, orderstatus");
+    }
+
+    @Test
     public void testAccessControl()
     {
         assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));
@@ -5006,6 +5167,20 @@ public abstract class AbstractTestQueries
         catch (RuntimeException e) {
             assertEquals(e.getMessage(), "line 1:24: Constant expression cannot contain column references");
         }
+    }
+
+    @Test
+    public void testExecuteUsingWithWithClause()
+    {
+        String query = "WITH src AS (SELECT * FROM (VALUES (1, 4),(2, 5), (3, 6)) AS t(id1, id2) WHERE id2 = ?)" +
+                " SELECT * from src WHERE id1 between ? and ?";
+
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+        assertQuery(session,
+                "EXECUTE my_query USING 6, 0, 10",
+                "VALUES (3, 6)");
     }
 
     @Test
@@ -5458,6 +5633,42 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCasePredicateRewrite()
+    {
+        Session caseExpressionRewriteEnabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CASE_EXPRESSION_PREDICATE, "true")
+                .build();
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT LINENUMBER FROM LINEITEM WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'SMALL'");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT LINENUMBER FROM LINEITEM WHERE 'MEDIUM' = (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END)");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT LINENUMBER FROM LINEITEM WHERE (CASE WHEN QUANTITY <= 15 THEN 'SMALL' WHEN (QUANTITY > 15 AND QUANTITY <= 30) THEN 'MEDIUM' ELSE 'LARGE' END) = 'LARGE'");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END) = 2");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE 1 < (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE -1 END)");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT SUM(TOTALPRICE) FROM ORDERS WHERE (CASE ORDERSTATUS WHEN 'F' THEN 1 WHEN 'O' THEN 2 WHEN 'P' THEN 3 ELSE 2 END) = 2");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT ORDERSTATUS, ORDERPRIORITY, TOTALPRICE FROM ORDERS WHERE (CASE WHEN ORDERSTATUS='F' THEN 1 WHEN (CASE WHEN ORDERPRIORITY = '5-LOW' THEN true ELSE false END) THEN 2 WHEN ORDERSTATUS='O' THEN 3 ELSE -1 END) > 1");
+    }
+
+    @Test
     public void testSwitchReturnsNull()
     {
         assertQuery(
@@ -5842,9 +6053,9 @@ public abstract class AbstractTestQueries
                 "select count(1) from (select distinct orderkey, custkey from orders)",
         };
 
-        int[] unsampledResuts = new int[] {60175, 1000, 15000, 5408941, 60175, 9256, 15000};
+        int[] unsampledResults = new int[] {60175, 1000, 15000, 5408941, 60175, 9256, 15000};
         for (int i = 0; i < queries.length; i++) {
-            assertQuery(queries[i], "select " + unsampledResuts[i]);
+            assertQuery(queries[i], "select " + unsampledResults[i]);
         }
 
         Session sessionWithKeyBasedSampling = Session.builder(getSession())
@@ -5852,9 +6063,9 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.2")
                 .build();
 
-        int[] sampled20PercentResuts = new int[] {37170, 616, 9189, 5408941, 37170, 5721, 9278};
+        int[] sampled20PercentResults = new int[] {37170, 616, 9189, 5408941, 37170, 5721, 9278};
         for (int i = 0; i < queries.length; i++) {
-            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled20PercentResuts[i]);
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled20PercentResults[i]);
         }
 
         sessionWithKeyBasedSampling = Session.builder(getSession())
@@ -5862,9 +6073,9 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.1")
                 .build();
 
-        int[] sampled10PercentResuts = new int[] {33649, 557, 8377, 4644937, 33649, 5098, 8397};
+        int[] sampled10PercentResults = new int[] {33649, 557, 8377, 4644937, 33649, 5098, 8397};
         for (int i = 0; i < queries.length; i++) {
-            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled10PercentResuts[i]);
+            assertQuery(sessionWithKeyBasedSampling, queries[i], "select " + sampled10PercentResults[i]);
         }
     }
 
@@ -5910,5 +6121,130 @@ public abstract class AbstractTestQueries
         assertTrue(plan.contains("expr := (orderkey) + (BIGINT'1') (1:88)"));
         assertTrue(plan.contains("m := max (1:34)"));
         assertTrue(plan.contains("max := max(expr) RANGE UNBOUNDED_PRECEDING CURRENT_ROW (1:34)"));
+    }
+
+    @Test
+    public void testCSECompilation()
+    {
+        String sql = "SELECT " +
+                "FILTER( MAP_VALUES(map1), x -> x >= ELEMENT_AT( MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), COALESCE( ELEMENT_AT( other_map, name ), 'low' ) ) ) AS v1, " +
+                "FILTER( MAP_VALUES(map1), x -> x >= ELEMENT_AT( MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), COALESCE( ELEMENT_AT( other_map, name ), 'low' ) ) ) AS v2 " +
+                "FROM (select MAP(ARRAY['low'], ARRAY[100000]) map1, '' name) CROSS JOIN ( SELECT MAP() AS other_map ) risk_map";
+        assertQuery(sql, "VALUES (100000, 100000)");
+    }
+
+    @Test
+    public void testApproxPercentileMerged()
+    {
+        MaterializedResult raw = computeActual("SELECT orderstatus, orderkey, totalprice FROM orders");
+
+        Multimap<String, Long> orderKeyByStatus = ArrayListMultimap.create();
+        Multimap<String, Double> totalPriceByStatus = ArrayListMultimap.create();
+        for (MaterializedRow row : raw.getMaterializedRows()) {
+            orderKeyByStatus.put((String) row.getField(0), ((Number) row.getField(1)).longValue());
+            totalPriceByStatus.put((String) row.getField(0), (Double) row.getField(2));
+        }
+
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, " +
+                "   approx_percentile(orderkey, 0.5), " +
+                "   approx_percentile(orderkey, 0.8)," +
+                "   approx_percentile(totalprice, 0.1), " +
+                "   approx_percentile(totalprice, 0.4)," +
+                "   approx_percentile(totalprice, 0.3, 0.001), " +
+                "   approx_percentile(totalprice, 0.6, 0.001)," +
+                "   approx_percentile(totalprice, 2, 0.5)," +
+                "   approx_percentile(totalprice, 2, 0.8)," +
+                "   approx_percentile(totalprice, 2, 0.4, 0.001)," +
+                "   approx_percentile(totalprice, 2, 0.7, 0.001)," +
+                "   approx_percentile(orderkey, 0.9)," +
+                "   approx_percentile(orderkey, 0.8+0.1)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        for (MaterializedRow row : actual.getMaterializedRows()) {
+            String status = (String) row.getField(0);
+            Long orderKey05 = ((Number) row.getField(1)).longValue();
+            Long orderKey08 = ((Number) row.getField(2)).longValue();
+            Double totalPrice01 = (Double) row.getField(3);
+            Double totalPrice04 = (Double) row.getField(4);
+            Double totalPrice03Accuracy = (Double) row.getField(5);
+            Double totalPrice06Accuracy = (Double) row.getField(6);
+            Double totalPrice05Weighted = (Double) row.getField(7);
+            Double totalPrice08Weighted = (Double) row.getField(8);
+            Double totalPrice04WeightedAccuracy = (Double) row.getField(9);
+            Double totalPrice07WeightedAccuracy = (Double) row.getField(10);
+            Long orderKey09v1 = ((Number) row.getField(11)).longValue();
+            Long orderKey09v2 = ((Number) row.getField(12)).longValue();
+
+            List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
+            List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
+
+            // verify real rank of returned value is within 1% of requested rank
+            assertTrue(orderKey05 >= orderKeys.get((int) (0.49 * orderKeys.size())));
+            assertTrue(orderKey05 <= orderKeys.get((int) (0.51 * orderKeys.size())));
+
+            assertTrue(orderKey08 >= orderKeys.get((int) (0.79 * orderKeys.size())));
+            assertTrue(orderKey08 <= orderKeys.get((int) (0.81 * orderKeys.size())));
+
+            assertTrue(totalPrice01 >= totalPrices.get((int) (0.09 * totalPrices.size())));
+            assertTrue(totalPrice01 <= totalPrices.get((int) (0.11 * totalPrices.size())));
+
+            assertTrue(totalPrice04 >= totalPrices.get((int) (0.39 * totalPrices.size())));
+            assertTrue(totalPrice04 <= totalPrices.get((int) (0.41 * totalPrices.size())));
+
+            assertTrue(totalPrice03Accuracy >= totalPrices.get((int) (0.29 * totalPrices.size())));
+            assertTrue(totalPrice03Accuracy <= totalPrices.get((int) (0.31 * totalPrices.size())));
+
+            assertTrue(totalPrice06Accuracy >= totalPrices.get((int) (0.59 * totalPrices.size())));
+            assertTrue(totalPrice06Accuracy <= totalPrices.get((int) (0.61 * totalPrices.size())));
+
+            assertTrue(totalPrice05Weighted >= totalPrices.get((int) (0.49 * totalPrices.size())));
+            assertTrue(totalPrice05Weighted <= totalPrices.get((int) (0.51 * totalPrices.size())));
+
+            assertTrue(totalPrice08Weighted >= totalPrices.get((int) (0.79 * totalPrices.size())));
+            assertTrue(totalPrice08Weighted <= totalPrices.get((int) (0.81 * totalPrices.size())));
+
+            assertTrue(totalPrice04WeightedAccuracy >= totalPrices.get((int) (0.39 * totalPrices.size())));
+            assertTrue(totalPrice04WeightedAccuracy <= totalPrices.get((int) (0.41 * totalPrices.size())));
+
+            assertTrue(totalPrice07WeightedAccuracy >= totalPrices.get((int) (0.69 * totalPrices.size())));
+            assertTrue(totalPrice07WeightedAccuracy <= totalPrices.get((int) (0.71 * totalPrices.size())));
+
+            assertTrue(orderKey09v1 >= orderKeys.get((int) (0.89 * orderKeys.size())));
+            assertTrue(orderKey09v1 <= orderKeys.get((int) (0.91 * orderKeys.size())));
+
+            assertTrue(orderKey09v2 >= orderKeys.get((int) (0.89 * orderKeys.size())));
+            assertTrue(orderKey09v2 <= orderKeys.get((int) (0.91 * orderKeys.size())));
+        }
+    }
+
+    @Test
+    public void testOrderByCompilation()
+    {
+        String sql = "SELECT orderkey, array_agg(abs(1) ORDER BY orderkey) FROM orders GROUP BY orderkey ORDER BY orderkey";
+        assertQuery(sql, "SELECT orderkey, array_agg(1) FROM orders GROUP BY orderkey ORDER BY orderkey");
+    }
+
+    @Test
+    public void testRandomizeNullKeyOuterJoin()
+    {
+        Session enableRandomize = Session.builder(getSession())
+                .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, "true")
+                .build();
+
+        String leftJoin = "SELECT o.orderkey, l.discount FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey";
+        assertQuery(enableRandomize, leftJoin, getSession(), leftJoin);
+
+        String multipleJoin = "SELECT o.orderkey, l.partkey, p.name FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey LEFT JOIN part p ON l.partkey=p.partkey";
+        assertQuery(enableRandomize, multipleJoin, getSession(), multipleJoin);
+    }
+
+    @Test
+    public void testMapSubset()
+    {
+        assertQuery("select m[1], m[3] from (select map_subset(map(array[1,2,3,4], array['a', 'b', 'c', 'd']), array[1,3,10]) m)", "select 'a', 'c'");
+        assertQuery("select cardinality(map_subset(map(array[1,2,3,4], array['a', 'b', 'c', 'd']), array[10,20]))", "select 0");
+        assertQuery("select cardinality(map_subset(map(), array[10,20]))", "select 0");
     }
 }

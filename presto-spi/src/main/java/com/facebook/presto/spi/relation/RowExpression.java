@@ -66,4 +66,10 @@ public abstract class RowExpression
     public abstract String toString();
 
     public abstract <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context);
+
+    /**
+     * @return Canonical form of RowExpression by removing non-critical information
+     * from the node, like source location. Does NOT canonicalize the child expressions.
+     */
+    public abstract RowExpression canonicalize();
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.spi.tracing;
 
 public interface Tracer
 {
+    String tracerName = "com.facebook.presto";
     /**
      * Add a single trace point with current time to the main block
      * @param annotation message associated with the trace point
