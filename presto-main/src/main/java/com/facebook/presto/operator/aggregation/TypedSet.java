@@ -136,25 +136,6 @@ public class TypedSet
         return false;
     }
 
-    public int addAndGetPosition(Block block, int position)
-    {
-        requireNonNull(block, "block must not be null");
-        checkArgument(position >= 0, "position must be >= 0");
-
-        // containsNullElement flag is maintained so contains() method can have shortcut for null value
-        int hashPosition = getHashPositionOfElement(block, position);
-        int currentPosition = blockPositionByHash.get(hashPosition);
-        if (currentPosition == EMPTY_SLOT) {
-            if (block.isNull(position)) {
-                containNullElements = true;
-            }
-            addNewElement(hashPosition, block, position);
-            return blockPositionByHash.getInt(hashPosition);
-        }
-
-        return currentPosition;
-    }
-
     public boolean addNonNull(Block block, int position)
     {
         requireNonNull(block, "block must not be null");
