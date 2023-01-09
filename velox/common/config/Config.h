@@ -31,6 +31,7 @@ class ConfigBase {
  public:
   template <typename T>
   class Entry {
+   private:
     Entry(
         const std::string& key,
         const T& val,
@@ -81,6 +82,10 @@ class ConfigBase {
     auto iter = configs_.find(entry.key_);
     return iter != configs_.end() ? entry.toT_(entry.key_, iter->second)
                                   : entry.default_;
+  }
+
+  std::map<std::string, std::string> toSerdeParams() {
+    return std::map{configs_.cbegin(), configs_.cend()};
   }
 
  protected:
