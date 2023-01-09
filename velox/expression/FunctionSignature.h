@@ -191,7 +191,7 @@ class AggregateFunctionSignature : public FunctionSignature {
 
 namespace {
 
-void addVariable(
+inline void addVariable(
     std::unordered_map<std::string, SignatureVariable>& variables,
     const SignatureVariable& variable) {
   VELOX_USER_CHECK(
