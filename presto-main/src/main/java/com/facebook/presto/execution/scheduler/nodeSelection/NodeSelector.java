@@ -59,4 +59,12 @@ public interface NodeSelector
      * to reattempt scheduling of this batch of splits, if some of them could not be scheduled.
      */
     SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap);
+
+    /**
+     * Identifies the nodes for running the specified split.
+     *
+     * @param split when a table is using replicated reads, single split needs to assign to multi node as hash table split
+     * @return a multimap from node to split, multi node key to single split
+     */
+    SplitPlacementResult replicatedReadsComputeAssignments(Split split, List<RemoteTask> existingTasks, BucketNodeMap partitioning);
 }

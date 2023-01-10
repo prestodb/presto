@@ -38,6 +38,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
+import static com.facebook.presto.hive.HiveSessionProperties.ENABLE_REPLICATED_READS_FOR_BROADCAST_JOIN;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.airlift.tpch.TpchTable.getTables;
@@ -61,6 +62,7 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
                 .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .setCatalogSessionProperty(HIVE_CATALOG, ENABLE_REPLICATED_READS_FOR_BROADCAST_JOIN, "false")
                 .build();
     }
 

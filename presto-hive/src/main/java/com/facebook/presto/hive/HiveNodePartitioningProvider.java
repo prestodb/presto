@@ -25,6 +25,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
@@ -36,6 +37,8 @@ import static com.facebook.presto.hive.HiveBucketFunction.createPrestoNativeBuck
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
@@ -68,10 +71,15 @@ public class HiveNodePartitioningProvider
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         NodeSelectionStrategy nodeSelectionStrategy = getNodeSelectionStrategy(session);
         int bucketCount = handle.getBucketCount();
+        if (handle.isReplicatedReadsTable()) {
+            // for replicated reads, we will apply node affinity policy to available nodes across all workers
+            nodeSelectionStrategy = SOFT_AFFINITY;
+            bucketCount = sortedNodes.size();
+        }
         switch (nodeSelectionStrategy) {
             case HARD_AFFINITY:
             case SOFT_AFFINITY:
-                return createBucketNodeMap(Stream.generate(() -> sortedNodes).flatMap(List::stream).limit(bucketCount).collect(toImmutableList()), nodeSelectionStrategy);
+                return createBucketNodeMap(Stream.generate(() -> sortedNodes).flatMap(List::stream).limit(bucketCount).collect(toImmutableList()), nodeSelectionStrategy, handle.isReplicatedReadsTable());
             case NO_PREFERENCE:
                 return createBucketNodeMap(bucketCount);
             default:
@@ -100,6 +108,10 @@ public class HiveNodePartitioningProvider
     public List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
+        // for replicated-reads table, physical planning needs to bypass group execution given the replicated-reads partition handle is just a logical concept
+        if (handle.isReplicatedReadsTable()) {
+            return ImmutableList.of(NOT_PARTITIONED);
+        }
         int bucketCount = handle.getBucketCount();
         return IntStream.range(0, bucketCount).mapToObj(HivePartitionHandle::new).collect(toImmutableList());
     }

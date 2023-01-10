@@ -92,7 +92,7 @@ public class SplitManager
                 layout,
                 new SplitSchedulingContext(splitSchedulingStrategy, preferSplitHostAddresses, warningCollector));
 
-        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, table.getTransaction(), source);
+        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, table.getTransaction(), table, source);
         if (minScheduleSplitBatchSize > 1) {
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }

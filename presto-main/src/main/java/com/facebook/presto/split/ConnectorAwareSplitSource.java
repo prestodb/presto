@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorSplitSource.ConnectorSplitBatch;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
@@ -35,15 +36,18 @@ public class ConnectorAwareSplitSource
 {
     private final ConnectorId connectorId;
     private final ConnectorTransactionHandle transactionHandle;
+    private final TableHandle tableHandle;
     private final ConnectorSplitSource source;
 
     public ConnectorAwareSplitSource(
             ConnectorId connectorId,
             ConnectorTransactionHandle transactionHandle,
+            TableHandle tableHandle,
             ConnectorSplitSource source)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+        this.tableHandle = requireNonNull(tableHandle);
         this.source = requireNonNull(source, "source is null");
     }
 
@@ -70,6 +74,12 @@ public class ConnectorAwareSplitSource
             }
             return new SplitBatch(result.build(), splitBatch.isNoMoreSplits());
         }, directExecutor());
+    }
+
+    @Override
+    public boolean isReplicatedReads()
+    {
+        return tableHandle.getCanReplicatedReads();
     }
 
     @Override

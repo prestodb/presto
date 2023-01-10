@@ -577,7 +577,7 @@ public class LocalQueryRunner
     @Override
     public int getNodeCount()
     {
-        return 1;
+        return 4;
     }
 
     public FunctionAndTypeManager getFunctionAndTypeManager()

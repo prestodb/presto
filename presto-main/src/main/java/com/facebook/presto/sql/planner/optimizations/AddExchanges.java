@@ -83,6 +83,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
 
 import java.util.ArrayList;
@@ -127,6 +128,8 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isCompati
 import static com.facebook.presto.sql.planner.iterative.rule.PickTableLayout.pushPredicateIntoTableScan;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
+import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.determineReplicatedReadsJoinAllowed;
+import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.determineReplicatedReadsSemiJoinAllowed;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
 import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
@@ -768,6 +771,10 @@ public class AddExchanges
             JoinNode.DistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
 
             if (distributionType == JoinNode.DistributionType.REPLICATED) {
+                if (determineReplicatedReadsJoinAllowed(node)) {
+                    // Handle broadcast join using replicated-reads execution strategy
+                    return planReplicatedReadsJoin(node);
+                }
                 PlanWithProperties left = accept(node.getLeft(), PreferredProperties.any());
 
                 // use partitioned join if probe side is naturally partitioned on join symbols (e.g: because of aggregation)
@@ -781,6 +788,18 @@ public class AddExchanges
             else {
                 return planPartitionedJoin(node, leftVariables, rightVariables);
             }
+        }
+
+        private PlanWithProperties planReplicatedReadsJoin(JoinNode joinNode)
+        {
+            List<VariableReferenceExpression> leftVariables = Lists.transform(joinNode.getCriteria(), JoinNode.EquiJoinClause::getLeft);
+            List<VariableReferenceExpression> rightVariables = Lists.transform(joinNode.getCriteria(), JoinNode.EquiJoinClause::getRight);
+
+            PlanWithProperties probe = joinNode.getLeft().accept(this, PreferredProperties.partitioned(ImmutableSet.copyOf(leftVariables)));
+            PlanWithProperties build = joinNode.getRight().accept(this, PreferredProperties.partitioned(ImmutableSet.copyOf(rightVariables)));
+
+            JoinNode.DistributionType distributionType = JoinNode.DistributionType.REPLICATED;
+            return buildJoin(joinNode, probe, build, distributionType);
         }
 
         private PlanWithProperties planPartitionedJoin(JoinNode node, List<VariableReferenceExpression> leftVariables, List<VariableReferenceExpression> rightVariables)
@@ -1027,19 +1046,21 @@ public class AddExchanges
                 // which is always on the source (left) side. Therefore, hash-partitioned semi-join is always allowed on the filtering side.
                 filteringSource = accept(node.getFilteringSource(), PreferredProperties.any());
 
-                // make filtering source match requirements of source
-                if (source.getProperties().isSingleNode()) {
-                    if (!filteringSource.getProperties().isSingleNode() ||
-                            (!isColocatedJoinEnabled(session) && hasMultipleTableScans(source.getNode(), filteringSource.getNode()))) {
+                if (!determineReplicatedReadsSemiJoinAllowed(node)) {
+                    // make filtering source match requirements of source
+                    if (source.getProperties().isSingleNode()) {
+                        if (!filteringSource.getProperties().isSingleNode() ||
+                                (!isColocatedJoinEnabled(session) && hasMultipleTableScans(source.getNode(), filteringSource.getNode()))) {
+                            filteringSource = withDerivedProperties(
+                                    gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode()),
+                                    filteringSource.getProperties());
+                        }
+                    }
+                    else {
                         filteringSource = withDerivedProperties(
-                                gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode()),
+                                replicatedExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode()),
                                 filteringSource.getProperties());
                     }
-                }
-                else {
-                    filteringSource = withDerivedProperties(
-                            replicatedExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode()),
-                            filteringSource.getProperties());
                 }
             }
 

@@ -66,6 +66,7 @@ import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -474,5 +475,37 @@ public class NodeScheduler
                 .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(weightSpaceThreshold))
                 .collect(toImmutableList());
         return whenAnyCompleteCancelOthers(stateChangeFutures);
+    }
+
+    /**
+     * Replicated Reads table select node to distribution for broadcast join
+     *
+     * @param maxPendingSplitsPerTask maxPendingSplitsPerTask will be used in the future
+     * @param split singleSplit from replicated reads table
+     * @param existingTasks existingTasks will be used in the future
+     * @param bucketNodeMap bucketNodeMap
+     * @return SplitPlacementResult
+     */
+    public static SplitPlacementResult replicatedReadsSelectDistributionNodes(
+            long maxPendingSplitsPerTask,
+            Split split,
+            List<RemoteTask> existingTasks,
+            BucketNodeMap bucketNodeMap)
+    {
+        checkArgument(bucketNodeMap.getBucketToNode().isPresent(), "bucketNodeMap must be non-empty");
+        // it must be ArrayListMultimap
+        // for replicated reads table assignments may has the same <Node, Split> pair
+        Multimap<InternalNode, Split> assignments = HashMultimap.create();
+        // align replicated reads split to fact table splits
+        int bucketCount = bucketNodeMap.getBucketCount();
+        List<InternalNode> partitionToNode = bucketNodeMap.getBucketToNode().get();
+        for (int bucket = 0; bucket < bucketCount; bucket++) {
+            InternalNode node = partitionToNode.get(bucket);
+            checkState(node != null, "node %s for partition:%s is null", node.toString(), bucket);
+            assignments.put(node, split);
+        }
+
+        ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
+        return new SplitPlacementResult(blocked, assignments);
     }
 }

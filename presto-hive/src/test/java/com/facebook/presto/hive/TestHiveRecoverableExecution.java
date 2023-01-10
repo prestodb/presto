@@ -52,6 +52,7 @@ import static com.facebook.presto.SystemSessionProperties.TASK_PARTITIONED_WRITE
 import static com.facebook.presto.SystemSessionProperties.TASK_WRITER_COUNT;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_BUCKETED_SCHEMA;
+import static com.facebook.presto.hive.HiveSessionProperties.ENABLE_REPLICATED_READS_FOR_BROADCAST_JOIN;
 import static com.facebook.presto.hive.HiveSessionProperties.OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.VIRTUAL_BUCKET_COUNT;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ALL;
@@ -459,6 +460,8 @@ public class TestHiveRecoverableExecution
                 .setSystemProperty(MAX_STAGE_RETRIES, "4")
                 .setCatalogSessionProperty(HIVE_CATALOG, VIRTUAL_BUCKET_COUNT, "16")
                 .setCatalogSessionProperty(HIVE_CATALOG, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
+                // The grouped execution cannot be applied with replicated reads because the local execution for the PerBucket implementation maintains one AsyncQueue for each bucket. Replicated reads strategy cannot create multiple AsyncQueue tasks for all buckets which could potential cause HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT issue
+                .setCatalogSessionProperty(HIVE_CATALOG, ENABLE_REPLICATED_READS_FOR_BROADCAST_JOIN, "false")
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();

@@ -49,6 +49,7 @@ import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -85,10 +86,12 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isCompatibleSystemPartitioning;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractOutputVariables;
+import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.determineReplicatedReadsJoinAllowed;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
@@ -237,13 +240,28 @@ public abstract class BasePlanFragmenter
     }
 
     @Override
+    public PlanNode visitJoin(JoinNode node, RewriteContext<FragmentProperties> context)
+    {
+        // The remote source may be replicated-reads capable but only under certain conditions is allowed to use this strategy.
+        // Determination on the joinNode toggles the flag of eligibility. Once it's enabled, it's passed down to the metadata via `getLayout` to
+        // make further decision on scenarios e.g. a virtual bucketing is needed
+        if (determineReplicatedReadsJoinAllowed(node)) {
+            context.get().setReplicatedReadsAllowed(true);
+        }
+        return context.defaultRewrite(node, context.get());
+    }
+
+    @Override
     public PlanNode visitTableScan(TableScanNode node, RewriteContext<FragmentProperties> context)
     {
-        PartitioningHandle partitioning = metadata.getLayout(session, node.getTable())
+        boolean isReplicatedReadsAllowed = context.get().isReplicatedReadsAllowed();
+        PartitioningHandle partitioning = metadata.getLayout(session, node.getTable(), isReplicatedReadsAllowed)
                 .getTablePartitioning()
                 .map(TableLayout.TablePartitioning::getPartitioningHandle)
                 .orElse(SOURCE_DISTRIBUTION);
-        context.get().addSourceDistribution(node.getId(), partitioning, metadata, session);
+        // if replicated read join and the partitioning is source, need to adjust the table handle now
+        // before reassignpartition because it will be too late once the fragment partitioning is determined here
+        context.get().addSourceDistribution(node.getId(), partitioning, metadata, session, isReplicatedReadsAllowed);
         return context.defaultRewrite(node, context.get());
     }
 
@@ -631,6 +649,7 @@ public abstract class BasePlanFragmenter
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
+        private boolean replicatedReadsAllowed;
 
         public FragmentProperties(PartitioningScheme partitioningScheme)
         {
@@ -642,10 +661,24 @@ public abstract class BasePlanFragmenter
             return children;
         }
 
+        public void setReplicatedReadsAllowed(boolean replicatedReadsAllowed)
+        {
+            this.replicatedReadsAllowed = replicatedReadsAllowed;
+        }
+
+        public boolean isReplicatedReadsAllowed()
+        {
+            return replicatedReadsAllowed;
+        }
+
         public FragmentProperties setSingleNodeDistribution()
         {
             if (partitioningHandle.isPresent() && partitioningHandle.get().isSingleNode()) {
                 // already single node distribution
+                return this;
+            }
+            // already single for replicated reads
+            if (partitioningHandle.isPresent() && (partitioningHandle.get().getConnectorHandle().isReplicatedReadsTable())) {
                 return this;
             }
 
@@ -661,9 +694,29 @@ public abstract class BasePlanFragmenter
 
         public FragmentProperties setDistribution(PartitioningHandle distribution, Metadata metadata, Session session)
         {
+            return setDistribution(distribution, metadata, session, false);
+        }
+        public FragmentProperties setDistribution(PartitioningHandle distribution, Metadata metadata, Session session, boolean isReplicatedReadsAllowed)
+        {
             if (!partitioningHandle.isPresent()) {
                 partitioningHandle = Optional.of(distribution);
                 return this;
+            }
+            else {
+                if (!isReplicatedReadsAllowed) {
+                    // if the partitioning handler is not system partition handler, we cannot replace the distribution handle by a system partition handle,
+                    // because we may not be able to process split sources using system handler
+                    if (!(partitioningHandle.get().getConnectorHandle() instanceof SystemPartitioningHandle) &&
+                            distribution.getConnectorHandle() instanceof SystemPartitioningHandle) {
+                        return this;
+                    }
+                }
+                else {
+                    // there will be split source for this partitioning handle. distribution is changed
+                    if (partitioningHandle.get().equals(SINGLE_DISTRIBUTION) || partitioningHandle.get().equals(FIXED_HASH_DISTRIBUTION)) {
+                        partitioningHandle = Optional.of(distribution);
+                    }
+                }
             }
 
             PartitioningHandle currentPartitioning = this.partitioningHandle.get();
@@ -696,6 +749,12 @@ public abstract class BasePlanFragmenter
                 return this;
             }
 
+            // if current partitioning handle is different from distribution and this is replicated-read, tolerate it.
+            // Postpone the logic to reassignPartitioningHandle routine later
+            if (isReplicatedReadsAllowed && !distribution.equals(this.partitioningHandle.get())) {
+                return this;
+            }
+
             throw new IllegalStateException(format(
                     "Cannot set distribution to %s. Already set to %s",
                     distribution,
@@ -720,13 +779,13 @@ public abstract class BasePlanFragmenter
             return this;
         }
 
-        public FragmentProperties addSourceDistribution(PlanNodeId source, PartitioningHandle distribution, Metadata metadata, Session session)
+        public FragmentProperties addSourceDistribution(PlanNodeId source, PartitioningHandle distribution, Metadata metadata, Session session, boolean isReplicatedReadsAllowed)
         {
             requireNonNull(source, "source is null");
             requireNonNull(distribution, "distribution is null");
 
             partitionedSources.add(source);
-            return setDistribution(distribution, metadata, session);
+            return setDistribution(distribution, metadata, session, isReplicatedReadsAllowed);
         }
 
         public FragmentProperties addChildren(List<SubPlan> children)

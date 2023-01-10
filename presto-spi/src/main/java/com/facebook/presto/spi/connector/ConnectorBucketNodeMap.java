@@ -31,6 +31,8 @@ public final class ConnectorBucketNodeMap
     private final Optional<List<Node>> bucketToNode;
     private final NodeSelectionStrategy nodeSelectionStrategy;
 
+    private static boolean isReplicatedReadTable;
+
     public static ConnectorBucketNodeMap createBucketNodeMap(int bucketCount)
     {
         return new ConnectorBucketNodeMap(bucketCount, Optional.empty(), NO_PREFERENCE);
@@ -39,6 +41,11 @@ public final class ConnectorBucketNodeMap
     public static ConnectorBucketNodeMap createBucketNodeMap(List<Node> bucketToNode, NodeSelectionStrategy nodeSelectionStrategy)
     {
         return new ConnectorBucketNodeMap(bucketToNode.size(), Optional.of(bucketToNode), nodeSelectionStrategy);
+    }
+
+    public static ConnectorBucketNodeMap createBucketNodeMap(List<Node> bucketToNode, NodeSelectionStrategy nodeSelectionStrategy, boolean isReplicatedReadTable)
+    {
+        return new ConnectorBucketNodeMap(bucketToNode.size(), Optional.of(bucketToNode), nodeSelectionStrategy).setReplicatedReadTable(isReplicatedReadTable);
     }
 
     private ConnectorBucketNodeMap(int bucketCount, Optional<List<Node>> bucketToNode, NodeSelectionStrategy nodeSelectionStrategy)
@@ -52,6 +59,17 @@ public final class ConnectorBucketNodeMap
         }
         this.bucketCount = bucketCount;
         this.bucketToNode = bucketToNode.map(ArrayList::new).map(Collections::unmodifiableList);
+    }
+
+    private ConnectorBucketNodeMap setReplicatedReadTable(boolean isReplicatedReadTable)
+    {
+        this.isReplicatedReadTable = isReplicatedReadTable;
+        return this;
+    }
+
+    public boolean isReplicatedReadTable()
+    {
+        return isReplicatedReadTable;
     }
 
     public int getBucketCount()

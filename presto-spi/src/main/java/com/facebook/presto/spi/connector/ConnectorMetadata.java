@@ -118,6 +118,14 @@ public interface ConnectorMetadata
 
     ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle);
 
+    default ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle, boolean isReplicatedReads)
+    {
+        if (isReplicatedReads) {
+            return getTableLayout(session, handle, true);
+        }
+        return getTableLayout(session, handle);
+    }
+
     /**
      * Return a table layout handle whose partitioning is converted to the provided partitioning handle,
      * but otherwise identical to the provided table layout handle.
@@ -125,7 +133,7 @@ public interface ConnectorMetadata
      * the original partitioning handle associated with the provided table layout handle,
      * as promised by {@link #getCommonPartitioningHandle}.
      */
-    default ConnectorTableLayoutHandle getAlternativeLayoutHandle(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle, ConnectorPartitioningHandle partitioningHandle)
+    default ConnectorTableLayoutHandle getAlternativeLayoutHandle(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle, ConnectorPartitioningHandle partitioningHandle, boolean isReplicatedReads)
     {
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getCommonPartitioningHandle() is implemented without getAlternativeLayout()");
     }

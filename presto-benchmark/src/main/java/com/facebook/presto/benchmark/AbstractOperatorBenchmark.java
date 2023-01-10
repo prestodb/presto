@@ -267,7 +267,7 @@ public abstract class AbstractOperatorBenchmark
     @Override
     protected Map<String, Long> runOnce()
     {
-        Session session = testSessionBuilder()
+        Session session = testSessionBuilder(localQueryRunner.getMetadata().getSessionPropertyManager())
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
                 .build();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));

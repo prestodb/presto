@@ -14,7 +14,9 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.execution.LocationFactory;
@@ -35,20 +37,30 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -78,6 +90,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.ToIntFunction;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -86,12 +100,15 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PART
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -106,12 +123,40 @@ public class TestSourcePartitionedScheduler
     public static final OutputBufferId OUT = new OutputBufferId(0);
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("connector_id");
     private static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("plan_id");
-
+    private static final PlanNodeId TABLE_SCAN_NODE_ID_TEMP = new PlanNodeId("plan_id_temp");
     private final ExecutorService queryExecutor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
     private final LocationFactory locationFactory = new MockLocationFactory();
     private final InMemoryNodeManager nodeManager = new InMemoryNodeManager();
     private final FinalizerService finalizerService = new FinalizerService();
+    private static final PartitioningHandle PARTITIONING_HANDLE = new PartitioningHandle(
+            Optional.of(CONNECTOR_ID),
+            Optional.of(new ConnectorTransactionHandle() {
+                @Override
+                public int hashCode()
+                {
+                    return super.hashCode();
+                }
+
+                @Override
+                public boolean equals(Object obj)
+                {
+                    return super.equals(obj);
+                }
+            }),
+            new ConnectorPartitioningHandle() {
+                @Override
+                public boolean isSingleNode()
+                {
+                    return false;
+                }
+
+                @Override
+                public boolean isCoordinatorOnly()
+                {
+                    return false;
+                }
+            });
 
     public TestSourcePartitionedScheduler()
     {
@@ -337,7 +382,7 @@ public class TestSourcePartitionedScheduler
             StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
                     stage,
                     TABLE_SCAN_NODE_ID,
-                    new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), createFixedSplitSource(20, TestingSplit::createRemoteSplit)),
+                    new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()), createFixedSplitSource(20, TestingSplit::createRemoteSplit)),
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(TestingSession.testSessionBuilder().build(), CONNECTOR_ID), stage::getAllTasks),
                     2);
             scheduler.schedule();
@@ -435,6 +480,32 @@ public class TestSourcePartitionedScheduler
         secondStage.abort();
     }
 
+    @Test
+    public void testScheduleSplitsWithReplicatedReads()
+    {
+        SubPlan plan = createPlanForReplicatedReads();
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
+
+        StageScheduler scheduler = getFixedSourcePartitionedSchedulerWithReplicatedReads(createFixedSplitSource(60, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 1);
+        ScheduleResult scheduleResult = null;
+
+        // schedule first 60 splits, which will cause the scheduler to block
+        for (int i = 0; i < 20; i++) {
+            scheduleResult = scheduler.schedule();
+            assertFalse(scheduleResult.isFinished());
+            // blocks at 20 per node
+            assertEquals(scheduleResult.getBlocked().isDone(), i != 20);
+        }
+
+        for (RemoteTask remoteTask : stage.getAllTasks()) {
+            PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
+            assertEquals(splitsInfo.getCount(), 20);
+        }
+
+        stage.abort();
+    }
+
     private static void assertPartitionedSplitCount(SqlStageExecution stage, int expectedPartitionedSplitCount)
     {
         assertEquals(stage.getAllTasks().stream().mapToInt(remoteTask -> remoteTask.getPartitionedSplitsInfo().getCount()).sum(), expectedPartitionedSplitCount);
@@ -475,7 +546,7 @@ public class TestSourcePartitionedScheduler
                 new ThrowingNodeTtlFetcherManager(),
                 new NoOpQueryManager(),
                 new SimpleTtlNodeSelectorConfig());
-        SplitSource splitSource = new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), connectorSplitSource);
+        SplitSource splitSource = new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()), connectorSplitSource);
         SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(TestingSession.testSessionBuilder().build(), splitSource.getConnectorId()), stage::getAllTasks);
         return newSourcePartitionedSchedulerAsStageScheduler(stage, TABLE_SCAN_NODE_ID, splitSource, placementPolicy, splitBatchSize);
     }
@@ -523,6 +594,123 @@ public class TestSourcePartitionedScheduler
                 Optional.empty());
 
         return new SubPlan(testFragment, ImmutableList.of());
+    }
+
+    private static SubPlan createPlanForReplicatedReads()
+    {
+        VariableReferenceExpression variableA = new VariableReferenceExpression(Optional.empty(), "column", VARCHAR);
+        VariableReferenceExpression variableB = new VariableReferenceExpression(Optional.empty(), "column", VARCHAR);
+
+        // table scan with splitCount splits
+        TableScanNode leftTableScan = new TableScanNode(
+                Optional.empty(),
+                TABLE_SCAN_NODE_ID,
+                new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty(), true),
+                ImmutableList.of(variableA),
+                ImmutableMap.of(variableA, new TestingColumnHandle("column")),
+                TupleDomain.all(),
+                TupleDomain.all());
+        TableScanNode rightTableScan = new TableScanNode(
+                Optional.empty(),
+                TABLE_SCAN_NODE_ID_TEMP,
+                new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty(), true),
+                ImmutableList.of(variableB),
+                ImmutableMap.of(variableB, new TestingColumnHandle("column")),
+                TupleDomain.all(),
+                TupleDomain.all());
+
+        ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
+        criteria.add(new JoinNode.EquiJoinClause(variableA, variableB));
+
+        //RemoteSourceNode remote = new RemoteSourceNode(Optional.empty(), new PlanNodeId("remote_id"), new PlanFragmentId(0), ImmutableList.of(), false, Optional.empty(), GATHER);
+        PlanFragment testFragment = new PlanFragment(
+                new PlanFragmentId(0),
+                new JoinNode(
+                        Optional.empty(),
+                        new PlanNodeId("join_id"),
+                        INNER,
+                        leftTableScan,
+                        rightTableScan,
+                        criteria.build(),
+                        ImmutableList.<VariableReferenceExpression>builder()
+                                .addAll(leftTableScan.getOutputVariables())
+                                .addAll(rightTableScan.getOutputVariables())
+                                .build(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of()),
+                ImmutableSet.of(variableB),
+                PARTITIONING_HANDLE,
+                ImmutableList.of(TABLE_SCAN_NODE_ID, TABLE_SCAN_NODE_ID_TEMP),
+                new PartitioningScheme(Partitioning.create(PARTITIONING_HANDLE, ImmutableList.of()), ImmutableList.of(variableA)),
+                StageExecutionDescriptor.ungroupedExecution(),
+                false,
+                StatsAndCosts.empty(),
+                Optional.empty());
+
+        return new SubPlan(testFragment, ImmutableList.of());
+    }
+
+    private static StageScheduler getFixedSourcePartitionedSchedulerWithReplicatedReads(
+            ConnectorSplitSource connectorSplitSource,
+            SqlStageExecution stage,
+            InternalNodeManager nodeManager,
+            NodeTaskMap nodeTaskMap,
+            int splitBatchSize)
+    {
+        int partitionCount = 3;
+        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+                .setIncludeCoordinator(false)
+                .setMaxSplitsPerNode(1000)
+                .setMaxPendingSplitsPerTask(100);
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                new LegacyNetworkTopology(),
+                nodeManager,
+                new NodeSelectionStats(),
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                new ThrowingNodeTtlFetcherManager(),
+                new NoOpQueryManager(),
+                new SimpleTtlNodeSelectorConfig());
+        PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
+        partitioningProviderManager.addPartitioningProvider(
+                CONNECTOR_ID,
+                new ConnectorNodePartitioningProvider() {
+                    @Override
+                    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Node> sortedNodes)
+                    {
+                        return createBucketNodeMap(Stream.generate(() -> sortedNodes).flatMap(List::stream).limit(10).collect(toImmutableList()), SOFT_AFFINITY, true);
+                    }
+
+                    @Override
+                    public ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+                    {
+                        return value -> 0;
+                    }
+
+                    @Override
+                    public BucketFunction getBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int bucketCount)
+                    {
+                        return (Page page, int position) -> partitionCount;
+                    }
+
+                    @Override
+                    public int getBucketCount(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+                    {
+                        return 10;
+                    }
+                });
+        NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
+
+        SplitSource splitSource = new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()), connectorSplitSource);
+        SplitPlacementPolicy placementPolicy = new ReplicatedReadsSplitPlacementPolicy(
+                nodeScheduler.createNodeSelector(TestingSession.testSessionBuilder().build(), splitSource.getConnectorId()),
+                nodeManager.getAllConnectorNodes(CONNECTOR_ID).stream().collect(ImmutableList.toImmutableList()),
+                nodePartitioningManager.getBucketNodeMap(TEST_SESSION, PARTITIONING_HANDLE, false),
+                stage::getAllTasks);
+        return newSourcePartitionedSchedulerAsStageScheduler(stage, TABLE_SCAN_NODE_ID, splitSource, placementPolicy, splitBatchSize);
     }
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount, Supplier<ConnectorSplit> splitFactory)

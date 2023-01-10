@@ -43,6 +43,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_PLAN_ERROR;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_REWINDABLE_SPLIT_SOURCE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.determineReplicatedReadsJoinAllowed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -106,6 +107,14 @@ class GroupedExecutionTagger
             // on the RJoin being executed in a grouped manner. However, this is not currently implemented.
             // Support for this scenario is already implemented in the execution side.
             return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
+        }
+
+        // If replicated reads participates in grouped execution, the build and probe are planned together within the same stage.
+        // This is a problem in a broadcast join case because the right side of join is not capable of grouped execution when it replicates a bucketed table.
+        // In local execution time, the PerBucket implementation maintains one AsyncQueue for each bucket. replicated reads cannot create multiple AsyncQueue tasks
+        // for all buckets which could potential cause `HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT` issue. Hence, replicated reads does not support grouped execution
+        if (determineReplicatedReadsJoinAllowed(node)) {
+            return GroupedExecutionProperties.notCapable();
         }
 
         switch (node.getDistributionType().get()) {
@@ -248,7 +257,7 @@ class GroupedExecutionTagger
     @Override
     public GroupedExecutionTagger.GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
     {
-        Optional<TableLayout.TablePartitioning> tablePartitioning = metadata.getLayout(session, node.getTable()).getTablePartitioning();
+        Optional<TableLayout.TablePartitioning> tablePartitioning = metadata.getLayout(session, node.getTable(), false).getTablePartitioning();
         if (!tablePartitioning.isPresent()) {
             return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
         }

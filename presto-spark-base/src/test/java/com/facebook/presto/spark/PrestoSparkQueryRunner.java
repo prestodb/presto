@@ -312,6 +312,7 @@ public class PrestoSparkQueryRunner
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
+                .put("hive.enable-replicated-reads-for-broadcast-join", "false")
                 .put("hive.allow-drop-table", "true")
                 .put("hive.allow-rename-table", "true")
                 .put("hive.allow-rename-column", "true")

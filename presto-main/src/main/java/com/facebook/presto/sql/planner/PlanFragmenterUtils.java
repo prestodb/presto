@@ -25,6 +25,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -42,6 +43,7 @@ import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOper
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.determineReplicatedReadsJoinAllowed;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -194,7 +196,7 @@ public class PlanFragmenterUtils
         // If the fragment's partitioning is SINGLE or COORDINATOR_ONLY, leave the sources as is (this is for single-node execution)
         if (!fragment.getPartitioning().isSingleNode()) {
             PartitioningHandleReassigner partitioningHandleReassigner = new PartitioningHandleReassigner(fragment.getPartitioning(), metadata, session);
-            newRoot = SimplePlanRewriter.rewriteWith(partitioningHandleReassigner, newRoot);
+            newRoot = SimplePlanRewriter.rewriteWith(partitioningHandleReassigner, newRoot, new PartitioningHandleReassigner.Context());
         }
         PartitioningScheme outputPartitioningScheme = fragment.getPartitioningScheme();
         Partitioning newOutputPartitioning = outputPartitioningScheme.getPartitioning();
@@ -235,7 +237,7 @@ public class PlanFragmenterUtils
     }
 
     private static final class PartitioningHandleReassigner
-            extends SimplePlanRewriter<Void>
+            extends SimplePlanRewriter<PartitioningHandleReassigner.Context>
     {
         private final PartitioningHandle fragmentPartitioningHandle;
         private final Metadata metadata;
@@ -248,20 +250,49 @@ public class PlanFragmenterUtils
             this.session = session;
         }
 
-        @Override
-        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
+        private static final class Context
         {
-            PartitioningHandle partitioning = metadata.getLayout(session, node.getTable())
+            private boolean replicatedReadsAllowed;
+
+            public boolean isReplicatedReadsAllowed()
+            {
+                return replicatedReadsAllowed;
+            }
+
+            public void setReplicatedReadsAllowed(boolean replicatedReadsAllowed)
+            {
+                this.replicatedReadsAllowed = replicatedReadsAllowed;
+            }
+        }
+
+        @Override
+        public PlanNode visitJoin(JoinNode node, RewriteContext<PartitioningHandleReassigner.Context> context)
+        {
+            if (determineReplicatedReadsJoinAllowed(node)) {
+                context.get().setReplicatedReadsAllowed(true);
+            }
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Context> context)
+        {
+            boolean isReplicatedReadsAllowed = context.get().isReplicatedReadsAllowed();
+            PartitioningHandle partitioning = metadata.getLayout(session, node.getTable(), isReplicatedReadsAllowed)
                     .getTablePartitioning()
                     .map(TableLayout.TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
 
+            // if there's a replicated read join and fragmentPartitioningHandle is Source Distribution, need to use alternative table handle.
+            // that's the case of non-bucket join nonpart table, need to create a virtual bucket handle for the table partitioning
             if (partitioning.equals(fragmentPartitioningHandle)) {
-                // do nothing if the current scan node's partitioning matches the fragment's
-                return node;
+                if (!isReplicatedReadsAllowed) {
+                    // do nothing if the current scan node's partitioning matches the fragment's
+                    return node;
+                }
             }
 
-            TableHandle newTableHandle = metadata.getAlternativeTableHandle(session, node.getTable(), fragmentPartitioningHandle);
+            TableHandle newTableHandle = metadata.getAlternativeTableHandle(session, node.getTable(), fragmentPartitioningHandle, isReplicatedReadsAllowed);
             return new TableScanNode(
                     node.getSourceLocation(),
                     node.getId(),

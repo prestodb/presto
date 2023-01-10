@@ -24,4 +24,9 @@ public interface ConnectorPartitioningHandle
     {
         return false;
     }
+
+    default boolean isReplicatedReadsTable()
+    {
+        return false;
+    }
 }
