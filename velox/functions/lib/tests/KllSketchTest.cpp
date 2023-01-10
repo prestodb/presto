@@ -266,6 +266,20 @@ TEST(KllSketchTest, deserialize) {
   }
 }
 
+TEST(KllSketchTest, deserializeSmall) {
+  constexpr int N = 128;
+  KllSketch<double> kll(kDefaultK, {}, 0);
+  insertRandomData(0, N, kll, nullptr);
+  kll.compact();
+  std::vector<char> data(kll.serializedByteSize());
+  kll.serialize(data.data());
+  auto kll2 = KllSketch<double>::deserialize(data.data());
+  auto q = linspace(N);
+  auto v = kll.estimateQuantiles(folly::Range(q.begin(), q.end()));
+  auto v2 = kll2.estimateQuantiles(folly::Range(q.begin(), q.end()));
+  EXPECT_EQ(v, v2);
+}
+
 TEST(KllSketchTest, compact) {
   constexpr int N = 1e5;
   KllSketch<double> kll(kFromEpsilon(0.001));

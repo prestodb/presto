@@ -733,7 +733,9 @@ KllSketch<T, A, C> KllSketch<T, A, C>::fromView(
   ans.items_.assign(view.items.begin(), view.items.end());
   ans.levels_.assign(view.levels.begin(), view.levels.end());
   ans.isLevelZeroSorted_ = std::is_sorted(
-      &ans.items_[ans.levels_[0]], &ans.items_[ans.levels_[1]], C());
+      ans.items_.data() + ans.levels_[0],
+      ans.items_.data() + ans.levels_[1],
+      C());
   return ans;
 }
 
