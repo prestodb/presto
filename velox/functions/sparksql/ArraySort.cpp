@@ -173,11 +173,8 @@ void ArraySort::apply(
     const auto& flatArray = constantArray->valueVector();
     const auto flatIndex = constantArray->index();
 
-    SelectivityVector singleRow(flatIndex + 1, false);
-    singleRow.setValid(flatIndex, true);
-    singleRow.updateBounds();
-
-    localResult = applyFlat(singleRow, flatArray, context);
+    exec::LocalSingleRow singleRow(context, flatIndex);
+    localResult = applyFlat(*singleRow, flatArray, context);
     localResult =
         BaseVector::wrapInConstant(rows.size(), flatIndex, localResult);
   } else {

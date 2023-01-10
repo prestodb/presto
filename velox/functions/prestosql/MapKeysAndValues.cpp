@@ -37,11 +37,8 @@ class MapKeyValueFunction : public exec::VectorFunction {
       const auto& flatMap = constantMap->valueVector();
       const auto flatIndex = constantMap->index();
 
-      SelectivityVector singleRow(flatIndex + 1, false);
-      singleRow.setValid(flatIndex, true);
-      singleRow.updateBounds();
-
-      localResult = applyFlat(singleRow, flatMap, context);
+      exec::LocalSingleRow singleRow(context, flatIndex);
+      localResult = applyFlat(*singleRow, flatMap, context);
       localResult =
           BaseVector::wrapInConstant(rows.size(), flatIndex, localResult);
     } else {

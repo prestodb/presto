@@ -319,6 +319,43 @@ struct ScopedContextSaver {
   EvalCtx::ErrorVectorPtr errors;
 };
 
+/// Produces a SelectivityVector with a single row selected using a pool of
+/// SelectivityVectors managed by the EvalCtx::execCtx().
+class LocalSingleRow {
+ public:
+  LocalSingleRow(EvalCtx& context, vector_size_t row)
+      : context_(*context.execCtx()),
+        vector_(context_.getSelectivityVector(row + 1)) {
+    vector_->clearAll();
+    vector_->setValid(row, true);
+    vector_->updateBounds();
+  }
+
+  ~LocalSingleRow() {
+    context_.releaseSelectivityVector(std::move(vector_));
+  }
+
+  SelectivityVector& operator*() {
+    return *vector_;
+  }
+
+  const SelectivityVector& operator*() const {
+    return *vector_;
+  }
+
+  SelectivityVector* operator->() {
+    return vector_.get();
+  }
+
+  const SelectivityVector* operator->() const {
+    return vector_.get();
+  }
+
+ private:
+  core::ExecCtx& context_;
+  std::unique_ptr<SelectivityVector> vector_;
+};
+
 class LocalSelectivityVector {
  public:
   // Grab an instance of a SelectivityVector from the pool and resize it to

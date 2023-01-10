@@ -222,3 +222,34 @@ TEST_F(EvalCtxTest, constantWrapSaver) {
   }
   ASSERT_EQ(context.wrapEncoding(), VectorEncoding::Simple::FLAT);
 }
+
+TEST_F(EvalCtxTest, localSingleRow) {
+  EvalCtx context(&execCtx_);
+
+  {
+    LocalSingleRow singleRow(context, 0);
+    ASSERT_EQ(1, singleRow->size());
+    ASSERT_EQ(1, singleRow->countSelected());
+    ASSERT_TRUE(singleRow->isValid(0));
+  }
+
+  {
+    LocalSingleRow singleRow(context, 10);
+    ASSERT_EQ(11, singleRow->size());
+    ASSERT_EQ(1, singleRow->countSelected());
+    ASSERT_TRUE(singleRow->isValid(10));
+    for (auto i = 0; i < 10; ++i) {
+      ASSERT_FALSE(singleRow->isValid(i));
+    }
+  }
+
+  {
+    LocalSingleRow singleRow(context, 100);
+    ASSERT_EQ(101, singleRow->size());
+    ASSERT_EQ(1, singleRow->countSelected());
+    ASSERT_TRUE(singleRow->isValid(100));
+    for (auto i = 0; i < 100; ++i) {
+      ASSERT_FALSE(singleRow->isValid(i));
+    }
+  }
+}
