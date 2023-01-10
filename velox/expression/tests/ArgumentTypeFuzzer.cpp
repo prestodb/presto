@@ -127,12 +127,13 @@ TypePtr ArgumentTypeFuzzer::fuzzReturnType() {
 
   determineUnboundedTypeVariables();
   if (signature_.returnType().baseName() == "any") {
-    return randomType(rng_);
+    returnType_ = randomType(rng_);
+    return returnType_;
   } else {
-    auto actualType = exec::SignatureBinder::tryResolveType(
+    returnType_ = exec::SignatureBinder::tryResolveType(
         signature_.returnType(), variables(), bindings_);
-    VELOX_CHECK_NE(actualType, nullptr);
-    return actualType;
+    VELOX_CHECK_NE(returnType_, nullptr);
+    return returnType_;
   }
 }
 

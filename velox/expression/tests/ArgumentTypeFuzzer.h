@@ -55,7 +55,8 @@ class ArgumentTypeFuzzer {
   }
 
   /// Return a random type that can bind to the function signature's return
-  /// type. This is only allowed when returnType_ is not initialized.
+  /// type and set returnType_ to this type. This function can only be called
+  /// when returnType_ is uninitialized.
   TypePtr fuzzReturnType();
 
  private:
@@ -69,7 +70,7 @@ class ArgumentTypeFuzzer {
 
   const exec::FunctionSignature& signature_;
 
-  const TypePtr returnType_;
+  TypePtr returnType_;
 
   std::vector<TypePtr> argumentTypes_;
 
