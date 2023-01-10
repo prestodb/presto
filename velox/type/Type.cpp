@@ -758,16 +758,29 @@ typeFactories() {
 
 } // namespace
 
-void registerType(
+bool registerType(
     const std::string& name,
     std::unique_ptr<const CustomTypeFactories> factories) {
   auto uppercaseName = boost::algorithm::to_upper_copy(name);
-  typeFactories().emplace(uppercaseName, std::move(factories));
+  return typeFactories().emplace(uppercaseName, std::move(factories)).second;
 }
 
 bool typeExists(const std::string& name) {
   auto uppercaseName = boost::algorithm::to_upper_copy(name);
   return typeFactories().count(uppercaseName) > 0;
+}
+
+std::unordered_set<std::string> getCustomTypeNames() {
+  std::unordered_set<std::string> typeNames;
+  for (const auto& [name, unused] : typeFactories()) {
+    typeNames.insert(name);
+  }
+  return typeNames;
+}
+
+bool unregisterType(const std::string& name) {
+  auto uppercaseName = boost::algorithm::to_upper_copy(name);
+  return typeFactories().erase(uppercaseName) == 1;
 }
 
 const CustomTypeFactories* FOLLY_NULLABLE

@@ -144,6 +144,17 @@ struct FancyPlusFunction {
     result = std::make_shared<FancyInt>(a->n + b->n);
   }
 };
+
+class AlwaysFailingTypeFactories : public CustomTypeFactories {
+ public:
+  TypePtr getType(std::vector<TypePtr> /* childTypes */) const override {
+    VELOX_UNSUPPORTED();
+  }
+
+  exec::CastOperatorPtr getCastOperator() const override {
+    VELOX_UNSUPPORTED();
+  }
+};
 } // namespace
 
 /// Register custom type based on OpaqueType. Register a vector function that
@@ -151,7 +162,11 @@ struct FancyPlusFunction {
 /// simple function that takes and returns this type. Verify function signatures
 /// and evaluate some expressions.
 TEST_F(CustomTypeTest, customType) {
-  registerType("fancy_int", std::make_unique<FancyIntTypeFactories>());
+  ASSERT_TRUE(
+      registerType("fancy_int", std::make_unique<FancyIntTypeFactories>()));
+
+  ASSERT_FALSE(registerType(
+      "fancy_int", std::make_unique<AlwaysFailingTypeFactories>()));
 
   registerFunction<FancyPlusFunction, TheFancyInt, TheFancyInt, TheFancyInt>(
       {"fancy_plus"});
@@ -194,5 +209,35 @@ TEST_F(CustomTypeTest, customType) {
       makeRowVector({data}));
   auto expected = makeFlatVector<int64_t>({11, 12, 13, 14, 15});
   assertEqualVectors(expected, result);
+
+  // Cleanup.
+  ASSERT_TRUE(unregisterType("fancy_int"));
+  ASSERT_FALSE(unregisterType("fancy_int"));
+}
+
+TEST_F(CustomTypeTest, getCustomTypeNames) {
+  auto names = getCustomTypeNames();
+  ASSERT_EQ(
+      (std::unordered_set<std::string>{
+          "JSON",
+          "HYPERLOGLOG",
+          "TIMESTAMP WITH TIME ZONE",
+      }),
+      names);
+
+  ASSERT_TRUE(
+      registerType("fancy_int", std::make_unique<FancyIntTypeFactories>()));
+
+  names = getCustomTypeNames();
+  ASSERT_EQ(
+      (std::unordered_set<std::string>{
+          "JSON",
+          "HYPERLOGLOG",
+          "TIMESTAMP WITH TIME ZONE",
+          "FANCY_INT",
+      }),
+      names);
+
+  ASSERT_TRUE(unregisterType("fancy_int"));
 }
 } // namespace facebook::velox::test

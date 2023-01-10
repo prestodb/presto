@@ -1837,17 +1837,26 @@ class CustomTypeFactories {
   virtual exec::CastOperatorPtr getCastOperator() const = 0;
 };
 
-/// Adds custom type to the registry. Type names must be unique.
-void registerType(
+/// Adds custom type to the registry if it doesn't exist already. No-op if type
+/// with specified name already exists. Returns true if type was added, false if
+/// type with the specified name already exists.
+bool registerType(
     const std::string& name,
     std::unique_ptr<const CustomTypeFactories> factories);
 
 /// Return true if customer type with specified name exists.
 bool typeExists(const std::string& name);
 
+/// Returns a set of all registered custom type names.
+std::unordered_set<std::string> getCustomTypeNames();
+
 /// Returns an instance of a custom type with the specified name and specified
 /// child types.
 TypePtr getType(const std::string& name, std::vector<TypePtr> childTypes);
+
+/// Removes custom type from the registry if exists. Returns true if type was
+/// removed, false if type didn't exist.
+bool unregisterType(const std::string& name);
 
 /// Returns the custom cast operator for the custom type with the specified
 /// name. Returns nullptr if a type with the specified name does not exist or
