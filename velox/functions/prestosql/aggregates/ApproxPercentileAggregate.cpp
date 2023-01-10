@@ -117,6 +117,16 @@ enum IntermediateTypeChildIndex {
   kLevels = 8,
 };
 
+void checkWeight(int64_t weight) {
+  constexpr int64_t kMaxWeight = (1ll << 60) - 1;
+  VELOX_USER_CHECK(
+      1 <= weight && weight <= kMaxWeight,
+      "{}: weight must be in range [1, {}], got {}",
+      kApproxPercentile,
+      kMaxWeight,
+      weight);
+}
+
 template <typename T>
 class ApproxPercentileAggregate : public exec::Aggregate {
  public:
@@ -320,10 +330,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
         auto accumulator = initRawAccumulator(groups[row]);
         auto value = decodedValue_.valueAt<T>(row);
         auto weight = decodedWeight_.valueAt<int64_t>(row);
-        VELOX_USER_CHECK_GE(
-            weight,
-            1,
-            "The value of the weight parameter must be greater than or equal to 1.");
+        checkWeight(weight);
         accumulator->append(value, weight);
       });
     } else {
@@ -371,11 +378,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
 
         auto value = decodedValue_.valueAt<T>(row);
         auto weight = decodedWeight_.valueAt<int64_t>(row);
-        VELOX_USER_CHECK(
-            1 <= weight && weight < (1ll << 60),
-            "{}: value of weight must be in range [1, 2^60), got {}",
-            kApproxPercentile,
-            weight);
+        checkWeight(weight);
         accumulator->append(value, weight);
       });
     } else {

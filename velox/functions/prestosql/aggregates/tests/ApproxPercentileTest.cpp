@@ -336,22 +336,30 @@ TEST_F(ApproxPercentileTest, invalidEncoding) {
 
 TEST_F(ApproxPercentileTest, invalidWeight) {
   constexpr int64_t kMaxWeight = (1ll << 60) - 1;
-  auto makePlan = [&](int64_t weight) {
+  auto makePlan = [&](int64_t weight, bool grouped) {
     auto rows = makeRowVector({
         std::make_shared<ConstantVector<int32_t>>(pool(), 1, false, 0),
         std::make_shared<ConstantVector<int64_t>>(
             pool(), 1, false, int64_t(weight)),
+        std::make_shared<ConstantVector<int32_t>>(pool(), 1, false, 1),
     });
+    std::vector<std::string> groupingKeys;
+    if (grouped) {
+      groupingKeys.push_back("c2");
+    }
     return PlanBuilder()
         .values({rows})
-        .singleAggregation({}, {"approx_percentile(c0, c1, 0.5)"})
+        .singleAggregation(groupingKeys, {"approx_percentile(c0, c1, 0.5)"})
         .planNode();
   };
-  assertQuery(makePlan(kMaxWeight), "SELECT 0");
-  AssertQueryBuilder assertQuery2(makePlan(kMaxWeight + 1));
-  VELOX_ASSERT_THROW(
-      assertQuery2.copyResults(pool()),
-      "value of weight must be in range [1, 2^60), got 1152921504606846976");
+  assertQuery(makePlan(kMaxWeight, false), "SELECT 0");
+  assertQuery(makePlan(kMaxWeight, true), "SELECT 1, 0");
+  for (bool grouped : {false, true}) {
+    AssertQueryBuilder badQuery(makePlan(kMaxWeight + 1, grouped));
+    VELOX_ASSERT_THROW(
+        badQuery.copyResults(pool()),
+        "weight must be in range [1, 1152921504606846975], got 1152921504606846976");
+  }
 }
 
 } // namespace
