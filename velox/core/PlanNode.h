@@ -1017,15 +1017,6 @@ enum class JoinType {
   // this join type, cardinality of the output equals the cardinality of the
   // right side.
   kRightSemiProject,
-  // Deprecated. TODO Remove after Prestissimo is updated.
-  // Return each row from the left side which has no match on the right side.
-  // The handling of the rows with nulls in the join key follows NOT IN
-  // semantic:
-  // (1) return empty result if the right side contains a record with a null in
-  // the join key;
-  // (2) return left-side row with null in the join key only when
-  // the right side is empty.
-  kNullAwareAnti,
   // Return each row from the left side which has no match on the right side.
   // The handling of the rows with nulls in the join key depends on the
   // 'nullAware' boolean specified separately.
@@ -1060,8 +1051,6 @@ inline const char* joinTypeName(JoinType joinType) {
       return "LEFT SEMI (PROJECT)";
     case JoinType::kRightSemiProject:
       return "RIGHT SEMI (PROJECT)";
-    case JoinType::kNullAwareAnti:
-      return "NULL-AWARE ANTI";
     case JoinType::kAnti:
       return "ANTI";
   }
@@ -1242,28 +1231,6 @@ class HashJoinNode : public AbstractJoinNode {
       }
     }
   }
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  HashJoinNode(
-      const PlanNodeId& id,
-      JoinType joinType,
-      const std::vector<FieldAccessTypedExprPtr>& leftKeys,
-      const std::vector<FieldAccessTypedExprPtr>& rightKeys,
-      TypedExprPtr filter,
-      PlanNodePtr left,
-      PlanNodePtr right,
-      const RowTypePtr outputType)
-      : HashJoinNode(
-            id,
-            joinType == JoinType::kNullAwareAnti ? JoinType::kAnti : joinType,
-            joinType == JoinType::kNullAwareAnti ? true : false,
-            leftKeys,
-            rightKeys,
-            filter,
-            left,
-            right,
-            outputType) {}
-#endif
 
   std::string_view name() const override {
     return "HashJoin";

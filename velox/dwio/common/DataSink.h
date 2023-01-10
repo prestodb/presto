@@ -159,10 +159,6 @@ class LocalFileSink : public DataSink {
   int file_;
 };
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-using FileSink = LocalFileSink;
-#endif
-
 class MemorySink : public DataSink {
  public:
   MemorySink(
