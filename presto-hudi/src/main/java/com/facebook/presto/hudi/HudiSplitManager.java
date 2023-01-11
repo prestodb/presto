@@ -275,7 +275,7 @@ public class HudiSplitManager
         return HudiSplitWeightProvider.uniformStandardWeightProvider();
     }
 
-    private static HoodieTableQueryType getQueryType(String inputFormat)
+    public static HoodieTableQueryType getQueryType(String inputFormat)
     {
         // TODO support incremental query
         switch (inputFormat) {

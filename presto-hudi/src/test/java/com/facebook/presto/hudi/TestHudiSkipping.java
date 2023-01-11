@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import net.jpountz.xxhash.XXHashFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
-import org.apache.hudi.common.model.HoodieTableQueryType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.testng.annotations.Test;
 
@@ -40,7 +39,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 /**
- * Integration tests for reading Delta tables.
+ * Integration tests for reading hudi tables.
  */
 public class TestHudiSkipping
         extends AbstractHudiDistributedQueryTestBase
@@ -87,7 +86,7 @@ public class TestHudiSkipping
                     HudiSessionProperties.getHoodieFilesystemViewSpillableDir(connectorSession),
                     engineContext,
                     metaClient,
-                    getQueryType(table.get().getStorage().getStorageFormat().getInputFormat()),
+                    HudiSplitManager.getQueryType(table.get().getStorage().getStorageFormat().getInputFormat()),
                     Optional.empty());
             // case1: no filter
             assertEquals(hudiFileSkippingManager.listQueryFiles(TupleDomain.all()).entrySet().stream().map(entry -> entry.getValue().size()).reduce(0, Integer::sum), 4);
@@ -114,22 +113,6 @@ public class TestHudiSkipping
             String expResultsQuery = Joiner.on(" UNION ").join(expRows);
             assertQuery(testQuery, expResultsQuery);
         });
-    }
-
-    private HoodieTableQueryType getQueryType(String hudiInputFormat)
-    {
-        switch (hudiInputFormat) {
-            case "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat":
-            case "com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat":
-                // mor rt table
-                return HoodieTableQueryType.SNAPSHOT;
-            case "org.apache.hudi.hadoop.HoodieParquetInputFormat":
-            case "com.uber.hoodie.hadoop.HoodieInputFormat":
-                // cow table/ mor ro table
-                return HoodieTableQueryType.READ_OPTIMIZED;
-            default:
-                throw new IllegalArgumentException(String.format("failed to infer query type for current inputFormat: %s", hudiInputFormat));
-        }
     }
 
     // should remove this function, once we bump hudi to 0.13.0.

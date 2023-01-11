@@ -187,11 +187,8 @@ public abstract class AbstractHudiDistributedQueryTestBase
                 .build();
 
         // setup file metastore
-
         Path catalogDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("catalog");
-
         metastore = createFileHiveMetastore(catalogDirectory.toString());
-
         // create database
         Database database = Database.builder()
                 .setDatabaseName(HUDI_SCHEMA)

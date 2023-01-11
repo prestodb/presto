@@ -253,11 +253,7 @@ public class HudiPartitionManager
             if (partitionPathValue.equals("default")) {
                 return true;
             }
-
-            if (columnPredicate.intersect(domain).isNone()) {
-                return false;
-            }
-            return true;
+            return !columnPredicate.intersect(domain).isNone();
         }
         else {
             // Should not happen
