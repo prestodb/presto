@@ -102,6 +102,19 @@ class UnnestBlockBuilder
             }
         }
 
+        if (position == source.getPositionCount()) {
+            int i = 0;
+            for (; i < position; i++) {
+                if (i != ids[i]) {
+                    break;
+                }
+            }
+
+            if (i == outputPositionCount) {
+                return source;
+            }
+        }
+
         return new DictionaryBlock(outputPositionCount, source, ids);
     }
 

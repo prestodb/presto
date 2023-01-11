@@ -22,6 +22,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.operator.CompletedWork;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
@@ -158,9 +159,27 @@ public class DictionaryAwarePageProjection
                     DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
                     // if dictionary was processed, produce a dictionary block; otherwise do normal processing
                     int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
-                    results = dictionaryOutput.get().stream()
-                            .map(block -> new DictionaryBlock(selectedPositions.size(), block, outputIds, false, sourceIdFunction.apply(dictionaryBlock)))
-                            .collect(toImmutableList());
+
+                    List<Block> dictionaryBlocks = dictionaryOutput.get();
+                    ImmutableList.Builder<Block> resultsBuilder = ImmutableList.builderWithExpectedSize(dictionaryBlocks.size());
+
+                    int inSequence = 0;
+                    for (; inSequence < outputIds.length; inSequence++) {
+                        if (inSequence != outputIds[inSequence]) {
+                            break;
+                        }
+                    }
+
+                    for (Block block : dictionaryBlocks) {
+                        if (block.getPositionCount() == inSequence) {
+                            resultsBuilder.add(block);
+                        }
+                        else {
+                            Block currentBlock = new DictionaryBlock(selectedPositions.size(), block, outputIds, false, sourceIdFunction.apply(dictionaryBlock));
+                            resultsBuilder.add(currentBlock);
+                        }
+                    }
+                    results = resultsBuilder.build();
                     return true;
                 }
 

@@ -17,6 +17,8 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
+import java.util.Optional;
+
 public class DictionaryBlockEncoding
         implements BlockEncoding
 {
@@ -33,8 +35,6 @@ public class DictionaryBlockEncoding
     {
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
         DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
-
-        dictionaryBlock = dictionaryBlock.compact();
 
         // positionCount
         int positionCount = dictionaryBlock.getPositionCount();
@@ -75,5 +75,16 @@ public class DictionaryBlockEncoding
         // As a result, setting dictionaryIsCompacted to true is not appropriate here.
         // TODO: fix DictionaryBlock so that dictionaryIsCompacted can be set to true when the underlying block over-retains memory.
         return new DictionaryBlock(positionCount, dictionaryBlock, ids, false, new DictionaryId(mostSignificantBits, leastSignificantBits, sequenceId));
+    }
+
+    @Override
+    public Optional<Block> replacementBlockForWrite(Block block)
+    {
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+        if (dictionaryBlock.isCompact()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(dictionaryBlock.compact());
     }
 }

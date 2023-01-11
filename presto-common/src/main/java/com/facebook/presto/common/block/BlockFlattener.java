@@ -94,7 +94,19 @@ public class BlockFlattener
             return newLease(dictionaryBlock);
         }
 
-        dictionary = new DictionaryBlock(positionCount, dictionary, currentRemappedIds);
+        int i = 0;
+        if (positionCount == dictionary.getPositionCount()) {
+            for (; i < positionCount; i++) {
+                if (i != currentRemappedIds[i]) {
+                    break;
+                }
+            }
+        }
+
+        if (i != positionCount) {
+            dictionary = new DictionaryBlock(positionCount, dictionary, currentRemappedIds);
+        }
+
         int[] leasedMapToReturn = newRemappedIds; // effectively final
         return newLease(dictionary, () -> allocator.returnArray(leasedMapToReturn));
     }

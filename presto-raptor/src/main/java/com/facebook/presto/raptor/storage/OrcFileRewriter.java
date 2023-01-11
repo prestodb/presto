@@ -274,6 +274,11 @@ public final class OrcFileRewriter
             }
         }
 
-        return new Page(blocks).getPositions(ids, 0, size);
+        Page page = new Page(blocks);
+        if (page.getPositionCount() == size) {
+            return page;
+        }
+
+        return page.getPositions(ids, 0, size);
     }
 }

@@ -200,7 +200,11 @@ public class DistinctLimitOperator
             }
             verify(distinctCount == distinctPositions.length);
             remainingLimit -= distinctCount;
-            result = inputPage.extractChannels(outputChannels).getPositions(distinctPositions, 0, distinctPositions.length);
+
+            result = inputPage.extractChannels(outputChannels);
+            if (distinctCount != result.getPositionCount()) {
+                result = result.getPositions(distinctPositions, 0, distinctPositions.length);
+            }
         }
 
         groupByIds = null;

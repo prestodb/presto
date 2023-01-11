@@ -99,7 +99,7 @@ public class SliceDictionarySelectiveReader
 
     private int readOffset;
 
-    private VariableWidthBlock dictionary = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[] {true}));
+    private VariableWidthBlock dictionary = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[]{true}));
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
@@ -409,6 +409,18 @@ public class SliceDictionarySelectiveReader
         wrapDictionaryIfNecessary();
 
         int[] valuesCopy = Arrays.copyOf(values, positionCount);
+        if (positionCount == dictionary.getPositionCount()) {
+            int i = 0;
+            for (; i < positionCount; i++) {
+                if (i != positions[i]) {
+                    break;
+                }
+            }
+
+            if (i == positionCount) {
+                return dictionary;
+            }
+        }
         return new DictionaryBlock(positionCount, dictionary, valuesCopy);
     }
 
@@ -425,6 +437,19 @@ public class SliceDictionarySelectiveReader
         }
         if (positionCount < outputPositionCount) {
             compactValues(positions, positionCount);
+        }
+
+        if (positionCount == dictionary.getPositionCount()) {
+            int i = 0;
+            for (; i < positionCount; i++) {
+                if (i != positions[i]) {
+                    break;
+                }
+            }
+
+            if (i == positionCount) {
+                return newLease(dictionary);
+            }
         }
         wrapDictionaryIfNecessary();
         return newLease(new DictionaryBlock(positionCount, dictionary, values));

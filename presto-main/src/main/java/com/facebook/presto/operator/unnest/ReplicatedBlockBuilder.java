@@ -45,6 +45,19 @@ class ReplicatedBlockBuilder
             fromPosition = toPosition;
         }
 
+        if (totalEntries == source.getPositionCount()) {
+            int i = 0;
+            for (; i < totalEntries; i++) {
+                if (i != ids[i]) {
+                    break;
+                }
+            }
+
+            if (i == totalEntries) {
+                return source;
+            }
+        }
+
         return new DictionaryBlock(totalEntries, source, ids);
     }
 }
