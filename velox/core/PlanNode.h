@@ -1007,6 +1007,11 @@ enum class JoinType {
   // Return each row from the left side with a boolean flag indicating whether
   // there exists a match on the right side. For this join type, cardinality of
   // the output equals the cardinality of the left side.
+  //
+  // The handling of the rows with nulls in the join key depends on the
+  // 'nullAware' boolean specified separately.
+  //
+  // Null-aware join follows IN semantic. Regular join follows EXISTS semantic.
   kLeftSemiProject,
   // Opposite of kLeftSemiFilter. Return a subset of rows from the right side
   // which have a match on the left side. For this join type, cardinality of the
@@ -1016,6 +1021,11 @@ enum class JoinType {
   // boolean flag indicating whether there exists a match on the left side. For
   // this join type, cardinality of the output equals the cardinality of the
   // right side.
+  //
+  // The handling of the rows with nulls in the join key depends on the
+  // 'nullAware' boolean specified separately.
+  //
+  // Null-aware join follows IN semantic. Regular join follows EXISTS semantic.
   kRightSemiProject,
   // Return each row from the left side which has no match on the right side.
   // The handling of the rows with nulls in the join key depends on the

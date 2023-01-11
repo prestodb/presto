@@ -2,9 +2,11 @@
 Joins
 =====
 
-Velox supports inner, left, right, full outer, left semi, right semi, and 
-anti hash joins using either partitioned or broadcast distribution strategies.
-Velox also supports cross joins.
+Velox supports inner, left, right, full outer, left semi filter, left semi
+project, right semi filter, right semi project, and anti hash joins using
+either partitioned or broadcast distribution strategies. Semi project and
+anti joins support additional null-aware flag to distinguish between IN
+(null aware) and EXISTS (regular) semantics. Velox also supports cross joins.
 
 Velox also supports inner and left merge join for the case where join inputs are
 sorted on the join keys. Right, full, left semi, right semi, and anti merge joins
@@ -21,8 +23,12 @@ values need to match, and an optional filter to apply to join results.
     :width: 400
     :align: center
 
-The join type can be one of kInner, kLeft, kRight, kFull, kLeftSemi, kRightSemi,
-or kAnti.
+The join type can be one of kInner, kLeft, kRight, kFull, kLeftSemiFilter,
+kLeftSemiProject, kRightSemiFilter, kRightSemiProject, or kAnti.
+
+kLeftSemiProject, kRightSemiProject and kAnti joins support an additional
+nullAware flag to distinguish between IN (null aware) and EXISTS (regular)
+semantics.
 
 Filter is optional. If specified it can be any expression over the results of
 the join. This expression will be evaluated using the same expression
@@ -196,31 +202,41 @@ by setting boolean flag "broadcast" in the PartitionedOutputNode to true.
 Anti Joins
 ~~~~~~~~~~
 
-Anti join is used for queries with NOT IN <subquery> clause:
+Null aware anti join is used for queries with NOT IN <subquery> clause, while
+regular anti join is used for queries with NOT EXISTS <subquery> clause.
 
 .. code-block:: sql
 
+    -- null-aware anti join
     SELECT * FROM t WHERE t.key NOT IN (SELECT key FROM u)
 
-Anti join returns probe-side rows which have no match in the build side. The
-exact semantics of the anti join is tricky. These are described in detail in
-a separate article: :doc:`Anti joins <../develop/anti-join>`.
+    -- regular anti join
+    SELECT * FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE u.key = t.key)
 
-#. when the build side contains an entry with a null in any of the join keys, the join returns no rows;
+Broadly-speaking anti join returns probe-side rows which have no match on
+the build side. However, the exact semantics are a bit tricky. These are
+described in detail in :doc:`Anti joins <../develop/anti-join>`.
 
-#. when the build side is empty, the join returns all rows, including rows with null join keys;
+At a high level, null-aware anti join without extra filter behaves as follows:
 
-#. when the build side is not empty, the join returns only rows with non-null join keys and no match in the build side.
+#. return empty dataset if the build side contains an entry with a null in any
+   of the join keys;
 
-The cases (1) and (2) cannot be identified locally (unless the join runs in
-broadcast mode) as they require knowledge about the whole build side. It is
-necessary to know whether the combined build side across all nodes is empty and
-if not if it contains a null key. To provide this information locally,
-PartitionedOutput operator supports a mode where it replicates all rows with
-nulls in the partitioning keys to all destinations and in case there are no
-rows with null keys replicates one arbitrary chosen row to all destinations.
-This mode is enabled by setting the "replicateNullsAndAny" flag to true in the
-PartitionedOutputNode plan node.
+#. return all rows from the probe side, including rows with nulls in the join key,
+   when the build side is empty;
+
+#. returns probe-side rows with non-null join keys and no match in the build
+   side when build side is not empty.
+
+When a query runs on multiple machines, the cases (1) and (2) cannot be easily
+identified locally (unless the join runs in broadcast mode) as they require
+knowledge about the whole build side. It is necessary to know whether the
+combined build side across all nodes is empty and if not if it contains a null
+key. To provide this information locally, PartitionedOutput operator supports a
+mode where it replicates all rows with nulls in the partitioning keys to all
+destinations and in case there are no rows with null keys replicates one
+arbitrary chosen row to all destinations. This mode is enabled by setting
+the "replicateNullsAndAny" flag to true in the PartitionedOutputNode plan node.
 
 Replicate-nulls-and-any function of the PartitionedOutput operator ensures that
 all nodes receive rows with nulls in join keys and therefore can implement the
@@ -228,6 +244,47 @@ semantics described in (1). It also ensures that local build sides are empty
 only if the whole build side is empty, allowing to implement semantic
 (2). Sending one row with a non-null key to multiple “wrong” destinations is
 safe because that row cannot possibly match anything on these destinations.
+
+Semi Joins
+----------
+
+Semi filter joins are used for queries with IN <subquery> and EXISTS <subquery>
+clauses. Left semi filter join should be used when cardinality of the outer
+query is greater than cardinality of the subquery. Right semi join can be used
+when cardinality of the subquery is greater.
+
+.. code-block:: sql
+
+    SELECT * FROM t WHERE t.key IN (SELECT key FROM u)
+
+    SELECT * FROM t WHERE EXISTS (SELECT * FROM u WHERE u.key = t.key)
+
+Left semi filter join returns probe-side rows which have at least one match on
+the build side. Right semi filter join returns build-side rows which have at
+least one match on the probe side.
+
+Semi project joins are used for queries where IN <subquery> or EXISTS <subquery>
+expressions are combined with other expressions.
+
+.. code-block:: sql
+
+    SELECT * FROM t WHERE t.key IN (SELECT key FROM u) OR t.col > 10
+
+    SELECT * FROM t WHERE t.key NOT IN (...) OR t.key2 NOT IN (...)
+
+Left semi project join returns all probe-side rows with an extra boolean column
+(match) indicating whether there is a match on the build side. Right semi
+project join returns all build-side rows with the 'match' column indicating
+whether there is a match on the probe side.
+
+Semi project joins support null-aware flag to distinguish between IN and EXISTS
+semantics. Null-aware semi project join may return NULL value if it is not
+possible to definitively say whether there is a match or not. For example, left
+semi project join without extra filter returns NULL for a probe-side row with a
+NULL in the join key as long as build-side is not empty.
+
+The results of the anti join are equivalent to the results of a semi project
+join followed by a 'NOT match' filter.
 
 Empty Build Side
 ~~~~~~~~~~~~~~~~
@@ -269,7 +326,7 @@ down.
   join key)
 
 * maxSpillLevel - the max spill level that has been triggered with zero for the
-initial spill.
+  initial spill.
 
 TableScan operator reports the number of dynamic filters it received and passed
 to HiveConnector.
