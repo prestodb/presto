@@ -39,6 +39,7 @@ add_library(
   MapZipWith.cpp
   Not.cpp
   Reduce.cpp
+  Repeat.cpp
   Reverse.cpp
   RowFunction.cpp
   Slice.cpp

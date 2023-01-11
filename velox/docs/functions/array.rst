@@ -148,6 +148,10 @@ Array Functions
                       (s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)),
                       s -> IF(s.count = 0, NULL, s.sum / s.count));
 
+.. function:: repeat(element, count) -> array(E)
+
+    Repeat ``element`` for ``count`` times. ``count`` cannot be negative and must be less than or equal to 10000.
+
 .. function:: reverse(array(E)) -> array(E)
 
     Returns an array which has the reversed order of the input array.
@@ -191,4 +195,3 @@ Array Functions
         SELECT zip_with(ARRAY[1, 2], ARRAY[3, 4], (x, y) -> x + y); -- [4, 6]
         SELECT zip_with(ARRAY['a', 'b', 'c'], ARRAY['d', 'e', 'f'], (x, y) -> concat(x, y)); -- ['ad', 'be', 'cf']
         SELECT zip_with(ARRAY['a'], ARRAY['d', null, 'f'], (x, y) -> coalesce(x, y)); -- ['a', null, 'f']
-
