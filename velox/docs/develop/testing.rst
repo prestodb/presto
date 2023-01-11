@@ -6,3 +6,4 @@ Testing Tools
     :maxdepth: 1
 
     testing/fuzzer
+    testing/join-fuzzer

@@ -1,6 +1,6 @@
-======
-Fuzzer
-======
+=================================
+Expression and Aggregation Fuzzer
+=================================
 
 Velox allows users to define UDFs (user-defined functions) and UDAFs
 (user-defined aggregate functions) and provides a fuzzer tools to test the
@@ -110,7 +110,7 @@ Fuzzers support a number of powerful command line arguments.
 
 * ``–-seed``: The seed to generate random expressions and input vectors with.
 
-* ``–-v=1``: Verbose logging (from Google Logging Library).
+* ``–-v=1``: Verbose logging (from `Google Logging Library <https://github.com/google/glog#setting-flags>`_).
 
 * ``–-only``: A comma-separated list of functions to use in generated expressions.
 
