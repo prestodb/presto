@@ -60,6 +60,26 @@ constexpr int64_t kMaxMemory = std::numeric_limits<int64_t>::max();
 class MemoryUsageTracker
     : public std::enable_shared_from_this<MemoryUsageTracker> {
  public:
+  /// The memory usage tracker's execution stats.
+  struct Stats {
+    uint64_t peakBytes{0};
+    /// The accumulated reserved memory bytes.
+    uint64_t cumulativeBytes{0};
+    uint64_t numAllocs{0};
+    uint64_t numFrees{0};
+    uint64_t numReserves{0};
+    uint64_t numReleases{0};
+    /// The number of memory reservation collisions caused by concurrent memory
+    /// requests.
+    uint64_t numCollisions{0};
+    /// The number of created child memory trackers.
+    uint64_t numChildren{0};
+
+    bool operator==(const Stats& rhs) const;
+
+    std::string toString() const;
+  };
+
   /// Function to increase a MemoryUsageTracker's limits. This is called when an
   /// allocation would exceed the tracker's size limit. The usage in 'tracker'
   /// at the time of call is as if the allocation had succeeded.
@@ -88,7 +108,7 @@ class MemoryUsageTracker
     return create(nullptr, maxMemory);
   }
 
-  virtual ~MemoryUsageTracker() = default;
+  ~MemoryUsageTracker();
 
   /// Increments the reservation for 'this' so that we can allocate at least
   /// 'size' bytes on top of the current allocation. This is used when a memory
@@ -96,12 +116,12 @@ class MemoryUsageTracker
   /// 'size' being available. If less memory ends up being needed, the unused
   /// reservation should be released with release(). If the new reserved amount
   /// exceeds the usage limit, an exception will be thrown.
-  void reserve(int64_t size);
+  void reserve(uint64_t size);
 
   /// Checks if it is likely that the reservation on 'this' can be incremented
   /// by 'increment'. Returns false if this seems unlikely. Otherwise attempts
   /// the reservation increment and returns true if succeeded.
-  bool maybeReserve(int64_t increment);
+  bool maybeReserve(uint64_t increment);
 
   /// If a minimum reservation has been set with reserve(), resets the minimum
   /// reservation. If the current usage is below the minimum reservation,
@@ -110,48 +130,64 @@ class MemoryUsageTracker
 
   /// Increments outstanding memory by 'size', which is positive for allocation
   /// and negative for free. If there is no reservation or the new allocated
-  /// amount exceeds the reservation, propagates the change upward. Sometimes
-  /// the memory pool wants to mock an update for quota accounting purposes and
-  /// different memory usage trackers can choose to accommodate this
-  /// differently.
-  virtual void update(int64_t size);
+  /// amount exceeds the reservation, propagates the change upward. If 'size' is
+  /// zero, the function does nothing.
+  void update(int64_t size);
 
   /// Returns the current memory usage.
+  ///
+  /// TODO: we will add tracker type to calculate the current bytes based on the
+  /// tracker type explicitly.
   int64_t currentBytes() const {
-    return adjustByReservation(currentBytes_);
+    return adjustByReservation(reservationBytes_);
   }
 
   /// Returns the unused reservations in bytes.
   int64_t availableReservation() const {
-    return std::max<int64_t>(0, reservationBytes_ - usedReservationBytes_);
+    return std::max<int64_t>(
+        0, grantedReservationBytes_ - usedReservationBytes_);
   }
 
   /// Returns the number of allocations.
+  ///
+  /// TODO: deprecate this API and get the number of allocations through
+  /// stats().
   int64_t numAllocs() const {
     return numAllocs_;
   }
 
   /// Returns the peak memory usage in bytes including unused reservations.
+  ///
+  /// TODO: deprecate this API and get peak bytes through stats().
   int64_t peakBytes() const {
     return peakBytes_;
   }
 
   /// Returns the sum of the size of all allocations. cumulativeBytes() /
   /// numAllocs() is the average size of allocation.
+  ///
+  /// TODO: deprecate this API and get cumulative bytes through stats().
   int64_t cumulativeBytes() const {
     return cumulativeBytes_;
   }
 
   /// Returns the total memory reservation size including unused reservation.
   int64_t reservedBytes() const {
-    return currentBytes_;
+    return reservationBytes_;
+  }
+
+  /// Returns the actual used memory reservation size which is only meaningful
+  /// for a leaf memory tracker.
+  int64_t usedReservationBytes() const {
+    return usedReservationBytes_;
   }
 
   int64_t maxMemory() const {
     return parent_ != nullptr ? parent_->maxMemory() : maxMemory_;
   }
 
-  virtual std::shared_ptr<MemoryUsageTracker> addChild() {
+  std::shared_ptr<MemoryUsageTracker> addChild() {
+    ++numChildren_;
     return create(shared_from_this());
   }
 
@@ -165,13 +201,16 @@ class MemoryUsageTracker
     makeMemoryCapExceededMessage_ = func;
   }
 
+  /// Returns the stats of this memory usage tracker.
+  Stats stats() const;
+
   std::string toString() const;
 
   void testingUpdateMaxMemory(int64_t maxMemory) {
     maxMemory_ = maxMemory;
   }
 
- protected:
+ private:
   static constexpr int64_t kMB = 1 << 20;
 
   static std::shared_ptr<MemoryUsageTracker> create(
@@ -186,24 +225,33 @@ class MemoryUsageTracker
     VELOX_CHECK(parent_ == nullptr || maxMemory_ == kMaxMemory);
   }
 
+  void reserve(uint64_t size, bool reserveOnly);
+  void release(uint64_t size);
+
   void maybeUpdatePeakBytes(int64_t newPeak);
 
-  // Increments the reservation and checks against limits. Calls 'growCallback_'
-  // if this is set and limit exceeded. Should be called without holding
-  // 'mutex_'. This throws if a limit is exceeded and there is no corresponding
-  // GrowCallback or the GrowCallback fails.
-  void incrementUsage(int64_t size);
+  // Increments the reservation and checks against limits at root tracker. Calls
+  // root tracker's 'growCallback_' if it is set and limit exceeded. Should be
+  // called without holding 'mutex_'. This throws if a limit is exceeded and
+  // there is no corresponding GrowCallback or the GrowCallback fails.
+  void incrementReservation(uint64_t size);
 
-  //  Decrements usage in 'this' and parents.
-  void decrementUsage(int64_t size) noexcept;
+  //  Decrements the reservation in 'this' and parents.
+  void decrementReservation(uint64_t size) noexcept;
 
-  void checkNonNegativeSizes(const char* FOLLY_NONNULL message) const;
+  int64_t adjustByReservation(int64_t total) const {
+    return grantedReservationBytes_ > 0
+        ? std::max<int64_t>(total - availableReservation(), 0)
+        : std::max<int64_t>(total, 0);
+  }
 
-  int64_t reserveLocked(int64_t size);
+  // Returns the needed reservation size. If there is sufficient unused memory
+  // reservation, this function returns zero.
+  int64_t reservationSizeLocked(int64_t size);
 
-  // Returns a rounded up delta based on adding 'delta' to
-  // 'size'. Adding the rounded delta to 'size' will result in 'size'
-  // a quantized size, rounded to the MB or 8MB for larger sizes.
+  // Returns a rounded up delta based on adding 'delta' to 'size'. Adding the
+  // rounded delta to 'size' will result in 'size' a quantized size, rounded to
+  // the MB or 8MB for larger sizes.
   static int64_t roundedDelta(int64_t size, int64_t delta) {
     return quantizedSize(size + delta) - size;
   }
@@ -220,45 +268,79 @@ class MemoryUsageTracker
     return bits::roundUp(size, 8 * kMB);
   }
 
-  int64_t adjustByReservation(int64_t total) const {
-    return reservationBytes_ > 0
-        ? std::max<int64_t>(total - availableReservation(), 0)
-        : std::max<int64_t>(total, 0);
-  }
+  void checkNonNegativeSizes(const char* FOLLY_NONNULL message) const;
 
-  // Increments usage of 'this' and parents. Must be called without
-  // holding 'mutex_'. Reverts the increment of reservation on before
-  // rethrowing the error. If 'updateMinReservation' is true, also
-  // decrements 'minReservation_' on error.
-  void checkAndPropagateReservationIncrement(
-      int64_t increment,
-      bool updateMinReservation);
+  void sanityCheckLocked() const;
 
-  // Serializes update(). decrease/increaseUsage work based on atomics so
-  // children updating the same parent do not have to be serialized
-  // but multiple threads updating the same leaf must be serialized
-  // because the reservation decision needs a consistent read/write of
-  // both reservation and used reservation.
+  // Serializes updates on 'grantedReservationBytes_', 'usedReservationBytes_'
+  // and 'minReservationBytes_' to make reservation decision on a consistent
+  // read/write of those counters. incrementReservation()/decrementReservation()
+  // work based on atomic 'reservationBytes_' without mutex as children updating
+  // the same parent do not have to be serialized.
   std::mutex mutex_;
   std::shared_ptr<MemoryUsageTracker> parent_;
 
   // The memory limit in bytes to enforce.
   int64_t maxMemory_;
 
-  std::atomic<int64_t> currentBytes_{0};
   std::atomic<int64_t> peakBytes_{0};
   std::atomic<int64_t> cumulativeBytes_{0};
 
+  // The number of reservation bytes propagated up to the parent for memory
+  // limit check at the root tracker.
   std::atomic<int64_t> reservationBytes_{0};
+
+  // The number of granted reservation bytes which is maintained at the leaf
+  // tracker and protected by mutex for consistent memory reservation/release
+  // decisions.
+  //
+  // NOTE: after making memory reservation decision, we first try to propagate
+  // 'reservationBytes_' increment up to the root tracker without mutex. If the
+  // increment succeeds, then update 'grantedReservationBytes_',
+  // 'usedReservationBytes_' and 'minReservationBytes_' accordingly with mutex.
+  // Correspondingly, a memory release first updates 'grantedReservationBytes_',
+  // 'usedReservationBytes_' and 'minReservationBytes_' under mutex, and then
+  // propagates the 'reservationBytes_' decrement up to the root tracker without
+  // mutex.
+  std::atomic<int64_t> grantedReservationBytes_{0};
+
+  // The number of used reservation bytes which is maintained at the leaf
+  // tracker and protected by mutex for consistent memory reservation/release
+  // decisions.
   std::atomic<int64_t> usedReservationBytes_{0};
+
   // Minimum amount of reserved memory in bytes to hold until explicit
   // release().
   std::atomic<int64_t> minReservationBytes_{0};
 
-  std::atomic<int64_t> numAllocs_{0};
-
   GrowCallback growCallback_{};
 
   MakeMemoryCapExceededMessage makeMemoryCapExceededMessage_{};
+
+  // Stats counters.
+  // The number of memory allocations through update() including the failed
+  // ones.
+  std::atomic<uint64_t> numAllocs_{0};
+
+  // The number of memory frees through update().
+  std::atomic<uint64_t> numFrees_{0};
+
+  // The number of memory reservations through reserve() and maybeReserve()
+  // including the failed ones.
+  std::atomic<uint64_t> numReserves_{0};
+
+  // The number of memory releases through update().
+  std::atomic<uint64_t> numReleases_{0};
+
+  // The number of internal memory reservation collisions caused by concurrent
+  // memory requests.
+  std::atomic<uint64_t> numCollisions_{0};
+
+  // The number of created child memory trackers.
+  std::atomic<uint64_t> numChildren_{0};
 };
+
+std::ostream& operator<<(
+    std::ostream& os,
+    const MemoryUsageTracker::Stats& stats);
 } // namespace facebook::velox::memory

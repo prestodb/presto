@@ -41,14 +41,14 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
       "op.0.0.Values: 0B in 1 instances, min 0B, max 0B",
       "node.1: 12.00KB in 1 operators, min 12.00KB, max 12.00KB",
       "op.1.0.FilterProject: 12.00KB in 1 instances, min 12.00KB, max 12.00KB",
-      "node.2: 1.77MB in 1 operators, min 1.77MB, max 1.77MB",
-      "op.2.0.Aggregation: 1.77MB in 1 instances, min 1.77MB, max 1.77MB",
+      "node.2: 3.77MB in 1 operators, min 3.77MB, max 3.77MB",
+      "op.2.0.Aggregation: 3.77MB in 1 instances, min 3.77MB, max 3.77MB",
       "node.3: 0B in 1 operators, min 0B, max 0B",
       "op.3.0.OrderBy: 0B in 1 instances, min 0B, max 0B",
       "node.N/A: 0B in 1 operators, min 0B, max 0B",
       "op.N/A.0.CallbackSink: 0B in 1 instances, min 0B, max 0B",
       "Top operator memory usages:",
-      "Failed Operator: Aggregation.2: 1.77MB"};
+      "Failed Operator: Aggregation.2: 3.77MB"};
 
   std::vector<RowVectorPtr> data;
   for (auto i = 0; i < 100; ++i) {
