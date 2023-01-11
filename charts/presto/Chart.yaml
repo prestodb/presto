@@ -3,7 +3,7 @@ name: presto
 description: The official Helm chart for Presto
 type: application
 version: 0.1.0
-appVersion: "0.278"
+appVersion: "0.278.1"
 home: https://prestodb.io
 icon: https://prestodb.io/docs/current/_static/logo.png
 keywords:
