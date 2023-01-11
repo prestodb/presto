@@ -21,3 +21,5 @@ data:
     discovery-server.enabled=true
     node-scheduler.include-coordinator={{ eq .Values.mode "single" }}
     {{- .Values.config | nindent 4 }}
+  log.properties: |-
+    {{- .Values.log | nindent 4 }}

@@ -20,4 +20,6 @@ data:
     http-server.http.port={{ .Values.service.port }}
     discovery.uri=http://{{ .Release.Name }}:{{ .Values.service.port }}
     {{- .Values.config | nindent 4 }}
+  log.properties: |-
+    {{- .Values.log | nindent 4 }}
 {{- end }}
