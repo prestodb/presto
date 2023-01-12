@@ -35,14 +35,14 @@ public class PrestoSparkLocalShuffleInfoSerializer
     }
 
     @Override
-    public byte[] serializeReadInfo(PrestoSparkShuffleReadInfo readInfo)
+    public String serializeReadInfo(PrestoSparkShuffleReadInfo readInfo)
     {
-        return readInfoJsonCodec.toBytes((PrestoSparkLocalShuffleReadInfo) readInfo);
+        return readInfoJsonCodec.toJson((PrestoSparkLocalShuffleReadInfo) readInfo);
     }
 
     @Override
-    public byte[] serializeWriteInfo(PrestoSparkShuffleWriteInfo writeInfo)
+    public String serializeWriteInfo(PrestoSparkShuffleWriteInfo writeInfo)
     {
-        return writeInfoJsonCodec.toBytes((PrestoSparkLocalShuffleWriteInfo) writeInfo);
+        return writeInfoJsonCodec.toJson((PrestoSparkLocalShuffleWriteInfo) writeInfo);
     }
 }

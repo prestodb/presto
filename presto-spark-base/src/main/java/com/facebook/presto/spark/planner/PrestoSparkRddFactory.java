@@ -71,6 +71,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -252,7 +253,12 @@ public class PrestoSparkRddFactory
         }
 
         return JavaPairRDD.fromRDD(
-                PrestoSparkTaskRdd.create(sparkContext.sc(), taskSourceRdd, shuffleInputRddMap, taskProcessor).setName(getRDDName(fragment.getId().getId())),
+                PrestoSparkTaskRdd.create(
+                        sparkContext.sc(),
+                        taskSourceRdd,
+                        shuffleInputRddMap,
+                        taskProcessor,
+                        isNativeExecutionEnabled(session)).setName(getRDDName(fragment.getId().getId())),
                 classTag(MutablePartitionId.class),
                 classTag(outputType));
     }

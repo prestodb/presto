@@ -11,11 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.execution;
+package com.facebook.presto.spark.classloader_interface;
 
-public interface PrestoSparkShuffleInfoSerializer
+import org.apache.spark.shuffle.ShuffleHandle;
+
+public class PrestoSparkShuffleWriteDescriptor
+        extends PrestoSparkShuffleDescriptor
 {
-    String serializeReadInfo(PrestoSparkShuffleReadInfo readInfo);
-
-    String serializeWriteInfo(PrestoSparkShuffleWriteInfo writeInfo);
+    public PrestoSparkShuffleWriteDescriptor(ShuffleHandle shuffleHandle, int numberOfPartitions)
+    {
+        super(shuffleHandle, numberOfPartitions);
+    }
 }

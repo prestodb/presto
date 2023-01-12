@@ -22,6 +22,7 @@ import scala.collection.Iterator;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -56,16 +57,23 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
     public Iterator<Tuple2<MutablePartitionId, T>> process(
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             // fragmentId -> Iterator<[partitionId, page]>
-            Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputs)
+            Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputs,
+            Map<String, PrestoSparkShuffleReadDescriptor> shuffleReadDescriptors,
+            Optional<PrestoSparkShuffleWriteDescriptor> shuffleWriteDescriptor,
+            boolean isNativeExecutionEnabled)
     {
         int partitionId = TaskContext.get().partitionId();
         int attemptNumber = TaskContext.get().attemptNumber();
+
+        PrestoSparkTaskInputs taskInputs = isNativeExecutionEnabled ?
+                new PrestoSparkNativeTaskInputs(shuffleReadDescriptors, shuffleWriteDescriptor) : new PrestoSparkJavaExecutionTaskInputs(shuffleInputs, broadcastInputs, emptyMap());
+
         return taskExecutorFactoryProvider.get().create(
                 partitionId,
                 attemptNumber,
                 serializedTaskDescriptor,
                 serializedTaskSources,
-                new PrestoSparkTaskInputs(shuffleInputs, broadcastInputs, emptyMap()),
+                taskInputs,
                 taskInfoCollector,
                 shuffleStatsCollector,
                 outputType);
