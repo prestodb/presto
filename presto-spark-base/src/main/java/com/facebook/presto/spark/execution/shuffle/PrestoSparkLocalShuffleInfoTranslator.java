@@ -25,7 +25,6 @@ import com.google.inject.Inject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
-import java.util.Collections;
 
 import static java.util.Objects.requireNonNull;
 
@@ -54,16 +53,14 @@ public class PrestoSparkLocalShuffleInfoTranslator
     @Override
     public PrestoSparkLocalShuffleWriteInfo createShuffleWriteInfo(PrestoSparkShuffleWriteDescriptor writeDescriptor)
     {
-        return new PrestoSparkLocalShuffleWriteInfo(0, writeDescriptor.getNumPartitions(), localShuffleRootPath);
+        return new PrestoSparkLocalShuffleWriteInfo(writeDescriptor.getNumPartitions(), localShuffleRootPath);
     }
 
     @Override
     public PrestoSparkLocalShuffleReadInfo createShuffleReadInfo(PrestoSparkShuffleReadDescriptor readDescriptor)
     {
         return new PrestoSparkLocalShuffleReadInfo(
-                Collections.max(readDescriptor.getPartitionSizes()),
                 readDescriptor.getNumPartitions(),
-                readDescriptor.getPartition().index(),
                 localShuffleRootPath);
     }
 
