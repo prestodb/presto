@@ -165,8 +165,6 @@ class ArraySortFunction : public exec::VectorFunction {
   /// and 'offsets' vectors that control where output arrays start and end
   /// remain the same in the output ArrayVector.
 
-  ArraySortFunction() {}
-
   // Execute function.
   void apply(
       const SelectivityVector& rows,

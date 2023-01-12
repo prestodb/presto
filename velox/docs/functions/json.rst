@@ -89,6 +89,29 @@ special characters unescaped and double quotes removed.
 JSON Functions
 --------------
 
+.. function:: is_json_scalar(json) -> boolean
+
+    Determine if ``json`` is a scalar (i.e. a JSON number, a JSON string,
+    ``true``, ``false`` or ``null``)::
+
+        SELECT is_json_scalar('1'); *-- true*
+        SELECT is_json_scalar('[1, 2, 3]'); *-- false*
+
+.. function:: json_array_contains(json, value) -> boolean
+
+    Determine if ``value`` exists in ``json`` (a string containing a JSON
+    array). ``value`` could be a boolean, bigint, double, or varchar.
+    Returns NULL if ``json`` is not an array::
+
+        SELECT json_array_contains('[1, 2, 3]', 2);
+
+.. function:: json_array_length(json) -> bigint
+
+    Returns the array length of ``json`` (a string containing a JSON
+    array). Returns NULL if ``json`` is not an array::
+
+        SELECT json_array_length('[1, 2, 3]');
+
 .. function:: json_extract_scalar(json, json_path) -> varchar
 
     Evaluates the `JSONPath`_-like expression ``json_path`` on ``json``
@@ -100,29 +123,6 @@ JSON Functions
         SELECT json_extract_scalar(json, '$.store.book[0].author');
 
     .. _JSONPath: http://goessner.net/articles/JsonPath/
-
-.. function:: is_json_scalar(json) -> boolean
-
-    Determine if ``json`` is a scalar (i.e. a JSON number, a JSON string,
-    ``true``, ``false`` or ``null``)::
-
-        SELECT is_json_scalar('1'); *-- true*
-        SELECT is_json_scalar('[1, 2, 3]'); *-- false*
-
-.. function:: json_array_length(json) -> bigint
-
-    Returns the array length of ``json`` (a string containing a JSON
-    array). Returns NULL if ``json`` is not an array::
-
-        SELECT json_array_length('[1, 2, 3]');
-
-.. function:: json_array_contains(json, value) -> boolean
-
-    Determine if ``value`` exists in ``json`` (a string containing a JSON
-    array). ``value`` could be a boolean, bigint, double, or varchar.
-    Returns NULL if ``json`` is not an array::
-
-        SELECT json_array_contains('[1, 2, 3]', 2);
 
 .. function:: json_format(json) -> varchar
 
