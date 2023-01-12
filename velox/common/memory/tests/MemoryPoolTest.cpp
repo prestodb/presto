@@ -35,7 +35,6 @@ namespace memory {
 
 class MemoryPoolTest : public testing::TestWithParam<bool> {
  protected:
- protected:
   static void SetUpTestCase() {
     TestValue::enable();
   }
