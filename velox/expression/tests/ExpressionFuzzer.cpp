@@ -837,11 +837,14 @@ void ExpressionFuzzer::logStats() {
   LOG(INFO)
       << "Format: functionName numTimesSelected proportionOfTimesSelected "
          "numProcessedRows";
-  for (int i = entries.size() - 1; i >= entries.size() - maxEntriesLimit; i--) {
-    LOG(INFO) << entries[i].first << " " << entries[i].second.numTimesSelected
-              << " " << std::fixed << std::setprecision(2)
-              << (entries[i].second.numTimesSelected * 100.00) / totalSelections
-              << "% " << entries[i].second.numProcessedRows;
+  for (int i = 0; i < maxEntriesLimit; i++) {
+    int idx = entries.size() - 1 - i;
+    LOG(INFO) << entries[idx].first << " "
+              << entries[idx].second.numTimesSelected << " " << std::fixed
+              << std::setprecision(2)
+              << (entries[idx].second.numTimesSelected * 100.00) /
+            totalSelections
+              << "% " << entries[idx].second.numProcessedRows;
   }
 
   // sort by numTimesSelected
