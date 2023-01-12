@@ -16,13 +16,10 @@
 
 #include <optional>
 #include <string>
-#include <string_view>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
-#include "velox/type/Date.h"
-#include "velox/type/Timestamp.h"
-#include "velox/type/TimestampConversion.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox;
@@ -489,6 +486,34 @@ TEST_F(DateTimeFunctionsTest, yearTimestampWithTimezone) {
       std::nullopt,
       evaluateWithTimestampWithTimezone<int64_t>(
           "year(c0)", std::nullopt, std::nullopt));
+}
+
+TEST_F(DateTimeFunctionsTest, timestampTooLarge) {
+  std::vector<std::string> functions = {
+      "year",
+      "quarter",
+      "month",
+      "week",
+      "day",
+      "dow",
+      "doy",
+      "yow",
+      "hour",
+      "minute",
+      "second",
+  };
+
+  Timestamp ts(100'000'000'000'000'000, 0);
+  for (const auto& function : functions) {
+    VELOX_ASSERT_THROW(
+        evaluateOnce<int64_t>(
+            fmt::format("{}(c0)", function), std::make_optional(ts)),
+        "Timestamp is too large: 100000000000000000 seconds since epoch");
+  }
+
+  VELOX_ASSERT_THROW(
+      evaluateOnce<int64_t>("date_trunc('hour', c0)", std::make_optional(ts)),
+      "Timestamp is too large: 100000000000000000 seconds since epoch");
 }
 
 TEST_F(DateTimeFunctionsTest, weekDate) {

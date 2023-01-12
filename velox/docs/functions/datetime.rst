@@ -143,6 +143,11 @@ Convenience Extraction Functions
 
 These functions support TIMESTAMP, DATE, and TIMESTAMP WITH TIME ZONE input types.
 
+These functions are implemented using
+`std::gmtime <https://en.cppreference.com/w/c/chrono/gmtime>`_ which raises an
+error when input timestamp is too large (for example, > 100'000'000'000'000'000).
+This behavior is different from Presto Java that allows arbitrary large timestamps.
+
 .. function:: day(x) -> bigint
 
     Returns the day of the month from ``x``.
@@ -196,7 +201,8 @@ These functions support TIMESTAMP, DATE, and TIMESTAMP WITH TIME ZONE input type
 .. function:: week(x) -> bigint
 
     Returns the `ISO-Week`_ of the year from x. The value ranges from ``1`` to ``53``.
-    .. _ISO-Week: https://en.wikipedia.org/wiki/ISO_week_date
+
+.. _ISO-Week: https://en.wikipedia.org/wiki/ISO_week_date
 
 .. function:: week_of_year(x) -> bigint
 

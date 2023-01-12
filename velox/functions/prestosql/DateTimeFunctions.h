@@ -92,7 +92,10 @@ FOLLY_ALWAYS_INLINE
 std::tm getDateTime(Timestamp timestamp, const date::time_zone* timeZone) {
   int64_t seconds = getSeconds(timestamp, timeZone);
   std::tm dateTime;
-  gmtime_r((const time_t*)&seconds, &dateTime);
+  VELOX_USER_CHECK_NOT_NULL(
+      gmtime_r((const time_t*)&seconds, &dateTime),
+      "Timestamp is too large: {} seconds since epoch",
+      seconds);
   return dateTime;
 }
 
@@ -100,7 +103,10 @@ FOLLY_ALWAYS_INLINE
 std::tm getDateTime(Date date) {
   int64_t seconds = date.days() * kSecondsInDay;
   std::tm dateTime;
-  gmtime_r((const time_t*)&seconds, &dateTime);
+  VELOX_USER_CHECK_NOT_NULL(
+      gmtime_r((const time_t*)&seconds, &dateTime),
+      "Date is too large: {} days",
+      date.days());
   return dateTime;
 }
 
