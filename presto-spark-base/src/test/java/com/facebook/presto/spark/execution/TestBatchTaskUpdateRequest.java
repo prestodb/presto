@@ -72,7 +72,8 @@ public class TestBatchTaskUpdateRequest
         PrestoSparkLocalShuffleInfoTranslator shuffleInfoTranslator = new PrestoSparkLocalShuffleInfoTranslator(
                 PRESTO_SPARK_LOCAL_SHUFFLE_READ_INFO_JSON_CODEC,
                 PRESTO_SPARK_LOCAL_SHUFFLE_WRITE_INFO_JSON_CODEC);
-        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo(0, 0, 0, "/dummy/read/path");
+        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo(0, "/dummy/read/path");
+
         String stringSerializedReadInfo = shuffleInfoTranslator.createSerializedReadInfo(readInfo);
         PlanNodeId planNodeId = new PlanNodeId("planNodeId");
         List<TaskSource> sources = new ArrayList<>();
@@ -120,22 +121,19 @@ public class TestBatchTaskUpdateRequest
         PrestoSparkLocalShuffleInfoTranslator shuffleTranslator = new PrestoSparkLocalShuffleInfoTranslator(
                 PRESTO_SPARK_LOCAL_SHUFFLE_READ_INFO_JSON_CODEC,
                 PRESTO_SPARK_LOCAL_SHUFFLE_WRITE_INFO_JSON_CODEC);
-        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo(0, 0, 0, "/dummy/read/path");
-        PrestoSparkLocalShuffleWriteInfo writeInfo = new PrestoSparkLocalShuffleWriteInfo(1, 1, "/dummy/write/path");
+        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo(0, "/dummy/read/path");
+        PrestoSparkLocalShuffleWriteInfo writeInfo = new PrestoSparkLocalShuffleWriteInfo(1, "/dummy/write/path");
         String stringSerializedReadInfo = shuffleTranslator.createSerializedReadInfo(readInfo);
         String stringSerializedWriteInfo = shuffleTranslator.createSerializedWriteInfo(writeInfo);
         assertEquals(
                 stringSerializedReadInfo,
                 "{\n" +
-                        "  \"maxBytesPerPartition\" : 0,\n" +
                         "  \"numPartitions\" : 0,\n" +
-                        "  \"partitionId\" : 0,\n" +
                         "  \"rootPath\" : \"/dummy/read/path\"\n" +
                         "}");
         assertEquals(
                 stringSerializedWriteInfo,
                 "{\n" +
-                        "  \"maxBytesPerPartition\" : 1,\n" +
                         "  \"numPartitions\" : 1,\n" +
                         "  \"rootPath\" : \"/dummy/write/path\"\n" +
                         "}");

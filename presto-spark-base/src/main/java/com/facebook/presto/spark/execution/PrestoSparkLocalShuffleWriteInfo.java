@@ -19,28 +19,26 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class is a 1:1 strict API mapping to LocalShuffleInfo in
+ * presto-native-execution/presto_cpp/main/operators/LocalPersistentShuffle.h.
+ * Please refrain changes to this API class. If any changes have to be made to
+ * this class, one should make sure to make corresponding changes in the above
+ * C++ struct and its corresponding serde functionalities.
+ */
 public class PrestoSparkLocalShuffleWriteInfo
         implements PrestoSparkShuffleWriteInfo
 {
-    private final long maxBytesPerPartition;
     private final int numPartitions;
     private final String rootPath;
 
     @JsonCreator
     public PrestoSparkLocalShuffleWriteInfo(
-            @JsonProperty("maxBytesPerPartition") long maxBytesPerPartition,
             @JsonProperty("numPartitions") int numPartitions,
             @JsonProperty("rootPath") String rootPath)
     {
-        this.maxBytesPerPartition = maxBytesPerPartition;
         this.numPartitions = numPartitions;
         this.rootPath = requireNonNull(rootPath, "rootPath is null");
-    }
-
-    @JsonProperty
-    public long getMaxBytesPerPartition()
-    {
-        return maxBytesPerPartition;
     }
 
     @JsonProperty
@@ -59,7 +57,6 @@ public class PrestoSparkLocalShuffleWriteInfo
     public String toString()
     {
         return toStringHelper(this)
-                .add("maxBytesPerPartition", maxBytesPerPartition)
                 .add("numPartitions", numPartitions)
                 .add("rootPath", rootPath)
                 .toString();
