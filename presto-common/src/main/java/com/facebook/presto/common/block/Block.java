@@ -292,7 +292,7 @@ public interface Block
     {
         checkArrayRange(positions, offset, length);
 
-        return new DictionaryBlock(offset, length, this, positions, false, randomDictionaryId());
+        return new DictionaryBlock(offset, length, this, positions, false, randomDictionaryId(), false);
     }
 
     /**

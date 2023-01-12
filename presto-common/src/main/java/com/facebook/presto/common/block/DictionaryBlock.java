@@ -55,30 +55,30 @@ public class DictionaryBlock
 
     public DictionaryBlock(Block dictionary, int[] ids)
     {
-        this(requireNonNull(ids, "ids is null").length, dictionary, ids);
+        this(requireNonNull(ids, "ids is null").length, dictionary, ids, false);
     }
 
     public DictionaryBlock(int positionCount, Block dictionary, int[] ids)
     {
-        this(0, positionCount, dictionary, ids, false, randomDictionaryId());
+        this(0, positionCount, dictionary, ids, false, randomDictionaryId(), false);
     }
 
     public DictionaryBlock(int positionCount, Block dictionary, int[] ids, DictionaryId dictionaryId)
     {
-        this(0, positionCount, dictionary, ids, false, dictionaryId);
+        this(0, positionCount, dictionary, ids, false, dictionaryId, false);
     }
 
     public DictionaryBlock(int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted)
     {
-        this(0, positionCount, dictionary, ids, dictionaryIsCompacted, randomDictionaryId());
+        this(0, positionCount, dictionary, ids, dictionaryIsCompacted, randomDictionaryId(), false);
     }
 
     public DictionaryBlock(int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, DictionaryId dictionarySourceId)
     {
-        this(0, positionCount, dictionary, ids, dictionaryIsCompacted, dictionarySourceId);
+        this(0, positionCount, dictionary, ids, dictionaryIsCompacted, dictionarySourceId, false);
     }
 
-    public DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, DictionaryId dictionarySourceId)
+    public DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, DictionaryId dictionarySourceId, boolean doNotThrow)
     {
         requireNonNull(dictionary, "dictionary is null");
         requireNonNull(ids, "ids is null");
@@ -100,7 +100,7 @@ public class DictionaryBlock
                 }
             }
 
-            if (i == positionCount) {
+            if (i == positionCount && !doNotThrow) {
                 String message = "Dictionary block is same as the underlying block " + dictionary.getClass().getSimpleName()
                         + " Positions " + positionCount;
                 throw new UnnecessaryDictionaryBlockException(message);
@@ -455,7 +455,7 @@ public class DictionaryBlock
     public Block getRegion(int positionOffset, int length)
     {
         checkValidRegion(positionCount, positionOffset, length);
-        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, dictionarySourceId);
+        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, dictionarySourceId, true);
     }
 
     @Override
@@ -521,7 +521,7 @@ public class DictionaryBlock
         if (loadedDictionary == dictionary) {
             return this;
         }
-        return new DictionaryBlock(idsOffset, getPositionCount(), loadedDictionary, ids, false, randomDictionaryId());
+        return new DictionaryBlock(idsOffset, getPositionCount(), loadedDictionary, ids, false, randomDictionaryId(), false);
     }
 
     public Block getDictionary()
@@ -713,7 +713,7 @@ public class DictionaryBlock
             newIds[idsOffset + positionCount] = nullIndex;
         }
 
-        return new DictionaryBlock(idsOffset, positionCount + 1, newDictionary, newIds, isCompact(), getDictionarySourceId());
+        return new DictionaryBlock(idsOffset, positionCount + 1, newDictionary, newIds, isCompact(), getDictionarySourceId(), true);
     }
 
     @Override

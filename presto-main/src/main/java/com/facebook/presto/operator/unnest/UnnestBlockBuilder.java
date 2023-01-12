@@ -102,7 +102,7 @@ class UnnestBlockBuilder
             }
         }
 
-        if (position == source.getPositionCount()) {
+        if (outputPositionCount == source.getPositionCount()) {
             int i = 0;
             for (; i < position; i++) {
                 if (i != ids[i]) {

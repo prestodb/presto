@@ -204,7 +204,8 @@ public class OptimizedTypedSet
                     block,
                     selectedPositions.getPositions(),
                     false,
-                    DictionaryId.randomDictionaryId());
+                    DictionaryId.randomDictionaryId(),
+                    true);
         }
 
         Block firstBlock = blocks[0];

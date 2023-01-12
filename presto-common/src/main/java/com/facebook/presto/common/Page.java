@@ -82,6 +82,11 @@ public final class Page
         }
         else {
             this.blocks = blocksCopyRequired ? blocks.clone() : blocks;
+            for(Block block: blocks) {
+                if (block.getPositionCount() < positionCount) {
+                    throw new RuntimeException("Invalid block position");
+                }
+            }
         }
     }
 

@@ -63,7 +63,8 @@ public class InputPageProjection
                     block.getLoadedBlock(),
                     selectedPositions.getPositions(),
                     false,
-                    DictionaryId.randomDictionaryId());
+                    DictionaryId.randomDictionaryId(),
+                    true);
         }
         else if (selectedPositions.getOffset() == 0 && selectedPositions.size() == page.getPositionCount()) {
             result = block.getLoadedBlock();

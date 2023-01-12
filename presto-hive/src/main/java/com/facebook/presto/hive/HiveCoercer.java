@@ -510,7 +510,12 @@ public interface HiveCoercer
                     fields[i] = rowBlock.getField(i);
                 }
                 else {
-                    fields[i] = new DictionaryBlock(nullBlocks[i], ids);
+                    if (ids.length == 1) {
+                        fields[i] = nullBlocks[i];
+                    }
+                    else {
+                        fields[i] = new DictionaryBlock(nullBlocks[i], ids);
+                    }
                 }
             }
             boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];

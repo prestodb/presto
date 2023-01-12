@@ -754,7 +754,7 @@ public final class BlockAssertions
         }
 
         int[] ids = IntStream.range(0, positionCount + idsOffset).map(i -> ThreadLocalRandom.current().nextInt(max(dictionary.getPositionCount() / 10, 1))).toArray();
-        return new DictionaryBlock(idsOffset, positionCount, dictionary, ids, false, randomDictionaryId());
+        return new DictionaryBlock(idsOffset, positionCount, dictionary, ids, false, randomDictionaryId(), true);
     }
 
     // Note: Make sure positionCount is sufficiently large if nestedNullRate or primitiveNullRate is greater than 0

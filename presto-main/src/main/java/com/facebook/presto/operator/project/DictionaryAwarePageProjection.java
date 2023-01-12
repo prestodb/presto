@@ -160,26 +160,9 @@ public class DictionaryAwarePageProjection
                     // if dictionary was processed, produce a dictionary block; otherwise do normal processing
                     int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
 
-                    List<Block> dictionaryBlocks = dictionaryOutput.get();
-                    ImmutableList.Builder<Block> resultsBuilder = ImmutableList.builderWithExpectedSize(dictionaryBlocks.size());
-
-                    int inSequence = 0;
-                    for (; inSequence < outputIds.length; inSequence++) {
-                        if (inSequence != outputIds[inSequence]) {
-                            break;
-                        }
-                    }
-
-                    for (Block block : dictionaryBlocks) {
-                        if (block.getPositionCount() == inSequence) {
-                            resultsBuilder.add(block);
-                        }
-                        else {
-                            Block currentBlock = new DictionaryBlock(selectedPositions.size(), block, outputIds, false, sourceIdFunction.apply(dictionaryBlock));
-                            resultsBuilder.add(currentBlock);
-                        }
-                    }
-                    results = resultsBuilder.build();
+                    results = dictionaryOutput.get().stream()
+                            .map(block -> new DictionaryBlock(0, selectedPositions.size(), block, outputIds, false, sourceIdFunction.apply(dictionaryBlock), true))
+                            .collect(toImmutableList());
                     return true;
                 }
 

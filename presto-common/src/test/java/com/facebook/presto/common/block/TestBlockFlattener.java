@@ -282,7 +282,7 @@ public class TestBlockFlattener
     {
         int idsOffset = ThreadLocalRandom.current().nextInt(block.getPositionCount()) + 1;
         int[] dictionaryIndexes = createTestDictionaryIndexes(block.getPositionCount() + idsOffset);
-        return new DictionaryBlock(idsOffset, block.getPositionCount(), block, dictionaryIndexes, false, randomDictionaryId());
+        return new DictionaryBlock(idsOffset, block.getPositionCount(), block, dictionaryIndexes, false, randomDictionaryId(), true);
     }
 
     private static int[] createTestDictionaryIndexes(int valueCount)
