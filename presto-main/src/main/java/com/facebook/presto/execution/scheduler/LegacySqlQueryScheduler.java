@@ -429,8 +429,8 @@ public class LegacySqlQueryScheduler
                         stageExecution.beginScheduling();
 
                         // perform some scheduling work
-                        ScheduleResult result = stageExecutionAndScheduler.getStageScheduler()
-                                .schedule();
+                        StageScheduler stageScheduler = stageExecutionAndScheduler.getStageScheduler();
+                        ScheduleResult result = stageScheduler.schedule();
 
                         // Track leaf tasks if partial results are enabled
                         if (isPartialResultsEnabled(session) && stageExecutionAndScheduler.getStageExecution().getFragment().isLeaf()) {
@@ -443,7 +443,7 @@ public class LegacySqlQueryScheduler
                         // modify parent and children based on the results of the scheduling
                         if (result.isFinished()) {
                             if (stageExecution.getFragment().isLeaf()) {
-                                if (stageExecution.noMoreRetry()) {
+                                if (stageExecution.noMoreRetry() || stageScheduler instanceof FixedSourcePartitionedScheduler) {
                                     stageExecution.schedulingComplete();
                                 }
                             }
