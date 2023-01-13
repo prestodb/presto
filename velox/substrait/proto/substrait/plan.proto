@@ -25,6 +25,10 @@ message PlanRel {
 // Describe a set of operations to complete.
 // For compactness sake, identifiers are normalized at the plan level.
 message Plan {
+  // Substrait version of the plan. Optional up to 0.17.0, required for later
+  // versions.
+  Version version = 6;
+
   // a list of yaml specifications this plan may depend on
   repeated substrait.extensions.SimpleExtensionURI extension_uris = 1;
 
@@ -43,4 +47,37 @@ message Plan {
   // unused. In many cases, a consumer may be able to work with a plan even if
   // one or more message types defined here are unknown.
   repeated string expected_type_urls = 5;
+}
+
+// This message type can be used to deserialize only the version of a Substrait
+// Plan message. This prevents deserialization errors when there were breaking
+// changes between the Substrait version of the tool that produced the plan and
+// the Substrait version used to deserialize it, such that a consumer can emit
+// a more helpful error message in this case.
+message PlanVersion {
+  Version version = 6;
+}
+
+message Version {
+  // Substrait version number.
+  uint32 major_number = 1;
+  uint32 minor_number = 2;
+  uint32 patch_number = 3;
+
+  // If a particular version of Substrait is used that does not correspond to
+  // a version number exactly (for example when using an unofficial fork or
+  // using a version that is not yet released or is between versions), set this
+  // to the full git hash of the utilized commit of
+  // https://github.com/substrait-io/substrait (or fork thereof), represented
+  // using a lowercase hex ASCII string 40 characters in length. The version
+  // number above should be set to the most recent version tag in the history
+  // of that commit.
+  string git_hash = 4;
+
+  // Identifying information for the producer that created this plan. Under
+  // ideal circumstances, consumers should not need this information. However,
+  // it is foreseen that consumers may need to work around bugs in particular
+  // producers in practice, and therefore may need to know which producer
+  // created the plan.
+  string producer = 5;
 }
