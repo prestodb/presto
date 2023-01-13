@@ -1417,6 +1417,12 @@ bool Expr::applyFunctionWithPeeling(
   VectorPtr wrappedResult =
       context.applyWrapToPeeledResult(this->type(), peeledResult, applyRows);
   context.moveOrCopyResult(wrappedResult, rows, result);
+
+  // Recycle peeledResult if it's not owned by the result vector. Examples of
+  // when this can happen is when the result is a primitive constant vector, or
+  // when moveOrCopyResult copies wrappedResult content.
+  context.releaseVector(peeledResult);
+
   return true;
 }
 
