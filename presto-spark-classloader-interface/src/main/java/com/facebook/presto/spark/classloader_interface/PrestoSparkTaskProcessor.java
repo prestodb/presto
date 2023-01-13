@@ -22,6 +22,7 @@ import scala.collection.Iterator;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -58,14 +59,32 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
             // fragmentId -> Iterator<[partitionId, page]>
             Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputs)
     {
-        int partitionId = TaskContext.get().partitionId();
-        int attemptNumber = TaskContext.get().attemptNumber();
         return taskExecutorFactoryProvider.get().create(
-                partitionId,
-                attemptNumber,
+                TaskContext.get().partitionId(),
+                TaskContext.get().attemptNumber(),
                 serializedTaskDescriptor,
                 serializedTaskSources,
-                new PrestoSparkTaskInputs(shuffleInputs, broadcastInputs, emptyMap()),
+                new PrestoSparkJavaExecutionTaskInputs(shuffleInputs, broadcastInputs, emptyMap()),
+                taskInfoCollector,
+                shuffleStatsCollector,
+                outputType);
+    }
+
+    /**
+     * Overloaded member method that processes a native task.
+     */
+    public Iterator<Tuple2<MutablePartitionId, T>> process(
+            Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
+            // fragmentId -> Iterator<[partitionId, page]>
+            Map<String, PrestoSparkShuffleReadDescriptor> shuffleReadDescriptors,
+            Optional<PrestoSparkShuffleWriteDescriptor> shuffleWriteDescriptor)
+    {
+        return taskExecutorFactoryProvider.get().create(
+                TaskContext.get().partitionId(),
+                TaskContext.get().attemptNumber(),
+                serializedTaskDescriptor,
+                serializedTaskSources,
+                new PrestoSparkNativeTaskInputs(shuffleReadDescriptors, shuffleWriteDescriptor),
                 taskInfoCollector,
                 shuffleStatsCollector,
                 outputType);
