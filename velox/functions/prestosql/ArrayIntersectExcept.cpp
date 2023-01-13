@@ -31,7 +31,7 @@ struct SetWithNull {
     hasNull = false;
   }
 
-  std::unordered_set<T> set;
+  folly::F14FastSet<T> set;
   bool hasNull{false};
   static constexpr vector_size_t kInitialSetSize{128};
 };
