@@ -31,7 +31,6 @@
 #include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
-#include "presto_cpp/presto_protocol/WriteProtocol.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/SsdCache.h"
@@ -152,8 +151,6 @@ void PrestoServer::run() {
   registerShuffleInterfaceFactories();
   protocol::registerHiveConnectors();
   protocol::registerTpchConnector();
-  protocol::HiveNoCommitWriteProtocol::registerProtocol();
-  protocol::HiveTaskCommitWriteProtocol::registerProtocol();
 
   auto executor = std::make_shared<folly::IOThreadPoolExecutor>(
       systemConfig->numIoThreads(),
