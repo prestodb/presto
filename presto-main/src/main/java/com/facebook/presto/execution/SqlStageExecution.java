@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -31,6 +32,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -85,6 +87,7 @@ import static java.util.stream.Collectors.toList;
 @ThreadSafe
 public final class SqlStageExecution
 {
+    private static final Logger log = Logger.get(SqlStageExecution.class);
     public static final Set<ErrorCode> RECOVERABLE_ERROR_CODES = ImmutableSet.of(
             TOO_MANY_REQUESTS_FAILED.toErrorCode(),
             PAGE_TRANSPORT_ERROR.toErrorCode(),
@@ -139,6 +142,8 @@ public final class SqlStageExecution
 
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
+    @GuardedBy("this")
+    private final AtomicInteger totalRetries = new AtomicInteger();
 
     public static SqlStageExecution createSqlStageExecution(
             StageExecutionId stageExecutionId,
@@ -434,6 +439,14 @@ public final class SqlStageExecution
                 .collect(toImmutableList());
     }
 
+    public List<URI> getAllRemoteURI()
+    {
+        return tasks.values().stream()
+                .flatMap(Set::stream)
+                .map(x -> x.getTaskStatus().getSelf())
+                .collect(toImmutableList());
+    }
+
     // We only support removeRemoteSource for single task stage because stages with many tasks introduce coordinator to worker HTTP requests in bursty manner.
     // See https://github.com/prestodb/presto/pull/11065 for a similar issue.
     public void removeRemoteSourceIfSingleTaskStage(TaskId remoteSourceTaskId)
@@ -581,13 +594,16 @@ public final class SqlStageExecution
                 if (isRecoverable(rewrittenFailures)) {
                     try {
                         stageTaskRecoveryCallback.get().recover(taskId);
+                        totalRetries.incrementAndGet();
                         finishedTasks.add(taskId);
                     }
                     catch (Throwable t) {
                         // In an ideal world, this exception is not supposed to happen.
                         // However, it could happen, for example, if connector throws exception.
                         // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
-                        failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskId), t));
+                        failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s, #tasks: %s, #retries: %s", taskId, allTasks.size(), totalRetries.get()), t));
+                        List<URI> uris = getAllRemoteURI();
+                        log.info(format("All Leaf Tasks URIs: %s", uris.toString()));
                         stateMachine.transitionToFailed(failure);
                     }
                 }
