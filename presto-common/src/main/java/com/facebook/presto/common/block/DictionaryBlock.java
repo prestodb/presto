@@ -531,7 +531,7 @@ public class DictionaryBlock
         return uniqueIds == dictionary.getPositionCount();
     }
 
-    public DictionaryBlock compact()
+    public Block compact()
     {
         if (isCompact()) {
             return this;
@@ -558,6 +558,19 @@ public class DictionaryBlock
             return this;
         }
 
+        Block compactDictionary;
+        try {
+            compactDictionary = dictionary.copyPositions(dictionaryPositionsToCopy.elements(), 0, dictionaryPositionsToCopy.size());
+        }
+        catch (UnsupportedOperationException e) {
+            // ignore if copy positions is not supported for the dictionary block
+            return this;
+        }
+
+        if (positionCount == compactDictionary.getPositionCount()) {
+            return compactDictionary;
+        }
+
         // compact the dictionary
         int[] newIds = new int[positionCount];
         for (int i = 0; i < positionCount; i++) {
@@ -567,14 +580,8 @@ public class DictionaryBlock
             }
             newIds[i] = newId;
         }
-        try {
-            Block compactDictionary = dictionary.copyPositions(dictionaryPositionsToCopy.elements(), 0, dictionaryPositionsToCopy.size());
-            return new DictionaryBlock(positionCount, compactDictionary, newIds, true);
-        }
-        catch (UnsupportedOperationException e) {
-            // ignore if copy positions is not supported for the dictionary block
-            return this;
-        }
+
+        return new DictionaryBlock(positionCount, compactDictionary, newIds, true);
     }
 
     @Override

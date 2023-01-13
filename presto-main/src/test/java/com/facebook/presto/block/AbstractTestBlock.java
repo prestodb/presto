@@ -230,21 +230,19 @@ public abstract class AbstractTestBlock
         // Therefore, we split the `block` into two and assert again.
         //------------------Test Whole Block Sizes---------------------------------------------------
         // Assert sizeInBytes for the whole block.
-        long expectedBlockSize = copyBlockViaBlockSerde(block).getSizeInBytes();
-        assertEquals(block.getSizeInBytes(), expectedBlockSize);
+
+        long expectedBlockSize = verifyBlockSize(block);
+
+        long logicalSizeInBytes = verifyLogicalBlockSize(block);
         assertEquals(block.getRegionSizeInBytes(0, block.getPositionCount()), expectedBlockSize);
 
         // Assert logicalSize for the whole block. Note that copyBlockViaBlockSerde would flatten DictionaryBlock or RleBlock
-        long logicalSizeInBytes = block.getLogicalSizeInBytes();
-
-        long expectedLogicalBlockSize = copyBlockViaBlockSerde(block).getLogicalSizeInBytes();
-        assertEquals(logicalSizeInBytes, expectedLogicalBlockSize);
-        assertEquals(block.getRegionLogicalSizeInBytes(0, block.getPositionCount()), expectedLogicalBlockSize);
+        assertEquals(block.getRegionLogicalSizeInBytes(0, block.getPositionCount()), logicalSizeInBytes);
 
         // Assert approximateLogicalSize for the whole block
         long approximateLogicalSizeInBytes = block.getApproximateRegionLogicalSizeInBytes(0, block.getPositionCount());
 
-        long expectedApproximateLogicalBlockSize = expectedLogicalBlockSize;
+        long expectedApproximateLogicalBlockSize = logicalSizeInBytes;
         if (block instanceof DictionaryBlock) {
             int dictionaryPositionCount = ((DictionaryBlock) block).getDictionary().getPositionCount();
             expectedApproximateLogicalBlockSize = ((DictionaryBlock) block).getDictionary().getApproximateRegionLogicalSizeInBytes(0, dictionaryPositionCount) * block.getPositionCount() / dictionaryPositionCount;
@@ -257,9 +255,9 @@ public abstract class AbstractTestBlock
         int firstHalfPositionCount = firstHalf.getPositionCount();
 
         // Assert sizeInBytes for the firstHalf block.
-        long expectedFirstHalfSize = copyBlockViaBlockSerde(firstHalf).getSizeInBytes();
-        assertEquals(firstHalf.getSizeInBytes(), expectedFirstHalfSize);
-        assertEquals(block.getRegionSizeInBytes(0, firstHalfPositionCount), expectedFirstHalfSize);
+
+        long firstHalfSize = verifyBlockSize(firstHalf);
+        assertEquals(block.getRegionSizeInBytes(0, firstHalfPositionCount), firstHalfSize);
 
         // Assert logicalSize for the firstHalf block
         long firstHalfLogicalSizeInBytes = firstHalf.getLogicalSizeInBytes();
@@ -292,9 +290,8 @@ public abstract class AbstractTestBlock
         int secondHalfPositionCount = secondHalf.getPositionCount();
 
         // Assert sizeInBytes for the secondHalf block.
-        long expectedSecondHalfSize = copyBlockViaBlockSerde(secondHalf).getSizeInBytes();
-        assertEquals(secondHalf.getSizeInBytes(), expectedSecondHalfSize);
-        assertEquals(block.getRegionSizeInBytes(firstHalfPositionCount, secondHalfPositionCount), expectedSecondHalfSize);
+        long secondHalfSize = verifyBlockSize(secondHalf);
+        assertEquals(block.getRegionSizeInBytes(firstHalfPositionCount, secondHalfPositionCount), secondHalfSize);
 
         // Assert logicalSize for the secondHalf block.
         long secondHalfLogicalSizeInBytes = secondHalf.getLogicalSizeInBytes();
@@ -325,11 +322,45 @@ public abstract class AbstractTestBlock
         //----------------Test getPositionsSizeInBytes----------------------------------------
         boolean[] positions = new boolean[block.getPositionCount()];
         fill(positions, 0, firstHalfPositionCount, true);
-        assertEquals(block.getPositionsSizeInBytes(positions, firstHalfPositionCount), expectedFirstHalfSize);
+        assertEquals(block.getPositionsSizeInBytes(positions, firstHalfPositionCount), firstHalfSize);
         fill(positions, true);
         assertEquals(block.getPositionsSizeInBytes(positions, positions.length), expectedBlockSize);
         fill(positions, 0, firstHalfPositionCount, false);
-        assertEquals(block.getPositionsSizeInBytes(positions, positions.length - firstHalfPositionCount), expectedSecondHalfSize);
+        assertEquals(block.getPositionsSizeInBytes(positions, positions.length - firstHalfPositionCount), secondHalfSize);
+    }
+
+    private static long verifyLogicalBlockSize(Block block)
+    {
+        Block deserializedBlock = copyBlockViaBlockSerde(block);
+        if (block.getLogicalSizeInBytes() != deserializedBlock.getLogicalSizeInBytes()) {
+            // Dictionary Block on compaction when dictionary is not useful, it returns
+            // the underlying block directly. This results in block size differences.
+            String message = String.format("Size %s Expected %s classType %s",
+                    block.getLogicalSizeInBytes(),
+                    deserializedBlock.getLogicalSizeInBytes(),
+                    block.getClass().getName());
+            assertTrue(block instanceof DictionaryBlock, message);
+            Block compactBlock = ((DictionaryBlock) block).compact();
+            assertFalse(compactBlock instanceof DictionaryBlock, message + " Compact Block class " + compactBlock.getClass().getName());
+        }
+        return block.getLogicalSizeInBytes();
+    }
+
+    private static long verifyBlockSize(Block block)
+    {
+        Block deserializedBlock = copyBlockViaBlockSerde(block);
+        if (block.getSizeInBytes() != deserializedBlock.getSizeInBytes()) {
+            // Dictionary Block on compaction when dictionary is not useful, it returns
+            // the underlying block directly. This results in block size differences.
+            String message = String.format("Size %s Expected %s classType %s",
+                    block.getSizeInBytes(),
+                    deserializedBlock.getSizeInBytes(),
+                    block.getClass().getName());
+            assertTrue(block instanceof DictionaryBlock, message);
+            Block compactBlock = ((DictionaryBlock) block).compact();
+            assertFalse(compactBlock instanceof DictionaryBlock, message + " Compact Block class " + compactBlock.getClass().getName());
+        }
+        return block.getSizeInBytes();
     }
 
     // expectedValueType is required since otherwise the expected value type is unknown when expectedValue is null.
@@ -360,7 +391,7 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.copyRegion(0, position + 1), position, expectedValue);
         assertPositionValue(block.copyRegion(position, block.getPositionCount() - position), 0, expectedValue);
 
-        assertPositionValue(block.copyPositions(new int[] {position}, 0, 1), 0, expectedValue);
+        assertPositionValue(block.copyPositions(new int[]{position}, 0, 1), 0, expectedValue);
     }
 
     private <T> void assertPositionValue(Block block, int position, T expectedValue)

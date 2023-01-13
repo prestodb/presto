@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.block.IntArrayBlock;
+import com.facebook.presto.common.block.VariableWidthBlock;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -37,6 +38,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -129,8 +131,7 @@ public class TestDictionaryBlock
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
 
-        DictionaryBlock copyRegionDictionaryBlock = (DictionaryBlock) dictionaryBlock.copyRegion(1, 3);
-        assertTrue(copyRegionDictionaryBlock.isCompact());
+        VariableWidthBlock copyRegionDictionaryBlock = (VariableWidthBlock) dictionaryBlock.copyRegion(1, 3);
     }
 
     @Test
@@ -199,10 +200,10 @@ public class TestDictionaryBlock
     public void testCompact()
     {
         Slice[] expectedValues = createExpectedValues(5);
-        DictionaryBlock dictionaryBlock = createDictionaryBlockWithUnreferencedKeys(expectedValues, 10);
+        DictionaryBlock dictionaryBlock = createDictionaryBlockWithUnreferencedKeys(expectedValues, expectedValues.length * 2);
 
         assertFalse(dictionaryBlock.isCompact());
-        DictionaryBlock compactBlock = dictionaryBlock.compact();
+        DictionaryBlock compactBlock = (DictionaryBlock) dictionaryBlock.compact();
         assertNotEquals(dictionaryBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
 
         assertEquals(compactBlock.getDictionary().getPositionCount(), (expectedValues.length / 2) + 1);
@@ -210,16 +211,16 @@ public class TestDictionaryBlock
         assertDictionaryIds(compactBlock, 0, 1, 1, 2, 2, 0, 1, 1, 2, 2);
         assertTrue(compactBlock.isCompact());
 
-        DictionaryBlock reCompactedBlock = compactBlock.compact();
-        assertEquals(reCompactedBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
+        DictionaryBlock reCompactedBlock = (DictionaryBlock) compactBlock.compact();
+        assertSame(compactBlock, reCompactedBlock);
     }
 
     @Test
     public void testCompactAllKeysReferenced()
     {
         Slice[] expectedValues = createExpectedValues(5);
-        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 10);
-        DictionaryBlock compactBlock = dictionaryBlock.compact();
+        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, expectedValues.length * 2);
+        DictionaryBlock compactBlock = (DictionaryBlock) dictionaryBlock.compact();
 
         // When there is nothing to compact, we return the same block
         assertEquals(compactBlock.getDictionary(), dictionaryBlock.getDictionary());
@@ -234,9 +235,9 @@ public class TestDictionaryBlock
     public void testBasicGetPositions()
     {
         Slice[] expectedValues = createExpectedValues(10);
-        Block dictionaryBlock = new DictionaryBlock(createSlicesBlock(expectedValues), new int[] {0, 1, 2, 3, 4, 5});
+        Block dictionaryBlock = new DictionaryBlock(createSlicesBlock(expectedValues), new int[] {0, 1, 2, 3, 4, 5, 0});
         assertBlock(dictionaryBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[0], expectedValues[1], expectedValues[2], expectedValues[3],
-                expectedValues[4], expectedValues[5]});
+                expectedValues[4], expectedValues[5], expectedValues[0]});
         DictionaryId dictionaryId = ((DictionaryBlock) dictionaryBlock).getDictionarySourceId();
 
         // first getPositions
@@ -300,7 +301,7 @@ public class TestDictionaryBlock
     @Test
     public void testCompactGetPositions()
     {
-        DictionaryBlock block = new DictionaryBlock(createSlicesBlock(createExpectedValues(10)), new int[] {0, 1, 2, 3, 4, 5}).compact();
+        DictionaryBlock block = (DictionaryBlock) new DictionaryBlock(createSlicesBlock(createExpectedValues(10)), new int[] {0, 1, 2, 3, 4, 5, 0}).compact();
 
         // 3, 3, 4, 5, 2, 0, 1, 1
         block = (DictionaryBlock) block.getPositions(new int[] {3, 3, 4, 5, 2, 0, 1, 1}, 0, 7);
@@ -314,7 +315,7 @@ public class TestDictionaryBlock
         block = (DictionaryBlock) block.getPositions(new int[] {0, 2, 0, 2, 0}, 0, 5);
         assertFalse(block.isCompact());
 
-        block = block.compact();
+        block = (DictionaryBlock) block.compact();
         // 3, 4, 4, 4
         block = (DictionaryBlock) block.getPositions(new int[] {0, 1, 1, 1}, 0, 4);
         assertTrue(block.isCompact());
@@ -323,7 +324,7 @@ public class TestDictionaryBlock
         block = (DictionaryBlock) block.getPositions(new int[] {1, 1, 1, 1}, 0, 4);
         assertFalse(block.isCompact());
 
-        block = block.compact();
+        block = (DictionaryBlock) block.compact();
         // 4
         block = (DictionaryBlock) block.getPositions(new int[] {0}, 0, 1);
         assertTrue(block.isCompact());
@@ -332,10 +333,7 @@ public class TestDictionaryBlock
         block = (DictionaryBlock) block.getPositions(new int[] {}, 0, 0);
         assertFalse(block.isCompact());
 
-        block = block.compact();
-        // empty
-        block = (DictionaryBlock) block.getPositions(new int[] {}, 0, 0);
-        assertTrue(block.isCompact());
+        VariableWidthBlock variableWidthBlockBlock = (VariableWidthBlock) block.compact();
     }
 
     @Test
