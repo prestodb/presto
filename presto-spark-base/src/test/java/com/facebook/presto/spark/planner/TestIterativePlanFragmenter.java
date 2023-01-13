@@ -105,6 +105,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spark.planner.TestIterativePlanFragmenter.CanonicalTestFragment.toCanonicalTestFragment;
@@ -141,7 +142,10 @@ public class TestIterativePlanFragmenter
     @BeforeClass
     public void setUp()
     {
-        session = testSessionBuilder().setCatalog("tpch").build();
+        session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, "false")
+                .build();
 
         CatalogManager catalogManager = new CatalogManager();
         catalogManager.registerCatalog(createBogusTestingCatalog("tpch"));
