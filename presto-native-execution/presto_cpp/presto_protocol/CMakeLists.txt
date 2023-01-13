@@ -14,10 +14,6 @@ add_library(presto_protocol OBJECT presto_protocol.cpp Base64Util.cpp
 
 target_link_libraries(presto_protocol velox_type ${RE2})
 
-add_library(presto_write_protocol WriteProtocol.cpp)
-
-target_link_libraries(presto_write_protocol velox_hive_connector)
-
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()

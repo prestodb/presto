@@ -116,27 +116,8 @@ connector::hive::LocationHandle::TableType toTableType(
       return connector::hive::LocationHandle::TableType::kNew;
     case protocol::TableType::EXISTING:
       return connector::hive::LocationHandle::TableType::kExisting;
-    case protocol::TableType::TEMPORARY:
-      return connector::hive::LocationHandle::TableType::kTemporary;
     default:
       VELOX_UNSUPPORTED("Unsupported table type: {}.", toJsonString(tableType));
-  }
-}
-
-connector::hive::LocationHandle::WriteMode toWriteMode(
-    protocol::WriteMode writeMode) {
-  switch (writeMode) {
-    case protocol::WriteMode::STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
-      return connector::hive::LocationHandle::WriteMode::
-          kStageAndMoveToTargetDirectory;
-    case protocol::WriteMode::DIRECT_TO_TARGET_NEW_DIRECTORY:
-      return connector::hive::LocationHandle::WriteMode::
-          kDirectToTargetNewDirectory;
-    case protocol::WriteMode::DIRECT_TO_TARGET_EXISTING_DIRECTORY:
-      return connector::hive::LocationHandle::WriteMode::
-          kDirectToTargetExistingDirectory;
-    default:
-      VELOX_UNSUPPORTED("Unsupported write mode: {}.", toJsonString(writeMode));
   }
 }
 
@@ -145,8 +126,7 @@ std::shared_ptr<connector::hive::LocationHandle> toLocationHandle(
   return std::make_shared<connector::hive::LocationHandle>(
       locationHandle.targetPath,
       locationHandle.writePath,
-      toTableType(locationHandle.tableType),
-      toWriteMode(locationHandle.writeMode));
+      toTableType(locationHandle.tableType));
 }
 
 int64_t toInt64(
@@ -1759,7 +1739,7 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
       node->columnNames,
       insertTableHandle,
       outputType,
-      connector::WriteProtocol::CommitStrategy::kNoCommit,
+      connector::CommitStrategy::kNoCommit,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
