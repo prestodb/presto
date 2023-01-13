@@ -11,6 +11,7 @@ metadata:
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 data:
   node.properties: |-
+    node.location={{ .Values.node.location }}
     node.environment={{ .Values.node.environment }}
     node.data-dir={{ .Values.node.dataDir }}
   jvm.config: |-

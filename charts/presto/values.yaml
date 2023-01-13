@@ -60,6 +60,7 @@ mode: cluster
 
 # Common node properties, see https://prestodb.io/docs/current/installation/deployment.html#node-properties
 node:
+  location: presto.local
   environment: development
   dataDir: /var/presto/data
 
