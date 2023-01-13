@@ -265,9 +265,13 @@ public class IterativePlanFragmenter
         public PlanNode visitRemoteSource(RemoteSourceNode node, RewriteContext<FragmentProperties> context)
         {
             List<SubPlan> childSubPlans = node.getSourceFragmentIds().stream()
-                    .map(id -> subPlanByFragmentId.get(id))
+                    .map(subPlanByFragmentId::get)
                     .collect(toImmutableList());
             context.get().addChildren(childSubPlans);
+
+            // the partitioning handle should be the same as the handle from the partitioning scheme
+            // of any of the input fragments.
+            setDistributionForExchange(node.getExchangeType(), childSubPlans.get(0).getFragment().getPartitioningScheme(), context);
             return super.visitRemoteSource(node, context);
         }
 
