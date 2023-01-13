@@ -333,6 +333,13 @@ TEST_F(E2EFilterTest, lazyStruct) {
 }
 
 TEST_F(E2EFilterTest, filterStruct) {
+#ifdef TSAN_BUILD
+  // The test is running slow under TSAN; reduce the number of combinations to
+  // avoid timeout.
+  constexpr int kNumCombinations = 10;
+#else
+  constexpr int kNumCombinations = 40;
+#endif
   // The data has a struct member with one second level struct
   // column. Both structs have a column that gets filtered 'nestedxxx'
   // and one that does not 'dataxxx'.
@@ -347,7 +354,7 @@ TEST_F(E2EFilterTest, filterStruct) {
        "outer_struct.inner_struct",
        "outer_struct.nested1",
        "outer_struct.inner_struct.nested2"},
-      40,
+      kNumCombinations,
       true,
       false);
 }
