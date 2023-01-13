@@ -74,9 +74,8 @@ The query ranks orders for each clerk by price:
           rank() OVER (PARTITION BY clerk ORDER BY totalprice DESC) AS rnk
    FROM orders ORDER BY clerk, rnk;
 
-=================
 Ranking functions
-=================
+_________________
 
 .. function:: cume_dist() -> bigint
 
@@ -114,9 +113,8 @@ The ranking is performed for each window partition.
 Returns a unique, sequential number for each row, starting with one, according to the ordering of rows
 within the window partition.
 
-=================
 Value functions
-=================
+_______________
 
 .. function:: nth_value(x, offset) -> [same as input]
 
@@ -124,9 +122,8 @@ Returns the value at the specified offset from the beginning of the window. Offs
 can be any scalar expression. If the offset is null or greater than the number of values in the window, null is
 returned. It is an error for the offset to be zero or negative.
 
-===================
 Aggregate functions
-===================
+___________________
 
 All aggregate functions can be used as window functions by adding the OVER clause. The aggregate function is computed
 for each row over the rows within the current row's window frame.
