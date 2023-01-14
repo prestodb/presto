@@ -23,10 +23,16 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -44,6 +50,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -52,6 +59,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.MaterializedViewUtils;
 import com.facebook.presto.sql.SqlFormatterUtil;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -194,6 +202,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -281,6 +290,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.singletonList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
@@ -1578,6 +1588,13 @@ class StatementAnalyzer
             if (!(samplePercentageObject instanceof Number)) {
                 throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage should evaluate to a numeric expression");
             }
+            Expression samplePercentage = relation.getSamplePercentage();
+            Type samplePercentageType = expressionTypes.get(NodeRef.of(samplePercentage));
+            if (convertibleToDoubleWithCast(samplePercentageType)) {
+                InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
+                FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CAST, samplePercentageType, DoubleType.DOUBLE);
+                samplePercentageObject =  functionInvoker.invoke(cast, session.getSqlFunctionProperties(), singletonList(samplePercentageObject));
+            }
 
             double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
 
@@ -1591,6 +1608,18 @@ class StatementAnalyzer
             analysis.setSampleRatio(relation, samplePercentageValue / 100);
             Scope relationScope = process(relation.getRelation(), scope);
             return createAndAssignScope(relation, scope, relationScope.getRelationType());
+        }
+
+        private boolean convertibleToDoubleWithCast(Type type)
+        {
+            return type instanceof DecimalType
+                    || DoubleType.DOUBLE.equals(type)
+                    || RealType.REAL.equals(type)
+                    || BigintType.BIGINT.equals(type)
+                    || IntegerType.INTEGER.equals(type)
+                    || SmallintType.SMALLINT.equals(type)
+                    || TinyintType.TINYINT.equals(type)
+                    || BooleanType.BOOLEAN.equals(type);
         }
 
         @Override
