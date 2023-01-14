@@ -403,9 +403,7 @@ public final class InternalResourceGroupManager<C>
     {
         int queriesQueuedInternal = 0;
         for (RootInternalResourceGroup rootGroup : rootGroups) {
-            synchronized (rootGroup) {
-                queriesQueuedInternal += getQueriesQueuedOnInternal(rootGroup);
-            }
+            queriesQueuedInternal += rootGroup.getQueriesQueuedOnInternal(isResourceManagerEnabled ? Optional.of(resourceGroupRuntimeInfos) : Optional.empty());
         }
 
         return queriesQueuedInternal;
@@ -419,29 +417,6 @@ public final class InternalResourceGroupManager<C>
         return lastSchedulingCycleRunTimeMs.get() == 0L ? lastSchedulingCycleRunTimeMs.get() : currentTimeMillis() - lastSchedulingCycleRunTimeMs.get();
     }
 
-    private int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
-    {
-        if (resourceGroup.subGroups().isEmpty()) {
-            int queuedQueries = resourceGroup.getQueuedQueries();
-            int runningQueries = resourceGroup.getRunningQueries();
-            if (isResourceManagerEnabled) {
-                ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfos.get().get(resourceGroup.getId());
-                if (resourceGroupRuntimeInfo != null) {
-                    queuedQueries += resourceGroupRuntimeInfo.getQueuedQueries();
-                    runningQueries += resourceGroupRuntimeInfo.getRunningQueries();
-                }
-            }
-            return Math.max(Math.min(queuedQueries, resourceGroup.getSoftConcurrencyLimit() - runningQueries), 0);
-        }
-
-        int queriesQueuedInternal = 0;
-        for (InternalResourceGroup subGroup : resourceGroup.subGroups()) {
-            queriesQueuedInternal += getQueriesQueuedOnInternal(subGroup);
-        }
-
-        return queriesQueuedInternal;
-    }
-
     @Managed
     public int getTaskLimitExceeded()
     {
@@ -452,9 +427,7 @@ public final class InternalResourceGroupManager<C>
     {
         int taskCount = 0;
         for (RootInternalResourceGroup rootGroup : rootGroups) {
-            synchronized (rootGroup) {
-                taskCount += rootGroup.getRunningTaskCount();
-            }
+            taskCount += rootGroup.getRunningTaskCount();
         }
         return taskCount;
     }
