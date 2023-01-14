@@ -22,7 +22,7 @@ using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
 namespace {
-constexpr int32_t kLogEveryN = 128;
+constexpr int32_t kLogEveryN = 32;
 }
 
 std::shared_ptr<MemoryUsageTracker> MemoryUsageTracker::create(
@@ -36,7 +36,7 @@ MemoryUsageTracker::~MemoryUsageTracker() {
   VELOX_DCHECK_EQ(usedReservationBytes_, 0);
   if (usedReservationBytes_ != 0) {
     LOG_EVERY_N(ERROR, kLogEveryN)
-        << "usedReservationBytes_ is not zero " << toString();
+        << "used reservation is not zero " << toString();
   }
   VELOX_CHECK(
       (reservationBytes_ == 0) && (grantedReservationBytes_ == 0) &&
@@ -199,7 +199,7 @@ void MemoryUsageTracker::sanityCheckLocked() const {
   VELOX_DCHECK_GE(usedReservationBytes_, 0);
   if (usedReservationBytes_ < 0) {
     LOG_EVERY_N(ERROR, kLogEveryN)
-        << "usedReservationBytes_ is negative " << toString();
+        << "used reservation is negative " << toString();
   }
 }
 
@@ -223,29 +223,24 @@ void MemoryUsageTracker::maybeUpdatePeakBytes(int64_t newPeak) {
 }
 
 void MemoryUsageTracker::checkNonNegativeSizes(const char* errmsg) const {
-  // TODO: make these CHECK failures after making usage tracker thread-safe.
-  if (reservationBytes_ < 0) {
-    LOG_EVERY_N(ERROR, kLogEveryN) << "MEMORY: Negagtive reservation bytes "
-                                   << errmsg << " " << reservationBytes_;
-  }
+  VELOX_CHECK_GE(reservationBytes_, 0, "Negative reservations: {}", toString());
 }
 
 std::string MemoryUsageTracker::toString() const {
   std::stringstream out;
-  out << "<tracker used " << (currentBytes() >> 20) << "MB available "
-      << (availableReservation() >> 20) << "MB";
+  out << "<tracker used " << succinctBytes(currentBytes()) << " available "
+      << succinctBytes(availableReservation());
   if (maxMemory() != kMaxMemory) {
-    out << " limit " << (maxMemory() >> 20) << "MB";
+    out << " limit " << succinctBytes(maxMemory());
   }
-  out << " (usedReservationBytes_ " << usedReservationBytes_
-      << "B grantedReservationBytes_ " << grantedReservationBytes_
-      << "B reservationBytes_ " << reservationBytes_
-      << "B minReservationBytes_ " << minReservationBytes_ << "B)";
-  out << " numAllocs_[" << numAllocs_ << "] numFrees_[" << numFrees_
-      << "] numReserves_[" << numReserves_ << "]"
-      << " numReleases_[" << numReleases_ << "]"
-      << " numCollisions_[" << numCollisions_ << "]"
-      << " numChildren_[" << numChildren_ << "]";
+  out << " reservation [used " << succinctBytes(usedReservationBytes_)
+      << ", granted " << succinctBytes(grantedReservationBytes_)
+      << ", reserved " << succinctBytes(reservationBytes_) << ", min "
+      << succinctBytes(minReservationBytes_);
+  out << "] counters [allocs " << numAllocs_ << ", frees " << numFrees_
+      << ", reserves " << numReserves_ << ", releases " << numReleases_
+      << ", collisions " << numCollisions_ << ", children " << numChildren_
+      << "])";
   out << ">";
   return out.str();
 }

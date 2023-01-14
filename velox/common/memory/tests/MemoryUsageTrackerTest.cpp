@@ -73,7 +73,13 @@ TEST_F(MemoryUsageTrackerTest, stats) {
   ASSERT_EQ(
       child->stats().toString(),
       "peakBytes:9437184 cumulativeBytes:9437184 numAllocs:2 numFrees:1 numReserves:0 numReleases:0 numCollisions:0 numChildren:0");
+  ASSERT_EQ(
+      child->toString(),
+      "<tracker used 1000B available 1023.02KB limit 1.00GB reservation [used 1000B, granted 1.00MB, reserved 1.00MB, min 0B] counters [allocs 2, frees 1, reserves 0, releases 0, collisions 0, children 0])>");
   child->update(-1000);
+  ASSERT_EQ(
+      child->toString(),
+      "<tracker used 0B available 0B limit 1.00GB reservation [used 0B, granted 0B, reserved 0B, min 0B] counters [allocs 2, frees 2, reserves 0, releases 0, collisions 0, children 0])>");
 }
 
 TEST_F(MemoryUsageTrackerTest, update) {
