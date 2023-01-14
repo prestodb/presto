@@ -1593,7 +1593,7 @@ class StatementAnalyzer
             if (convertibleToDoubleWithCast(samplePercentageType)) {
                 InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
                 FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CAST, samplePercentageType, DoubleType.DOUBLE);
-                samplePercentageObject =  functionInvoker.invoke(cast, session.getSqlFunctionProperties(), singletonList(samplePercentageObject));
+                samplePercentageObject = functionInvoker.invoke(cast, session.getSqlFunctionProperties(), singletonList(samplePercentageObject));
             }
 
             double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
