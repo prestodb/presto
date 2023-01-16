@@ -24,6 +24,7 @@ import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
 import com.facebook.presto.hive.s3.HiveS3Module;
+import com.facebook.presto.hive.security.HiveSecurityModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
@@ -80,6 +81,7 @@ public class HudiConnectorFactory
                     new JsonModule(),
                     new HudiModule(classLoader, catalogName),
                     new HiveS3Module(catalogName),
+                    new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
                     new HiveMetastoreModule(catalogName, metastore),
                     new CachingModule(),

@@ -1,0 +1,11 @@
+{
+  "tables": [
+    {
+      "user": "admin",
+      "privileges": ["SELECT"]
+    },
+    {
+      "privileges": [""]
+    }
+  ]
+}

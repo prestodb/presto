@@ -19,6 +19,7 @@ import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
 import com.facebook.presto.hive.s3.HiveS3Module;
+import com.facebook.presto.hive.security.HiveSecurityModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
@@ -57,6 +58,7 @@ public class DeltaConnectorFactory
                     new DeltaModule(catalogName, context.getTypeManager()),
                     new HiveS3Module(catalogName),
                     new HiveGcsModule(),
+                    new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
                     new HiveMetastoreModule(catalogName, Optional.empty()),
                     binder -> {
