@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
@@ -119,7 +120,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    public void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Session session)
     {
     }
 

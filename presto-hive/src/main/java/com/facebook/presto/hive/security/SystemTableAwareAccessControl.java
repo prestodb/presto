@@ -16,6 +16,7 @@ package com.facebook.presto.hive.security;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.plugin.base.security.ForwardingConnectorAccessControl;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -143,9 +144,9 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
-    public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, ConnectorSession session)
     {
-        delegate.checkCanInsertIntoTable(transactionHandle, identity, context, tableName);
+        delegate.checkCanInsertIntoTable(transactionHandle, identity, context, tableName, session);
     }
 
     @Override
