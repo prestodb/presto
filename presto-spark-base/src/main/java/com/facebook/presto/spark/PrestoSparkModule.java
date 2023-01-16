@@ -126,6 +126,7 @@ import com.facebook.presto.spark.node.PrestoSparkInternalNodeManager;
 import com.facebook.presto.spark.node.PrestoSparkNodePartitioningManager;
 import com.facebook.presto.spark.node.PrestoSparkQueryManager;
 import com.facebook.presto.spark.node.PrestoSparkTaskManager;
+import com.facebook.presto.spark.planner.IterativePlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
@@ -420,6 +421,7 @@ public class PrestoSparkModule
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
+        binder.bind(IterativePlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
         binder.bind(AdaptivePlanOptimizers.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerManager.class).in(Scopes.SINGLETON);
