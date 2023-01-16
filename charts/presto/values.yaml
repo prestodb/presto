@@ -31,15 +31,18 @@ serviceAccount:
 
 # Common environment variables (templated)
 env: []
+# Common envFrom items to set up environment variables (templated)
 envFrom: []
 
-# Common volumes (templated)
-volumes: []
+# Additional common volumes (templated)
+volumes:
+# Additional common volumeMounts (templated)
 volumeMounts: []
 
-# Common extra and init containers (templated)
-containers: []
+# Additional common init containers (templated)
 initContainers: []
+# Additional common containers (templated)
+containers: []
 
 # Constrain all presto pods to specific nodes
 nodeSelector: {}
@@ -79,28 +82,34 @@ config: |-
 log: |-
   com.facebook.presto=INFO
 
+# Coordinator configuration
 coordinator:
   # Coordinator JVM options (overwrites common JVM options)
   jvm: ""
-  # Command and arguments to launch coordinator (templated)
+  # Command to launch coordinator (templated)
   command: ["sh", "-c", "$PRESTO_HOME/bin/launcher run"]
+  # Arguments to launch coordinator (templated)
   args: ~
   # Additional coordinator environment variables (templated)
   env: []
+  # Additional coordinator envFrom items to set up environment variables (templated)
   envFrom: []
   # Additional coordinator volumes (templated)
   volumes: []
+  # Additional coordinator volumeMounts (templated)
   volumeMounts: []
-  # Additional coordinator extra and init containers (templated)
-  containers: []
+  # Additional coordinator init containers (templated)
   initContainers: []
-  # Coordinator liveness and readiness probes
+  # Additional coordinator containers (templated)
+  containers: []
+  # Coordinator liveness probe
   livenessProbe:
     initialDelaySeconds: 45
     periodSeconds: 10
     timeoutSeconds: 2
     failureThreshold: 3
     successThreshold: 1
+  # Coordinator readiness probe
   readinessProbe:
     initialDelaySeconds: 45
     periodSeconds: 10
@@ -121,29 +130,36 @@ coordinator:
   # Coordinator security context (overwrites default security context)
   securityContext: {}
 
+# Worker configuration
 worker:
+  # Number of workers
   replicas: 2
   # Worker JVM options (overwrites common JVM options)
   jvm: ""
-  # Command and arguments to launch worker (templated)
+  # Command to launch worker (templated)
   command: ["sh", "-c", "$PRESTO_HOME/bin/launcher run"]
+  # Arguments to launch worker (templated)
   args: ~
   # Additional worker environment variables (templated)
   env: []
+  # Additional worker envFrom items to set up environment variables (templated)
   envFrom: []
   # Additional worker volumes (templated)
   volumes: []
+  # Additional worker volumeMounts (templated)
   volumeMounts: []
-  # Additional worker extra and init containers (templated)
-  containers: []
+  # Additional worker init containers (templated)
   initContainers: []
-  # Worker liveness and readiness probes
+  # Additional worker containers (templated)
+  containers: []
+  # Worker liveness probe
   livenessProbe:
     initialDelaySeconds: 45
     periodSeconds: 10
     timeoutSeconds: 2
     failureThreshold: 3
     successThreshold: 1
+  # Worker readiness probe
   readinessProbe:
     initialDelaySeconds: 45
     periodSeconds: 10
@@ -164,6 +180,7 @@ worker:
   # Worker security context (overwrites default security context)
   securityContext: {}
 
+# Catalogs
 catalog:
   jmx: |-
     connector.name=jmx
