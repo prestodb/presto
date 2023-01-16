@@ -120,7 +120,7 @@ public class BackgroundHiveSplitLoader
                 try {
                     future = loadSplits();
                 }
-                catch (Exception e) {
+                catch (Throwable e) {
                     if (e instanceof IOException) {
                         e = new PrestoException(HIVE_FILESYSTEM_ERROR, e);
                     }
