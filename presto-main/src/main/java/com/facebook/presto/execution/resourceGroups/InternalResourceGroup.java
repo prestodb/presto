@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -75,6 +76,8 @@ import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
+import static java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 /**
  * Resource groups form a tree, and all access to a group is guarded by the root of the tree.
@@ -96,7 +99,7 @@ public class InternalResourceGroup
     private final boolean staticResourceGroup;
     private final Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo;
     private final Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate;
-
+    private final ReentrantReadWriteLock lock;
     // Configuration
     // =============
     @GuardedBy("root")
@@ -172,10 +175,12 @@ public class InternalResourceGroup
         if (parent.isPresent()) {
             id = new ResourceGroupId(parent.get().id, name);
             root = parent.get().root;
+            this.lock = parent.get().lock;
         }
         else {
             id = new ResourceGroupId(name);
             root = this;
+            this.lock = new ReentrantReadWriteLock();
         }
         this.staticResourceGroup = staticResourceGroup;
         this.additionalRuntimeInfo = requireNonNull(additionalRuntimeInfo, "additionalRuntimeInfo is null");
@@ -184,7 +189,8 @@ public class InternalResourceGroup
 
     public ResourceGroupInfo getResourceGroupInfo(boolean includeQueryInfo, boolean summarizeSubgroups, boolean includeStaticSubgroupsOnly)
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return new ResourceGroupInfo(
                     id,
                     getState(),
@@ -205,11 +211,15 @@ public class InternalResourceGroup
                             .collect(toImmutableList()),
                     includeQueryInfo ? getAggregatedRunningQueriesInfo() : null);
         }
+        finally {
+            releaseReadLock();
+        }
     }
 
     public ResourceGroupInfo getInfo()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return new ResourceGroupInfo(
                     id,
                     getState(),
@@ -229,11 +239,15 @@ public class InternalResourceGroup
                             .collect(toImmutableList()),
                     null);
         }
+        finally {
+            releaseReadLock();
+        }
     }
 
     private ResourceGroupInfo getSummaryInfo()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return new ResourceGroupInfo(
                     id,
                     getState(),
@@ -250,6 +264,9 @@ public class InternalResourceGroup
                     null,
                     null);
         }
+        finally {
+            releaseReadLock();
+        }
     }
 
     boolean isStaticResourceGroup()
@@ -259,7 +276,8 @@ public class InternalResourceGroup
 
     private ResourceGroupState getState()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             if (canRunMore()) {
                 return CAN_RUN;
             }
@@ -270,11 +288,15 @@ public class InternalResourceGroup
                 return FULL;
             }
         }
+        finally {
+            releaseReadLock();
+        }
     }
 
     private List<QueryStateInfo> getAggregatedRunningQueriesInfo()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             if (subGroups.isEmpty()) {
                 return runningQueries.stream()
                         .map(ManagedQueryExecution::getBasicQueryInfo)
@@ -287,11 +309,15 @@ public class InternalResourceGroup
                     .flatMap(List::stream)
                     .collect(toImmutableList());
         }
+        finally {
+            releaseReadLock();
+        }
     }
 
     public List<ResourceGroupInfo> getPathToRoot()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             ImmutableList.Builder<ResourceGroupInfo> builder = ImmutableList.builder();
             InternalResourceGroup group = this;
             while (group != null) {
@@ -300,6 +326,9 @@ public class InternalResourceGroup
             }
 
             return builder.build();
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
@@ -312,8 +341,12 @@ public class InternalResourceGroup
     @Managed
     public int getRunningQueries()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return runningQueries.size() + descendantRunningQueries;
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
@@ -332,15 +365,20 @@ public class InternalResourceGroup
     @Managed
     public int getQueuedQueries()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return queuedQueries.size() + descendantQueuedQueries;
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
     @Managed
     public int getWaitingQueuedQueries()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             // For leaf group, when no queries can run, all queued queries are waiting for resources on this resource group.
             if (subGroups.isEmpty()) {
                 return queuedQueries.size();
@@ -356,40 +394,56 @@ public class InternalResourceGroup
 
             return waitingQueuedQueries;
         }
+        finally {
+            releaseReadLock();
+        }
     }
 
     @Override
     public DataSize getSoftMemoryLimit()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return new DataSize(softMemoryLimitBytes, BYTE);
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
     @Override
     public void setSoftMemoryLimit(DataSize limit)
     {
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             boolean oldCanRun = canRunMore();
             this.softMemoryLimitBytes = limit.toBytes();
             if (canRunMore() != oldCanRun) {
                 updateEligibility();
             }
         }
+        finally {
+            releaseWriteLock();
+        }
     }
 
     @Override
     public Duration getSoftCpuLimit()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return new Duration(softCpuLimitMillis, MILLISECONDS);
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
     @Override
     public void setSoftCpuLimit(Duration limit)
     {
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             if (limit.toMillis() > hardCpuLimitMillis) {
                 setHardCpuLimit(limit);
             }
@@ -399,20 +453,28 @@ public class InternalResourceGroup
                 updateEligibility();
             }
         }
+        finally {
+            releaseWriteLock();
+        }
     }
 
     @Override
     public Duration getHardCpuLimit()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return new Duration(hardCpuLimitMillis, MILLISECONDS);
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
     @Override
     public void setHardCpuLimit(Duration limit)
     {
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             if (limit.toMillis() < softCpuLimitMillis) {
                 setSoftCpuLimit(limit);
             }
@@ -422,13 +484,20 @@ public class InternalResourceGroup
                 updateEligibility();
             }
         }
+        finally {
+            releaseWriteLock();
+        }
     }
 
     @Override
     public long getCpuQuotaGenerationMillisPerSecond()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return cpuQuotaGenerationMillisPerSecond;
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
@@ -436,16 +505,24 @@ public class InternalResourceGroup
     public void setCpuQuotaGenerationMillisPerSecond(long rate)
     {
         checkArgument(rate > 0, "Cpu quota generation must be positive");
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             cpuQuotaGenerationMillisPerSecond = rate;
+        }
+        finally {
+            releaseWriteLock();
         }
     }
 
     @Override
     public int getSoftConcurrencyLimit()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return softConcurrencyLimit;
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
@@ -453,12 +530,16 @@ public class InternalResourceGroup
     public void setSoftConcurrencyLimit(int softConcurrencyLimit)
     {
         checkArgument(softConcurrencyLimit >= 0, "softConcurrencyLimit is negative");
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             boolean oldCanRun = canRunMore();
             this.softConcurrencyLimit = softConcurrencyLimit;
             if (canRunMore() != oldCanRun) {
                 updateEligibility();
             }
+        }
+        finally {
+            releaseWriteLock();
         }
     }
 
@@ -466,8 +547,12 @@ public class InternalResourceGroup
     @Override
     public int getHardConcurrencyLimit()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return hardConcurrencyLimit;
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
@@ -476,12 +561,16 @@ public class InternalResourceGroup
     public void setHardConcurrencyLimit(int hardConcurrencyLimit)
     {
         checkArgument(hardConcurrencyLimit >= 0, "hardConcurrencyLimit is negative");
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             boolean oldCanRun = canRunMore();
             this.hardConcurrencyLimit = hardConcurrencyLimit;
             if (canRunMore() != oldCanRun) {
                 updateEligibility();
             }
+        }
+        finally {
+            releaseWriteLock();
         }
     }
 
@@ -489,8 +578,12 @@ public class InternalResourceGroup
     @Override
     public int getMaxQueuedQueries()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return maxQueuedQueries;
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
@@ -499,8 +592,12 @@ public class InternalResourceGroup
     public void setMaxQueuedQueries(int maxQueuedQueries)
     {
         checkArgument(maxQueuedQueries >= 0, "maxQueuedQueries is negative");
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             this.maxQueuedQueries = maxQueuedQueries;
+        }
+        finally {
+            releaseWriteLock();
         }
     }
 
@@ -514,8 +611,12 @@ public class InternalResourceGroup
     @Override
     public int getSchedulingWeight()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return schedulingWeight;
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
@@ -523,26 +624,35 @@ public class InternalResourceGroup
     public void setSchedulingWeight(int weight)
     {
         checkArgument(weight > 0, "weight must be positive");
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             this.schedulingWeight = weight;
             if (parent.isPresent() && parent.get().schedulingPolicy == WEIGHTED && parent.get().eligibleSubGroups.contains(this)) {
                 parent.get().addOrUpdateSubGroup(this);
             }
+        }
+        finally {
+            releaseWriteLock();
         }
     }
 
     @Override
     public SchedulingPolicy getSchedulingPolicy()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return schedulingPolicy;
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
     @Override
     public void setSchedulingPolicy(SchedulingPolicy policy)
     {
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             if (policy == schedulingPolicy) {
                 return;
             }
@@ -590,21 +700,32 @@ public class InternalResourceGroup
             }
             queuedQueries = queryQueue;
         }
+        finally {
+            releaseWriteLock();
+        }
     }
 
     @Override
     public boolean getJmxExport()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return jmxExport;
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
     @Override
     public void setJmxExport(boolean export)
     {
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             jmxExport = export;
+        }
+        finally {
+            releaseWriteLock();
         }
         jmxExportListener.accept(this, export);
     }
@@ -612,23 +733,32 @@ public class InternalResourceGroup
     @Override
     public void setPerQueryLimits(ResourceGroupQueryLimits perQueryLimits)
     {
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             this.perQueryLimits = perQueryLimits;
+        }
+        finally {
+            releaseWriteLock();
         }
     }
 
     @Override
     public ResourceGroupQueryLimits getPerQueryLimits()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return perQueryLimits;
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
     public InternalResourceGroup getOrCreateSubGroup(String name, boolean staticSegment)
     {
         requireNonNull(name, "name is null");
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             checkArgument(runningQueries.isEmpty() && queuedQueries.isEmpty(), "Cannot add sub group to %s while queries are running", id);
             if (subGroups.containsKey(name)) {
                 return subGroups.get(name);
@@ -649,6 +779,9 @@ public class InternalResourceGroup
             }
             subGroups.put(name, subGroup);
             return subGroup;
+        }
+        finally {
+            releaseWriteLock();
         }
     }
 
@@ -671,16 +804,21 @@ public class InternalResourceGroup
 
     protected void setDirty()
     {
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             this.isDirty.set(true);
             dirtySubGroups.addAll(subGroups());
             subGroups().forEach(InternalResourceGroup::setDirty);
+        }
+        finally {
+            releaseWriteLock();
         }
     }
 
     public void run(ManagedQueryExecution query)
     {
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             if (!subGroups.isEmpty()) {
                 throw new PrestoException(INVALID_RESOURCE_GROUP, format("Cannot add queries to %s. It is not a leaf group.", id));
             }
@@ -713,13 +851,16 @@ public class InternalResourceGroup
                 }
             });
         }
+        finally {
+            releaseWriteLock();
+        }
     }
 
     private void enqueueQuery(ManagedQueryExecution query)
     {
-        checkState(Thread.holdsLock(root), "Must hold lock to enqueue a query");
-
-        synchronized (root) {
+        checkState(getWriteLock().isHeldByCurrentThread(), "Must hold lock to enqueue a query");
+        acquireWriteLock();
+        try {
             int priority = getQueryPriority(query.getSession());
             if (query.isRetry()) {
                 queuedQueries.prioritize(query, priority);
@@ -734,13 +875,17 @@ public class InternalResourceGroup
             }
             updateEligibility();
         }
+        finally {
+            releaseWriteLock();
+        }
     }
 
     // This method must be called whenever the group's eligibility to run more queries may have changed.
     private void updateEligibility()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock to update eligibility");
-        synchronized (root) {
+        checkState(getWriteLock().isHeldByCurrentThread(), "Must hold lock to update eligibility");
+        acquireWriteLock();
+        try {
             if (!parent.isPresent()) {
                 return;
             }
@@ -755,12 +900,16 @@ public class InternalResourceGroup
             }
             parent.get().updateEligibility();
         }
+        finally {
+            releaseWriteLock();
+        }
     }
 
     private void startInBackground(ManagedQueryExecution query)
     {
-        checkState(Thread.holdsLock(root), "Must hold lock to start a query");
-        synchronized (root) {
+        checkState(getWriteLock().isHeldByCurrentThread(), "Must hold lock to start a query");
+        acquireWriteLock();
+        try {
             runningQueries.add(query);
             InternalResourceGroup group = this;
             while (group.parent.isPresent()) {
@@ -778,11 +927,15 @@ public class InternalResourceGroup
                 group = group.parent.get();
             }
         }
+        finally {
+            releaseWriteLock();
+        }
     }
 
     private void queryFinished(ManagedQueryExecution query)
     {
-        synchronized (root) {
+        acquireWriteLock();
+        try {
             if (!runningQueries.contains(query) && !queuedQueries.contains(query)) {
                 // Query has already been cleaned up
                 return;
@@ -813,13 +966,17 @@ public class InternalResourceGroup
             }
             updateEligibility();
         }
+        finally {
+            releaseWriteLock();
+        }
     }
 
     // Memory usage stats are expensive to maintain, so this method must be called periodically to update them
     protected void internalRefreshStats()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock to refresh stats");
-        synchronized (root) {
+        checkState(getWriteLock().isHeldByCurrentThread(), "Must hold lock to refresh stats");
+        acquireWriteLock();
+        try {
             if (subGroups.isEmpty()) {
                 cachedMemoryUsageBytes = 0;
                 for (ManagedQueryExecution query : runningQueries) {
@@ -845,12 +1002,16 @@ public class InternalResourceGroup
                 }
             }
         }
+        finally {
+            releaseWriteLock();
+        }
     }
 
     protected void internalGenerateCpuQuota(long elapsedSeconds)
     {
-        checkState(Thread.holdsLock(root), "Must hold lock to generate cpu quota");
-        synchronized (root) {
+        checkState(getWriteLock().isHeldByCurrentThread(), "Must hold lock to generate cpu quota");
+        acquireWriteLock();
+        try {
             long newQuota = saturatedMultiply(elapsedSeconds, cpuQuotaGenerationMillisPerSecond);
             cpuUsageMillis = saturatedSubtract(cpuUsageMillis, newQuota);
             if (cpuUsageMillis < 0 || cpuUsageMillis == Long.MAX_VALUE) {
@@ -860,12 +1021,16 @@ public class InternalResourceGroup
                 group.internalGenerateCpuQuota(elapsedSeconds);
             }
         }
+        finally {
+            releaseWriteLock();
+        }
     }
 
     protected boolean internalStartNext()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock to find next query");
-        synchronized (root) {
+        checkState(getWriteLock().isHeldByCurrentThread(), "Must hold lock to find next query");
+        acquireWriteLock();
+        try {
             if (!canRunMore()) {
                 return false;
             }
@@ -902,6 +1067,9 @@ public class InternalResourceGroup
             }
 
             return started;
+        }
+        finally {
+            releaseWriteLock();
         }
     }
 
@@ -941,51 +1109,63 @@ public class InternalResourceGroup
 
     private boolean isDirty()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock");
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return runningQueries.size() + descendantRunningQueries > 0 || isDirty.get();
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
     private boolean isEligibleToStartNext()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock");
-        synchronized (root) {
+        acquireReadLock();
+        try {
             if (!canRunMore()) {
                 return false;
             }
             return !queuedQueries.isEmpty() || !eligibleSubGroups.isEmpty();
         }
+        finally {
+            releaseReadLock();
+        }
     }
 
     private int getHighestQueryPriority()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock");
-        synchronized (root) {
+        acquireReadLock();
+        try {
             checkState(queuedQueries.getLowPriorityQueue() instanceof IndexedPriorityQueue, "Queued queries not ordered");
             if (queuedQueries.isEmpty()) {
                 return 0;
             }
             return getQueryPriority(queuedQueries.peek().getSession());
         }
+        finally {
+            releaseReadLock();
+        }
     }
 
     private boolean canQueueMore()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock");
-        synchronized (root) {
+        acquireReadLock();
+        try {
             Optional<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo = getAdditionalRuntimeInfo();
             if (resourceGroupRuntimeInfo.isPresent()) {
                 return descendantQueuedQueries + queuedQueries.size() + resourceGroupRuntimeInfo.get().getQueuedQueries() + resourceGroupRuntimeInfo.get().getDescendantQueuedQueries() < maxQueuedQueries;
             }
             return descendantQueuedQueries + queuedQueries.size() < maxQueuedQueries;
         }
+        finally {
+            releaseReadLock();
+        }
     }
 
     private boolean canRunMore()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock");
-        synchronized (root) {
+        acquireReadLock();
+        try {
             if (cpuUsageMillis >= hardCpuLimitMillis) {
                 return false;
             }
@@ -1009,12 +1189,15 @@ public class InternalResourceGroup
 
             return totalRunningQueries < hardConcurrencyLimit && cachedMemoryUsageBytes <= softMemoryLimitBytes;
         }
+        finally {
+            releaseReadLock();
+        }
     }
 
     protected int getHardConcurrencyLimitBasedOnCpuUsage()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock");
-        synchronized (root) {
+        acquireReadLock();
+        try {
             int hardConcurrencyLimit = this.hardConcurrencyLimit;
             if (cpuUsageMillis >= softCpuLimitMillis) {
                 // TODO: Consider whether cpu limit math should be performed on softConcurrency or hardConcurrency
@@ -1029,37 +1212,83 @@ public class InternalResourceGroup
 
             return hardConcurrencyLimit;
         }
+        finally {
+            releaseReadLock();
+        }
     }
 
     public Collection<InternalResourceGroup> subGroups()
     {
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return subGroups.values();
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
     protected long getLastRunningQueryStartTime()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock");
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return lastRunningQueryStartTime.get();
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
     private boolean shouldWaitForResourceManagerUpdate()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock");
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return shouldWaitForResourceManagerUpdate.test(this);
+        }
+        finally {
+            releaseReadLock();
         }
     }
 
     private Optional<ResourceGroupRuntimeInfo> getAdditionalRuntimeInfo()
     {
-        checkState(Thread.holdsLock(root), "Must hold lock");
-        synchronized (root) {
+        acquireReadLock();
+        try {
             return additionalRuntimeInfo.apply(getId());
         }
+        finally {
+            releaseReadLock();
+        }
+    }
+
+    protected void acquireReadLock()
+    {
+        getReadLock().lock();
+    }
+
+    private ReadLock getReadLock()
+    {
+        return root.lock.readLock();
+    }
+
+    protected void acquireWriteLock()
+    {
+        getWriteLock().lock();
+    }
+
+    private WriteLock getWriteLock()
+    {
+        return root.lock.writeLock();
+    }
+
+    protected void releaseReadLock()
+    {
+        getReadLock().unlock();
+    }
+
+    protected void releaseWriteLock()
+    {
+        getWriteLock().unlock();
     }
 
     @Override
@@ -1111,19 +1340,31 @@ public class InternalResourceGroup
                     shouldWaitForResourceManagerUpdate);
         }
 
-        public synchronized void processQueuedQueries()
+        public void processQueuedQueries()
         {
-            internalRefreshStats();
+            acquireWriteLock();
+            try {
+                internalRefreshStats();
 
-            while (internalStartNext()) {
-                // start all the queries we can
+                while (internalStartNext()) {
+                    // start all the queries we can
+                }
+            }
+            finally {
+                releaseWriteLock();
             }
         }
 
-        public synchronized void generateCpuQuota(long elapsedSeconds)
+        public void generateCpuQuota(long elapsedSeconds)
         {
-            if (elapsedSeconds > 0) {
-                internalGenerateCpuQuota(elapsedSeconds);
+            acquireWriteLock();
+            try {
+                if (elapsedSeconds > 0) {
+                    internalGenerateCpuQuota(elapsedSeconds);
+                }
+            }
+            finally {
+                releaseWriteLock();
             }
         }
 

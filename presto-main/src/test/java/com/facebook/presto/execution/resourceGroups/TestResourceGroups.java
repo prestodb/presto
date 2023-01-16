@@ -951,4 +951,18 @@ public class TestResourceGroups
                 Objects.equals(actual.getSoftMemoryLimit(), expected.getSoftMemoryLimit()) &&
                 Objects.equals(actual.getMemoryUsage(), expected.getMemoryUsage()));
     }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".*Must hold lock.*")
+    public void testAcquireWriteLockForInternalStartNext()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
+        root.internalStartNext();
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".*Must hold lock.*")
+    public void testAcquireWriteLockFoInternalGenerateCpuQuota()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
+        root.internalGenerateCpuQuota(10);
+    }
 }

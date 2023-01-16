@@ -403,8 +403,12 @@ public final class InternalResourceGroupManager<C>
     {
         int queriesQueuedInternal = 0;
         for (RootInternalResourceGroup rootGroup : rootGroups) {
-            synchronized (rootGroup) {
+            rootGroup.acquireReadLock();
+            try {
                 queriesQueuedInternal += getQueriesQueuedOnInternal(rootGroup);
+            }
+            finally {
+                rootGroup.releaseReadLock();
             }
         }
 
@@ -452,8 +456,12 @@ public final class InternalResourceGroupManager<C>
     {
         int taskCount = 0;
         for (RootInternalResourceGroup rootGroup : rootGroups) {
-            synchronized (rootGroup) {
+            rootGroup.acquireReadLock();
+            try {
                 taskCount += rootGroup.getRunningTaskCount();
+            }
+            finally {
+                rootGroup.releaseReadLock();
             }
         }
         return taskCount;
