@@ -304,11 +304,11 @@ public class TestRowOperators
                 asList("puppies", "[1,2,3]", null, "null"));
 
         assertFunction(
-                "CAST(JSON '{\"varchar_value\": \"puppies\", \"json_value\": [1, 2, 3], \"varchar_null\": null, \"json_null\": null}' " +
-                        "AS ROW(varchar_value VARCHAR, json_value JSON, varchar_null VARCHAR, json_null JSON))",
+                "CAST(JSON '{\"varchar_value\": \"puppies\", \"json_value_field\": [1, 2, 3], \"varchar_null\": null, \"json_null\": null}' " +
+                        "AS ROW(varchar_value VARCHAR, json_value_field JSON, varchar_null VARCHAR, json_null JSON))",
                 RowType.from(ImmutableList.of(
                         RowType.field("varchar_value", VARCHAR),
-                        RowType.field("json_value", JSON),
+                        RowType.field("json_value_field", JSON),
                         RowType.field("varchar_null", VARCHAR),
                         RowType.field("json_null", JSON))),
                 asList("puppies", "[1,2,3]", null, "null"));

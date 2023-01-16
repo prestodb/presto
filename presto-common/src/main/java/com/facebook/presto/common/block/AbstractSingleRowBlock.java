@@ -17,6 +17,9 @@ package com.facebook.presto.common.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
+import java.util.Arrays;
+import java.util.List;
+
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 
 public abstract class AbstractSingleRowBlock
@@ -268,4 +271,12 @@ public abstract class AbstractSingleRowBlock
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
         return getRawFieldBlock(internalPosition).isNull(rowIndex);
     }
+
+    @Override
+    public final List<Block> getChildren()
+    {
+        return Arrays.asList(getRawFieldBlocks());
+    }
+
+    abstract Block[] getRawFieldBlocks();
 }

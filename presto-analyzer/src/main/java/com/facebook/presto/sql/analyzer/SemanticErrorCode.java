@@ -107,4 +107,6 @@ public enum SemanticErrorCode
     TOO_MANY_GROUPING_SETS,
 
     INVALID_OFFSET_ROW_COUNT,
+
+    INVALID_PATH,
 }

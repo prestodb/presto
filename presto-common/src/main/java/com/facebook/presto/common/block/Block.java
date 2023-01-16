@@ -16,6 +16,8 @@ package com.facebook.presto.common.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -361,4 +363,12 @@ public interface Block
      * The original block won't be modified.
      */
     Block appendNull();
+
+    /**
+     * Gets the direct child blocks of this block.
+     */
+    default List<Block> getChildren()
+    {
+        return Collections.emptyList();
+    }
 }

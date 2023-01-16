@@ -279,8 +279,10 @@ public class TestRowExpressionSerde
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
-                TEST_SESSION,
+                metadata,
+                TEST_SESSION.getSessionFunctions(),
+                TEST_SESSION.getTransactionId(),
+                TEST_SESSION.getSqlFunctionProperties(),
                 TypeProvider.empty(),
                 emptyMap(),
                 node -> new IllegalStateException("Unexpected node: %s" + node),

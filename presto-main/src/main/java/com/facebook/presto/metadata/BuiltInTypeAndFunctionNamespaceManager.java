@@ -177,6 +177,8 @@ import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.scalar.WilsonInterval;
 import com.facebook.presto.operator.scalar.WordStemFunction;
+import com.facebook.presto.operator.scalar.json.JsonInputFunctions;
+import com.facebook.presto.operator.scalar.json.JsonOutputFunctions;
 import com.facebook.presto.operator.scalar.sql.ArraySqlFunctions;
 import com.facebook.presto.operator.scalar.sql.MapNormalizeFunction;
 import com.facebook.presto.operator.scalar.sql.MapSqlFunctions;
@@ -227,6 +229,7 @@ import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.IpAddressOperators;
 import com.facebook.presto.type.IpPrefixOperators;
+import com.facebook.presto.type.JsonPath2016Type;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.LongEnumOperators;
 import com.facebook.presto.type.MapParametricType;
@@ -239,6 +242,7 @@ import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.TinyintOperators;
+import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.UuidOperators;
 import com.facebook.presto.type.VarbinaryOperators;
@@ -403,6 +407,9 @@ import static com.facebook.presto.operator.scalar.distinct.DistinctTypeLessThanO
 import static com.facebook.presto.operator.scalar.distinct.DistinctTypeLessThanOrEqualOperator.DISTINCT_TYPE_LESS_THAN_OR_EQUAL_OPERATOR;
 import static com.facebook.presto.operator.scalar.distinct.DistinctTypeNotEqualOperator.DISTINCT_TYPE_NOT_EQUAL_OPERATOR;
 import static com.facebook.presto.operator.scalar.distinct.DistinctTypeXXHash64Operator.DISTINCT_TYPE_XX_HASH_64_OPERATOR;
+import static com.facebook.presto.operator.scalar.json.JsonExistsFunction.JSON_EXISTS_FUNCTION;
+import static com.facebook.presto.operator.scalar.json.JsonQueryFunction.JSON_QUERY_FUNCTION;
+import static com.facebook.presto.operator.scalar.json.JsonValueFunction.JSON_VALUE_FUNCTION;
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -466,6 +473,7 @@ import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH
 import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.facebook.presto.type.IpPrefixType.IPPREFIX;
 import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
+import static com.facebook.presto.type.Json2016Type.JSON_2016;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.MapParametricType.MAP;
@@ -568,6 +576,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
         for (Type type : requireNonNull(types, "types is null")) {
             addType(type);
         }
+
+        JsonPath2016Type jsonPath2016Type = new JsonPath2016Type(new TypeDeserializer(functionAndTypeManager), blockEncodingSerde);
+        addType(jsonPath2016Type);
     }
 
     private void registerBuiltInTypes()
@@ -597,6 +608,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(RE2J_REGEXP);
         addType(LIKE_PATTERN);
         addType(JSON_PATH);
+        addType(JSON_2016);
         addType(COLOR);
         addType(JSON);
         addType(CODE_POINTS);
@@ -702,6 +714,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(BitwiseFunctions.class)
                 .scalars(DateTimeFunctions.class)
                 .scalars(JsonFunctions.class)
+                .scalars(JsonInputFunctions.class)
+                .scalars(JsonOutputFunctions.class)
                 .scalars(ColorFunctions.class)
                 .scalars(ColorOperators.class)
                 .scalars(GeoFunctions.class)
@@ -848,6 +862,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
+                .functions(JSON_EXISTS_FUNCTION, JSON_VALUE_FUNCTION, JSON_QUERY_FUNCTION)
                 .functions(DECIMAL_ADD_OPERATOR, DECIMAL_SUBTRACT_OPERATOR, DECIMAL_MULTIPLY_OPERATOR, DECIMAL_DIVIDE_OPERATOR, DECIMAL_MODULUS_OPERATOR)
                 .functions(DECIMAL_EQUAL_OPERATOR, DECIMAL_NOT_EQUAL_OPERATOR)
                 .functions(DECIMAL_LESS_THAN_OPERATOR, DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR)
@@ -1464,6 +1479,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
             if (parameterType.getJavaType() == Slice.class) {
                 if (type.getJavaType() == Block.class) {
                     methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
+                }
+                else if (type.getJavaType() != Slice.class) {
+                    methodHandle = BlockSerdeUtil.READ_BLOCK_VALUE.bindTo(blockEncodingSerde).bindTo(type);
                 }
             }
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.common.block;
 
 import com.facebook.presto.common.GenericInternalException;
+import com.facebook.presto.common.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -24,10 +25,12 @@ import java.lang.invoke.MethodHandles;
 public final class BlockSerdeUtil
 {
     public static final MethodHandle READ_BLOCK;
+    public static final MethodHandle READ_BLOCK_VALUE;
 
     static {
         try {
             READ_BLOCK = MethodHandles.lookup().unreflect(BlockSerdeUtil.class.getMethod("readBlock", BlockEncodingSerde.class, Slice.class));
+            READ_BLOCK_VALUE = MethodHandles.lookup().unreflect(BlockSerdeUtil.class.getMethod("readBlockValue", BlockEncodingSerde.class, Type.class, Slice.class));
         }
         catch (IllegalAccessException | NoSuchMethodException e) {
             throw new GenericInternalException(e);
@@ -46,6 +49,12 @@ public final class BlockSerdeUtil
     public static Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput input)
     {
         return blockEncodingSerde.readBlock(input);
+    }
+
+    public static Object readBlockValue(BlockEncodingSerde blockEncodingSerde, Type type, Slice slice)
+    {
+        Block block = readBlock(blockEncodingSerde, slice.getInput());
+        return type.getObject(block, 0);
     }
 
     public static void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput output, Block block)

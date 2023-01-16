@@ -20,10 +20,15 @@ import java.util.List;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DecimalType.DEFAULT_PRECISION;
+import static com.facebook.presto.common.type.DecimalType.DEFAULT_SCALE;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.common.type.TestingIdType.ID;
+import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -39,6 +44,20 @@ public class TestingTypeManager
                 return type;
             }
         }
+        if (signature.getBase().equals(DECIMAL)) {
+            int precision;
+            int scale;
+            try {
+                precision = signature.getParameters().get(0).getLongLiteral().intValue();
+                scale = signature.getParameters().get(1).getLongLiteral().intValue();
+            }
+            catch (Exception e) {
+                precision = DEFAULT_PRECISION;
+                scale = DEFAULT_SCALE;
+            }
+            return createDecimalType(precision, scale);
+        }
+
         return null;
     }
 
@@ -56,6 +75,6 @@ public class TestingTypeManager
 
     private List<Type> getTypes()
     {
-        return ImmutableList.of(BOOLEAN, INTEGER, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, ID, HYPER_LOG_LOG);
+        return ImmutableList.of(BOOLEAN, INTEGER, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, ID, HYPER_LOG_LOG, TIME);
     }
 }

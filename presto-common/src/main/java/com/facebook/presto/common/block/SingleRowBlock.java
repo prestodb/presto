@@ -123,6 +123,12 @@ public class SingleRowBlock
     }
 
     @Override
+    Block[] getRawFieldBlocks()
+    {
+        return fieldBlocks;
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

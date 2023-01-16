@@ -17,6 +17,7 @@ import io.airlift.slice.SliceOutput;
 
 import javax.annotation.Nullable;
 
+import java.util.List;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.common.block.BlockUtil.appendNullToIsNullArray;
@@ -29,6 +30,8 @@ import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.common.block.RowBlock.createRowBlockInternal;
+import static java.util.Arrays.asList;
+import static java.util.Collections.unmodifiableList;
 
 public abstract class AbstractRowBlock
         implements Block
@@ -406,5 +409,10 @@ public abstract class AbstractRowBlock
         int[] offsets = appendNullToOffsetsArray(getFieldBlockOffsets(), getOffsetBase(), getPositionCount());
 
         return createRowBlockInternal(getOffsetBase(), getPositionCount() + 1, rowIsNull, offsets, getRawFieldBlocks());
+    }
+
+    public final List<Block> getChildren()
+    {
+        return unmodifiableList(asList(getRawFieldBlocks()));
     }
 }

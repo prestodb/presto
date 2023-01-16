@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -44,9 +46,19 @@ class PlanBuilder
 
     public TranslationMap copyTranslations()
     {
-        TranslationMap translations = new TranslationMap(getRelationPlan(), getAnalysis(), getTranslations().getLambdaDeclarationToVariableMap());
+        TranslationMap translations = new TranslationMap(getFunctionAndTypeManager(), getSession(), getRelationPlan(), getAnalysis(), getTranslations().getLambdaDeclarationToVariableMap());
         translations.copyMappingsFrom(getTranslations());
         return translations;
+    }
+
+    private FunctionAndTypeManager getFunctionAndTypeManager()
+    {
+        return translations.getFunctionAndTypeManager();
+    }
+
+    private Session getSession()
+    {
+        return translations.getSession();
     }
 
     private Analysis getAnalysis()

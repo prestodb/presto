@@ -65,6 +65,12 @@ public class SingleRowBlockWriter
     }
 
     @Override
+    Block[] getRawFieldBlocks()
+    {
+        return fieldBlockBuilders;
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         long size = 0;

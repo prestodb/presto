@@ -179,8 +179,10 @@ public class FilterStatsCalculator
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
-                session,
+                metadata,
+                session.getSessionFunctions(),
+                session.getTransactionId(),
+                session.getSqlFunctionProperties(),
                 types,
                 emptyMap(),
                 node -> new IllegalStateException("Unexpected node: %s" + node),
@@ -436,7 +438,7 @@ public class FilterStatsCalculator
             VariableStatsEstimate leftStats = getExpressionStats(left);
             Optional<VariableReferenceExpression> leftVariable = left instanceof SymbolReference ? Optional.of(toVariable(left)) : Optional.empty();
             if (right instanceof Literal) {
-                Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), right);
+                Object literalValue = LiteralInterpreter.evaluate(metadata.getFunctionAndTypeManager(), session.toConnectorSession(), right);
                 if (literalValue == null) {
                     return visitBooleanLiteral(FALSE_LITERAL, null);
                 }
@@ -461,8 +463,10 @@ public class FilterStatsCalculator
             }
 
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata.getFunctionAndTypeManager(),
-                    session,
+                    metadata,
+                    session.getSessionFunctions(),
+                    session.getTransactionId(),
+                    session.getSqlFunctionProperties(),
                     types,
                     ImmutableMap.of(),
                     // At this stage, there should be no subqueries in the plan.
