@@ -410,6 +410,10 @@ inline bool isDense(const T* values, int32_t size) {
   return (values[size - 1] - values[0] == size - 1);
 }
 
+// Reinterpret batch of U into batch of T.
+template <typename T, typename U, typename A = xsimd::default_arch>
+xsimd::batch<T, A> reinterpretBatch(xsimd::batch<U, A>, const A& = {});
+
 } // namespace facebook::velox::simd
 
 #include "velox/common/base/SimdUtil-inl.h"

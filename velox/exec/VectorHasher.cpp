@@ -469,16 +469,9 @@ void VectorHasher::lookupIdsRangeSimd(
         }
         if (outOfRange != bits::lowMask(xsimd::batch<T>::size)) {
           if constexpr (sizeof(T) == 8) {
-#if defined(__aarch64__)
             auto unsignedValues =
-                *(reinterpret_cast<
-                    xsimd::batch<typename std::make_unsigned<T>::type>*>(
-                    &values));
-#else
-            auto unsignedValues =
-                static_cast<xsimd::batch<typename std::make_unsigned<T>::type>>(
+                simd::reinterpretBatch<typename std::make_unsigned<T>::type>(
                     values);
-#endif
             if (multiplier_ == 1) {
               (unsignedValues - offset).store_unaligned(result + index);
             } else {
@@ -487,24 +480,13 @@ void VectorHasher::lookupIdsRangeSimd(
                   .store_unaligned(result + index);
             }
           } else {
-        // Widen 8 to 2 x 4 since result is always 64 wide.
-#if defined(__aarch64__)
-            auto tmpFirst4_Half = simd::getHalf<int64_t, 0>(values);
-            auto first4 =
-                *(reinterpret_cast<xsimd::batch<uint64_t>*>(&tmpFirst4_Half)) -
-                offset;
-            auto tmpNext4_Half = simd::getHalf<int64_t, 1>(values);
-            auto next4 =
-                *(reinterpret_cast<xsimd::batch<uint64_t>*>(&tmpNext4_Half)) -
-                offset;
-#else
-            auto first4 = static_cast<xsimd::batch<uint64_t>>(
+            // Widen 8 to 2 x 4 since result is always 64 bits wide.
+            auto first4 = simd::reinterpretBatch<uint64_t>(
                               simd::getHalf<int64_t, 0>(values)) -
                 offset;
-            auto next4 = static_cast<xsimd::batch<uint64_t>>(
+            auto next4 = simd::reinterpretBatch<uint64_t>(
                              simd::getHalf<int64_t, 1>(values)) -
                 offset;
-#endif
             if (multiplier_ == 1) {
               first4.store_unaligned(result + index);
               next4.store_unaligned(result + index + first4.size);

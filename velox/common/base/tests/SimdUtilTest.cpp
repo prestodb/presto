@@ -349,4 +349,31 @@ TEST_F(SimdUtilTest, Batch64_memory) {
   EXPECT_EQ(data[1], 2);
 }
 
+template <typename T>
+void validateReinterpretBatch() {
+  using U = typename std::make_unsigned<T>::type;
+  T data[xsimd::batch<T>::size]{};
+  static_assert(xsimd::batch<T>::size >= 2);
+  data[0] = -1;
+  data[1] = 123;
+  auto origin = xsimd::batch<T>::load_unaligned(data);
+  auto casted = simd::reinterpretBatch<U>(origin);
+  auto origin2 = simd::reinterpretBatch<T>(origin);
+  ASSERT_EQ(casted.get(0), std::numeric_limits<U>::max());
+  ASSERT_EQ(origin2.get(0), -1);
+  ASSERT_EQ(casted.get(1), 123);
+  ASSERT_EQ(origin2.get(1), 123);
+  for (int i = 2; i < origin.size; ++i) {
+    ASSERT_EQ(casted.get(i), 0);
+    ASSERT_EQ(origin.get(i), 0);
+  }
+}
+
+TEST_F(SimdUtilTest, reinterpretBatch) {
+  validateReinterpretBatch<int8_t>();
+  validateReinterpretBatch<int16_t>();
+  validateReinterpretBatch<int32_t>();
+  validateReinterpretBatch<int64_t>();
+}
+
 } // namespace

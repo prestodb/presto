@@ -219,12 +219,9 @@ xsimd::batch_bool<int64_t> BigintValuesUsingHashTable::testValues(
     return Filter::testValues(x);
   }
   auto allEmpty = xsimd::broadcast<int64_t>(kEmptyMarker);
-#if defined(__aarch64__)
-  xsimd::batch<int64_t> indices(
-      *(reinterpret_cast<uint64x2_t*>(&x)) * M & sizeMask_);
-#else
-  xsimd::batch<int64_t> indices(xsimd::batch<uint64_t>(x) * M & sizeMask_);
-#endif
+  // Temporarily casted to unsigned to suppress overflow error.
+  auto indices = simd::reinterpretBatch<int64_t>(
+      simd::reinterpretBatch<uint64_t>(x) * M & sizeMask_);
   auto data =
       simd::maskGather(allEmpty, ~outOfRange, hashTable_.data(), indices);
   // The lanes with kEmptyMarker missed, the lanes matching x hit and the other

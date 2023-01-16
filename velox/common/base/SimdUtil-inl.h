@@ -1068,6 +1068,189 @@ struct HalfBatchImpl<
   using Type = Batch64<T>;
 };
 
+template <typename T, typename U, typename A>
+struct ReinterpretBatch {
+#if XSIMD_WITH_SSE2
+  static xsimd::batch<T, A> apply(xsimd::batch<U, A> data, const xsimd::sse2&) {
+    return xsimd::batch<T, A>(data);
+  }
+#endif
+
+#if XSIMD_WITH_AVX
+  static xsimd::batch<T, A> apply(xsimd::batch<U, A> data, const xsimd::avx&) {
+    return xsimd::batch<T, A>(data);
+  }
+#endif
+};
+
+template <typename T, typename A>
+struct ReinterpretBatch<T, T, A> {
+  static xsimd::batch<T, A> apply(xsimd::batch<T, A> data, const A&) {
+    return data;
+  }
+};
+
+#if XSIMD_WITH_NEON || XSIMD_WITH_NEON64
+
+template <typename A>
+struct ReinterpretBatch<uint8_t, int8_t, A> {
+#if XSIMD_WITH_NEON
+  static xsimd::batch<uint8_t, A> apply(
+      xsimd::batch<int8_t, A> data,
+      const xsimd::neon&) {
+    return vreinterpret_u8_s8(data.data);
+  }
+#endif
+
+#if XSIMD_WITH_NEON64
+  static xsimd::batch<uint8_t, A> apply(
+      xsimd::batch<int8_t, A> data,
+      const xsimd::neon64&) {
+    return vreinterpretq_u8_s8(data.data);
+  }
+#endif
+};
+
+template <typename A>
+struct ReinterpretBatch<int8_t, uint8_t, A> {
+#if XSIMD_WITH_NEON
+  static xsimd::batch<int8_t, A> apply(
+      xsimd::batch<uint8_t, A> data,
+      const xsimd::neon&) {
+    return vreinterpret_s8_u8(data.data);
+  }
+#endif
+
+#if XSIMD_WITH_NEON64
+  static xsimd::batch<int8_t, A> apply(
+      xsimd::batch<uint8_t, A> data,
+      const xsimd::neon64&) {
+    return vreinterpretq_s8_u8(data.data);
+  }
+#endif
+};
+
+template <typename A>
+struct ReinterpretBatch<uint16_t, int16_t, A> {
+#if XSIMD_WITH_NEON
+  static xsimd::batch<uint16_t, A> apply(
+      xsimd::batch<int16_t, A> data,
+      const xsimd::neon&) {
+    return vreinterpret_u16_s16(data.data);
+  }
+#endif
+
+#if XSIMD_WITH_NEON64
+  static xsimd::batch<uint16_t, A> apply(
+      xsimd::batch<int16_t, A> data,
+      const xsimd::neon64&) {
+    return vreinterpretq_u16_s16(data.data);
+  }
+#endif
+};
+
+template <typename A>
+struct ReinterpretBatch<int16_t, uint16_t, A> {
+#if XSIMD_WITH_NEON
+  static xsimd::batch<int16_t, A> apply(
+      xsimd::batch<uint16_t, A> data,
+      const xsimd::neon&) {
+    return vreinterpret_s16_u16(data.data);
+  }
+#endif
+
+#if XSIMD_WITH_NEON64
+  static xsimd::batch<int16_t, A> apply(
+      xsimd::batch<uint16_t, A> data,
+      const xsimd::neon64&) {
+    return vreinterpretq_s16_u16(data.data);
+  }
+#endif
+};
+
+template <typename A>
+struct ReinterpretBatch<uint32_t, int32_t, A> {
+#if XSIMD_WITH_NEON
+  static xsimd::batch<uint32_t, A> apply(
+      xsimd::batch<int32_t, A> data,
+      const xsimd::neon&) {
+    return vreinterpret_u32_s32(data.data);
+  }
+#endif
+
+#if XSIMD_WITH_NEON64
+  static xsimd::batch<uint32_t, A> apply(
+      xsimd::batch<int32_t, A> data,
+      const xsimd::neon64&) {
+    return vreinterpretq_u32_s32(data.data);
+  }
+#endif
+};
+
+template <typename A>
+struct ReinterpretBatch<int32_t, uint32_t, A> {
+#if XSIMD_WITH_NEON
+  static xsimd::batch<int32_t, A> apply(
+      xsimd::batch<uint32_t, A> data,
+      const xsimd::neon&) {
+    return vreinterpret_s32_u32(data.data);
+  }
+#endif
+
+#if XSIMD_WITH_NEON64
+  static xsimd::batch<int32_t, A> apply(
+      xsimd::batch<uint32_t, A> data,
+      const xsimd::neon64&) {
+    return vreinterpretq_s32_u32(data.data);
+  }
+#endif
+};
+
+template <typename A>
+struct ReinterpretBatch<uint64_t, int64_t, A> {
+#if XSIMD_WITH_NEON
+  static xsimd::batch<uint64_t, A> apply(
+      xsimd::batch<int64_t, A> data,
+      const xsimd::neon&) {
+    return vreinterpret_u64_s64(data.data);
+  }
+#endif
+
+#if XSIMD_WITH_NEON64
+  static xsimd::batch<uint64_t, A> apply(
+      xsimd::batch<int64_t, A> data,
+      const xsimd::neon64&) {
+    return vreinterpretq_u64_s64(data.data);
+  }
+#endif
+};
+
+template <typename A>
+struct ReinterpretBatch<int64_t, uint64_t, A> {
+#if XSIMD_WITH_NEON
+  static xsimd::batch<int64_t, A> apply(
+      xsimd::batch<uint64_t, A> data,
+      const xsimd::neon&) {
+    return vreinterpret_s64_u64(data.data);
+  }
+#endif
+
+#if XSIMD_WITH_NEON64
+  static xsimd::batch<int64_t, A> apply(
+      xsimd::batch<uint64_t, A> data,
+      const xsimd::neon64&) {
+    return vreinterpretq_s64_u64(data.data);
+  }
+#endif
+};
+
+#endif
+
 } // namespace detail
+
+template <typename T, typename U, typename A>
+xsimd::batch<T, A> reinterpretBatch(xsimd::batch<U, A> data, const A& arch) {
+  return detail::ReinterpretBatch<T, U, A>::apply(data, arch);
+}
 
 } // namespace facebook::velox::simd
