@@ -333,11 +333,10 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
   getDataForResultRequests(resultRequests);
 
-  // TODO Handle possible race condition. Refer:
-  // https://github.com/facebookincubator/velox/issues/3593
-  if (outputBuffers.type == protocol::BufferType::BROADCAST) {
-    execTask->updateBroadcastOutputBuffers(
-        outputBuffers.buffers.size(), outputBuffers.noMoreBufferIds);
+  if (outputBuffers.type == protocol::BufferType::BROADCAST &&
+      !execTask->updateBroadcastOutputBuffers(
+          outputBuffers.buffers.size(), outputBuffers.noMoreBufferIds)) {
+    LOG(INFO) << "Failed to update broadcast buffers for task: " << taskId;
   }
 
   for (const auto& source : sources) {
