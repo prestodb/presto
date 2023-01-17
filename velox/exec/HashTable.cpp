@@ -132,7 +132,8 @@ class ProbeState {
       Compare compare,
       Insert insert,
       int64_t& numTombstones,
-      bool extraCheck) {
+      bool extraCheck,
+      int32_t partitionEnd = -1) {
     if (group_ && compare(group_, row_)) {
       if (op == Operation::kErase) {
         eraseHit(tags, numTombstones);
@@ -151,36 +152,14 @@ class ProbeState {
         BaseHashTable::TagVector::broadcast(kTombstoneTag);
     const auto kEmptyGroup = BaseHashTable::TagVector::broadcast(kEmptyTag);
     for (;;) {
-      if (!hits_) {
-        uint16_t empty =
-            simd::toBitMask(tagsInTable_ == kEmptyGroup) & kFullMask;
-        if (empty > 0) {
-          if (op == Operation::kProbe) {
-            return nullptr;
-          }
-          if (op == Operation::kErase) {
-            VELOX_FAIL("Erasing non-existing entry");
-          }
-          if (indexInTags_ != kNotSet) {
-            // We came to the end of the probe without a hit. We replace the
-            // first tombstone on the way.
-            --numTombstones;
-            return insert(row_, insertTagIndex + indexInTags_);
-          }
-          //--numTombstoneGroups;
-          auto pos = bits::getAndClearLastSetBit(empty);
-          return insert(row_, tagIndex_ + pos);
+      if constexpr (op == Operation::kInsert) {
+        if (partitionEnd >= 0 && tagIndex_ >= partitionEnd) {
+          // We have already gone over the partition boundary.  Call insert to
+          // put row in overflows.
+          return insert(row_, tagIndex_);
         }
-        if (op == Operation::kInsert && indexInTags_ == kNotSet) {
-          // We passed through a full group.
-          uint16_t tombstones =
-              simd::toBitMask(tagsInTable_ == kTombstoneGroup) & kFullMask;
-          if (tombstones > 0) {
-            insertTagIndex = tagIndex_;
-            indexInTags_ = bits::getAndClearLastSetBit(tombstones);
-          }
-        }
-      } else {
+      }
+      while (hits_) {
         loadNextHit<op>(table, firstKey);
         if (!(extraCheck && group_ == alreadyChecked) &&
             compare(group_, row_)) {
@@ -189,7 +168,34 @@ class ProbeState {
           }
           return group_;
         }
-        continue;
+      }
+
+      uint16_t empty = simd::toBitMask(tagsInTable_ == kEmptyGroup) & kFullMask;
+      if (empty > 0) {
+        if (op == Operation::kProbe) {
+          return nullptr;
+        }
+        if (op == Operation::kErase) {
+          VELOX_FAIL("Erasing non-existing entry");
+        }
+        if (indexInTags_ != kNotSet) {
+          // We came to the end of the probe without a hit. We replace the
+          // first tombstone on the way.
+          --numTombstones;
+          return insert(row_, insertTagIndex + indexInTags_);
+        }
+        //--numTombstoneGroups;
+        auto pos = bits::getAndClearLastSetBit(empty);
+        return insert(row_, tagIndex_ + pos);
+      }
+      if (op == Operation::kInsert && indexInTags_ == kNotSet) {
+        // We passed through a full group.
+        uint16_t tombstones =
+            simd::toBitMask(tagsInTable_ == kTombstoneGroup) & kFullMask;
+        if (tombstones > 0) {
+          insertTagIndex = tagIndex_;
+          indexInTags_ = bits::getAndClearLastSetBit(tombstones);
+        }
       }
       tagIndex_ = (tagIndex_ + sizeof(BaseHashTable::TagVector)) & sizeMask;
       tagsInTable_ = BaseHashTable::loadTags(tags, tagIndex_);
@@ -995,6 +1001,14 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::buildFullProbe(
     int32_t partitionBegin,
     int32_t partitionEnd,
     std::vector<char*>* FOLLY_NULLABLE overflows) {
+  auto insertFn = [&](int32_t /*row*/, int32_t index) {
+    if (index < partitionBegin || index >= partitionEnd) {
+      overflows->push_back(inserted);
+      return nullptr;
+    }
+    storeRowPointer(index, hash, inserted);
+    return nullptr;
+  };
   if (hashMode_ == HashMode::kNormalizedKey) {
     state.fullProbe<ProbeState::Operation::kInsert>(
         tags_,
@@ -1011,16 +1025,10 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::buildFullProbe(
           }
           return false;
         },
-        [&](int32_t /*row*/, int32_t index) {
-          if (index < partitionBegin || index > partitionEnd) {
-            overflows->push_back(inserted);
-            return nullptr;
-          }
-          storeRowPointer(index, hash, inserted);
-          return nullptr;
-        },
+        insertFn,
         numTombstones_,
-        extraCheck);
+        extraCheck,
+        partitionEnd);
   } else {
     state.fullProbe<ProbeState::Operation::kInsert>(
         tags_,
@@ -1036,16 +1044,10 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::buildFullProbe(
           }
           return false;
         },
-        [&](int32_t /*row*/, int32_t index) {
-          if (index < partitionBegin || index > partitionEnd) {
-            overflows->push_back(inserted);
-            return nullptr;
-          }
-          storeRowPointer(index, hash, inserted);
-          return nullptr;
-        },
+        insertFn,
         numTombstones_,
-        extraCheck);
+        extraCheck,
+        partitionEnd);
   }
 }
 
