@@ -100,7 +100,7 @@ TEST_F(Base64Test, singleNull) {
 
   auto vector = readBlock(BIGINT(), data, pool_.get());
 
-  ASSERT_EQ(TypeKind::UNKNOWN, vector->typeKind());
+  ASSERT_EQ(TypeKind::BIGINT, vector->typeKind());
   ASSERT_EQ(1, vector->size());
   ASSERT_TRUE(vector->isNullAt(0));
 }
@@ -114,7 +114,7 @@ TEST_F(Base64Test, arrayOfNulls) {
   ASSERT_EQ(1, vector->size());
 
   auto arrayVector = vector->as<ArrayVector>();
-  ASSERT_EQ(TypeKind::UNKNOWN, arrayVector->elements()->typeKind());
+  ASSERT_EQ(TypeKind::BIGINT, arrayVector->elements()->typeKind());
 
   auto elementsVector = arrayVector->elements();
   ASSERT_EQ(4, elementsVector->size());

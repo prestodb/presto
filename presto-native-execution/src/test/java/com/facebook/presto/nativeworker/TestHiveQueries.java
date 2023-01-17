@@ -154,6 +154,9 @@ abstract class TestHiveQueries
         // Double and float inequality filter
         assertQuery("SELECT SUM(discount) FROM lineitem WHERE discount != 0.04");
         assertQuery("SELECT SUM(discount_as_real) FROM lineitem WHERE discount_as_real != cast(0.1 as REAL)");
+
+        // When else clause is a null constant with Map type.
+        assertQuery("SELECT if(orderkey % 2 = 0, quantity_by_linenumber) FROM orders_ex");
     }
 
     @Test
