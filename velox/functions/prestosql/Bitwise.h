@@ -99,7 +99,7 @@ __attribute__((no_sanitize("integer")))
 #endif
 FOLLY_ALWAYS_INLINE bool
 bitwiseLeftShift(int64_t& result, T number, T shift) {
-  if ((uint32_t)shift >= MAX_SHIFT) {
+  if ((uint64_t)shift >= MAX_SHIFT) {
     result = 0;
   } else {
     result = (number << shift);
@@ -127,7 +127,7 @@ struct BitwiseLeftShiftFunction {
 namespace {
 template <typename T, typename UT, int MAX_SHIFT>
 FOLLY_ALWAYS_INLINE bool bitwiseRightShift(int64_t& result, T number, T shift) {
-  if ((uint32_t)shift >= MAX_SHIFT) {
+  if ((uint64_t)shift >= MAX_SHIFT) {
     result = 0;
   } else {
     result = ((UT)number >> shift);

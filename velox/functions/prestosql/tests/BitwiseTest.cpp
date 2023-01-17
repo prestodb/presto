@@ -329,6 +329,8 @@ TEST_F(BitwiseTest, leftShift) {
 
   EXPECT_EQ(bitwiseLeftShift<int64_t>(kMin64, kMax64), 0);
   EXPECT_EQ(bitwiseLeftShift<int64_t>(kMax64, kMax64), 0);
+  EXPECT_EQ(
+      bitwiseLeftShift<int64_t>(5787029258914367756, 6918663727935913984), 0);
   EXPECT_EQ(bitwiseLeftShift<int64_t>(kMax64, 1), kMax64 << 1);
   EXPECT_EQ(bitwiseLeftShift<int64_t>(kMin64, 1), 0);
 }
@@ -351,6 +353,8 @@ TEST_F(BitwiseTest, rightShift) {
 
   EXPECT_EQ(bitwiseRightShift<int64_t>(kMin64, kMax64), 0);
   EXPECT_EQ(bitwiseRightShift<int64_t>(kMax64, kMax64), 0);
+  EXPECT_EQ(
+      bitwiseRightShift<int64_t>(5787029258914367756, 6918663727935913984), 0);
   EXPECT_EQ(bitwiseRightShift<int64_t>(kMax64, 1), kMax64 >> 1);
   EXPECT_EQ(bitwiseRightShift<int64_t>(kMin64, 1), (kMax64 >> 1) + 1);
 }
