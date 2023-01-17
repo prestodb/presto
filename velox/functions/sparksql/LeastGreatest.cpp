@@ -108,16 +108,17 @@ std::shared_ptr<exec::VectorFunction> makeImpl(
     return std::make_shared<LeastGreatestFunction<   \
         Cmp<TypeTraits<TypeKind::kind>::NativeType>, \
         TypeKind::kind>>();
-    SCALAR_CASE(BOOLEAN);
-    SCALAR_CASE(TINYINT);
-    SCALAR_CASE(SMALLINT);
-    SCALAR_CASE(INTEGER);
-    SCALAR_CASE(BIGINT);
-    SCALAR_CASE(REAL);
-    SCALAR_CASE(DOUBLE);
-    SCALAR_CASE(VARCHAR);
-    SCALAR_CASE(VARBINARY);
-    SCALAR_CASE(TIMESTAMP);
+    SCALAR_CASE(BOOLEAN)
+    SCALAR_CASE(TINYINT)
+    SCALAR_CASE(SMALLINT)
+    SCALAR_CASE(INTEGER)
+    SCALAR_CASE(BIGINT)
+    SCALAR_CASE(REAL)
+    SCALAR_CASE(DOUBLE)
+    SCALAR_CASE(VARCHAR)
+    SCALAR_CASE(VARBINARY)
+    SCALAR_CASE(TIMESTAMP)
+    SCALAR_CASE(DATE)
 #undef SCALAR_CASE
     default:
       VELOX_NYI(
