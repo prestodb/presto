@@ -25,10 +25,10 @@ namespace facebook::velox::connector::hive {
 class PartitionIdGeneratorTest : public ::testing::Test,
                                  public test::VectorTestBase {};
 
-TEST_F(PartitionIdGeneratorTest, consecutiveIds) {
+TEST_F(PartitionIdGeneratorTest, consecutiveIdsSingleKey) {
   auto numPartitions = 100;
 
-  PartitionIdGenerator idGenerator(ROW({VARCHAR()}), {0}, 100);
+  PartitionIdGenerator idGenerator(ROW({VARCHAR()}), {0}, 100, pool());
 
   auto input = makeRowVector(
       {makeFlatVector<StringView>(numPartitions * 3, [&](auto row) {
@@ -41,13 +41,41 @@ TEST_F(PartitionIdGeneratorTest, consecutiveIds) {
   // distinctIds contains 100 ids in the range of [1, 100] that are consecutive.
   std::unordered_set<uint64_t> distinctIds(ids.begin(), ids.end());
   EXPECT_EQ(distinctIds.size(), numPartitions);
-  EXPECT_EQ(*std::min_element(distinctIds.begin(), distinctIds.end()), 1);
+  EXPECT_EQ(*std::min_element(distinctIds.begin(), distinctIds.end()), 0);
   EXPECT_EQ(
-      *std::max_element(distinctIds.begin(), distinctIds.end()), numPartitions);
+      *std::max_element(distinctIds.begin(), distinctIds.end()),
+      numPartitions - 1);
 }
 
-TEST_F(PartitionIdGeneratorTest, stableIds) {
-  PartitionIdGenerator idGenerator(ROW({BIGINT()}), {0}, 100);
+TEST_F(PartitionIdGeneratorTest, consecutiveIdsMultipleKeys) {
+  PartitionIdGenerator idGenerator(
+      ROW({VARCHAR(), INTEGER()}), {0, 1}, 100, pool());
+
+  auto input = makeRowVector({
+      makeFlatVector<StringView>(
+          1'000,
+          [&](auto row) {
+            return StringView(Date(18000 + row % 5).toString());
+          }),
+      makeFlatVector<int32_t>(1'000, [&](auto row) { return row % 17; }),
+  });
+
+  raw_vector<uint64_t> ids;
+  idGenerator.run(input, ids);
+
+  // distinctIds contains 85 ids in the range of [0, 84].
+  auto numPartitions = 5 * 17;
+
+  std::unordered_set<uint64_t> distinctIds(ids.begin(), ids.end());
+  EXPECT_EQ(distinctIds.size(), numPartitions);
+  EXPECT_EQ(*std::min_element(distinctIds.begin(), distinctIds.end()), 0);
+  EXPECT_EQ(
+      *std::max_element(distinctIds.begin(), distinctIds.end()),
+      numPartitions - 1);
+}
+
+TEST_F(PartitionIdGeneratorTest, stableIdsSingleKey) {
+  PartitionIdGenerator idGenerator(ROW({BIGINT()}), {0}, 100, pool());
 
   auto numPartitions = 40;
   auto input = makeRowVector({
@@ -67,37 +95,76 @@ TEST_F(PartitionIdGeneratorTest, stableIds) {
   idGenerator.run(otherInput, otherIds);
   idGenerator.run(input, secondTimeIds);
 
-  EXPECT_TRUE(std::equal(
-      firstTimeIds.begin(), firstTimeIds.end(), secondTimeIds.begin()));
+  for (auto i = 0; i < input->size(); ++i) {
+    EXPECT_EQ(firstTimeIds[i], secondTimeIds[i]) << "at " << i;
+  }
+}
+
+TEST_F(PartitionIdGeneratorTest, stableIdsMultipleKeys) {
+  PartitionIdGenerator idGenerator(
+      ROW({BIGINT(), VARCHAR(), INTEGER()}), {1, 2}, 100, pool());
+
+  const vector_size_t size = 1'000;
+  auto input = makeRowVector({
+      makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+      makeFlatVector<StringView>(
+          size,
+          [](auto row) {
+            return StringView(Date(18000 + row % 3).toString());
+          }),
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
+  });
+
+  raw_vector<uint64_t> firstTimeIds;
+  idGenerator.run(input, firstTimeIds);
+
+  auto moreInput = makeRowVector({
+      makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+      makeFlatVector<StringView>(
+          size,
+          [](auto row) {
+            return StringView(Date(18000 + row % 5).toString());
+          }),
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 17; }),
+  });
+
+  raw_vector<uint64_t> moreIds;
+  idGenerator.run(moreInput, moreIds);
+
+  raw_vector<uint64_t> secondTimeIds;
+  idGenerator.run(input, secondTimeIds);
+
+  for (auto i = 0; i < input->size(); ++i) {
+    EXPECT_EQ(firstTimeIds[i], secondTimeIds[i]) << "at " << i;
+  }
 }
 
 TEST_F(PartitionIdGeneratorTest, maxPartitionId) {
-  PartitionIdGenerator idGenerator(ROW({BIGINT()}), {0}, 100);
+  PartitionIdGenerator idGenerator(ROW({BIGINT()}), {0}, 100, pool());
 
-  auto firstMaxPartitionValue = 10;
+  // Make 10 partitions: 0,..9.
   auto firstInput = makeRowVector({
-      makeFlatVector<int64_t>(
-          1000, [&](auto row) { return row % firstMaxPartitionValue; }),
+      makeFlatVector<int64_t>(1000, [&](auto row) { return row % 10; }),
   });
 
-  auto secondMaxPartitionValue = firstMaxPartitionValue - 1;
+  raw_vector<uint64_t> ids;
+  idGenerator.run(firstInput, ids);
+  EXPECT_EQ(idGenerator.recentMaxPartitionId(), 9);
+
+  // Feed data for the first 8 partitions.
   auto secondInput = makeRowVector({
-      makeFlatVector<int64_t>(
-          1000, [&](auto row) { return row % secondMaxPartitionValue; }),
+      makeFlatVector<int64_t>(1000, [&](auto row) { return row % 8; }),
   });
 
-  raw_vector<uint64_t> firstIds;
-  raw_vector<uint64_t> secondIds;
-  idGenerator.run(firstInput, firstIds);
-  idGenerator.run(secondInput, secondIds);
-
-  EXPECT_EQ(idGenerator.recentMaxPartitionId(), secondMaxPartitionValue);
+  idGenerator.run(secondInput, ids);
+  EXPECT_EQ(idGenerator.recentMaxPartitionId(), 7);
 }
 
 TEST_F(PartitionIdGeneratorTest, limitOfPartitionNumber) {
   auto maxPartitions = 100;
 
-  PartitionIdGenerator idGenerator(ROW({INTEGER()}), {0}, maxPartitions);
+  PartitionIdGenerator idGenerator(
+      ROW({INTEGER()}), {0}, maxPartitions, pool());
 
   auto input = makeRowVector({
       makeFlatVector<int32_t>(maxPartitions + 1, [](auto row) { return row; }),

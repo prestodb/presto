@@ -28,10 +28,13 @@ class PartitionIdGenerator {
   /// @param partitionChannels Channels of partition keys in the input
   /// RowVector.
   /// @param maxPartitions The max number of distinct partitions.
+  /// @param pool Memory pool. Used to allocate memory for storing unique
+  /// partition key values.
   PartitionIdGenerator(
       const RowTypePtr& inputType,
       std::vector<column_index_t> partitionChannels,
-      uint32_t maxPartitions);
+      uint32_t maxPartitions,
+      memory::MemoryPool* pool);
 
   /// Generate sequential partition IDs for input vector.
   /// @param input Input RowVector.
@@ -46,17 +49,39 @@ class PartitionIdGenerator {
  private:
   static constexpr const int32_t kHasherReservePct = 20;
 
+  // Computes value IDs using VectorHashers for all rows in 'input'.
+  void computeValueIds(
+      const RowVectorPtr& input,
+      raw_vector<uint64_t>& valueIds);
+
+  // In case of rehash (when value IDs produced by VectorHashers change), we
+  // update value id for pre-existing partitions while keeping partition ids.
+  // This method rebuilds 'partitionIds_' by re-calculating the value ids using
+  // updated 'hashers_'.
+  void updateValueToPartitionIdMapping();
+
+  // Copies partition values of 'row' from 'input' into 'partitionId' row in
+  // 'partitionValues_'.
+  void savePartitionValues(
+      uint64_t partitionId,
+      const RowVectorPtr& input,
+      vector_size_t row);
+
   const std::vector<column_index_t> partitionChannels_;
 
   const uint32_t maxPartitions_;
 
-  std::unique_ptr<exec::VectorHasher> hasher_;
+  std::vector<std::unique_ptr<exec::VectorHasher>> hashers_;
+
+  // A mapping from value ID produced by VectorHashers to a partition ID.
+  std::unordered_map<uint64_t, uint64_t> partitionIds_;
+
+  // A vector holding unique partition key values. One row per partition. Row
+  // numbers match partition IDs.
+  RowVectorPtr partitionValues_;
 
   // Maximum partition ID generated for the most recent input.
   uint64_t recentMaxId_ = 0;
-
-  // Maximum partition ID generated for all inputs received so far.
-  uint64_t maxId_ = 0;
 
   // All rows are set valid to compute partition IDs for all input rows.
   SelectivityVector allRows_;
