@@ -1550,6 +1550,20 @@ TEST_F(ExprTest, swithExprSanityChecks) {
       evaluate("case c0 when 7 then 1 when 11 then 2 else 'hello' end", vector),
       "Else clause of a SWITCH statement must have the same type as 'then' clauses. "
       "Expected BIGINT, but got VARCHAR.");
+
+  // Unknown is not implicitly casted.
+  VELOX_ASSERT_THROW(
+      evaluate("case c0 when 7 then 1 when 11 then null else 3 end", vector),
+      "All then clauses of a SWITCH statement must have the same type. "
+      "Expected BIGINT, but got UNKNOWN.");
+
+  // Unknown is not implicitly casted.
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "case c0 when 7 then  row_constructor(null, 1) when 11 then  row_constructor(1, null) end",
+          vector),
+      "All then clauses of a SWITCH statement must have the same type. "
+      "Expected ROW<c1:UNKNOWN,c2:BIGINT>, but got ROW<c1:BIGINT,c2:UNKNOWN>.");
 }
 
 TEST_F(ExprTest, switchExprWithNull) {
@@ -1983,7 +1997,7 @@ TEST_F(ExprTest, peelLazyDictionaryOverConstant) {
   auto c1 = makeFlatVector<int64_t>(5, [](auto row) { return row; });
 
   auto result = evaluate(
-      "if (not(is_null(if (c0 >= 0, c1, null))), coalesce(c0, 22), null)",
+      "if (not(is_null(if (c0 >= 0, c1, cast (null as bigint)))), coalesce(c0, 22), cast (null as bigint))",
       makeRowVector(
           {BaseVector::wrapInDictionary(
                nullptr, c0Indices, 5, wrapInLazyDictionary(c0)),
@@ -2134,7 +2148,7 @@ TEST_F(ExprTest, peeledConstant) {
       {BaseVector::wrapInDictionary(nullptr, indices, kSubsetSize, numbers),
        BaseVector::createConstant("Hans Pfaal", kBaseSize, execCtx_->pool())});
   auto result = std::dynamic_pointer_cast<SimpleVector<StringView>>(
-      evaluate("if (c0 % 4 = 0, c1, null)", row));
+      evaluate("if (c0 % 4 = 0, c1, cast (null as VARCHAR))", row));
   EXPECT_EQ(kSubsetSize, result->size());
   for (auto i = 0; i < kSubsetSize; ++i) {
     if (result->isNullAt(i)) {
@@ -2719,7 +2733,8 @@ TEST_F(ExprTest, flatNoNullsFastPath) {
 
   // If statement with 'then' or 'else' branch that can return null does not
   // support fast path.
-  exprSet = compileExpression("if (a > 10::integer, 0, null)", rowType);
+  exprSet = compileExpression(
+      "if (a > 10::integer, 0, cast (null as bigint))", rowType);
   ASSERT_EQ(1, exprSet->exprs().size());
   ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
       << exprSet->toString();

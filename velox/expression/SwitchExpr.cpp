@@ -165,52 +165,46 @@ TypePtr SwitchExpr::resolveType(const std::vector<TypePtr>& argTypes) {
       1,
       "Switch statements expect at least 2 arguments, received {}",
       argTypes.size());
+  // Type structure is [cond1Type, then1Type, cond2Type, then2Type, ...
+  // elseType*]
 
   // Make sure all 'condition' expressions hae type BOOLEAN and all 'then' and
   // an optional 'else' clause have the same type.
+  int numCases = argTypes.size() / 2;
 
-  // Find first 'then' type that's not an UNKNOWN type.
-  TypePtr thenType;
+  auto& expressionType = argTypes[1];
 
-  for (auto i = 0; i < argTypes.size() / 2; i++) {
+  for (auto i = 0; i < numCases; i++) {
     auto& conditionType = argTypes[i * 2];
-    VELOX_CHECK_EQ(conditionType->kind(), TypeKind::BOOLEAN);
-    auto& thenClauseType = argTypes[i * 2 + 1];
-    if (thenClauseType->containsUnknown()) {
-      // Allow null expressions.
-    } else if (!thenType) {
-      thenType = thenClauseType;
-    } else {
-      VELOX_CHECK(
-          thenType->equivalent(*thenClauseType),
-          "All then clauses of a SWITCH statement must have the same type. "
-          "Expected {}, but got {}.",
-          thenType->toString(),
-          thenClauseType->toString());
-    }
+    auto& thenType = argTypes[i * 2 + 1];
+
+    VELOX_CHECK_EQ(
+        conditionType->kind(),
+        TypeKind::BOOLEAN,
+        "Condition of  SWITCH statement is not bool");
+
+    VELOX_CHECK(
+        thenType->equivalent(*expressionType),
+        "All then clauses of a SWITCH statement must have the same type. "
+        "Expected {}, but got {}.",
+        expressionType->toString(),
+        thenType->toString());
   }
 
-  if (argTypes.size() % 2 == 1) {
+  bool hasElse = argTypes.size() % 2 == 1;
+
+  if (hasElse) {
     auto& elseClauseType = argTypes.back();
-    if (thenType) {
-      if (elseClauseType->containsUnknown()) {
-        // Allow null expressions.
-      } else {
-        VELOX_CHECK(
-            thenType->equivalent(*elseClauseType),
-            "Else clause of a SWITCH statement must have the same type as 'then' clauses. "
-            "Expected {}, but got {}.",
-            thenType->toString(),
-            elseClauseType->toString());
-      }
-    } else {
-      // If every then clause had an UNKNOWN, default to the type of the else
-      // clause.
-      thenType = elseClauseType;
-    }
+
+    VELOX_CHECK(
+        elseClauseType->equivalent(*expressionType),
+        "Else clause of a SWITCH statement must have the same type as 'then' clauses. "
+        "Expected {}, but got {}.",
+        expressionType->toString(),
+        elseClauseType->toString());
   }
 
-  return thenType;
+  return expressionType;
 }
 
 TypePtr SwitchCallToSpecialForm::resolveType(

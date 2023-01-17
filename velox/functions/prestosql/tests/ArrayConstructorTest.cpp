@@ -124,10 +124,9 @@ TEST_F(ArrayConstructorTest, empty) {
     ASSERT_FALSE(cardinality->isNullAt(row)) << "at " << row;
     ASSERT_EQ(0, cardinality->valueAt(row)) << "at " << row;
   }
-
   auto a = makeFlatVector<int64_t>(size, [](vector_size_t row) { return row; });
   result = evaluate<ArrayVector>(
-      "if(C0 % 2 = 0, array_constructor(C0), array_constructor())",
+      "if(C0 % 2 = 0, array_constructor(C0), cast (array_constructor() as bigint[]))",
       makeRowVector({a}));
   auto resultElements = result->elements()->asFlatVector<int64_t>();
   ASSERT_EQ(size, result->size());
@@ -143,7 +142,7 @@ TEST_F(ArrayConstructorTest, empty) {
   // We produce the same result, this time a constant vector of
   // unknown type array gets morphed into an array vector of int64.
   auto sameResult = evaluate<ArrayVector>(
-      "if(C0 % 2 = 1, array_constructor(), array_constructor(C0))",
+      "if(C0 % 2 = 1, cast (array_constructor() as bigint[]), array_constructor(C0))",
       makeRowVector({a}));
   auto other = asArray(sameResult);
   EXPECT_TRUE(asArray(result)->equalValueAt(other.get(), 0, 0));
