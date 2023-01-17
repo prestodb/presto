@@ -264,7 +264,8 @@ if("${ENABLE_ALL_WARNINGS}")
          -Wno-unused-result \
          -Wno-format-overflow \
          -Wno-strict-aliasing \
-         -Wno-type-limits")
+         -Wno-type-limits \
+         -Wno-stringop-overflow")
   endif()
 
   set(KNOWN_WARNINGS
