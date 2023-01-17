@@ -66,6 +66,10 @@ void registerSimpleFunctions() {
       {"hmac_sha256"});
   registerFunction<HmacSha512Function, Varbinary, Varbinary, Varbinary>(
       {"hmac_sha512"});
+  registerFunction<SpookyHashV232Function, Varbinary, Varbinary>(
+      {"spooky_hash_v2_32"});
+  registerFunction<SpookyHashV264Function, Varbinary, Varbinary>(
+      {"spooky_hash_v2_64"});
 
   registerFunction<ToHexFunction, Varchar, Varbinary>({"to_hex"});
   registerFunction<FromHexFunction, Varbinary, Varchar>({"from_hex"});

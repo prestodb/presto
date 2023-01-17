@@ -22,6 +22,14 @@ Binary Functions
 
     Computes the SHA-512 hash of ``binary``.
 
+.. function:: spooky_hash_v2_32(binary) -> varbinary
+
+    Computes the SpookyHashV2 32-bit hash of ``binary``.
+
+.. function:: spooky_hash_v2_64(binary) -> varbinary
+
+    Computes the 64-bit SpookyHashV2 hash of ``binary``.
+
 .. function:: hmac_sha1(binary, key) -> varbinary
 
     Computes the HMAC with sha1 of ``binary`` with the given ``key``.

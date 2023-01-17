@@ -1201,6 +1201,48 @@ TEST_F(StringFunctionsTest, sha512) {
   EXPECT_EQ(std::nullopt, sha512(std::nullopt));
 }
 
+TEST_F(StringFunctionsTest, spookyHashV232) {
+  const auto spookyHashV232 = [&](std::optional<std::string> arg) {
+    return evaluateOnce<std::string, std::string>(
+        "spooky_hash_v2_32(c0)", {arg}, {VARBINARY()});
+  };
+
+  // The result values were obtained from Presto Java spooky_hash_v2_32
+  // function.
+
+  EXPECT_EQ(hexToDec("6BF50919"), spookyHashV232(""));
+  EXPECT_EQ(std::nullopt, spookyHashV232(std::nullopt));
+
+  EXPECT_EQ(hexToDec("D382E6CA"), spookyHashV232("hello"));
+  EXPECT_EQ(hexToDec("4DB3FC9E"), spookyHashV232("       "));
+  EXPECT_EQ(hexToDec("DC33E6F0"), spookyHashV232("special_#@,$|%/^~?{}+-"));
+  EXPECT_EQ(hexToDec("C5CD219B"), spookyHashV232("1234567890"));
+  EXPECT_EQ(
+      hexToDec("B95F627C"), spookyHashV232("more_than_12_characters_string"));
+}
+
+TEST_F(StringFunctionsTest, spookyHashV264) {
+  const auto spookyHashV264 = [&](std::optional<std::string> arg) {
+    return evaluateOnce<std::string, std::string>(
+        "spooky_hash_v2_64(c0)", {arg}, {VARBINARY()});
+  };
+
+  // The result values were obtained from Presto Java spooky_hash_v2_64
+  // function.
+
+  EXPECT_EQ(hexToDec("232706FC6BF50919"), spookyHashV264(""));
+  EXPECT_EQ(std::nullopt, spookyHashV264(std::nullopt));
+
+  EXPECT_EQ(hexToDec("3768826AD382E6CA"), spookyHashV264("hello"));
+  EXPECT_EQ(hexToDec("8A63CCE34DB3FC9E"), spookyHashV264("       "));
+  EXPECT_EQ(
+      hexToDec("AAF4B42DDC33E6F0"), spookyHashV264("special_#@,$|%/^~?{}+-"));
+  EXPECT_EQ(hexToDec("D9426F48C5CD219B"), spookyHashV264("1234567890"));
+  EXPECT_EQ(
+      hexToDec("3493AE21B95F627C"),
+      spookyHashV264("more_than_12_characters_string"));
+}
+
 TEST_F(StringFunctionsTest, HmacSha1) {
   const auto hmacSha1 = [&](std::optional<std::string> arg,
                             std::optional<std::string> key) {
