@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.security;
+package com.facebook.presto.spi.security;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
-import com.facebook.presto.spi.security.AccessControlContext;
-import com.facebook.presto.spi.security.Identity;
 
+import java.util.Collections;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toSet;
 
 public class ViewAccessControl
         extends DenyAllAccessControl
@@ -37,7 +37,7 @@ public class ViewAccessControl
     @Override
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<Subfield> columnOrSubfieldNames)
     {
-        delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, context, tableName, columnOrSubfieldNames.stream().map(subfield -> subfield.getRootName()).collect(toImmutableSet()));
+        delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, context, tableName, columnOrSubfieldNames.stream().map(Subfield::getRootName).collect(collectingAndThen(toSet(), Collections::unmodifiableSet)));
     }
 
     @Override
