@@ -160,3 +160,17 @@ TEST_F(GreatestLeastTest, stringBuffersMoved) {
       {""_sv, ""_sv},
       0);
 }
+
+TEST_F(GreatestLeastTest, clearNulls) {
+  auto c0 = makeFlatVector<int64_t>(10, folly::identity);
+  auto result = evaluate<SimpleVector<int64_t>>(
+      "SWITCH(c0 > 5, null::BIGINT, greatest(c0))", makeRowVector({c0}));
+  ASSERT_EQ(result->size(), 10);
+  for (int i = 0; i < result->size(); ++i) {
+    if (i > 5) {
+      ASSERT_TRUE(result->isNullAt(i));
+    } else {
+      ASSERT_EQ(result->valueAt(i), i);
+    }
+  }
+}

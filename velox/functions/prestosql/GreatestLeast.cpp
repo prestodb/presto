@@ -68,7 +68,7 @@ class ExtremeValueFunction : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result) const {
     context.ensureWritable(rows, outputType, result);
-    result->clearAllNulls();
+    result->clearNulls(rows);
     BufferPtr resultValues =
         result->as<FlatVector<T>>()->mutableValues(rows.end());
     T* __restrict rawResult = resultValues->asMutable<T>();
