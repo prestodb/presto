@@ -15,6 +15,7 @@ package com.facebook.presto.catalogserver;
 
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTransactionHandle;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -25,7 +26,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.sql.analyzer.ViewDefinition;
-import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Guice;
