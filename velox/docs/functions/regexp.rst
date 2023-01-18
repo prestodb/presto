@@ -7,6 +7,20 @@ supports only a subset of PCRE syntax and in particular does not support
 backtracking and associated features (e.g. back references).
 See https://github.com/google/re2/wiki/Syntax for more information.
 
+.. function:: like(string, pattern) -> boolean
+              like(string, pattern, escape) -> boolean
+
+    Evaluates if the ``string`` matches the ``pattern``. Patterns can contain
+    regular characters as well as wildcards. Wildcard characters can be escaped
+    using the single character specified for the ``escape`` parameter.
+    Matching is case sensitive.
+
+    Note: The wildcard '%' represents 0, 1 or multiple characters and the
+    wildcard '_' represents exactly one character.
+
+        SELECT like('abc', '%b%'); -- true
+        SELECT like('a_c', '%#_%', '#'); -- true
+
 .. function:: regexp_extract(string, pattern) -> varchar
 
     Returns the first substring matched by the regular expression ``pattern``
@@ -57,17 +71,3 @@ See https://github.com/google/re2/wiki/Syntax for more information.
     backslash (``\$``)::
 
         SELECT regexp_replace('1a 2b 14m', '(\d+)([ab]) ', '3c$2 '); -- '3ca 3cb 14m'
-
-.. function:: like(string, pattern) -> boolean
-              like(string, pattern, escape) -> boolean
-
-    Evaluates if the ``string`` matches the ``pattern``. Patterns can contain
-    regular characters as well as wildcards. Wildcard characters can be escaped
-    using the single character specified for the ``escape`` parameter.
-    Matching is case sensitive.
-
-    Note: The wildcard '%' represents 0, 1 or multiple characters and the
-    wildcard '_' represents exactly one character.
-
-        SELECT like('abc', '%b%'); -- true
-        SELECT like('a_c', '%#_%', '#'); -- true
