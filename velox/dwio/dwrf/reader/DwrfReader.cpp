@@ -25,8 +25,6 @@ using dwio::common::FileFormat;
 using dwio::common::InputStream;
 using dwio::common::ReaderOptions;
 using dwio::common::RowReaderOptions;
-using dwio::common::TypeWithId;
-using dwio::common::typeutils::CompatChecker;
 
 DwrfRowReader::DwrfRowReader(
     const std::shared_ptr<ReaderBase>& reader,
@@ -82,8 +80,8 @@ DwrfRowReader::DwrfRowReader(
     return exceptionMessageContext;
   };
 
-  CompatChecker::check(
-      *getReader().getSchema(), *getType(), true, createExceptionContext);
+  dwio::common::typeutils::checkTypeCompatibility(
+      *getReader().getSchema(), *columnSelector_, createExceptionContext);
 }
 
 uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {

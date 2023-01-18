@@ -23,7 +23,6 @@
 
 namespace facebook::velox::dwio::common {
 
-using common::typeutils::CompatChecker;
 using velox::RowType;
 using velox::Type;
 using velox::TypeKind;
@@ -77,7 +76,7 @@ FilterTypePtr ColumnSelector::buildNode(
   // make sure content type is compatible to reading request type
   // when content type is present (it may be absent due to schema mismatch)
   if (contentType != nullptr) {
-    CompatChecker::check(*contentType, *type);
+    typeutils::checkTypeCompatibility(*contentType, *type);
   }
 
   // the process will cover supported schema evolution:
@@ -143,7 +142,7 @@ void ColumnSelector::copy(
     }
 
     // ensure disk type can be converted to request type
-    CompatChecker::check(*diskType, *node->getRequestType());
+    typeutils::checkTypeCompatibility(*diskType, *node->getRequestType());
 
     // update data type during the visit as well as other data fields
     node->setDataType(diskType);
@@ -222,8 +221,7 @@ void ColumnSelector::setRead(const common::FilterTypePtr& node, bool only) {
 // TODO (cao) - SelectedTypeBuilder is uncessary to exist, can be killed
 std::shared_ptr<const TypeWithId> ColumnSelector::buildSelected() const {
   auto selector = [this](size_t index) { return shouldReadNode(index); };
-  return typeutils::SelectedTypeBuilder::build(
-      TypeWithId::create(schema_), selector);
+  return typeutils::buildSelectedType(TypeWithId::create(schema_), selector);
 }
 
 std::shared_ptr<const RowType> ColumnSelector::buildSelectedReordered() const {

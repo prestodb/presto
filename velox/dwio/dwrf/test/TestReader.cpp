@@ -826,6 +826,63 @@ TEST(TestReader, testMismatchSchemaNestedFewerFields) {
   }
 }
 
+TEST(TestReader, testMismatchSchemaIncompatibleNotSelected) {
+  // file has schema: a int, b struct<a:int, b:float>, c float
+  ReaderOptions readerOpts;
+  RowReaderOptions rowReaderOpts;
+  std::shared_ptr<const RowType> requestedType =
+      std::dynamic_pointer_cast<const RowType>(HiveTypeParser().parse(
+          "struct<a:float,b:struct<a:string,b:float>,c:int>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(
+      requestedType, std::vector<std::string>{"b.b"}));
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(structFile, readerOpts.getMemoryPool()),
+      readerOpts);
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  VectorPtr batch;
+  rowReader->next(1, batch);
+
+  {
+    auto root = std::dynamic_pointer_cast<RowVector>(batch);
+    EXPECT_EQ(3, root->childrenSize());
+
+    auto nested = std::dynamic_pointer_cast<RowVector>(root->childAt(1));
+    EXPECT_EQ(2, nested->childrenSize());
+    EXPECT_EQ(1, nested->size());
+
+    // Column 0 should have size 0 since it's not selected
+    EXPECT_FALSE(nested->childAt(0));
+    // Column 1 should be selected and not null
+    EXPECT_EQ(nested->childAt(1)->size(), 1);
+    EXPECT_EQ(0, nested->childAt(1)->getNullCount().value());
+
+    // Columns not selected should have nullptr
+    EXPECT_FALSE(root->childAt(0));
+    EXPECT_FALSE(root->childAt(2));
+  }
+
+  batch.reset();
+  rowReaderOpts.setProjectSelectedType(true);
+  reader = DwrfReader::create(
+      createFileBufferedInput(structFile, readerOpts.getMemoryPool()),
+      readerOpts);
+  rowReader = reader->createRowReader(rowReaderOpts);
+  rowReader->next(1, batch);
+
+  {
+    auto root = std::dynamic_pointer_cast<RowVector>(batch);
+    EXPECT_EQ(1, root->childrenSize());
+
+    auto nested = std::dynamic_pointer_cast<RowVector>(root->childAt(0));
+    // We should have 1 column since projection is pushed
+    EXPECT_EQ(1, nested->childrenSize());
+    EXPECT_EQ(1, nested->size());
+
+    EXPECT_EQ(1, nested->childAt(0)->size());
+    EXPECT_EQ(0, nested->childAt(0)->getNullCount().value());
+  }
+}
+
 TEST(TestReader, testMismatchSchemaIncompatible) {
   MockStripeStreams streams;
 

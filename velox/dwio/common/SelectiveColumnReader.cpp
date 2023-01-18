@@ -19,7 +19,6 @@
 namespace facebook::velox::dwio::common {
 
 using dwio::common::TypeWithId;
-using dwio::common::typeutils::CompatChecker;
 
 velox::common::AlwaysTrue& alwaysTrue() {
   static velox::common::AlwaysTrue alwaysTrue;

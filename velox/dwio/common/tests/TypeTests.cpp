@@ -22,10 +22,10 @@
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/dwio/type/fbhive/HiveTypeSerializer.h"
 
+using namespace facebook::velox;
 using namespace facebook::velox::dwio;
 using namespace facebook::velox::dwio::common;
-using facebook::velox::dwio::common::typeutils::CompatChecker;
-using facebook::velox::dwio::common::typeutils::SelectedTypeBuilder;
+using namespace facebook::velox::dwio::common::typeutils;
 using facebook::velox::dwio::type::fbhive::HiveTypeParser;
 using facebook::velox::dwio::type::fbhive::HiveTypeSerializer;
 
@@ -47,7 +47,7 @@ TEST(TestType, selectedType) {
   selected[0] = true;
   selected[2] = true;
   auto selector = [&selected](size_t index) { return selected[index]; };
-  auto cutType = SelectedTypeBuilder::build(typeWithId, selector);
+  auto cutType = buildSelectedType(typeWithId, selector);
   EXPECT_STREQ(
       "struct<col1:smallint>",
       HiveTypeSerializer::serialize(cutType->type).c_str());
@@ -56,7 +56,7 @@ TEST(TestType, selectedType) {
   EXPECT_EQ(2, cutType->childAt(0)->maxId);
 
   selected.assign(12, true);
-  cutType = SelectedTypeBuilder::build(typeWithId, selector);
+  cutType = buildSelectedType(typeWithId, selector);
   EXPECT_STREQ(
       "struct<col0:tinyint,col1:smallint,col2:array<string>,"
       "col3:map<float,double>,col4:float,"
@@ -68,7 +68,7 @@ TEST(TestType, selectedType) {
   selected.assign(12, false);
   selected[0] = true;
   selected[8] = true;
-  cutType = SelectedTypeBuilder::build(typeWithId, selector);
+  cutType = buildSelectedType(typeWithId, selector);
   EXPECT_STREQ(
       "struct<col4:float>",
       HiveTypeSerializer::serialize(cutType->type).c_str());
@@ -80,19 +80,17 @@ TEST(TestType, selectedType) {
   selected.assign(12, false);
   selected[0] = true;
   selected[3] = true;
-  EXPECT_THROW(
-      SelectedTypeBuilder::build(typeWithId, selector), std::invalid_argument);
+  EXPECT_THROW(buildSelectedType(typeWithId, selector), VeloxUserError);
 
   selected.assign(12, false);
   selected[0] = true;
-  EXPECT_THROW(
-      SelectedTypeBuilder::build(typeWithId, selector), std::invalid_argument);
+  EXPECT_THROW(buildSelectedType(typeWithId, selector), VeloxUserError);
 
   selected.assign(12, false);
   selected[0] = true;
   selected[3] = true;
   selected[4] = true;
-  cutType = SelectedTypeBuilder::build(typeWithId, selector);
+  cutType = buildSelectedType(typeWithId, selector);
   EXPECT_STREQ(
       "struct<col2:array<string>>",
       HiveTypeSerializer::serialize(cutType->type).c_str());
@@ -100,15 +98,14 @@ TEST(TestType, selectedType) {
   selected.assign(12, false);
   selected[0] = true;
   selected[3] = true;
-  EXPECT_THROW(
-      SelectedTypeBuilder::build(typeWithId, selector), std::invalid_argument);
+  EXPECT_THROW(buildSelectedType(typeWithId, selector), VeloxUserError);
 
   selected.assign(12, false);
   selected[0] = true;
   selected[5] = true;
   selected[6] = true;
   selected[7] = true;
-  cutType = SelectedTypeBuilder::build(typeWithId, selector);
+  cutType = buildSelectedType(typeWithId, selector);
   EXPECT_STREQ(
       "struct<col3:map<float,double>>",
       HiveTypeSerializer::serialize(cutType->type).c_str());
@@ -119,28 +116,25 @@ TEST(TestType, selectedType) {
   selected.assign(12, false);
   selected[0] = true;
   selected[5] = true;
-  EXPECT_THROW(
-      SelectedTypeBuilder::build(typeWithId, selector), std::invalid_argument);
+  EXPECT_THROW(buildSelectedType(typeWithId, selector), VeloxUserError);
 
   selected.assign(12, false);
   selected[0] = true;
   selected[5] = true;
   selected[6] = true;
-  EXPECT_THROW(
-      SelectedTypeBuilder::build(typeWithId, selector), std::invalid_argument);
+  EXPECT_THROW(buildSelectedType(typeWithId, selector), VeloxUserError);
 
   selected.assign(12, false);
   selected[0] = true;
   selected[5] = true;
   selected[7] = true;
-  EXPECT_THROW(
-      SelectedTypeBuilder::build(typeWithId, selector), std::invalid_argument);
+  EXPECT_THROW(buildSelectedType(typeWithId, selector), VeloxUserError);
 
   selected.assign(12, false);
   selected[0] = true;
   selected[1] = true;
   selected[11] = true;
-  cutType = SelectedTypeBuilder::build(typeWithId, selector);
+  cutType = buildSelectedType(typeWithId, selector);
   EXPECT_STREQ(
       "struct<col0:tinyint,col7:string>",
       HiveTypeSerializer::serialize(cutType->type).c_str());
@@ -170,33 +164,44 @@ TEST(TestType, buildTypeFromString) {
 }
 
 TEST(TestType, typeCompatibility) {
-  HiveTypeParser parser;
-
   // have one more file column and one more partition key
-  auto from = parser.parse("struct<a:int>");
-  auto to = parser.parse("struct<a:int,b:float,c:string>");
-  CompatChecker::check(*from, *to, true);
-
-  // have two more partition key
-  CompatChecker::check(*from, *to, true);
+  auto from = ROW({INTEGER()});
+  auto to = ROW({INTEGER(), REAL(), VARCHAR()});
+  checkTypeCompatibility(*from, *to, true);
 
   // have incompatible type
-  to = parser.parse("struct<a:float>");
-  EXPECT_THROW(
-      CompatChecker::check(*from, *to, true), facebook::velox::VeloxUserError);
+  to = ROW({REAL()});
+  EXPECT_THROW(checkTypeCompatibility(*from, *to, true), VeloxUserError);
 
   // last column as partition key which is incompatible with last column of
   // the file
-  from = parser.parse("struct<a:int,b:float>");
-  to = parser.parse("struct<a:int>");
-  CompatChecker::check(*from, *to, true);
+  from = ROW({INTEGER(), REAL()});
+  to = ROW({INTEGER()});
+  checkTypeCompatibility(*from, *to, true);
+
+  // incompatible type but not selected is ok
+  from = ROW({INTEGER(), REAL()});
+  to = ROW({INTEGER(), VARCHAR()});
+  ColumnSelector cs{to, std::vector<uint64_t>{0}};
+  checkTypeCompatibility(*from, cs);
+
+  ColumnSelector cs2{to, std::vector<uint64_t>{1}};
+  EXPECT_THROW(checkTypeCompatibility(*from, cs2), VeloxUserError);
+
+  from = ROW({ARRAY(INTEGER())});
+  to = ROW({ARRAY(DOUBLE())});
+  EXPECT_THROW(checkTypeCompatibility(*from, *to, true), VeloxUserError);
+
+  from = ROW({MAP(VARCHAR(), INTEGER())});
+  to = ROW({MAP(VARCHAR(), DOUBLE())});
+  EXPECT_THROW(checkTypeCompatibility(*from, *to, true), VeloxUserError);
 }
 
 TEST(TestType, typeCompatibilityWithErrorMessage) {
-  HiveTypeParser parser;
   // have one more file column and one more partition key
-  auto from = parser.parse("struct<a:int>");
-  auto to = parser.parse("struct<a:float>");
+  auto from = ROW({INTEGER()});
+  auto to = ROW({REAL()});
+  ColumnSelector cs{to, std::vector<uint64_t>{0}};
   std::string exceptionContext{"test error message"};
   std::function<std::string()> errorMessageCreator = [&]() {
     return exceptionContext;
@@ -207,7 +212,7 @@ TEST(TestType, typeCompatibilityWithErrorMessage) {
   EXPECT_THROW(
       {
         try {
-          CompatChecker::check(*from, *to, true, errorMessageCreator);
+          checkTypeCompatibility(*from, cs, errorMessageCreator);
         } catch (const facebook::velox::VeloxException& ex) {
           EXPECT_NE(ex.message().find(expectedMsg), std::string::npos);
           EXPECT_EQ(ex.errorCode(), "SCHEMA_MISMATCH");
@@ -215,7 +220,7 @@ TEST(TestType, typeCompatibilityWithErrorMessage) {
           throw;
         }
       },
-      facebook::velox::VeloxUserError);
+      VeloxUserError);
 }
 
 TEST(TestType, typeColumns) {

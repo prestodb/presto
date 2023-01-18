@@ -49,6 +49,7 @@ add_library(
   SelectiveRepeatedColumnReader.cpp
   SelectiveStructColumnReader.cpp
   SeekableInputStream.cpp
+  TypeUtils.cpp
   TypeWithId.cpp)
 
 target_link_libraries(

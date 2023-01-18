@@ -34,7 +34,6 @@
 namespace facebook::velox::dwrf {
 
 using dwio::common::IntDecoder;
-using dwio::common::typeutils::CompatChecker;
 using memory::MemoryPool;
 
 // Buffer size for reading length stream
@@ -1583,15 +1582,17 @@ StructColumnReader::StructColumnReader(
 
     // if the requested field is not in file, we either return null reader
     // or constant reader based on its expression
-    if (i >= nodeType_->size()) {
-      children_.push_back(
-          std::make_unique<NullColumnReader>(stripe, child->type));
-    } else if (cs.shouldReadNode(child->id)) {
-      children_.push_back(ColumnReader::build(
-          child,
-          nodeType_->childAt(i),
-          stripe,
-          FlatMapContext{flatMapContext_.sequence, nullptr}));
+    if (cs.shouldReadNode(child->id)) {
+      if (i < nodeType_->size()) {
+        children_.push_back(ColumnReader::build(
+            child,
+            nodeType_->childAt(i),
+            stripe,
+            FlatMapContext{flatMapContext_.sequence, nullptr}));
+      } else {
+        children_.push_back(
+            std::make_unique<NullColumnReader>(stripe, child->type));
+      }
     } else if (!project) {
       children_.emplace_back();
     }
@@ -2121,7 +2122,8 @@ std::unique_ptr<ColumnReader> ColumnReader::build(
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     StripeStreams& stripe,
     FlatMapContext flatMapContext) {
-  CompatChecker::check(*dataType->type, *requestedType->type);
+  dwio::common::typeutils::checkTypeCompatibility(
+      *dataType->type, *requestedType->type);
   EncodingKey ek{dataType->id, flatMapContext.sequence};
   switch (dataType->type->kind()) {
     case TypeKind::INTEGER:
