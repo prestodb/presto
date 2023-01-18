@@ -543,10 +543,10 @@ void ParquetRowReader::filterRowGroups() {
          fileOffset < options_.getLimit());
     // A skipped row group is one that is in range and is in the excluded list.
     if (rowGroupInRange) {
-      if (!bits::isBitSet(res.filterResult.data(), i)) {
-        rowGroupIds_.push_back(i);
-      } else {
+      if (i < res.totalCount && bits::isBitSet(res.filterResult.data(), i)) {
         ++skippedRowGroups_;
+      } else {
+        rowGroupIds_.push_back(i);
       }
     }
   }

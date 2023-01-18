@@ -126,3 +126,21 @@ TEST_F(ParquetReaderTest, parseRowMapArray) {
   auto col0_1_1_0 = col0_1_1->childAt(0);
   EXPECT_EQ(col0_1_1_0->type->kind(), TypeKind::INTEGER);
 }
+
+TEST_F(ParquetReaderTest, projectNoColumns) {
+  // This is the case for count(*).
+  auto rowType = ROW({}, {});
+  ReaderOptions readerOpts;
+  ParquetReader reader =
+      createReader(getExampleFilePath("sample.parquet"), readerOpts);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(makeScanSpec(rowType));
+  auto rowReader = reader.createRowReader(rowReaderOpts);
+  auto result = BaseVector::create(rowType, 1, pool_.get());
+  constexpr int kBatchSize = 100;
+  ASSERT_TRUE(rowReader->next(kBatchSize, result));
+  EXPECT_EQ(result->size(), 10);
+  ASSERT_TRUE(rowReader->next(kBatchSize, result));
+  EXPECT_EQ(result->size(), 10);
+  ASSERT_FALSE(rowReader->next(kBatchSize, result));
+}
