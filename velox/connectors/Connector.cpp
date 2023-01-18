@@ -104,4 +104,15 @@ std::shared_ptr<cache::ScanTracker> Connector::getTracker(
   });
 }
 
+std::string commitStrategyToString(CommitStrategy commitStrategy) {
+  switch (commitStrategy) {
+    case CommitStrategy::kNoCommit:
+      return "NO_COMMIT";
+    case CommitStrategy::kTaskCommit:
+      return "TASK_COMMIT";
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
 } // namespace facebook::velox::connector

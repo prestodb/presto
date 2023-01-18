@@ -17,41 +17,88 @@
 #include "velox/connectors/hive/HiveDataSink.h"
 
 #include "velox/common/base/Fs.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
-#include "velox/connectors/hive/HiveWriteProtocol.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
 
 using namespace facebook::velox::dwrf;
 using WriterConfig = facebook::velox::dwrf::Config;
 
 namespace facebook::velox::connector::hive {
 
+namespace {
+
+std::string makeUuid() {
+  return boost::lexical_cast<std::string>(boost::uuids::random_generator()());
+}
+
+std::string makePartitionDirectory(
+    const std::string& tableDirectory,
+    const std::optional<std::string>& partitionSubdirectory) {
+  if (partitionSubdirectory.has_value()) {
+    return (fs::path(tableDirectory) / partitionSubdirectory.value()).string();
+  }
+  return tableDirectory;
+}
+
+} // namespace
+
 HiveDataSink::HiveDataSink(
     RowTypePtr inputType,
     std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
-    const ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx,
-    std::shared_ptr<WriteProtocol> writeProtocol)
+    const ConnectorQueryCtx* connectorQueryCtx,
+    CommitStrategy commitStrategy)
     : inputType_(std::move(inputType)),
       insertTableHandle_(std::move(insertTableHandle)),
       connectorQueryCtx_(connectorQueryCtx),
-      writeProtocol_(std::move(writeProtocol)) {
-  VELOX_CHECK_NOT_NULL(
-      writeProtocol_, "Write protocol could not be nullptr for HiveDataSink.");
-}
-
-std::shared_ptr<ConnectorCommitInfo> HiveDataSink::getConnectorCommitInfo()
-    const {
-  return std::make_shared<HiveConnectorCommitInfo>(writerParameters_);
-}
+      commitStrategy_(commitStrategy) {}
 
 void HiveDataSink::appendData(VectorPtr input) {
   // For the time being the hive data sink supports one file
   // To extend it we can create a new writer for every
   // partition
   if (writers_.empty()) {
-    writers_.emplace_back(createWriter());
+    createWriter(std::nullopt);
   }
   writers_[0]->write(input);
+  writerInfo_[0]->numWrittenRows += input->size();
+}
+
+std::vector<std::string> HiveDataSink::finish() const {
+  std::vector<std::string> partitionUpdates;
+  partitionUpdates.reserve(writerInfo_.size());
+
+  for (const auto& info : writerInfo_) {
+    if (info) {
+      // clang-format off
+      auto partitionUpdateJson = folly::toJson(
+       folly::dynamic::object
+          ("name", info->writerParameters.partitionName().value_or(""))
+          ("updateMode",
+            HiveWriterParameters::updateModeToString(
+              info->writerParameters.updateMode()))
+          ("writePath", info->writerParameters.writeDirectory())
+          ("targetPath", info->writerParameters.targetDirectory())
+          ("fileWriteInfos", folly::dynamic::array(
+            folly::dynamic::object
+              ("writeFileName", info->writerParameters.writeFileName())
+              ("targetFileName", info->writerParameters.targetFileName())
+              ("fileSize", 0)))
+          ("rowCount", info->numWrittenRows)
+         // TODO(gaoge): track and send the fields when inMemoryDataSizeInBytes, onDiskDataSizeInBytes
+         // and containsNumberedFileNames are needed at coordinator when file_renaming_enabled are turned on.
+          ("inMemoryDataSizeInBytes", 0)
+          ("onDiskDataSizeInBytes", 0)
+          ("containsNumberedFileNames", true));
+      // clang-format on
+      partitionUpdates.push_back(partitionUpdateJson);
+    }
+  }
+  return partitionUpdates;
 }
 
 void HiveDataSink::close() {
@@ -60,7 +107,8 @@ void HiveDataSink::close() {
   }
 }
 
-std::unique_ptr<velox::dwrf::Writer> HiveDataSink::createWriter() {
+void HiveDataSink::createWriter(
+    const std::optional<std::string>& partitionName) {
   auto config = std::make_shared<WriterConfig>();
   // TODO: Wire up serde properties to writer configs.
 
@@ -69,21 +117,78 @@ std::unique_ptr<velox::dwrf::Writer> HiveDataSink::createWriter() {
   options.schema = inputType_;
   // Without explicitly setting flush policy, the default memory based flush
   // policy is used.
+  auto writerParameters = getWriterParameters(partitionName);
 
-  auto hiveWriterParameters =
-      std::dynamic_pointer_cast<const HiveWriterParameters>(
-          writeProtocol_->getWriterParameters(
-              insertTableHandle_, connectorQueryCtx_));
-  VELOX_CHECK_NOT_NULL(
-      hiveWriterParameters,
-      "Hive data sink expects write parameters for Hive.");
-  writerParameters_.emplace_back(hiveWriterParameters);
+  writerInfo_.emplace_back(std::make_shared<HiveWriterInfo>(*writerParameters));
 
-  auto writePath = fs::path(hiveWriterParameters->writeDirectory()) /
-      hiveWriterParameters->writeFileName();
+  auto writePath = fs::path(writerParameters->writeDirectory()) /
+      writerParameters->writeFileName();
   auto sink = dwio::common::DataSink::create(writePath);
-  return std::make_unique<Writer>(
-      options, std::move(sink), *connectorQueryCtx_->memoryPool());
+  writers_.push_back(std::make_unique<Writer>(
+      options, std::move(sink), *connectorQueryCtx_->memoryPool()));
+}
+
+std::shared_ptr<const HiveWriterParameters> HiveDataSink::getWriterParameters(
+    const std::optional<std::string>& partition) const {
+  auto updateMode = getUpdateMode();
+
+  std::string targetFileName;
+  std::string writeFileName;
+  switch (commitStrategy_) {
+    case CommitStrategy::kNoCommit: {
+      targetFileName = fmt::format(
+          "{}_{}_{}",
+          connectorQueryCtx_->taskId(),
+          connectorQueryCtx_->driverId(),
+          makeUuid());
+      writeFileName = targetFileName;
+      break;
+    }
+    case CommitStrategy::kTaskCommit: {
+      targetFileName = fmt::format(
+          "{}_{}_{}",
+          connectorQueryCtx_->taskId(),
+          connectorQueryCtx_->driverId(),
+          0);
+      writeFileName =
+          fmt::format(".tmp.velox.{}_{}", targetFileName, makeUuid());
+      break;
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
+
+  return std::make_shared<HiveWriterParameters>(
+      updateMode,
+      partition,
+      targetFileName,
+      makePartitionDirectory(
+          insertTableHandle_->locationHandle()->targetPath(), partition),
+      writeFileName,
+      makePartitionDirectory(
+          insertTableHandle_->locationHandle()->writePath(), partition));
+}
+
+HiveWriterParameters::UpdateMode HiveDataSink::getUpdateMode() const {
+  if (insertTableHandle_->isInsertTable()) {
+    if (insertTableHandle_->isPartitioned()) {
+      auto insertBehavior = HiveConfig::insertExistingPartitionsBehavior(
+          connectorQueryCtx_->config());
+      switch (insertBehavior) {
+        case HiveConfig::InsertExistingPartitionsBehavior::kOverwrite:
+          return HiveWriterParameters::UpdateMode::kOverwrite;
+
+        case HiveConfig::InsertExistingPartitionsBehavior::kError:
+          return HiveWriterParameters::UpdateMode::kNew;
+        default:
+          VELOX_UNSUPPORTED("Unsupported insert existing partitions behavior.");
+      }
+    } else {
+      VELOX_USER_FAIL("Unpartitioned Hive tables are immutable.");
+    }
+  } else {
+    return HiveWriterParameters::UpdateMode::kNew;
+  }
 }
 
 bool HiveInsertTableHandle::isPartitioned() const {
@@ -91,10 +196,6 @@ bool HiveInsertTableHandle::isPartitioned() const {
       inputColumns_.begin(), inputColumns_.end(), [](auto column) {
         return column->isPartitionKey();
       });
-}
-
-bool HiveInsertTableHandle::isCreateTable() const {
-  return locationHandle_->tableType() == LocationHandle::TableType::kNew;
 }
 
 bool HiveInsertTableHandle::isInsertTable() const {

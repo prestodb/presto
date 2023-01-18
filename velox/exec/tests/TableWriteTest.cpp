@@ -15,8 +15,6 @@
  */
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/connectors/WriteProtocol.h"
-#include "velox/connectors/hive/HiveWriteProtocol.h"
 #include "velox/dwio/common/DataSink.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -32,7 +30,6 @@ class TableWriteTest : public HiveConnectorTestBase {
  protected:
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
-    HiveNoCommitWriteProtocol::registerProtocol();
   }
 
   VectorPtr createConstant(variant value, vector_size_t size) const {
@@ -83,7 +80,7 @@ TEST_F(TableWriteTest, scanFilterProjectWrite) {
                               rowType_->children(),
                               {},
                               makeLocationHandle(outputDirectory->path))),
-                      WriteProtocol::CommitStrategy::kNoCommit,
+                      CommitStrategy::kNoCommit,
                       "rows")
                   .project({"rows"})
                   .planNode();
@@ -127,7 +124,7 @@ TEST_F(TableWriteTest, renameAndReorderColumns) {
                               tableRowType->children(),
                               {},
                               makeLocationHandle(outputDirectory->path))),
-                      WriteProtocol::CommitStrategy::kNoCommit,
+                      CommitStrategy::kNoCommit,
                       "rows")
                   .project({"rows"})
                   .planNode();
@@ -164,7 +161,7 @@ TEST_F(TableWriteTest, directReadWrite) {
                               rowType_->children(),
                               {},
                               makeLocationHandle(outputDirectory->path))),
-                      WriteProtocol::CommitStrategy::kNoCommit,
+                      CommitStrategy::kNoCommit,
                       "rows")
                   .project({"rows"})
                   .planNode();
@@ -218,7 +215,7 @@ TEST_F(TableWriteTest, constantVectors) {
                             rowType_->children(),
                             {},
                             makeLocationHandle(outputDirectory->path))),
-                    WriteProtocol::CommitStrategy::kNoCommit,
+                    CommitStrategy::kNoCommit,
                     "rows")
                 .project({"rows"})
                 .planNode();
@@ -252,18 +249,11 @@ TEST_F(TableWriteTest, TestASecondCommitStrategy) {
                               rowType_->children(),
                               {},
                               makeLocationHandle(outputDirectory->path))),
-                      WriteProtocol::CommitStrategy::kTaskCommit,
+                      CommitStrategy::kTaskCommit,
                       "rows")
                   .project({"rows"})
                   .planNode();
 
-  // No write protocol is registered for CommitStrategy::kTaskCommit.
-  VELOX_ASSERT_THROW(
-      assertQuery(plan, filePaths, "SELECT count(*) FROM tmp"),
-      "No write protocol found for commit strategy TASK_COMMIT");
-
-  // HiveTaskCommitWriteProtocol is registered for CommitStrategy::kTaskCommit.
-  HiveTaskCommitWriteProtocol::registerProtocol();
   assertQuery(plan, filePaths, "SELECT count(*) FROM tmp");
 
   // HiveTaskCommitWriteProtocol writes to dot-prefixed file in the
@@ -289,7 +279,7 @@ TEST_F(TableWriteTest, writeNoFile) {
                               rowType_->children(),
                               {},
                               makeLocationHandle(outputDirectory->path))),
-                      WriteProtocol::CommitStrategy::kNoCommit,
+                      CommitStrategy::kNoCommit,
                       "rows")
                   .planNode();
 

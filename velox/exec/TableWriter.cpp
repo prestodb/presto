@@ -16,7 +16,6 @@
 
 #include "velox/exec/TableWriter.h"
 
-#include "velox/connectors/WriteProtocol.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
@@ -31,12 +30,10 @@ TableWriter::TableWriter(
           operatorId,
           tableWriteNode->id(),
           "TableWrite"),
-      numWrittenRows_(0),
-      finished_(false),
-      closed_(false),
       driverCtx_(driverCtx),
       insertTableHandle_(
-          tableWriteNode->insertTableHandle()->connectorInsertTableHandle()) {
+          tableWriteNode->insertTableHandle()->connectorInsertTableHandle()),
+      commitStrategy_(tableWriteNode->commitStrategy()) {
   const auto& connectorId = tableWriteNode->insertTableHandle()->connectorId();
   connector_ = connector::getConnector(connectorId);
   connectorQueryCtx_ =
@@ -53,8 +50,6 @@ TableWriter::TableWriter(
   }
 
   mappedType_ = ROW(std::move(names), std::move(types));
-  writeProtocol_ = connector::WriteProtocol::getWriteProtocol(
-      tableWriteNode->commitStrategy());
   createDataSink();
 }
 
@@ -63,7 +58,7 @@ void TableWriter::createDataSink() {
       mappedType_,
       insertTableHandle_,
       connectorQueryCtx_.get(),
-      writeProtocol_);
+      commitStrategy_);
 }
 
 void TableWriter::addInput(RowVectorPtr input) {
@@ -99,11 +94,58 @@ RowVectorPtr TableWriter::getOutput() {
   }
   finished_ = true;
 
-  connector::CommitInfo commitInfo(
-      dataSink_->getConnectorCommitInfo(),
-      numWrittenRows_,
-      outputType_,
-      driverCtx_->task->taskId());
-  return writeProtocol_->commit(commitInfo, pool());
+  memory::MemoryPool* pool = connectorQueryCtx_->memoryPool();
+
+  if (outputType_->size() == 0) {
+    return nullptr;
+  }
+  if (outputType_->size() == 1) {
+    return std::make_shared<RowVector>(
+        pool,
+        outputType_,
+        nullptr,
+        1,
+        std::vector<VectorPtr>{
+            BaseVector::createConstant((int64_t)numWrittenRows_, 1, pool)});
+  }
+
+  std::vector<std::string> fragments = dataSink_->finish();
+
+  vector_size_t numOutputRows = fragments.size() + 1;
+
+  // Set rows column.
+  FlatVectorPtr<int64_t> writtenRowsVector =
+      BaseVector::create<FlatVector<int64_t>>(BIGINT(), numOutputRows, pool);
+  writtenRowsVector->set(0, (int64_t)numWrittenRows_);
+  for (int idx = 1; idx < numOutputRows; ++idx) {
+    writtenRowsVector->setNull(idx, true);
+  }
+
+  // Set fragments column.
+  FlatVectorPtr<StringView> fragmentsVector =
+      BaseVector::create<FlatVector<StringView>>(
+          VARBINARY(), numOutputRows, pool);
+  fragmentsVector->setNull(0, true);
+  for (int i = 1; i < numOutputRows; i++) {
+    fragmentsVector->set(i, StringView(fragments[i - 1]));
+  }
+
+  // Set commitcontext column.
+  // clang-format off
+     auto commitContextJson = folly::toJson(
+       folly::dynamic::object
+           ("lifespan", "TaskWide")
+           ("taskId", connectorQueryCtx_->taskId())
+           ("pageSinkCommitStrategy", commitStrategyToString(commitStrategy_))
+           ("lastPage", true));
+  // clang-format on
+  VectorPtr commitContextVector = BaseVector::createConstant(
+      variant::binary(commitContextJson), numOutputRows, pool);
+
+  std::vector<VectorPtr> columns = {
+      writtenRowsVector, fragmentsVector, commitContextVector};
+
+  return std::make_shared<RowVector>(
+      pool, outputType_, nullptr, numOutputRows, columns);
 }
 } // namespace facebook::velox::exec

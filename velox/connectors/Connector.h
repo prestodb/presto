@@ -33,9 +33,6 @@ namespace facebook::velox::exec {
 class ExprSet;
 }
 namespace facebook::velox::connector {
-class ConnectorCommitInfo;
-class WriteProtocol;
-
 // A split represents a chunk of data that a connector should load and return
 // as a RowVectorPtr, potentially after processing pushdowns.
 struct ConnectorSplit {
@@ -91,17 +88,27 @@ class ConnectorInsertTableHandle {
   }
 };
 
+/// Represents the commit strategy for writing to connector.
+enum class CommitStrategy {
+  kNoCommit, // No more commit actions are needed.
+  kTaskCommit // Task level commit is needed.
+};
+
+/// Return a string encoding of the given commit strategy.
+std::string commitStrategyToString(CommitStrategy commitStrategy);
+
 class DataSink {
  public:
   virtual ~DataSink() = default;
 
-  // Get commit info of the connector.
-  virtual std::shared_ptr<ConnectorCommitInfo> getConnectorCommitInfo()
-      const = 0;
-
-  // Add the next data (vector) to be written. This call is blocking
+  /// Add the next data (vector) to be written. This call is blocking
   // TODO maybe at some point we want to make it async
   virtual void appendData(VectorPtr input) = 0;
+
+  /// Called once after all data has been added via possibly multiple calls to
+  /// appendData(). Could return data in the string form that would be included
+  /// in the output. After calling this function, only close() could be called.
+  virtual std::vector<std::string> finish() const = 0;
 
   virtual void close() = 0;
 };
@@ -269,8 +276,8 @@ class Connector {
   virtual std::shared_ptr<DataSink> createDataSink(
       RowTypePtr inputType,
       std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
-      ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx,
-      std::shared_ptr<WriteProtocol> writeProtocol) = 0;
+      ConnectorQueryCtx* connectorQueryCtx,
+      CommitStrategy commitStrategy) = 0;
 
   // Returns a ScanTracker for 'id'. 'id' uniquely identifies the
   // tracker and different threads will share the same

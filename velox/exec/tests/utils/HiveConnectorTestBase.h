@@ -93,14 +93,9 @@ class HiveConnectorTestBase : public OperatorTestBase {
       std::string targetDirectory,
       std::optional<std::string> writeDirectory = std::nullopt,
       connector::hive::LocationHandle::TableType tableType =
-          connector::hive::LocationHandle::TableType::kNew,
-      connector::hive::LocationHandle::WriteMode writeMode = connector::hive::
-          LocationHandle::WriteMode::kDirectToTargetNewDirectory) {
+          connector::hive::LocationHandle::TableType::kNew) {
     return std::make_shared<connector::hive::LocationHandle>(
-        targetDirectory,
-        writeDirectory.value_or(targetDirectory),
-        tableType,
-        writeMode);
+        targetDirectory, writeDirectory.value_or(targetDirectory), tableType);
   }
 
   /// Build a HiveInsertTableHandle.

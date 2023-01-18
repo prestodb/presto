@@ -268,7 +268,7 @@ PlanBuilder& PlanBuilder::filter(const std::string& filter) {
 PlanBuilder& PlanBuilder::tableWrite(
     const std::vector<std::string>& columnNames,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
-    WriteProtocol::CommitStrategy commitStrategy,
+    CommitStrategy commitStrategy,
     const std::string& rowCountColumnName) {
   return tableWrite(
       planNode_->outputType(),
@@ -282,7 +282,7 @@ PlanBuilder& PlanBuilder::tableWrite(
     const RowTypePtr& inputColumns,
     const std::vector<std::string>& tableColumnNames,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
-    WriteProtocol::CommitStrategy commitStrategy,
+    CommitStrategy commitStrategy,
     const std::string& rowCountColumnName) {
   auto outputType = ROW({rowCountColumnName}, {BIGINT()});
   planNode_ = std::make_shared<core::TableWriteNode>(

@@ -165,3 +165,28 @@ If the limit is zero, then the spiller always spills a previously spilled
 partition if it has any data. This is to avoid spill from a partition with a
 small amount of data which might result in generating too many small spilled
 files.
+
+
+Hive Connector
+-----------------------------
+
+``max_partitions_per_writers``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``100``
+
+Maximum number of partitions per writer.
+
+``insert_existing_partitions_behavior``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Allowed values:** ``OVERWRITE``, ``ERROR``
+    * **Default value:** ``ERROR``
+
+The behavior on insert existing partitions. This property only derives
+the update mode field of the table writer operator output. ``OVERWRITE``
+sets the update mode to indicate overwriting a partition if exists.
+``ERROR`` sets the update mode to indicate error throwing if writing
+to an existing partition.

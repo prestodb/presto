@@ -19,7 +19,6 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
-#include "velox/connectors/hive/HiveWriteProtocol.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -97,7 +96,6 @@ int main(int argc, char** argv) {
   // write protocol, in this case commit is not required:
   filesystems::registerLocalFileSystem();
   dwrf::registerDwrfReaderFactory();
-  connector::hive::HiveNoCommitWriteProtocol::registerProtocol();
 
   // Create a temporary dir to store the local file created. Note that this
   // directory is automatically removed when the `tempDir` object runs out of
@@ -127,7 +125,7 @@ int main(int argc, char** argv) {
                       {},
                       HiveConnectorTestBase::makeLocationHandle(
                           tempDir->path))),
-              connector::WriteProtocol::CommitStrategy::kNoCommit)
+              connector::CommitStrategy::kNoCommit)
           .planFragment();
 
   std::shared_ptr<folly::Executor> executor(

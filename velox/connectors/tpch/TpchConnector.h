@@ -152,8 +152,8 @@ class TpchConnector final : public Connector {
       RowTypePtr /*inputType*/,
       std::shared_ptr<
           ConnectorInsertTableHandle> /*connectorInsertTableHandle*/,
-      ConnectorQueryCtx* FOLLY_NONNULL /*connectorQueryCtx*/,
-      std::shared_ptr<WriteProtocol> /*writeProtocol*/) override final {
+      ConnectorQueryCtx* /*connectorQueryCtx*/,
+      CommitStrategy /*commitStrategy*/) override final {
     VELOX_NYI("TpchConnector does not support data sink.");
   }
 };

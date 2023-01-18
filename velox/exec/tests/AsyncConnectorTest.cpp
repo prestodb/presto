@@ -15,7 +15,6 @@
  */
 #include <folly/experimental/FunctionScheduler.h>
 #include "velox/connectors/Connector.h"
-#include "velox/connectors/WriteProtocol.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -151,8 +150,8 @@ class TestConnector : public connector::Connector {
       RowTypePtr /*inputType*/,
       std::shared_ptr<
           ConnectorInsertTableHandle> /*connectorInsertTableHandle*/,
-      ConnectorQueryCtx* FOLLY_NONNULL /*connectorQueryCtx*/,
-      std::shared_ptr<WriteProtocol> /*writeProtocol*/) override final {
+      ConnectorQueryCtx* /*connectorQueryCtx*/,
+      CommitStrategy /*commitStrategy*/) override final {
     VELOX_NYI();
   }
 };

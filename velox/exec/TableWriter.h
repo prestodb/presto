@@ -64,16 +64,18 @@ class TableWriter : public Operator {
  private:
   void createDataSink();
 
-  std::vector<column_index_t> inputMapping_;
-  std::shared_ptr<const RowType> mappedType_;
-  vector_size_t numWrittenRows_;
-  bool finished_;
-  bool closed_;
-  DriverCtx* driverCtx_;
+  const DriverCtx* driverCtx_;
+  const std::shared_ptr<connector::ConnectorInsertTableHandle>
+      insertTableHandle_;
+  const connector::CommitStrategy commitStrategy_;
   std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   std::shared_ptr<connector::DataSink> dataSink_;
-  std::shared_ptr<connector::WriteProtocol> writeProtocol_;
-  std::shared_ptr<connector::ConnectorInsertTableHandle> insertTableHandle_;
+  std::vector<column_index_t> inputMapping_;
+  std::shared_ptr<const RowType> mappedType_;
+
+  bool finished_ = false;
+  bool closed_ = false;
+  vector_size_t numWrittenRows_ = 0;
 };
 } // namespace facebook::velox::exec

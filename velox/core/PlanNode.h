@@ -16,7 +16,6 @@
 #pragma once
 
 #include "velox/connectors/Connector.h"
-#include "velox/connectors/WriteProtocol.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/QueryConfig.h"
 
@@ -397,7 +396,7 @@ class TableWriteNode : public PlanNode {
       const std::vector<std::string>& columnNames,
       const std::shared_ptr<InsertTableHandle>& insertTableHandle,
       const RowTypePtr& outputType,
-      connector::WriteProtocol::CommitStrategy commitStrategy,
+      connector::CommitStrategy commitStrategy,
       const PlanNodePtr& source)
       : PlanNode(id),
         sources_{source},
@@ -436,7 +435,7 @@ class TableWriteNode : public PlanNode {
     return insertTableHandle_;
   }
 
-  connector::WriteProtocol::CommitStrategy commitStrategy() const {
+  connector::CommitStrategy commitStrategy() const {
     return commitStrategy_;
   }
 
@@ -452,7 +451,7 @@ class TableWriteNode : public PlanNode {
   const std::vector<std::string> columnNames_;
   const std::shared_ptr<InsertTableHandle> insertTableHandle_;
   const RowTypePtr outputType_;
-  const connector::WriteProtocol::CommitStrategy commitStrategy_;
+  const connector::CommitStrategy commitStrategy_;
 };
 
 class AggregationNode : public PlanNode {
