@@ -16,6 +16,7 @@ package com.facebook.presto.transaction;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;

@@ -15,9 +15,9 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.transaction.TransactionId;
 
 import java.util.Set;
 
