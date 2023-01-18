@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -210,6 +211,12 @@ public class PhasedExecutionSchedule
         }
 
         @Override
+        public Set<PlanFragmentId> visitStarJoin(StarJoinNode node, PlanFragmentId currentFragmentId)
+        {
+            return processStarJoin(node.getRight(), node.getLeft(), currentFragmentId);
+        }
+
+        @Override
         public Set<PlanFragmentId> visitSpatialJoin(SpatialJoinNode node, PlanFragmentId currentFragmentId)
         {
             return processJoin(node.getRight(), node.getLeft(), currentFragmentId);
@@ -248,6 +255,25 @@ public class PhasedExecutionSchedule
                     .addAll(buildSources)
                     .addAll(probeSources)
                     .build();
+        }
+
+        private Set<PlanFragmentId> processStarJoin(List<PlanNode> build, PlanNode probe, PlanFragmentId currentFragmentId)
+        {
+            List<Set<PlanFragmentId>> buildSourcesList = build.stream().map(x -> x.accept(this, currentFragmentId)).collect(toImmutableList());
+            Set<PlanFragmentId> probeSources = probe.accept(this, currentFragmentId);
+
+            for (Set<PlanFragmentId> buildSources : buildSourcesList) {
+                for (PlanFragmentId buildSource : buildSources) {
+                    for (PlanFragmentId probeSource : probeSources) {
+                        graph.addEdge(buildSource, probeSource);
+                    }
+                }
+            }
+
+            ImmutableSet.Builder<PlanFragmentId> result = ImmutableSet.builder();
+            buildSourcesList.forEach(x -> result.addAll(x));
+            result.addAll(probeSources);
+            return result.build();
         }
 
         @Override

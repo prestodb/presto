@@ -49,6 +49,7 @@ public class JoinProbe
     private final int[] probeOutputChannels;
     private final int positionCount;
     private final Page page;
+    // probe hash columns from page, loaded into memory
     private final Page probePage;
     @Nullable
     private final Block probeHashBlock;

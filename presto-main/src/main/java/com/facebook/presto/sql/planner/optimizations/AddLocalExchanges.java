@@ -49,6 +49,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -774,6 +775,41 @@ public class AddLocalExchanges
             PlanWithProperties build = planAndEnforce(node.getRight(), buildPreference, buildPreference);
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(probe, build));
+        }
+
+        @Override
+        public PlanWithProperties visitStarJoin(StarJoinNode node, StreamPreferredProperties parentPreferences)
+        {
+            PlanWithProperties probe;
+            if (isSpillEnabled(session) && isJoinSpillingEnabled(session)) {
+                probe = planAndEnforce(
+                        node.getLeft(),
+                        fixedParallelism(),
+                        parentPreferences.constrainTo(node.getLeft().getOutputVariables()).withFixedParallelism());
+            }
+            else {
+                probe = planAndEnforce(
+                        node.getLeft(),
+                        defaultParallelism(session),
+                        parentPreferences.constrainTo(node.getLeft().getOutputVariables()).withDefaultParallelism(session));
+            }
+            ImmutableList.Builder<PlanWithProperties> children = ImmutableList.builder();
+            children.add(probe);
+
+            // this build consumes the input completely, so we do not pass through parent preferences
+            for (int i = 0; i < node.getRight().size(); ++i) {
+                StreamPreferredProperties buildPreference;
+                if (getTaskConcurrency(session) > 1) {
+                    buildPreference = exactlyPartitionedOn(ImmutableList.of(node.getCriteria().get(i).getRight()));
+                }
+                else {
+                    buildPreference = singleStream();
+                }
+                PlanWithProperties build = planAndEnforce(node.getRight().get(i), buildPreference, buildPreference);
+                children.add(build);
+            }
+
+            return rebaseAndDeriveProperties(node, children.build());
         }
 
         @Override

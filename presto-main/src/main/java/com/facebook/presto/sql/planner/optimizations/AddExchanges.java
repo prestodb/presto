@@ -67,6 +67,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -143,6 +144,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -783,9 +785,45 @@ public class AddExchanges
             }
         }
 
+        @Override
+        public PlanWithProperties visitStarJoin(StarJoinNode node, PreferredProperties preferredProperties)
+        {
+            Set<VariableReferenceExpression> leftVariablesSet = node.getCriteria().stream()
+                    .map(JoinNode.EquiJoinClause::getLeft)
+                    .collect(toImmutableSet());
+            checkState(leftVariablesSet.size() == 1);
+            List<VariableReferenceExpression> leftVariables = leftVariablesSet.stream().collect(toImmutableList());
+            List<List<VariableReferenceExpression>> rightVariables = node.getCriteria().stream()
+                    .map(JoinNode.EquiJoinClause::getRight)
+                    .map(x -> ImmutableList.of(x))
+                    .collect(toImmutableList());
+
+            JoinNode.DistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
+
+            if (distributionType == JoinNode.DistributionType.REPLICATED) {
+                PlanWithProperties left = accept(node.getLeft(), PreferredProperties.any());
+
+                // use partitioned join if probe side is naturally partitioned on join symbols (e.g: because of aggregation)
+                if (!node.getCriteria().isEmpty()
+                        && isNodePartitionedOn(left.getProperties(), leftVariables) && !left.getProperties().isSingleNode()) {
+                    return planPartitionedStarJoin(node, leftVariables, rightVariables, left);
+                }
+
+                return planReplicatedStarJoin(node, left);
+            }
+            else {
+                return planPartitionedStarJoin(node, leftVariables, rightVariables);
+            }
+        }
+
         private PlanWithProperties planPartitionedJoin(JoinNode node, List<VariableReferenceExpression> leftVariables, List<VariableReferenceExpression> rightVariables)
         {
             return planPartitionedJoin(node, leftVariables, rightVariables, accept(node.getLeft(), PreferredProperties.partitioned(ImmutableSet.copyOf(leftVariables))));
+        }
+
+        private PlanWithProperties planPartitionedStarJoin(StarJoinNode node, List<VariableReferenceExpression> leftVariables, List<List<VariableReferenceExpression>> rightVariables)
+        {
+            return planPartitionedStarJoin(node, leftVariables, rightVariables, accept(node.getLeft(), PreferredProperties.partitioned(ImmutableSet.copyOf(leftVariables))));
         }
 
         private PlanWithProperties planPartitionedJoin(JoinNode node, List<VariableReferenceExpression> leftVariables, List<VariableReferenceExpression> rightVariables, PlanWithProperties left)
@@ -863,6 +901,74 @@ public class AddExchanges
             return buildJoin(node, left, right, JoinNode.DistributionType.PARTITIONED);
         }
 
+        private PlanWithProperties planPartitionedStarJoin(StarJoinNode node, List<VariableReferenceExpression> leftVariables, List<List<VariableReferenceExpression>> rightVariablesList, PlanWithProperties left)
+        {
+            ImmutableList.Builder<PlanWithProperties> rightChildren = ImmutableList.builder();
+            for (int i = 0; i < node.getRight().size(); ++i) {
+                List<VariableReferenceExpression> rightVariables = rightVariablesList.get(i);
+                SetMultimap<VariableReferenceExpression, VariableReferenceExpression> rightToLeft = createMapping(rightVariables, leftVariables);
+                SetMultimap<VariableReferenceExpression, VariableReferenceExpression> leftToRight = createMapping(leftVariables, rightVariables);
+
+                PlanWithProperties right;
+
+                if (isNodePartitionedOn(left.getProperties(), leftVariables) && !left.getProperties().isSingleNode()) {
+                    Partitioning rightPartitioning = left.getProperties().translateVariable(createTranslator(leftToRight)).getNodePartitioning().get();
+                    right = accept(node.getRight().get(i), PreferredProperties.partitioned(rightPartitioning));
+                    if (!right.getProperties().isCompatibleTablePartitioningWith(left.getProperties(), rightToLeft::get, metadata, session) &&
+                            // TODO: Deprecate compatible table partitioning
+                            !(right.getProperties().isRefinedPartitioningOver(left.getProperties(), rightToLeft::get, metadata, session) &&
+                                    canPushdownPartialMerge(right.getNode(), partialMergePushdownStrategy))) {
+                        right = withDerivedProperties(
+                                partitionedExchange(
+                                        idAllocator.getNextId(),
+                                        selectExchangeScopeForPartitionedRemoteExchange(right.getNode(), false),
+                                        right.getNode(),
+                                        new PartitioningScheme(rightPartitioning, right.getNode().getOutputVariables())),
+                                right.getProperties());
+                    }
+                }
+                else {
+                    right = accept(node.getRight().get(i), PreferredProperties.partitioned(ImmutableSet.copyOf(rightVariables)));
+
+                    left = withDerivedProperties(
+                            partitionedExchange(
+                                    idAllocator.getNextId(),
+                                    selectExchangeScopeForPartitionedRemoteExchange(left.getNode(), false),
+                                    left.getNode(),
+                                    createPartitioning(leftVariables),
+                                    Optional.empty()),
+                            left.getProperties());
+                    right = withDerivedProperties(
+                            partitionedExchange(
+                                    idAllocator.getNextId(),
+                                    selectExchangeScopeForPartitionedRemoteExchange(right.getNode(), false),
+                                    right.getNode(),
+                                    createPartitioning(rightVariables),
+                                    Optional.empty()),
+                            right.getProperties());
+                }
+
+                // TODO: Deprecate compatible table partitioning
+                verify(left.getProperties().isCompatibleTablePartitioningWith(right.getProperties(), leftToRight::get, metadata, session) ||
+                        (right.getProperties().isRefinedPartitioningOver(left.getProperties(), rightToLeft::get, metadata, session) && canPushdownPartialMerge(right.getNode(), partialMergePushdownStrategy)));
+
+                // if colocated joins are disabled, force redistribute when using a custom partitioning
+                if (!isColocatedJoinEnabled(session) && hasMultipleTableScans(left.getNode(), right.getNode())) {
+                    Partitioning rightPartitioning = left.getProperties().translateVariable(createTranslator(leftToRight)).getNodePartitioning().get();
+                    right = withDerivedProperties(
+                            partitionedExchange(
+                                    idAllocator.getNextId(),
+                                    selectExchangeScopeForPartitionedRemoteExchange(right.getNode(), false),
+                                    right.getNode(),
+                                    new PartitioningScheme(rightPartitioning, right.getNode().getOutputVariables())),
+                            right.getProperties());
+                }
+                rightChildren.add(right);
+            }
+
+            return buildStarJoin(node, left, rightChildren.build(), JoinNode.DistributionType.PARTITIONED);
+        }
+
         private PlanWithProperties planReplicatedJoin(JoinNode node, PlanWithProperties left)
         {
             // Broadcast Join
@@ -885,6 +991,32 @@ public class AddExchanges
             return buildJoin(node, left, right, JoinNode.DistributionType.REPLICATED);
         }
 
+        private PlanWithProperties planReplicatedStarJoin(StarJoinNode node, PlanWithProperties left)
+        {
+            ImmutableList.Builder<PlanWithProperties> rightChildren = ImmutableList.builder();
+            for (PlanNode rightChild : node.getRight()) {
+                // Broadcast Join
+                PlanWithProperties right = accept(rightChild, PreferredProperties.any());
+
+                if (left.getProperties().isSingleNode()) {
+                    if (!right.getProperties().isSingleNode() ||
+                            (!isColocatedJoinEnabled(session) && hasMultipleTableScans(left.getNode(), right.getNode()))) {
+                        right = withDerivedProperties(
+                                gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode()),
+                                right.getProperties());
+                    }
+                }
+                else {
+                    right = withDerivedProperties(
+                            replicatedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode()),
+                            right.getProperties());
+                }
+                rightChildren.add(right);
+            }
+
+            return buildStarJoin(node, left, rightChildren.build(), JoinNode.DistributionType.REPLICATED);
+        }
+
         private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinNode.DistributionType newDistributionType)
         {
             JoinNode result = new JoinNode(
@@ -902,6 +1034,28 @@ public class AddExchanges
                     node.getDynamicFilters());
 
             return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(newLeft.getProperties(), newRight.getProperties())));
+        }
+
+        private PlanWithProperties buildStarJoin(StarJoinNode node, PlanWithProperties newLeft, List<PlanWithProperties> newRight, JoinNode.DistributionType newDistributionType)
+        {
+            StarJoinNode result = new StarJoinNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getType(),
+                    newLeft.getNode(),
+                    newRight.stream().map(PlanWithProperties::getNode).collect(toImmutableList()),
+                    node.getCriteria(),
+                    node.getOutputVariables(),
+                    node.getFilter(),
+                    node.getLeftHashVariable(),
+                    node.getRightHashVariables(),
+                    Optional.of(newDistributionType),
+                    node.getDynamicFilters());
+
+            ImmutableList.Builder<ActualProperties> actualPropertiesBuilder = ImmutableList.builder();
+            actualPropertiesBuilder.add(newLeft.getProperties());
+            actualPropertiesBuilder.addAll(newRight.stream().map(x -> x.getProperties()).collect(toImmutableList()));
+            return new PlanWithProperties(result, deriveProperties(result, actualPropertiesBuilder.build()));
         }
 
         @Override

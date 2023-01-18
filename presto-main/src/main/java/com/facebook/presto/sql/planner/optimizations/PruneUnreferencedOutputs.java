@@ -55,6 +55,7 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -257,6 +258,81 @@ public class PruneUnreferencedOutputs
                     node.getFilter(),
                     node.getLeftHashVariable(),
                     node.getRightHashVariable(),
+                    node.getDistributionType(),
+                    node.getDynamicFilters());
+        }
+
+        @Override
+        public PlanNode visitStarJoin(StarJoinNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            Set<VariableReferenceExpression> expectedFilterInputs = new HashSet<>();
+            for (Optional<RowExpression> filterExpression : node.getFilter()) {
+                if (filterExpression.isPresent()) {
+                    if (isExpression(filterExpression.get())) {
+                        expectedFilterInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                                .addAll(VariablesExtractor.extractUnique(castToExpression(filterExpression.get()), TypeProvider.viewOf(variableAllocator.getVariables())))
+                                .addAll(context.get())
+                                .build();
+                    }
+                    else {
+                        expectedFilterInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                                .addAll(VariablesExtractor.extractUnique(filterExpression.get()))
+                                .addAll(context.get())
+                                .build();
+                    }
+                }
+            }
+
+            ImmutableSet.Builder<VariableReferenceExpression> leftInputsBuilder = ImmutableSet.builder();
+            leftInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft));
+            if (node.getLeftHashVariable().isPresent()) {
+                leftInputsBuilder.add(node.getLeftHashVariable().get());
+            }
+            leftInputsBuilder.addAll(expectedFilterInputs);
+            Set<VariableReferenceExpression> leftInputs = leftInputsBuilder.build();
+            PlanNode left = context.rewrite(node.getLeft(), leftInputs);
+
+            ImmutableList.Builder<PlanNode> rightPlanNodes = ImmutableList.builder();
+            for (int i = 0; i < node.getRight().size(); ++i) {
+                ImmutableSet.Builder<VariableReferenceExpression> rightInputsBuilder = ImmutableSet.builder();
+                rightInputsBuilder.addAll(context.get()).addAll(Iterables.transform(ImmutableList.of(node.getCriteria().get(i)), JoinNode.EquiJoinClause::getRight));
+                if (node.getRightHashVariables().get(i).isPresent()) {
+                    rightInputsBuilder.add(node.getRightHashVariables().get(i).get());
+                }
+                rightInputsBuilder.addAll(expectedFilterInputs);
+                Set<VariableReferenceExpression> rightInputs = rightInputsBuilder.build();
+
+                PlanNode right = context.rewrite(node.getRight().get(i), rightInputs);
+                rightPlanNodes.add(right);
+            }
+
+            List<VariableReferenceExpression> outputVariables;
+            if (node.isCrossJoin()) {
+                // do not prune nested joins output since it is not supported
+                // TODO: remove this "if" branch when output symbols selection is supported by nested loop join
+                outputVariables = ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(left.getOutputVariables())
+                        .addAll(rightPlanNodes.build().stream().flatMap(x -> x.getOutputVariables().stream()).collect(Collectors.toList()))
+                        .build();
+            }
+            else {
+                outputVariables = node.getOutputVariables().stream()
+                        .filter(variable -> context.get().contains(variable))
+                        .distinct()
+                        .collect(toImmutableList());
+            }
+
+            return new StarJoinNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getType(),
+                    left,
+                    rightPlanNodes.build(),
+                    node.getCriteria(),
+                    outputVariables,
+                    node.getFilter(),
+                    node.getLeftHashVariable(),
+                    node.getRightHashVariables(),
                     node.getDistributionType(),
                     node.getDynamicFilters());
         }

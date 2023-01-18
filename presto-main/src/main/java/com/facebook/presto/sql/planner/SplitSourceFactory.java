@@ -55,6 +55,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
@@ -175,6 +176,20 @@ public class SplitSourceFactory
             return ImmutableMap.<PlanNodeId, SplitSource>builder()
                     .putAll(leftSplits)
                     .putAll(rightSplits)
+                    .build();
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitStarJoin(StarJoinNode node, Context context)
+        {
+            Map<PlanNodeId, SplitSource> leftSplits = node.getLeft().accept(this, context);
+            ImmutableMap.Builder<PlanNodeId, SplitSource> rightSplitsBuilder = ImmutableMap.builder();
+            for (PlanNode planNode : node.getRight()) {
+                rightSplitsBuilder.putAll(planNode.accept(this, context));
+            }
+            return ImmutableMap.<PlanNodeId, SplitSource>builder()
+                    .putAll(leftSplits)
+                    .putAll(rightSplitsBuilder.build())
                     .build();
         }
 

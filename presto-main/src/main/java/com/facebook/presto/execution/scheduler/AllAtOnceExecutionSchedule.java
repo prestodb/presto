@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -136,6 +137,14 @@ public class AllAtOnceExecutionSchedule
         public Void visitJoin(JoinNode node, Void context)
         {
             node.getRight().accept(this, context);
+            node.getLeft().accept(this, context);
+            return null;
+        }
+
+        @Override
+        public Void visitStarJoin(StarJoinNode node, Void context)
+        {
+            node.getRight().forEach(x -> x.accept(this, context));
             node.getLeft().accept(this, context);
             return null;
         }

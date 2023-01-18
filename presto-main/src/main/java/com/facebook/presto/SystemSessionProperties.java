@@ -255,6 +255,9 @@ public final class SystemSessionProperties
     public static final String PREFILTER_FOR_GROUPBY_LIMIT = "prefilter_for_groupby_limit";
     public static final String PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS = "prefilter_for_groupby_limit_timeout_ms";
     public static final String OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME = "optimize_join_probe_for_empty_build_runtime";
+    public static final String STAR_JOIN_ENABLED = "star_join_enabled";
+    public static final String STAR_JOIN_LOG_ENABLED = "star_join_log_enabled";
+    public static final String STAR_JOIN_PROBE_TYPE = "star_join_probe_type";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1450,6 +1453,21 @@ public final class SystemSessionProperties
                         OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME,
                         "Optimize join probe at runtime if build side is empty",
                         featuresConfig.isOptimizeJoinProbeForEmptyBuildRuntimeEnabled(),
+                        false),
+                booleanProperty(
+                        STAR_JOIN_ENABLED,
+                        "Enable star join",
+                        featuresConfig.isStarJoinEnabled(),
+                        false),
+                booleanProperty(
+                        STAR_JOIN_LOG_ENABLED,
+                        "Enable star join",
+                        false,
+                        false),
+                stringProperty(
+                        STAR_JOIN_PROBE_TYPE,
+                        "The native engine executable file path for native engine execution",
+                        "list",
                         false));
     }
 
@@ -2441,5 +2459,20 @@ public final class SystemSessionProperties
     public static boolean isOptimizeJoinProbeForEmptyBuildRuntimeEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME, Boolean.class);
+    }
+
+    public static boolean isStarJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(STAR_JOIN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isStarJoinLogEnabled(Session session)
+    {
+        return session.getSystemProperty(STAR_JOIN_LOG_ENABLED, Boolean.class);
+    }
+
+    public static String getStarJoinProbeType(Session session)
+    {
+        return session.getSystemProperty(STAR_JOIN_PROBE_TYPE, String.class);
     }
 }

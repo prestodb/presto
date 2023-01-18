@@ -86,6 +86,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -505,6 +506,44 @@ public class PlanPrinter
                     .ifPresent(sortContext -> nodeOutput.appendDetails("SortExpression[%s]", formatter.apply(sortContext.getSortExpression())));
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitStarJoin(StarJoinNode node, Void context)
+        {
+            List<String> joinExpressions = new ArrayList<>();
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                joinExpressions.add(JoinNodeUtils.toExpression(clause).toString());
+            }
+            node.getFilter().forEach(x -> x.map(formatter::apply).ifPresent(joinExpressions::add));
+
+            NodeRepresentation nodeOutput;
+            if (node.isCrossJoin()) {
+                checkState(joinExpressions.isEmpty());
+                nodeOutput = addNode(node, "CrossJoin");
+            }
+            else {
+                ImmutableList.Builder<Optional<VariableReferenceExpression>> hashVariablesBuilder = ImmutableList.builder();
+                hashVariablesBuilder.add(node.getLeftHashVariable());
+                hashVariablesBuilder.addAll(node.getRightHashVariables());
+                nodeOutput = addNode(node,
+                        node.getType().getJoinLabel(),
+                        format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(hashVariablesBuilder.build())));
+            }
+
+            node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
+            if (!node.getDynamicFilters().isEmpty()) {
+                nodeOutput.appendDetails(getDynamicFilterAssignments(node));
+            }
+
+            for (int i = 0; i < node.getFilter().size(); ++i) {
+                node.getSortExpressionContext(functionAndTypeManager, i)
+                        .ifPresent(sortContext -> nodeOutput.appendDetails("SortExpression[%s]", formatter.apply(sortContext.getSortExpression())));
+            }
+            node.getLeft().accept(this, context);
+            node.getRight().forEach(x -> x.accept(this, context));
 
             return null;
         }
@@ -1356,6 +1395,17 @@ public class PlanPrinter
                         .collect(Collectors.joining(", ", "{", "}")));
     }
 
+    public static String getDynamicFilterAssignments(StarJoinNode node)
+    {
+        if (node.getDynamicFilters().isEmpty()) {
+            return "";
+        }
+        return format("dynamicFilterAssignments = %s",
+                node.getDynamicFilters().entrySet().stream()
+                        .map(filter -> filter.getValue() + " -> " + filter.getKey())
+                        .collect(Collectors.joining(", ", "{", "}")));
+    }
+
     private static String castToVarchar(Type type, Object value, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
         if (value == null) {
@@ -1388,6 +1438,20 @@ public class PlanPrinter
     private static String formatHash(Optional<VariableReferenceExpression>... hashes)
     {
         List<VariableReferenceExpression> variables = stream(hashes)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toList());
+
+        if (variables.isEmpty()) {
+            return "";
+        }
+
+        return "[" + Joiner.on(", ").join(variables) + "]";
+    }
+
+    private static String formatHash(List<Optional<VariableReferenceExpression>> hashes)
+    {
+        List<VariableReferenceExpression> variables = hashes.stream()
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toList());

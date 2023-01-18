@@ -64,6 +64,7 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
@@ -92,6 +93,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
@@ -554,6 +556,41 @@ public class UnaliasSymbolReferences
             }
 
             return new JoinNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getType(),
+                    left,
+                    right,
+                    canonicalCriteria,
+                    canonicalizeAndDistinct(node.getOutputVariables()),
+                    canonicalFilter,
+                    canonicalLeftHashVariable,
+                    canonicalRightHashVariable,
+                    node.getDistributionType(),
+                    canonicalDynamicFilters);
+        }
+
+        @Override
+        public PlanNode visitStarJoin(StarJoinNode node, RewriteContext<Void> context)
+        {
+            PlanNode left = context.rewrite(node.getLeft());
+            List<PlanNode> right = node.getRight().stream().map(x -> context.rewrite(x)).collect(toImmutableList());
+
+            List<JoinNode.EquiJoinClause> canonicalCriteria = canonicalizeJoinCriteria(node.getCriteria());
+            List<Optional<RowExpression>> canonicalFilter = node.getFilter().stream().map(x -> x.map(this::canonicalize)).collect(toImmutableList());
+            Optional<VariableReferenceExpression> canonicalLeftHashVariable = canonicalize(node.getLeftHashVariable());
+            List<Optional<VariableReferenceExpression>> canonicalRightHashVariable = node.getRightHashVariables().stream().map(x -> canonicalize(x)).collect(Collectors.toList());
+
+            Map<String, VariableReferenceExpression> canonicalDynamicFilters = canonicalizeAndDistinct(node.getDynamicFilters());
+
+            if (node.getType().equals(INNER)) {
+                canonicalCriteria.stream()
+                        .filter(clause -> clause.getLeft().getType().equals(clause.getRight().getType()))
+                        .filter(clause -> node.getOutputVariables().contains(clause.getLeft()))
+                        .forEach(clause -> map(clause.getRight(), clause.getLeft()));
+            }
+
+            return new StarJoinNode(
                     node.getSourceLocation(),
                     node.getId(),
                     node.getType(),

@@ -282,6 +282,9 @@ public class DetermineJoinDistributionType
         if (joinNode.getType().mustReplicate(joinNode.getCriteria())) {
             return true;
         }
+        if (getJoinDistributionType(context.getSession()).equals(JoinDistributionType.PARTITIONED)) {
+            return false;
+        }
         return isAtMostScalar(joinNode.getRight(), context.getLookup());
     }
 

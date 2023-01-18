@@ -114,6 +114,7 @@ import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.FragmentCacheStats;
 import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.LookupStarJoinOperators;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
@@ -504,6 +505,7 @@ public class ServerMainModule
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
         binder.bind(LookupJoinOperators.class).in(Scopes.SINGLETON);
+        binder.bind(LookupStarJoinOperators.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);

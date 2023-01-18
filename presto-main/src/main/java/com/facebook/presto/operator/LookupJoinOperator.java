@@ -59,17 +59,21 @@ public class LookupJoinOperator
     private final Runnable afterClose;
     private final OptionalInt lookupJoinsCount;
     private final HashGenerator hashGenerator;
+    // From join bridge, contains data from build side
     private final LookupSourceFactory lookupSourceFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
 
     private final JoinStatisticsCounter statisticsCounter;
 
+    // To build output page
     private final LookupJoinPageBuilder pageBuilder;
 
     private final boolean probeOnOuterSide;
 
+    // created by lookupSourceFactory
     private final ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture;
     private LookupSourceProvider lookupSourceProvider;
+    // created from input page when calling addInput
     private JoinProbe probe;
 
     private Page outputPage;
@@ -82,7 +86,9 @@ public class LookupJoinOperator
     private boolean finishing;
     private boolean unspilling;
     private boolean finished;
+    // point to the position in the build side which can join with the current probe row
     private long joinPosition = -1;
+    // record how many output rows for a join key, for stats recording
     private int joinSourcePositions;
 
     private boolean currentProbePositionProducedRow;
@@ -480,6 +486,7 @@ public class LookupJoinOperator
 
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         while (!yieldSignal.isSet()) {
+            // Probe currently has rows to process
             if (probe.getPosition() >= 0) {
                 if (!joinCurrentPosition(lookupSource, yieldSignal)) {
                     break;
@@ -560,6 +567,7 @@ public class LookupJoinOperator
      *
      * @return true if all eligible rows have been produced; false otherwise
      */
+    // For starjoin, if it's inner join, only output row if has match on all build sides
     private boolean joinCurrentPosition(LookupSource lookupSource, DriverYieldSignal yieldSignal)
     {
         // while we have a position on lookup side to join against...
@@ -606,6 +614,7 @@ public class LookupJoinOperator
         if (probeOnOuterSide && joinPosition < 0) {
             pageBuilder.appendNullForBuild(probe);
             if (tryBuildPage()) {
+                // if pageBuilder is reset
                 return false;
             }
         }
@@ -689,6 +698,7 @@ public class LookupJoinOperator
         }
     }
 
+    // return true if pageBuilder is full and pageBuilder is reset
     private boolean tryBuildPage()
     {
         if (pageBuilder.isFull()) {
@@ -707,6 +717,7 @@ public class LookupJoinOperator
             return;
         }
 
+        // build output of join
         outputPage = pageBuilder.build(probe);
         pageBuilder.reset();
     }

@@ -52,6 +52,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
@@ -202,6 +203,26 @@ public final class StreamPropertyDerivations
                     // partitioning, and nulls from the right are produced from a extra new stream
                     // so we will always have multiple streams.
                     return new StreamProperties(MULTIPLE, Optional.empty(), false);
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
+        }
+
+        @Override
+        public StreamProperties visitStarJoin(StarJoinNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties leftProperties = inputProperties.get(0);
+            List<VariableReferenceExpression> outputs = node.getOutputVariables();
+            boolean unordered = PropertyDerivations.spillPossible(session, node.getType());
+
+            switch (node.getType()) {
+                case LEFT:
+                    return leftProperties
+                            .translate(column -> PropertyDerivations.filterIfMissing(outputs, column))
+                            .unordered(unordered);
+                case INNER:
+                case RIGHT:
+                case FULL:
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
