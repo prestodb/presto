@@ -76,7 +76,7 @@ struct XxHash64Function {
   FOLLY_ALWAYS_INLINE
   void call(out_type<Varbinary>& result, const arg_type<Varbinary>& input) {
     // Seed is set to 0.
-    int64_t hash = XXH64(input.data(), input.size(), 0);
+    int64_t hash = folly::Endian::swap64(XXH64(input.data(), input.size(), 0));
     static const auto kLen = sizeof(int64_t);
 
     // Resizing output and copy

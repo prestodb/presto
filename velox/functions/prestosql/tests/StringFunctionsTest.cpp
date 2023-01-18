@@ -1547,9 +1547,17 @@ TEST_F(StringFunctionsTest, xxhash64) {
     return out;
   };
 
+  EXPECT_EQ(hexToDec("EF46DB3751D8E999"), xxhash64(""));
   EXPECT_EQ(std::nullopt, xxhash64(std::nullopt));
-  EXPECT_EQ(toVarbinary(-1205034819632174695L), xxhash64(""));
-  EXPECT_EQ(toVarbinary(-443202081618794350L), xxhash64("hashme"));
+
+  EXPECT_EQ(hexToDec("F9D96E0E1165E892"), xxhash64("hashme"));
+  EXPECT_EQ(hexToDec("26C7827D889F6DA3"), xxhash64("hello"));
+  EXPECT_EQ(hexToDec("8B29AA4768367C53"), xxhash64("ABC "));
+  EXPECT_EQ(hexToDec("2C32708C2F5068F9"), xxhash64("       "));
+  EXPECT_EQ(hexToDec("C2B3E0336D3E0F35"), xxhash64("special_#@,$|%/^~?{}+-"));
+  EXPECT_EQ(hexToDec("A9D4D4132EFF23B6"), xxhash64("1234567890"));
+  EXPECT_EQ(
+      hexToDec("D73C92CF24E6EC82"), xxhash64("more_than_12_characters_string"));
 }
 
 TEST_F(StringFunctionsTest, toHex) {
