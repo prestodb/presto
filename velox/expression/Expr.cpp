@@ -1286,9 +1286,6 @@ bool Expr::applyFunctionWithPeeling(
     const SelectivityVector& applyRows,
     EvalCtx& context,
     VectorPtr& result) {
-  if (context.wrapEncoding() == VectorEncoding::Simple::CONSTANT) {
-    return false;
-  }
   int numLevels = 0;
   bool peeled;
   int32_t numConstant = 0;

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cstdint>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -328,5 +329,29 @@ TEST_F(MapValuesTest, constant) {
 
   result = evaluateConstant(2, data);
   expected = makeConstantArray<int64_t>(size, {60});
+  test::assertEqualVectors(expected, result);
+}
+
+TEST_F(MapValuesTest, noDictionaryReceived) {
+  // This tests make sure that expression evaluation does the peeling before
+  // calling the function map_keys, even if it is performed before on the inputs
+  // because they are all constants.
+  vector_size_t size = 10;
+  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+
+  for (size_t i = 0; i < size; ++i) {
+    rawIndices[i] = size - 1 - i;
+  }
+
+  auto mapVector = makeMapVector<int64_t, int64_t>(
+      {{{1, 1}, {2, 2}}, {{100, 11}, {200, 1}}});
+
+  auto constantMap = BaseVector::wrapInConstant(2, 1, mapVector);
+
+  auto result = evaluate(
+      "map_keys(subscript(array_constructor(c0),1))",
+      makeRowVector({constantMap}));
+  auto expected = makeArrayVector<int64_t>({{100, 200}, {100, 200}});
   test::assertEqualVectors(expected, result);
 }
