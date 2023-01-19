@@ -175,6 +175,7 @@ class ExchangeQueue {
 
   void closeLocked() {
     queue_.clear();
+    clearAllPromises();
   }
 
  private:

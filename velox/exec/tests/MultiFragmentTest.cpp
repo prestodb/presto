@@ -935,3 +935,30 @@ TEST_F(MultiFragmentTest, exchangeDestruction) {
   leafTask = nullptr;
   rootTask = nullptr;
 }
+
+TEST_F(MultiFragmentTest, cancelledExchange) {
+  // Create a source fragment borrow the output type from it.
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 1")
+                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .planFragment();
+
+  // Create task with exchange.
+  auto planFragmentWithExchange =
+      exec::test::PlanBuilder()
+          .exchange(planFragment.planNode->outputType())
+          .partitionedOutput({}, 1)
+          .planFragment();
+  auto exchangeTask =
+      makeTask("output.0.0.1", planFragmentWithExchange.planNode, 0);
+  // Start the task and abort it straight away.
+  Task::start(exchangeTask, 2);
+  exchangeTask->requestAbort();
+
+  /* sleep override */
+  // Wait till all the terminations, closures and destructions are done.
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  // We expect no references left except for ours.
+  EXPECT_EQ(1, exchangeTask.use_count());
+}
