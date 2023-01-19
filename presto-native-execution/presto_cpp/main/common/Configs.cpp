@@ -54,31 +54,23 @@ std::string SystemConfig::discoveryUri() const {
 
 int32_t SystemConfig::maxDriversPerTask() const {
   auto opt = optionalProperty<int32_t>(std::string(kMaxDriversPerTask));
-  if (opt.has_value()) {
-    return opt.value();
-  } else {
-    return kMaxDriversPerTaskDefault;
-  }
+  return opt.value_or(kMaxDriversPerTaskDefault);
 }
 
 int32_t SystemConfig::concurrentLifespansPerTask() const {
   auto opt =
       optionalProperty<int32_t>(std::string(kConcurrentLifespansPerTask));
-  if (opt.has_value()) {
-    return opt.value();
-  } else {
-    return kConcurrentLifespansPerTaskDefault;
-  }
+  return opt.value_or(kConcurrentLifespansPerTaskDefault);
 }
 
 int32_t SystemConfig::httpExecThreads() const {
-  auto threadsOpt = optionalProperty<int32_t>(std::string(kHttpExecThreads));
-  return threadsOpt.hasValue() ? threadsOpt.value() : kHttpExecThreadsDefault;
+  auto opt = optionalProperty<int32_t>(std::string(kHttpExecThreads));
+  return opt.value_or(kHttpExecThreadsDefault);
 }
 
 int32_t SystemConfig::numIoThreads() const {
   auto opt = optionalProperty<int32_t>(std::string(kNumIoThreads));
-  return opt.hasValue() ? opt.value() : kNumIoThreadsDefault;
+  return opt.value_or(kNumIoThreadsDefault);
 }
 
 int32_t SystemConfig::numSpillThreads() const {
@@ -93,23 +85,23 @@ std::string SystemConfig::spillerSpillPath() const {
 
 int32_t SystemConfig::shutdownOnsetSec() const {
   auto opt = optionalProperty<int32_t>(std::string(kShutdownOnsetSec));
-  return opt.hasValue() ? opt.value() : kShutdownOnsetSecDefault;
+  return opt.value_or(kShutdownOnsetSecDefault);
 }
 
 int32_t SystemConfig::systemMemoryGb() const {
   auto opt = optionalProperty<int32_t>(std::string(kSystemMemoryGb));
-  return opt.hasValue() ? opt.value() : kSystemMemoryGbDefault;
+  return opt.value_or(kSystemMemoryGbDefault);
 }
 
 uint64_t SystemConfig::asyncCacheSsdGb() const {
   auto opt = optionalProperty<uint64_t>(std::string(kAsyncCacheSsdGb));
-  return opt.hasValue() ? opt.value() : kAsyncCacheSsdGbDefault;
+  return opt.value_or(kAsyncCacheSsdGbDefault);
 }
 
 uint64_t SystemConfig::localShuffleMaxPartitionBytes() const {
   auto opt =
       optionalProperty<uint32_t>(std::string(kLocalShuffleMaxPartitionBytes));
-  return opt.hasValue() ? opt.value() : kLocalShuffleMaxPartitionBytesDefault;
+  return opt.value_or(kLocalShuffleMaxPartitionBytesDefault);
 }
 
 std::string SystemConfig::asyncCacheSsdPath() const {
@@ -124,31 +116,32 @@ std::string SystemConfig::shuffleName() const {
 
 bool SystemConfig::enableSerializedPageChecksum() const {
   auto opt = optionalProperty<bool>(std::string(kEnableSerializedPageChecksum));
-  return opt.hasValue() ? opt.value() : kEnableSerializedPageChecksumDefault;
+  return opt.value_or(kEnableSerializedPageChecksumDefault);
 }
 
 bool SystemConfig::enableVeloxTaskLogging() const {
-  auto loggingOpt =
-      optionalProperty<bool>(std::string(kEnableVeloxTaskLogging));
-  return loggingOpt.hasValue() ? loggingOpt.value()
-                               : kEnableVeloxTaskLoggingDefault;
+  auto opt = optionalProperty<bool>(std::string(kEnableVeloxTaskLogging));
+  return opt.value_or(kEnableVeloxTaskLoggingDefault);
 }
 
 bool SystemConfig::enableVeloxExprSetLogging() const {
-  auto loggingOpt =
-      optionalProperty<bool>(std::string(kEnableVeloxExprSetLogging));
-  return loggingOpt.hasValue() ? loggingOpt.value()
-                               : kEnableVeloxExprSetLoggingDefault;
+  auto opt = optionalProperty<bool>(std::string(kEnableVeloxExprSetLogging));
+  return opt.value_or(kEnableVeloxExprSetLoggingDefault);
 }
 
 bool SystemConfig::useMmapArena() const {
   auto opt = optionalProperty<bool>(std::string(kUseMmapArena));
-  return opt.hasValue() ? opt.value() : kUseMmapArenaDefault;
+  return opt.value_or(kUseMmapArenaDefault);
 }
 
 int32_t SystemConfig::mmapArenaCapacityRatio() const {
   auto opt = optionalProperty<int32_t>(std::string(kMmapArenaCapacityRatio));
   return opt.hasValue() ? opt.value() : kMmapArenaCapacityRatioDefault;
+}
+
+bool SystemConfig::useMmapAllocator() const {
+  auto opt = optionalProperty<bool>(std::string(kUseMmapAllocator));
+  return opt.value_or(kUseMmapAllocatorDefault);
 }
 
 NodeConfig* NodeConfig::instance() {
