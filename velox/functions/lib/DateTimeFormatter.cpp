@@ -303,6 +303,7 @@ void parseFail(
     const std::string_view& input,
     const char* cur,
     const char* end) {
+  VELOX_DCHECK(cur <= end);
   VELOX_USER_FAIL(
       "Invalid format: \"{}\" is malformed at \"{}\"",
       input,
@@ -727,7 +728,13 @@ void parseFromPattern(
       } else if (type == DateTimeFormatterType::MYSQL) {
         // In MySQL format, year read in must have exactly two digits, otherwise
         // throw an error
-        parseFail(input, cur - count + 2, end);
+        if (count > 2) {
+          // Larger than expected, print suffix.
+          parseFail(input, cur - count + 2, end);
+        } else {
+          // Smaller than expected, print prefix.
+          parseFail(input, cur - count, end);
+        }
       }
     } else {
       while (cur < end && cur < startPos + maxDigitConsume &&
