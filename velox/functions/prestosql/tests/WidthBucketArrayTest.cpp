@@ -144,4 +144,14 @@ TEST_F(WidthBucketArrayTest, failureForConstant) {
       2, "ARRAY[1.0, 0.0]", "Bin values are not sorted in ascending order");
 }
 
+TEST_F(WidthBucketArrayTest, makeWidthBucketArrayNoThrow) {
+  auto test = [&](const std::string& sql) {
+    auto typed = makeTypedExpr(sql, ROW({DOUBLE(), ARRAY(BIGINT())}));
+    ASSERT_NO_THROW(ExprSet exprSet({typed}, &execCtx_));
+  };
+
+  test("width_bucket(0.0, array_constructor(null::BIGINT))");
+  test("width_bucket(0.0, array_constructor()::BIGINT[])");
+  test("width_bucket(0.0, array_constructor(1,0))");
+}
 } // namespace

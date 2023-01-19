@@ -190,37 +190,43 @@ std::shared_ptr<exec::VectorFunction> makeWidthBucketArray(
   auto binsTypeKind = binsVector.type->asArray().elementType()->kind();
 
   auto constantBins = binsVector.constantValue.get();
-  if (constantBins != nullptr && !constantBins->isNullAt(0)) {
-    auto binsArrayVector = constantBins->wrappedVector()->as<ArrayVector>();
-    auto binsArrayIndex = constantBins->wrappedIndex(0);
-    auto size = binsArrayVector->sizeAt(binsArrayIndex);
-    VELOX_USER_CHECK_GT(size, 0, "Bins cannot be an empty array");
-    auto offset = binsArrayVector->offsetAt(binsArrayIndex);
 
-    // This is a different behavior comparing to non-constant implementation:
-    //
-    // In non-constant bins implementation, we only do these checks during
-    // binary search, which means we might ignore even if there are infinite
-    // value or non-ascending order.
-    //
-    // In constant bins implementation, we first check bins, so if the bins is
-    // invalid, they will fail directly.
+  try {
+    if (constantBins != nullptr && !constantBins->isNullAt(0)) {
+      auto binsArrayVector = constantBins->wrappedVector()->as<ArrayVector>();
+      auto binsArrayIndex = constantBins->wrappedIndex(0);
+      auto size = binsArrayVector->sizeAt(binsArrayIndex);
+      VELOX_USER_CHECK_GT(size, 0, "Bins cannot be an empty array");
+      auto offset = binsArrayVector->offsetAt(binsArrayIndex);
 
-    std::vector<double> binValues;
-    if (binsTypeKind == TypeKind::DOUBLE) {
-      binValues =
-          toBinValues<double>(binsArrayVector->elements(), offset, size);
-    } else if (binsTypeKind == TypeKind::BIGINT) {
-      binValues =
-          toBinValues<int64_t>(binsArrayVector->elements(), offset, size);
-    } else {
-      VELOX_UNSUPPORTED(
-          "Unsupported type of 'bins' argument: {}",
-          binsArrayVector->type()->toString());
+      // This is a different behavior comparing to non-constant implementation:
+      //
+      // In non-constant bins implementation, we only do these checks during
+      // binary search, which means we might ignore even if there are infinite
+      // value or non-ascending order.
+      //
+      // In constant bins implementation, we first check bins, so if the bins is
+      // invalid, they will fail directly.
+
+      std::vector<double> binValues;
+      if (binsTypeKind == TypeKind::DOUBLE) {
+        binValues =
+            toBinValues<double>(binsArrayVector->elements(), offset, size);
+      } else if (binsTypeKind == TypeKind::BIGINT) {
+        binValues =
+            toBinValues<int64_t>(binsArrayVector->elements(), offset, size);
+      } else {
+        VELOX_UNSUPPORTED(
+            "Unsupported type of 'bins' argument: {}",
+            binsArrayVector->type()->toString());
+      }
+
+      return std::make_shared<WidthBucketArrayFunctionConstantBins>(
+          std::move(binValues));
     }
-
-    return std::make_shared<WidthBucketArrayFunctionConstantBins>(
-        std::move(binValues));
+  } catch (const VeloxException& e) {
+    // makeWidthBucketArray should not throw when inputs are invalid.
+    VLOG(1) << e.what();
   }
 
   if (binsTypeKind == TypeKind::DOUBLE) {
