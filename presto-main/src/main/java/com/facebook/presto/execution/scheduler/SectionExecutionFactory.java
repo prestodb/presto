@@ -319,7 +319,7 @@ public class SectionExecutionFactory
                             .filter(task -> task instanceof HttpRemoteTask)
                             .map(task -> (HttpRemoteTask) task)
                             .filter(task -> task.getTaskStatus().getState() != TaskState.FAILED)
-                            .filter(task -> !task.isNoMoreSplits(planNodeId))
+//                            .filter(task -> !task.isNoMoreSplits(planNodeId))
                             .collect(toList());
 
                     if (httpRemoteTasks.isEmpty()) {
