@@ -95,6 +95,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kUseMmapArena{"use-mmap-arena"};
   static constexpr std::string_view kMmapArenaCapacityRatio{
       "mmap-arena-capacity-ratio"};
+  static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
   static constexpr std::string_view kEnableVeloxTaskLogging{
       "enable_velox_task_logging"};
   static constexpr std::string_view kEnableVeloxExprSetLogging{
@@ -121,6 +122,7 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kEnableVeloxTaskLoggingDefault = false;
   static constexpr bool kEnableVeloxExprSetLoggingDefault = false;
   static constexpr bool kUseMmapArenaDefault = false;
+  static constexpr bool kUseMmapAllocatorDefault{true};
 
   static SystemConfig* instance();
 
@@ -163,6 +165,8 @@ class SystemConfig : public ConfigBase {
   bool useMmapArena() const;
 
   int32_t mmapArenaCapacityRatio() const;
+
+  bool useMmapAllocator() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
