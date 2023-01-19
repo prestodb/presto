@@ -55,7 +55,49 @@ uint64_t getBitField(const char* data, int32_t numBits, int32_t& lastBit) {
   lastBit -= numBits;
   return bits;
 }
+
+// Copy bits backward while the remaining data is still larger than size of T.
+template <typename T>
+inline void copyBitsBackwardImpl(
+    uint64_t* bits,
+    uint64_t sourceOffset,
+    uint64_t targetOffset,
+    int64_t& remaining) {
+  constexpr int kBits = 8 * sizeof(T);
+  for (; remaining >= kBits; remaining -= kBits) {
+    T word = detail::loadBits<T>(bits, sourceOffset + remaining - kBits, kBits);
+    detail::storeBits<T>(bits, targetOffset + remaining - kBits, word, kBits);
+  }
+}
+
 } // namespace
+
+void copyBitsBackward(
+    uint64_t* bits,
+    uint64_t sourceOffset,
+    uint64_t targetOffset,
+    uint64_t numBits) {
+  VELOX_DCHECK_LE(sourceOffset, targetOffset);
+  int64_t remaining = numBits;
+  // Copy using the largest unit first and narrow down to smaller ones.
+  copyBitsBackwardImpl<uint64_t>(bits, sourceOffset, targetOffset, remaining);
+  copyBitsBackwardImpl<uint32_t>(bits, sourceOffset, targetOffset, remaining);
+  copyBitsBackwardImpl<uint16_t>(bits, sourceOffset, targetOffset, remaining);
+  copyBitsBackwardImpl<uint8_t>(bits, sourceOffset, targetOffset, remaining);
+  if (remaining > 0) {
+    uint8_t byte = detail::loadBits<uint8_t>(bits, sourceOffset, remaining);
+    detail::storeBits<uint8_t>(bits, targetOffset, byte, remaining);
+  }
+}
+
+std::string toString(const uint64_t* bits, int offset, int size) {
+  std::string ans;
+  ans.reserve(size);
+  for (int i = 0; i < size; ++i) {
+    ans += '0' + isBitSet(bits, offset + i);
+  }
+  return ans;
+}
 
 void scatterBits(
     int32_t numSource,
