@@ -209,7 +209,7 @@ class StringDictionaryEncoder {
   // key index -> cached hash
   dwio::common::DataBuffer<uint32_t> hash_;
 
-  friend class DictStringIdHash;
+  friend struct DictStringIdHash;
 };
 
 FOLLY_ALWAYS_INLINE bool DictStringIdEquality::operator()(
