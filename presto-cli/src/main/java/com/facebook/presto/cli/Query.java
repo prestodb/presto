@@ -58,6 +58,7 @@ public class Query
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final StatementClient client;
     private final boolean debug;
+    private Optional<Long> clientStopTimestamp = Optional.empty();
 
     public Query(StatementClient client, boolean debug)
     {
@@ -174,7 +175,7 @@ public class Query
         if (statusPrinter != null) {
             // Print all warnings at the end of the query
             new PrintStreamWarningsPrinter(System.err).print(client.finalStatusInfo().getWarnings(), true, true);
-            statusPrinter.printFinalInfo();
+            statusPrinter.printFinalInfo(clientStopTimestamp);
         }
         else {
             // Print remaining warnings separated
@@ -234,6 +235,9 @@ public class Query
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        finally {
+            recordClientStop();
+        }
     }
 
     private void renderResults(PrintStream out, OutputFormat outputFormat, boolean interactive, List<Column> columns)
@@ -279,13 +283,26 @@ public class Query
                 });
             }
             handler.processRows(client);
+            // Record the CLI query end time *before* closing the handler and pager
+            recordClientStop();
         }
         catch (RuntimeException | IOException e) {
             if (client.isClientAborted() && !(e instanceof QueryAbortedException)) {
+                recordClientStop();
                 throw new QueryAbortedException(e);
             }
             throw e;
         }
+    }
+
+    /**
+     * Records the earliest timestamp that we were finished with the {@link StatementClient}
+     * This can be either when we're done fetching all results from the server or query
+     * Or we ran into a failure and decided to stop using the client
+     */
+    private void recordClientStop()
+    {
+        clientStopTimestamp = Optional.of(Math.min(System.nanoTime(), clientStopTimestamp.orElse(Long.MAX_VALUE)));
     }
 
     private void sendOutput(PrintStream out, OutputFormat format, List<String> fieldNames)
@@ -293,6 +310,7 @@ public class Query
     {
         try (OutputHandler handler = createOutputHandler(format, createWriter(out), fieldNames)) {
             handler.processRows(client);
+            recordClientStop();
         }
     }
 
