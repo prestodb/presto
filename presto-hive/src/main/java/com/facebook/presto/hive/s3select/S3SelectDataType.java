@@ -15,5 +15,6 @@ package com.facebook.presto.hive.s3select;
 
 public enum S3SelectDataType
 {
-    CSV
+    CSV,
+    JSON;
 }
