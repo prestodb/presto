@@ -627,6 +627,11 @@ class Task : public std::enable_shared_from_this<Task> {
   // Returns a future that is realized when there are no more threads
   // executing for 'this'. 'comment' is used as a debugging label on
   // the promise/future pair.
+  ContinueFuture makeFinishFuture(const char* comment) {
+    std::lock_guard<std::mutex> l(mutex_);
+    return makeFinishFutureLocked(comment);
+  }
+
   ContinueFuture makeFinishFutureLocked(const char* FOLLY_NONNULL comment);
 
   bool isOutputPipeline(int pipelineId) const {
@@ -638,6 +643,30 @@ class Task : public std::enable_shared_from_this<Task> {
   }
 
   int getOutputPipelineId() const;
+
+  // Create an exchange client for the specified exchange plan node at a given
+  // pipeline.
+  void createExchangeClient(
+      int32_t pipelineId,
+      const core::PlanNodeId& planNodeId);
+
+  // Get a shared reference to the exchange client with the specified exchange
+  // plan node 'planNodeId'. The function returns null if there is no client
+  // created for 'planNodeId' in 'exchangeClientByPlanNode_'.
+  std::shared_ptr<ExchangeClient> getExchangeClient(
+      const core::PlanNodeId& planNodeId) const {
+    std::lock_guard<std::mutex> l(mutex_);
+    return getExchangeClientLocked(planNodeId);
+  }
+
+  std::shared_ptr<ExchangeClient> getExchangeClientLocked(
+      const core::PlanNodeId& planNodeId) const;
+
+  // Get a shared reference to the exchange client with the specified
+  // 'pipelineId'. The function returns null if there is no client created for
+  // 'pipelineId' set in 'exchangeClients_'.
+  std::shared_ptr<ExchangeClient> getExchangeClientLocked(
+      int32_t pipelineId) const;
 
   /// Callback function added to the MemoryUsageTracker to return a descriptive
   /// message about query memory usage to be added to the error when a
@@ -756,19 +785,24 @@ class Task : public std::enable_shared_from_this<Task> {
   // kFinished.
   bool partitionedOutputConsumed_ = false;
 
-  /// Exchange clients. One per pipeline / source.
-  /// Null for pipelines, which don't need it.
-  std::vector<std::shared_ptr<ExchangeClient>> exchangeClients_;
-
-  /// Exchange clients keyed by the corresponding Exchange plan node ID. Used to
-  /// process remaining remote splits after the task has completed early.
-  std::unordered_map<core::PlanNodeId, std::shared_ptr<ExchangeClient>>
-      exchangeClientByPlanNode_;
-
   // Set if terminated by an error. This is the first error reported
   // by any of the instances.
   std::exception_ptr exception_ = nullptr;
   mutable std::mutex mutex_;
+
+  // Exchange clients. One per pipeline / source. Null for pipelines, which
+  // don't need it.
+  //
+  // NOTE: there can be only one exchange client for a given pipeline ID, and
+  // the exchange clients are also referenced by 'exchangeClientByPlanNode_'.
+  // Hence, exchange clients can be indexed either by pipeline ID or by plan
+  // node ID.
+  std::vector<std::shared_ptr<ExchangeClient>> exchangeClients_;
+
+  // Exchange clients keyed by the corresponding Exchange plan node ID. Used to
+  // process remaining remote splits after the task has completed early.
+  std::unordered_map<core::PlanNodeId, std::shared_ptr<ExchangeClient>>
+      exchangeClientByPlanNode_;
 
   ConsumerSupplier consumerSupplier_;
 

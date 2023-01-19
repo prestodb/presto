@@ -872,23 +872,44 @@ std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
 
 bool waitForTaskCompletion(exec::Task* task, uint64_t maxWaitMicros) {
   // Wait for task to transition to finished state.
-  if (not task->isFinished()) {
+  if (!waitForTaskStateChange(task, TaskState::kFinished, maxWaitMicros)) {
+    return false;
+  }
+  return waitForTaskDriversToFinish(task, maxWaitMicros);
+}
+
+bool waitForTaskFailure(exec::Task* task, uint64_t maxWaitMicros) {
+  // Wait for task to transition to finished state.
+  if (!waitForTaskStateChange(task, TaskState::kFailed, maxWaitMicros)) {
+    return false;
+  }
+  return waitForTaskDriversToFinish(task, maxWaitMicros);
+}
+
+bool waitForTaskStateChange(
+    exec::Task* task,
+    TaskState state,
+    uint64_t maxWaitMicros) {
+  // Wait for task to transition to finished state.
+  if (task->state() != state) {
     auto& executor = folly::QueuedImmediateExecutor::instance();
     auto future = task->stateChangeFuture(maxWaitMicros).via(&executor);
     future.wait();
   }
 
-  // Wait for all drivers to finish.
-  // TODO Re-design the Task to transition to finished state only after all
-  // drivers have finished.
-  if (task->isFinished()) {
-    if (task->numFinishedDrivers() < task->numTotalDrivers()) {
-      // sleep override
-      std::this_thread::sleep_for(std::chrono::microseconds(maxWaitMicros));
-    }
-  }
+  return task->state() == state;
+}
 
-  return task->isFinished();
+bool waitForTaskDriversToFinish(exec::Task* task, uint64_t maxWaitMicros) {
+  VELOX_USER_CHECK(!task->isRunning());
+  uint64_t waitMicros = 0;
+  while ((task->numFinishedDrivers() != task->numTotalDrivers()) &&
+         (waitMicros < maxWaitMicros)) {
+    const uint64_t kWaitMicros = 1000;
+    std::this_thread::sleep_for(std::chrono::microseconds(kWaitMicros));
+    waitMicros += kWaitMicros;
+  }
+  return task->numFinishedDrivers() == task->numTotalDrivers();
 }
 
 std::shared_ptr<Task> assertQuery(

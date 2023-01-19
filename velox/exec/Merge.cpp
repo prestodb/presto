@@ -100,7 +100,6 @@ BlockingReason Merge::isBlocked(ContinueFuture* future) {
 }
 
 bool Merge::isFinished() {
-  TestValue::adjust("facebook::velox::exec::Merge::isFinished", &finished_);
   return finished_;
 }
 

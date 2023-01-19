@@ -119,6 +119,24 @@ bool waitForTaskCompletion(
     exec::Task* task,
     uint64_t maxWaitMicros = 1'000'000);
 
+/// Similar to waitForTaskCompletion but wait for the task to fail.
+bool waitForTaskFailure(exec::Task* task, uint64_t maxWaitMicros = 1'000'000);
+
+/// Wait up to maxWaitMicros for 'task' state changes to 'state'. The function
+/// returns true if 'task' has changed to the expected 'state', otherwise false.
+bool waitForTaskStateChange(
+    exec::Task* task,
+    TaskState state,
+    uint64_t maxWaitMicros = 1'000'000);
+
+/// Wait up to maxWaitMicros for all the task drivers to finish. The function
+/// returns true if all the drivers have finished, otherwise false.
+///
+/// NOTE: user must call this on a finished or failed task.
+bool waitForTaskDriversToFinish(
+    exec::Task* task,
+    uint64_t maxWaitMicros = 1'000'000);
+
 std::shared_ptr<Task> assertQuery(
     const std::shared_ptr<const core::PlanNode>& plan,
     const std::string& duckDbSql,

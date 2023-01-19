@@ -323,8 +323,10 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
     } else if (
         auto exchangeNode =
             std::dynamic_pointer_cast<const core::ExchangeNode>(planNode)) {
+      // NOTE: the exchange client can only be used by one operator in a driver.
+      VELOX_CHECK_NOT_NULL(exchangeClient);
       operators.push_back(std::make_unique<Exchange>(
-          id, ctx.get(), exchangeNode, exchangeClient));
+          id, ctx.get(), exchangeNode, std::move(exchangeClient)));
     } else if (
         auto partitionedOutputNode =
             std::dynamic_pointer_cast<const core::PartitionedOutputNode>(

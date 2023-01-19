@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "folly/experimental/EventCount.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/DataSink.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
@@ -27,6 +30,8 @@ using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::connector::hive;
+using namespace facebook::velox::common::testutil;
+using namespace facebook::velox::memory;
 
 using facebook::velox::test::BatchMaker;
 
@@ -39,12 +44,20 @@ class MultiFragmentTest : public HiveConnectorTestBase {
   std::shared_ptr<Task> makeTask(
       const std::string& taskId,
       std::shared_ptr<const core::PlanNode> planNode,
-      int destination) {
+      int destination,
+      Consumer consumer = nullptr,
+      int64_t maxMemory = kMaxMemory) {
     auto queryCtx = std::make_shared<core::QueryCtx>(
         executor_.get(), std::make_shared<core::MemConfig>(configSettings_));
+    queryCtx->pool()->setMemoryUsageTracker(
+        MemoryUsageTracker::create(maxMemory));
     core::PlanFragment planFragment{planNode};
     return std::make_shared<Task>(
-        taskId, std::move(planFragment), destination, std::move(queryCtx));
+        taskId,
+        std::move(planFragment),
+        destination,
+        std::move(queryCtx),
+        std::move(consumer));
   }
 
   std::vector<RowVectorPtr> makeVectors(int count, int rowsPerVector) {
@@ -961,4 +974,83 @@ TEST_F(MultiFragmentTest, cancelledExchange) {
   std::this_thread::sleep_for(std::chrono::seconds(1));
   // We expect no references left except for ours.
   EXPECT_EQ(1, exchangeTask.use_count());
+}
+
+// This test is to reproduce the race condition between task terminate and no
+// more split call:
+// T1: task terminate triggered by task error.
+// T2: task terminate collects all the pending remote splits under the task
+// lock.
+// T3: task terminate release the lock to handle the pending remote splits.
+// T4: no more split call get invoked and erase the exchange client since the
+//     task is not running.
+// T5: task terminate processes the pending remote splits by accessing the
+//     associated exchange client and run into segment fault.
+DEBUG_ONLY_TEST_F(
+    MultiFragmentTest,
+    raceBetweenTaskTerminateAndTaskNoMoreSplits) {
+  setupSources(10, 1000);
+  auto leafTaskId = makeTaskId("leaf", 0);
+  core::PlanNodePtr leafPlan = PlanBuilder()
+                                   .tableScan(rowType_)
+                                   .project({"c0 % 10 AS c0", "c1"})
+                                   .partitionedOutput({}, 1)
+                                   .planNode();
+  auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+  Task::start(leafTask, 1);
+  addHiveSplits(leafTask, filePaths_);
+
+  const std::string kRootTaskId("root-task");
+  folly::EventCount blockTerminate;
+  folly::EventCount blockNoMoreSplits;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::setError",
+      std::function<void(Task*)>(([&](Task* task) {
+        if (task->taskId() != kRootTaskId) {
+          return;
+        }
+        // Trigger to add more split after the task has run into error.
+        auto split =
+            exec::Split(std::make_shared<RemoteConnectorSplit>(leafTaskId), -1);
+        task->addSplit("0", std::move(split));
+      })));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::terminate",
+      std::function<void(Task*)>(([&](Task* task) {
+        if (task->taskId() != kRootTaskId) {
+          return;
+        }
+        // Unblock no more split call in the middle of task terminate execution.
+        blockNoMoreSplits.notify();
+        auto waitKey = blockTerminate.prepareWait();
+        // Block to wait for the no more split call to finish.
+        blockTerminate.wait(waitKey);
+      })));
+  auto rootPlan = PlanBuilder()
+                      .exchange(leafPlan->outputType())
+                      .finalAggregation({"c0"}, {"count(c1)"}, {BIGINT()})
+                      .planNode();
+
+  const int64_t kRootMemoryLimit = 1 << 20;
+  auto rootTask = makeTask(
+      kRootTaskId,
+      rootPlan,
+      0,
+      [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/)
+          -> BlockingReason { return BlockingReason::kNotBlocked; },
+      kRootMemoryLimit);
+  Task::start(rootTask, 1);
+  {
+    auto split =
+        exec::Split(std::make_shared<RemoteConnectorSplit>(leafTaskId), -1);
+    rootTask->addSplit("0", std::move(split));
+  }
+  auto waitKey = blockNoMoreSplits.prepareWait();
+  // Block to wait for task terminate execution.
+  blockNoMoreSplits.wait(waitKey);
+  rootTask->noMoreSplits("0");
+  // Unblock task terminate execution after no more split call finishes.
+  blockTerminate.notify();
+  ASSERT_TRUE(waitForTaskFailure(rootTask.get(), 1'000'000'000));
 }
