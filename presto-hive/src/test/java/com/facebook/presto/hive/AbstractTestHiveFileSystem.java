@@ -78,6 +78,7 @@ import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
@@ -103,6 +104,7 @@ import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFac
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveSelectivePageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultS3HiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
 import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_METASTORE_CACHE_STATS;
@@ -249,7 +251,17 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveWriterStats(),
                 getDefaultOrcFileWriterFactory(config, metastoreClientConfig),
                 columnConverterProvider);
-        pageSourceProvider = new HivePageSourceProvider(config, hdfsEnvironment, getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
+        Set<HiveRecordCursorProvider> recordCursorProviderSet = s3SelectPushdownEnabled ?
+                                                                    getDefaultS3HiveRecordCursorProvider(config, metastoreClientConfig) :
+                                                                    getDefaultHiveRecordCursorProvider(config, metastoreClientConfig);
+        pageSourceProvider = new HivePageSourceProvider(
+                config,
+                hdfsEnvironment,
+                recordCursorProviderSet,
+                getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig),
+                getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig),
+                FUNCTION_AND_TYPE_MANAGER,
+                ROW_EXPRESSION_SERVICE);
     }
 
     protected ConnectorSession newSession()

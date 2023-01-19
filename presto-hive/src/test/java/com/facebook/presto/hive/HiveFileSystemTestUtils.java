@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.cache.CacheConfig;
-import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.AbstractTestHiveClient.HiveTransaction;
 import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
@@ -28,7 +27,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -47,6 +45,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
 import static com.facebook.presto.hive.AbstractTestHiveFileSystem.SPLIT_SCHEDULING_CONTEXT;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -96,7 +95,7 @@ public class HiveFileSystemTestUtils
                         split,
                         tableHandle.getLayout().get(),
                         columnHandles,
-                        new SplitContext(false, TupleDomain.none()))) {
+                        NON_CACHEABLE)) {
                     MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
                     for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
                         Object[] dataValues = IntStream.range(0, row.getFieldCount())
@@ -154,7 +153,7 @@ public class HiveFileSystemTestUtils
                         split,
                         tableHandle.getLayout().get(),
                         projectedColumns,
-                        new SplitContext(false, TupleDomain.none()))) {
+                        NON_CACHEABLE)) {
                     MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
                     for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
                         Object[] dataValues = IntStream.range(0, row.getFieldCount())
