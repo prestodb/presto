@@ -190,7 +190,7 @@ void applyTypedWithInstance(
   if (elementsDecoded.isIdentityMapping() && !elementsDecoded.mayHaveNulls() &&
       searchDecoded.isConstantMapping() &&
       instanceDecoded.isConstantMapping()) {
-    auto instance = instanceDecoded.valueAt<int64_t>(0);
+    const auto instance = instanceDecoded.valueAt<int64_t>(0);
     VELOX_USER_CHECK_NE(
         instance,
         0,
@@ -204,14 +204,14 @@ void applyTypedWithInstance(
 
       rows.applyToSelected([&](auto row) {
         auto offset = rawOffsets[indices[row]];
+        auto remaining = instance;
         getLoopBoundary(
-            rawSizes, indices, row, instance, startIndex, endIndex, step);
+            rawSizes, indices, row, remaining, startIndex, endIndex, step);
 
         int i;
         for (i = startIndex; i != endIndex; i += step) {
           if (bits::isBitSet(rawElements, offset + i) == search) {
-            --instance;
-            if (instance == 0) {
+            if (--remaining == 0) {
               flatResult.set(row, i + 1);
               break;
             }
@@ -231,14 +231,14 @@ void applyTypedWithInstance(
 
     rows.applyToSelected([&](auto row) {
       auto offset = rawOffsets[indices[row]];
+      auto remaining = instance;
       getLoopBoundary(
-          rawSizes, indices, row, instance, startIndex, endIndex, step);
+          rawSizes, indices, row, remaining, startIndex, endIndex, step);
 
       int i;
       for (i = startIndex; i != endIndex; i += step) {
         if (rawElements[offset + i] == search) {
-          --instance;
-          if (instance == 0) {
+          if (--remaining == 0) {
             flatResult.set(row, i + 1);
             break;
           }

@@ -128,6 +128,20 @@ class ArrayPositionTest : public FunctionBaseTest {
   }
 
   template <typename T>
+  void testPositionWithInstanceNoNulls(
+      const std::vector<std::vector<T>>& array,
+      const std::optional<T>& search,
+      const int64_t instance,
+      const std::vector<std::optional<int64_t>>& expected) {
+    evalExpr(
+        {makeArrayVector<T>(array),
+         makeConstant(search, array.size()),
+         makeConstant(instance, array.size())},
+        "array_position(c0, c1, c2)",
+        makeNullableFlatVector<int64_t>(expected));
+  }
+
+  template <typename T>
   void testPositionDictEncodingWithInstance(
       const TwoDimVector<T>& array,
       const std::optional<T>& search,
@@ -605,6 +619,29 @@ TEST_F(ArrayPositionTest, booleanWithInstance) {
        std::nullopt,
        std::nullopt,
        std::nullopt});
+}
+
+TEST_F(ArrayPositionTest, primitiveWithInstanceFastPath) {
+  std::vector<std::vector<int64_t>> int64s = {
+      {1, 2, 3, 4},
+      {3, 4, 4},
+      {},
+      {6},
+      {5, 2, 4, 2, 9},
+      {7},
+      {10, 4, 8, 4},
+  };
+  testPositionWithInstanceNoNulls<int64_t>(int64s, 4, 2, {0, 3, 0, 0, 0, 0, 4});
+  std::vector<std::vector<bool>> bools = {
+      {true, false},
+      {true},
+      {false},
+      {},
+      {false},
+      {true, false, true},
+      {false, false, false},
+  };
+  testPositionWithInstanceNoNulls<bool>(bools, true, 2, {0, 0, 0, 0, 0, 3, 0});
 }
 
 TEST_F(ArrayPositionTest, rowWithInstance) {
