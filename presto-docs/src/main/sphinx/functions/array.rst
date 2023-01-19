@@ -223,11 +223,13 @@ Array Functions
 
 .. function:: find_first(array(E), function(T,boolean)) -> E
 
-    Returns the first element of ``array`` which returns true for ``function(T,boolean)``. Returns ``NULL`` if no such element exists.
+    Returns the first element of ``array`` which returns true for ``function(T,boolean)``, throws exception if the returned element is NULL.
+    Returns ``NULL`` if no such element exists.
 
 .. function:: find_first(array(E), index, function(T,boolean)) -> E
 
-    Returns the first element of ``array`` which returns true for ``function(T,boolean)``. Returns ``NULL`` if no such element exists.
+    Returns the first element of ``array`` which returns true for ``function(T,boolean)``, throws exception if the returned element is NULL.
+    Returns ``NULL`` if no such element exists.
     If ``index`` > 0, the search for element starts at position ``index`` until the end of array.
     If ``index`` < 0, the search for element starts at position ``abs(index)`` counting from last, until the start of array. ::
 

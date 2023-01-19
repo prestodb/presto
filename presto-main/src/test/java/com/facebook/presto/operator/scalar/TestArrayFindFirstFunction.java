@@ -89,9 +89,9 @@ public class TestArrayFindFirstFunction
     @Test
     public void testNullArray()
     {
-        assertFunction("find_first(ARRAY [NULL], x -> x IS NULL)", UNKNOWN, null);
+        assertInvalidFunction("find_first(ARRAY [NULL], x -> x IS NULL)", "FIND_FIRST finds NULL as match, which is not supported.");
         assertFunction("find_first(ARRAY [NULL], x -> x IS NOT NULL)", UNKNOWN, null);
-        assertFunction("find_first(ARRAY [CAST (NULL AS INTEGER)], x -> x IS NULL)", INTEGER, null);
+        assertInvalidFunction("find_first(ARRAY [CAST (NULL AS INTEGER)], x -> x IS NULL)", "FIND_FIRST finds NULL as match, which is not supported.");
     }
 
     @Test
