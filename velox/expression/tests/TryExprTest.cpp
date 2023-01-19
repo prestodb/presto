@@ -17,6 +17,7 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/vector/ConstantVector.h"
@@ -193,5 +194,36 @@ TEST_F(TryExprTest, evalSimplified) {
       "try(count_calls(c0))", makeRowVector({constant}));
 
   assertEqualVectors(makeNullableFlatVector(expected), result);
+}
+
+TEST_F(TryExprTest, nonDefaultNulls) {
+  // Create dictionary on this input with nulls which will be processed
+  // by a non default null function.
+  auto dictionaryInput = BaseVector::wrapInDictionary(
+      makeNulls({false, false, true, true, false, false}),
+      makeIndices({0, 1, 2, 3, 4, 5, 6}),
+      6,
+      makeConstant("abc", 6));
+
+  auto input = makeRowVector({dictionaryInput});
+
+  // Ensure that expression fails without Try.
+  VELOX_ASSERT_THROW(
+      evaluateSimplified<SimpleVector<bool>>(
+          "distinct_from(10::INTEGER, codepoint(c0))", input),
+      "(3 vs. 1) Unexpected parameters (varchar(3)) for function codepoint. Expected: codepoint(varchar(1))");
+
+  // First try simple eval, and ensure only the null rows will be processed.
+  auto result = evaluateSimplified<SimpleVector<bool>>(
+      "try(distinct_from(10::INTEGER, codepoint(c0)))", input);
+
+  auto expected = makeNullableFlatVector<bool>(
+      {std::nullopt, std::nullopt, true, true, std::nullopt, std::nullopt});
+  assertEqualVectors(expected, result);
+
+  // Again ensure that only null rows are processed in common eval.
+  auto commonResult = evaluate<SimpleVector<bool>>(
+      "try(distinct_from(10::INTEGER, codepoint(c0)))", input);
+  assertEqualVectors(expected, commonResult);
 }
 } // namespace facebook::velox

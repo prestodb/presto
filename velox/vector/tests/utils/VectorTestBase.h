@@ -650,6 +650,9 @@ class VectorTestBase {
       vector_size_t size,
       std::function<bool(vector_size_t /*row*/)> isNullAt);
 
+  /// Creates a null buffer from a vector of booleans.
+  BufferPtr makeNulls(const std::vector<bool>& values);
+
   static VectorPtr
   wrapInDictionary(BufferPtr indices, vector_size_t size, VectorPtr vector);
 

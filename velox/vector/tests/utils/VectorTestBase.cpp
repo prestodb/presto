@@ -98,6 +98,15 @@ BufferPtr VectorTestBase::makeNulls(
   return nulls;
 }
 
+BufferPtr VectorTestBase::makeNulls(const std::vector<bool>& values) {
+  auto nulls = allocateNulls(values.size(), pool());
+  auto rawNulls = nulls->asMutable<uint64_t>();
+  for (auto i = 0; i < values.size(); i++) {
+    bits::setNull(rawNulls, i, values[i]);
+  }
+  return nulls;
+}
+
 void assertEqualVectors(const VectorPtr& expected, const VectorPtr& actual) {
   ASSERT_EQ(expected->size(), actual->size());
   ASSERT_TRUE(expected->type()->equivalent(*actual->type()))
