@@ -22,8 +22,10 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -40,9 +42,13 @@ import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.operator.BenchmarkInMemoryGroupedTopNBuilder.createSequentialInputPages;
 import static com.facebook.presto.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static com.facebook.presto.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
+import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
+import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.TopNRowNumberOperator.TopNRowNumberOperatorFactory;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -121,7 +127,10 @@ public class TestTopNRowNumberOperator
                 false,
                 Optional.empty(),
                 10,
-                joinCompiler);
+                0,
+                joinCompiler,
+                null,
+                false);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L, 1L)
@@ -169,7 +178,10 @@ public class TestTopNRowNumberOperator
                 partial,
                 Optional.empty(),
                 10,
-                joinCompiler);
+                0,
+                joinCompiler,
+                null,
+                false);
 
         MaterializedResult expected;
         if (partial) {
@@ -190,6 +202,7 @@ public class TestTopNRowNumberOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
+    @Test
     public void testMemoryReservationYield()
     {
         Type type = BIGINT;
@@ -208,7 +221,10 @@ public class TestTopNRowNumberOperator
                 false,
                 Optional.empty(),
                 10,
-                joinCompiler);
+                0,
+                joinCompiler,
+                null,
+                false);
 
         // get result with yield; pick a relatively small buffer for heaps
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(
@@ -229,5 +245,79 @@ public class TestTopNRowNumberOperator
             }
         }
         assertEquals(count, 6_000 * 600);
+    }
+
+    @Test
+    public void testSpillableTopNRowNumberOperatorProducesCorrectOutputIFSpilledDuringAddInput()
+    {
+        List<Page> input = createSequentialInputPages(1000, ImmutableList.of(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE), 200, 300, 42);
+
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
+                .setQueryMaxMemory(new DataSize(200, DataSize.Unit.KILOBYTE))
+                .setQueryMaxTotalMemory(new DataSize(200, DataSize.Unit.KILOBYTE))
+                .setMaxRevocableMemory(new DataSize(200, DataSize.Unit.KILOBYTE))
+                .build()
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+        joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+
+        TopNRowNumberOperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE),
+                ImmutableList.of(0, 1, 2, 3, 4),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1),
+                ImmutableList.of(SortOrder.ASC_NULLS_LAST),
+                3,
+                true,
+                Optional.empty(),
+                10,
+                10000,
+                joinCompiler,
+                new DummySpillerFactory(),
+                true);
+
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE), input), true);
+    }
+
+    @Test
+    public void testSpillableTopNRowNumberOperatorProducesCorrectOutputIfNOSPILLDuringAddInput()
+    {
+        List<Page> input = createSequentialInputPages(1000, ImmutableList.of(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE), 200, 300, 42);
+
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
+                .setQueryMaxMemory(new DataSize(200, DataSize.Unit.KILOBYTE))
+                .setQueryMaxTotalMemory(new DataSize(200, DataSize.Unit.KILOBYTE))
+                .setMaxRevocableMemory(new DataSize(200, DataSize.Unit.KILOBYTE))
+                .build()
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+        joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+
+        TopNRowNumberOperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE),
+                ImmutableList.of(0, 1, 2, 3, 4),
+                ImmutableList.of(0),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(1),
+                ImmutableList.of(SortOrder.ASC_NULLS_LAST),
+                3,
+                true,
+                Optional.empty(),
+                10,
+                10000,
+                joinCompiler,
+                new DummySpillerFactory(),
+                true);
+
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE), input));
     }
 }

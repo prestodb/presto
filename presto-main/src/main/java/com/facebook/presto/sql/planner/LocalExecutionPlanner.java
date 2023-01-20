@@ -255,6 +255,7 @@ import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.getTopNOperatorUnspillMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.isAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistinctAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
@@ -267,6 +268,7 @@ import static com.facebook.presto.SystemSessionProperties.isOrderByAggregationSp
 import static com.facebook.presto.SystemSessionProperties.isOrderBySpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
+import static com.facebook.presto.SystemSessionProperties.isTopNSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isWindowSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -1064,6 +1066,8 @@ public class LocalExecutionPlanner
                 outputMappings.put(node.getRowNumberVariable(), channel);
             }
 
+            DataSize unspillMemoryLimit = getTopNOperatorUnspillMemoryLimit(context.getSession());
+
             Optional<Integer> hashChannel = node.getHashVariable().map(variableChannelGetter(source));
             OperatorFactory operatorFactory = new TopNRowNumberOperator.TopNRowNumberOperatorFactory(
                     context.getNextOperatorId(),
@@ -1078,7 +1082,10 @@ public class LocalExecutionPlanner
                     node.isPartial(),
                     hashChannel,
                     1000,
-                    joinCompiler);
+                    unspillMemoryLimit.toBytes(),
+                    joinCompiler,
+                    spillerFactory,
+                    isTopNSpillEnabled(session));
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
