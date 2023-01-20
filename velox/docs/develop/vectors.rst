@@ -86,7 +86,7 @@ using helper methods from the “bits” namespace.
     bool active = bits::isBitSet(rawFlags, 12);
 
     // Read-write access.
-    uint64_t* rawFlags = flags->asMutable<int64_t>();
+    uint64_t* rawFlags = flags->asMutable<uint64_t>();
 
     // Set flag 15 to true/on.
     bits::setBit(rawFlags, 15);
