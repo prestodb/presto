@@ -293,6 +293,12 @@ ExpressionFuzzer::ExpressionFuzzer(
   size_t totalFunctionSignatures = 0;
   std::vector<std::string> supportedFunctions;
   size_t supportedFunctionSignatures = 0;
+  // A local random number generator to be used just in ExpressionFuzzer
+  // constructor. We do not use rng_ in this function because code in this
+  // function may change rng_ and cause it to mismatch with the seed printed in
+  // the log.
+  FuzzerGenerator localRng{
+      static_cast<FuzzerGenerator::result_type>(initialSeed)};
   // Process each available signature for every function.
   for (const auto& function : signatureMap) {
     ++totalFunctions;
@@ -332,7 +338,7 @@ ExpressionFuzzer::ExpressionFuzzer(
           argTypes.push_back(resolvedType);
         }
       } else {
-        ArgumentTypeFuzzer typeFuzzer{*signature, rng_};
+        ArgumentTypeFuzzer typeFuzzer{*signature, localRng};
         typeFuzzer.fuzzReturnType();
         VELOX_CHECK_EQ(
             typeFuzzer.fuzzArgumentTypes(FLAGS_max_num_varargs), true);

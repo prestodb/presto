@@ -86,4 +86,29 @@ TEST_F(ExpressionFuzzerUnitTest, restrictedLevelOfNesting) {
 
   testLevelOfNesting(-1);
 }
+
+TEST_F(ExpressionFuzzerUnitTest, reproduceExpressionWithSeed) {
+  velox::functions::prestosql::registerAllScalarFunctions();
+
+  // Generate 10 random expressions with the same seed twice and verify they are
+  // the same.
+  auto generateExpressions = [&]() {
+    std::vector<std::string> firstGeneration;
+    std::mt19937 seed{7654321};
+    ExpressionFuzzer fuzzer{velox::getFunctionSignatures(), 1234567, 5};
+    for (auto i = 0; i < 10; ++i) {
+      firstGeneration.push_back(
+          fuzzer.generateExpression(randomType(seed))->toString());
+    }
+    return firstGeneration;
+  };
+
+  auto firstGeneration = generateExpressions();
+  auto secondGeneration = generateExpressions();
+  VELOX_CHECK_EQ(firstGeneration.size(), 10);
+  VELOX_CHECK_EQ(secondGeneration.size(), 10);
+  for (auto i = 0; i < 10; ++i) {
+    VELOX_CHECK_EQ(firstGeneration[i], secondGeneration[i]);
+  }
+}
 } // namespace facebook::velox::test
