@@ -145,8 +145,14 @@ TEST_F(PlanConverterTest, scanAggBatch) {
           exec::test::TempDirectoryPath::create()->path,
           10)));
 
+  auto partitionedOutput =
+      std::dynamic_pointer_cast<const core::PartitionedOutputNode>(root);
+  ASSERT_NE(partitionedOutput, nullptr);
+  ASSERT_EQ(partitionedOutput->sources().size(), 1);
+
   auto shuffleWrite =
-      std::dynamic_pointer_cast<const operators::ShuffleWriteNode>(root);
+      std::dynamic_pointer_cast<const operators::ShuffleWriteNode>(
+          partitionedOutput->sources().back());
   ASSERT_NE(shuffleWrite, nullptr);
   ASSERT_EQ(shuffleWrite->sources().size(), 1);
 
