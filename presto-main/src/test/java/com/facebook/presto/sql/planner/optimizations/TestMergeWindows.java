@@ -203,8 +203,9 @@ public class TestMergeWindows
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationB)
                                                 .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
-                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
-                                                LINEITEM_TABLESCAN_DOQSS)))));
+                                        anyTree(
+                                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
+                                                        LINEITEM_TABLESCAN_DOQSS))))));
     }
 
     @Test
@@ -256,8 +257,9 @@ public class TestMergeWindows
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
                                         .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO")))
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
-                                        LINEITEM_TABLESCAN_DOQS))));
+                                anyTree(
+                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
+                                                LINEITEM_TABLESCAN_DOQS)))));
     }
 
     @Test
@@ -370,6 +372,35 @@ public class TestMergeWindows
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey) sum_quantity_C, " +
                 "AVG(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) avg_quantity_D, " +
+                "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey) sum_discount_C " +
+                "FROM lineitem";
+
+        assertUnitPlan(sql,
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specificationD)
+                                        .addFunction(functionCall("avg", frameD, ImmutableList.of(QUANTITY_ALIAS)))
+                                        .addFunction(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
+                                        .addFunction(functionCall("sum", UNSPECIFIED_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                LINEITEM_TABLESCAN_DOQS)));
+    }
+
+    @Test
+    public void testMergeRangeFramesWithDefault()
+    {
+        Optional<WindowFrame> frameD = Optional.of(new WindowFrame(
+                WindowFrame.Type.RANGE,
+                new FrameBound(FrameBound.Type.CURRENT_ROW),
+                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING))));
+
+        ExpectedValueProvider<WindowNode.Specification> specificationD = specification(
+                ImmutableList.of(SUPPKEY_ALIAS),
+                ImmutableList.of(ORDERKEY_ALIAS),
+                ImmutableMap.of(ORDERKEY_ALIAS, SortOrder.ASC_NULLS_LAST));
+
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey) sum_quantity_C, " +
+                "AVG(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) avg_quantity_D, " +
                 "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey) sum_discount_C " +
                 "FROM lineitem";
 

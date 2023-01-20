@@ -57,6 +57,13 @@ public class ExpressionMatcher
         this.expression = expression(requireNonNull(expression));
     }
 
+    public ExpressionMatcher(Expression expression)
+    {
+        this.expression = requireNonNull(expression, "expression is null");
+        this.sql = requireNonNull(expression).toString();
+        this.decimalLiteralTreatment = ParsingOptions.DecimalLiteralTreatment.REJECT;
+    }
+
     private Expression expression(String sql)
     {
         SqlParser parser = new SqlParser();

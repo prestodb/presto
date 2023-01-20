@@ -14,12 +14,15 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
@@ -50,22 +53,28 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
@@ -76,22 +85,28 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isSkipRedundantSort;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toBoundType;
@@ -100,10 +115,21 @@ import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsS
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.IntervalLiteral.IntervalField.DAY;
+import static com.facebook.presto.sql.tree.IntervalLiteral.IntervalField.YEAR;
+import static com.facebook.presto.sql.tree.IntervalLiteral.Sign.POSITIVE;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.ROWS;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
@@ -366,6 +392,40 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 projections.build()));
+    }
+
+    /**
+     * Creates a projection with any additional coercions by identity of the provided expressions.
+     *
+     * @return the new subplan and a mapping of each expression to the symbol representing the coercion or an existing symbol if a coercion wasn't needed
+     */
+    public static PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, Metadata metadata)
+    {
+        Assignments.Builder assignments = Assignments.builder();
+        assignments.putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), x -> castToRowExpression(asSymbolReference(x)))));
+        ImmutableMap.Builder<NodeRef<Expression>, VariableReferenceExpression> mappings = ImmutableMap.builder();
+        for (Expression expression : expressions) {
+            Type coercion = analysis.getCoercion(expression);
+            if (coercion != null) {
+                Type type = analysis.getType(expression);
+                VariableReferenceExpression variable = variableAllocator.newVariable(expression, coercion);
+                assignments.put(variable, castToRowExpression(new Cast(
+                        subPlan.rewrite(expression),
+                        coercion.getTypeSignature().toString(),
+                        false,
+                        metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(type, coercion))));
+                mappings.put(NodeRef.of(expression), variable);
+            }
+            else {
+                mappings.put(NodeRef.of(expression), subPlan.translate(expression));
+            }
+        }
+        subPlan = subPlan.withNewRoot(
+                new ProjectNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        assignments.build()));
+        return new PlanAndMappings(subPlan, mappings.build());
     }
 
     private Map<VariableReferenceExpression, RowExpression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
@@ -738,39 +798,80 @@ class QueryPlanner
             Window window = windowFunction.getWindow().get();
 
             // Extract frame
-            WindowFrame.Type frameType = WindowFrame.Type.RANGE;
+            WindowFrame.Type frameType = RANGE;
             FrameBound.Type frameStartType = FrameBound.Type.UNBOUNDED_PRECEDING;
             FrameBound.Type frameEndType = FrameBound.Type.CURRENT_ROW;
-            Expression frameStart = null;
-            Expression frameEnd = null;
+            Optional<Expression> startValue = Optional.empty();
+            Optional<Expression> endValue = Optional.empty();
 
             if (window.getFrame().isPresent()) {
                 WindowFrame frame = window.getFrame().get();
                 frameType = frame.getType();
 
                 frameStartType = frame.getStart().getType();
-                frameStart = frame.getStart().getValue().orElse(null);
+                startValue = frame.getStart().getValue();
 
                 if (frame.getEnd().isPresent()) {
                     frameEndType = frame.getEnd().get().getType();
-                    frameEnd = frame.getEnd().get().getValue().orElse(null);
+                    endValue = frame.getEnd().get().getValue();
                 }
             }
 
             // Pre-project inputs
-            ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
+            ImmutableList.Builder<Expression> inputsBuilder = ImmutableList.<Expression>builder()
                     .addAll(windowFunction.getArguments())
                     .addAll(window.getPartitionBy())
                     .addAll(Iterables.transform(getSortItemsFromOrderBy(window.getOrderBy()), SortItem::getSortKey));
 
-            if (frameStart != null) {
-                inputs.add(frameStart);
+            if (startValue.isPresent()) {
+                inputsBuilder.add(startValue.get());
             }
-            if (frameEnd != null) {
-                inputs.add(frameEnd);
+            if (endValue.isPresent()) {
+                inputsBuilder.add(endValue.get());
             }
 
-            subPlan = subPlan.appendProjections(inputs.build(), variableAllocator, idAllocator);
+            ImmutableList<Expression> inputs = inputsBuilder.build();
+            subPlan = subPlan.appendProjections(inputs, variableAllocator, idAllocator);
+
+            // Add projection to coerce inputs to their site-specific types.
+            // This is important because the same lexical expression may need to be coerced
+            // in different ways if it's referenced by multiple arguments to the window function.
+            // For example, given v::integer,
+            //    avg(v) OVER (ORDER BY v)
+            // Needs to be rewritten as
+            //    avg(CAST(v AS double)) OVER (ORDER BY v)
+            PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, variableAllocator, metadata);
+            subPlan = coercions.getSubPlan();
+
+            // For frame of type RANGE, append casts and functions necessary for frame bound calculations
+            Optional<VariableReferenceExpression> frameStart = Optional.empty();
+            Optional<VariableReferenceExpression> frameEnd = Optional.empty();
+            Optional<VariableReferenceExpression> sortKeyCoercedForFrameStartComparison = Optional.empty();
+            Optional<VariableReferenceExpression> sortKeyCoercedForFrameEndComparison = Optional.empty();
+
+            if (window.getFrame().isPresent() && window.getFrame().get().getType() == RANGE) {
+                // record sortKey coercions for reuse
+                Map<Type, VariableReferenceExpression> sortKeyCoercions = new HashMap<>();
+
+                // process frame start
+                FrameBoundPlanAndSymbols plan = planFrameBound(subPlan, coercions, startValue, window, sortKeyCoercions);
+                subPlan = plan.getSubPlan();
+                frameStart = plan.getFrameBoundSymbol();
+                sortKeyCoercedForFrameStartComparison = plan.getSortKeyCoercedForFrameBoundComparison();
+
+                // process frame end
+                plan = planFrameBound(subPlan, coercions, endValue, window, sortKeyCoercions);
+                subPlan = plan.getSubPlan();
+                frameEnd = plan.getFrameBoundSymbol();
+                sortKeyCoercedForFrameEndComparison = plan.getSortKeyCoercedForFrameBoundComparison();
+            }
+            else if (window.getFrame().isPresent() && window.getFrame().get().getType() == ROWS) {
+                frameStart = window.getFrame().get().getStart().getValue().map(coercions::get);
+                frameEnd = window.getFrame().get().getEnd().flatMap(FrameBound::getValue).map(coercions::get);
+            }
+            else if (window.getFrame().isPresent()) {
+                throw new IllegalArgumentException("unexpected window frame type: " + window.getFrame().get().getType());
+            }
 
             // Rewrite PARTITION BY in terms of pre-projected inputs
             ImmutableList.Builder<VariableReferenceExpression> partitionByVariables = ImmutableList.builder();
@@ -787,23 +888,17 @@ class QueryPlanner
             }
 
             // Rewrite frame bounds in terms of pre-projected inputs
-            Optional<VariableReferenceExpression> frameStartVariable = Optional.empty();
-            Optional<VariableReferenceExpression> frameEndVariable = Optional.empty();
-            if (frameStart != null) {
-                frameStartVariable = Optional.of(subPlan.translate(frameStart));
-            }
-            if (frameEnd != null) {
-                frameEndVariable = Optional.of(subPlan.translate(frameEnd));
-            }
 
             WindowNode.Frame frame = new WindowNode.Frame(
                     toWindowType(frameType),
                     toBoundType(frameStartType),
-                    frameStartVariable,
+                    frameStart,
+                    sortKeyCoercedForFrameStartComparison,
                     toBoundType(frameEndType),
-                    frameEndVariable,
-                    Optional.ofNullable(frameStart).map(Expression::toString),
-                    Optional.ofNullable(frameEnd).map(Expression::toString));
+                    frameEnd,
+                    sortKeyCoercedForFrameEndComparison,
+                    startValue.map(Expression::toString),
+                    endValue.map(Expression::toString));
 
             TranslationMap outputTranslations = subPlan.copyTranslations();
 
@@ -870,6 +965,134 @@ class QueryPlanner
         }
 
         return subPlan;
+    }
+
+    private FrameBoundPlanAndSymbols planFrameBound(PlanBuilder subPlan, PlanAndMappings coercions, Optional<Expression> frameOffset, Window window, Map<Type, VariableReferenceExpression> sortKeyCoercions)
+    {
+        Optional<FunctionHandle> frameBoundCalculationFunction = frameOffset.map(analysis::getFrameBoundCalculation);
+
+        // Empty frameBoundCalculationFunction indicates that frame bound type is CURRENT ROW or UNBOUNDED.
+        // Handling it doesn't require any additional symbols.
+        if (!frameBoundCalculationFunction.isPresent()) {
+            return new FrameBoundPlanAndSymbols(subPlan, Optional.empty(), Optional.empty());
+        }
+
+        // Present frameBoundCalculationFunction indicates that frame bound type is <expression> PRECEDING or <expression> FOLLOWING.
+        // It requires adding certain projections to the plan so that the operator can determine frame bounds.
+
+        // First, append filter to validate offset values. They mustn't be negative or null.
+        VariableReferenceExpression offsetSymbol = coercions.get(frameOffset.get());
+        Expression zeroOffset = zeroOfType(variableAllocator.getTypes().get(offsetSymbol));
+        FunctionHandle fail = metadata.getFunctionAndTypeManager().resolveFunction(Optional.empty(), Optional.empty(), QualifiedObjectName.valueOf("presto.default.fail"), fromTypes(VARCHAR));
+        Expression predicate = new IfExpression(
+                new ComparisonExpression(
+                        GREATER_THAN_OR_EQUAL,
+                        new SymbolReference(offsetSymbol.getName()),
+                        zeroOffset),
+                TRUE_LITERAL,
+                new Cast(
+                        new FunctionCall(
+                                QualifiedName.of("presto", "default", "fail"),
+                                ImmutableList.of(new Cast(new StringLiteral("Window frame offset value must not be negative or null"), VARCHAR.getTypeSignature().toString()))),
+                        BOOLEAN.getTypeSignature().toString()));
+        subPlan = subPlan.withNewRoot(new FilterNode(
+                getSourceLocation(window),
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                castToRowExpression(predicate)));
+
+        // Then, coerce the sortKey so that we can add / subtract the offset.
+        // Note: for that we cannot rely on the usual mechanism of using the coerce() method. The coerce() method can only handle one coercion for a node,
+        // while the sortKey node might require several different coercions, e.g. one for frame start and one for frame end.
+        Expression sortKey = Iterables.getOnlyElement(window.getOrderBy().get().getSortItems()).getSortKey();
+        VariableReferenceExpression sortKeyCoercedForFrameBoundCalculation = coercions.get(sortKey);
+        Optional<Type> coercion = frameOffset.map(analysis::getSortKeyCoercionForFrameBoundCalculation);
+        if (coercion.isPresent()) {
+            Type expectedType = coercion.get();
+            VariableReferenceExpression alreadyCoerced = sortKeyCoercions.get(expectedType);
+            if (alreadyCoerced != null) {
+                sortKeyCoercedForFrameBoundCalculation = alreadyCoerced;
+            }
+            else {
+                Expression cast = new Cast(
+                        new SymbolReference(coercions.get(sortKey).getName()),
+                        expectedType.getTypeSignature().toString(),
+                        false,
+                        metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
+                sortKeyCoercedForFrameBoundCalculation = variableAllocator.newVariable(cast, expectedType);
+                sortKeyCoercions.put(expectedType, sortKeyCoercedForFrameBoundCalculation);
+                subPlan = subPlan.withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        Assignments.builder()
+                                .putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), x -> castToRowExpression(asSymbolReference(x)))))
+                                .put(sortKeyCoercedForFrameBoundCalculation, castToRowExpression(cast))
+                                .build()));
+            }
+        }
+
+        // Next, pre-project the function which combines sortKey with the offset.
+        // Note: if frameOffset needs a coercion, it was added before by a call to coerce() method.
+        FunctionHandle function = frameBoundCalculationFunction.get();
+        FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(function);
+        QualifiedObjectName name = functionMetadata.getName();
+        Expression functionCall = new FunctionCall(
+                QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName()),
+                ImmutableList.of(
+                        new SymbolReference(sortKeyCoercedForFrameBoundCalculation.getName()),
+                        new SymbolReference(offsetSymbol.getName())));
+        VariableReferenceExpression frameBoundVariable = variableAllocator.newVariable(functionCall, metadata.getFunctionAndTypeManager().getType(functionMetadata.getReturnType()));
+        subPlan = subPlan.withNewRoot(new ProjectNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                Assignments.builder()
+                        .putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), x -> castToRowExpression(asSymbolReference(x)))))
+                        .put(frameBoundVariable, castToRowExpression(functionCall))
+                        .build()));
+
+        // Finally, coerce the sortKey to the type of frameBound so that the operator can perform comparisons on them
+        Optional<VariableReferenceExpression> sortKeyCoercedForFrameBoundComparison = Optional.of(coercions.get(sortKey));
+        coercion = frameOffset.map(analysis::getSortKeyCoercionForFrameBoundComparison);
+        if (coercion.isPresent()) {
+            Type expectedType = coercion.get();
+            VariableReferenceExpression alreadyCoerced = sortKeyCoercions.get(expectedType);
+            if (alreadyCoerced != null) {
+                sortKeyCoercedForFrameBoundComparison = Optional.of(alreadyCoerced);
+            }
+            else {
+                Expression cast = new Cast(
+                        new SymbolReference(coercions.get(sortKey).getName()),
+                        expectedType.getTypeSignature().toString(),
+                        false,
+                        metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
+                VariableReferenceExpression castSymbol = variableAllocator.newVariable(cast, expectedType);
+                sortKeyCoercions.put(expectedType, castSymbol);
+                subPlan = subPlan.withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        Assignments.builder()
+                                .putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), x -> castToRowExpression(asSymbolReference(x)))))
+                                .put(castSymbol, castToRowExpression(cast))
+                                .build()));
+                sortKeyCoercedForFrameBoundComparison = Optional.of(castSymbol);
+            }
+        }
+
+        return new FrameBoundPlanAndSymbols(subPlan, Optional.of(frameBoundVariable), sortKeyCoercedForFrameBoundComparison);
+    }
+
+    private Expression zeroOfType(Type type)
+    {
+        if (isNumericType(type)) {
+            return new Cast(new LongLiteral("0"), type.getTypeSignature().toString());
+        }
+        if (type.equals(INTERVAL_DAY_TIME)) {
+            return new IntervalLiteral("0", POSITIVE, DAY);
+        }
+        if (type.equals(INTERVAL_YEAR_MONTH)) {
+            return new IntervalLiteral("0", POSITIVE, YEAR);
+        }
+        throw new IllegalArgumentException("unexpected type: " + type);
     }
 
     private PlanBuilder handleSubqueries(PlanBuilder subPlan, Node node, Iterable<Expression> inputs)
@@ -969,5 +1192,66 @@ class QueryPlanner
                         variable.getSourceLocation().map(location -> new NodeLocation(location.getLine(), location.getColumn())),
                         variable.getName()))
                 .collect(toImmutableList());
+    }
+
+    public static class PlanAndMappings
+    {
+        private final PlanBuilder subPlan;
+        private final Map<NodeRef<Expression>, VariableReferenceExpression> mappings;
+
+        public PlanAndMappings(PlanBuilder subPlan, Map<NodeRef<Expression>, VariableReferenceExpression> mappings)
+        {
+            this.subPlan = subPlan;
+            this.mappings = mappings;
+        }
+
+        public PlanBuilder getSubPlan()
+        {
+            return subPlan;
+        }
+
+        public VariableReferenceExpression get(Expression expression)
+        {
+            return tryGet(expression)
+                    .orElseThrow(() -> new IllegalArgumentException(format("No mapping for expression: %s (%s)", expression, System.identityHashCode(expression))));
+        }
+
+        public Optional<VariableReferenceExpression> tryGet(Expression expression)
+        {
+            VariableReferenceExpression result = mappings.get(NodeRef.of(expression));
+            if (result != null) {
+                return Optional.of(result);
+            }
+            return Optional.empty();
+        }
+    }
+
+    private static class FrameBoundPlanAndSymbols
+    {
+        private final PlanBuilder subPlan;
+        private final Optional<VariableReferenceExpression> frameBoundSymbol;
+        private final Optional<VariableReferenceExpression> sortKeyCoercedForFrameBoundComparison;
+
+        public FrameBoundPlanAndSymbols(PlanBuilder subPlan, Optional<VariableReferenceExpression> frameBoundSymbol, Optional<VariableReferenceExpression> sortKeyCoercedForFrameBoundComparison)
+        {
+            this.subPlan = subPlan;
+            this.frameBoundSymbol = frameBoundSymbol;
+            this.sortKeyCoercedForFrameBoundComparison = sortKeyCoercedForFrameBoundComparison;
+        }
+
+        public PlanBuilder getSubPlan()
+        {
+            return subPlan;
+        }
+
+        public Optional<VariableReferenceExpression> getFrameBoundSymbol()
+        {
+            return frameBoundSymbol;
+        }
+
+        public Optional<VariableReferenceExpression> getSortKeyCoercedForFrameBoundComparison()
+        {
+            return sortKeyCoercedForFrameBoundComparison;
+        }
     }
 }

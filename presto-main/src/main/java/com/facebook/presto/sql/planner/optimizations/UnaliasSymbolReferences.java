@@ -259,8 +259,10 @@ public class UnaliasSymbolReferences
                     frame.getType(),
                     frame.getStartType(),
                     canonicalize(frame.getStartValue()),
+                    canonicalize(frame.getSortKeyCoercedForFrameStartComparison()),
                     frame.getEndType(),
                     canonicalize(frame.getEndValue()),
+                    canonicalize(frame.getSortKeyCoercedForFrameEndComparison()),
                     frame.getOriginalStartValue(),
                     frame.getOriginalEndValue());
         }
