@@ -2226,7 +2226,14 @@ velox::core::PlanFragment VeloxQueryPlanConverter::toBatchVeloxQueryPlan(
       std::move(*serializedShuffleWriteInfo),
       std::move(localPartitionNode));
 
-  planFragment.planNode = shuffleWriteNode;
+  // For presto_cpp, the last node must be the PartitionedOutputNode in order to
+  // get the output (e.g actual data or metadata) and send back to coordinator.
+  auto finalPartitionedOutputNode = core::PartitionedOutputNode::single(
+      "final-partitioned-output",
+      shuffleWriteNode->outputType(),
+      {shuffleWriteNode});
+  planFragment.planNode = finalPartitionedOutputNode;
+  LOG(INFO) << planFragment.planNode->toString(true, true);
   return planFragment;
 }
 

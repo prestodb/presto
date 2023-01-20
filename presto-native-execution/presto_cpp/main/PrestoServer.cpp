@@ -149,6 +149,7 @@ void PrestoServer::run() {
   registerFileSystems();
   registerOptionalHiveStorageAdapters();
   registerShuffleInterfaceFactories();
+  registerCustomOperators();
   protocol::registerHiveConnectors();
   protocol::registerTpchConnector();
 
@@ -234,9 +235,7 @@ void PrestoServer::run() {
   velox::functions::prestosql::registerAllScalarFunctions();
   velox::aggregate::prestosql::registerAllAggregateFunctions();
   velox::window::prestosql::registerAllWindowFunctions();
-  if (!velox::isRegisteredVectorSerde()) {
-    velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
-  }
+  registerVectorSerdes();
 
   facebook::velox::exec::ExchangeSource::registerFactory(
       PrestoExchangeSource::createExchangeSource);
@@ -478,6 +477,12 @@ void PrestoServer::registerShuffleInterfaceFactories() {
   operators::ShuffleInterfaceFactory::registerFactory(
       operators::LocalPersistentShuffleFactory::kShuffleName.toString(),
       std::make_unique<operators::LocalPersistentShuffleFactory>());
+}
+
+void PrestoServer::registerVectorSerdes() {
+  if (!velox::isRegisteredVectorSerde()) {
+    velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  }
 }
 
 void PrestoServer::registerFileSystems() {

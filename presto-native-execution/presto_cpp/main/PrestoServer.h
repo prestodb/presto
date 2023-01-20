@@ -88,6 +88,10 @@ class PrestoServer {
 
   virtual void registerShuffleInterfaceFactories();
 
+  virtual void registerCustomOperators(){};
+
+  virtual void registerVectorSerdes();
+
   virtual void registerFileSystems();
 
   void initializeAsyncCache();
