@@ -102,7 +102,7 @@ import com.facebook.presto.operator.scalar.ArrayElementAtFunction;
 import com.facebook.presto.operator.scalar.ArrayEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayExceptFunction;
 import com.facebook.presto.operator.scalar.ArrayFilterFunction;
-import com.facebook.presto.operator.scalar.ArrayFindFirstFirstFunction;
+import com.facebook.presto.operator.scalar.ArrayFindFirstFunction;
 import com.facebook.presto.operator.scalar.ArrayFindFirstIndexFunction;
 import com.facebook.presto.operator.scalar.ArrayFindFirstIndexWithOffsetFunction;
 import com.facebook.presto.operator.scalar.ArrayFindFirstWithOffsetFunction;
@@ -810,7 +810,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayNgramsFunction.class)
                 .scalar(ArrayAllMatchFunction.class)
                 .scalar(ArrayAnyMatchFunction.class)
-                .scalar(ArrayFindFirstFirstFunction.class)
+                .scalar(ArrayFindFirstFunction.class)
                 .scalar(ArrayFindFirstWithOffsetFunction.class)
                 .scalar(ArrayFindFirstIndexFunction.class)
                 .scalar(ArrayFindFirstIndexWithOffsetFunction.class)
