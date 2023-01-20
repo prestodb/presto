@@ -24,10 +24,10 @@ import io.airlift.slice.Slice;
 
 @Description("Return the first element which matches the given predicate, null if no match")
 @ScalarFunction(value = "find_first", deterministic = true)
-public final class ArrayFindFirstFirstFunction
+public final class ArrayFindFirstFunction
         extends ArrayFindFirstWithOffsetFunction
 {
-    private ArrayFindFirstFirstFunction() {}
+    private ArrayFindFirstFunction() {}
 
     @TypeParameter("T")
     @SqlType("T")
