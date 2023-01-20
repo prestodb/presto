@@ -21,6 +21,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
 import com.facebook.presto.operator.WorkProcessor.Transformation;
 import com.facebook.presto.operator.WorkProcessor.TransformationState;
+import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.FramedWindowFunction;
 import com.facebook.presto.operator.window.WindowPartition;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -29,6 +30,7 @@ import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.PeekingIterator;
@@ -38,6 +40,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicReference;
@@ -47,6 +51,9 @@ import java.util.stream.Stream;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.facebook.presto.operator.WorkProcessor.TransformationState.needsMoreData;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
@@ -270,7 +277,9 @@ public class WindowOperator
                 preGroupedChannels,
                 unGroupedPartitionChannels,
                 preSortedChannels,
-                sortChannels);
+                sortChannels,
+                sortOrder,
+                windowFunctionDefinitions);
 
         if (spillEnabled) {
             PagesIndexWithHashStrategies mergedPagesIndexWithHashStrategies = new PagesIndexWithHashStrategies(
@@ -282,7 +291,9 @@ public class WindowOperator
                     ImmutableList.of(),
                     // merged pages are pre sorted on all sort channels
                     sortChannels,
-                    sortChannels);
+                    sortChannels,
+                    sortOrder,
+                    windowFunctionDefinitions);
 
             this.spillablePagesToPagesIndexes = Optional.of(new SpillablePagesToPagesIndexes(
                     inMemoryPagesIndexWithHashStrategies,
@@ -381,6 +392,7 @@ public class WindowOperator
         final PagesHashStrategy preSortedPartitionHashStrategy;
         final PagesHashStrategy peerGroupHashStrategy;
         final int[] preGroupedPartitionChannels;
+        final Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators;
 
         PagesIndexWithHashStrategies(
                 PagesIndex.Factory pagesIndexFactory,
@@ -389,7 +401,9 @@ public class WindowOperator
                 List<Integer> preGroupedPartitionChannels,
                 List<Integer> unGroupedPartitionChannels,
                 List<Integer> preSortedChannels,
-                List<Integer> sortChannels)
+                List<Integer> sortChannels,
+                List<SortOrder> sortOrder,
+                List<WindowFunctionDefinition> windowFunctionDefinitions)
         {
             this.pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
             this.preGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preGroupedPartitionChannels, OptionalInt.empty());
@@ -397,6 +411,79 @@ public class WindowOperator
             this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, OptionalInt.empty());
             this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, OptionalInt.empty());
             this.preGroupedPartitionChannels = Ints.toArray(preGroupedPartitionChannels);
+            this.frameBoundComparators = createFrameBoundComparators(pagesIndex, windowFunctionDefinitions, sortOrder);
+        }
+    }
+
+    /**
+     * Create comparators necessary for seeking frame start or frame end for window functions with frame type RANGE.
+     * Whenever a frame bound is specified as RANGE X PRECEDING or RANGE X FOLLOWING,
+     * a dedicated comparator is created to compare sort key values with expected frame bound values.
+     */
+    private static Map<FrameBoundKey, PagesIndexComparator> createFrameBoundComparators(PagesIndex pagesIndex,
+                                                                                        List<WindowFunctionDefinition> windowFunctionDefinitions,
+                                                                                        List<SortOrder> sortOrders)
+    {
+        ImmutableMap.Builder<FrameBoundKey, PagesIndexComparator> builder = ImmutableMap.builder();
+
+        for (int i = 0; i < windowFunctionDefinitions.size(); i++) {
+            FrameInfo frameInfo = windowFunctionDefinitions.get(i).getFrameInfo();
+            if (frameInfo.getType() == RANGE) {
+                if (frameInfo.getStartType() == PRECEDING || frameInfo.getStartType() == FOLLOWING) {
+                    // Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY
+                    checkState(sortOrders != null && sortOrders.size() == 1, "Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY.");
+                    SortOrder sortOrder = sortOrders.get(0);
+                    PagesIndexComparator comparator = pagesIndex.createChannelComparator(frameInfo.getSortKeyChannelForStartComparison(), frameInfo.getStartChannel(), sortOrder);
+                    builder.put(new FrameBoundKey(i, FrameBoundKey.Type.START), comparator);
+                }
+                if (frameInfo.getEndType() == PRECEDING || frameInfo.getEndType() == FOLLOWING) {
+                    // Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY
+                    checkState(sortOrders != null && sortOrders.size() == 1, "Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY.");
+                    SortOrder sortOrder = sortOrders.get(0);
+                    PagesIndexComparator comparator = pagesIndex.createChannelComparator(frameInfo.getSortKeyChannelForEndComparison(), frameInfo.getEndChannel(), sortOrder);
+                    builder.put(new FrameBoundKey(i, FrameBoundKey.Type.END), comparator);
+                }
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static class FrameBoundKey
+    {
+        private final int functionIndex;
+        private final Type type;
+
+        public enum Type
+        {
+            START,
+            END;
+        }
+
+        public FrameBoundKey(int functionIndex, Type type)
+        {
+            this.functionIndex = functionIndex;
+            this.type = requireNonNull(type, "type is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            FrameBoundKey that = (FrameBoundKey) o;
+            return functionIndex == that.functionIndex &&
+                    type == that.type;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(functionIndex, type);
         }
     }
 
@@ -501,7 +588,14 @@ public class WindowOperator
 
                 int partitionEnd = findGroupEnd(pagesIndex, pagesIndexWithHashStrategies.unGroupedPartitionHashStrategy, partitionStart);
 
-                WindowPartition partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, pagesIndexWithHashStrategies.peerGroupHashStrategy);
+                WindowPartition partition = new WindowPartition(
+                        pagesIndex,
+                        partitionStart,
+                        partitionEnd,
+                        outputChannels,
+                        windowFunctions,
+                        pagesIndexWithHashStrategies.peerGroupHashStrategy,
+                        pagesIndexWithHashStrategies.frameBoundComparators);
                 windowInfo.addPartition(partition);
                 partitionStart = partitionEnd;
                 return ProcessState.ofResult(partition);

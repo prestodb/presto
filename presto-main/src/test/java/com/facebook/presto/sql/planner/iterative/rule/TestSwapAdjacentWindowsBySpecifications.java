@@ -59,7 +59,9 @@ public class TestSwapAdjacentWindowsBySpecifications
                 RANGE,
                 UNBOUNDED_PRECEDING,
                 Optional.empty(),
+                Optional.empty(),
                 CURRENT_ROW,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -156,7 +158,54 @@ public class TestSwapAdjacentWindowsBySpecifications
                 ROWS,
                 PRECEDING,
                 Optional.of(new VariableReferenceExpression(Optional.empty(), "startValue", BIGINT)),
+                Optional.empty(),
                 CURRENT_ROW,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of("startValue"),
+                Optional.empty());
+        WindowNode.Function functionWithOffset = new WindowNode.Function(
+                call(
+                        "avg",
+                        functionHandle,
+                        BIGINT,
+                        ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "a", BIGINT))),
+                frameWithRowOffset,
+                false);
+
+        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
+                .on(p ->
+                        p.window(new WindowNode.Specification(
+                                        ImmutableList.of(p.variable("a")),
+                                        Optional.of(new OrderingScheme(ImmutableList.of(new Ordering(p.variable("sortkey", BIGINT), SortOrder.ASC_NULLS_FIRST))))),
+                                ImmutableMap.of(p.variable("avg_1"), functionWithOffset),
+                                p.window(new WindowNode.Specification(
+                                                ImmutableList.of(p.variable("a"), p.variable("b")),
+                                                Optional.of(new OrderingScheme(ImmutableList.of(new Ordering(p.variable("sortkey", BIGINT), SortOrder.ASC_NULLS_FIRST))))),
+                                        ImmutableMap.of(p.variable("startValue"), windowFunction),
+                                        p.values(p.variable("a"), p.variable("b"), p.variable("sortkey")))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void dependentWindowsWithRangeAreNotReordered()
+    {
+        FunctionHandle rankFunction = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", ImmutableList.of());
+        WindowNode.Function windowFunction = new WindowNode.Function(
+                call(
+                        "rank",
+                        rankFunction,
+                        BIGINT,
+                        ImmutableList.of()),
+                frame,
+                false);
+        WindowNode.Frame frameWithRowOffset = new WindowNode.Frame(
+                RANGE,
+                PRECEDING,
+                Optional.of(new VariableReferenceExpression(Optional.empty(), "startValue", BIGINT)),
+                Optional.of(new VariableReferenceExpression(Optional.empty(), "sortKeyCoercedForFrameStartComparison", BIGINT)),
+                CURRENT_ROW,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.of("startValue"),
                 Optional.empty());

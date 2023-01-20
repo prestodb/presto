@@ -339,7 +339,13 @@ public class TestReorderWindows
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0),
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(1),
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(2))),
-                new PruneUnreferencedOutputs());
+                new PruneUnreferencedOutputs(),
+                new IterativeOptimizer(
+                        new RuleStatsRecorder(),
+                        getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getEstimatedExchangesCostCalculator(),
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections())));
         assertPlan(sql, pattern, optimizers);
     }
 }

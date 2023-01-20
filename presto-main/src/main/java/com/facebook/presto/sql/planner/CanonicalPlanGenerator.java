@@ -463,12 +463,18 @@ public class CanonicalPlanGenerator
                             .map(expression -> inlineAndCanonicalize(context.getExpressions(), expression));
                     Optional<VariableReferenceExpression> endValue = function.getFrame().getEndValue()
                             .map(expression -> inlineAndCanonicalize(context.getExpressions(), expression));
+                    Optional<VariableReferenceExpression> sortKeyCoercedForFrameStartComparison = function.getFrame().getSortKeyCoercedForFrameStartComparison()
+                            .map(expression -> inlineAndCanonicalize(context.getExpressions(), expression));
+                    Optional<VariableReferenceExpression> sortKeyCoercedForFrameEndComparison = function.getFrame().getSortKeyCoercedForFrameEndComparison()
+                            .map(expression -> inlineAndCanonicalize(context.getExpressions(), expression));
                     WindowNode.Frame frame = new WindowNode.Frame(
                             function.getFrame().getType(),
                             function.getFrame().getStartType(),
                             startValue,
+                            sortKeyCoercedForFrameStartComparison,
                             function.getFrame().getEndType(),
                             endValue,
+                            sortKeyCoercedForFrameEndComparison,
                             startValue.map(ignored -> ""),
                             endValue.map(ignored -> ""));
                     WindowNode.Function newFunction = new WindowNode.Function(

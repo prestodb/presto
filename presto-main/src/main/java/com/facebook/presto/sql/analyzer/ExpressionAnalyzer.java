@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.OperatorType;
@@ -21,6 +22,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.FunctionType;
@@ -68,6 +70,7 @@ import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.GroupingOperation;
@@ -88,6 +91,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
@@ -104,11 +108,13 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.slice.SliceUtf8;
@@ -125,7 +131,9 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -145,6 +153,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
+import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -157,8 +166,10 @@ import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessC
 import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.resolveSubfield;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDER_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ORDER_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
@@ -167,6 +178,12 @@ import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttribu
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
+import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
+import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.ROWS;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -200,6 +217,17 @@ public class ExpressionAnalyzer
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
+
+    // Coercions needed for window function frame of type RANGE.
+    // These are coercions for the sort key, needed for frame bound calculation, identified by frame range offset expression.
+    // Frame definition might contain two different offset expressions (for start and end), each requiring different coercion of the sort key.
+    private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = new LinkedHashMap<>();
+    // Coercions needed for window function frame of type RANGE.
+    // These are coercions for the sort key, needed for comparison of the sort key with precomputed frame bound, identified by frame range offset expression.
+    private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = new LinkedHashMap<>();
+    // Functions for calculating frame bounds for frame of type RANGE, identified by frame range offset expression.
+    private final Map<NodeRef<Expression>, FunctionHandle> frameBoundCalculations = new LinkedHashMap<>();
+
     private final Set<NodeRef<InPredicate>> subqueryInPredicates = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
@@ -275,6 +303,21 @@ public class ExpressionAnalyzer
     public Set<NodeRef<Expression>> getTypeOnlyCoercions()
     {
         return unmodifiableSet(typeOnlyCoercions);
+    }
+
+    public Map<NodeRef<Expression>, Type> getSortKeyCoercionsForFrameBoundCalculation()
+    {
+        return unmodifiableMap(sortKeyCoercionsForFrameBoundCalculation);
+    }
+
+    public Map<NodeRef<Expression>, Type> getSortKeyCoercionsForFrameBoundComparison()
+    {
+        return unmodifiableMap(sortKeyCoercionsForFrameBoundComparison);
+    }
+
+    public Map<NodeRef<Expression>, FunctionHandle> getFrameBoundCalculations()
+    {
+        return unmodifiableMap(frameBoundCalculations);
     }
 
     public Set<NodeRef<InPredicate>> getSubqueryInPredicates()
@@ -901,7 +944,8 @@ public class ExpressionAnalyzer
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
             if (node.getWindow().isPresent()) {
-                for (Expression expression : node.getWindow().get().getPartitionBy()) {
+                Window window = node.getWindow().get();
+                for (Expression expression : window.getPartitionBy()) {
                     process(expression, context);
                     Type type = getExpressionType(expression);
                     if (!type.isComparable()) {
@@ -909,7 +953,7 @@ public class ExpressionAnalyzer
                     }
                 }
 
-                for (SortItem sortItem : getSortItemsFromOrderBy(node.getWindow().get().getOrderBy())) {
+                for (SortItem sortItem : getSortItemsFromOrderBy(window.getOrderBy())) {
                     process(sortItem.getSortKey(), context);
                     Type type = getExpressionType(sortItem.getSortKey());
                     if (!type.isOrderable()) {
@@ -917,21 +961,37 @@ public class ExpressionAnalyzer
                     }
                 }
 
-                if (node.getWindow().get().getFrame().isPresent()) {
-                    WindowFrame frame = node.getWindow().get().getFrame().get();
+                if (window.getFrame().isPresent()) {
+                    WindowFrame frame = window.getFrame().get();
 
-                    if (frame.getStart().getValue().isPresent()) {
-                        Type type = process(frame.getStart().getValue().get(), context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame start value type must be INTEGER or BIGINT(actual %s)", type);
+                    if (frame.getType() == ROWS) {
+                        if (frame.getStart().getValue().isPresent()) {
+                            Expression startValue = frame.getStart().getValue().get();
+                            Type type = process(startValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw new SemanticException(TYPE_MISMATCH, node, "Window frame ROWS start value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
+                        }
+                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
+                            Expression endValue = frame.getEnd().get().getValue().get();
+                            Type type = process(endValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw new SemanticException(TYPE_MISMATCH, node, "Window frame ROWS end value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
                         }
                     }
-
-                    if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
-                        Type type = process(frame.getEnd().get().getValue().get(), context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
+                    else if (frame.getType() == RANGE) {
+                        if (frame.getStart().getValue().isPresent()) {
+                            Expression startValue = frame.getStart().getValue().get();
+                            analyzeFrameRangeOffset(startValue, frame.getStart().getType(), context, window);
                         }
+                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
+                            Expression endValue = frame.getEnd().get().getValue().get();
+                            analyzeFrameRangeOffset(endValue, frame.getEnd().get().getType(), context, window);
+                        }
+                    }
+                    else {
+                        throw new SemanticException(NOT_SUPPORTED, frame, "Unsupported frame type: " + frame.getType());
                     }
                 }
 
@@ -1048,6 +1108,80 @@ public class ExpressionAnalyzer
             else {
                 return format("%s Expression:%s", message, node);
             }
+        }
+
+        private void analyzeFrameRangeOffset(Expression offsetValue, FrameBound.Type boundType, StackableAstVisitorContext<Context> context, Window window)
+        {
+            if (!window.getOrderBy().isPresent()) {
+                throw new SemanticException(MISSING_ORDER_BY, window, "Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
+            }
+            OrderBy orderBy = window.getOrderBy().get();
+            if (orderBy.getSortItems().size() != 1) {
+                throw new SemanticException(INVALID_ORDER_BY, orderBy, "Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: %s)", orderBy.getSortItems().size());
+            }
+            Expression sortKey = Iterables.getOnlyElement(orderBy.getSortItems()).getSortKey();
+            Type sortKeyType = getExpressionType(sortKey);
+            if (!isNumericType(sortKeyType) && !isDateTimeType(sortKeyType)) {
+                throw new SemanticException(TYPE_MISMATCH, sortKey, "Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: %s)", sortKeyType);
+            }
+
+            Type offsetValueType = process(offsetValue, context);
+
+            if (isNumericType(sortKeyType)) {
+                if (!isNumericType(offsetValueType)) {
+                    throw new SemanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
+                }
+            }
+            else { // isDateTimeType(sortKeyType)
+                if (offsetValueType != INTERVAL_DAY_TIME && offsetValueType != INTERVAL_YEAR_MONTH) {
+                    throw new SemanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
+                }
+            }
+
+            // resolve function to calculate frame boundary value (add / subtract offset from sortKey)
+            SortItem.Ordering ordering = Iterables.getOnlyElement(orderBy.getSortItems()).getOrdering();
+            OperatorType operatorType;
+            FunctionHandle function;
+            if ((boundType == PRECEDING && ordering == ASCENDING) || (boundType == FOLLOWING && ordering == DESCENDING)) {
+                operatorType = SUBTRACT;
+            }
+            else {
+                operatorType = ADD;
+            }
+            try {
+                function = functionAndTypeResolver.resolveOperator(operatorType, TypeSignatureProvider.fromTypes(sortKeyType, offsetValueType));
+            }
+            catch (PrestoException e) {
+                ErrorCode errorCode = e.getErrorCode();
+                if (errorCode.equals(OPERATOR_NOT_FOUND.toErrorCode())) {
+                    throw new SemanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
+                }
+                throw e;
+            }
+
+            FunctionMetadata functionMetadata = functionAndTypeResolver.getFunctionMetadata(function);
+            Type expectedSortKeyType = functionAndTypeResolver.getType(functionMetadata.getArgumentTypes().get(0));
+
+            if (!expectedSortKeyType.equals(sortKeyType)) {
+                if (!functionAndTypeResolver.canCoerce(sortKeyType, expectedSortKeyType)) {
+                    throw new SemanticException(TYPE_MISMATCH, sortKey, "Sort key must evaluate to a %s (actual: %s)", expectedSortKeyType, sortKeyType);
+                }
+                sortKeyCoercionsForFrameBoundCalculation.put(NodeRef.of(offsetValue), expectedSortKeyType);
+            }
+
+            Type expectedOffsetValueType = functionAndTypeResolver.getType(functionMetadata.getArgumentTypes().get(1));
+            if (!expectedOffsetValueType.equals(offsetValueType)) {
+                coerceType(offsetValue, offsetValueType, expectedOffsetValueType, format("Function %s argument 1", function));
+            }
+            Type expectedFunctionResultType = functionAndTypeResolver.getType(functionMetadata.getReturnType());
+            if (!expectedFunctionResultType.equals(sortKeyType)) {
+                if (!functionAndTypeResolver.canCoerce(sortKeyType, expectedFunctionResultType)) {
+                    throw new SemanticException(TYPE_MISMATCH, sortKey, "Sort key must evaluate to a %s (actual: %s)", expectedFunctionResultType, sortKeyType);
+                }
+                sortKeyCoercionsForFrameBoundComparison.put(NodeRef.of(offsetValue), expectedFunctionResultType);
+            }
+
+            frameBoundCalculations.put(NodeRef.of(offsetValue), function);
         }
 
         @Override
@@ -1727,10 +1861,14 @@ public class ExpressionAnalyzer
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
         Map<NodeRef<Expression>, Type> expressionCoercions = analyzer.getExpressionCoercions();
         Set<NodeRef<Expression>> typeOnlyCoercions = analyzer.getTypeOnlyCoercions();
+        Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = analyzer.getSortKeyCoercionsForFrameBoundCalculation();
+        Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = analyzer.getSortKeyCoercionsForFrameBoundComparison();
+        Map<NodeRef<Expression>, FunctionHandle> frameBoundCalculations = analyzer.getFrameBoundCalculations();
         Map<NodeRef<FunctionCall>, FunctionHandle> resolvedFunctions = analyzer.getResolvedFunctions();
 
         analysis.addTypes(expressionTypes);
-        analysis.addCoercions(expressionCoercions, typeOnlyCoercions);
+        analysis.addCoercions(expressionCoercions, typeOnlyCoercions, sortKeyCoercionsForFrameBoundCalculation, sortKeyCoercionsForFrameBoundComparison);
+        analysis.addFrameBoundCalculations(frameBoundCalculations);
         analysis.addFunctionHandles(resolvedFunctions);
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
@@ -1895,5 +2033,16 @@ public class ExpressionAnalyzer
                 parameters,
                 warningCollector,
                 isDescribe);
+    }
+
+    public static boolean isNumericType(Type type)
+    {
+        return type.equals(BIGINT) ||
+                type.equals(INTEGER) ||
+                type.equals(SMALLINT) ||
+                type.equals(TINYINT) ||
+                type.equals(DOUBLE) ||
+                type.equals(REAL) ||
+                type instanceof DecimalType;
     }
 }
