@@ -44,6 +44,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
@@ -59,16 +60,31 @@ public class TestMergeAdjacentWindows
             RANGE,
             UNBOUNDED_PRECEDING,
             Optional.empty(),
+            Optional.empty(),
             CURRENT_ROW,
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
+
+    private static final WindowNode.Frame frameWithRangeOffset = new WindowNode.Frame(
+            RANGE,
+            PRECEDING,
+            Optional.of(new VariableReferenceExpression(Optional.empty(), "startValue", BIGINT)),
+            Optional.of(new VariableReferenceExpression(Optional.empty(), "sortKeyCoercedForFrameStartComparison", BIGINT)),
+            FOLLOWING,
+            Optional.of(new VariableReferenceExpression(Optional.empty(), "endValue", BIGINT)),
+            Optional.of(new VariableReferenceExpression(Optional.empty(), "sortKeyCoercedForFrameEndComparison", BIGINT)),
+            Optional.of("originalStartValue"),
+            Optional.of("originalEndValue"));
 
     private static final WindowNode.Frame frameWithRowOffset = new WindowNode.Frame(
             ROWS,
             PRECEDING,
             Optional.of(new VariableReferenceExpression(Optional.empty(), "startValue", BIGINT)),
+            Optional.empty(),
             CURRENT_ROW,
+            Optional.empty(),
             Optional.empty(),
             Optional.of("startValue"),
             Optional.empty());
@@ -145,6 +161,21 @@ public class TestMergeAdjacentWindows
                                         newWindowNodeSpecification(p, "a"),
                                         ImmutableMap.of(p.variable("avg_2"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
                                         p.values(p.variable("a")))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDependentAdjacentWindowsIdenticalSpecificationsWithRangeOffset()
+    {
+        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
+                .on(p ->
+                        p.window(
+                                newWindowNodeSpecification(p, "a", "sortkey"),
+                                ImmutableMap.of(p.variable("avg_1"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, frameWithRangeOffset, "a")),
+                                p.window(
+                                        newWindowNodeSpecification(p, "a", "sortkey"),
+                                        ImmutableMap.of(p.variable("startValue"), newWindowNodeFunction("rank", RANK_FUNCTION_HANDLE)),
+                                        p.values(p.variable("a"), p.variable("sortkey")))))
                 .doesNotFire();
     }
 

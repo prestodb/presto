@@ -21,9 +21,9 @@ A ``frame`` is one of::
 ``frame_start`` and ``frame_end`` can be any of::
 
     UNBOUNDED PRECEDING
-    expression PRECEDING  -- only allowed in ROWS mode
+    expression PRECEDING
     CURRENT ROW
-    expression FOLLOWING  -- only allowed in ROWS mode
+    expression FOLLOWING
     UNBOUNDED FOLLOWING
 
 
@@ -49,9 +49,14 @@ The window definition has 3 components:
   the first peer row of the current row, while a frame end of ``CURRENT ROW`` refers to
   the last peer row of the current row.
 
-  Frame starts and ends of ``expression PRECEDING`` or ``expression FOLLOWING`` are currently
-  only allowed in ``ROWS`` mode. They define the start or end of the frame as the specified number
+  In ``ROWS`` mode, frame starts and ends of ``expression PRECEDING`` or ``expression FOLLOWING``
+  define the start or end of the frame as the specified number
   of rows before or after the current row. The ``expression`` must be of type ``INTEGER``.
+
+  In ``RANGE`` mode, frame starts and ends of ``expression PRECEDING`` or ``expression FOLLOWING``
+  define the start or end of the frame as the value difference of the sort key from
+  the current row. The sort key must either be the same type of ``expression`` or can be coerced to the
+  same type as ``expression``.
 
   If no frame is specified, a default frame of ``RANGE UNBOUNDED PRECEDING`` is used.
 

@@ -187,7 +187,7 @@ public class GatherAndMergeWindows
                 .anyMatch(child.getCreatedVariable()::contains)
                 || parent.getWindowFunctions().values().stream()
                 .map(function -> function.getFrame())
-                .map(frame -> ImmutableList.of(frame.getStartValue(), frame.getEndValue()))
+                .map(frame -> ImmutableList.of(frame.getStartValue(), frame.getEndValue(), frame.getSortKeyCoercedForFrameStartComparison(), frame.getSortKeyCoercedForFrameEndComparison()))
                 .flatMap(Collection::stream)
                 .anyMatch(x -> x.isPresent() && child.getCreatedVariable().contains(x.get()));
     }

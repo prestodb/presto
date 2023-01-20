@@ -69,6 +69,7 @@ public class TestVerifyNoOriginalExpression
             ComparisonExpression.Operator.EQUAL,
             new SymbolReference("count"),
             new Cast(new LongLiteral("5"), "bigint"));
+    private static final VariableReferenceExpression SORT_KEY = new VariableReferenceExpression(Optional.empty(), "count", BIGINT);
 
     private Metadata metadata;
     private PlanBuilder builder;
@@ -113,8 +114,10 @@ public class TestVerifyNoOriginalExpression
                 WindowNode.Frame.WindowType.RANGE,
                 WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING,
                 startValue,
+                Optional.of(SORT_KEY),
                 WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING,
                 endValue,
+                Optional.of(SORT_KEY),
                 originalStartValue,
                 originalEndValue);
         WindowNode.Function function = new WindowNode.Function(
