@@ -13,8 +13,9 @@
 # limitations under the License.
 
 add_library(
-  velox_hive_connector OBJECT HiveConfig.cpp HiveConnector.cpp HiveDataSink.cpp
-                              FileHandle.cpp PartitionIdGenerator.cpp)
+  velox_hive_connector OBJECT
+  HiveConfig.cpp HiveConnector.cpp HiveDataSink.cpp HivePartitionUtil.cpp
+  FileHandle.cpp PartitionIdGenerator.cpp)
 
 target_link_libraries(velox_hive_connector velox_connector
                       velox_dwio_dwrf_reader velox_dwio_dwrf_writer velox_file)
