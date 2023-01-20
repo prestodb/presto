@@ -236,6 +236,23 @@ Array Functions
         SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x < 4); -- NULL
         SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 5); -- NULL
 
+.. function:: find_first_index(array(E), function(T,boolean)) -> BIGINT
+
+    Returns the index of the first element of ``array`` which returns true for ``function(T,boolean)``.
+    Returns ``NULL`` if no such element exists.
+
+.. function:: find_first_index(array(E), index, function(T,boolean)) -> BIGINT
+
+    Returns the index of the first element of ``array`` which returns true for ``function(T,boolean)``.
+    Returns ``NULL`` if no such element exists.
+    If ``index`` > 0, the search for element starts at position ``index`` until the end of array.
+    If ``index`` < 0, the search for element starts at position ``abs(index)`` counting from last, until the start of array. ::
+
+        SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x > 0); -- 2
+        SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 0); -- 3
+        SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x < 4); -- NULL
+        SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 5); -- NULL
+
 .. function:: ngrams(array(T), n) -> array(array(T))
 
     Returns ``n``-grams for the ``array``::

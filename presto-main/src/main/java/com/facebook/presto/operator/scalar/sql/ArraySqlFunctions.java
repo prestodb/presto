@@ -77,7 +77,7 @@ public class ArraySqlFunctions
     public static String arrayDuplicates()
     {
         return "RETURN CONCAT(" +
-                "IF (cardinality(filter(input, x -> x is NULL)) > 1, array[find_first(input, x -> x IS NULL)], array[])," +
+                "IF (cardinality(filter(input, x -> x is NULL)) > 1, array[element_at(input, find_first_index(input, x -> x IS NULL))], array[])," +
                 "map_keys(map_filter(array_frequency(input), (k, v) -> v > 1)))";
     }
 
