@@ -129,6 +129,8 @@ commands:
 
   fuzzer-run:
     parameters:
+      fuzzer_repro:
+        type: string
       fuzzer_output:
         type: string
       fuzzer_name:
@@ -158,6 +160,8 @@ commands:
           no_output_timeout: 120m
       - store_artifacts:
           path: << parameters.fuzzer_output >>
+      - store_artifacts:
+          path: << parameters.fuzzer_repro >>
       - post-steps
 
 executors:
@@ -396,6 +400,7 @@ jobs:
     steps:
       - fuzzer-run:
           fuzzer_output: "/tmp/fuzzer.log"
+          fuzzer_repro: "/tmp/fuzzer_repro"
           fuzzer_name: "Expression"
           fuzzer_exe: "_build/debug/velox/expression/tests/velox_expression_fuzzer_test"
           fuzzer_args: " --seed ${RANDOM} --lazy_vector_generation_ratio 0.2 \
@@ -403,7 +408,8 @@ jobs:
           --velox_fuzzer_enable_complex_types \
           --velox_fuzzer_enable_column_reuse \
           --velox_fuzzer_enable_expression_reuse \
-          --logtostderr=1 --minloglevel=0 "
+          --logtostderr=1 --minloglevel=0 \
+          --repro_persist_path=/tmp/fuzzer_repro"
 
   linux-spark-fuzzer-run:
     executor: build
@@ -412,9 +418,11 @@ jobs:
     steps:
       - fuzzer-run:
           fuzzer_output: "/tmp/spark_fuzzer.log"
+          fuzzer_repro: "/tmp/spark_fuzzer_repro"
           fuzzer_name: "Spark"
           fuzzer_exe: "_build/debug/velox/expression/tests/spark_expression_fuzzer_test"
-          fuzzer_args: " --seed ${RANDOM} --duration_sec 600 --logtostderr=1 --minloglevel=0 "
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 600 --logtostderr=1 --minloglevel=0 \ 
+          --repro_persist_path=/tmp/spark_fuzzer_repro"
 
 
   linux-aggregate-fuzzer-run:
@@ -424,9 +432,11 @@ jobs:
     steps:
       - fuzzer-run:
           fuzzer_output: "/tmp/aggregate_fuzzer.log"
+          fuzzer_repro: "/tmp/aggregate_fuzzer_repro"
           fuzzer_name: "Aggregate"
           fuzzer_exe: "_build/debug/velox/exec/tests/velox_aggregation_fuzzer_test"
-          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 "
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 \ 
+          --repro_persist_path=/tmp/aggregate_fuzzer_repro"
 
   linux-join-fuzzer-run:
     executor: build
@@ -435,9 +445,11 @@ jobs:
     steps:
       - fuzzer-run:
           fuzzer_output: "/tmp/join_fuzzer.log"
+          fuzzer_repro: "/tmp/join_fuzzer_repro"
           fuzzer_name: "Join"
           fuzzer_exe: "_build/debug/velox/exec/tests/velox_join_fuzzer_test"
-          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 "
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 \ 
+          --repro_persist_path=/tmp/join_fuzzer_repro"
 
   format-check:
     executor: check
