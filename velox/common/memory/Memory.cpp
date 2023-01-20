@@ -390,6 +390,10 @@ MemoryPool& MemoryManager::getRoot() const {
   return *root_;
 }
 
+std::shared_ptr<MemoryPool> MemoryManager::getRootAsSharedPtr() const {
+  return root_;
+}
+
 std::shared_ptr<MemoryPool> MemoryManager::getChild(int64_t cap) {
   return root_->addChild(fmt::format(
       "default_usage_node_{}",

@@ -54,9 +54,7 @@ class QueryCtx : public Context {
         queryId_(queryId),
         spillExecutor_(std::move(spillExecutor)) {
     setConfigOverrides(config);
-    if (!pool_) {
-      initPool(queryId);
-    }
+    initPool(queryId);
   }
 
   // Constructor to block the destruction of executor while this
@@ -80,9 +78,7 @@ class QueryCtx : public Context {
         queryConfig_{this},
         queryId_(queryId) {
     setConfigOverrides(config);
-    if (!pool_) {
-      initPool(queryId);
-    }
+    initPool(queryId);
   }
 
   static std::string generatePoolName(const std::string& queryId) {
@@ -143,8 +139,10 @@ class QueryCtx : public Context {
   }
 
   void initPool(const std::string& queryId) {
-    pool_ = memory::getProcessDefaultMemoryManager().getRoot().addChild(
-        QueryCtx::generatePoolName(queryId));
+    if (!pool_) {
+      pool_ = memory::getProcessDefaultMemoryManager().getRoot().addChild(
+          QueryCtx::generatePoolName(queryId));
+    }
     pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
   }
 
