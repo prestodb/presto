@@ -10,7 +10,7 @@ add_definitions(-DDBNAME=dss -DMAC -DORACLE -DTPCH)
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set_source_files_properties(
     build.cpp dbgen.cpp permute.cpp
-    PROPERTIES COMPILE_FLAGS -Wno-writable-strings)
+    PROPERTIES COMPILE_FLAGS "-Wno-writable-strings -Wno-deprecated-declarations")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set_source_files_properties(
     build.cpp dbgen.cpp permute.cpp
