@@ -296,7 +296,7 @@ class IntegerColumnWriter : public BaseColumnWriter {
 
   void createIndexEntry() override {
     hasNull_ = hasNull_ || indexStatsBuilder_->hasNull().value();
-    fileStatsBuilder_->merge(*indexStatsBuilder_);
+    fileStatsBuilder_->merge(*indexStatsBuilder_, /*ignoreSize=*/true);
     // Add entry with stats for either case.
     indexBuilder_->addEntry(*indexStatsBuilder_);
     indexStatsBuilder_->reset();
@@ -890,7 +890,7 @@ class StringColumnWriter : public BaseColumnWriter {
 
   void createIndexEntry() override {
     hasNull_ = hasNull_ || indexStatsBuilder_->hasNull().value();
-    fileStatsBuilder_->merge(*indexStatsBuilder_);
+    fileStatsBuilder_->merge(*indexStatsBuilder_, /*ignoreSize=*/true);
     // Add entry with stats for either case.
     indexBuilder_->addEntry(*indexStatsBuilder_);
     indexStatsBuilder_->reset();

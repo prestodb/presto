@@ -43,7 +43,7 @@ class ValueStatisticsBuilder {
   }
 
   void merge(const BaseColumnWriter& writer) const {
-    statisticsBuilder_->merge(*writer.indexStatsBuilder_);
+    statisticsBuilder_->merge(*writer.indexStatsBuilder_, /*ignoreSize=*/true);
     DWIO_ENSURE(
         children_.size() == writer.children_.size(),
         "Value statistics writer children mismatch");

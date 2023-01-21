@@ -79,7 +79,9 @@ class BaseColumnWriter : public ColumnWriter {
 
   void createIndexEntry() override {
     hasNull_ = hasNull_ || indexStatsBuilder_->hasNull().value();
-    fileStatsBuilder_->merge(*indexStatsBuilder_);
+    // We cannot determine the physical size of columns/nodes until flush
+    // time, yet we need to maintain and aggregate logical stats.
+    fileStatsBuilder_->merge(*indexStatsBuilder_, /*ignoreSize=*/true);
     indexBuilder_->addEntry(*indexStatsBuilder_);
     indexStatsBuilder_->reset();
     recordPosition();

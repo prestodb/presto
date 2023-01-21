@@ -60,7 +60,9 @@ static void mergeMax(std::optional<T>& to, const std::optional<T>& from) {
 
 } // namespace
 
-void StatisticsBuilder::merge(const dwio::common::ColumnStatistics& other) {
+void StatisticsBuilder::merge(
+    const dwio::common::ColumnStatistics& other,
+    bool ignoreSize) {
   // Merge valueCount_ only if both sides have it. Otherwise, reset.
   mergeCount(valueCount_, other.getNumberOfValues());
 
@@ -87,8 +89,10 @@ void StatisticsBuilder::merge(const dwio::common::ColumnStatistics& other) {
   }
   // Merge rawSize_ the way similar to valueCount_
   mergeCount(rawSize_, other.getRawSize());
-  // Merge size
-  mergeCount(size_, other.getSize());
+  if (!ignoreSize) {
+    // Merge size
+    mergeCount(size_, other.getSize());
+  }
 }
 
 void StatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
@@ -194,8 +198,9 @@ void StatisticsBuilder::createTree(
 };
 
 void BooleanStatisticsBuilder::merge(
-    const dwio::common::ColumnStatistics& other) {
-  StatisticsBuilder::merge(other);
+    const dwio::common::ColumnStatistics& other,
+    bool ignoreSize) {
+  StatisticsBuilder::merge(other, ignoreSize);
   auto stats =
       dynamic_cast<const dwio::common::BooleanColumnStatistics*>(&other);
   if (!stats) {
@@ -222,8 +227,9 @@ void BooleanStatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
 }
 
 void IntegerStatisticsBuilder::merge(
-    const dwio::common::ColumnStatistics& other) {
-  StatisticsBuilder::merge(other);
+    const dwio::common::ColumnStatistics& other,
+    bool ignoreSize) {
+  StatisticsBuilder::merge(other, ignoreSize);
   auto stats =
       dynamic_cast<const dwio::common::IntegerColumnStatistics*>(&other);
   if (!stats) {
@@ -262,8 +268,9 @@ void IntegerStatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
 }
 
 void DoubleStatisticsBuilder::merge(
-    const dwio::common::ColumnStatistics& other) {
-  StatisticsBuilder::merge(other);
+    const dwio::common::ColumnStatistics& other,
+    bool ignoreSize) {
+  StatisticsBuilder::merge(other, ignoreSize);
   auto stats =
       dynamic_cast<const dwio::common::DoubleColumnStatistics*>(&other);
   if (!stats) {
@@ -303,12 +310,13 @@ void DoubleStatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
 }
 
 void StringStatisticsBuilder::merge(
-    const dwio::common::ColumnStatistics& other) {
+    const dwio::common::ColumnStatistics& other,
+    bool ignoreSize) {
   // min_/max_ is not initialized with default that can be compared against
   // easily. So we need to capture whether self is empty and handle
   // differently.
   auto isSelfEmpty = isEmpty(*this);
-  StatisticsBuilder::merge(other);
+  StatisticsBuilder::merge(other, ignoreSize);
   auto stats =
       dynamic_cast<const dwio::common::StringColumnStatistics*>(&other);
   if (!stats) {
@@ -360,8 +368,9 @@ void StringStatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
 }
 
 void BinaryStatisticsBuilder::merge(
-    const dwio::common::ColumnStatistics& other) {
-  StatisticsBuilder::merge(other);
+    const dwio::common::ColumnStatistics& other,
+    bool ignoreSize) {
+  StatisticsBuilder::merge(other, ignoreSize);
   auto stats =
       dynamic_cast<const dwio::common::BinaryColumnStatistics*>(&other);
   if (!stats) {
@@ -385,8 +394,10 @@ void BinaryStatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
   }
 }
 
-void MapStatisticsBuilder::merge(const dwio::common::ColumnStatistics& other) {
-  StatisticsBuilder::merge(other);
+void MapStatisticsBuilder::merge(
+    const dwio::common::ColumnStatistics& other,
+    bool ignoreSize) {
+  StatisticsBuilder::merge(other, ignoreSize);
   auto stats = dynamic_cast<const dwio::common::MapColumnStatistics*>(&other);
   if (!stats) {
     // We only care about the case when type specific stats is missing yet
@@ -398,7 +409,7 @@ void MapStatisticsBuilder::merge(const dwio::common::ColumnStatistics& other) {
   }
 
   for (const auto& entry : stats->getEntryStatistics()) {
-    getKeyStats(entry.first).merge(*entry.second);
+    getKeyStats(entry.first).merge(*entry.second, ignoreSize);
   }
 }
 
