@@ -522,12 +522,12 @@ TEST_F(MultiFragmentTest, limit) {
   auto file = TempFilePath::create();
   writeToFile(file->path, {data});
 
-  // Make leaf task: Values -> PartialLimit(1) -> Repartitioning(0).
+  // Make leaf task: Values -> PartialLimit(10) -> Repartitioning(0).
   auto leafTaskId = makeTaskId("leaf", 0);
   auto leafPlan =
       PlanBuilder()
           .tableScan(std::dynamic_pointer_cast<const RowType>(data->type()))
-          .limit(0, 10, false)
+          .limit(0, 10, true)
           .partitionedOutput({}, 1)
           .planNode();
   auto leafTask = makeTask(leafTaskId, leafPlan, 0);
@@ -536,7 +536,7 @@ TEST_F(MultiFragmentTest, limit) {
   leafTask.get()->addSplit(
       "0", exec::Split(makeHiveConnectorSplit(file->path)));
 
-  // Make final task: Exchange -> FinalLimit(1).
+  // Make final task: Exchange -> FinalLimit(10).
   auto plan = PlanBuilder()
                   .exchange(leafPlan->outputType())
                   .localPartition({})
@@ -557,7 +557,7 @@ TEST_F(MultiFragmentTest, limit) {
         task->addSplit("0", std::move(split));
         splitAdded = true;
       },
-      "VALUES (null), (1), (2), (3), (4), (5), (6), (7), (8), (9)",
+      "VALUES (null), (1), (2), (3), (4), (5), (6), (null), (8), (9)",
       duckDbQueryRunner_);
 
   ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();

@@ -719,6 +719,15 @@ static bool compareMaterializedRows(
     }
   }
 
+  // In case left has duplicate values and there are values in right but not in
+  // left, check the other way around. E.g., left = {1, 1, 2}, right = {1, 2,
+  // 3}.
+  for (auto& it : right) {
+    if (left.count(it) == 0) {
+      return false;
+    }
+  }
+
   return true;
 }
 
