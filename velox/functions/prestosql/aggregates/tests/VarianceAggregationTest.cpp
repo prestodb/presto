@@ -154,13 +154,13 @@ TEST_F(VarianceAggregationTest, varianceNulls) {
   }
 }
 
-TEST_F(VarianceAggregationTest, variance) {
-  // TODO Variance functions are not sensitive to the order of inputs except
-  // when inputs are very large integers (> 15 digits long). Unfortunately
-  // makeVectors() generates data that contains a lot of very large integers.
-  // Replace makeVectors() with a dataset that doesn't contain very large
-  // integers and enable more testing by calling allowInputShuffle() from
-  // Setup().
+// TODO Variance functions are not sensitive to the order of inputs except
+// when inputs are very large integers (> 15 digits long). Unfortunately
+// makeVectors() generates data that contains a lot of very large integers.
+// Replace makeVectors() with a dataset that doesn't contain very large
+// integers and enable more testing by calling allowInputShuffle() from
+// Setup().
+TEST_F(VarianceAggregationTest, varianceWithGlobalAggregation) {
   auto vectors = makeVectors(rowType_, 10, 20);
   createDuckDbTable(vectors);
 
@@ -183,9 +183,17 @@ TEST_F(VarianceAggregationTest, variance) {
         {},
         {GEN_AGG("c0")},
         sql);
+  }
+}
 
+TEST_F(VarianceAggregationTest, varianceWithGlobalAggregationAndFilter) {
+  auto vectors = makeVectors(rowType_, 10, 20);
+  createDuckDbTable(vectors);
+
+  for (const auto& aggrName : aggrNames_) {
     // Global aggregation over filter
-    sql = genAggrQuery("SELECT {0}(c0) FROM tmp WHERE c0 % 5 = 3", aggrName);
+    const auto sql =
+        genAggrQuery("SELECT {0}(c0) FROM tmp WHERE c0 % 5 = 3", aggrName);
     testAggregations(
         [&](PlanBuilder& builder) {
           builder.values(vectors).filter("c0 % 5 = 3");
@@ -193,9 +201,16 @@ TEST_F(VarianceAggregationTest, variance) {
         {},
         {GEN_AGG("c0")},
         sql);
+  }
+}
 
-    // Group by
-    sql = genAggrQuery(
+TEST_F(VarianceAggregationTest, varianceWithGroupBy) {
+  auto vectors = makeVectors(rowType_, 10, 20);
+  createDuckDbTable(vectors);
+
+  for (const auto& aggrName : aggrNames_) {
+    // Group by.
+    auto sql = genAggrQuery(
         "SELECT c0 % 10, {0}(c1), {0}(c2), {0}(c3::DOUBLE), {0}(c4), {0}(c5) "
         "FROM tmp GROUP BY 1",
         aggrName);
@@ -225,9 +240,16 @@ TEST_F(VarianceAggregationTest, variance) {
         {"p0"},
         {GEN_AGG("c1")},
         sql);
+  }
+}
 
-    // Group by over filter
-    sql = genAggrQuery(
+TEST_F(VarianceAggregationTest, varianceWithGroupByAndFilter) {
+  auto vectors = makeVectors(rowType_, 10, 20);
+  createDuckDbTable(vectors);
+
+  for (const auto& aggrName : aggrNames_) {
+    // Group by over filter.
+    const auto sql = genAggrQuery(
         "SELECT c0 % 10, {0}(c1) FROM tmp WHERE c2 % 5 = 3 GROUP BY 1",
         aggrName);
     testAggregations(
