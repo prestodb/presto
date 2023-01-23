@@ -41,6 +41,8 @@ import org.apache.commons.math3.special.Erf;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.concurrent.ThreadLocalRandom;
@@ -1072,15 +1074,17 @@ public final class MathFunctions
     @SqlType(StandardTypes.DOUBLE)
     public static double round(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
-        if (Double.isNaN(num) || Double.isInfinite(num)) {
+        decimals = Math.min(decimals, Decimals.MAX_PRECISION);
+        if (Double.isNaN(num) || Double.isInfinite(num) || decimals < 0 || decimals == Decimals.MAX_PRECISION) {
             return num;
         }
-
         double factor = Math.pow(10, decimals);
+        if ((long) (num * factor) == Long.MAX_VALUE || (long) (num * factor) == Long.MIN_VALUE) {
+            return bigDecimalRound(num, decimals).doubleValue();
+        }
         if (num < 0) {
             return -(Math.round(-num * factor) / factor);
         }
-
         return Math.round(num * factor) / factor;
     }
 
@@ -1089,12 +1093,16 @@ public final class MathFunctions
     @SqlType(StandardTypes.REAL)
     public static long roundFloat(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
+        decimals = Math.min(decimals, Decimals.MAX_PRECISION);
         float numInFloat = intBitsToFloat((int) num);
-        if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat)) {
+        if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat) || decimals < 0 || decimals == Decimals.MAX_PRECISION) {
             return num;
         }
 
         double factor = Math.pow(10, decimals);
+        if ((long) (numInFloat * factor) == Long.MAX_VALUE || (long) (numInFloat * factor) == Long.MIN_VALUE) {
+            return floatToRawIntBits(bigDecimalRound(numInFloat, decimals).floatValue());
+        }
         if (numInFloat < 0) {
             return floatToRawIntBits((float) -(Math.round(-numInFloat * factor) / factor));
         }
@@ -1610,5 +1618,11 @@ public final class MathFunctions
         }
 
         return Math.sqrt(norm);
+    }
+
+    private static BigDecimal bigDecimalRound(double num, long decimals)
+    {
+        return new BigDecimal(num, MathContext.DECIMAL128)
+                .setScale((int) decimals, RoundingMode.HALF_UP);
     }
 }
