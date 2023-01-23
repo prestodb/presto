@@ -22,6 +22,7 @@
 #include <string>
 
 #include "velox/common/base/VeloxException.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/type/StringView.h"
@@ -852,6 +853,99 @@ TEST_F(Re2FunctionsTest, regexExtractAllBadArgs) {
   EXPECT_THROW(eval("123", "", 99), VeloxException);
   EXPECT_THROW(eval("123", "(\\d+)", 1), VeloxException);
   EXPECT_THROW(eval("123", "[a-z]+", 1), VeloxException);
+}
+
+TEST_F(Re2FunctionsTest, tryException) {
+  // Assert we throw without try.
+  VELOX_ASSERT_THROW(
+      evaluateOnce<std::string>(
+          "re2_extract(c0, c1)",
+          std::optional("123"),
+          std::optional("V)%(&r_b2o&Xw")),
+      "invalid regular expression");
+
+  auto patternVector = makeConstant("V)%(&r_b2o&Xw", 3);
+  auto oneGoodPatternVector =
+      makeNullableFlatVector<StringView>({"V)%(&r_b2o&Xw", ".*", std::nullopt});
+  auto stringVector = makeFlatVector<std::string>({"abc", "mno", "pqr"});
+  auto input = makeRowVector({stringVector, patternVector});
+  auto oneGoodInput = makeRowVector({stringVector, oneGoodPatternVector});
+
+  // Assert we can handle trys safely for re2_extract.
+  {
+    auto result =
+        evaluate<SimpleVector<StringView>>("try(re2_extract(c0, c1))", input);
+    assertEqualVectors(makeNullConstant(TypeKind::VARCHAR, 3), result);
+
+    // Atleast one non null result.
+    result = evaluate<SimpleVector<StringView>>(
+        "try(re2_extract(c0, c1))", oneGoodInput);
+    assertEqualVectors(
+        makeNullableFlatVector<StringView>({std::nullopt, "mno", std::nullopt}),
+        result);
+  }
+
+  // Try the same with re2_match.
+  {
+    auto result = evaluate<SimpleVector<bool>>("try(re2_match(c0, c1))", input);
+    assertEqualVectors(makeNullConstant(TypeKind::BOOLEAN, 3), result);
+
+    // At least one non null result.
+    result =
+        evaluate<SimpleVector<bool>>("try(re2_match(c0, c1))", oneGoodInput);
+    assertEqualVectors(
+        makeNullableFlatVector<bool>({std::nullopt, true, std::nullopt}),
+        result);
+  }
+
+  // Try the same with re2_search.
+  {
+    auto result =
+        evaluate<SimpleVector<bool>>("try(re2_search(c0, c1))", input);
+    assertEqualVectors(makeNullConstant(TypeKind::BOOLEAN, 3), result);
+
+    // At least one non null result.
+    result =
+        evaluate<SimpleVector<bool>>("try(re2_search(c0, c1))", oneGoodInput);
+    assertEqualVectors(
+        makeNullableFlatVector<bool>({std::nullopt, true, std::nullopt}),
+        result);
+  }
+
+  // Ensure like works well with Try.
+  {
+    auto result = evaluate<SimpleVector<bool>>(
+        "try(c0  like '%_*Do[^e]%' escape 'o')", makeRowVector({stringVector}));
+    assertEqualVectors(makeNullConstant(TypeKind::BOOLEAN, 3), result);
+  }
+
+  // Try bad index's.
+  {
+    VELOX_ASSERT_THROW(
+        evaluateOnce<std::string>(
+            "re2_extract_all(c0, c1, c2)",
+            std::optional("123"),
+            std::optional("abc"),
+            std::optional(100)),
+        "No group 100 in regex 'abc'");
+
+    auto input = makeRowVector(
+        {stringVector, makeConstant("abc", 3), makeConstant(100, 3)});
+    auto result = evaluate<SimpleVector<StringView>>(
+        "try(re2_extract(c0, c1, c2))", input);
+
+    assertEqualVectors(makeNullConstant(TypeKind::VARCHAR, 3), result);
+
+    // At least one non null result.
+    input = makeRowVector(
+        {makeConstant("123a 2b ", 3),
+         makeConstant("(\\d+)([a-z]+)", 3),
+         makeNullableFlatVector<int64_t>({std::nullopt, 1, 100})});
+    assertEqualVectors(
+        makeNullableArrayVector<StringView>(
+            {std::nullopt, {{"123"_sv, "2"_sv}}, std::nullopt}),
+        evaluate<ArrayVector>("try(re2_extract_all(c0, c1, c2))", input));
+  }
 }
 
 } // namespace
