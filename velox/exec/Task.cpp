@@ -198,22 +198,45 @@ Task::getOrAddNodePool(const core::PlanNodeId& planNodeId) {
   if (nodePools_.count(planNodeId) == 1) {
     return nodePools_[planNodeId];
   }
+
   childPools_.push_back(pool_->addChild(fmt::format("node.{}", planNodeId)));
   auto* nodePool = childPools_.back().get();
   auto parentTracker = pool_->getMemoryUsageTracker();
   if (parentTracker != nullptr) {
     nodePool->setMemoryUsageTracker(parentTracker->addChild());
   }
+  nodePools_[planNodeId] = nodePool;
   return nodePool;
 }
 
-velox::memory::MemoryPool* FOLLY_NONNULL Task::addOperatorPool(
+velox::memory::MemoryPool* Task::addOperatorPool(
     const core::PlanNodeId& planNodeId,
     int pipelineId,
+    uint32_t driverId,
     const std::string& operatorType) {
   auto* nodePool = getOrAddNodePool(planNodeId);
+  childPools_.push_back(nodePool->addChild(fmt::format(
+      "op.{}.{}.{}.{}", planNodeId, pipelineId, driverId, operatorType)));
+  return childPools_.back().get();
+}
+
+velox::memory::MemoryPool* Task::addMergeSourcePool(
+    const core::PlanNodeId& planNodeId,
+    uint32_t pipelineId,
+    uint32_t sourceId) {
+  std::lock_guard<std::mutex> l(mutex_);
+  auto* nodePool = getOrAddNodePool(planNodeId);
+  childPools_.push_back(nodePool->addChild(fmt::format(
+      "mergeExchangeClient.{}.{}.{}", planNodeId, pipelineId, sourceId)));
+  return childPools_.back().get();
+}
+
+velox::memory::MemoryPool* Task::addExchangeClientPool(
+    const core::PlanNodeId& planNodeId,
+    uint32_t pipelineId) {
+  auto* nodePool = getOrAddNodePool(planNodeId);
   childPools_.push_back(nodePool->addChild(
-      fmt::format("op.{}.{}.{}", planNodeId, pipelineId, operatorType)));
+      fmt::format("exchangeClient.{}.{}", planNodeId, pipelineId)));
   return childPools_.back().get();
 }
 
@@ -420,6 +443,12 @@ void Task::start(
           self->numDriversInPartitionedOutput_ * numSplitGroups);
     }
 
+    // NOTE: MergeExchangeNode doesn't use the exchange client created here to
+    // fetch data from the merge source but only uses it to send abortResults
+    // to the merge source of the split which is added after the task has
+    // failed. Correspondingly, MergeExchangeNode creates one exchange client
+    // for each merge source to fetch data as we can't mix the data from
+    // different sources for merging.
     if (auto exchangeNodeId = factory->needsExchangeClient()) {
       self->createExchangeClient(pipeline, exchangeNodeId.value());
     }
@@ -1352,11 +1381,6 @@ ContinueFuture Task::terminate(TaskState terminalState) {
   for (auto& [planNodeId, splits] : remainingRemoteSplits) {
     auto client = getExchangeClient(planNodeId);
     for (auto& split : splits.first) {
-      if (client->pool() == nullptr) {
-        // If we terminate even before the client's initialization, we
-        // initialize the client with Task's memory pool.
-        client->initialize(pool_.get());
-      }
       addRemoteSplit(planNodeId, split);
     }
     if (splits.second) {
@@ -1841,6 +1865,7 @@ void Task::createExchangeClient(
   // buffer size of the producers.
   exchangeClients_[pipelineId] = std::make_shared<ExchangeClient>(
       destination_,
+      addExchangeClientPool(planNodeId, pipelineId),
       queryCtx()->queryConfig().maxPartitionedOutputBufferSize() / 2);
   exchangeClientByPlanNode_.emplace(planNodeId, exchangeClients_[pipelineId]);
 }

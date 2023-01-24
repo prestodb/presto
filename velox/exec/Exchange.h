@@ -299,8 +299,12 @@ class ExchangeClient {
  public:
   static constexpr int32_t kDefaultMinSize = 32 << 20; // 32 MB.
 
-  explicit ExchangeClient(int destination, int64_t minSize = kDefaultMinSize)
+  ExchangeClient(
+      int destination,
+      memory::MemoryPool* FOLLY_NONNULL pool,
+      int64_t minSize = kDefaultMinSize)
       : destination_(destination),
+        pool_(pool),
         queue_(std::make_shared<ExchangeQueue>(minSize)) {
     VELOX_CHECK(
         destination >= 0,
@@ -313,8 +317,6 @@ class ExchangeClient {
   memory::MemoryPool* FOLLY_NULLABLE pool() const {
     return pool_;
   }
-
-  void initialize(memory::MemoryPool* FOLLY_NONNULL pool);
 
   // Creates an exchange source and starts fetching data from the specified
   // upstream task. If 'close' has been called already, creates an exchange
@@ -339,10 +341,10 @@ class ExchangeClient {
 
  private:
   const int destination_;
+  memory::MemoryPool* const FOLLY_NONNULL pool_;
   std::shared_ptr<ExchangeQueue> queue_;
   std::unordered_set<std::string> taskIds_;
   std::vector<std::shared_ptr<ExchangeSource>> sources_;
-  memory::MemoryPool* FOLLY_NULLABLE pool_{nullptr};
   bool closed_{false};
 };
 
@@ -360,13 +362,7 @@ class Exchange : public SourceOperator {
             exchangeNode->id(),
             "Exchange"),
         planNodeId_(exchangeNode->id()),
-        exchangeClient_(std::move(exchangeClient)) {
-    if (operatorCtx_->driverCtx()->driverId == 0) {
-      // As all Exchange operators share the same ExchangeClient, we only
-      // need one to do client initialization.
-      exchangeClient_->initialize(operatorCtx_->pool());
-    }
-  }
+        exchangeClient_(std::move(exchangeClient)) {}
 
   ~Exchange() override {
     close();

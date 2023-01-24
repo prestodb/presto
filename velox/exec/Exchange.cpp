@@ -176,10 +176,6 @@ std::unique_ptr<ExchangeSource> createLocalExchangeSource(
 
 } // namespace
 
-void ExchangeClient::initialize(memory::MemoryPool* FOLLY_NONNULL pool) {
-  pool_ = pool;
-}
-
 void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
   std::shared_ptr<ExchangeSource> toRequest;
   std::shared_ptr<ExchangeSource> toClose;

@@ -62,8 +62,7 @@ uint64_t MemoryPool::getChildCount() const {
   return children_.size();
 }
 
-void MemoryPool::visitChildren(
-    std::function<void(MemoryPool* FOLLY_NONNULL)> visitor) const {
+void MemoryPool::visitChildren(std::function<void(MemoryPool*)> visitor) const {
   folly::SharedMutex::ReadHolder guard{childrenMutex_};
   for (const auto& child : children_) {
     visitor(child);

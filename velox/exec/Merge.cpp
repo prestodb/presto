@@ -316,9 +316,15 @@ BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
         auto remoteSplit = std::dynamic_pointer_cast<RemoteConnectorSplit>(
             split.connectorSplit);
         VELOX_CHECK(remoteSplit, "Wrong type of split");
-
+        auto* pool = operatorCtx_->task()->addMergeSourcePool(
+            operatorCtx_->planNodeId(),
+            operatorCtx_->driverCtx()->pipelineId,
+            numSplits_);
         sources_.emplace_back(MergeSource::createMergeExchangeSource(
-            this, remoteSplit->taskId, operatorCtx_->task()->destination()));
+            this,
+            remoteSplit->taskId,
+            operatorCtx_->task()->destination(),
+            pool));
         ++numSplits_;
       } else {
         noMoreSplits_ = true;

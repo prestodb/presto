@@ -264,19 +264,22 @@ class Task : public std::enable_shared_from_this<Task> {
   /// library components (Driver, Operator, etc.) and should not be called by
   /// the library users.
 
-  /// Creates new instance of MemoryPool for a plan node, stores it in the task
-  /// to ensure lifetime and returns a raw pointer. Not thread safe, e.g. must
-  /// be called from the Operator's constructor via addOperatorPool().
-  memory::MemoryPool* FOLLY_NONNULL
-  getOrAddNodePool(const core::PlanNodeId& planNodeId);
-
   /// Creates new instance of MemoryPool for an operator, stores it in the task
   /// to ensure lifetime and returns a raw pointer. Not thread safe, e.g. must
   /// be called from the Operator's constructor.
   velox::memory::MemoryPool* FOLLY_NONNULL addOperatorPool(
       const core::PlanNodeId& planNodeId,
       int pipelineId,
+      uint32_t driverId,
       const std::string& operatorType);
+
+  /// Creates new instance of MemoryPool for a merge source in a
+  /// MergeExchangeNode, stores it in the task to ensure lifetime and returns a
+  /// raw pointer.
+  velox::memory::MemoryPool* FOLLY_NONNULL addMergeSourcePool(
+      const core::PlanNodeId& planNodeId,
+      uint32_t pipelineId,
+      uint32_t sourceId);
 
   // Removes driver from the set of drivers in 'self'. The task will be kept
   // alive by 'self'. 'self' going out of scope may cause the Task to
@@ -509,6 +512,18 @@ class Task : public std::enable_shared_from_this<Task> {
   static void testingWaitForAllTasksToBeDeleted(uint64_t maxWaitUs = 3'000'000);
 
  private:
+  // Creates new instance of MemoryPool for a plan node, stores it in the task
+  // to ensure lifetime and returns a raw pointer.
+  memory::MemoryPool* FOLLY_NONNULL
+  getOrAddNodePool(const core::PlanNodeId& planNodeId);
+
+  // Creates new instance of MemoryPool for the exchange client of an
+  // ExchangeNode in a pipeline, stores it in the task to ensure lifetime and
+  // returns a raw pointer.
+  velox::memory::MemoryPool* FOLLY_NONNULL addExchangeClientPool(
+      const core::PlanNodeId& planNodeId,
+      uint32_t pipelineId);
+
   // Counts the number of created tasks which is incremented on each task
   // creation.
   static std::atomic<uint64_t> numCreatedTasks_;
@@ -766,10 +781,10 @@ class Task : public std::enable_shared_from_this<Task> {
   // to allow for sharing vectors across drivers without copy.
   std::vector<std::shared_ptr<memory::MemoryPool>> childPools_;
 
-  // The map from plan node it to the corresponding memory pool object's raw
+  // The map from plan node id to the corresponding memory pool object's raw
   // pointer.
   //
-  // NOTE: ''childPools_' holds the ownerships of node memory pools.
+  // NOTE: 'childPools_' holds the ownerships of node memory pools.
   std::unordered_map<core::PlanNodeId, memory::MemoryPool*> nodePools_;
 
   // A set of IDs of leaf plan nodes that require splits. Used to check plan

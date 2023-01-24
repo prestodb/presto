@@ -44,7 +44,7 @@ const core::QueryConfig& DriverCtx::queryConfig() const {
 velox::memory::MemoryPool* FOLLY_NONNULL DriverCtx::addOperatorPool(
     const core::PlanNodeId& planNodeId,
     const std::string& operatorType) {
-  return task->addOperatorPool(planNodeId, pipelineId, operatorType);
+  return task->addOperatorPool(planNodeId, pipelineId, driverId, operatorType);
 }
 
 std::atomic_uint64_t BlockingState::numBlockedDrivers_{0};

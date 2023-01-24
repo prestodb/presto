@@ -39,7 +39,8 @@ class MergeSource {
   static std::shared_ptr<MergeSource> createMergeExchangeSource(
       MergeExchange* mergeExchange,
       const std::string& taskId,
-      int destination);
+      int destination,
+      memory::MemoryPool* FOLLY_NONNULL pool);
 };
 
 /// Coordinates data transfer between single producer and single consumer. Used
