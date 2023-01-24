@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.s3select;
 
+import com.facebook.presto.hive.AbstractTestHiveFileSystemS3;
+import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.MaterializedResult;
@@ -29,7 +31,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 
-public class TestHiveFileSystemS3SelectPushdown
+public class TestHiveFileSystemS3SelectCsvPushdown
         extends AbstractTestHiveFileSystemS3
 {
     protected SchemaTableName commaDelimitedTable;

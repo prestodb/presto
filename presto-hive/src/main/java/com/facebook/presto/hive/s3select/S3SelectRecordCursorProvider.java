@@ -98,7 +98,7 @@ public class S3SelectRecordCursorProvider
         if (s3SelectDataTypeOptional.isPresent()) {
             S3SelectDataType s3SelectDataType = s3SelectDataTypeOptional.get();
 
-            IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
+            IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, s3SelectDataType);
             String ionSqlQuery = queryBuilder.buildSql(columns, effectivePredicate);
             Optional<S3SelectLineRecordReader> recordReader = S3SelectLineRecordReaderProvider.get(configuration, clientConfig, path, fileSplit.getStart(), fileSplit.getLength(), schema, ionSqlQuery, s3ClientFactory, s3SelectDataType);
 
