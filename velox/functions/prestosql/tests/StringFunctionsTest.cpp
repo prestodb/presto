@@ -1154,6 +1154,36 @@ TEST_F(StringFunctionsTest, md5) {
   EXPECT_EQ(std::nullopt, md5(std::nullopt));
 }
 
+TEST_F(StringFunctionsTest, sha1) {
+  const auto sha1 = [&](std::optional<std::string> arg) {
+    return evaluateOnce<std::string, std::string>(
+        "sha1(c0)", {arg}, {VARBINARY()});
+  };
+
+  // The result values were obtained from Presto Java sha1 function.
+
+  EXPECT_EQ(hexToDec("DA39A3EE5E6B4B0D3255BFEF95601890AFD80709"), sha1(""));
+  EXPECT_EQ(std::nullopt, sha1(std::nullopt));
+
+  EXPECT_EQ(hexToDec("86F7E437FAA5A7FCE15D1DDCB9EAEAEA377667B8"), sha1("a"));
+  EXPECT_EQ(hexToDec("382758154F5D9F9775B6A9F28B6EDD55773C87E3"), sha1("AB "));
+  EXPECT_EQ(hexToDec("B858CB282617FB0956D960215C8E84D1CCF909C6"), sha1(" "));
+  EXPECT_EQ(
+      hexToDec("A47779C6198B85A1A2595C7C9AAAB26199EA8084"),
+      sha1("               "));
+  EXPECT_EQ(
+      hexToDec("082DE68D348CBB63316DF2B7B74B0A2DBB716F4A"),
+      sha1("SPECIAL_#@,$|%/^~?{}+-"));
+  EXPECT_EQ(
+      hexToDec("01B307ACBA4F54F55AAFC33BB06BBBF6CA803E9A"), sha1("1234567890"));
+  EXPECT_EQ(
+      hexToDec("E46990399602E8321A69285244B955816738981E"),
+      sha1("12345.67890"));
+  EXPECT_EQ(
+      hexToDec("17BC9B38933EB1C0D5D1F8F6D9B6C375851B9685"),
+      sha1("more_than_12_characters_string"));
+}
+
 TEST_F(StringFunctionsTest, sha256) {
   const auto sha256 = [&](std::optional<std::string> arg) {
     return evaluateOnce<std::string, std::string>(

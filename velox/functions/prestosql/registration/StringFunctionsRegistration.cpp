@@ -58,6 +58,7 @@ void registerSimpleFunctions() {
   registerFunction<CRC32Function, int64_t, Varbinary>({"crc32"});
   registerFunction<XxHash64Function, Varbinary, Varbinary>({"xxhash64"});
   registerFunction<Md5Function, Varbinary, Varbinary>({"md5"});
+  registerFunction<Sha1Function, Varbinary, Varbinary>({"sha1"});
   registerFunction<Sha256Function, Varbinary, Varbinary>({"sha256"});
   registerFunction<Sha512Function, Varbinary, Varbinary>({"sha512"});
   registerFunction<HmacSha1Function, Varbinary, Varbinary, Varbinary>(

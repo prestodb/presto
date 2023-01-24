@@ -96,6 +96,20 @@ struct Md5Function {
   }
 };
 
+/// sha1(varbinary) -> varbinary
+template <typename T>
+struct Sha1Function {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<Varbinary>& result, const arg_type<Varbinary>& input) {
+    result.resize(20);
+    folly::ssl::OpenSSLHash::sha1(
+        folly::MutableByteRange((uint8_t*)result.data(), result.size()),
+        folly::ByteRange((const uint8_t*)input.data(), input.size()));
+  }
+};
+
 /// sha256(varbinary) -> varbinary
 template <typename T>
 struct Sha256Function {
