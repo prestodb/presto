@@ -642,6 +642,17 @@ public class TaskExecutor
                         }
                         splitFinished(split);
                     }
+                    finally {
+                        // Clear the interrupted flag on the current thread, driver cancellation may have triggered an interrupt
+                        // without TaskExecutor being shut down
+                        if (Thread.interrupted()) {
+                            if (closed) {
+                                // reset interrupted flag if TaskExecutor was closed, since that interrupt may have been the
+                                // shutdown signal to this TaskRunner thread
+                                Thread.currentThread().interrupt();
+                            }
+                        }
+                    }
                 }
             }
             finally {
