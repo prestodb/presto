@@ -477,7 +477,7 @@ public abstract class AbstractTestHiveFileSystem
         }
     }
 
-    private static class TestingHiveMetastore
+    public static class TestingHiveMetastore
             extends CachingHiveMetastore
     {
         private final Path basePath;
