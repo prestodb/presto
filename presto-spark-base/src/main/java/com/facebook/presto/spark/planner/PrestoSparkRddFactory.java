@@ -23,6 +23,7 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeTaskRdd;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
@@ -71,6 +72,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -251,10 +253,26 @@ public class PrestoSparkRddFactory
             taskSourceRdd = Optional.empty();
         }
 
-        return JavaPairRDD.fromRDD(
-                PrestoSparkTaskRdd.create(sparkContext.sc(), taskSourceRdd, shuffleInputRddMap, taskProcessor).setName(getRDDName(fragment.getId().getId())),
-                classTag(MutablePartitionId.class),
-                classTag(outputType));
+        if (isNativeExecutionEnabled(session)) {
+            return JavaPairRDD.fromRDD(
+                    PrestoSparkNativeTaskRdd.create(
+                            sparkContext.sc(),
+                            taskSourceRdd,
+                            shuffleInputRddMap,
+                            taskProcessor).setName(getRDDName(fragment.getId().getId())),
+                    classTag(MutablePartitionId.class),
+                    classTag(outputType));
+        }
+        else {
+            return JavaPairRDD.fromRDD(
+                    PrestoSparkTaskRdd.create(
+                            sparkContext.sc(),
+                            taskSourceRdd,
+                            shuffleInputRddMap,
+                            taskProcessor).setName(getRDDName(fragment.getId().getId())),
+                    classTag(MutablePartitionId.class),
+                    classTag(outputType));
+        }
     }
 
     private PrestoSparkTaskSourceRdd createTaskSourcesRdd(

@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.integration;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 
@@ -26,6 +27,13 @@ public class TestRaptorDistributedQueriesBucketed
             throws Exception
     {
         return createRaptorQueryRunner(ImmutableMap.of(), true, true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED"));
+    }
+
+    @Test
+    @Override
+    public void testSubfieldAccessControl()
+    {
+        // disabled as raptor doesn't support complex types
     }
 
     @Override

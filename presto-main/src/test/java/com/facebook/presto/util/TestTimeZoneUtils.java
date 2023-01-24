@@ -83,6 +83,13 @@ public class TestTimeZoneUtils
                 continue;
             }
 
+            if (zoneId.equals("America/Ciudad_Juarez")) {
+                // TODO: remove Once this new Timezone is supported.
+                // This is included in 2022g release of the tz code and data.
+                // https://mm.icann.org/pipermail/tz-announce/2022-November/000076.html
+                continue;
+            }
+
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
 

@@ -16,20 +16,20 @@ package com.facebook.presto.operator;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +57,10 @@ public class TopNRowNumberOperator
 
         private final boolean generateRowNumber;
         private boolean closed;
+        private final long unspillMemoryLimit;
         private final JoinCompiler joinCompiler;
+        private final SpillerFactory spillerFactory;
+        private final boolean spillEnabled;
 
         public TopNRowNumberOperatorFactory(
                 int operatorId,
@@ -72,7 +75,10 @@ public class TopNRowNumberOperator
                 boolean partial,
                 Optional<Integer> hashChannel,
                 int expectedPositions,
-                JoinCompiler joinCompiler)
+                long unspillMemoryLimit,
+                JoinCompiler joinCompiler,
+                SpillerFactory spillerFactory,
+                boolean spillEnabled)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -89,7 +95,10 @@ public class TopNRowNumberOperator
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
             this.generateRowNumber = !partial;
             this.expectedPositions = expectedPositions;
+            this.unspillMemoryLimit = unspillMemoryLimit;
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+            this.spillerFactory = spillerFactory;
+            this.spillEnabled = spillEnabled;
         }
 
         @Override
@@ -109,7 +118,10 @@ public class TopNRowNumberOperator
                     generateRowNumber,
                     hashChannel,
                     expectedPositions,
-                    joinCompiler);
+                    unspillMemoryLimit,
+                    joinCompiler,
+                    spillerFactory,
+                    spillEnabled);
         }
 
         @Override
@@ -121,21 +133,20 @@ public class TopNRowNumberOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TopNRowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, sortChannels, sortOrder, maxRowCountPerPartition, partial, hashChannel, expectedPositions, joinCompiler);
+            return new TopNRowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, sortChannels, sortOrder, maxRowCountPerPartition, partial, hashChannel, expectedPositions, unspillMemoryLimit, joinCompiler, spillerFactory, spillEnabled);
         }
     }
 
     private final OperatorContext operatorContext;
-    private final LocalMemoryContext localUserMemoryContext;
 
     private final int[] outputChannels;
 
-    private final GroupByHash groupByHash;
-    private final GroupedTopNBuilder groupedTopNBuilder;
+    private GroupedTopNBuilder groupedTopNBuilder;
 
     private boolean finishing;
+    private boolean finished;
     private Work<?> unfinishedWork;
-    private Iterator<Page> outputIterator;
+    private WorkProcessor<Page> outputPages;
 
     public TopNRowNumberOperator(
             OperatorContext operatorContext,
@@ -149,10 +160,12 @@ public class TopNRowNumberOperator
             boolean generateRowNumber,
             Optional<Integer> hashChannel,
             int expectedPositions,
-            JoinCompiler joinCompiler)
+            long unspillMemoryLimit,
+            JoinCompiler joinCompiler,
+            SpillerFactory spillerFactory,
+            boolean spillEnabled)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
 
         ImmutableList.Builder<Integer> outputChannelsBuilder = ImmutableList.builder();
         for (int channel : requireNonNull(outputChannels, "outputChannels is null")) {
@@ -165,28 +178,79 @@ public class TopNRowNumberOperator
 
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
 
-        if (!partitionChannels.isEmpty()) {
-            checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
-            groupByHash = createGroupByHash(
+        List<Type> types = toTypes(sourceTypes, outputChannels, generateRowNumber);
+        Supplier<GroupByHash> groupByHashSupplier = () -> createGroupByHash(
+                partitionTypes,
+                partitionChannels,
+                hashChannel,
+                expectedPositions,
+                joinCompiler,
+                isDictionaryAggregationEnabled(operatorContext.getSession()),
+                this::updateMemoryReservation);
+
+        if (spillEnabled) {
+            this.groupedTopNBuilder = new SpillableGroupedTopNBuilder(
+                    ImmutableList.copyOf(sourceTypes),
                     partitionTypes,
-                    Ints.toArray(partitionChannels),
-                    hashChannel,
-                    expectedPositions,
-                    isDictionaryAggregationEnabled(operatorContext.getSession()),
-                    joinCompiler,
-                    this::updateMemoryReservation);
+                    partitionChannels,
+                    () -> new InMemoryGroupedTopNBuilder(
+                            ImmutableList.copyOf(sourceTypes),
+                            new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
+                            maxRowCountPerPartition,
+                            generateRowNumber,
+                            operatorContext.localRevocableMemoryContext(),
+                            groupByHashSupplier.get()),
+                    () -> new InMemoryGroupedTopNBuilder(
+                            ImmutableList.copyOf(sourceTypes),
+                            new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
+                            maxRowCountPerPartition,
+                            generateRowNumber,
+                            operatorContext.localUserMemoryContext(),
+                            groupByHashSupplier.get()),
+                    operatorContext::isWaitingForMemory,
+                    unspillMemoryLimit,
+                    operatorContext.localUserMemoryContext(),
+                    operatorContext.localRevocableMemoryContext(),
+                    operatorContext.aggregateSystemMemoryContext(),
+                    operatorContext.aggregateSystemMemoryContext(),
+                    operatorContext.getSpillContext(),
+                    operatorContext.getDriverContext().getYieldSignal(),
+                    spillerFactory);
         }
         else {
-            groupByHash = new NoChannelGroupByHash();
+            this.groupedTopNBuilder = new InMemoryGroupedTopNBuilder(
+                    ImmutableList.copyOf(sourceTypes),
+                    new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
+                    maxRowCountPerPartition,
+                    generateRowNumber,
+                    operatorContext.localUserMemoryContext(),
+                    groupByHashSupplier.get());
         }
+    }
 
-        List<Type> types = toTypes(sourceTypes, outputChannels, generateRowNumber);
-        this.groupedTopNBuilder = new GroupedTopNBuilder(
-                ImmutableList.copyOf(sourceTypes),
-                new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
-                maxRowCountPerPartition,
-                generateRowNumber,
-                groupByHash);
+    private GroupByHash createGroupByHash(
+            List<? extends Type> partitionTypes,
+            List<Integer> partitionChannels,
+            Optional<Integer> inputHashChannel,
+            int expectedPositions,
+            JoinCompiler joinCompiler,
+            boolean isDictionaryAggregationEnabled,
+            UpdateMemory updateMemory)
+    {
+        if (!partitionChannels.isEmpty()) {
+            checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
+            return GroupByHash.createGroupByHash(
+                    partitionTypes,
+                    Ints.toArray(partitionChannels),
+                    inputHashChannel,
+                    expectedPositions,
+                    isDictionaryAggregationEnabled,
+                    joinCompiler,
+                    updateMemory);
+        }
+        else {
+            return new NoChannelGroupByHash();
+        }
     }
 
     @Override
@@ -205,14 +269,14 @@ public class TopNRowNumberOperator
     public boolean isFinished()
     {
         // has no more input, has finished flushing, and has no unfinished work
-        return finishing && outputIterator != null && !outputIterator.hasNext() && unfinishedWork == null;
+        return finished;
     }
 
     @Override
     public boolean needsInput()
     {
         // still has more input, has not started flushing yet, and has no unfinished work
-        return !finishing && outputIterator == null && unfinishedWork == null;
+        return !finishing && outputPages == null && unfinishedWork == null;
     }
 
     @Override
@@ -220,7 +284,7 @@ public class TopNRowNumberOperator
     {
         checkState(!finishing, "Operator is already finishing");
         checkState(unfinishedWork == null, "Cannot add input with the operator when unfinished work is not empty");
-        checkState(outputIterator == null, "Cannot add input with the operator when flushing");
+        checkState(outputPages == null, "Cannot add input with the operator when flushing");
         requireNonNull(page, "page is null");
         unfinishedWork = groupedTopNBuilder.processPage(page);
         if (unfinishedWork.process()) {
@@ -230,8 +294,27 @@ public class TopNRowNumberOperator
     }
 
     @Override
+    public ListenableFuture<?> startMemoryRevoke()
+    {
+        if (finishing) {
+            return NOT_BLOCKED;
+        }
+        return groupedTopNBuilder.startMemoryRevoke();
+    }
+
+    @Override
+    public void finishMemoryRevoke()
+    {
+        groupedTopNBuilder.finishMemoryRevoke();
+    }
+
+    @Override
     public Page getOutput()
     {
+        if (finished) {
+            return null;
+        }
+
         if (unfinishedWork != null) {
             boolean finished = unfinishedWork.process();
             updateMemoryReservation();
@@ -245,30 +328,46 @@ public class TopNRowNumberOperator
             return null;
         }
 
-        if (outputIterator == null) {
+        if (outputPages == null) {
+            if (groupedTopNBuilder == null) {
+                finished = true;
+                return null;
+            }
             // start flushing
-            outputIterator = groupedTopNBuilder.buildResult();
+            outputPages = groupedTopNBuilder.buildResult();
         }
 
-        Page output = null;
-        if (outputIterator.hasNext()) {
-            output = outputIterator.next().extractChannels(outputChannels);
+        if (!outputPages.process()) {
+            return null;
         }
+
+        if (outputPages.isFinished()) {
+            if (groupedTopNBuilder != null) {
+                groupedTopNBuilder.close();
+                groupedTopNBuilder = null;
+            }
+            finished = true;
+            return null;
+        }
+
+        Page outputPage = outputPages.getResult()
+                .extractChannels(outputChannels);
+
         updateMemoryReservation();
-        return output;
+        return outputPage;
     }
 
     @VisibleForTesting
     public int getCapacity()
     {
+        GroupByHash groupByHash = groupedTopNBuilder.getGroupByHash();
         checkState(groupByHash != null);
         return groupByHash.getCapacity();
     }
 
     private boolean updateMemoryReservation()
     {
-        // TODO: may need to use trySetMemoryReservation with a compaction to free memory (but that may cause GC pressure)
-        localUserMemoryContext.setBytes(groupedTopNBuilder.getEstimatedSizeInBytes());
+        groupedTopNBuilder.updateMemoryReservations();
         return operatorContext.isWaitingForMemory().isDone();
     }
 

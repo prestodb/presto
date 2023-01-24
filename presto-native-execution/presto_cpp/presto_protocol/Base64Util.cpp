@@ -262,28 +262,7 @@ velox::VectorPtr readRleBlock(
     throw std::runtime_error("Unexpected RLE block. Expected single null.");
   }
 
-  if (type->kind() == velox::TypeKind::SHORT_DECIMAL ||
-      type->kind() == velox::TypeKind::LONG_DECIMAL) {
-    return velox::BaseVector::createNullConstant(type, positionCount, pool);
-  }
-
-  velox::TypeKind typeKind;
-  if (encoding == kByteArray) {
-    typeKind = velox::TypeKind::UNKNOWN;
-  } else if (encoding == kLongArray) {
-    typeKind = velox::TypeKind::BIGINT;
-  } else if (encoding == kIntArray) {
-    typeKind = velox::TypeKind::INTEGER;
-  } else if (encoding == kShortArray) {
-    typeKind = velox::TypeKind::SMALLINT;
-  } else if (encoding == kVariableWidth) {
-    typeKind = velox::TypeKind::VARCHAR;
-  } else {
-    VELOX_FAIL("Unexpected RLE block encoding: {}", encoding);
-  }
-
-  return velox::BaseVector::createConstant(
-      velox::variant(typeKind), positionCount, pool);
+  return velox::BaseVector::createNullConstant(type, positionCount, pool);
 }
 
 void unpackTimestampWithTimeZone(

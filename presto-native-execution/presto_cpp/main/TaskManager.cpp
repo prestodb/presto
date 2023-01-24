@@ -689,7 +689,23 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
       VELOX_USER_FAIL("Calling getResult() on a aborted task: {}", taskId);
     }
     if (prestoTask->error != nullptr) {
-      VELOX_USER_FAIL("Calling getResult() on a failed task: {}", taskId);
+      try {
+        std::rethrow_exception(prestoTask->error);
+      } catch (const VeloxException& e) {
+        VELOX_USER_FAIL(
+            "Calling getResult() on a failed PrestoTask: {}. PrestoTask failure reason: {}",
+            taskId,
+            e.what());
+      } catch (const std::exception& e) {
+        VELOX_USER_FAIL(
+            "Calling getResult() on a failed PrestoTask: {}. PrestoTask failure reason: {}",
+            taskId,
+            e.what());
+      } catch (...) {
+        VELOX_USER_FAIL(
+            "Calling getResult() on a failed PrestoTask: {}. PrestoTask failure reason: UNKNOWN",
+            taskId);
+      }
     }
 
     for (;;) {

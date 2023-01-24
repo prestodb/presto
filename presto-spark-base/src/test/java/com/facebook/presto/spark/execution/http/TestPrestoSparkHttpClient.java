@@ -31,8 +31,8 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.PageTransportErrorException;
 import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.spark.execution.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.HttpNativeExecutionTaskInfoFetcher;
 import com.facebook.presto.spark.execution.HttpNativeExecutionTaskResultFetcher;
 import com.facebook.presto.spark.execution.NativeExecutionProcess;
@@ -117,7 +117,7 @@ public class TestPrestoSparkHttpClient
     private static final Duration NO_DURATION = new Duration(0, TimeUnit.MILLISECONDS);
     private static final JsonCodec<TaskInfo> TASK_INFO_JSON_CODEC = JsonCodec.jsonCodec(TaskInfo.class);
     private static final JsonCodec<PlanFragment> PLAN_FRAGMENT_JSON_CODEC = JsonCodec.jsonCodec(PlanFragment.class);
-    private static final JsonCodec<TaskUpdateRequest> TASK_UPDATE_REQUEST_JSON_CODEC = JsonCodec.jsonCodec(TaskUpdateRequest.class);
+    private static final JsonCodec<BatchTaskUpdateRequest> TASK_UPDATE_REQUEST_JSON_CODEC = JsonCodec.jsonCodec(BatchTaskUpdateRequest.class);
     private static final JsonCodec<ServerInfo> SERVER_INFO_JSON_CODEC = JsonCodec.jsonCodec(ServerInfo.class);
     private static final ScheduledExecutorService errorScheduler = newScheduledThreadPool(4);
     private static final ScheduledExecutorService updateScheduledExecutor = newScheduledThreadPool(4);
@@ -238,6 +238,7 @@ public class TestPrestoSparkHttpClient
                 sources,
                 createPlanFragment(),
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                Optional.empty(),
                 TestingSession.testSessionBuilder().build(),
                 createInitialEmptyOutputBuffers(PARTITIONED));
 
@@ -701,7 +702,8 @@ public class TestPrestoSparkHttpClient
                     taskId,
                     createPlanFragment(),
                     sources,
-                    new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                    new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                    Optional.empty());
             assertNotNull(task);
             assertFalse(task.getTaskInfo().isPresent());
             assertFalse(task.pollResult().isPresent());
@@ -878,8 +880,8 @@ public class TestPrestoSparkHttpClient
                             }
                         }
                         else if (method.equalsIgnoreCase("POST")) {
-                            // POST /v1/task/{taskId}
-                            if (Pattern.compile("\\/v1\\/task\\/[a-zA-Z0-9]+.[0-9]+.[0-9]+.[0-9]+\\z").matcher(path).find()) {
+                            // POST /v1/task/{taskId}/batch
+                            if (Pattern.compile("\\/v1\\/task\\/[a-zA-Z0-9]+.[0-9]+.[0-9]+.[0-9]+\\/batch\\z").matcher(path).find()) {
                                 try {
                                     future.complete(responseHandler.handle(request, responseManager.createTaskInfoResponse(HttpStatus.OK)));
                                 }

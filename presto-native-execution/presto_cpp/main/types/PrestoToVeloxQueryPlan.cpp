@@ -116,27 +116,8 @@ connector::hive::LocationHandle::TableType toTableType(
       return connector::hive::LocationHandle::TableType::kNew;
     case protocol::TableType::EXISTING:
       return connector::hive::LocationHandle::TableType::kExisting;
-    case protocol::TableType::TEMPORARY:
-      return connector::hive::LocationHandle::TableType::kTemporary;
     default:
       VELOX_UNSUPPORTED("Unsupported table type: {}.", toJsonString(tableType));
-  }
-}
-
-connector::hive::LocationHandle::WriteMode toWriteMode(
-    protocol::WriteMode writeMode) {
-  switch (writeMode) {
-    case protocol::WriteMode::STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
-      return connector::hive::LocationHandle::WriteMode::
-          kStageAndMoveToTargetDirectory;
-    case protocol::WriteMode::DIRECT_TO_TARGET_NEW_DIRECTORY:
-      return connector::hive::LocationHandle::WriteMode::
-          kDirectToTargetNewDirectory;
-    case protocol::WriteMode::DIRECT_TO_TARGET_EXISTING_DIRECTORY:
-      return connector::hive::LocationHandle::WriteMode::
-          kDirectToTargetExistingDirectory;
-    default:
-      VELOX_UNSUPPORTED("Unsupported write mode: {}.", toJsonString(writeMode));
   }
 }
 
@@ -145,8 +126,7 @@ std::shared_ptr<connector::hive::LocationHandle> toLocationHandle(
   return std::make_shared<connector::hive::LocationHandle>(
       locationHandle.targetPath,
       locationHandle.writePath,
-      toTableType(locationHandle.tableType),
-      toWriteMode(locationHandle.writeMode));
+      toTableType(locationHandle.tableType));
 }
 
 int64_t toInt64(
@@ -178,6 +158,14 @@ std::unique_ptr<common::BigintRange> bigintRangeToFilter(
     high--;
   }
   return std::make_unique<common::BigintRange>(low, high, nullAllowed);
+}
+
+int64_t dateToInt64(
+    const std::shared_ptr<protocol::Block>& block,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  auto value = exprConverter.getConstantValue(type, *block);
+  return value.value<Date>().days();
 }
 
 double toDouble(
@@ -363,6 +351,30 @@ std::unique_ptr<common::BytesRange> varcharRangeToFilter(
       nullAllowed);
 }
 
+std::unique_ptr<common::BigintRange> dateRangeToFilter(
+    const protocol::Range& range,
+    bool nullAllowed,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  bool lowUnbounded = range.low.valueBlock == nullptr;
+  auto low = lowUnbounded
+      ? std::numeric_limits<int32_t>::min()
+      : dateToInt64(range.low.valueBlock, exprConverter, type);
+  if (!lowUnbounded && range.low.bound == protocol::Bound::ABOVE) {
+    low++;
+  }
+
+  bool highUnbounded = range.high.valueBlock == nullptr;
+  auto high = highUnbounded
+      ? std::numeric_limits<int32_t>::max()
+      : dateToInt64(range.high.valueBlock, exprConverter, type);
+  if (!highUnbounded && range.high.bound == protocol::Bound::BELOW) {
+    high--;
+  }
+
+  return std::make_unique<common::BigintRange>(low, high, nullAllowed);
+}
+
 std::unique_ptr<common::Filter> combineIntegerRanges(
     std::vector<std::unique_ptr<common::BigintRange>>& bigintFilters,
     bool nullAllowed) {
@@ -527,6 +539,8 @@ std::unique_ptr<common::Filter> toFilter(
       return boolRangeToFilter(range, nullAllowed, exprConverter, type);
     case TypeKind::REAL:
       return floatRangeToFilter(range, nullAllowed, exprConverter, type);
+    case TypeKind::DATE:
+      return dateRangeToFilter(range, nullAllowed, exprConverter, type);
     default:
       VELOX_UNSUPPORTED("Unsupported range type: {}", type->toString());
   }
@@ -1759,7 +1773,7 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
       node->columnNames,
       insertTableHandle,
       outputType,
-      connector::WriteProtocol::CommitStrategy::kNoCommit,
+      connector::CommitStrategy::kNoCommit,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -2212,7 +2226,14 @@ velox::core::PlanFragment VeloxQueryPlanConverter::toBatchVeloxQueryPlan(
       std::move(*serializedShuffleWriteInfo),
       std::move(localPartitionNode));
 
-  planFragment.planNode = shuffleWriteNode;
+  // For presto_cpp, the last node must be the PartitionedOutputNode in order to
+  // get the output (e.g actual data or metadata) and send back to coordinator.
+  auto finalPartitionedOutputNode = core::PartitionedOutputNode::single(
+      "final-partitioned-output",
+      shuffleWriteNode->outputType(),
+      {shuffleWriteNode});
+  planFragment.planNode = finalPartitionedOutputNode;
+  LOG(INFO) << planFragment.planNode->toString(true, true);
   return planFragment;
 }
 

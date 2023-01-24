@@ -88,6 +88,10 @@ class PrestoServer {
 
   virtual void registerShuffleInterfaceFactories();
 
+  virtual void registerCustomOperators(){};
+
+  virtual void registerVectorSerdes();
+
   virtual void registerFileSystems();
 
   void initializeAsyncCache();
@@ -115,7 +119,7 @@ class PrestoServer {
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 
   // Instance of AsyncDataCache used for all large allocations.
-  std::shared_ptr<velox::memory::MemoryAllocator> allocator_;
+  std::shared_ptr<velox::cache::AsyncDataCache> cache_;
 
   std::unique_ptr<http::HttpServer> httpServer_;
   std::unique_ptr<SignalHandler> signalHandler_;
