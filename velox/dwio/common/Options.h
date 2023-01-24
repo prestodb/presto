@@ -101,6 +101,7 @@ class RowReaderOptions {
   // operations.
   std::shared_ptr<folly::Executor> decodingExecutor_;
   std::shared_ptr<folly::Executor> ioExecutor_;
+  bool appendRowNumberColumn_ = false;
 
  public:
   RowReaderOptions(const RowReaderOptions& other) {
@@ -114,6 +115,7 @@ class RowReaderOptions {
     metadataFilter_ = other.metadataFilter_;
     returnFlatVector_ = other.returnFlatVector_;
     flatmapNodeIdAsStruct_ = other.flatmapNodeIdAsStruct_;
+    appendRowNumberColumn_ = other.appendRowNumberColumn_;
   }
 
   RowReaderOptions() noexcept
@@ -273,6 +275,18 @@ class RowReaderOptions {
 
   void setIOExecutor(std::shared_ptr<folly::Executor> executor) {
     ioExecutor_ = executor;
+  }
+
+  /*
+   * Set to true, if you want to add a new column to the results containing the
+   * row numbers.
+   */
+  void setAppendRowNumberColumn(bool value) {
+    appendRowNumberColumn_ = value;
+  }
+
+  bool getAppendRowNumberColumn() const {
+    return appendRowNumberColumn_;
   }
 
   const std::shared_ptr<folly::Executor>& getDecodingExecutor() const {
