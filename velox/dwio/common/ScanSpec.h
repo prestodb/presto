@@ -276,6 +276,10 @@ class ScanSpec {
 
   std::string toString() const;
 
+  // Add all fields from RowType to this ScanSpec.  All fields added will be
+  // projected out.
+  void addFields(const RowType&);
+
  private:
   void reorder();
 

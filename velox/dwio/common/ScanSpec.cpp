@@ -340,4 +340,67 @@ std::shared_ptr<ScanSpec> ScanSpec::removeChild(const ScanSpec* child) {
   return nullptr;
 }
 
+namespace {
+
+void makeFieldSpecs(
+    const std::string& pathPrefix,
+    int32_t level,
+    const Type& type,
+    ScanSpec* spec) {
+  constexpr int32_t kNoChannel = -1;
+  auto makeNestedSpec = [&](const std::string& name, int32_t channel) {
+    std::string path = level == 0 ? name : pathPrefix + "." + name;
+    auto fieldSpec = spec->getOrCreateChild(Subfield(path));
+    fieldSpec->setProjectOut(true);
+    if (channel != kNoChannel) {
+      fieldSpec->setChannel(channel);
+    }
+    return path;
+  };
+
+  switch (type.kind()) {
+    case TypeKind::ROW: {
+      auto rowType = type.as<TypeKind::ROW>();
+      for (auto i = 0; i < type.size(); ++i) {
+        makeFieldSpecs(
+            makeNestedSpec(rowType.nameOf(i), i),
+            level + 1,
+            *type.childAt(i),
+            spec);
+      }
+      break;
+    }
+    case TypeKind::MAP: {
+      makeFieldSpecs(
+          makeNestedSpec("keys", kNoChannel),
+          level + 1,
+          *type.childAt(0),
+          spec);
+      makeFieldSpecs(
+          makeNestedSpec("elements", kNoChannel),
+          level + 1,
+          *type.childAt(1),
+          spec);
+      break;
+    }
+    case TypeKind::ARRAY: {
+      makeFieldSpecs(
+          makeNestedSpec("elements", kNoChannel),
+          level + 1,
+          *type.childAt(0),
+          spec);
+      break;
+    }
+
+    default:
+      break;
+  }
+}
+
+} // namespace
+
+void ScanSpec::addFields(const RowType& rowType) {
+  makeFieldSpecs("", 0, rowType, this);
+}
+
 } // namespace facebook::velox::common
