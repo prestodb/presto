@@ -39,6 +39,8 @@ public class S3SelectLineRecordReaderProvider
         switch (dataType) {
             case CSV:
                 return Optional.of(new S3SelectCsvRecordReader(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory));
+            case JSON:
+                return Optional.of(new S3SelectJsonRecordReader(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory));
             default:
                 // return empty if data type is not returned by the serDeMapper or unrecognizable by the LineRecordReader
                 return Optional.empty();

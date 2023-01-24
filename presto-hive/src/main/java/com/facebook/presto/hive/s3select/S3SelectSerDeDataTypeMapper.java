@@ -15,6 +15,7 @@ package com.facebook.presto.hive.s3select;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
+import org.apache.hive.hcatalog.data.JsonSerDe;
 
 import java.util.Map;
 import java.util.Optional;
@@ -24,7 +25,8 @@ public class S3SelectSerDeDataTypeMapper
     // Contains mapping of SerDe class name to corresponding data type.
     // Multiple SerDe classes can be mapped to the same data type.
     private static final Map<String, S3SelectDataType> SERDE_TO_DATA_TYPE_MAPPING = ImmutableMap.of(
-            LazySimpleSerDe.class.getName(), S3SelectDataType.CSV);
+            LazySimpleSerDe.class.getName(), S3SelectDataType.CSV,
+            JsonSerDe.class.getName(), S3SelectDataType.JSON);
 
     private S3SelectSerDeDataTypeMapper() {}
 
