@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -41,10 +44,13 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.ROWS;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestMergeAdjacentWindows
         extends BaseRuleTest
@@ -58,9 +64,19 @@ public class TestMergeAdjacentWindows
             Optional.empty(),
             Optional.empty());
 
+    private static final WindowNode.Frame frameWithRowOffset = new WindowNode.Frame(
+            ROWS,
+            PRECEDING,
+            Optional.of(new VariableReferenceExpression(Optional.empty(), "startValue", BIGINT)),
+            CURRENT_ROW,
+            Optional.empty(),
+            Optional.of("startValue"),
+            Optional.empty());
+
     private static final FunctionHandle SUM_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("sum", fromTypes(DOUBLE));
     private static final FunctionHandle AVG_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("avg", fromTypes(DOUBLE));
     private static final FunctionHandle LAG_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("lag", fromTypes(DOUBLE));
+    private static final FunctionHandle RANK_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", ImmutableList.of());
     private static final String columnAAlias = "ALIAS_A";
     private static final ExpectedValueProvider<WindowNode.Specification> specificationA =
             specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
@@ -129,6 +145,21 @@ public class TestMergeAdjacentWindows
                                         newWindowNodeSpecification(p, "a"),
                                         ImmutableMap.of(p.variable("avg_2"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
                                         p.values(p.variable("a")))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDependentAdjacentWindowsIdenticalSpecificationsWithOffset()
+    {
+        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
+                .on(p ->
+                        p.window(
+                                newWindowNodeSpecification(p, "a", "sortkey"),
+                                ImmutableMap.of(p.variable("avg_1"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, frameWithRowOffset, "a")),
+                                p.window(
+                                        newWindowNodeSpecification(p, "a", "sortkey"),
+                                        ImmutableMap.of(p.variable("startValue"), newWindowNodeFunction("rank", RANK_FUNCTION_HANDLE)),
+                                        p.values(p.variable("a"), p.variable("sortkey")))))
                 .doesNotFire();
     }
 
@@ -219,6 +250,13 @@ public class TestMergeAdjacentWindows
         return new WindowNode.Specification(ImmutableList.of(planBuilder.variable(symbolName, BIGINT)), Optional.empty());
     }
 
+    private static WindowNode.Specification newWindowNodeSpecification(PlanBuilder planBuilder, String symbolName, String sortkey)
+    {
+        return new WindowNode.Specification(ImmutableList.of(planBuilder.variable(symbolName, BIGINT)),
+                Optional.of(new OrderingScheme(
+                        ImmutableList.of(new Ordering(planBuilder.variable(sortkey, BIGINT), SortOrder.ASC_NULLS_FIRST)))));
+    }
+
     private WindowNode.Function newWindowNodeFunction(String name, FunctionHandle functionHandle, String... symbols)
     {
         return new WindowNode.Function(
@@ -227,6 +265,18 @@ public class TestMergeAdjacentWindows
                         functionHandle,
                         BIGINT,
                         Arrays.stream(symbols).map(symbol -> new VariableReferenceExpression(Optional.empty(), symbol, BIGINT)).collect(Collectors.toList())),
+                frame,
+                false);
+    }
+
+    private WindowNode.Function newWindowNodeFunction(String name, FunctionHandle functionHandle, WindowNode.Frame frame, String... symbols)
+    {
+        return new WindowNode.Function(
+                call(
+                        name,
+                        functionHandle,
+                        BIGINT,
+                        Arrays.stream(symbols).map(symbol -> new VariableReferenceExpression(Optional.empty(), symbol, BIGINT)).collect(toImmutableList())),
                 frame,
                 false);
     }
