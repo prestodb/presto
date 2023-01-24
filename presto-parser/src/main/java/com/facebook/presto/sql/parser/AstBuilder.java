@@ -734,6 +734,14 @@ class AstBuilder
             offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), getTextIfPresent(context.offset).orElseThrow(() -> new IllegalStateException("Missing OFFSET row count"))));
         }
 
+        Optional<String> limit = Optional.empty();
+        if (context.LIMIT() != null) {
+            limit = getTextIfPresent(context.limit);
+        }
+        else if (context.FETCH() != null) {
+            limit = getTextIfPresent(context.fetchFirstNRows);
+        }
+
         if (term instanceof QuerySpecification) {
             // When we have a simple query specification
             // followed by order by, offset, limit, fold the order by and limit
@@ -754,7 +762,7 @@ class AstBuilder
                             query.getHaving(),
                             orderBy,
                             offset,
-                            getTextIfPresent(context.limit)),
+                            limit),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
@@ -766,7 +774,7 @@ class AstBuilder
                 term,
                 orderBy,
                 offset,
-                getTextIfPresent(context.limit));
+                limit);
     }
 
     @Override
