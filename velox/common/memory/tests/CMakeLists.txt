@@ -27,11 +27,13 @@ add_executable(
 target_link_libraries(
   velox_memory_test
   velox_memory
+  velox_caching
   velox_exception
   velox_test_util
   gtest
   gtest_main
   ${gflags_LIBRARIES}
+  ${FOLLY_WITH_DEPENDENCIES}
   gmock
   glog::glog)
 
@@ -46,4 +48,5 @@ target_link_libraries(
   gtest
   gtest_main
   ${gflags_LIBRARIES}
+  ${FOLLY_WITH_DEPENDENCIES}
   pthread)

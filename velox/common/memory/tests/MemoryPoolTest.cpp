@@ -18,12 +18,15 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/caching/AsyncDataCache.h"
+#include "velox/common/caching/SsdCache.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/testutil/TestValue.h"
 
 using namespace ::testing;
 using namespace facebook::velox::common::testutil;
+using namespace facebook::velox::cache;
 
 constexpr int64_t KB = 1024L;
 constexpr int64_t MB = 1024L * KB;
@@ -33,23 +36,59 @@ namespace facebook {
 namespace velox {
 namespace memory {
 
-class MemoryPoolTest : public testing::TestWithParam<bool> {
+struct TestParam {
+  bool useMmap;
+  bool useCache;
+
+  TestParam(bool _useMmap, bool _useCache)
+      : useMmap(_useMmap), useCache(_useCache) {}
+
+  std::string toString() const {
+    return fmt::format("useMmap{} useCache{}", useMmap, useCache);
+  }
+};
+
+class MemoryPoolTest : public testing::TestWithParam<TestParam> {
+ public:
+  static const std::vector<TestParam> getTestParams() {
+    std::vector<TestParam> params;
+    params.push_back({true, true});
+    params.push_back({true, false});
+    params.push_back({false, true});
+    params.push_back({false, false});
+    return params;
+  }
+
  protected:
   static void SetUpTestCase() {
     TestValue::enable();
   }
 
-  MemoryPoolTest() : useMmap_(GetParam()) {}
+  MemoryPoolTest()
+      : useMmap_(GetParam().useMmap), useCache_(GetParam().useCache) {}
 
   void SetUp() override {
     // For duration of the test, make a local MmapAllocator that will not be
     // seen by any other test.
+    const uint64_t kCapacity = 8UL << 30;
     if (useMmap_) {
       MmapAllocator::Options opts{8UL << 30};
       mmapAllocator_ = std::make_shared<MmapAllocator>(opts);
-      MemoryAllocator::setDefaultInstance(mmapAllocator_.get());
+      if (useCache_) {
+        cache_ = std::make_shared<AsyncDataCache>(
+            mmapAllocator_, kCapacity, nullptr);
+        MemoryAllocator::setDefaultInstance(cache_.get());
+      } else {
+        MemoryAllocator::setDefaultInstance(mmapAllocator_.get());
+      }
     } else {
-      MemoryAllocator::setDefaultInstance(nullptr);
+      if (useCache_) {
+        cache_ = std::make_shared<AsyncDataCache>(
+            MemoryAllocator::createDefaultInstance(), kCapacity, nullptr);
+        MemoryAllocator::setDefaultInstance(cache_.get());
+      } else {
+        MemoryAllocator::setDefaultInstance(nullptr);
+      }
     }
     const auto seed =
         std::chrono::system_clock::now().time_since_epoch().count();
@@ -58,6 +97,9 @@ class MemoryPoolTest : public testing::TestWithParam<bool> {
   }
 
   void TearDown() override {
+    if (mmapAllocator_ != nullptr) {
+      mmapAllocator_->testingClearFailureInjection();
+    }
     MmapAllocator::setDefaultInstance(nullptr);
   }
 
@@ -72,8 +114,10 @@ class MemoryPoolTest : public testing::TestWithParam<bool> {
   }
 
   const bool useMmap_;
+  const bool useCache_;
   folly::Random::DefaultGenerator rng_;
   std::shared_ptr<MmapAllocator> mmapAllocator_;
+  std::shared_ptr<AsyncDataCache> cache_;
 };
 
 TEST(MemoryPoolTest, Ctor) {
@@ -728,23 +772,26 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, contiguousAllocateError) {
   auto manager = getMemoryManager(8 * GB);
   auto pool = manager->getChild();
   if (useMmap_) {
-    auto instance =
-        dynamic_cast<MmapAllocator*>(MemoryAllocator::getInstance());
-    instance->testingInjectFailure(MmapAllocator::Failure::kMmap);
+    mmapAllocator_->testingSetFailureInjection(
+        MmapAllocator::Failure::kMmap, true);
   }
-  std::atomic<bool> testingInjectFailureOnce{true};
+  std::atomic<bool> injectFailure = true;
   SCOPED_TESTVALUE_SET(
       "facebook::velox::memory::MemoryAllocatorImpl::allocateContiguousImpl",
       std::function<void(bool*)>([&](bool* testFlag) {
-        if (!testingInjectFailureOnce.exchange(false)) {
-          return;
+        if (injectFailure) {
+          *testFlag = true;
         }
-        *testFlag = true;
       }));
   constexpr MachinePageCount kAllocSize = 8;
   std::unique_ptr<MemoryAllocator::ContiguousAllocation> allocation(
       new MemoryAllocator::ContiguousAllocation());
   ASSERT_FALSE(pool->allocateContiguous(kAllocSize, *allocation));
+  ASSERT_TRUE(allocation->empty());
+  injectFailure = false;
+  if (useMmap_) {
+    mmapAllocator_->testingClearFailureInjection();
+  }
   ASSERT_TRUE(pool->allocateContiguous(kAllocSize, *allocation));
   pool->freeContiguous(*allocation);
   ASSERT_TRUE(allocation->empty());
@@ -858,35 +905,71 @@ TEST_P(MemoryPoolTest, nonContiguousAllocateExceedLimit) {
 DEBUG_ONLY_TEST_P(MemoryPoolTest, nonContiguousAllocateError) {
   auto manager = getMemoryManager(8 * GB);
   auto pool = manager->getChild();
-  const std::string testValueStr = useMmap_
-      ? "facebook::velox::memory::MmapAllocator::allocateNonContiguous"
-      : "facebook::velox::memory::MemoryAllocatorImpl::allocateNonContiguous";
-  std::atomic<bool> testingInjectFailureOnce{true};
+  if (useMmap_) {
+    mmapAllocator_->testingSetFailureInjection(
+        MmapAllocator::Failure::kAllocate, true);
+  }
+  std::atomic<bool> injectFailure{true};
   SCOPED_TESTVALUE_SET(
-      testValueStr, std::function<void(bool*)>([&](bool* testFlag) {
-        if (!testingInjectFailureOnce.exchange(false)) {
+      "facebook::velox::memory::MemoryAllocatorImpl::allocateNonContiguous",
+      std::function<void(bool*)>([&](bool* testFlag) {
+        if (!injectFailure) {
           return;
         }
-        if (useMmap_) {
-          *testFlag = false;
-        } else {
-          *testFlag = true;
-        }
+        *testFlag = true;
       }));
 
   constexpr MachinePageCount kAllocSize = 8;
   std::unique_ptr<MemoryAllocator::Allocation> allocation(
       new MemoryAllocator::Allocation());
   ASSERT_FALSE(pool->allocateNonContiguous(kAllocSize, *allocation));
+  ASSERT_TRUE(allocation->empty());
+  injectFailure = false;
+  if (useMmap_) {
+    mmapAllocator_->testingClearFailureInjection();
+  }
   ASSERT_TRUE(pool->allocateNonContiguous(kAllocSize, *allocation));
   pool->freeNonContiguous(*allocation);
+  ASSERT_TRUE(allocation->empty());
+}
+
+DEBUG_ONLY_TEST_P(MemoryPoolTest, transientNonContiguousAllocateError) {
+  auto manager = getMemoryManager(8 * GB);
+  auto pool = manager->getChild();
+  if (useMmap_) {
+    mmapAllocator_->testingSetFailureInjection(
+        MmapAllocator::Failure::kAllocate);
+  }
+  std::atomic<bool> testingSetFailureInjectionOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::MemoryAllocatorImpl::allocateNonContiguous",
+      std::function<void(bool*)>([&](bool* testFlag) {
+        if (!testingSetFailureInjectionOnce.exchange(false)) {
+          return;
+        }
+        *testFlag = true;
+      }));
+
+  constexpr MachinePageCount kAllocSize = 8;
+  std::unique_ptr<MemoryAllocator::Allocation> allocation(
+      new MemoryAllocator::Allocation());
+  if (useCache_) {
+    // We expect async data cache will retry the transient memory allocation
+    // failures.
+    ASSERT_TRUE(pool->allocateNonContiguous(kAllocSize, *allocation));
+    pool->freeNonContiguous(*allocation);
+  } else {
+    ASSERT_FALSE(pool->allocateNonContiguous(kAllocSize, *allocation));
+    ASSERT_TRUE(pool->allocateNonContiguous(kAllocSize, *allocation));
+    pool->freeNonContiguous(*allocation);
+  }
   ASSERT_TRUE(allocation->empty());
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     MemoryPoolTestSuite,
     MemoryPoolTest,
-    testing::Values(true, false));
+    testing::ValuesIn(MemoryPoolTest::getTestParams()));
 
 } // namespace memory
 } // namespace velox

@@ -781,7 +781,7 @@ TEST_P(MemoryAllocatorTest, allocContiguousFail) {
   // kLargeSize already in large[0], 1/2 of kLargeSize free and
   // kSmallSize given as collateral. This does not go through because
   // we inject a failure in advising away the collateral.
-  instance->testingInjectFailure(MmapAllocator::Failure::kMadvise);
+  instance->testingSetFailureInjection(MmapAllocator::Failure::kMadvise);
   EXPECT_FALSE(instance->allocateContiguous(
       kLargeSize + kSmallSize, allocations.back().get(), large, trackCallback));
   EXPECT_TRUE(instance->checkConsistency());
@@ -795,7 +795,7 @@ TEST_P(MemoryAllocatorTest, allocContiguousFail) {
   trackedBytes = 0;
   EXPECT_TRUE(instance->allocateContiguous(
       kLargeSize / 2, nullptr, large, trackCallback));
-  instance->testingInjectFailure(MmapAllocator::Failure::kMmap);
+  instance->testingSetFailureInjection(MmapAllocator::Failure::kMmap);
   // Should go through because 1/2 of kLargeSize + kSmallSize free and 1/2 of
   // kLargeSize already in large. Fails because mmap after advise away fails.
   EXPECT_FALSE(instance->allocateContiguous(
@@ -1030,20 +1030,18 @@ DEBUG_ONLY_TEST_P(
   }
   ASSERT_EQ(memoryUsageTracker_->currentBytes(), 0);
 
-  const std::string testValueStr = useMmap_
-      ? "facebook::velox::memory::MmapAllocator::allocateNonContiguous"
-      : "facebook::velox::memory::MemoryAllocatorImpl::allocateNonContiguous";
+  if (useMmap_) {
+    mmapAllocator_->testingSetFailureInjection(
+        MmapAllocator::Failure::kAllocate);
+  }
   std::atomic<bool> testingInjectFailureOnce{true};
   SCOPED_TESTVALUE_SET(
-      testValueStr, std::function<void(bool*)>([&](bool* testFlag) {
+      "facebook::velox::memory::MemoryAllocatorImpl::allocateNonContiguous",
+      std::function<void(bool*)>([&](bool* testFlag) {
         if (!testingInjectFailureOnce.exchange(false)) {
           return;
         }
-        if (useMmap_) {
-          *testFlag = false;
-        } else {
-          *testFlag = true;
-        }
+        *testFlag = true;
       }));
 
   constexpr MachinePageCount kAllocSize = 8;
@@ -1066,7 +1064,7 @@ TEST_P(MemoryAllocatorTest, contiguousScopedMemoryAllocatorAllocationFailure) {
   std::vector<MmapAllocator::Failure> failureTypes(
       {MmapAllocator::Failure::kMadvise, MmapAllocator::Failure::kMmap});
   for (const auto& failure : failureTypes) {
-    mmapAllocator_->testingInjectFailure(failure);
+    mmapAllocator_->testingSetFailureInjection(failure);
     ASSERT_EQ(memoryUsageTracker_->currentBytes(), 0);
 
     constexpr MachinePageCount kAllocSize = 8;
@@ -1075,7 +1073,7 @@ TEST_P(MemoryAllocatorTest, contiguousScopedMemoryAllocatorAllocationFailure) {
     ASSERT_FALSE(
         instance_->allocateContiguous(kAllocSize, nullptr, *allocation));
     ASSERT_EQ(memoryUsageTracker_->currentBytes(), 0);
-    mmapAllocator_->testingInjectFailure(MmapAllocator::Failure::kNone);
+    mmapAllocator_->testingSetFailureInjection(MmapAllocator::Failure::kNone);
     ASSERT_TRUE(
         instance_->allocateContiguous(kAllocSize, nullptr, *allocation));
     ASSERT_GT(memoryUsageTracker_->currentBytes(), 0);

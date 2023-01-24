@@ -87,12 +87,11 @@ bool MmapAllocator::allocateNonContiguous(
           success = sizeClasses_[mix.sizeIndices[i]]->allocate(
               mix.sizeCounts[i], newMapsNeeded, out);
         });
-    if (TestValue::enabled()) {
-      // NOTE: the test callback might overwrite 'success' to inject an
-      // allocation failure for test purpose.
-      TestValue::adjust(
-          "facebook::velox::memory::MmapAllocator::allocateNonContiguous",
-          &success);
+    if (success && injectedFailure_ == Failure::kAllocate) {
+      success = false;
+      if (!isPersistentFailureInjection_) {
+        injectedFailure_ = Failure::kNone;
+      }
     }
     if (!success) {
       // This does not normally happen since any size class can accommodate
@@ -127,7 +126,9 @@ bool MmapAllocator::ensureEnoughMappedPages(int32_t newMappedNeeded) {
   std::lock_guard<std::mutex> l(sizeClassBalanceMutex_);
   if (injectedFailure_ == Failure::kMadvise) {
     // Mimic case of not finding anything to advise away.
-    injectedFailure_ = Failure::kNone;
+    if (!isPersistentFailureInjection_) {
+      injectedFailure_ = Failure::kNone;
+    }
     return false;
   }
   const auto totalMaps =
@@ -292,8 +293,10 @@ bool MmapAllocator::allocateContiguousImpl(
   void* data;
   if (injectedFailure_ == Failure::kMmap) {
     // Mimic running out of mmaps for process.
-    injectedFailure_ = Failure::kNone;
     data = nullptr;
+    if (!isPersistentFailureInjection_) {
+      injectedFailure_ = Failure::kNone;
+    }
   } else {
     if (useMmapArena_) {
       std::lock_guard<std::mutex> l(arenaMutex_);
