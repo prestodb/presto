@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <string>
 
 #ifdef __BMI2__
 #include <x86intrin.h>
