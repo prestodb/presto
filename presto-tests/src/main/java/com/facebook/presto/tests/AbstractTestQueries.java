@@ -6343,4 +6343,24 @@ public abstract class AbstractTestQueries
         assertQuery("select * from (SELECT * from unnest(ARRAY[2, 3], ARRAY[2, 3]) WITH ORDINALITY AS r(r1, r2, ord)) cross join unnest(ARRAY[2, 3], ARRAY[2, 3])",
                 "VALUES (2, 2, 1, 2, 2), (2, 2, 1, 3, 3), (3, 3, 2, 2, 2), (3, 3, 2, 3, 3)");
     }
+
+    @Test
+    public void testDependentWindowFunction()
+    {
+        // rank() from window function is used as input to parent window function
+        String sql = "SELECT a, b, c, rnk, SUM(c) OVER (PARTITION BY a ORDER BY b rows BETWEEN rnk PRECEDING AND rnk FOLLOWING)" +
+                "FROM (" +
+                "    SELECT" +
+                "        a, b, c, RANK() OVER (PARTITION BY a ORDER BY b) AS rnk" +
+                "    FROM (" +
+                "        VALUES (1, 1, 1), (1, 2, 1), (1, 3, 1), (2, 1, 1), (2, 2, 1), (2, 3, 1)" +
+                "    ) AS t(a, b, c)" +
+                ")";
+        assertQuery(sql, "VALUES (1, 1, 1, 1, 2), (1, 2, 1, 2, 3), (1, 3, 1, 3, 3), (2, 1, 1, 1, 2), (2, 2, 1, 2, 3), (2, 3, 1, 3, 3)");
+
+        sql = "select orderkey, orderpriority, totalprice, rnk, " +
+                "avg(totalprice) over (partition by orderpriority order by orderkey rows between rnk preceding and rnk following) " +
+                "from (select orderkey, orderpriority, totalprice, rank() over(partition by orderpriority order by orderkey) as rnk from orders)";
+        assertQuery(sql);
+    }
 }
