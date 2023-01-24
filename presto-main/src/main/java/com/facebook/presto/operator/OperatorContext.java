@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -124,6 +125,10 @@ public class OperatorContext
         this.revocableMemoryFuture.get().set(null);
         this.operatorMemoryContext = requireNonNull(operatorMemoryContext, "operatorMemoryContext is null");
         operatorMemoryContext.initializeLocalMemoryContexts(operatorType);
+        //TODO added temporarily for debugging
+        RuntimeStats poolTypeStats = new RuntimeStats();
+        poolTypeStats.addMetricValue(driverContext.getPipelineContext().getTaskContext().getPoolType(), NONE, 1);
+        runtimeStats.update(poolTypeStats);
     }
 
     public int getOperatorId()
