@@ -100,6 +100,9 @@ void registerArrayFunctions() {
   registerArrayJoinFunctions<Timestamp>();
   registerArrayJoinFunctions<Date>();
 
+  registerFunction<ArrayAverageFunction, double, Array<double>>(
+      {"array_average"});
+
   registerArrayCombinationsFunctions<int8_t>();
   registerArrayCombinationsFunctions<int16_t>();
   registerArrayCombinationsFunctions<int32_t>();
