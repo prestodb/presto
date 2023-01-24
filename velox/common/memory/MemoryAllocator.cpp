@@ -124,6 +124,26 @@ std::string MemoryAllocator::ContiguousAllocation::toString() const {
       pool_ == nullptr ? "null" : "set");
 }
 
+std::string MemoryAllocator::kindString(Kind kind) {
+  switch (kind) {
+    case Kind::kStd:
+      return "STD";
+    case Kind::kMmap:
+      return "MMAP";
+    case Kind::kCache:
+      return "CACHE";
+    case Kind::kTest:
+      return "TEST";
+    default:
+      return fmt::format("UNKNOWN: {}", static_cast<int>(kind));
+  }
+}
+
+std::ostream& operator<<(std::ostream& out, const MemoryAllocator::Kind& kind) {
+  out << MemoryAllocator::kindString(kind);
+  return out;
+}
+
 MemoryAllocator::SizeMix MemoryAllocator::allocationSize(
     MachinePageCount numPages,
     MachinePageCount minSizeClass) const {
@@ -246,7 +266,10 @@ class MemoryAllocatorImpl : public MemoryAllocator {
 
 } // namespace
 
-MemoryAllocatorImpl::MemoryAllocatorImpl() : numAllocated_(0), numMapped_(0) {}
+MemoryAllocatorImpl::MemoryAllocatorImpl()
+    : MemoryAllocator(MemoryAllocator::Kind::kStd),
+      numAllocated_(0),
+      numMapped_(0) {}
 
 bool MemoryAllocatorImpl::allocateNonContiguous(
     MachinePageCount numPages,

@@ -42,9 +42,11 @@ static constexpr MachinePageCount kCapacity =
 class MockMemoryAllocator final : public MemoryAllocator {
  public:
   MockMemoryAllocator(
-      MemoryAllocator* FOLLY_NONNULL allocator,
+      MemoryAllocator* allocator,
       std::shared_ptr<MemoryUsageTracker> tracker)
-      : allocator_(allocator), tracker_(std::move(tracker)) {}
+      : MemoryAllocator(MemoryAllocator::Kind::kTest),
+        allocator_(allocator),
+        tracker_(std::move(tracker)) {}
 
   bool allocateNonContiguous(
       MachinePageCount numPages,
@@ -181,6 +183,21 @@ class MemoryAllocatorTest : public testing::TestWithParam<TestParam> {
     memoryManager_ = std::make_unique<MemoryManager>(IMemoryManager::Options{
         .capacity = kMaxMemory, .allocator = instance_});
     pool_ = memoryManager_->getChild();
+    if (hasMemoryTracker_) {
+      ASSERT_EQ(instance_->kind(), MemoryAllocator::Kind::kTest);
+      ASSERT_EQ(MemoryAllocator::kindString(instance_->kind()), "TEST");
+    } else {
+      if (useMmap_) {
+        ASSERT_EQ(instance_->kind(), MemoryAllocator::Kind::kMmap);
+        ASSERT_EQ(MemoryAllocator::kindString(instance_->kind()), "MMAP");
+      } else {
+        ASSERT_EQ(instance_->kind(), MemoryAllocator::Kind::kStd);
+        ASSERT_EQ(MemoryAllocator::kindString(instance_->kind()), "STD");
+      }
+    }
+    ASSERT_EQ(
+        MemoryAllocator::kindString(static_cast<MemoryAllocator::Kind>(100)),
+        "UNKNOWN: 100");
   }
 
   void TearDown() override {

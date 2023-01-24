@@ -26,7 +26,7 @@ using facebook::velox::common::testutil::TestValue;
 namespace facebook::velox::memory {
 
 MmapAllocator::MmapAllocator(const Options& options)
-    : MemoryAllocator(),
+    : MemoryAllocator(MemoryAllocator::Kind::kMmap),
       useMmapArena_(options.useMmapArena),
       numAllocated_(0),
       numMapped_(0),

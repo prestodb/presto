@@ -160,6 +160,31 @@ using MachinePageCount = uint64_t;
 /// tracking while delegating the allocation to a root allocator.
 class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
  public:
+  /// Defines the memory allocator kinds.
+  enum class Kind {
+    /// The default memory allocator kind which is implemented by
+    /// MemoryAllocatorImpl. It delegates the memory allocations to std::malloc.
+    kStd,
+    /// The memory allocator kind which is implemented by MmapAllocator. It
+    /// manages the large chunk of memory allocations on its own by leveraging
+    /// mmap and madvice, to optimize the memory fragmentation in the long
+    /// running service such as Prestissimo.
+    kMmap,
+    /// The memory allocator kind which is implemented by AsyncDataCache to
+    /// integrate with the file cache management. It is a wrapper on top of an
+    /// actual memory allocator. It delegates the memory allocation to the
+    /// associated memory allocator and might evict file cache to make space for
+    /// the memory allocations and retries on allocation failures.
+    kCache,
+    /// The memory allocator kind which is implemented by MockMemoryAllocator
+    /// and used for test only. It is a wrapper on top of an actual memory
+    /// allocator. It uses MemoryUsageTracker to count the memory usage and
+    /// delegates the memory allocations to the associated memory allocator.
+    kTest,
+  };
+
+  static std::string kindString(Kind kind);
+
   /// Returns the process-wide default instance or an application-supplied
   /// custom instance set via setDefaultInstance().
   static MemoryAllocator* FOLLY_NONNULL getInstance();
@@ -175,7 +200,6 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
 
   static void testingDestroyInstance();
 
-  MemoryAllocator() = default;
   virtual ~MemoryAllocator() = default;
 
   static constexpr uint64_t kPageSize = 4096;
@@ -183,7 +207,6 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// Allocations smaller than 3K should go to malloc.
   static constexpr int32_t kMaxMallocBytes = 3072;
   static constexpr uint16_t kMinAlignment = alignof(max_align_t);
-  ;
   static constexpr uint16_t kMaxAlignment = 64;
 
   /// Represents a number of consecutive pages of kPageSize bytes.
@@ -387,6 +410,10 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
 
   using ReservationCallback = std::function<void(int64_t, bool)>;
 
+  Kind kind() const {
+    return kind_;
+  }
+
   /// Allocates one or more runs that add up to at least 'numPages', with the
   /// smallest run being at least 'minSizeClass' pages. 'minSizeClass' must be
   /// <= the size of the largest size class. The new memory is returned in 'out'
@@ -500,6 +527,8 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   static void alignmentCheck(uint64_t allocateBytes, uint16_t alignmentBytes);
 
  protected:
+  explicit MemoryAllocator(Kind kind) : kind_(kind) {}
+
   // Returns the size class size that corresponds to 'bytes'.
   static MachinePageCount roundUpToSizeClassSize(
       size_t bytes,
@@ -531,6 +560,8 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   const std::vector<MachinePageCount>
       sizeClassSizes_{1, 2, 4, 8, 16, 32, 64, 128, 256};
 
+  const Kind kind_;
+
  private:
   static std::mutex initMutex_;
   // Singleton instance.
@@ -539,4 +570,6 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   // returned by getInstance().
   static MemoryAllocator* FOLLY_NULLABLE customInstance_;
 };
+
+std::ostream& operator<<(std::ostream& out, const MemoryAllocator::Kind& kind);
 } // namespace facebook::velox::memory
