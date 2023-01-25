@@ -15,6 +15,7 @@
  */
 
 #include <optional>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -807,5 +808,30 @@ TEST_F(ArrayPositionTest, mapWithInstance) {
   testPositionOfMapDictionaryEncoding({a, a, a}, 2, {0, 0, 0});
   testPositionOfMapDictionaryEncoding({b, b, c}, -1, {3, 1, 3});
   testPositionOfMapDictionaryEncoding({d, d, d}, 1, {0, 0, 0});
+}
+
+TEST_F(ArrayPositionTest, invalidInstance) {
+  auto input = makeRowVector({
+      makeArrayVector<int64_t>({{1, 2, 3}, {4, 5}}),
+      makeFlatVector<int64_t>({1, 4}),
+      makeFlatVector<int32_t>({0, 1}),
+  });
+
+  // Flat element and instance vectors.
+  VELOX_ASSERT_THROW(
+      evaluate("array_position(c0, c1, c2)", input),
+      "array_position cannot take a 0-valued instance argument");
+
+  auto result = evaluate("try(array_position(c0, c1, c2))", input);
+  assertEqualVectors(
+      makeNullableFlatVector<int64_t>({std::nullopt, 1}), result);
+
+  // Constant element and instance vectors.
+  VELOX_ASSERT_THROW(
+      evaluate("array_position(c0, 1, 0)", input),
+      "array_position cannot take a 0-valued instance argument");
+
+  result = evaluate("try(array_position(c0, 1, 0))", input);
+  assertEqualVectors(makeNullConstant(TypeKind::BIGINT, 2), result);
 }
 } // namespace
