@@ -30,8 +30,6 @@ import java.io.Closeable;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Verify.verify;
-
 public class MergingHashAggregationBuilder
         implements Closeable
 {
@@ -107,8 +105,9 @@ public class MergingHashAggregationBuilder
                 if (!inputFinished) {
                     Page inputPage = inputPageOptional.get();
                     boolean done = hashAggregationBuilder.processPage(inputPage).process();
-                    // TODO: this class does not yield wrt memory limit; enable it
-                    verify(done);
+                    if (!done) {
+                        return TransformationState.blocked(operatorContext.isWaitingForMemory());
+                    }
                     memorySize = hashAggregationBuilder.getSizeInMemory();
                     systemMemoryContext.setBytes(memorySize);
 
@@ -149,7 +148,6 @@ public class MergingHashAggregationBuilder
                 Optional.of(DataSize.succinctBytes(0)),
                 Optional.of(overwriteIntermediateChannelOffset),
                 joinCompiler,
-                false,
                 false);
     }
 }

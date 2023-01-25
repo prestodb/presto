@@ -574,7 +574,6 @@ public class HashAggregationOperator
                     operatorContext,
                     maxPartialMemory,
                     joinCompiler,
-                    true,
                     useSystemMemory);
         }
         else {

@@ -77,7 +77,6 @@ public class InMemoryHashAggregationBuilder
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
             JoinCompiler joinCompiler,
-            boolean yieldForMemoryReservation,
             boolean useSystemMemory)
     {
         this(accumulatorFactories,
@@ -90,7 +89,6 @@ public class InMemoryHashAggregationBuilder
                 maxPartialMemory,
                 Optional.empty(),
                 joinCompiler,
-                yieldForMemoryReservation,
                 useSystemMemory);
     }
 
@@ -105,22 +103,8 @@ public class InMemoryHashAggregationBuilder
             Optional<DataSize> maxPartialMemory,
             Optional<Integer> overwriteIntermediateChannelOffset,
             JoinCompiler joinCompiler,
-            boolean yieldForMemoryReservation,
             boolean useSystemMemory)
     {
-        UpdateMemory updateMemory;
-        if (yieldForMemoryReservation) {
-            updateMemory = this::updateMemoryWithYieldInfo;
-        }
-        else {
-            // Report memory usage but do not yield for memory.
-            // This is specially used for spillable hash aggregation operator.
-            // TODO: revisit this when spillable hash aggregation operator is turned on
-            updateMemory = () -> {
-                updateMemoryWithYieldInfo();
-                return true;
-            };
-        }
         this.groupByHash = createGroupByHash(
                 groupByTypes,
                 Ints.toArray(groupByChannels),
@@ -128,7 +112,7 @@ public class InMemoryHashAggregationBuilder
                 expectedGroups,
                 isDictionaryAggregationEnabled(operatorContext.getSession()),
                 joinCompiler,
-                updateMemory);
+                this::updateMemoryWithYieldInfo);
         this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.map(dataSize -> OptionalLong.of(dataSize.toBytes())).orElseGet(OptionalLong::empty);
@@ -145,7 +129,7 @@ public class InMemoryHashAggregationBuilder
             if (overwriteIntermediateChannelOffset.isPresent()) {
                 overwriteIntermediateChannel = Optional.of(overwriteIntermediateChannelOffset.get() + i);
             }
-            builder.add(new Aggregator(accumulatorFactory, step, overwriteIntermediateChannel, updateMemory));
+            builder.add(new Aggregator(accumulatorFactory, step, overwriteIntermediateChannel, this::updateMemoryWithYieldInfo));
         }
         aggregators = builder.build();
     }
