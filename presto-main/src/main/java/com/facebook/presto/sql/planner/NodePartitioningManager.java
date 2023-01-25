@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
@@ -113,18 +114,18 @@ public class NodePartitioningManager
                 partitioningHandle.getConnectorHandle());
     }
 
-    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
+    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, Optional<Predicate<Node>> nodePredicate)
     {
         requireNonNull(session, "session is null");
         requireNonNull(partitioningHandle, "partitioningHandle is null");
 
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getNodePartitionMap(session, nodeScheduler);
+            return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getNodePartitionMap(session, nodeScheduler, nodePredicate);
         }
 
         ConnectorId connectorId = partitioningHandle.getConnectorId()
                 .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
-        ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
+        ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle, nodePredicate);
         // safety check for crazy partitioning
         checkArgument(connectorBucketNodeMap.getBucketCount() < 1_000_000, "Too many buckets in partitioning: %s", connectorBucketNodeMap.getBucketCount());
 
@@ -172,7 +173,7 @@ public class NodePartitioningManager
 
     public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, boolean preferDynamic)
     {
-        ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
+        ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle, Optional.empty());
 
         NodeSelectionStrategy nodeSelectionStrategy = connectorBucketNodeMap.getNodeSelectionStrategy();
         switch (nodeSelectionStrategy) {
@@ -205,12 +206,12 @@ public class NodePartitioningManager
                 .collect(toImmutableList());
     }
 
-    private ConnectorBucketNodeMap getConnectorBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
+    private ConnectorBucketNodeMap getConnectorBucketNodeMap(Session session, PartitioningHandle partitioningHandle, Optional<Predicate<Node>> nodePredicate)
     {
         checkArgument(!(partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle));
         ConnectorId connectorId = partitioningHandle.getConnectorId()
                 .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
-        List<Node> nodes = getNodes(session, connectorId);
+        List<Node> nodes = getNodes(session, connectorId, nodePredicate);
 
         ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().get());
 
@@ -261,10 +262,10 @@ public class NodePartitioningManager
         return distribution.build();
     }
 
-    public List<Node> getNodes(Session session, ConnectorId connectorId)
+    public List<Node> getNodes(Session session, ConnectorId connectorId, Optional<Predicate<Node>> nodePredicate)
     {
         // Nodes returned by the node selector are already sorted based on nodeIdentifier. No need to sort again
-        List<InternalNode> allNodes = nodeScheduler.createNodeSelector(session, connectorId).getAllNodes();
+        List<InternalNode> allNodes = nodeScheduler.createNodeSelector(session, connectorId, nodePredicate).getAllNodes();
 
         ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
         int nodeCount = allNodes.size();

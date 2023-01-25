@@ -179,11 +179,12 @@ public class SectionExecutionFactory
         // Only fetch a distribution once per section to ensure all stages see the same machine assignments
         Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
         TableWriteInfo tableWriteInfo = createTableWriteInfo(section.getPlan(), metadata, session);
+        Optional<Predicate<Node>> nodePredicate = getNodePoolSelectionPredicate(section.getPlan());
         List<StageExecutionAndScheduler> sectionStages = createStreamingLinkedStageExecutions(
                 session,
                 locationsConsumer,
                 section.getPlan().withBucketToPartition(bucketToPartition),
-                partitioningHandle -> partitioningCache.computeIfAbsent(partitioningHandle, handle -> nodePartitioningManager.getNodePartitioningMap(session, handle)),
+                partitioningHandle -> partitioningCache.computeIfAbsent(partitioningHandle, handle -> nodePartitioningManager.getNodePartitioningMap(session, handle, nodePredicate)),
                 tableWriteInfo,
                 Optional.empty(),
                 summarizeTaskInfo,

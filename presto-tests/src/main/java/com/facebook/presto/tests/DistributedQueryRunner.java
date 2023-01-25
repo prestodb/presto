@@ -211,7 +211,7 @@ public class DistributedQueryRunner
                 for (int i = (coordinatorCount + (resourceManagerEnabled ? resourceManagerCount : 0)); i < nodeCount; i++) {
                     String workerPool = i % 2 == 0 ? "leaf" : "intermediate";
                     Map<String, String> workerProperties = new HashMap<>(extraProperties);
-                    workerProperties.put("pool_type", workerPool);
+                    workerProperties.put("pool-type", workerPool);
                     TestingPrestoServer worker = closer.register(createTestingPrestoServer(
                                     discoveryUrl,
                                     false,
