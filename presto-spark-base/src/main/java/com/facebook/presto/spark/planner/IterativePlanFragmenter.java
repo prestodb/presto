@@ -302,6 +302,11 @@ public class IterativePlanFragmenter
             return remainingPlan;
         }
 
+        public boolean hasRemainingPlan()
+        {
+            return remainingPlan.isPresent();
+        }
+
         public List<SubPlan> getReadyFragments()
         {
             return readyFragments;
