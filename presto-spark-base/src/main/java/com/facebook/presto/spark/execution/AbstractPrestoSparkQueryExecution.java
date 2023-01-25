@@ -20,10 +20,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateTimer;
 import com.facebook.presto.execution.StageInfo;
@@ -68,10 +68,10 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.page.PagesSerde;
-import com.facebook.presto.spi.statistics.RuntimeSourceInfo;
 import com.facebook.presto.spi.storage.StorageCapabilities;
 import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempStorage;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -95,13 +95,11 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.ShuffledRDD;
 import org.apache.spark.util.CollectionAccumulator;
-import org.pcollections.HashTreePMap;
 import scala.Tuple2;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -187,6 +185,8 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected final long queryCompletionDeadline;
     protected final TempStorage tempStorage;
     protected final NodeMemoryConfig nodeMemoryConfig;
+    protected final FeaturesConfig featuresConfig;
+    protected final QueryManagerConfig queryManagerConfig;
     protected final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
     protected final Optional<ErrorClassifier> errorClassifier;
     protected final JavaSparkContext sparkContext;
@@ -225,6 +225,8 @@ public abstract class AbstractPrestoSparkQueryExecution
             Optional<String> queryDataOutputLocation,
             TempStorage tempStorage,
             NodeMemoryConfig nodeMemoryConfig,
+            FeaturesConfig featuresConfig,
+            QueryManagerConfig queryManagerConfig,
             Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics,
             Optional<ErrorClassifier> errorClassifier,
             PrestoSparkPlanFragmenter planFragmenter,
@@ -260,6 +262,8 @@ public abstract class AbstractPrestoSparkQueryExecution
         this.queryDataOutputLocation = requireNonNull(queryDataOutputLocation, "queryDataOutputLocation is null");
         this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
+        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
+        this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.waitTimeMetrics = requireNonNull(waitTimeMetrics, "waitTimeMetrics is null");
         this.errorClassifier = requireNonNull(errorClassifier, "errorClassifier is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
@@ -823,15 +827,6 @@ public abstract class AbstractPrestoSparkQueryExecution
             mapOutputStatisticsFutureAction = sparkContext.sc().submitMapStage(shuffleDependency);
         }
         return new FragmentExecutionResult(rddAndMore, Optional.ofNullable(mapOutputStatisticsFutureAction));
-    }
-
-    public Optional<PlanNodeStatsEstimate> createRuntimeStats(Optional<MapOutputStatistics> mapOutputStatisticsOptional)
-    {
-        return mapOutputStatisticsOptional.map(mapOutputStatistics ->
-        {
-            double totalSize = Arrays.stream(mapOutputStatistics.bytesByPartitionId()).sum();
-            return new PlanNodeStatsEstimate(Double.NaN, totalSize, HashTreePMap.empty(), new RuntimeSourceInfo());
-        });
     }
 
     private static class ShuffleStatsKey

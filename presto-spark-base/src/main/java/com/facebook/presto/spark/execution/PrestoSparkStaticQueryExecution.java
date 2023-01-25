@@ -19,6 +19,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryStateTimer;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
@@ -46,6 +47,7 @@ import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.storage.TempStorage;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -116,6 +118,8 @@ public class PrestoSparkStaticQueryExecution
             Optional<String> queryDataOutputLocation,
             TempStorage tempStorage,
             NodeMemoryConfig nodeMemoryConfig,
+            FeaturesConfig featuresConfig,
+            QueryManagerConfig queryManagerConfig,
             Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics,
             Optional<ErrorClassifier> errorClassifier,
             PrestoSparkPlanFragmenter planFragmenter,
@@ -151,6 +155,8 @@ public class PrestoSparkStaticQueryExecution
                 queryDataOutputLocation,
                 tempStorage,
                 nodeMemoryConfig,
+                featuresConfig,
+                queryManagerConfig,
                 waitTimeMetrics,
                 errorClassifier,
                 planFragmenter,
