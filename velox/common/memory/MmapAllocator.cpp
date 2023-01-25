@@ -19,14 +19,11 @@
 #include <sys/mman.h>
 
 #include "velox/common/base/Portability.h"
-#include "velox/common/testutil/TestValue.h"
-
-using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
 
 MmapAllocator::MmapAllocator(const Options& options)
-    : MemoryAllocator(MemoryAllocator::Kind::kMmap),
+    : kind_(MemoryAllocator::Kind::kMmap),
       useMmapArena_(options.useMmapArena),
       numAllocated_(0),
       numMapped_(0),

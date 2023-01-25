@@ -497,8 +497,7 @@ AsyncDataCache::AsyncDataCache(
     const std::shared_ptr<MemoryAllocator>& allocator,
     uint64_t maxBytes,
     std::unique_ptr<SsdCache> ssdCache)
-    : memory::MemoryAllocator(memory::MemoryAllocator::Kind::kCache),
-      allocator_(allocator),
+    : allocator_(allocator),
       ssdCache_(std::move(ssdCache)),
       cachedPages_(0),
       maxBytes_(maxBytes) {

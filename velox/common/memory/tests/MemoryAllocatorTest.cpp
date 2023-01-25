@@ -44,9 +44,11 @@ class MockMemoryAllocator final : public MemoryAllocator {
   MockMemoryAllocator(
       MemoryAllocator* allocator,
       std::shared_ptr<MemoryUsageTracker> tracker)
-      : MemoryAllocator(MemoryAllocator::Kind::kTest),
-        allocator_(allocator),
-        tracker_(std::move(tracker)) {}
+      : allocator_(allocator), tracker_(std::move(tracker)) {}
+
+  Kind kind() const override {
+    return allocator_->kind();
+  }
 
   bool allocateNonContiguous(
       MachinePageCount numPages,
@@ -183,17 +185,10 @@ class MemoryAllocatorTest : public testing::TestWithParam<TestParam> {
     memoryManager_ = std::make_unique<MemoryManager>(IMemoryManager::Options{
         .capacity = kMaxMemory, .allocator = instance_});
     pool_ = memoryManager_->getChild();
-    if (hasMemoryTracker_) {
-      ASSERT_EQ(instance_->kind(), MemoryAllocator::Kind::kTest);
-      ASSERT_EQ(MemoryAllocator::kindString(instance_->kind()), "TEST");
+    if (useMmap_) {
+      ASSERT_EQ(instance_->kind(), MemoryAllocator::Kind::kMmap);
     } else {
-      if (useMmap_) {
-        ASSERT_EQ(instance_->kind(), MemoryAllocator::Kind::kMmap);
-        ASSERT_EQ(MemoryAllocator::kindString(instance_->kind()), "MMAP");
-      } else {
-        ASSERT_EQ(instance_->kind(), MemoryAllocator::Kind::kStd);
-        ASSERT_EQ(MemoryAllocator::kindString(instance_->kind()), "STD");
-      }
+      ASSERT_EQ(instance_->kind(), MemoryAllocator::Kind::kMalloc);
     }
     ASSERT_EQ(
         MemoryAllocator::kindString(static_cast<MemoryAllocator::Kind>(100)),

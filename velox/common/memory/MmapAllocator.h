@@ -62,9 +62,11 @@ class MmapAllocator : public MemoryAllocator {
     int32_t mmapArenaCapacityRatio = 10;
   };
 
-  enum class Failure { kNone, kMadvise, kMmap, kAllocate };
-
   explicit MmapAllocator(const Options& options);
+
+  Kind kind() const override {
+    return kind_;
+  }
 
   bool allocateNonContiguous(
       MachinePageCount numPages,
@@ -122,6 +124,7 @@ class MmapAllocator : public MemoryAllocator {
   /// function for validating otherwise unreachable error paths. If 'persistent'
   /// is false, then we only inject failure once in the next call. Otherwise, we
   /// keep injecting failures until next 'testingClearFailureInjection' call.
+  enum class Failure { kNone, kMadvise, kMmap, kAllocate };
   void testingSetFailureInjection(Failure failure, bool persistent = false) {
     injectedFailure_ = failure;
     isPersistentFailureInjection_ = persistent;
@@ -327,6 +330,8 @@ class MmapAllocator : public MemoryAllocator {
   // Finds at least  'target' unallocated pages in different size classes and
   // advises them away. Returns the number of pages advised away.
   MachinePageCount adviseAway(MachinePageCount target);
+
+  const Kind kind_;
 
   // If set true, allocations larger than the largest size class size will be
   // delegated to ManagedMmapArena. Otherwise, a system mmap call will be

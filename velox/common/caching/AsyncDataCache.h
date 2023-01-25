@@ -626,6 +626,10 @@ class AsyncDataCache : public memory::MemoryAllocator {
   // Returns true if there is an entry for 'key'. Updates access time.
   bool exists(RawFileCacheKey key) const;
 
+  Kind kind() const override {
+    return allocator_->kind();
+  }
+
   bool allocateNonContiguous(
       memory::MachinePageCount numPages,
       Allocation& out,

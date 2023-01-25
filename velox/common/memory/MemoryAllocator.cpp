@@ -93,9 +93,7 @@ std::string MemoryAllocator::Allocation::toString() const {
 MemoryAllocator::ContiguousAllocation::~ContiguousAllocation() {
   if (pool_ != nullptr) {
     pool_->freeContiguous(*this);
-    data_ = nullptr;
     pool_ = nullptr;
-    size_ = 0;
   }
   VELOX_CHECK_NULL(data_);
   VELOX_CHECK_EQ(size_, 0);
@@ -126,14 +124,10 @@ std::string MemoryAllocator::ContiguousAllocation::toString() const {
 
 std::string MemoryAllocator::kindString(Kind kind) {
   switch (kind) {
-    case Kind::kStd:
-      return "STD";
+    case Kind::kMalloc:
+      return "MALLOC";
     case Kind::kMmap:
       return "MMAP";
-    case Kind::kCache:
-      return "CACHE";
-    case Kind::kTest:
-      return "TEST";
     default:
       return fmt::format("UNKNOWN: {}", static_cast<int>(kind));
   }
@@ -192,6 +186,10 @@ class MemoryAllocatorImpl : public MemoryAllocator {
  public:
   MemoryAllocatorImpl();
 
+  Kind kind() const override {
+    return kind_;
+  }
+
   bool allocateNonContiguous(
       MachinePageCount numPages,
       Allocation& out,
@@ -205,7 +203,7 @@ class MemoryAllocatorImpl : public MemoryAllocator {
       Allocation* collateral,
       ContiguousAllocation& allocation,
       ReservationCallback reservationCB = nullptr) override {
-    // VELOX_CHECK_GT(numPages, 0);
+    VELOX_CHECK_GT(numPages, 0);
     bool result;
     stats_.recordAllocate(numPages * kPageSize, 1, [&]() {
       result = allocateContiguousImpl(
@@ -254,6 +252,8 @@ class MemoryAllocatorImpl : public MemoryAllocator {
 
   void freeContiguousImpl(ContiguousAllocation& allocation);
 
+  const Kind kind_;
+
   std::atomic<MachinePageCount> numAllocated_;
   // When using mmap/madvise, the current of number pages backed by memory.
   std::atomic<MachinePageCount> numMapped_;
@@ -267,9 +267,7 @@ class MemoryAllocatorImpl : public MemoryAllocator {
 } // namespace
 
 MemoryAllocatorImpl::MemoryAllocatorImpl()
-    : MemoryAllocator(MemoryAllocator::Kind::kStd),
-      numAllocated_(0),
-      numMapped_(0) {}
+    : kind_(MemoryAllocator::Kind::kMalloc), numAllocated_(0), numMapped_(0) {}
 
 bool MemoryAllocatorImpl::allocateNonContiguous(
     MachinePageCount numPages,
@@ -292,6 +290,10 @@ bool MemoryAllocatorImpl::allocateNonContiguous(
     try {
       reservationCB(bytesToAllocate, true);
     } catch (std::exception& e) {
+      LOG(WARNING) << "Failed to reserve " << bytesToAllocate
+                   << " bytes for non-contiguous allocation of " << numPages
+                   << " pages, then release " << freedBytes
+                   << " bytes from the old allocation";
       // If the new memory reservation fails, we need to release the memory
       // reservation of the freed memory of previously allocation.
       reservationCB(freedBytes, false);
@@ -339,6 +341,10 @@ bool MemoryAllocatorImpl::allocateNonContiguous(
     }
     out.clear();
     if (reservationCB != nullptr) {
+      LOG(WARNING)
+          << "Failed to allocate memory for non-contiguous allocation of "
+          << numPages << " pages, then release " << bytesToAllocate + freedBytes
+          << " bytes of memory reservation including the old gallocation";
       reservationCB(bytesToAllocate + freedBytes, false);
     }
     return false;
@@ -381,6 +387,12 @@ bool MemoryAllocatorImpl::allocateContiguousImpl(
     } catch (std::exception& e) {
       // If the new memory reservation fails, we need to release the memory
       // reservation of the freed contiguous and non-contiguous memory.
+      LOG(WARNING) << "Failed to reserve " << numNeededPages * kPageSize
+                   << " bytes for contiguous allocation of " << numPages
+                   << " pages, then release "
+                   << (numCollateralPages + numContiguousCollateralPages) *
+              kPageSize
+                   << " bytes from the old allocations";
       reservationCB(
           (numCollateralPages + numContiguousCollateralPages) * kPageSize,
           false);

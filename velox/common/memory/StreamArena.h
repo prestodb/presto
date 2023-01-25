@@ -27,32 +27,30 @@ struct ByteRange;
 // complex types as serialized rows.
 class StreamArena {
  public:
-  static constexpr int32_t kVectorStreamOwner = 1;
-
-  explicit StreamArena(memory::MemoryPool* FOLLY_NONNULL pool);
+  explicit StreamArena(memory::MemoryPool* pool);
 
   virtual ~StreamArena() = default;
 
   // Sets range to refer  to at least one page of writable memory owned by
   // 'this'. Up to 'numPages' may be  allocated.
-  virtual void newRange(int32_t bytes, ByteRange* FOLLY_NONNULL range);
+  virtual void newRange(int32_t bytes, ByteRange* range);
 
   // sets 'range' to point to a small piece of memory owned by this. These alwys
   // come from the heap. The use case is for headers that may change length
   // based on data properties, not for bulk data.
-  virtual void newTinyRange(int32_t bytes, ByteRange* FOLLY_NONNULL range);
+  virtual void newTinyRange(int32_t bytes, ByteRange* range);
 
   // Returns the Total size in bytes held by all Allocations.
   virtual size_t size() const {
     return size_;
   }
 
-  memory::MemoryPool* FOLLY_NONNULL pool() const {
+  memory::MemoryPool* pool() const {
     return pool_;
   }
 
  private:
-  memory::MemoryPool* FOLLY_NONNULL pool_;
+  memory::MemoryPool* const pool_;
   // All allocations.
   std::vector<std::unique_ptr<memory::MemoryAllocator::Allocation>>
       allocations_;
