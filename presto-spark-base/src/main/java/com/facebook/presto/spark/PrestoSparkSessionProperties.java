@@ -62,6 +62,7 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_HASH_PARTITION_COUNT_ALLOCATION_STRATEGY_ENABLED = "spark_hash_partition_count_allocation_strategy_enabled";
     public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED = "spark_retry_on_out_of_memory_higher_hash_partition_count_enabled";
     public static final String SPARK_HASH_PARTITION_COUNT_SCALING_FACTOR_ON_OUT_OF_MEMORY = "spark_hash_partition_count_scaling_factor_on_out_of_memory";
+    public static final String SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED = "spark_adaptive_query_execution_enabled";
     public static final String ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED = "adaptive_join_side_switching_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -219,6 +220,11 @@ public class PrestoSparkSessionProperties
                         prestoSparkConfig.getHashPartitionCountScalingFactorOnOutOfMemory(),
                         false),
                 booleanProperty(
+                        SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED,
+                        "Flag to enable adaptive query execution",
+                        prestoSparkConfig.isAdaptiveQueryExecutionEnabled(),
+                        false),
+                booleanProperty(
                         ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED,
                         "Enables the adaptive optimizer to switch the build and probe sides of a join",
                         prestoSparkConfig.isAdaptiveJoinSideSwitchingEnabled(),
@@ -363,6 +369,11 @@ public class PrestoSparkSessionProperties
     public static double getHashPartitionCountScalingFactorOnOutOfMemory(Session session)
     {
         return session.getSystemProperty(SPARK_HASH_PARTITION_COUNT_SCALING_FACTOR_ON_OUT_OF_MEMORY, Double.class);
+    }
+
+    public static boolean isAdaptiveQueryExecutionEnabled(Session session)
+    {
+        return session.getSystemProperty(SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED, Boolean.class);
     }
 
     public static boolean isAdaptiveJoinSideSwitchingEnabled(Session session)

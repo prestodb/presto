@@ -35,6 +35,7 @@ import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateTimer;
 import com.facebook.presto.execution.QueryStats;
@@ -60,6 +61,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
+import com.facebook.presto.spark.execution.PrestoSparkAdaptiveQueryExecution;
 import com.facebook.presto.spark.execution.PrestoSparkDataDefinitionExecution;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.execution.PrestoSparkStaticQueryExecution;
@@ -82,6 +84,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.utils.StatementUtils;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
@@ -126,6 +129,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isAdaptiveQueryExecutionEnabled;
 import static com.facebook.presto.spark.SparkErrorCode.MALFORMED_QUERY_FILE;
 import static com.facebook.presto.spark.util.PrestoSparkFailureUtils.toPrestoSparkFailure;
 import static com.facebook.presto.spark.util.PrestoSparkRetryExecutionUtils.getRetryExecutionSettings;
@@ -180,6 +184,8 @@ public class PrestoSparkQueryExecutionFactory
     private final TempStorageManager tempStorageManager;
     private final String storageBasedBroadcastJoinStorage;
     private final NodeMemoryConfig nodeMemoryConfig;
+    private final FeaturesConfig featuresConfig;
+    private final QueryManagerConfig queryManagerConfig;
     private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks;
     private final Optional<ErrorClassifier> errorClassifier;
@@ -214,6 +220,8 @@ public class PrestoSparkQueryExecutionFactory
             TempStorageManager tempStorageManager,
             PrestoSparkConfig prestoSparkConfig,
             NodeMemoryConfig nodeMemoryConfig,
+            FeaturesConfig featuresConfig,
+            QueryManagerConfig queryManagerConfig,
             Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks,
             Optional<ErrorClassifier> errorClassifier,
@@ -246,6 +254,8 @@ public class PrestoSparkQueryExecutionFactory
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
         this.storageBasedBroadcastJoinStorage = requireNonNull(prestoSparkConfig, "prestoSparkConfig is null").getStorageBasedBroadcastJoinStorage();
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
+        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
+        this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.waitTimeMetrics = ImmutableSet.copyOf(requireNonNull(waitTimeMetrics, "waitTimeMetrics is null"));
         this.ddlTasks = ImmutableMap.copyOf(requireNonNull(ddlTasks, "ddlTasks is null"));
         this.errorClassifier = requireNonNull(errorClassifier, "errorClassifier is null");
@@ -645,40 +655,82 @@ public class PrestoSparkQueryExecutionFactory
                 TempStorage tempStorage = tempStorageManager.getTempStorage(storageBasedBroadcastJoinStorage);
                 queryStateTimer.endAnalysis();
 
-                return new PrestoSparkStaticQueryExecution(
-                        javaSparkContext,
-                        session,
-                        queryMonitor,
-                        taskInfoCollector,
-                        shuffleStatsCollector,
-                        prestoSparkTaskExecutorFactory,
-                        executorFactoryProvider,
-                        queryStateTimer,
-                        warningCollector,
-                        sql,
-                        planAndMore,
-                        sparkQueueName,
-                        taskInfoCodec,
-                        sparkTaskDescriptorJsonCodec,
-                        queryStatusInfoJsonCodec,
-                        queryDataJsonCodec,
-                        rddFactory,
-                        transactionManager,
-                        createPagesSerde(blockEncodingManager),
-                        executionExceptionFactory,
-                        queryTimeout,
-                        queryCompletionDeadline,
-                        metadataStorage,
-                        queryStatusInfoOutputLocation,
-                        queryDataOutputLocation,
-                        tempStorage,
-                        nodeMemoryConfig,
-                        waitTimeMetrics,
-                        errorClassifier,
-                        planFragmenter,
-                        metadata,
-                        partitioningProviderManager,
-                        historyBasedPlanStatisticsTracker);
+                if (!isAdaptiveQueryExecutionEnabled(session)) {
+                    return new PrestoSparkStaticQueryExecution(
+                            javaSparkContext,
+                            session,
+                            queryMonitor,
+                            taskInfoCollector,
+                            shuffleStatsCollector,
+                            prestoSparkTaskExecutorFactory,
+                            executorFactoryProvider,
+                            queryStateTimer,
+                            warningCollector,
+                            sql,
+                            planAndMore,
+                            sparkQueueName,
+                            taskInfoCodec,
+                            sparkTaskDescriptorJsonCodec,
+                            queryStatusInfoJsonCodec,
+                            queryDataJsonCodec,
+                            rddFactory,
+                            transactionManager,
+                            createPagesSerde(blockEncodingManager),
+                            executionExceptionFactory,
+                            queryTimeout,
+                            queryCompletionDeadline,
+                            metadataStorage,
+                            queryStatusInfoOutputLocation,
+                            queryDataOutputLocation,
+                            tempStorage,
+                            nodeMemoryConfig,
+                            featuresConfig,
+                            queryManagerConfig,
+                            waitTimeMetrics,
+                            errorClassifier,
+                            planFragmenter,
+                            metadata,
+                            partitioningProviderManager,
+                            historyBasedPlanStatisticsTracker);
+                }
+                else {
+                    return new PrestoSparkAdaptiveQueryExecution(
+                            javaSparkContext,
+                            session,
+                            queryMonitor,
+                            taskInfoCollector,
+                            shuffleStatsCollector,
+                            prestoSparkTaskExecutorFactory,
+                            executorFactoryProvider,
+                            queryStateTimer,
+                            warningCollector,
+                            sql,
+                            planAndMore,
+                            sparkQueueName,
+                            taskInfoCodec,
+                            sparkTaskDescriptorJsonCodec,
+                            queryStatusInfoJsonCodec,
+                            queryDataJsonCodec,
+                            rddFactory,
+                            transactionManager,
+                            createPagesSerde(blockEncodingManager),
+                            executionExceptionFactory,
+                            queryTimeout,
+                            queryCompletionDeadline,
+                            metadataStorage,
+                            queryStatusInfoOutputLocation,
+                            queryDataOutputLocation,
+                            tempStorage,
+                            nodeMemoryConfig,
+                            featuresConfig,
+                            queryManagerConfig,
+                            waitTimeMetrics,
+                            errorClassifier,
+                            planFragmenter,
+                            metadata,
+                            partitioningProviderManager,
+                            historyBasedPlanStatisticsTracker);
+                }
             }
         }
         catch (Throwable executionFailure) {
