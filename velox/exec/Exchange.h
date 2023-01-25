@@ -354,13 +354,14 @@ class Exchange : public SourceOperator {
       int32_t operatorId,
       DriverCtx* FOLLY_NONNULL ctx,
       const std::shared_ptr<const core::ExchangeNode>& exchangeNode,
-      std::shared_ptr<ExchangeClient> exchangeClient)
+      std::shared_ptr<ExchangeClient> exchangeClient,
+      const std::string& operatorType = "Exchange")
       : SourceOperator(
             ctx,
             exchangeNode->outputType(),
             operatorId,
             exchangeNode->id(),
-            "Exchange"),
+            operatorType),
         planNodeId_(exchangeNode->id()),
         exchangeClient_(std::move(exchangeClient)) {}
 
@@ -383,6 +384,9 @@ class Exchange : public SourceOperator {
   BlockingReason isBlocked(ContinueFuture* FOLLY_NONNULL future) override;
 
   bool isFinished() override;
+
+ protected:
+  virtual VectorSerde* getSerde();
 
  private:
   /// Fetches splits from the task until there are no more splits or task

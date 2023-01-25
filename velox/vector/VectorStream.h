@@ -71,9 +71,11 @@ class VectorSerde {
       const Options* options = nullptr) = 0;
 };
 
-bool registerVectorSerde(std::unique_ptr<VectorSerde> serde);
+void registerVectorSerde(std::unique_ptr<VectorSerde> serdeToRegister);
 
 bool isRegisteredVectorSerde();
+
+VectorSerde* getVectorSerde();
 
 class VectorStreamGroup : public StreamArena {
  public:

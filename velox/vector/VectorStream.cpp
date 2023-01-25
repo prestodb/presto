@@ -17,29 +17,35 @@
 #include <memory>
 
 namespace facebook::velox {
-
 namespace {
-std::unique_ptr<VectorSerde>& getVectorSerde() {
+std::unique_ptr<VectorSerde>& getVectorSerdeImpl() {
   static std::unique_ptr<VectorSerde> serde;
   return serde;
 }
 } // namespace
 
-bool registerVectorSerde(std::unique_ptr<VectorSerde> serde) {
-  VELOX_CHECK(!getVectorSerde().get(), "Vector serde is already registered");
-  getVectorSerde() = std::move(serde);
-  return true;
+VectorSerde* getVectorSerde() {
+  auto serde = getVectorSerdeImpl().get();
+  VELOX_CHECK_NOT_NULL(serde, "Vector serde is not registered");
+  return serde;
+}
+
+/// This call is not thread safe. We only expect one call of it in the entire
+/// system upon startup.
+void registerVectorSerde(std::unique_ptr<VectorSerde> serdeToRegister) {
+  auto& serde = getVectorSerdeImpl();
+  VELOX_CHECK_NULL(serde, "Vector serde is already registered");
+  serde = std::move(serdeToRegister);
 }
 
 bool isRegisteredVectorSerde() {
-  return (getVectorSerde().get() != nullptr);
+  return getVectorSerdeImpl() != nullptr;
 }
 
 void VectorStreamGroup::createStreamTree(
     RowTypePtr type,
     int32_t numRows,
     const VectorSerde::Options* options) {
-  VELOX_CHECK(getVectorSerde().get(), "Vector serde is not registered");
   serializer_ =
       getVectorSerde()->createSerializer(type, numRows, this, options);
 }
@@ -59,7 +65,6 @@ void VectorStreamGroup::estimateSerializedSize(
     VectorPtr vector,
     const folly::Range<const IndexRange*>& ranges,
     vector_size_t** sizes) {
-  VELOX_CHECK(getVectorSerde().get(), "Vector serde is not registered");
   getVectorSerde()->estimateSerializedSize(vector, ranges, sizes);
 }
 
@@ -70,7 +75,6 @@ void VectorStreamGroup::read(
     RowTypePtr type,
     RowVectorPtr* result,
     const VectorSerde::Options* options) {
-  VELOX_CHECK(getVectorSerde().get(), "Vector serde is not registered");
   getVectorSerde()->deserialize(source, pool, type, result, options);
 }
 

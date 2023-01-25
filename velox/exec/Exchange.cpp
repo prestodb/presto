@@ -368,7 +368,7 @@ RowVectorPtr Exchange::getOutput() {
     currentPage_->prepareStreamForDeserialize(inputStream_.get());
   }
 
-  VectorStreamGroup::read(
+  getSerde()->deserialize(
       inputStream_.get(), operatorCtx_->pool(), outputType_, &result_);
 
   {
@@ -384,6 +384,10 @@ RowVectorPtr Exchange::getOutput() {
   }
 
   return result_;
+}
+
+VectorSerde* Exchange::getSerde() {
+  return getVectorSerde();
 }
 
 VELOX_REGISTER_EXCHANGE_SOURCE_METHOD_DEFINITION(

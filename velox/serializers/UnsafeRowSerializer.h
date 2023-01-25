@@ -21,6 +21,7 @@ namespace facebook::velox::serializer::spark {
 
 class UnsafeRowVectorSerde : public VectorSerde {
  public:
+  UnsafeRowVectorSerde() = default;
   // We do not implement this method since it is not used in production code.
   void estimateSerializedSize(
       VectorPtr vector,
