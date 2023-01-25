@@ -32,6 +32,7 @@ add_executable(
   ArrayMinTest.cpp
   ArrayPositionTest.cpp
   ArraySortTest.cpp
+  ArrayShuffleTest.cpp
   ArraysOverlapTest.cpp
   ArraySumTest.cpp
   BitwiseTest.cpp

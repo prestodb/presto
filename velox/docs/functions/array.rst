@@ -160,6 +160,14 @@ Array Functions
 
     Returns an array which has the reversed order of the input array.
 
+.. function:: shuffle(array(E)) -> array(E)
+
+    Generate a random permutation of the given ``array``::
+
+        SELECT shuffle(ARRAY [1, 2, 3]); -- [3, 1, 2] or any other random permutation
+        SELECT shuffle(ARRAY [0, 0, 0]); -- [0, 0, 0]
+        SELECT shuffle(ARRAY [1, NULL, 1, NULL, 2]); -- [2, NULL, NULL, NULL, 1] or any other random permutation
+
 .. function:: slice(array(E), start, length) -> array(E)
 
     Returns a subarray starting from index ``start``(or starting from the end
