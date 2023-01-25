@@ -28,6 +28,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -49,6 +50,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -127,8 +129,12 @@ public class JoinNode
                 .addAll(left.getOutputVariables())
                 .addAll(right.getOutputVariables())
                 .build();
+        ImmutableSet.Builder<VariableReferenceExpression> inputHashVariablesBuilder = ImmutableSet.builder();
+        left.getHashVariable().ifPresent(inputHashVariablesBuilder::add);
+        right.getHashVariable().ifPresent(inputHashVariablesBuilder::add);
         checkArgument(new HashSet<>(inputVariables).containsAll(outputVariables), "Left and right join inputs do not contain all output variables");
-        checkArgument(!isCrossJoin() || inputVariables.size() == outputVariables.size(), "Cross join does not support output variables pruning or reordering");
+        checkArgument(!isCrossJoin() || inputVariables.size() == outputVariables.size() ||
+                inputHashVariablesBuilder.build().containsAll(Sets.difference(inputVariables, Sets.newHashSet(outputVariables))), "Cross join does not support output variables pruning or reordering");
 
         checkArgument(!(criteria.isEmpty() && leftHashVariable.isPresent()), "Left hash variable is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashVariable.isPresent()), "Right hash variable is only valid in an equijoin");
