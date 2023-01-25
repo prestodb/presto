@@ -2173,3 +2173,40 @@ TEST_F(VectorTest, ensureNullsCapacity) {
   auto nulls = vec->mutableNulls(2);
   ASSERT_GE(nulls->size(), bits::nbytes(size));
 }
+
+TEST_F(VectorTest, createVectorWithNullType) {
+  std::string kErrorMessage = "Vector creation requires a non-null type.";
+
+  VELOX_ASSERT_THROW(BaseVector::create(nullptr, 100, pool()), kErrorMessage);
+  VELOX_ASSERT_THROW(
+      BaseVector::createNullConstant(nullptr, 100, pool()), kErrorMessage);
+  VELOX_ASSERT_THROW(
+      BaseVector::getOrCreateEmpty(nullptr, nullptr, pool()), kErrorMessage);
+
+  VELOX_ASSERT_THROW(
+      std::make_shared<ConstantVector<int64_t>>(pool(), 100, false, nullptr, 0),
+      kErrorMessage);
+
+  std::vector<BufferPtr> stringBuffers;
+  VELOX_ASSERT_THROW(
+      std::make_shared<FlatVector<int64_t>>(
+          pool(), nullptr, nullptr, 100, nullptr, std::move(stringBuffers)),
+      kErrorMessage);
+
+  std::vector<VectorPtr> children;
+  VELOX_ASSERT_THROW(
+      std::make_shared<RowVector>(pool(), nullptr, nullptr, 100, children),
+      kErrorMessage);
+
+  VELOX_ASSERT_THROW(RowVector::createEmpty(nullptr, pool()), kErrorMessage);
+
+  VELOX_ASSERT_THROW(
+      std::make_shared<ArrayVector>(
+          pool(), nullptr, nullptr, 100, nullptr, nullptr, nullptr),
+      kErrorMessage);
+
+  VELOX_ASSERT_THROW(
+      std::make_shared<MapVector>(
+          pool(), nullptr, nullptr, 100, nullptr, nullptr, nullptr, nullptr),
+      kErrorMessage);
+}

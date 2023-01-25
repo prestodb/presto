@@ -41,7 +41,7 @@ BaseVector::BaseVector(
     std::optional<ByteCount> representedByteCount,
     std::optional<ByteCount> storageByteCount)
     : type_(std::move(type)),
-      typeKind_(type_->kind()),
+      typeKind_(type_ ? type_->kind() : TypeKind::INVALID),
       encoding_(encoding),
       nulls_(std::move(nulls)),
       rawNulls_(nulls_.get() ? nulls_->as<uint64_t>() : nullptr),
@@ -51,6 +51,8 @@ BaseVector::BaseVector(
       distinctValueCount_(distinctValueCount),
       representedByteCount_(representedByteCount),
       storageByteCount_(storageByteCount) {
+  VELOX_CHECK_NOT_NULL(type_, "Vector creation requires a non-null type.");
+
   if (nulls_) {
     int32_t bytes = byteSize<bool>(length_);
     VELOX_CHECK(nulls_->capacity() >= bytes);
@@ -261,6 +263,7 @@ VectorPtr BaseVector::createInternal(
     const TypePtr& type,
     vector_size_t size,
     velox::memory::MemoryPool* pool) {
+  VELOX_CHECK_NOT_NULL(type, "Vector creation requires a non-null type.");
   auto kind = type->kind();
   switch (kind) {
     case TypeKind::ROW: {
@@ -675,6 +678,7 @@ std::shared_ptr<BaseVector> BaseVector::createNullConstant(
     const TypePtr& type,
     vector_size_t size,
     velox::memory::MemoryPool* pool) {
+  VELOX_CHECK_NOT_NULL(type, "Vector creation requires a non-null type.");
   if (!type->isPrimitiveType()) {
     return std::make_shared<ConstantVector<ComplexType>>(
         pool, size, true, type, ComplexType());

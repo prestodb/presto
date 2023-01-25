@@ -63,6 +63,7 @@ std::string stringifyTruncatedElementList(
 std::shared_ptr<RowVector> RowVector::createEmpty(
     std::shared_ptr<const Type> type,
     velox::memory::MemoryPool* pool) {
+  VELOX_CHECK_NOT_NULL(type, "Vector creation requires a non-null type.");
   VELOX_CHECK(type->isRow());
   return std::static_pointer_cast<RowVector>(BaseVector::create(type, 0, pool));
 }
