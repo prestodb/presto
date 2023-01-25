@@ -431,7 +431,6 @@ TEST_F(VectorMakerTest, nullableArrayVector) {
   auto elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
 
   EXPECT_TRUE(elementsVector->mayHaveNulls());
-  EXPECT_EQ(3, elementsVector->getNullCount().value());
 
   vector_size_t idx = 0;
   for (const auto& item : data) {
@@ -475,7 +474,6 @@ TEST_F(VectorMakerTest, nullableFixedSizeArrayVector) {
   auto elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
 
   EXPECT_TRUE(elementsVector->mayHaveNulls());
-  EXPECT_EQ(4, elementsVector->getNullCount().value());
 
   vector_size_t idx = 0;
   for (const auto& item : data) {

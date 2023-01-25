@@ -251,6 +251,25 @@ TEST_F(ArrayExceptTest, longStrArrays) {
   testExpr(expected, "array_except(C1, C0)", {array1, array2});
 }
 
+TEST_F(ArrayExceptTest, varbinary) {
+  auto left = makeNullableArrayVector<StringView>(
+      {{"a"_sv, "b"_sv, "c"_sv}}, ARRAY(VARBINARY()));
+  auto right = makeNullableArrayVector<StringView>(
+      {{"b"_sv, "d"_sv}}, ARRAY(VARBINARY()));
+
+  auto expected = makeNullableArrayVector<StringView>({{}}, ARRAY(VARBINARY()));
+  testExpr(expected, "array_except(c0, c1)", {left, left});
+  testExpr(expected, "array_except(c0, c1)", {right, right});
+
+  expected = makeNullableArrayVector<StringView>(
+      {{"a"_sv, "c"_sv}}, ARRAY(VARBINARY()));
+  testExpr(expected, "array_except(c0, c1)", {left, right});
+
+  expected =
+      makeNullableArrayVector<StringView>({{"d"_sv}}, ARRAY(VARBINARY()));
+  testExpr(expected, "array_except(c0, c1)", {right, left});
+}
+
 // When one of the arrays is constant.
 TEST_F(ArrayExceptTest, constant) {
   auto array1 = makeNullableArrayVector<int32_t>({
