@@ -421,7 +421,9 @@ public abstract class AbstractPrestoSparkQueryExecution
 
     public List<Type> getOutputTypes()
     {
-        return getFinalFragmentedPlan().getFragment().getTypes();
+        Optional<SubPlan> subPlanOptional = getFinalFragmentedPlan();
+        verify(subPlanOptional.isPresent(), "finalFragmentedPlan is null");
+        return subPlanOptional.get().getFragment().getTypes();
     }
 
     public Optional<String> getUpdateType()
@@ -499,7 +501,8 @@ public abstract class AbstractPrestoSparkQueryExecution
 
         log.info("Total serialized task info size: %s", DataSize.succinctBytes(totalSerializedTaskInfoSizeInBytes));
 
-        StageInfo stageInfo = PrestoSparkQueryExecutionFactory.createStageInfo(session.getQueryId(), getFinalFragmentedPlan(), taskInfos.build());
+        Optional<StageInfo> stageInfoOptional = getFinalFragmentedPlan().map(finalFragmentedPlan ->
+                PrestoSparkQueryExecutionFactory.createStageInfo(session.getQueryId(), finalFragmentedPlan, taskInfos.build()));
         QueryState queryState = failureInfo.isPresent() ? FAILED : FINISHED;
 
         QueryInfo queryInfo = PrestoSparkQueryExecutionFactory.createQueryInfo(
@@ -510,7 +513,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                 sparkQueueName,
                 failureInfo,
                 queryStateTimer,
-                Optional.of(stageInfo),
+                stageInfoOptional,
                 warningCollector);
 
         queryMonitor.queryCompletedEvent(queryInfo);
@@ -534,11 +537,9 @@ public abstract class AbstractPrestoSparkQueryExecution
         verify(updated, "finalFragmentedPlan is already non-null");
     }
 
-    public final SubPlan getFinalFragmentedPlan()
+    public final Optional<SubPlan> getFinalFragmentedPlan()
     {
-        SubPlan subPlan = finalFragmentedPlan.get();
-        verify(subPlan != null, "finalFragmentedPlan is null");
-        return subPlan;
+        return Optional.ofNullable(finalFragmentedPlan.get());
     }
 
     protected void processShuffleStats()
