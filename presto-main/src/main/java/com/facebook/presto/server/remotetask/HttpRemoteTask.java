@@ -307,7 +307,7 @@ public final class HttpRemoteTask
             this.taskInfoJsonCodec = taskInfoJsonCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
             this.planFragmentCodec = planFragmentCodec;
-            this.updateErrorTracker = taskRequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
+            this.updateErrorTracker = taskRequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task", planFragment.isLeaf());
             this.nodeStatsTracker = requireNonNull(nodeStatsTracker, "nodeStatsTracker is null");
             this.maxErrorDuration = maxErrorDuration;
             this.stats = stats;
@@ -369,7 +369,8 @@ public final class HttpRemoteTask
                     stats,
                     binaryTransportEnabled,
                     thriftTransportEnabled,
-                    thriftProtocol);
+                    thriftProtocol,
+                    planFragment.isLeaf());
 
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,
@@ -556,7 +557,8 @@ public final class HttpRemoteTask
                 remoteSourceUri,
                 maxErrorDuration,
                 errorScheduledExecutor,
-                "Remove exchange remote source");
+                "Remove exchange remote source",
+                planFragment.isLeaf());
 
         SettableFuture<?> future = SettableFuture.create();
         doRemoveRemoteSource(errorTracker, request, future);
