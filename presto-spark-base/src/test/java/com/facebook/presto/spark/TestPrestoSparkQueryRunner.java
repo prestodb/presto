@@ -36,6 +36,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_STAGE_COUNT;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
@@ -933,6 +934,31 @@ public class TestPrestoSparkQueryRunner
                 session,
                 "select * from lineitem l join orders o on l.orderkey = o.orderkey",
                 "Query exceeded per-node broadcast memory limit of 2MB \\[Broadcast size: 2.*MB\\]");
+    }
+
+    @Test
+    public void testCorrectErrorMessageWhenSubPlanCreationFails()
+    {
+        String query = "with l as (" +
+                "select * from lineitem UNION ALL select * from lineitem UNION ALL select * from lineitem" +
+                "), " +
+                "o as (" +
+                "select * from orders UNION ALL select * from orders UNION ALL select * from orders" +
+                ") " +
+                "select * from l right outer join o on l.orderkey = o.orderkey";
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .setSystemProperty(HASH_PARTITION_COUNT, "1")
+                .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "10MB")
+                .setSystemProperty(QUERY_MAX_MEMORY, "100MB")
+                .setSystemProperty(VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED, "true")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED, "false")
+                .setSystemProperty(QUERY_MAX_STAGE_COUNT, "2")
+                .build();
+        assertQueryFails(session,
+                query,
+                "Number of stages in the query.* exceeds the allowed maximum.*");
     }
 
     @Test
