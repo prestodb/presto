@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -157,6 +158,11 @@ public final class MetadataUtil
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
 
+    public static TableHandle getTableHandle(Session session, Metadata metadata, QualifiedObjectName tableName)
+    {
+        return metadata.getTableHandle(session, tableName).orElseThrow(() -> new SemanticException(MISSING_TABLE, "Table '%s' does not exist", tableName));
+    }
+
     public static QualifiedName createQualifiedName(QualifiedObjectName name)
     {
         return QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
@@ -230,12 +236,12 @@ public final class MetadataUtil
 
     public static class SchemaMetadataBuilder
     {
+        private final ImmutableMap.Builder<SchemaTableName, ConnectorTableMetadata> tables = ImmutableMap.builder();
+
         public static SchemaMetadataBuilder schemaMetadataBuilder()
         {
             return new SchemaMetadataBuilder();
         }
-
-        private final ImmutableMap.Builder<SchemaTableName, ConnectorTableMetadata> tables = ImmutableMap.builder();
 
         public SchemaMetadataBuilder table(ConnectorTableMetadata tableMetadata)
         {
@@ -251,6 +257,20 @@ public final class MetadataUtil
 
     public static class TableMetadataBuilder
     {
+        private final SchemaTableName tableName;
+        private final ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+        private final ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        private final Optional<String> comment;
+        private TableMetadataBuilder(SchemaTableName tableName)
+        {
+            this(tableName, Optional.empty());
+        }
+        private TableMetadataBuilder(SchemaTableName tableName, Optional<String> comment)
+        {
+            this.tableName = tableName;
+            this.comment = comment;
+        }
+
         public static TableMetadataBuilder tableMetadataBuilder(String schemaName, String tableName)
         {
             return new TableMetadataBuilder(new SchemaTableName(schemaName, tableName));
@@ -259,22 +279,6 @@ public final class MetadataUtil
         public static TableMetadataBuilder tableMetadataBuilder(SchemaTableName tableName)
         {
             return new TableMetadataBuilder(tableName);
-        }
-
-        private final SchemaTableName tableName;
-        private final ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        private final ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        private final Optional<String> comment;
-
-        private TableMetadataBuilder(SchemaTableName tableName)
-        {
-            this(tableName, Optional.empty());
-        }
-
-        private TableMetadataBuilder(SchemaTableName tableName, Optional<String> comment)
-        {
-            this.tableName = tableName;
-            this.comment = comment;
         }
 
         public TableMetadataBuilder column(String columnName, Type type)

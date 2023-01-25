@@ -97,6 +97,7 @@ import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoin
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.metadata.MetadataUtil.getTableHandle;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -375,11 +376,15 @@ public class LogicalPlanner
     {
         Analysis.Insert insertAnalysis = analysis.getInsert().get();
 
-        TableHandle tableHandle = insertAnalysis.getTarget();
-        List<ColumnHandle> columnHandles = insertAnalysis.getColumns();
+        QualifiedObjectName targetTable = insertAnalysis.getTarget();
+        TableHandle tableHandle = getTableHandle(session, metadata, targetTable);
+
+        List<String> insertColumns = insertAnalysis.getColumns();
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        List<ColumnHandle> insertColumnHandles = insertColumns.stream().map(columnHandles::get).collect(toImmutableList());
         WriterTarget target = new InsertReference(tableHandle, metadata.getTableMetadata(session, tableHandle).getTable());
 
-        return buildInternalInsertPlan(tableHandle, columnHandles, insertStatement.getQuery(), analysis, target);
+        return buildInternalInsertPlan(tableHandle, insertColumnHandles, insertStatement.getQuery(), analysis, target);
     }
 
     private RelationPlan buildInternalInsertPlan(

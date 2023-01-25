@@ -421,9 +421,7 @@ class StatementAnalyzer
             checkTypesMatchForInsert(insert, queryScope, expectedColumns);
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
-            analysis.setInsert(new Analysis.Insert(
-                    targetTableHandle.get(),
-                    insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
+            analysis.setInsert(new Analysis.Insert(targetTable, insertColumns));
 
             return createAndAssignScope(insert, scope, Field.newUnqualified(insert.getLocation(), "rows", BIGINT));
         }

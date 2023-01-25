@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
@@ -89,6 +90,7 @@ import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
+import static com.facebook.presto.metadata.MetadataUtil.getTableHandle;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
@@ -532,14 +534,14 @@ public class SqlQueryExecution
             stateMachine.endAnalysis();
 
             boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
-            return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
+            return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(getSession(), metadata, analysis));
         }
         catch (StackOverflowError e) {
             throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
         }
     }
 
-    private static Set<ConnectorId> extractConnectors(Analysis analysis)
+    private static Set<ConnectorId> extractConnectors(Session session, Metadata metadata, Analysis analysis)
     {
         ImmutableSet.Builder<ConnectorId> connectors = ImmutableSet.builder();
 
@@ -548,8 +550,10 @@ public class SqlQueryExecution
         }
 
         if (analysis.getInsert().isPresent()) {
-            TableHandle target = analysis.getInsert().get().getTarget();
-            connectors.add(target.getConnectorId());
+            QualifiedObjectName targetTable = analysis.getInsert().get().getTarget();
+            TableHandle tableHandle = getTableHandle(session, metadata, targetTable);
+
+            connectors.add(tableHandle.getConnectorId());
         }
 
         return connectors.build();

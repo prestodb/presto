@@ -906,22 +906,22 @@ public class Analysis
     @Immutable
     public static final class Insert
     {
-        private final TableHandle target;
-        private final List<ColumnHandle> columns;
+        private final QualifiedObjectName target;
+        private final List<String> columns;
 
-        public Insert(TableHandle target, List<ColumnHandle> columns)
+        public Insert(QualifiedObjectName target, List<String> columns)
         {
             this.target = requireNonNull(target, "target is null");
             this.columns = requireNonNull(columns, "columns is null");
             checkArgument(columns.size() > 0, "No columns given to insert");
         }
 
-        public List<ColumnHandle> getColumns()
+        public List<String> getColumns()
         {
             return columns;
         }
 
-        public TableHandle getTarget()
+        public QualifiedObjectName getTarget()
         {
             return target;
         }
