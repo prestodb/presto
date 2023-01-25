@@ -408,7 +408,6 @@ jobs:
           --velox_fuzzer_enable_complex_types \
           --velox_fuzzer_enable_column_reuse \
           --velox_fuzzer_enable_expression_reuse \
-          --retry_with_try \
           --logtostderr=1 --minloglevel=0 \
           --repro_persist_path=/tmp/fuzzer_repro"
 
