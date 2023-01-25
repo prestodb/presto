@@ -126,10 +126,23 @@ JSON Functions
 
 .. function:: json_format(json) -> varchar
 
-    Serializes the input JSON value to JSON text conforming to RFC 7159.
-    The JSON value can be a JSON object, a JSON array, a JSON string, a JSON number, true, false or null.
+    Serializes the input JSON value to JSON text conforming to `RFC 7159`_.
+    The JSON value can be a JSON object, a JSON array, a JSON string, a JSON number, ``true``, ``false`` or ``null``::
 
-        SELECT json_format(JSON '{"a": 1, "b": 2}')
+        SELECT json_format(JSON '[1, 2, 3]'); -- '[1,2,3]'
+        SELECT json_format(JSON '"a"'); -- '"a"'
+
+    .. _RFC 7159: https://datatracker.ietf.org/doc/html/rfc7159.html
+
+.. function:: json_parse(varchar) -> json
+
+    expects a JSON text conforming to `RFC 7159`_, and returns the JSON value deserialized from the JSON text.
+    The JSON value can be a JSON object, a JSON array, a JSON string, a JSON number, ``true``, ``false`` or ``null``::
+
+        SELECT json_parse('[1, 2, 3]'); -- JSON '[1,2,3]'
+        SELECT json_parse('"abc"'); -- JSON '"abc"'
+
+    .. _RFC 7159: https://datatracker.ietf.org/doc/html/rfc7159.html
 
 .. function:: json_size(json, value) -> bigint
 

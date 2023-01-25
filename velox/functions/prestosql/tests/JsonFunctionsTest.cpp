@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
@@ -68,9 +69,9 @@ TEST_F(JsonFunctionsTest, jsonFormat) {
   EXPECT_EQ(jsonFormat(R"(true)"), "true");
   EXPECT_EQ(jsonFormat(R"(null)"), "null");
   EXPECT_EQ(jsonFormat(R"(42)"), "42");
-  EXPECT_EQ(jsonFormat(R"("abc")"), "\"abc\"");
+  EXPECT_EQ(jsonFormat(R"("abc")"), R"("abc")");
   EXPECT_EQ(jsonFormat(R"([1, 2, 3])"), "[1, 2, 3]");
-  EXPECT_EQ(jsonFormat(R"({"k1":"v1"})"), "{\"k1\":\"v1\"}");
+  EXPECT_EQ(jsonFormat(R"({"k1":"v1"})"), R"({"k1":"v1"})");
 
   auto data = makeRowVector({makeFlatVector<StringView>(
       {"This is a long sentence", "This is some other sentence"})});
@@ -97,6 +98,77 @@ TEST_F(JsonFunctionsTest, jsonFormat) {
 
   result = evaluate("if(c0, json_format(c1), 'bar')", data);
   expected = makeFlatVector<StringView>({"This is a long sentence", "bar"});
+  facebook::velox::test::assertEqualVectors(expected, result);
+}
+
+TEST_F(JsonFunctionsTest, jsonParse) {
+  const auto jsonParse = [&](std::optional<std::string> value) {
+    return evaluateOnce<StringView>("json_parse(c0)", value);
+  };
+
+  const auto jsonParseWithTry = [&](std::optional<std::string> value) {
+    return evaluateOnce<StringView>("try(json_parse(c0))", value);
+  };
+
+  EXPECT_EQ(jsonParse(std::nullopt), std::nullopt);
+  EXPECT_EQ(jsonParse(R"(true)"), "true");
+  EXPECT_EQ(jsonParse(R"(null)"), "null");
+  EXPECT_EQ(jsonParse(R"(42)"), "42");
+  EXPECT_EQ(jsonParse(R"("abc")"), R"("abc")");
+  EXPECT_EQ(jsonParse(R"([1, 2, 3])"), "[1, 2, 3]");
+  EXPECT_EQ(jsonParse(R"({"k1":"v1"})"), R"({"k1":"v1"})");
+  EXPECT_EQ(jsonParse(R"(["k1", "v1"])"), R"(["k1", "v1"])");
+
+  VELOX_ASSERT_THROW(jsonParse(R"({"k1":})"), "expected json value");
+  VELOX_ASSERT_THROW(jsonParse(R"({:"k1"})"), "expected json value");
+  VELOX_ASSERT_THROW(jsonParse(R"(not_json)"), "expected json value");
+
+  EXPECT_EQ(jsonParseWithTry(R"(not_json)"), std::nullopt);
+  EXPECT_EQ(jsonParseWithTry(R"({"k1":})"), std::nullopt);
+  EXPECT_EQ(jsonParseWithTry(R"({:"k1"})"), std::nullopt);
+
+  auto elementVector = makeNullableFlatVector<StringView>(
+      {R"("abc")", R"(42)", R"({"k1":"v1"})", R"({"k1":})", R"({:"k1"})"});
+  auto resultVector =
+      evaluate("try(json_parse(c0))", makeRowVector({elementVector}));
+
+  auto expectedVector = makeNullableFlatVector<StringView>(
+      {R"("abc")", "42", R"({"k1":"v1"})", std::nullopt, std::nullopt});
+  facebook::velox::test::assertEqualVectors(expectedVector, resultVector);
+
+  auto data = makeRowVector({makeConstant(R"("k1":)", 2)});
+  expectedVector =
+      makeNullableFlatVector<StringView>({std::nullopt, std::nullopt});
+  facebook::velox::test::assertEqualVectors(
+      expectedVector, evaluate("try(json_parse(c0))", data));
+
+  VELOX_ASSERT_THROW(
+      evaluate("json_parse(c0)", data),
+      "json parse error on line 0 near `:': parsing didn't consume all input");
+
+  data = makeRowVector({makeFlatVector<StringView>(
+      {R"("This is a long sentence")", R"("This is some other sentence")"})});
+
+  auto result = evaluate("json_parse(c0)", data);
+  auto expected = makeFlatVector<StringView>(
+      {R"("This is a long sentence")", R"("This is some other sentence")"});
+  facebook::velox::test::assertEqualVectors(expected, result);
+
+  data = makeRowVector({makeConstant(R"("apple")", 2)});
+  result = evaluate("json_parse(c0)", data);
+  expected = makeFlatVector<StringView>({{R"("apple")", R"("apple")"}});
+
+  facebook::velox::test::assertEqualVectors(expected, result);
+
+  data = makeRowVector(
+      {makeFlatVector<bool>({true, false}),
+       makeFlatVector<StringView>(
+           {R"("This is a long sentence")",
+            R"("This is some other sentence")"})});
+
+  result = evaluate("if(c0, json_parse(c1), json_parse(c1))", data);
+  expected = makeFlatVector<StringView>(
+      {R"("This is a long sentence")", R"("This is some other sentence")"});
   facebook::velox::test::assertEqualVectors(expected, result);
 }
 
