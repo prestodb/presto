@@ -37,6 +37,7 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.remotetask.HttpRemoteTask;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -85,6 +86,7 @@ import static com.facebook.presto.server.ServerConfig.WORKER_POOL_TYPE_INTERMEDI
 import static com.facebook.presto.server.ServerConfig.WORKER_POOL_TYPE_LEAF;
 import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -317,11 +319,11 @@ public class SectionExecutionFactory
                             .filter(task -> task instanceof HttpRemoteTask)
                             .map(task -> (HttpRemoteTask) task)
                             .filter(task -> task.getTaskStatus().getState() != TaskState.FAILED)
+                            .filter(task -> !task.isNoMoreSplits(planNodeId))
                             .collect(toList());
 
                     if (httpRemoteTasks.isEmpty()) {
-                        log.info("No healthy tasks to retry with");
-                        return;
+                        throw new PrestoException(REMOTE_TASK_ERROR, "Running out of the eligible remote tasks to retry");
                     }
 
                     Collections.shuffle(httpRemoteTasks);

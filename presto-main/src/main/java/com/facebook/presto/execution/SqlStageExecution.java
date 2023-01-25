@@ -23,6 +23,7 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.server.remotetask.HttpRemoteTask;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
@@ -79,6 +80,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public final class SqlStageExecution
@@ -624,8 +626,28 @@ public final class SqlStageExecution
                 return false;
             }
         }
-        return stageTaskRecoveryCallback.isPresent() &&
-                failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+        return stageTaskRecoveryCallback.isPresent() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+    }
+
+    public boolean noMoreRetry()
+    {
+        if (failedTasks.isEmpty()) {
+            List<HttpRemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
+                    .filter(task -> task instanceof HttpRemoteTask)
+                    .map(task -> (HttpRemoteTask) task)
+                    .filter(task -> task.getUnprocessedSplits().values().stream().allMatch(Map::isEmpty))
+                    .collect(toList());
+            return idleRunningHttpRemoteTasks.size() == allTasks.size();
+        }
+        else {
+            List<HttpRemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
+                    .filter(task -> task instanceof HttpRemoteTask)
+                    .map(task -> (HttpRemoteTask) task)
+                    .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
+                    .filter(task -> task.getUnprocessedSplits().values().stream().allMatch(Map::isEmpty))
+                    .collect(toList());
+            return idleRunningHttpRemoteTasks.size() == allTasks.size() - failedTasks.size() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+        }
     }
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)

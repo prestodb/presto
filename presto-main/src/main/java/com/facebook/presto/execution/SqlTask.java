@@ -327,7 +327,7 @@ public class SqlTask
                 state,
                 location,
                 completedDriverGroups,
-                LongSet.of(),
+                completedSplits,
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,

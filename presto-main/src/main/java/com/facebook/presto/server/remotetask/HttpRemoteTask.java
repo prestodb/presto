@@ -454,6 +454,12 @@ public final class HttpRemoteTask
     }
 
     @Override
+    public synchronized boolean isNoMoreSplits(PlanNodeId sourceId)
+    {
+        return noMoreSplits.containsKey(sourceId);
+    }
+
+    @Override
     public synchronized void addSplits(Multimap<PlanNodeId, Split> splitsBySource)
     {
         requireNonNull(splitsBySource, "splitsBySource is null");

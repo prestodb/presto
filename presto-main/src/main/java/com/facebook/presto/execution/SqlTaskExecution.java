@@ -570,7 +570,9 @@ public class SqlTaskExecution
 
                         checkTaskCompletion();
 
-                        taskContext.addCompletedSplit(result);
+                        if (result != null) {
+                            taskContext.addCompletedSplit(result);
+                        }
 
                         splitMonitor.splitCompletedEvent(taskId, getDriverStats());
                     }
