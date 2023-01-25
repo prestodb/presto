@@ -97,6 +97,7 @@ import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoin
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.metadata.MetadataUtil.getAnalyzerTableHandle;
 import static com.facebook.presto.metadata.MetadataUtil.getTableHandle;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -284,7 +285,8 @@ public class LogicalPlanner
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
     {
-        TableHandle targetTable = analysis.getAnalyzeTarget().get();
+        Analysis.Analyze analyze = analysis.getAnalyze().get();
+        TableHandle targetTable = getAnalyzerTableHandle(session, metadata, analysis.getParameters(), analyze.getTarget(), analyze.getProperties());
 
         // Plan table scan
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);

@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
+import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -150,7 +151,7 @@ public class Analysis
 
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedViewAnalysis = Optional.empty();
-    private Optional<TableHandle> analyzeTarget = Optional.empty();
+    private Optional<Analyze> analyze = Optional.empty();
 
     // for describe input and describe output
     private final boolean isDescribe;
@@ -585,14 +586,14 @@ public class Analysis
         return createTableDestination;
     }
 
-    public Optional<TableHandle> getAnalyzeTarget()
+    public Optional<Analyze> getAnalyze()
     {
-        return analyzeTarget;
+        return analyze;
     }
 
-    public void setAnalyzeTarget(TableHandle analyzeTarget)
+    public void setAnalyze(Analyze analyze)
     {
-        this.analyzeTarget = Optional.of(analyzeTarget);
+        this.analyze = Optional.of(analyze);
     }
 
     public void setCreateTableProperties(Map<String, Expression> createTableProperties)
@@ -901,6 +902,28 @@ public class Analysis
     public Optional<QuerySpecification> getCurrentQuerySpecification()
     {
         return currentQuerySpecification;
+    }
+
+    public static final class Analyze
+    {
+        private final QualifiedObjectName target;
+        private final List<Property> properties;
+
+        public Analyze(QualifiedObjectName analyzeTarget, List<Property> properties)
+        {
+            this.target = analyzeTarget;
+            this.properties = properties;
+        }
+
+        public QualifiedObjectName getTarget()
+        {
+            return target;
+        }
+
+        public List<Property> getProperties()
+        {
+            return properties;
+        }
     }
 
     @Immutable

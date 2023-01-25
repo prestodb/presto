@@ -27,9 +27,13 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GrantorSpecification;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.PrincipalSpecification;
+import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
@@ -37,11 +41,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
+import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
@@ -161,6 +168,27 @@ public final class MetadataUtil
     public static TableHandle getTableHandle(Session session, Metadata metadata, QualifiedObjectName tableName)
     {
         return metadata.getTableHandle(session, tableName).orElseThrow(() -> new SemanticException(MISSING_TABLE, "Table '%s' does not exist", tableName));
+    }
+
+    public static TableHandle getAnalyzerTableHandle(
+            Session session,
+            Metadata metadata,
+            Map<NodeRef<Parameter>, Expression> parameters,
+            QualifiedObjectName tableName,
+            List<Property> properties)
+    {
+        ConnectorId connectorId = metadata.getCatalogHandle(session, tableName.getCatalogName())
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog not found: " + tableName.getCatalogName()));
+
+        Map<String, Object> analyzeProperties = metadata.getAnalyzePropertyManager().getProperties(
+                connectorId,
+                connectorId.getCatalogName(),
+                mapFromProperties(properties),
+                session,
+                metadata,
+                parameters);
+        return metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
+                .orElseThrow(() -> (new SemanticException(MISSING_TABLE, "Table '%s' does not exist", tableName)));
     }
 
     public static QualifiedName createQualifiedName(QualifiedObjectName name)
