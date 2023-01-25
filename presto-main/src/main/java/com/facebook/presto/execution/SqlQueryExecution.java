@@ -213,7 +213,7 @@ public class SqlQueryExecution
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQuerySchedulerInterface> queryScheduler = this.queryScheduler;
             stateMachine.addStateChangeListener(state -> {
-                if (!state.isDone()) {
+                if (!state.isDone() || state == QueryState.FINISHED) {
                     return;
                 }
 

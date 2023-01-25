@@ -253,7 +253,7 @@ public class SectionExecutionFactory
         }
         Set<SqlStageExecution> childStageExecutions = childStagesBuilder.build();
         stageExecution.addStateChangeListener(newState -> {
-            if (newState.isDone()) {
+            if (newState.isDone() && newState != StageExecutionState.FINISHED) {
                 childStageExecutions.forEach(SqlStageExecution::cancel);
             }
         });
