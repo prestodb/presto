@@ -123,9 +123,9 @@ class BaseColumnWriter : public ColumnWriter {
                               statsFactory) const override {
     auto& stats = statsFactory(id_);
     fileStatsBuilder_->toProto(stats);
-    uint64_t size = context_.getNodeSize(id_);
+    uint64_t size = context_.getPhysicalSizeAggregator(id_).getResult();
     for (auto& child : children_) {
-      size += child->writeFileStats(statsFactory);
+      child->writeFileStats(statsFactory);
     }
     stats.set_size(size);
     return size;

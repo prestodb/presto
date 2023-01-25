@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/writer/FlatMapColumnWriter.h"
+#include <velox/dwio/dwrf/writer/StatisticsBuilder.h>
 #include "velox/type/Type.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
@@ -120,15 +121,14 @@ uint64_t FlatMapColumnWriter<K>::writeFileStats(
     std::function<proto::ColumnStatistics&(uint32_t)> statsFactory) const {
   auto& stats = statsFactory(id_);
   fileStatsBuilder_->toProto(stats);
-  uint64_t size = context_.getNodeSize(id_);
+  uint64_t size = context_.getPhysicalSizeAggregator(id_).getResult();
 
   auto& keyStats = statsFactory(keyType_.id);
   keyFileStatsBuilder_->toProto(keyStats);
-  auto keySize = context_.getNodeSize(keyType_.id);
+  auto keySize = context_.getPhysicalSizeAggregator(keyType_.id).getResult();
   keyStats.set_size(keySize);
 
-  size += keySize;
-  size += valueFileStatsBuilder_->writeFileStats(statsFactory);
+  valueFileStatsBuilder_->writeFileStats(statsFactory);
   stats.set_size(size);
   return size;
 }

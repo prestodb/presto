@@ -56,9 +56,9 @@ class ValueStatisticsBuilder {
       std::function<proto::ColumnStatistics&(uint32_t)> statsFactory) const {
     auto& stats = statsFactory(id_);
     statisticsBuilder_->toProto(stats);
-    uint64_t size = context_.getNodeSize(id_);
+    uint64_t size = context_.getPhysicalSizeAggregator(id_).getResult();
     for (int32_t i = 0; i < children_.size(); ++i) {
-      size += children_[i]->writeFileStats(statsFactory);
+      children_[i]->writeFileStats(statsFactory);
     }
     stats.set_size(size);
     return size;

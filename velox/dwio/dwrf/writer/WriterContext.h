@@ -19,10 +19,12 @@
 #include <limits>
 #include "velox/common/base/GTestMacros.h"
 #include "velox/common/time/CpuWallTimer.h"
+#include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/Compression.h"
 #include "velox/dwio/dwrf/common/EncoderUtil.h"
 #include "velox/dwio/dwrf/writer/IndexBuilder.h"
 #include "velox/dwio/dwrf/writer/IntegerDictionaryEncoder.h"
+#include "velox/dwio/dwrf/writer/PhysicalSizeAggregator.h"
 #include "velox/dwio/dwrf/writer/RatioTracker.h"
 #include "velox/vector/DecodedVector.h"
 
@@ -392,6 +394,74 @@ class WriterContext : public CompressionBufferPool {
     return lowMemoryMode_;
   }
 
+  PhysicalSizeAggregator& getPhysicalSizeAggregator(uint32_t node) {
+    return *physicalSizeAggregators_.at(node);
+  }
+
+  void recordPhysicalSize(const DwrfStreamIdentifier& streamId, uint64_t size) {
+    auto& agg = getPhysicalSizeAggregator(streamId.encodingKey().node);
+    agg.recordSize(streamId, size);
+  }
+
+  void buildPhysicalSizeAggregators(
+      const velox::dwio::common::TypeWithId& type,
+      PhysicalSizeAggregator* parent = nullptr) {
+    switch (type.type->kind()) {
+      case TypeKind::ROW: {
+        physicalSizeAggregators_.emplace(
+            type.id, std::make_unique<PhysicalSizeAggregator>(parent));
+        auto current = physicalSizeAggregators_.at(type.id).get();
+        for (auto& child : type.getChildren()) {
+          buildPhysicalSizeAggregators(*child, current);
+        }
+        break;
+      }
+      case TypeKind::MAP: {
+        // MapPhysicalSizeAggregator is only required for flatmaps, but it will
+        // behave just fine as a regular PhysicalSizeAggregator.
+        physicalSizeAggregators_.emplace(
+            type.id, std::make_unique<MapPhysicalSizeAggregator>(parent));
+        auto current = physicalSizeAggregators_.at(type.id).get();
+        buildPhysicalSizeAggregators(*type.childAt(0), current);
+        buildPhysicalSizeAggregators(*type.childAt(1), current);
+        break;
+      }
+      case TypeKind::ARRAY: {
+        physicalSizeAggregators_.emplace(
+            type.id, std::make_unique<PhysicalSizeAggregator>(parent));
+        auto current = physicalSizeAggregators_.at(type.id).get();
+        buildPhysicalSizeAggregators(*type.childAt(0), current);
+        break;
+      }
+      case TypeKind::BOOLEAN:
+      case TypeKind::TINYINT:
+      case TypeKind::SMALLINT:
+      case TypeKind::INTEGER:
+      case TypeKind::BIGINT:
+      case TypeKind::REAL:
+      case TypeKind::DOUBLE:
+      case TypeKind::VARCHAR:
+      case TypeKind::VARBINARY:
+      case TypeKind::TIMESTAMP:
+      case TypeKind::DATE:
+      case TypeKind::INTERVAL_DAY_TIME:
+      case TypeKind::SHORT_DECIMAL:
+      case TypeKind::LONG_DECIMAL:
+        physicalSizeAggregators_.emplace(
+            type.id, std::make_unique<PhysicalSizeAggregator>(parent));
+        break;
+      case TypeKind::UNKNOWN:
+      case TypeKind::FUNCTION:
+      case TypeKind::OPAQUE:
+      case TypeKind::INVALID:
+        VELOX_FAIL(fmt::format(
+            "Unexpected type kind {} encountered when building "
+            "physical size aggregator for node {}.",
+            type.type->toString(),
+            type.id));
+    }
+  }
+
   class LocalDecodedVector {
    public:
     explicit LocalDecodedVector(WriterContext& context)
@@ -458,6 +528,8 @@ class WriterContext : public CompressionBufferPool {
       DataBufferHolder,
       dwio::common::StreamIdentifierHash>
       streams_;
+  folly::F14NodeMap<uint32_t, std::unique_ptr<PhysicalSizeAggregator>>
+      physicalSizeAggregators_;
   folly::F14FastMap<
       EncodingKey,
       std::unique_ptr<AbstractIntegerDictionaryEncoder>,

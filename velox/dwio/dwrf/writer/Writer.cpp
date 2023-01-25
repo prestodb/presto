@@ -429,7 +429,7 @@ void Writer::flushStripe(bool close) {
     s->set_usevints(context.getConfig(Config::USE_VINTS));
     offset += out.size();
 
-    context.incrementNodeSize(nodeId, out.size());
+    context.recordPhysicalSize(stream, out.size());
   };
 
   // TODO: T45025996 Discard all empty streams at flush time.

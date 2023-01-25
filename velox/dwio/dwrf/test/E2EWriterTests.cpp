@@ -17,6 +17,8 @@
 #include <folly/Random.h>
 #include <random>
 #include "velox/dwio/common/Options.h"
+#include "velox/dwio/common/Statistics.h"
+#include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/common/encryption/TestProvider.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/common/tests/utils/MapBuilder.h"
@@ -503,7 +505,7 @@ void testFlatMapConfig(
   bool preload = true;
   std::unordered_set<uint32_t> actualNodeIds;
   for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
-    dwrfRowReader->loadStripe(0, preload);
+    dwrfRowReader->loadStripe(i, preload);
     auto& footer = dwrfRowReader->getStripeFooter();
     for (int32_t j = 0; j < footer.encoding_size(); ++j) {
       auto encoding = footer.encoding(j);

@@ -142,8 +142,9 @@ class Writer : public WriterBase {
                                       options.encrypterFactory.get())
                                 : nullptr);
     initContext(options.config, std::move(pool), std::move(handler));
+    auto& context = getContext();
+    context.buildPhysicalSizeAggregators(*schema_);
     if (!options.flushPolicyFactory) {
-      auto& context = getContext();
       flushPolicy_ = std::make_unique<DefaultFlushPolicy>(
           context.stripeSizeFlushThreshold,
           context.dictionarySizeFlushThreshold);

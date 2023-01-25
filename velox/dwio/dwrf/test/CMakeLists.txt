@@ -461,6 +461,21 @@ target_link_libraries(
   ${ZLIB_LIBRARIES}
   ${TEST_LINK_LIBS})
 
+add_executable(physical_size_aggregator_test PhysicalSizeAggregatorTest.cpp)
+add_test(physical_size_aggregator_test physical_size_aggregator_test)
+
+target_link_libraries(
+  physical_size_aggregator_test
+  velox_dwrf_test_utils
+  ${VELOX_LINK_LIBS}
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${FMT}
+  ${LZ4}
+  ${LZO}
+  ${ZSTD}
+  ${ZLIB_LIBRARIES}
+  ${TEST_LINK_LIBS})
+
 add_executable(velox_dwrf_int_encoder_benchmark IntEncoderBenchmark.cpp)
 target_link_libraries(
   velox_dwrf_int_encoder_benchmark velox_dwio_dwrf_common velox_memory
