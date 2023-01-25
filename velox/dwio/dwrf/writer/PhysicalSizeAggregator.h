@@ -53,6 +53,13 @@ class MapPhysicalSizeAggregator : public PhysicalSizeAggregator {
   void recordSize(const DwrfStreamIdentifier& id, uint64_t streamSize)
       override {
     PhysicalSizeAggregator::recordSize(id, streamSize);
+    if (!mapStatsBuilder_) {
+      return;
+    }
+    if (id.encodingKey().sequence != 0) {
+      mapStatsBuilder_->incrementSize(
+          sequenceToKey_.at(id.encodingKey().sequence), streamSize);
+    }
   }
 
   void prepare(

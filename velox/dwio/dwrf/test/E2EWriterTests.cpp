@@ -579,6 +579,155 @@ TEST(E2EWriterTests, FlatMapConfigNotMapColumn) {
       { testFlatMapConfig(type, {0}, {}); }, exception::LoggedException);
 }
 
+void testFlatMapFileStats(
+    std::shared_ptr<const Type> type,
+    const std::vector<uint32_t>& mapColumnIds,
+    const uint32_t strideSize = 10000,
+    const uint32_t rowCount = 2000) {
+  auto pool = memory::getDefaultMemoryPool();
+  size_t stripes = 3;
+
+  // write file to memory
+  auto config = std::make_shared<Config>();
+  // Ensure we cross stride boundary
+  config->set(Config::ROW_INDEX_STRIDE, strideSize);
+  config->set(Config::FLATTEN_MAP, true);
+  config->set<const std::vector<uint32_t>>(Config::MAP_FLAT_COLS, mapColumnIds);
+  config->set(Config::MAP_STATISTICS, true);
+
+  auto sink = std::make_unique<MemorySink>(*pool, 400 * 1024 * 1024);
+  auto sinkPtr = sink.get();
+
+  WriterOptions options;
+  options.config = config;
+  options.schema = type;
+  Writer writer{options, std::move(sink), *pool};
+
+  const size_t seed = std::time(nullptr);
+  LOG(INFO) << "seed: " << seed;
+  std::mt19937 gen{};
+  gen.seed(seed);
+  for (size_t i = 0; i < stripes; ++i) {
+    // The logic really does not depend on data shape. Hence, we can
+    // ignore the nulls.
+    writer.write(BatchMaker::createBatch(type, rowCount, *pool, gen, nullptr));
+    writer.flush();
+  }
+
+  writer.close();
+
+  ReaderOptions readerOpts;
+  RowReaderOptions rowReaderOpts;
+  auto reader = createReader(*sinkPtr, readerOpts);
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  auto dwrfRowReader = dynamic_cast<DwrfRowReader*>(rowReader.get());
+  bool preload = true;
+
+  auto typeWithId = TypeWithId::create(type);
+  for (auto mapColumn : mapColumnIds) {
+    folly::F14FastMap<KeyInfo, uint64_t, folly::transparent<KeyInfoHash>>
+        featureStreamSizes;
+    auto mapTypeId = typeWithId->childAt(mapColumn)->id;
+    auto valueTypeId = mapTypeId + 2;
+    for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
+      auto currentStripeInfo = dwrfRowReader->loadStripe(i, preload);
+      StripeStreamsImpl stripeStreams(
+          *dwrfRowReader,
+          dwrfRowReader->getColumnSelector(),
+          rowReaderOpts,
+          currentStripeInfo.offset(),
+          *dwrfRowReader,
+          i);
+
+      folly::F14FastMap<int64_t, dwio::common::KeyInfo> sequenceToKey;
+
+      stripeStreams.visitStreamsOfNode(
+          valueTypeId, [&](const StreamInformation& stream) {
+            auto sequence = stream.getSequence();
+            // No need to load shared dictionary stream here.
+            if (sequence == 0) {
+              return;
+            }
+
+            EncodingKey seqEk(valueTypeId, sequence);
+            const auto& keyInfo = stripeStreams.getEncoding(seqEk).key();
+            auto key = constructKey(keyInfo);
+            sequenceToKey.emplace(sequence, key);
+          });
+
+      auto allStreams = stripeStreams.getStreamIdentifiers();
+      for (const auto& streamIdPerNode : allStreams) {
+        for (const auto& streamId : streamIdPerNode.second) {
+          if (streamId.encodingKey().sequence != 0 &&
+              streamId.column() == mapColumn) {
+            // Update the aggregate.
+            const auto& keyInfo =
+                sequenceToKey.at(streamId.encodingKey().sequence);
+            auto streamLength = stripeStreams.getStreamLength(streamId);
+            auto it = featureStreamSizes.find(keyInfo);
+            if (it == featureStreamSizes.end()) {
+              featureStreamSizes.emplace(keyInfo, streamLength);
+            } else {
+              it->second += streamLength;
+            }
+          }
+        }
+      }
+    }
+    auto stats = reader->getFooter().statistics(mapTypeId);
+    ASSERT_TRUE(stats.has_mapstatistics());
+    ASSERT_EQ(featureStreamSizes.size(), stats.mapstatistics().stats_size());
+    for (size_t i = 0; i != stats.mapstatistics().stats_size(); ++i) {
+      const auto& entry = stats.mapstatistics().stats(i);
+      ASSERT_TRUE(entry.stats().has_size());
+      EXPECT_EQ(
+          featureStreamSizes.at(constructKey(entry.key())),
+          entry.stats().size());
+    }
+  }
+}
+
+TEST(E2EWriterTests, mapStatsSingleStride) {
+  HiveTypeParser parser;
+  auto type = parser.parse(
+      "struct<"
+      "map_val:map<bigint,int>,"
+      "map_val:map<bigint,double>,"
+      "map_val:map<bigint,map<bigint,bigint>>,"
+      "map_val:map<bigint,map<bigint,double>>,"
+      "map_val:map<bigint,array<bigint>>,"
+      "map_val:map<bigint,map<string,float>>,"
+      ">");
+
+  // Single column
+  testFlatMapFileStats(type, {0});
+  // All non-nested columns
+  testFlatMapFileStats(type, {0, 1});
+  // All columns
+  testFlatMapFileStats(type, {0, 1, 2, 3, 4, 5});
+}
+
+TEST(E2EWriterTests, mapStatsMultiStrides) {
+  HiveTypeParser parser;
+  auto type = parser.parse(
+      "struct<"
+      "map_val:map<bigint,int>,"
+      "map_val:map<bigint,double>,"
+      "map_val:map<bigint,map<bigint,bigint>>,"
+      "map_val:map<bigint,map<bigint,double>>,"
+      "map_val:map<bigint,array<bigint>>,"
+      "map_val:map<bigint,map<string,float>>,"
+      ">");
+
+  // Single column
+  testFlatMapFileStats(type, {0}, /*strideSize=*/1000);
+  // All non-nested columns
+  testFlatMapFileStats(type, {0, 1}, /*strideSize=*/1000);
+  // All columns
+  testFlatMapFileStats(type, {0, 1, 2, 3, 4, 5}, /*strideSize=*/1000);
+}
+
 TEST(E2EWriterTests, PartialStride) {
   HiveTypeParser parser;
   auto type = parser.parse("struct<bool_val:int>");

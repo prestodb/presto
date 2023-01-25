@@ -60,7 +60,8 @@ FlatMapColumnWriter<K>::FlatMapColumnWriter(
     : BaseColumnWriter{context, type, sequence, nullptr},
       keyType_{*type.childAt(0)},
       valueType_{*type.childAt(1)},
-      maxKeyCount_{context_.getConfig(Config::MAP_FLAT_MAX_KEYS)} {
+      maxKeyCount_{context_.getConfig(Config::MAP_FLAT_MAX_KEYS)},
+      collectMapStats_{context.getConfig(Config::MAP_STATISTICS)} {
   auto options = StatisticsBuilderOptions::fromConfig(context.getConfigs());
   keyFileStatsBuilder_ =
       std::unique_ptr<typename TypeInfo<K>::StatisticsBuilder>(
@@ -96,6 +97,23 @@ void FlatMapColumnWriter<K>::flush(
 
   for (auto& pair : valueWriters_) {
     pair.second.flush(encodingFactory);
+  }
+
+  if (collectMapStats_) {
+    // Need to record and clear per stripe due to sequence to key instability
+    auto& physicalSizeAgg = dynamic_cast<MapPhysicalSizeAggregator&>(
+        context_.getPhysicalSizeAggregator(id_));
+    // Only top level value column streams have keys in their encodings. We
+    // could only identify streams from nested value column with sequence.
+    folly::F14FastMap<uint32_t, const proto::KeyInfo&> sequenceToKey{};
+    for (auto& pair : valueWriters_) {
+      auto& valueWriter = pair.second;
+      sequenceToKey.emplace(
+          valueWriter.getSequence(), valueWriter.getKeyInfo());
+    }
+    physicalSizeAgg.prepare(
+        sequenceToKey,
+        dynamic_cast<MapStatisticsBuilder*>(fileStatsBuilder_.get()));
   }
 
   // Reset is being called after flush, so no need to explicitly

@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/dwrf/writer/WriterContext.h"
 
 using namespace ::testing;
@@ -101,5 +102,34 @@ TEST(TestWriterContext, RemoveIntDictionaryEncoderForNode) {
   context.removeAllIntDictionaryEncodersOnNode(
       [](uint32_t nodeId) { return nodeId == 2; });
   EXPECT_EQ(0, context.dictEncoders_.size());
+}
+
+TEST(TestWriterContext, BuildPhysicalSizeAggregators) {
+  auto config = std::make_shared<Config>();
+  WriterContext context{config, memory::getDefaultMemoryPool()};
+  auto type = ROW({
+      {"array", ARRAY(REAL())},
+      {"map", MAP(INTEGER(), DOUBLE())},
+      {"row",
+       ROW({
+           {"a", REAL()},
+           {"b", INTEGER()},
+       })},
+      {"nested",
+       ARRAY(ROW({
+           {"a", INTEGER()},
+           {"b", MAP(REAL(), REAL())},
+       }))},
+  });
+  auto typeWithId = velox::dwio::common::TypeWithId::create(type);
+  context.buildPhysicalSizeAggregators(*typeWithId);
+  std::vector<uint32_t> mapNodes{3, 12};
+  for (size_t i = 0; i < 14; ++i) {
+    EXPECT_NO_THROW(context.getPhysicalSizeAggregator(i));
+  }
+  for (const auto nodeId : mapNodes) {
+    EXPECT_NO_THROW(dynamic_cast<MapPhysicalSizeAggregator&>(
+        context.getPhysicalSizeAggregator(nodeId)));
+  }
 }
 } // namespace facebook::velox::dwrf

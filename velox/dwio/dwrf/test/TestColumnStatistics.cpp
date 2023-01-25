@@ -57,6 +57,28 @@ TEST(StatisticsBuilder, size) {
     EXPECT_FALSE(missingSize.getSize().has_value());
     EXPECT_FALSE(hasSize.getSize().has_value());
   }
+  {
+    StatisticsBuilder from{options};
+    ASSERT_FALSE(from.getSize().has_value());
+
+    StatisticsBuilder to{options};
+    ASSERT_FALSE(to.getSize().has_value());
+    to.incrementSize(64);
+    ASSERT_FALSE(to.getSize().has_value());
+
+    to.ensureSize();
+    ASSERT_EQ(0, to.getSize().value());
+    to.incrementSize(64);
+    EXPECT_EQ(64, to.getSize().value());
+
+    to.merge(from, /*ignoreSize=*/true);
+    EXPECT_FALSE(from.getSize().has_value());
+    EXPECT_EQ(64, to.getSize().value());
+
+    to.merge(from);
+    EXPECT_FALSE(from.getSize().has_value());
+    EXPECT_FALSE(to.getSize().has_value());
+  }
 }
 
 TEST(StatisticsBuilder, integer) {
@@ -1016,4 +1038,101 @@ TEST(MapStatisticsBuilderTest, innerStatsType) {
     EXPECT_EQ(2, intStats.getMaximum());
     EXPECT_EQ(3, intStats.getSum());
   }
+}
+
+TEST(MapStatisticsBuilderTest, incrementSize) {
+  auto type = HiveTypeParser{}.parse("map<int, float>");
+  MapStatisticsBuilder mapStatsBuilder{*type, options};
+
+  DoubleStatisticsBuilder statsBuilder1{options};
+  statsBuilder1.addValues(0.1);
+  statsBuilder1.addValues(1.0);
+  ASSERT_FALSE(statsBuilder1.getSize().has_value());
+  mapStatsBuilder.addValues(createKeyInfo(1), statsBuilder1);
+  EXPECT_FALSE(mapStatsBuilder.getEntryStatistics()
+                   .at(KeyInfo{1})
+                   ->getSize()
+                   .has_value());
+
+  DoubleStatisticsBuilder statsBuilder2{options};
+  statsBuilder2.addValues(0.3);
+  statsBuilder2.addValues(3.0);
+  ASSERT_FALSE(statsBuilder2.getSize().has_value());
+  mapStatsBuilder.addValues(createKeyInfo(2), statsBuilder2);
+  EXPECT_FALSE(mapStatsBuilder.getEntryStatistics()
+                   .at(KeyInfo{2})
+                   ->getSize()
+                   .has_value());
+
+  mapStatsBuilder.incrementSize(createKeyInfo(1), 4);
+  ASSERT_TRUE(mapStatsBuilder.getEntryStatistics()
+                  .at(KeyInfo{1})
+                  ->getSize()
+                  .has_value());
+  EXPECT_EQ(
+      4,
+      mapStatsBuilder.getEntryStatistics().at(KeyInfo{1})->getSize().value());
+  ASSERT_FALSE(mapStatsBuilder.getEntryStatistics()
+                   .at(KeyInfo{2})
+                   ->getSize()
+                   .has_value());
+  mapStatsBuilder.incrementSize(createKeyInfo(2), 8);
+  ASSERT_TRUE(mapStatsBuilder.getEntryStatistics()
+                  .at(KeyInfo{1})
+                  ->getSize()
+                  .has_value());
+  EXPECT_EQ(
+      4,
+      mapStatsBuilder.getEntryStatistics().at(KeyInfo{1})->getSize().value());
+  ASSERT_TRUE(mapStatsBuilder.getEntryStatistics()
+                  .at(KeyInfo{2})
+                  ->getSize()
+                  .has_value());
+  EXPECT_EQ(
+      8,
+      mapStatsBuilder.getEntryStatistics().at(KeyInfo{2})->getSize().value());
+
+  mapStatsBuilder.incrementSize(createKeyInfo(1), 8);
+  ASSERT_TRUE(mapStatsBuilder.getEntryStatistics()
+                  .at(KeyInfo{1})
+                  ->getSize()
+                  .has_value());
+  EXPECT_EQ(
+      12,
+      mapStatsBuilder.getEntryStatistics().at(KeyInfo{1})->getSize().value());
+  ASSERT_TRUE(mapStatsBuilder.getEntryStatistics()
+                  .at(KeyInfo{2})
+                  ->getSize()
+                  .has_value());
+  EXPECT_EQ(
+      8,
+      mapStatsBuilder.getEntryStatistics().at(KeyInfo{2})->getSize().value());
+}
+
+TEST(MapStatisticsBuilderTest, mergeKeyStats) {
+  auto type = HiveTypeParser{}.parse("map<bigint, bigint>");
+  MapStatisticsBuilder mapStatsBuilder{*type, options};
+
+  mapStatsBuilder.incrementSize(createKeyInfo(1), 42);
+  auto& keyStats = dynamic_cast<StatisticsBuilder&>(
+      *mapStatsBuilder.getEntryStatistics().at(KeyInfo{1}));
+  ASSERT_EQ(0, keyStats.getNumberOfValues());
+  ASSERT_TRUE(keyStats.getRawSize().has_value());
+  ASSERT_EQ(0, keyStats.getRawSize().value());
+  ASSERT_TRUE(keyStats.getSize().has_value());
+  ASSERT_EQ(42, keyStats.getSize().value());
+
+  IntegerStatisticsBuilder statsBuilder{options};
+  statsBuilder.addValues(1);
+  statsBuilder.addValues(2);
+  statsBuilder.increaseRawSize(8);
+  mapStatsBuilder.addValues(createKeyInfo(1), statsBuilder);
+
+  keyStats = dynamic_cast<StatisticsBuilder&>(
+      *mapStatsBuilder.getEntryStatistics().at(KeyInfo{1}));
+  ASSERT_EQ(2, keyStats.getNumberOfValues());
+  ASSERT_TRUE(keyStats.getRawSize().has_value());
+  ASSERT_EQ(8, keyStats.getRawSize().value());
+  EXPECT_TRUE(keyStats.getSize().has_value());
+  EXPECT_EQ(42, keyStats.getSize().value());
 }

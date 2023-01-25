@@ -168,6 +168,10 @@ class ValueWriter {
     return sequence_;
   }
 
+  const proto::KeyInfo& getKeyInfo() const {
+    return keyInfo_;
+  }
+
   void createIndexEntry(
       const ValueStatisticsBuilder& valueStatsBuilder,
       MapStatisticsBuilder& mapStatsBuilder) {
@@ -300,6 +304,7 @@ class FlatMapColumnWriter : public BaseColumnWriter {
 
   // Stores column keys if writing with RowVector input
   std::vector<KeyType> structKeys_;
+  const bool collectMapStats_;
 };
 
 template <>
