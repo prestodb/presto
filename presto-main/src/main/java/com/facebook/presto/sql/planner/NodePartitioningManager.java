@@ -114,7 +114,7 @@ public class NodePartitioningManager
                 partitioningHandle.getConnectorHandle());
     }
 
-    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
+    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, Optional<Predicate<Node>> nodePredicate)
     {
         return getNodePartitioningMap(session, partitioningHandle, Optional.empty());
     }
