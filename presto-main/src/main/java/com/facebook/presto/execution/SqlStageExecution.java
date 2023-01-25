@@ -69,6 +69,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_RECOVERY_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE_INTERMEDIATE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
@@ -585,7 +586,8 @@ public final class SqlStageExecution
                 // no matter if it is possible to recover - the task is failed
                 failedTasks.add(taskId);
 
-                List<ExecutionFailureInfo> rewrittenFailures = taskStatus.getFailures().stream().map(this::rewriteTransportFailure).collect(toImmutableList());
+                boolean isLeaf = planFragment.isLeaf();
+                List<ExecutionFailureInfo> rewrittenFailures = taskStatus.getFailures().stream().map(x -> rewriteTransportFailure(x, isLeaf)).collect(toImmutableList());
                 RuntimeException failure = rewrittenFailures.stream()
                         .findFirst()
                         .map(ExecutionFailureInfo::toException)
@@ -691,7 +693,7 @@ public final class SqlStageExecution
         }
     }
 
-    private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
+    private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo, boolean isLeaf)
     {
         if (executionFailureInfo.getRemoteHost() == null || failureDetector.getState(executionFailureInfo.getRemoteHost()) != GONE) {
             return executionFailureInfo;
@@ -704,7 +706,7 @@ public final class SqlStageExecution
                 executionFailureInfo.getSuppressed(),
                 executionFailureInfo.getStack(),
                 executionFailureInfo.getErrorLocation(),
-                REMOTE_HOST_GONE.toErrorCode(),
+                isLeaf ? REMOTE_HOST_GONE.toErrorCode() : REMOTE_HOST_GONE_INTERMEDIATE.toErrorCode(),
                 executionFailureInfo.getRemoteHost(),
                 executionFailureInfo.getErrorCause());
     }
