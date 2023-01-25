@@ -65,30 +65,30 @@ class SubscriptImpl : public exec::VectorFunction {
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    return {
-        // array(T), integer -> T
-        exec::FunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("T")
-            .argumentType("array(T)")
-            .argumentType("integer")
-            .build(),
-        // array(T), bigint -> T
-        exec::FunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("T")
-            .argumentType("array(T)")
-            .argumentType("bigint")
-            .build(),
-        // map(K,V), K -> V
-        exec::FunctionSignatureBuilder()
-            .knownTypeVariable("K")
-            .typeVariable("V")
-            .returnType("V")
-            .argumentType("map(K,V)")
-            .argumentType("K")
-            .build(),
-    };
+    std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
+
+    // array(T), integer|bigint -> T
+    for (const auto& indexType : {"integer", "bigint"}) {
+      signatures.push_back(exec::FunctionSignatureBuilder()
+                               .typeVariable("T")
+                               .returnType("T")
+                               .argumentType("array(T)")
+                               .argumentType(indexType)
+                               .build());
+    }
+
+    // map(K,V), K -> V
+    for (const auto& keyType :
+         {"tinyint", "smallint", "integer", "bigint", "varchar"}) {
+      signatures.push_back(exec::FunctionSignatureBuilder()
+                               .typeVariable("V")
+                               .returnType("V")
+                               .argumentType(fmt::format("map({},V)", keyType))
+                               .argumentType(keyType)
+                               .build());
+    }
+
+    return signatures;
   }
 
  private:
