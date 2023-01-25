@@ -67,11 +67,12 @@ class ArraySumFunction : public exec::VectorFunction {
   template <bool mayHaveNulls, typename DataAtFunc, typename IsNullFunc>
   void applyCore(
       const SelectivityVector& rows,
+      exec::EvalCtx& context,
       const ArrayVector* arrayVector,
       FlatVector<TOutput>* resultValues,
       DataAtFunc&& dataAtFunc,
       IsNullFunc&& isNullFunc) const {
-    rows.template applyToSelected([&](vector_size_t row) {
+    context.applyToSelectedNoThrow(rows, [&](auto row) {
       resultValues->set(
           row,
           applyCore<mayHaveNulls>(row, arrayVector, dataAtFunc, isNullFunc));
@@ -81,12 +82,14 @@ class ArraySumFunction : public exec::VectorFunction {
   template <bool mayHaveNulls>
   void applyFlat(
       const SelectivityVector& rows,
+      exec::EvalCtx& context,
       ArrayVector* arrayVector,
       const uint64_t* rawNulls,
       const TInput* rawElements,
       FlatVector<TOutput>* resultValues) const {
     applyCore<mayHaveNulls>(
         rows,
+        context,
         arrayVector,
         resultValues,
         [&](vector_size_t index) { return rawElements[index]; },
@@ -96,11 +99,13 @@ class ArraySumFunction : public exec::VectorFunction {
   template <bool mayHaveNulls>
   void applyNonFlat(
       const SelectivityVector& rows,
+      exec::EvalCtx& context,
       ArrayVector* arrayVector,
       exec::LocalDecodedVector& elements,
       FlatVector<TOutput>* resultValues) const {
     applyCore<mayHaveNulls>(
         rows,
+        context,
         arrayVector,
         resultValues,
         [&](vector_size_t index) {
@@ -127,18 +132,22 @@ class ArraySumFunction : public exec::VectorFunction {
       exec::LocalDecodedVector elements(context, *elementsVector, elementsRows);
 
       TOutput sum;
-      if (elementsVector->mayHaveNulls()) {
-        sum = applyCore<true>(
-            arrayRow,
-            arrayVector,
-            [&](auto index) { return elements->valueAt<TInput>(index); },
-            [&](auto index) { return elements->isNullAt(index); });
-      } else {
-        sum = applyCore<false>(
-            arrayRow,
-            arrayVector,
-            [&](auto index) { return elements->valueAt<TInput>(index); },
-            [&](auto index) { return elements->isNullAt(index); });
+      try {
+        if (elementsVector->mayHaveNulls()) {
+          sum = applyCore<true>(
+              arrayRow,
+              arrayVector,
+              [&](auto index) { return elements->valueAt<TInput>(index); },
+              [&](auto index) { return elements->isNullAt(index); });
+        } else {
+          sum = applyCore<false>(
+              arrayRow,
+              arrayVector,
+              [&](auto index) { return elements->valueAt<TInput>(index); },
+              [&](auto index) { return elements->isNullAt(index); });
+        }
+      } catch (...) {
+        context.setErrors(rows, std::current_exception());
       }
 
       context.moveOrCopyResult(
@@ -167,19 +176,20 @@ class ArraySumFunction : public exec::VectorFunction {
       const uint64_t* __restrict rawNulls = elementsVector->rawNulls();
 
       if (elementsVector->mayHaveNulls()) {
-        applyFlat<true>(rows, arrayVector, rawNulls, rawElements, resultValues);
+        applyFlat<true>(
+            rows, context, arrayVector, rawNulls, rawElements, resultValues);
       } else {
         applyFlat<false>(
-            rows, arrayVector, rawNulls, rawElements, resultValues);
+            rows, context, arrayVector, rawNulls, rawElements, resultValues);
       }
     } else {
       SelectivityVector elementsRows(elementsVector->size());
       exec::LocalDecodedVector elements(context, *elementsVector, elementsRows);
 
       if (elementsVector->mayHaveNulls()) {
-        applyNonFlat<true>(rows, arrayVector, elements, resultValues);
+        applyNonFlat<true>(rows, context, arrayVector, elements, resultValues);
       } else {
-        applyNonFlat<false>(rows, arrayVector, elements, resultValues);
+        applyNonFlat<false>(rows, context, arrayVector, elements, resultValues);
       }
     }
   }
