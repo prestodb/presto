@@ -56,8 +56,9 @@ clean:					#: Delete all build artifacts
 	rm -rf $(BUILD_BASE_DIR)
 
 velox-submodule:		#: Check out code for velox submodule
-	git submodule sync --recursive
-	git submodule update --init --recursive
+	rm -rf ./velox
+	git clone https://github.com/facebookincubator/velox.git
+	cd velox && git remote add velox https://github.com/facebookincubator/velox.git && git fetch velox pull/3843/head:enable-sigpipe-aws && git checkout enable-sigpipe-aws  && git submodule update --init --recursive
 
 submodules: velox-submodule
 
