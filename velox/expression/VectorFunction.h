@@ -127,6 +127,29 @@ class VectorFunction {
   }
 };
 
+/// Vector function that generates the specified error for every row. Use this
+/// to hold an error generated while processing inputs for a stateful vector
+/// function. Such errors should not be reported until VectorFunction::apply is
+/// called to avoid signaling errors for expressions which end up not needing to
+/// evaluate the function.
+class AlwaysFailingVectorFunction final : public VectorFunction {
+ public:
+  explicit AlwaysFailingVectorFunction(std::exception_ptr exceptionPtr)
+      : exceptionPtr_{std::move(exceptionPtr)} {}
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& /*args*/,
+      const TypePtr& /* outputType */,
+      EvalCtx& context,
+      VectorPtr& /*resultRef*/) const final {
+    context.setErrors(rows, exceptionPtr_);
+  }
+
+ private:
+  std::exception_ptr exceptionPtr_;
+};
+
 // Factory for functions which are template generated from simple functions.
 class SimpleFunctionAdapterFactory {
  public:

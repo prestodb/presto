@@ -495,7 +495,7 @@ class LikeWithRe2 final : public VectorFunction {
 
     if (!validPattern_) {
       auto error = std::make_exception_ptr(std::invalid_argument(
-          "Escape character must be followed by '%%', '_' or the escape character itself\""));
+          "Escape character must be followed by '%', '_' or the escape character itself"));
       context.setErrors(rows, error);
       return;
     }
@@ -938,8 +938,15 @@ std::shared_ptr<exec::VectorFunction> makeLike(
 
     auto constantEscape = escape->as<ConstantVector<StringView>>();
 
-    // Escape char should be a single char value
-    VELOX_USER_CHECK_EQ(constantEscape->valueAt(0).size(), 1);
+    try {
+      VELOX_USER_CHECK_EQ(
+          constantEscape->valueAt(0).size(),
+          1,
+          "Escape string must be a single character");
+    } catch (...) {
+      return std::make_shared<exec::AlwaysFailingVectorFunction>(
+          std::current_exception());
+    }
     escapeChar = constantEscape->valueAt(0).data()[0];
   }
 

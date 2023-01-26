@@ -914,8 +914,19 @@ TEST_F(Re2FunctionsTest, tryException) {
 
   // Ensure like works well with Try.
   {
-    auto result = evaluate<SimpleVector<bool>>(
-        "try(c0  like '%_*Do[^e]%' escape 'o')", makeRowVector({stringVector}));
+    auto input = makeRowVector({stringVector});
+    VELOX_ASSERT_THROW(
+        evaluate("c0 like 'test_o' escape 'o'", input),
+        "Escape character must be followed by '%', '_' or the escape character itself");
+
+    auto result = evaluate("try(c0 like 'test_o' escape 'o')", input);
+    assertEqualVectors(makeNullConstant(TypeKind::BOOLEAN, 3), result);
+
+    VELOX_ASSERT_THROW(
+        evaluate("c0 like 'test' escape 'oops'", input),
+        "Escape string must be a single character");
+
+    result = evaluate("try(c0 like 'test' escape 'oops')", input);
     assertEqualVectors(makeNullConstant(TypeKind::BOOLEAN, 3), result);
   }
 
