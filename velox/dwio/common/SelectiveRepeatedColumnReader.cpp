@@ -21,13 +21,15 @@
 
 namespace facebook::velox::dwio::common {
 
-void SelectiveRepeatedColumnReader::makeNestedRowSet(RowSet rows) {
-  allLengths_.resize(rows.back() + 1);
+void SelectiveRepeatedColumnReader::makeNestedRowSet(
+    RowSet rows,
+    int32_t maxRow) {
+  allLengths_.resize(maxRow + 1);
   assert(!allLengths_.empty()); // for lint only.
   auto nulls = nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
   // Reads the lengths, leaves an uninitialized gap for a null
-  // map/list. Reading these checks the null nask.
-  readLengths(allLengths_.data(), rows.back() + 1, nulls);
+  // map/list. Reading these checks the null mask.
+  readLengths(allLengths_.data(), maxRow + 1, nulls);
   dwio::common::ensureCapacity<vector_size_t>(
       offsets_, rows.size(), &memoryPool_);
   dwio::common::ensureCapacity<vector_size_t>(
@@ -75,6 +77,11 @@ void SelectiveRepeatedColumnReader::makeNestedRowSet(RowSet rows) {
     rawSizes[rowIndex] = lengthAtRow;
     nestedRow += lengthAtRow;
     nestedOffset += lengthAtRow;
+  }
+  for (auto i = currentRow; i <= maxRow; ++i) {
+    if (!nulls || !bits::isBitNull(nulls, i)) {
+      nestedOffset += allLengths_[i];
+    }
   }
   childTargetReadOffset_ += nestedOffset;
 }
@@ -175,7 +182,7 @@ void SelectiveListColumnReader::read(
   child_->seekTo(childTargetReadOffset_, false);
   prepareRead<char>(offset, rows, incomingNulls);
   auto activeRows = applyFilter(rows);
-  makeNestedRowSet(activeRows);
+  makeNestedRowSet(activeRows, rows.back());
   if (child_ && !nestedRows_.empty()) {
     child_->read(child_->readOffset(), nestedRows_, nullptr);
   }
@@ -254,7 +261,7 @@ void SelectiveMapColumnReader::read(
 
   prepareRead<char>(offset, rows, incomingNulls);
   auto activeRows = applyFilter(rows);
-  makeNestedRowSet(activeRows);
+  makeNestedRowSet(activeRows, rows.back());
   if (keyReader_ && elementReader_ && !nestedRows_.empty()) {
     keyReader_->read(keyReader_->readOffset(), nestedRows_, nullptr);
     elementReader_->read(elementReader_->readOffset(), nestedRows_, nullptr);

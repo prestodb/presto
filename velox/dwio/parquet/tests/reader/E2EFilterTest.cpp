@@ -472,7 +472,7 @@ TEST_F(E2EFilterTest, list) {
       "struct_array: struct<a: array<struct<k:int, v:int, va: array<smallint>>>>",
       nullptr,
       false,
-      {"long_val"},
+      {"long_val", "array_val"},
       10);
 }
 
@@ -493,7 +493,7 @@ TEST_F(E2EFilterTest, map) {
       "struct_map: struct<m: map<int, struct<k:int, v:int, vm: map<bigint, smallint>>>>",
       nullptr,
       false,
-      {"long_val"},
+      {"long_val", "map_val"},
       10);
 }
 

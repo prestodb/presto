@@ -448,6 +448,20 @@ inline std::unique_ptr<AbstractColumnStats> makeStats<TypeKind::ROW>(
   return std::make_unique<ComplexColumnStats>(type, rootType);
 }
 
+template <>
+inline std::unique_ptr<AbstractColumnStats> makeStats<TypeKind::ARRAY>(
+    TypePtr type,
+    RowTypePtr rootType) {
+  return std::make_unique<ComplexColumnStats>(type, rootType);
+}
+
+template <>
+inline std::unique_ptr<AbstractColumnStats> makeStats<TypeKind::MAP>(
+    TypePtr type,
+    RowTypePtr rootType) {
+  return std::make_unique<ComplexColumnStats>(type, rootType);
+}
+
 class FilterGenerator {
  public:
   static std::string specsToString(const std::vector<FilterSpec>& specs);

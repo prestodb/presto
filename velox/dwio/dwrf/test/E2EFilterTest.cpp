@@ -293,7 +293,7 @@ TEST_F(E2EFilterTest, listAndMap) {
       "map_val:map<bigint,struct<nested_map: map<int, int>>>",
       [&]() {},
       true,
-      {"long_val", "long_val_2", "int_val"},
+      {"long_val", "long_val_2", "int_val", "array_val", "map_val"},
       numCombinations);
 }
 

@@ -54,7 +54,7 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
       const uint64_t* FOLLY_NULLABLE nulls) = 0;
 
   // Create row set for child columns based on the row set of parent column.
-  void makeNestedRowSet(RowSet rows);
+  void makeNestedRowSet(RowSet rows, int32_t maxRow);
 
   // Compact the output rows (along with the offsets and lengths) based on the
   // current filtered rows passed in.
@@ -93,6 +93,10 @@ class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       FormatParams& params,
       velox::common::ScanSpec& scanSpec);
+
+  void resetFilterCaches() override {
+    child_->resetFilterCaches();
+  }
 
   uint64_t skip(uint64_t numValues) override;
 

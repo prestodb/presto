@@ -486,6 +486,12 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
       case TypeKind::ROW:
         stats = makeStats<TypeKind::ROW>(vector->type(), rowType_);
         break;
+      case TypeKind::ARRAY:
+        stats = makeStats<TypeKind::ARRAY>(vector->type(), rowType_);
+        break;
+      case TypeKind::MAP:
+        stats = makeStats<TypeKind::MAP>(vector->type(), rowType_);
+        break;
       // TODO:
       // Add support for TypeKind::TIMESTAMP.
       case TypeKind::SHORT_DECIMAL:
