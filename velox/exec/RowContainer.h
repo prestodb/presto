@@ -87,7 +87,7 @@ class RowPartitions {
   int32_t size_{0};
 
   // Partition numbers. 1 byte each.
-  memory::MemoryAllocator::Allocation allocation_;
+  memory::Allocation allocation_;
 };
 
 // Packed representation of offset, null byte offset and null mask for
@@ -356,13 +356,13 @@ class RowContainer {
       auto allocation = rows_.allocationAt(i);
       auto numRuns = allocation->numRuns();
       for (auto runIndex = iter->runIndex; runIndex < numRuns; ++runIndex) {
-        memory::MemoryAllocator::PageRun run = allocation->runAt(runIndex);
+        memory::Allocation::PageRun run = allocation->runAt(runIndex);
         auto data = run.data<char>();
         int64_t limit;
         if (i == numAllocations - 1 && runIndex == rows_.currentRunIndex()) {
           limit = rows_.currentOffset();
         } else {
-          limit = run.numPages() * memory::MemoryAllocator::kPageSize;
+          limit = run.numPages() * memory::AllocationTraits::kPageSize;
         }
         auto row = iter->rowOffset;
         while (row + rowSize <= limit) {

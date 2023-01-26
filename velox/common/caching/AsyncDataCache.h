@@ -148,11 +148,11 @@ class AsyncDataCacheEntry {
   //  hold no memory when calling this.
   void initialize(FileCacheKey key);
 
-  memory::MemoryAllocator::Allocation& data() {
+  memory::Allocation& data() {
     return data_;
   }
 
-  const memory::MemoryAllocator::Allocation& data() const {
+  const memory::Allocation& data() const {
     return data_;
   }
 
@@ -268,7 +268,7 @@ class AsyncDataCacheEntry {
   CacheShard* const shard_;
 
   // The data being cached.
-  memory::MemoryAllocator::Allocation data_;
+  memory::Allocation data_;
 
   // Contains the cached data if this is much smaller than a MemoryAllocator
   // page (kTinyDataSize).
@@ -562,8 +562,7 @@ class CacheShard {
 
   CachePin initEntry(RawFileCacheKey key, AsyncDataCacheEntry* entry);
 
-  void freeAllocations(
-      std::vector<memory::MemoryAllocator::Allocation>& allocations);
+  void freeAllocations(std::vector<memory::Allocation>& allocations);
 
   mutable std::mutex mutex_;
   folly::F14FastMap<RawFileCacheKey, AsyncDataCacheEntry*> entryMap_;
@@ -632,21 +631,21 @@ class AsyncDataCache : public memory::MemoryAllocator {
 
   bool allocateNonContiguous(
       memory::MachinePageCount numPages,
-      Allocation& out,
+      memory::Allocation& out,
       ReservationCallback reservationCB = nullptr,
       memory::MachinePageCount minSizeClass = 0) override;
 
-  int64_t freeNonContiguous(Allocation& allocation) override {
+  int64_t freeNonContiguous(memory::Allocation& allocation) override {
     return allocator_->freeNonContiguous(allocation);
   }
 
   bool allocateContiguous(
       memory::MachinePageCount numPages,
-      Allocation* FOLLY_NULLABLE collateral,
-      ContiguousAllocation& allocation,
+      memory::Allocation* FOLLY_NULLABLE collateral,
+      memory::ContiguousAllocation& allocation,
       ReservationCallback reservationCB = nullptr) override;
 
-  void freeContiguous(ContiguousAllocation& allocation) override {
+  void freeContiguous(memory::ContiguousAllocation& allocation) override {
     allocator_->freeContiguous(allocation);
   }
 

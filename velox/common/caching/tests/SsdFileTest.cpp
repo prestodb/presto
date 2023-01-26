@@ -62,15 +62,13 @@ class SsdFileTest : public testing::Test {
         bits::roundUp(ssdBytes, SsdFile::kRegionSize) / SsdFile::kRegionSize);
   }
 
-  static void initializeContents(
-      int64_t sequence,
-      MemoryAllocator::Allocation& alloc) {
+  static void initializeContents(int64_t sequence, memory::Allocation& alloc) {
     bool first = true;
     for (int32_t i = 0; i < alloc.numRuns(); ++i) {
-      MemoryAllocator::PageRun run = alloc.runAt(i);
+      memory::Allocation::PageRun run = alloc.runAt(i);
       int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
       int32_t numWords =
-          run.numPages() * MemoryAllocator::kPageSize / sizeof(void*);
+          run.numPages() * memory::AllocationTraits::kPageSize / sizeof(void*);
       for (int32_t offset = 0; offset < numWords; offset++) {
         if (first) {
           ptr[offset] = sequence;
@@ -84,17 +82,15 @@ class SsdFileTest : public testing::Test {
 
   // Checks that the contents are consistent with what is set in
   // initializeContents.
-  static void checkContents(
-      const MemoryAllocator::Allocation& alloc,
-      int32_t numBytes) {
+  static void checkContents(const memory::Allocation& alloc, int32_t numBytes) {
     bool first = true;
     int64_t sequence;
     int32_t bytesChecked = sizeof(int64_t);
     for (int32_t i = 0; i < alloc.numRuns(); ++i) {
-      MemoryAllocator::PageRun run = alloc.runAt(i);
+      memory::Allocation::PageRun run = alloc.runAt(i);
       int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
       int32_t numWords =
-          run.numPages() * MemoryAllocator::kPageSize / sizeof(void*);
+          run.numPages() * memory::AllocationTraits::kPageSize / sizeof(void*);
       for (int32_t offset = 0; offset < numWords; offset++) {
         if (first) {
           sequence = ptr[offset];

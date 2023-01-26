@@ -306,6 +306,7 @@ class ExchangeClient {
       : destination_(destination),
         pool_(pool),
         queue_(std::make_shared<ExchangeQueue>(minSize)) {
+    VELOX_CHECK_NOT_NULL(pool_);
     VELOX_CHECK(
         destination >= 0,
         "Exchange client destination must be greater than zero, got {}",

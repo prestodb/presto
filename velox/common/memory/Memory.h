@@ -36,6 +36,7 @@
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/GTestMacros.h"
 #include "velox/common/base/SuccinctPrinter.h"
+#include "velox/common/memory/Allocation.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MemoryUsage.h"
 #include "velox/common/memory/MemoryUsageTracker.h"
@@ -160,11 +161,11 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// memory and any partially allocated memory is freed.
   virtual bool allocateNonContiguous(
       MachinePageCount numPages,
-      MemoryAllocator::Allocation& out,
+      Allocation& out,
       MachinePageCount minSizeClass = 0) = 0;
 
   /// Frees non-contiguous 'allocation'. 'allocation' is empty on return.
-  virtual void freeNonContiguous(MemoryAllocator::Allocation& allocation) = 0;
+  virtual void freeNonContiguous(Allocation& allocation) = 0;
 
   /// Returns the largest class size used by non-contiguous memory allocation.
   virtual MachinePageCount largestSizeClass() const = 0;
@@ -178,11 +179,10 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// 'out' is unmapped in all the cases even if the allocation fails.
   virtual bool allocateContiguous(
       MachinePageCount numPages,
-      MemoryAllocator::ContiguousAllocation& out) = 0;
+      ContiguousAllocation& out) = 0;
 
   /// Frees contiguous 'allocation'. 'allocation' is empty on return.
-  virtual void freeContiguous(
-      MemoryAllocator::ContiguousAllocation& allocation) = 0;
+  virtual void freeContiguous(ContiguousAllocation& allocation) = 0;
 
   /// Rounds up to a power of 2 >= size, or to a size halfway between
   /// two consecutive powers of two, i.e 8, 12, 16, 24, 32, .... This
@@ -283,10 +283,10 @@ class MemoryPoolImpl : public MemoryPool {
 
   bool allocateNonContiguous(
       MachinePageCount numPages,
-      MemoryAllocator::Allocation& out,
+      Allocation& out,
       MachinePageCount minSizeClass = 0) override;
 
-  void freeNonContiguous(MemoryAllocator::Allocation& allocation) override;
+  void freeNonContiguous(Allocation& allocation) override;
 
   MachinePageCount largestSizeClass() const override;
 
@@ -294,10 +294,9 @@ class MemoryPoolImpl : public MemoryPool {
 
   bool allocateContiguous(
       MachinePageCount numPages,
-      MemoryAllocator::ContiguousAllocation& allocation) override;
+      ContiguousAllocation& allocation) override;
 
-  void freeContiguous(
-      MemoryAllocator::ContiguousAllocation& allocation) override;
+  void freeContiguous(ContiguousAllocation& allocation) override;
 
   /// Memory Management methods.
 

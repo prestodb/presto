@@ -655,7 +655,7 @@ class HashTable : public BaseHashTable {
   int32_t nextOffset_;
   uint8_t* FOLLY_NULLABLE tags_ = nullptr;
   char* FOLLY_NULLABLE* FOLLY_NULLABLE table_ = nullptr;
-  memory::MemoryAllocator::ContiguousAllocation tableAllocation_;
+  memory::ContiguousAllocation tableAllocation_;
   int64_t capacity_{0};
   int64_t sizeMask_{0};
   int64_t numDistinct_{0};

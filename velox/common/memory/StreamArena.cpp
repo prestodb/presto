@@ -23,14 +23,13 @@ StreamArena::StreamArena(memory::MemoryPool* pool) : pool_(pool) {}
 void StreamArena::newRange(int32_t bytes, ByteRange* range) {
   VELOX_CHECK_GT(bytes, 0);
   memory::MachinePageCount numPages =
-      bits::roundUp(bytes, memory::MemoryAllocator::kPageSize) /
-      memory::MemoryAllocator::kPageSize;
+      bits::roundUp(bytes, memory::AllocationTraits::kPageSize) /
+      memory::AllocationTraits::kPageSize;
   int32_t numRuns = allocation_.numRuns();
   if (currentRun_ >= numRuns) {
     if (numRuns) {
       allocations_.push_back(
-          std::make_unique<memory::MemoryAllocator::Allocation>(
-              std::move(allocation_)));
+          std::make_unique<memory::Allocation>(std::move(allocation_)));
     }
     if (!pool_->allocateNonContiguous(
             std::max(allocationQuantum_, numPages), allocation_)) {
@@ -43,9 +42,9 @@ void StreamArena::newRange(int32_t bytes, ByteRange* range) {
   auto run = allocation_.runAt(currentRun_);
   int32_t available = run.numPages() - currentPage_;
   range->buffer =
-      run.data() + memory::MemoryAllocator::kPageSize * currentPage_;
+      run.data() + memory::AllocationTraits::kPageSize * currentPage_;
   range->size = std::min<int32_t>(numPages, available) *
-      memory::MemoryAllocator::kPageSize;
+      memory::AllocationTraits::kPageSize;
   range->position = 0;
   currentPage_ += std::min<int32_t>(available, numPages);
   if (currentPage_ == run.numPages()) {

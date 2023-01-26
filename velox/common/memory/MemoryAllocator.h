@@ -26,6 +26,7 @@
 #include <gflags/gflags.h>
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/memory/Allocation.h"
 #include "velox/common/memory/MemoryUsageTracker.h"
 #include "velox/common/time/Timer.h"
 
@@ -125,11 +126,10 @@ struct Stats {
   /// steps of powers of two. Allocators may have their own size classes or
   /// allocate exact sizes.
   static int32_t sizeIndex(int64_t size) {
-    constexpr int32_t kPageSize = 4096;
     if (size == 0) {
       return 0;
     }
-    const auto power = bits::nextPowerOfTwo(size / kPageSize);
+    const auto power = bits::nextPowerOfTwo(size / AllocationTraits::kPageSize);
     return std::min(kNumSizes - 1, 63 - bits::countLeadingZeros(power));
   }
 
@@ -139,11 +139,6 @@ struct Stats {
   /// Cumulative count of pages advised away, if the allocator exposes this.
   int64_t numAdvise{0};
 };
-
-class MemoryPool;
-
-/// Denotes a number of machine pages as in mmap and related functions.
-using MachinePageCount = uint64_t;
 
 /// This class provides interface for the actual memory allocations from memory
 /// pool. It allocates runs of machine pages from predefined size classes, and
@@ -191,212 +186,11 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
 
   virtual ~MemoryAllocator() = default;
 
-  static constexpr uint64_t kPageSize = 4096;
   static constexpr int32_t kMaxSizeClasses = 12;
   /// Allocations smaller than 3K should go to malloc.
   static constexpr int32_t kMaxMallocBytes = 3072;
   static constexpr uint16_t kMinAlignment = alignof(max_align_t);
   static constexpr uint16_t kMaxAlignment = 64;
-
-  /// Represents a number of consecutive pages of kPageSize bytes.
-  class PageRun {
-   public:
-    static constexpr uint8_t kPointerSignificantBits = 48;
-    static constexpr uint64_t kPointerMask = 0xffffffffffff;
-    static constexpr uint32_t kMaxPagesInRun =
-        (1UL << (64U - kPointerSignificantBits)) - 1;
-
-    PageRun(void* address, MachinePageCount numPages) {
-      auto word = reinterpret_cast<uint64_t>(address); // NOLINT
-      if (!FLAGS_velox_use_malloc) {
-        VELOX_CHECK_EQ(
-            word & (kPageSize - 1),
-            0,
-            "Address is not page-aligned for PageRun");
-      }
-      VELOX_CHECK_LE(numPages, kMaxPagesInRun);
-      VELOX_CHECK_EQ(
-          word & ~kPointerMask, 0, "A pointer must have its 16 high bits 0");
-      data_ =
-          word | (static_cast<uint64_t>(numPages) << kPointerSignificantBits);
-    }
-
-    template <typename T = uint8_t>
-    T* data() const {
-      return reinterpret_cast<T*>(data_ & kPointerMask); // NOLINT
-    }
-
-    MachinePageCount numPages() const {
-      return data_ >> kPointerSignificantBits;
-    }
-
-    uint64_t numBytes() const {
-      return numPages() * kPageSize;
-    }
-
-   private:
-    uint64_t data_;
-  };
-
-  /// Represents a set of PageRuns that are allocated together.
-  class Allocation {
-   public:
-    Allocation() = default;
-    ~Allocation();
-
-    Allocation(const Allocation& other) = delete;
-
-    Allocation(Allocation&& other) noexcept {
-      pool_ = other.pool_;
-      runs_ = std::move(other.runs_);
-      numPages_ = other.numPages_;
-      other.clear();
-      sanityCheck();
-    }
-
-    void operator=(const Allocation& other) = delete;
-
-    void operator=(Allocation&& other) {
-      pool_ = other.pool_;
-      runs_ = std::move(other.runs_);
-      numPages_ = other.numPages_;
-      other.clear();
-    }
-
-    MachinePageCount numPages() const {
-      return numPages_;
-    }
-
-    uint32_t numRuns() const {
-      return runs_.size();
-    }
-
-    PageRun runAt(int32_t index) const {
-      return runs_[index];
-    }
-
-    uint64_t byteSize() const {
-      return numPages_ * kPageSize;
-    }
-
-    void append(uint8_t* address, int32_t numPages);
-
-    /// Invoked by memory pool to set the ownership on allocation success. All
-    /// the external non-contiguous memory allocations go through memory pool.
-    ///
-    /// NOTE: we can't set the memory pool on object constructor as the memory
-    /// allocator also uses it for temporal allocation internally.
-    void setPool(MemoryPool* pool) {
-      VELOX_CHECK_NOT_NULL(pool);
-      VELOX_CHECK_NULL(pool_);
-      pool_ = pool;
-    }
-
-    MemoryPool* pool() const {
-      return pool_;
-    }
-
-    void clear() {
-      runs_.clear();
-      numPages_ = 0;
-      pool_ = nullptr;
-    }
-
-    /// Returns the run number in 'runs_' and the position within the run
-    /// corresponding to 'offset' from the start of 'this'.
-    void findRun(uint64_t offset, int32_t* index, int32_t* offsetInRun) const;
-
-    /// Returns if this allocation is empty.
-    bool empty() const {
-      sanityCheck();
-      return numPages_ == 0;
-    }
-
-    std::string toString() const;
-
-   private:
-    FOLLY_ALWAYS_INLINE void sanityCheck() const {
-      VELOX_CHECK_EQ(numPages_ == 0, runs_.empty());
-      VELOX_CHECK(numPages_ != 0 || pool_ == nullptr);
-    }
-
-    MemoryPool* pool_{nullptr};
-    std::vector<PageRun> runs_;
-    int32_t numPages_ = 0;
-  };
-
-  /// Represents a run of contiguous pages that do not belong to any size class.
-  class ContiguousAllocation {
-   public:
-    ContiguousAllocation() = default;
-    ~ContiguousAllocation();
-
-    ContiguousAllocation(const ContiguousAllocation& other) = delete;
-
-    ContiguousAllocation& operator=(ContiguousAllocation&& other) {
-      pool_ = other.pool_;
-      data_ = other.data_;
-      size_ = other.size_;
-      other.clear();
-      sanityCheck();
-      return *this;
-    }
-
-    ContiguousAllocation(ContiguousAllocation&& other) noexcept {
-      pool_ = other.pool_;
-      data_ = other.data_;
-      size_ = other.size_;
-      other.clear();
-      sanityCheck();
-    }
-
-    MachinePageCount numPages() const;
-
-    template <typename T = uint8_t>
-    T* data() const {
-      return reinterpret_cast<T*>(data_);
-    }
-
-    /// size in bytes.
-    uint64_t size() const {
-      return size_;
-    }
-
-    /// Invoked by memory pool to set the ownership on allocation success. All
-    /// the external contiguous memory allocations go through memory pool.
-    ///
-    /// NOTE: we can't set the memory pool on object constructor as the memory
-    /// allocator also uses it for temporal allocation internally.
-    void setPool(MemoryPool* pool) {
-      VELOX_CHECK_NOT_NULL(pool);
-      VELOX_CHECK_NULL(pool_);
-      pool_ = pool;
-    }
-
-    MemoryPool* pool() const {
-      return pool_;
-    }
-
-    bool empty() const {
-      sanityCheck();
-      return size_ == 0;
-    }
-
-    void set(void* data, uint64_t size);
-    void clear();
-
-    std::string toString() const;
-
-   private:
-    FOLLY_ALWAYS_INLINE void sanityCheck() const {
-      VELOX_CHECK_EQ(size_ == 0, data_ == nullptr);
-      VELOX_CHECK(size_ != 0 || pool_ == nullptr);
-    }
-
-    MemoryPool* pool_{nullptr};
-    void* data_{nullptr};
-    uint64_t size_{0};
-  };
 
   /// Returns the kind of this memory allocator. For AsyncDataCache, it returns
   /// the kind of the delegated memory allocator underneath.

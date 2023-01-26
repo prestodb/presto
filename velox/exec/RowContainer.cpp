@@ -566,7 +566,7 @@ int64_t RowContainer::sizeIncrement(
     vector_size_t numRows,
     int64_t variableLengthBytes) const {
   constexpr int32_t kAllocUnit =
-      AllocationPool::kMinPages * memory::MemoryAllocator::kPageSize;
+      AllocationPool::kMinPages * memory::AllocationTraits::kPageSize;
   int32_t needRows = std::max<int64_t>(0, numRows - numFreeRows_);
   int64_t needBytes =
       std::min<int64_t>(0, variableLengthBytes - stringAllocator_.freeSpace());
@@ -708,8 +708,9 @@ int32_t RowContainer::listPartitionRows(
 
 RowPartitions::RowPartitions(int32_t numRows, memory::MemoryPool& pool)
     : capacity_(numRows) {
-  auto numPages = bits::roundUp(capacity_, memory::MemoryAllocator::kPageSize) /
-      memory::MemoryAllocator::kPageSize;
+  auto numPages =
+      bits::roundUp(capacity_, memory::AllocationTraits::kPageSize) /
+      memory::AllocationTraits::kPageSize;
   if (!pool.allocateNonContiguous(numPages, allocation_)) {
     VELOX_FAIL(
         "Failed to allocate RowContainer partitions: {} pages", numPages);

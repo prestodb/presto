@@ -83,7 +83,7 @@ class MmapAllocator : public MemoryAllocator {
       ReservationCallback reservationCB = nullptr) override {
     VELOX_CHECK_GT(numPages, 0);
     bool result;
-    stats_.recordAllocate(numPages * kPageSize, 1, [&]() {
+    stats_.recordAllocate(numPages * AllocationTraits::kPageSize, 1, [&]() {
       result = allocateContiguousImpl(
           numPages, collateral, allocation, reservationCB);
     });
@@ -168,7 +168,7 @@ class MmapAllocator : public MemoryAllocator {
     bool allocate(
         ClassPageCount numPages,
         MachinePageCount& numUnmapped,
-        MemoryAllocator::Allocation& out);
+        Allocation& out);
 
     // Frees all pages of 'allocation' that fall in this size
     // class. Erases the corresponding runs from 'allocation'.
@@ -189,7 +189,7 @@ class MmapAllocator : public MemoryAllocator {
     void setAllMapped(const Allocation& allocation, bool value);
 
     // Sets the mapped flag for the class pages in 'run' to 'value'
-    void setMappedBits(const MemoryAllocator::PageRun run, bool value);
+    void setMappedBits(const Allocation::PageRun run, bool value);
 
     // True if 'ptr' is in the address range of 'this'. Checks that ptr is at a
     // size class page boundary.
@@ -214,7 +214,7 @@ class MmapAllocator : public MemoryAllocator {
     bool allocateLocked(
         ClassPageCount numPages,
         MachinePageCount* FOLLY_NULLABLE numUnmapped,
-        MemoryAllocator::Allocation& out);
+        Allocation& out);
 
     // Returns the bit offset of the first bit of a 512 bit group in
     // 'pageAllocated_'/'pageMapped_'  that contains at least one mapped free

@@ -32,13 +32,12 @@ void AllocationPool::clear() {
 char* AllocationPool::allocateFixed(uint64_t bytes) {
   VELOX_CHECK_GT(bytes, 0, "Cannot allocate zero bytes");
 
-  auto numPages = bits::roundUp(bytes, memory::MemoryAllocator::kPageSize) /
-      memory::MemoryAllocator::kPageSize;
+  auto numPages = bits::roundUp(bytes, memory::AllocationTraits::kPageSize) /
+      memory::AllocationTraits::kPageSize;
 
   // Use contiguous allocations from mapped memory if allocation size is large
   if (numPages > pool_->largestSizeClass()) {
-    auto largeAlloc =
-        std::make_unique<memory::MemoryAllocator::ContiguousAllocation>();
+    auto largeAlloc = std::make_unique<memory::ContiguousAllocation>();
     if (!pool_->allocateContiguous(numPages, *largeAlloc)) {
       throw std::bad_alloc();
     }
@@ -64,8 +63,7 @@ void AllocationPool::newRunImpl(memory::MachinePageCount numPages) {
   if (currentRun_ >= allocation_.numRuns()) {
     if (allocation_.numRuns()) {
       allocations_.push_back(
-          std::make_unique<memory::MemoryAllocator::Allocation>(
-              std::move(allocation_)));
+          std::make_unique<memory::Allocation>(std::move(allocation_)));
     }
     if (!pool_->allocateNonContiguous(
             std::max<int32_t>(kMinPages, numPages), allocation_, numPages)) {
@@ -78,8 +76,8 @@ void AllocationPool::newRunImpl(memory::MachinePageCount numPages) {
 
 void AllocationPool::newRun(int32_t preferredSize) {
   auto numPages =
-      bits::roundUp(preferredSize, memory::MemoryAllocator::kPageSize) /
-      memory::MemoryAllocator::kPageSize;
+      bits::roundUp(preferredSize, memory::AllocationTraits::kPageSize) /
+      memory::AllocationTraits::kPageSize;
   newRunImpl(numPages);
 }
 

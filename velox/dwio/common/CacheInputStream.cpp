@@ -149,7 +149,7 @@ std::vector<folly::Range<char*>> makeRanges(
     uint64_t offsetInRuns = 0;
     for (int i = 0; i < allocation.numRuns(); ++i) {
       auto run = allocation.runAt(i);
-      uint64_t bytes = run.numPages() * MemoryAllocator::kPageSize;
+      uint64_t bytes = run.numPages() * memory::AllocationTraits::kPageSize;
       uint64_t readSize = std::min(bytes, length - offsetInRuns);
       buffers.push_back(folly::Range<char*>(run.data<char>(), readSize));
       offsetInRuns += readSize;
@@ -320,7 +320,7 @@ void CacheInputStream::loadPosition() {
       offsetOfRun_ = offsetInEntry - offsetInRun_;
       auto run = entry->data().runAt(runIndex_);
       run_ = run.data();
-      runSize_ = run.numPages() * MemoryAllocator::kPageSize;
+      runSize_ = run.numPages() * memory::AllocationTraits::kPageSize;
       if (offsetOfRun_ + runSize_ > entry->size()) {
         runSize_ = entry->size() - offsetOfRun_;
       }

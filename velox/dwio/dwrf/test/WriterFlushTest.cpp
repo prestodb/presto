@@ -87,13 +87,12 @@ class MockMemoryPool : public velox::memory::MemoryPool {
 
   bool allocateNonContiguous(
       velox::memory::MachinePageCount /*unused*/,
-      velox::memory::MemoryAllocator::Allocation& /*unused*/,
+      velox::memory::Allocation& /*unused*/,
       velox::memory::MachinePageCount /*unused*/) override {
     VELOX_UNSUPPORTED("allocateNonContiguous unsupported");
   }
 
-  void freeNonContiguous(
-      velox::memory::MemoryAllocator::Allocation& /*unused*/) override {
+  void freeNonContiguous(velox::memory::Allocation& /*unused*/) override {
     VELOX_UNSUPPORTED("freeNonContiguous unsupported");
   }
 
@@ -108,12 +107,11 @@ class MockMemoryPool : public velox::memory::MemoryPool {
 
   bool allocateContiguous(
       velox::memory::MachinePageCount /*unused*/,
-      velox::memory::MemoryAllocator::ContiguousAllocation& /*unused*/)
-      override {
+      velox::memory::ContiguousAllocation& /*unused*/) override {
     VELOX_UNSUPPORTED("allocateContiguous unsupported");
   }
 
-  void freeContiguous(velox::memory::MemoryAllocator::ContiguousAllocation&
+  void freeContiguous(velox::memory::ContiguousAllocation&
                       /*unused*/) override {
     VELOX_UNSUPPORTED("freeContiguous unsupported");
   }

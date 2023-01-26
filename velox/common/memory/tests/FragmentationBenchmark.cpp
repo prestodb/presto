@@ -49,8 +49,8 @@ struct Block {
   MemoryAllocator& allocator;
   size_t size = 0;
   char* data = nullptr;
-  std::shared_ptr<MemoryAllocator::Allocation> allocation;
-  MmapAllocator::ContiguousAllocation contiguous;
+  std::shared_ptr<Allocation> allocation;
+  ContiguousAllocation contiguous;
 };
 
 class FragmentationTest {
@@ -95,7 +95,7 @@ class FragmentationTest {
     block->size = size;
     if (memory_) {
       if (size <= 8 << 20) {
-        block->allocation = std::make_shared<MemoryAllocator::Allocation>();
+        block->allocation = std::make_shared<Allocation>();
         if (!memory_->allocateNonContiguous(size / 4096, *block->allocation)) {
           VELOX_FAIL("allocate() faild");
         }

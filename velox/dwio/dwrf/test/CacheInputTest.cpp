@@ -474,7 +474,7 @@ TEST_F(CacheTest, window) {
   auto cacheInput = dynamic_cast<CacheInputStream*>(stream.get());
   EXPECT_TRUE(cacheInput != nullptr);
   auto maxSize =
-      cache_->sizeClasses().back() * memory::MemoryAllocator::kPageSize;
+      cache_->sizeClasses().back() * memory::AllocationTraits::kPageSize;
   const void* buffer;
   int32_t size;
   int32_t numRead = 0;

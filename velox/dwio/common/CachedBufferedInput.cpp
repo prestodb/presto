@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/common/CachedBufferedInput.h"
+#include "velox/common/memory/Allocation.h"
 #include "velox/common/process/TraceContext.h"
 #include "velox/dwio/common/CacheInputStream.h"
 
@@ -80,11 +81,11 @@ bool CachedBufferedInput::shouldPreload(int32_t numPages) {
   for (auto& request : requests_) {
     numPages += bits::roundUp(
                     std::min<int32_t>(request.size, loadQuantum_),
-                    MemoryAllocator::kPageSize) /
-        MemoryAllocator::kPageSize;
+                    memory::AllocationTraits::kPageSize) /
+        memory::AllocationTraits::kPageSize;
   }
   auto cachePages = cache_->incrementCachedPages(0);
-  auto maxPages = cache_->maxBytes() / MemoryAllocator::kPageSize;
+  auto maxPages = cache_->maxBytes() / memory::AllocationTraits::kPageSize;
   auto allocatedPages = cache_->numAllocated();
   if (numPages < maxPages - allocatedPages) {
     // There is free space for the read-ahead.
@@ -494,8 +495,8 @@ std::unique_ptr<SeekableInputStream> CachedBufferedInput::read(
 
 bool CachedBufferedInput::prefetch(Region region) {
   int32_t numPages =
-      bits::roundUp(region.length, memory::MemoryAllocator::kPageSize) /
-      memory::MemoryAllocator::kPageSize;
+      bits::roundUp(region.length, memory::AllocationTraits::kPageSize) /
+      memory::AllocationTraits::kPageSize;
   if (!shouldPreload(numPages)) {
     return false;
   }

@@ -149,7 +149,7 @@ HashStringAllocator::Position HashStringAllocator::finishWrite(
 void HashStringAllocator::newSlab(int32_t size) {
   int32_t needed = std::max<int32_t>(
       bits::roundUp(
-          size + 2 * sizeof(Header), memory::MemoryAllocator::kPageSize),
+          size + 2 * sizeof(Header), memory::AllocationTraits::kPageSize),
       kUnitSize);
   pool_.newRun(needed);
   auto run = pool_.firstFreeInRun();

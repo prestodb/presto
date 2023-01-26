@@ -45,15 +45,13 @@ struct Request {
 class AsyncDataCacheTest : public testing::Test {
  public:
   // Deterministically fills 'allocation'  based on 'sequence'
-  static void initializeContents(
-      int64_t sequence,
-      MemoryAllocator::Allocation& alloc) {
+  static void initializeContents(int64_t sequence, memory::Allocation& alloc) {
     bool first = true;
     for (int32_t i = 0; i < alloc.numRuns(); ++i) {
-      MemoryAllocator::PageRun run = alloc.runAt(i);
+      memory::Allocation::PageRun run = alloc.runAt(i);
       int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
       int32_t numWords =
-          run.numPages() * MemoryAllocator::kPageSize / sizeof(void*);
+          run.numPages() * memory::AllocationTraits::kPageSize / sizeof(void*);
       for (int32_t offset = 0; offset < numWords; offset++) {
         if (first) {
           ptr[offset] = sequence;
@@ -167,10 +165,10 @@ class AsyncDataCacheTest : public testing::Test {
     int64_t sequence;
     int32_t bytesChecked = sizeof(int64_t);
     for (int32_t i = 0; i < alloc.numRuns(); ++i) {
-      MemoryAllocator::PageRun run = alloc.runAt(i);
+      memory::Allocation::PageRun run = alloc.runAt(i);
       int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
       int32_t numWords =
-          run.numPages() * MemoryAllocator::kPageSize / sizeof(void*);
+          run.numPages() * memory::AllocationTraits::kPageSize / sizeof(void*);
       for (int32_t offset = 0; offset < numWords; offset++) {
         if (first) {
           sequence = ptr[offset];
@@ -214,7 +212,7 @@ class AsyncDataCacheTest : public testing::Test {
     return executor_.get();
   }
 
-  void clearAllocations(std::deque<MemoryAllocator::Allocation>& allocations) {
+  void clearAllocations(std::deque<memory::Allocation>& allocations) {
     while (!allocations.empty()) {
       cache_->freeNonContiguous(allocations.front());
       allocations.pop_front();
@@ -547,16 +545,16 @@ TEST_F(AsyncDataCacheTest, replace) {
   auto stats = cache_->refreshStats();
   EXPECT_LT(0, stats.numEvict);
   EXPECT_GE(
-      kMaxBytes / memory::MemoryAllocator::kPageSize,
+      kMaxBytes / memory::AllocationTraits::kPageSize,
       cache_->incrementCachedPages(0));
 }
 
 TEST_F(AsyncDataCacheTest, outOfCapacity) {
   constexpr int64_t kMaxBytes = 16 << 20;
   constexpr int32_t kSize = 16 << 10;
-  constexpr int32_t kSizeInPages = kSize / MemoryAllocator::kPageSize;
+  constexpr int32_t kSizeInPages = kSize / memory::AllocationTraits::kPageSize;
   std::deque<CachePin> pins;
-  std::deque<MemoryAllocator::Allocation> allocations;
+  std::deque<memory::Allocation> allocations;
   initializeCache(kMaxBytes);
   // We pin 2 16K entries and unpin 1. Eventually the whole capacity
   // is pinned and we fail making a ew entry.
@@ -570,7 +568,7 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
     }
     pins.pop_front();
   }
-  MemoryAllocator::Allocation allocation;
+  memory::Allocation allocation;
   ASSERT_FALSE(cache_->allocateNonContiguous(kSizeInPages, allocation));
   // One 4 page entry below the max size of 4K 4 page entries in 16MB of
   // capacity.

@@ -52,11 +52,10 @@ class StreamArena {
  private:
   memory::MemoryPool* const pool_;
   // All allocations.
-  std::vector<std::unique_ptr<memory::MemoryAllocator::Allocation>>
-      allocations_;
+  std::vector<std::unique_ptr<memory::Allocation>> allocations_;
   // The allocation from which pages are given out. Moved to 'allocations_' when
   // used up.
-  memory::MemoryAllocator::Allocation allocation_;
+  memory::Allocation allocation_;
   int32_t currentRun_ = 0;
   int32_t currentPage_ = 0;
   memory::MachinePageCount allocationQuantum_ = 2;

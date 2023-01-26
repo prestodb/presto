@@ -39,11 +39,6 @@ DEFINE_int32(
     "Size of file cache/operator working memory in MB");
 
 DEFINE_bool(
-    velox_use_malloc,
-    true,
-    "Use malloc for file cache and large operator allocations");
-
-DEFINE_bool(
     velox_time_allocations,
     true,
     "Record time and volume for large allocation/free");

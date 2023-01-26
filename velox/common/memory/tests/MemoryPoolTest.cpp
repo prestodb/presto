@@ -683,18 +683,19 @@ TEST_P(MemoryPoolTest, contiguousAllocate) {
       {1},
       {largestSizeClass * 2},
       {largestSizeClass * 3 + 1}};
-  std::vector<MemoryAllocator::ContiguousAllocation> allocations;
+  std::vector<ContiguousAllocation> allocations;
   const char c('M');
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    MemoryAllocator::ContiguousAllocation allocation;
+    ContiguousAllocation allocation;
     ASSERT_TRUE(allocation.empty());
     ASSERT_TRUE(pool->allocateContiguous(testData.numAllocPages, allocation));
     ASSERT_FALSE(allocation.empty());
     ASSERT_EQ(allocation.pool(), pool.get());
     ASSERT_EQ(allocation.numPages(), testData.numAllocPages);
     ASSERT_EQ(
-        allocation.size(), testData.numAllocPages * MemoryAllocator::kPageSize);
+        allocation.size(),
+        testData.numAllocPages * AllocationTraits::kPageSize);
     for (int32_t i = 0; i < allocation.size(); ++i) {
       allocation.data()[i] = c;
     }
@@ -715,7 +716,7 @@ TEST_P(MemoryPoolTest, contiguousAllocate) {
   for (int32_t i = 0; i < numIterations; ++i) {
     const MachinePageCount pagesToAllocate =
         1 + folly::Random().rand32() % kMaxAllocationPages;
-    MemoryAllocator::ContiguousAllocation allocation;
+    ContiguousAllocation allocation;
     if (folly::Random().oneIn(2) && !allocations.empty()) {
       const int32_t freeAllocationIdx =
           folly::Random().rand32() % allocations.size();
@@ -751,12 +752,12 @@ TEST_P(MemoryPoolTest, contiguousAllocate) {
 
 TEST_P(MemoryPoolTest, contiguousAllocateExceedLimit) {
   const MachinePageCount kMaxNumPages = 1 << 10;
-  const auto kMemoryCapBytes = kMaxNumPages * MemoryAllocator::kPageSize;
+  const auto kMemoryCapBytes = kMaxNumPages * AllocationTraits::kPageSize;
   auto manager = getMemoryManager(kMemoryCapBytes);
   auto pool = manager->getChild();
   auto tracker = MemoryUsageTracker::create(kMemoryCapBytes);
   pool->setMemoryUsageTracker(tracker);
-  MemoryAllocator::ContiguousAllocation allocation;
+  ContiguousAllocation allocation;
   ASSERT_TRUE(pool->allocateContiguous(kMaxNumPages, allocation));
   ASSERT_THROW(
       pool->allocateContiguous(2 * kMaxNumPages, allocation),
@@ -777,15 +778,14 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, contiguousAllocateError) {
   }
   std::atomic<bool> injectFailure = true;
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::MemoryAllocatorImpl::allocateContiguousImpl",
+      "facebook::velox::memory::MallocAllocator::allocateContiguousImpl",
       std::function<void(bool*)>([&](bool* testFlag) {
         if (injectFailure) {
           *testFlag = true;
         }
       }));
   constexpr MachinePageCount kAllocSize = 8;
-  std::unique_ptr<MemoryAllocator::ContiguousAllocation> allocation(
-      new MemoryAllocator::ContiguousAllocation());
+  std::unique_ptr<ContiguousAllocation> allocation(new ContiguousAllocation());
   ASSERT_FALSE(pool->allocateContiguous(kAllocSize, *allocation));
   ASSERT_TRUE(allocation->empty());
   injectFailure = false;
@@ -832,10 +832,10 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
         {sizeClass * 2, sizeClass * 2},
         {sizeClass * 2, sizeClass * 2 + 1},
         {sizeClass * 2, sizeClass * 2 * 2}};
-    std::vector<MemoryAllocator::Allocation> allocations;
+    std::vector<Allocation> allocations;
     for (const auto& testData : testSettings) {
       SCOPED_TRACE(testData.debugString());
-      MemoryAllocator::Allocation allocation;
+      Allocation allocation;
       ASSERT_TRUE(allocation.empty());
       ASSERT_TRUE(pool->allocateNonContiguous(
           testData.numAllocPages,
@@ -853,11 +853,11 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
   const int32_t numIterations = 100;
   const MachinePageCount kMaxAllocationPages = 32 << 10; // Total 128MB
   int32_t numAllocatedPages = 0;
-  std::vector<MemoryAllocator::Allocation> allocations;
+  std::vector<Allocation> allocations;
   for (int32_t i = 0; i < numIterations; ++i) {
     const MachinePageCount pagesToAllocate =
         1 + folly::Random().rand32() % kMaxAllocationPages;
-    MemoryAllocator::Allocation allocation;
+    Allocation allocation;
     if (folly::Random().oneIn(2) && !allocations.empty()) {
       const int32_t freeAllocationIdx =
           folly::Random().rand32() % allocations.size();
@@ -885,12 +885,12 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
 
 TEST_P(MemoryPoolTest, nonContiguousAllocateExceedLimit) {
   const MachinePageCount kMaxNumPages = 1 << 10;
-  const auto kMemoryCapBytes = kMaxNumPages * MemoryAllocator::kPageSize;
+  const auto kMemoryCapBytes = kMaxNumPages * AllocationTraits::kPageSize;
   auto manager = getMemoryManager(kMemoryCapBytes);
   auto pool = manager->getChild();
   auto tracker = MemoryUsageTracker::create(kMemoryCapBytes);
   pool->setMemoryUsageTracker(tracker);
-  MemoryAllocator::Allocation allocation;
+  Allocation allocation;
   ASSERT_TRUE(pool->allocateNonContiguous(kMaxNumPages, allocation));
   ASSERT_THROW(
       pool->allocateNonContiguous(2 * kMaxNumPages, allocation),
@@ -911,7 +911,7 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, nonContiguousAllocateError) {
   }
   std::atomic<bool> injectFailure{true};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::MemoryAllocatorImpl::allocateNonContiguous",
+      "facebook::velox::memory::MallocAllocator::allocateNonContiguous",
       std::function<void(bool*)>([&](bool* testFlag) {
         if (!injectFailure) {
           return;
@@ -920,8 +920,7 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, nonContiguousAllocateError) {
       }));
 
   constexpr MachinePageCount kAllocSize = 8;
-  std::unique_ptr<MemoryAllocator::Allocation> allocation(
-      new MemoryAllocator::Allocation());
+  std::unique_ptr<Allocation> allocation(new Allocation());
   ASSERT_FALSE(pool->allocateNonContiguous(kAllocSize, *allocation));
   ASSERT_TRUE(allocation->empty());
   injectFailure = false;
@@ -942,7 +941,7 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, transientNonContiguousAllocateError) {
   }
   std::atomic<bool> testingSetFailureInjectionOnce{true};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::MemoryAllocatorImpl::allocateNonContiguous",
+      "facebook::velox::memory::MallocAllocator::allocateNonContiguous",
       std::function<void(bool*)>([&](bool* testFlag) {
         if (!testingSetFailureInjectionOnce.exchange(false)) {
           return;
@@ -951,8 +950,7 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, transientNonContiguousAllocateError) {
       }));
 
   constexpr MachinePageCount kAllocSize = 8;
-  std::unique_ptr<MemoryAllocator::Allocation> allocation(
-      new MemoryAllocator::Allocation());
+  std::unique_ptr<Allocation> allocation(new Allocation());
   if (useCache_) {
     // We expect async data cache will retry the transient memory allocation
     // failures.

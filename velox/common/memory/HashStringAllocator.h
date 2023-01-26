@@ -35,7 +35,7 @@ namespace facebook::velox {
 // CompactDoubleList struct immediately after the header. The last 4 bytes of a
 // free block contain its length. kPreviousFree means that the block immediately
 // below is free. In this case the uint32_t below the header has the size of the
-// previous free block. The last word of a MemoryAllocator::PageRun backing a
+// previous free block. The last word of a Allocation::PageRun backing a
 // HashStringAllocator is set to kArenaEnd.
 class HashStringAllocator : public StreamArena {
  public:
@@ -283,7 +283,7 @@ class HashStringAllocator : public StreamArena {
   void checkConsistency() const;
 
  private:
-  static constexpr int32_t kUnitSize = 16 * memory::MemoryAllocator::kPageSize;
+  static constexpr int32_t kUnitSize = 16 * memory::AllocationTraits::kPageSize;
   static constexpr int32_t kMinContiguous = 48;
 
   // Adds 'bytes' worth of contiguous space to the free list. This
