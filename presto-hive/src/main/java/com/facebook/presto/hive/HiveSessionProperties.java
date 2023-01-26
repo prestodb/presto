@@ -130,6 +130,7 @@ public final class HiveSessionProperties
     public static final String NEW_PARTITION_USER_SUPPLIED_PARAMETER = "new_partition_user_supplied_parameter";
     public static final String OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED = "optimized_partition_update_serialization_enabled";
     public static final String PARTITION_LEASE_DURATION = "partition_lease_duration";
+    public static final String PARTITION_LEASE_RENEWAL_PERIOD = "partition_lease_renewal_period";
     public static final String CACHE_ENABLED = "cache_enabled";
     public static final String ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING = "enable_loose_memory_based_accounting";
     public static final String MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD = "materialized_view_missing_partitions_threshold";
@@ -608,6 +609,15 @@ public final class HiveSessionProperties
                         VARCHAR,
                         Duration.class,
                         hiveClientConfig.getPartitionLeaseDuration(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
+                new PropertyMetadata<>(
+                        PARTITION_LEASE_RENEWAL_PERIOD,
+                        "Partition lease renewal period in seconds, 0 means disabled",
+                        VARCHAR,
+                        Duration.class,
+                        hiveClientConfig.getPartitionLeaseRenewalPeriod(),
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
@@ -1154,6 +1164,11 @@ public final class HiveSessionProperties
     public static Duration getLeaseDuration(ConnectorSession session)
     {
         return session.getProperty(PARTITION_LEASE_DURATION, Duration.class);
+    }
+
+    public static Duration getLeaseRenewalPeriod(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_LEASE_RENEWAL_PERIOD, Duration.class);
     }
 
     public static boolean isCacheEnabled(ConnectorSession session)

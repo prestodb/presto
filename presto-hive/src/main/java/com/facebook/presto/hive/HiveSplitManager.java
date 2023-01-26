@@ -88,6 +88,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TRANSACTION_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getLeaseDuration;
+import static com.facebook.presto.hive.HiveSessionProperties.getLeaseRenewalPeriod;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartitionStatisticsBasedOptimizationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
@@ -718,7 +719,13 @@ public class HiveSplitManager
 
             partitionSplitInfoBuilder.put(entry.getKey(), new PartitionSplitInfo(entry.getValue().get(), pruned, redundantColumnDomainsBuilder.build()));
         }
-        metastore.setPartitionLeases(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), partitionNameToLocation, getLeaseDuration(session));
+        metastore.setPartitionLeases(
+                metastoreContext,
+                tableName.getSchemaName(),
+                tableName.getTableName(),
+                partitionNameToLocation,
+                getLeaseDuration(session),
+                getLeaseRenewalPeriod(session));
 
         return partitionSplitInfoBuilder.build();
     }

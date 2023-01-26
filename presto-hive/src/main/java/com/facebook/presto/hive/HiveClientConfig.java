@@ -203,6 +203,7 @@ public class HiveClientConfig
     private boolean optimizedPartitionUpdateSerializationEnabled;
 
     private Duration partitionLeaseDuration = new Duration(0, TimeUnit.SECONDS);
+    private Duration partitionLeaseRenewalPeriod = new Duration(0, TimeUnit.SECONDS);
 
     private boolean enableLooseMemoryAccounting;
     private int materializedViewMissingPartitionsThreshold = 100;
@@ -1728,6 +1729,20 @@ public class HiveClientConfig
     public Duration getPartitionLeaseDuration()
     {
         return partitionLeaseDuration;
+    }
+
+    @Config("hive.partition-lease-renewal-period")
+    @ConfigDescription("Periodically renew partition lease with this frequency in seconds." +
+            "It needs to be set to lower value than hive.partition-lease-duration to renew lease just before expiring.")
+    public HiveClientConfig setPartitionLeaseRenewalPeriod(Duration partitionLeaseRenewalPeriod)
+    {
+        this.partitionLeaseRenewalPeriod = partitionLeaseRenewalPeriod;
+        return this;
+    }
+
+    public Duration getPartitionLeaseRenewalPeriod()
+    {
+        return partitionLeaseRenewalPeriod;
     }
 
     public boolean isLooseMemoryAccountingEnabled()

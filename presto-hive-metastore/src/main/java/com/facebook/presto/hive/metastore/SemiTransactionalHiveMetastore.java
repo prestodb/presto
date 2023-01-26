@@ -39,6 +39,8 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -46,6 +48,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -65,6 +68,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
@@ -125,6 +131,12 @@ public class SemiTransactionalHiveMetastore
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
     private final boolean undoMetastoreOperationsEnabled;
+
+    private static Supplier<ScheduledExecutorService> leaseRenewalExecutor = Suppliers.memoize(() ->
+            Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
+                    .setDaemon(true)
+                    .setNameFormat("partition-lease-keeper")
+                    .build()));
 
     // Cache lastDataCommitTime for read queries.
     @GuardedBy("this")
@@ -788,7 +800,23 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public synchronized void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
+    /**
+     * Set partition leases for a given table in the metastore.
+     *
+     * @param metastoreContext The context of the metastore
+     * @param databaseName The name of the database the table is in
+     * @param tableName The name of the table
+     * @param partitionNameToLocation A map of partition names to their location
+     * @param leaseDuration The duration of the lease
+     * @param leaseRenewalPeriod The period at which the lease should be renewed
+     */
+    public synchronized void setPartitionLeases(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            Map<String, String> partitionNameToLocation,
+            Duration leaseDuration,
+            Duration leaseRenewalPeriod)
     {
         checkReadable();
         Table table = getTable(metastoreContext, databaseName, tableName)
@@ -796,6 +824,21 @@ public class SemiTransactionalHiveMetastore
         boolean isPartitioned = table.getPartitionColumns() != null && !table.getPartitionColumns().isEmpty();
         if (table.getTableType().equals(MANAGED_TABLE) && isPartitioned && leaseDuration.toMillis() > 0) {
             delegate.setPartitionLeases(metastoreContext, databaseName, tableName, partitionNameToLocation, leaseDuration);
+            log.info("Setting partition lease for database %s, table %s, duration %s", databaseName, tableName, leaseDuration);
+
+            // If a lease renewal period is specified, schedule a task to periodically renew the lease
+            if (leaseRenewalPeriod.toMillis() > 0) {
+                Runnable runnable = () -> {
+                    log.info("Extending partition lease for database %s, table %s by %s", databaseName, tableName, leaseDuration);
+                    try {
+                        delegate.setPartitionLeases(metastoreContext, databaseName, tableName, partitionNameToLocation, leaseDuration);
+                    }
+                    catch (Exception e) {
+                        log.warn(e, "Unable to extend partition lease for database %s, table %s", databaseName, tableName);
+                    }
+                };
+                leaseRenewalExecutor.get().scheduleAtFixedRate(runnable, leaseRenewalPeriod.toMillis(), leaseRenewalPeriod.toMillis(), TimeUnit.MILLISECONDS);
+            }
         }
     }
 
@@ -837,7 +880,7 @@ public class SemiTransactionalHiveMetastore
      * @param partition The new partition object to be added
      * @param currentLocation The path for which the partition is added in the table
      * @param statistics The basic statistics and column statistics for the added partition
-     * @param noNeedToValidatePath check metastore file path. True for no check which is enabled by the sync partition code path only
+     * @param isPathValidationNeeded check metastore file path. True for no check which is enabled by the sync partition code path only
      */
     public synchronized void addPartition(
             ConnectorSession session,
