@@ -898,4 +898,24 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
   std::move(future).get();
   ASSERT_TRUE(promiseFulfilled);
 }
+
+TEST_F(TaskManagerTest, getResultsErrorPropagation) {
+  const protocol::TaskId taskId = "error-task.0.0.0";
+  std::exception e;
+  taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e));
+
+  // We expect the exception type VeloxException to be reserved still.
+  EXPECT_THROW(
+      taskManager_
+          ->getResults(
+              taskId,
+              0,
+              0,
+              protocol::DataSize("32MB"),
+              protocol::Duration("300s"),
+              http::CallbackRequestHandlerState::create())
+          .get(),
+      VeloxException);
+}
+
 // TODO: add disk spilling test for order by and hash join later.

@@ -739,6 +739,9 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
       return std::move(future).via(eventBase).onTimeout(
           std::chrono::microseconds(maxWaitMicros), timeoutFn);
     }
+  } catch (const velox::VeloxException& e) {
+    promiseHolder->promise.setException(e);
+    return std::move(future).via(eventBase);
   } catch (const std::exception& e) {
     promiseHolder->promise.setException(e);
     return std::move(future).via(eventBase);
