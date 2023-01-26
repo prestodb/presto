@@ -193,7 +193,9 @@ class PartitionedOutputBufferManager {
       int numDestinations,
       int numDrivers);
 
-  void updateBroadcastOutputBuffers(
+  /// Updates the number of buffers to broadcast. Return true if the buffer
+  /// exists for a given taskId, else returns false.
+  bool updateBroadcastOutputBuffers(
       const std::string& taskId,
       int numBuffers,
       bool noMoreBuffers);

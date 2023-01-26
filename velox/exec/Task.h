@@ -30,7 +30,6 @@ class PartitionedOutputBufferManager;
 
 class HashJoinBridge;
 class CrossJoinBridge;
-
 class Task : public std::enable_shared_from_this<Task> {
  public:
   /// Creates a task to execute a plan fragment, but doesn't start execution
@@ -41,9 +40,9 @@ class Task : public std::enable_shared_from_this<Task> {
   /// for a particular partition from a set of upstream tasks participating in a
   /// distributed execution. Used to initialize an ExchangeClient. Ignored if
   /// plan fragment doesn't have an ExchangeNode.
-  /// @param queryCtx Query context containing MemoryPool instance to use for
-  /// memory allocations during execution, executor to schedule operators on,
-  /// and session properties.
+  /// @param queryCtx Query context containing MemoryPool and MemoryAllocator
+  /// instances to use for memory allocations during execution, executor to
+  /// schedule operators on, and session properties.
   /// @param consumer Optional factory function to get callbacks to pass the
   /// results of the execution. In a multi-threaded execution, results from each
   /// thread are passed on to a separate consumer.
@@ -194,7 +193,10 @@ class Task : public std::enable_shared_from_this<Task> {
   /// of buffers. No more calls are expected after the call with noMoreBuffers
   /// == true, but occasionally the caller might resend it, so calls
   /// received after a call with noMoreBuffers == true are ignored.
-  void updateBroadcastOutputBuffers(int numBuffers, bool noMoreBuffers);
+  /// @return true if update was successful.
+  ///         false if noMoreBuffers was previously set to true.
+  ///         false if buffer was not found for a given task.
+  bool updateBroadcastOutputBuffers(int numBuffers, bool noMoreBuffers);
 
   /// Returns true if state is 'running'.
   bool isRunning() const;

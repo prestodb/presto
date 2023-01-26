@@ -17,6 +17,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -625,6 +626,44 @@ TEST_F(TaskTest, supportsSingleThreadedExecution) {
   // PartitionedOutput does not support single threaded execution, therefore the
   // task doesn't support it either.
   ASSERT_FALSE(task->supportsSingleThreadedExecution());
+}
+
+TEST_F(TaskTest, updateBroadCastOutputBuffers) {
+  auto plan = PlanBuilder()
+                  .tableScan(ROW({"c0"}, {BIGINT()}))
+                  .project({"c0 % 10"})
+                  .partitionedOutputBroadcast({})
+                  .planFragment();
+  auto bufferManager = PartitionedOutputBufferManager::getInstance().lock();
+  {
+    auto task = std::make_shared<exec::Task>(
+        "t0", plan, 0, std::make_shared<core::QueryCtx>(driverExecutor_.get()));
+
+    task->start(task, 1, 1);
+
+    ASSERT_TRUE(task->updateBroadcastOutputBuffers(10, true /*noMoreBuffers*/));
+
+    // Calls after no-more-buffers are ignored.
+    ASSERT_FALSE(task->updateBroadcastOutputBuffers(11, false));
+
+    task->requestCancel();
+  }
+
+  {
+    auto task = std::make_shared<exec::Task>(
+        "t1", plan, 0, std::make_shared<core::QueryCtx>(driverExecutor_.get()));
+
+    task->start(task, 1, 1);
+
+    ASSERT_TRUE(task->updateBroadcastOutputBuffers(5, false));
+    ASSERT_TRUE(task->updateBroadcastOutputBuffers(10, false));
+
+    task->requestAbort();
+
+    // Calls after task has been removed from the buffer manager (via abort) are
+    // ignored.
+    ASSERT_FALSE(task->updateBroadcastOutputBuffers(15, true));
+  }
 }
 
 DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
