@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cstdint>
 #include <optional>
 #include "glog/logging.h"
 #include "gtest/gtest.h"
@@ -234,6 +235,15 @@ class ArrayViewTest : public functions::test::FunctionBaseTest {
         it++;
       }
     }
+  }
+
+  void emptyTest() {
+    auto arrayVector = makeNullableArrayVector<int32_t>({{}, {2, 3}});
+    DecodedVector decoded;
+    exec::VectorReader<Array<int32_t>> reader(
+        decode(decoded, *arrayVector.get()));
+    ASSERT_TRUE(read(reader, 0).empty());
+    ASSERT_FALSE(read(reader, 1).empty());
   }
 
   void iteratorSubscriptTest() {
@@ -550,5 +560,13 @@ TEST_F(NullFreeArrayViewTest, iteratorSubtraction) {
 
 TEST_F(NullFreeArrayViewTest, iteratorSubscript) {
   iteratorSubscriptTest();
+}
+
+TEST_F(NullableArrayViewTest, empty) {
+  emptyTest();
+}
+
+TEST_F(NullFreeArrayViewTest, empty) {
+  emptyTest();
 }
 } // namespace

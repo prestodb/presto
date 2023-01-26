@@ -470,6 +470,17 @@ class MapViewTest : public functions::test::FunctionBaseTest {
     ASSERT_EQ(read(reader, 1).at(3), 3);
   }
 
+  void emptyTest() {
+    auto mapVector = createTestMapVector();
+    DecodedVector decoded;
+    exec::VectorReader<Map<int64_t, int64_t>> reader(
+        decode(decoded, *mapVector.get()));
+
+    ASSERT_TRUE(read(reader, 0).empty());
+    ASSERT_FALSE(read(reader, 1).empty());
+    ASSERT_FALSE(read(reader, 2).empty());
+  }
+
   void containsTest() {
     auto mapVector = createTestMapVector();
     DecodedVector decoded;
@@ -808,5 +819,13 @@ TEST_F(NullFreeMapViewTest, iteratorSubtraction) {
 
 TEST_F(NullFreeMapViewTest, iteratorSubscript) {
   iteratorSubscriptTest();
+}
+
+TEST_F(NullableMapViewTest, empty) {
+  emptyTest();
+}
+
+TEST_F(NullFreeMapViewTest, empty) {
+  emptyTest();
 }
 } // namespace

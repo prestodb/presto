@@ -548,6 +548,10 @@ class ArrayView {
         offset_ + size_, offset_, offset_ + size_, ElementAccessor(reader_)};
   }
 
+  bool empty() const {
+    return size() == 0;
+  }
+
   struct SkipNullsContainer {
     class SkipNullsBaseIterator : public Iterator {
      public:
@@ -801,6 +805,10 @@ class MapView {
 
   vector_size_t size() const {
     return size_;
+  }
+
+  bool empty() const {
+    return size_ == 0;
   }
 
   Iterator find(const key_element_t& key) const {
