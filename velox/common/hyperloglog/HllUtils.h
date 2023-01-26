@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 #pragma once
+
 #include <cmath>
 #include <vector>
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::common::hll {
 
@@ -42,9 +44,9 @@ inline void checkMaxStandardError(double error) {
 }
 
 inline int8_t toIndexBitLength(double maxStandardError) {
-  return (32 -
+  return (8 * sizeof(int) -
           __builtin_clz(
-              std::ceil(1.0816 / (maxStandardError * maxStandardError)))) +
+              std::ceil(1.0816 / (maxStandardError * maxStandardError)))) -
       1;
 }
 

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/hyperloglog/HllUtils.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 
@@ -136,7 +137,7 @@ TEST_F(ApproxDistinctTest, groupByHighCardinalityIntegers) {
   auto keys = makeFlatVector<int32_t>(size, [](auto row) { return row % 2; });
   auto values = makeFlatVector<int32_t>(size, [](auto row) { return row; });
 
-  testGroupByAgg(keys, values, {{0, 500}, {1, 500}});
+  testGroupByAgg(keys, values, {{0, 499}, {1, 491}});
 }
 
 TEST_F(ApproxDistinctTest, groupByVeryLowCardinalityIntegers) {
@@ -182,7 +183,7 @@ TEST_F(ApproxDistinctTest, globalAggHighCardinalityIntegers) {
   vector_size_t size = 1'000;
   auto values = makeFlatVector<int32_t>(size, [](auto row) { return row; });
 
-  testGlobalAgg(values, 997);
+  testGlobalAgg(values, 986);
 }
 
 TEST_F(ApproxDistinctTest, globalAggVeryLowCardinalityIntegers) {
@@ -196,9 +197,15 @@ TEST_F(ApproxDistinctTest, globalAggIntegersWithError) {
   vector_size_t size = 1'000;
   auto values = makeFlatVector<int32_t>(size, [](auto row) { return row; });
 
+  testGlobalAgg(values, common::hll::kLowestMaxStandardError, 1000);
   testGlobalAgg(values, 0.01, 1000);
-  testGlobalAgg(values, 0.1, 1008);
-  testGlobalAgg(values, 0.2, 930);
+  testGlobalAgg(values, 0.1, 930);
+  testGlobalAgg(values, 0.2, 929);
+  testGlobalAgg(values, common::hll::kHighestMaxStandardError, 929);
+
+  values = makeFlatVector<int32_t>(50'000, folly::identity);
+  testGlobalAgg(values, common::hll::kLowestMaxStandardError, 50043);
+  testGlobalAgg(values, common::hll::kHighestMaxStandardError, 39069);
 }
 
 TEST_F(ApproxDistinctTest, globalAggAllNulls) {
