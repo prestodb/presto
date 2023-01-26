@@ -326,6 +326,7 @@ public class PrestoSparkQueryExecutionFactory
                 query,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 queryStats,
                 Optional.empty(),
                 Optional.empty(),

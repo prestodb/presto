@@ -95,18 +95,22 @@ import java.util.function.Function;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
-public final class ExpressionFormatter
+public class ExpressionFormatter
 {
     private static final ThreadLocal<DecimalFormat> doubleFormatter = ThreadLocal.withInitial(
             () -> new DecimalFormat("0.###################E0###", new DecimalFormatSymbols(Locale.US)));
 
-    private ExpressionFormatter() {}
+    protected ExpressionFormatter() {}
 
     public static String formatExpression(Expression expression, Optional<List<Expression>> parameters)
+    {
+        return new ExpressionFormatter().format(expression, parameters);
+    }
+
+    public String format(Expression expression, Optional<List<Expression>> parameters)
     {
         return new Formatter(parameters).process(expression, null);
     }
@@ -123,12 +127,12 @@ public final class ExpressionFormatter
         return '"' + s.replace("\"", "\"\"") + '"';
     }
 
-    public static class Formatter
+    protected class Formatter
             extends AstVisitor<String, Void>
     {
         private final Optional<List<Expression>> parameters;
 
-        public Formatter(Optional<List<Expression>> parameters)
+        protected Formatter(Optional<List<Expression>> parameters)
         {
             this.parameters = parameters;
         }
@@ -150,7 +154,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitExpression(Expression node, Void context)
         {
-            throw new UnsupportedOperationException(format("not yet implemented: %s.visit%s", getClass().getName(), node.getClass().getSimpleName()));
+            throw new UnsupportedOperationException(String.format("not yet implemented: %s.visit%s", getClass().getName(), node.getClass().getSimpleName()));
         }
 
         @Override
@@ -325,7 +329,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitLambdaArgumentDeclaration(LambdaArgumentDeclaration node, Void context)
         {
-            return formatExpression(node.getName(), parameters);
+            return format(node.getName(), parameters);
         }
 
         @Override
@@ -724,24 +728,29 @@ public final class ExpressionFormatter
         return builder.toString();
     }
 
-    static String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)
+    String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)
     {
         return "ORDER BY " + formatSortItems(orderBy.getSortItems(), parameters);
     }
 
-    static String formatSortItems(List<SortItem> sortItems, Optional<List<Expression>> parameters)
+    String formatSortItems(List<SortItem> sortItems, Optional<List<Expression>> parameters)
     {
         return Joiner.on(", ").join(sortItems.stream()
                 .map(sortItemFormatterFunction(parameters))
                 .iterator());
     }
 
-    static String formatGroupBy(List<GroupingElement> groupingElements)
+    String formatGroupBy(List<GroupingElement> groupingElements)
     {
         return formatGroupBy(groupingElements, Optional.empty());
     }
 
-    static String formatGroupBy(List<GroupingElement> groupingElements, Optional<List<Expression>> parameters)
+    String formatLimit(String limit)
+    {
+        return limit;
+    }
+
+    String formatGroupBy(List<GroupingElement> groupingElements, Optional<List<Expression>> parameters)
     {
         ImmutableList.Builder<String> resultStrings = ImmutableList.builder();
 
@@ -750,23 +759,23 @@ public final class ExpressionFormatter
             if (groupingElement instanceof SimpleGroupBy) {
                 List<Expression> columns = ((SimpleGroupBy) groupingElement).getExpressions();
                 if (columns.size() == 1) {
-                    result = formatExpression(getOnlyElement(columns), parameters);
+                    result = format(getOnlyElement(columns), parameters);
                 }
                 else {
                     result = formatGroupingSet(columns, parameters);
                 }
             }
             else if (groupingElement instanceof GroupingSets) {
-                result = format("GROUPING SETS (%s)", Joiner.on(", ").join(
+                result = String.format("GROUPING SETS (%s)", Joiner.on(", ").join(
                         ((GroupingSets) groupingElement).getSets().stream()
                                 .map(e -> formatGroupingSet(e, parameters))
                                 .iterator()));
             }
             else if (groupingElement instanceof Cube) {
-                result = format("CUBE %s", formatGroupingSet(((Cube) groupingElement).getExpressions(), parameters));
+                result = String.format("CUBE %s", formatGroupingSet(((Cube) groupingElement).getExpressions(), parameters));
             }
             else if (groupingElement instanceof Rollup) {
-                result = format("ROLLUP %s", formatGroupingSet(((Rollup) groupingElement).getExpressions(), parameters));
+                result = String.format("ROLLUP %s", formatGroupingSet(((Rollup) groupingElement).getExpressions(), parameters));
             }
             resultStrings.add(result);
         }
@@ -781,19 +790,19 @@ public final class ExpressionFormatter
         return true;
     }
 
-    private static String formatGroupingSet(List<Expression> groupingSet, Optional<List<Expression>> parameters)
+    protected String formatGroupingSet(List<Expression> groupingSet, Optional<List<Expression>> parameters)
     {
-        return format("(%s)", Joiner.on(", ").join(groupingSet.stream()
-                .map(e -> formatExpression(e, parameters))
+        return String.format("(%s)", Joiner.on(", ").join(groupingSet.stream()
+                .map(e -> format(e, parameters))
                 .iterator()));
     }
 
-    private static Function<SortItem, String> sortItemFormatterFunction(Optional<List<Expression>> parameters)
+    private Function<SortItem, String> sortItemFormatterFunction(Optional<List<Expression>> parameters)
     {
         return input -> {
             StringBuilder builder = new StringBuilder();
 
-            builder.append(formatExpression(input.getSortKey(), parameters));
+            builder.append(format(input.getSortKey(), parameters));
 
             switch (input.getOrdering()) {
                 case ASCENDING:

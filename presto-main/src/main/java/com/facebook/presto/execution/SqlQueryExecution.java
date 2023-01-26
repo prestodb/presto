@@ -207,6 +207,7 @@ public class SqlQueryExecution
             }
             stateMachine.setUpdateType(analysis.getUpdateType());
             stateMachine.setExpandedQuery(analysis.getExpandedQuery());
+            stateMachine.setQueryTemplate(Optional.ofNullable(analysis.getQueryTemplate()));
 
             stateMachine.beginColumnAccessPermissionChecking();
             analyzer.checkColumnAccessPermissions(this.analysis);
