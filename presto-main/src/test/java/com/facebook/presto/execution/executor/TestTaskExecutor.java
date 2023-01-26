@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.executor;
 
 import com.facebook.airlift.testing.TestingTicker;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.server.ServerConfig;
@@ -607,6 +608,12 @@ public class TestTaskExecutor
         {
         }
 
+        @Override
+        public ScheduledSplit getScheduledSplit()
+        {
+            return null;
+        }
+
         public Future<?> getCompletedFuture()
         {
             return completed;
@@ -648,6 +655,12 @@ public class TestTaskExecutor
         @Override
         public void close()
         {
+        }
+
+        @Override
+        public ScheduledSplit getScheduledSplit()
+        {
+            return null;
         }
     }
 }

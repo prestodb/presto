@@ -94,6 +94,8 @@ public class OperatorStats
     private final OperatorInfoUnion infoUnion;
 
     private final RuntimeStats runtimeStats;
+    @Nullable
+    private final String poolType;
 
     @JsonCreator
     public OperatorStats(
@@ -146,7 +148,9 @@ public class OperatorStats
 
             @Nullable
             @JsonProperty("info") OperatorInfo info,
-            @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
+            @JsonProperty("runtimeStats") RuntimeStats runtimeStats,
+            @Nullable
+            @JsonProperty("poolType") String poolType)
     {
         this.stageId = stageId;
         this.stageExecutionId = stageExecutionId;
@@ -156,6 +160,7 @@ public class OperatorStats
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
+        this.poolType = poolType;
 
         this.totalDrivers = totalDrivers;
 
@@ -257,7 +262,9 @@ public class OperatorStats
 
             RuntimeStats runtimeStats,
             @Nullable
-            OperatorInfoUnion infoUnion)
+                    OperatorInfoUnion infoUnion,
+            @Nullable
+            String poolType)
     {
         this.stageId = stageId;
         this.stageExecutionId = stageExecutionId;
@@ -315,6 +322,7 @@ public class OperatorStats
 
         this.infoUnion = infoUnion;
         this.info = null;
+        this.poolType = poolType;
     }
 
     @JsonProperty
@@ -598,6 +606,14 @@ public class OperatorStats
         return infoUnion;
     }
 
+    @Nullable
+    @JsonProperty
+    @ThriftField(40)
+    public String getPoolType()
+    {
+        return poolType;
+    }
+
     public OperatorStats add(OperatorStats operatorStats)
     {
         return add(ImmutableList.of(operatorStats));
@@ -751,7 +767,8 @@ public class OperatorStats
                 blockedReason,
 
                 (OperatorInfo) base,
-                runtimeStats);
+                runtimeStats,
+                poolType);
     }
 
     @SuppressWarnings("unchecked")
@@ -815,6 +832,7 @@ public class OperatorStats
                 spilledDataSize,
                 blockedReason,
                 info,
-                runtimeStats);
+                runtimeStats,
+                poolType);
     }
 }

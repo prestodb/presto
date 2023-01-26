@@ -248,7 +248,8 @@ public class TaskResourceUtils
                 operatorStats.getSpilledDataSize(),
                 operatorStats.getBlockedReason(),
                 operatorStats.getRuntimeStats(),
-                convertToOperatorInfoUnion(operatorStats.getInfo()));
+                convertToOperatorInfoUnion(operatorStats.getInfo()),
+                operatorStats.getPoolType());
     }
 
     private static MetadataUpdates convertToThriftMetadataUpdates(
@@ -478,7 +479,8 @@ public class TaskResourceUtils
                 thriftOperatorStats.getSpilledDataSize(),
                 thriftOperatorStats.getBlockedReason(),
                 convertToOperatorInfo(thriftOperatorStats.getInfoUnion()),
-                thriftOperatorStats.getRuntimeStats());
+                thriftOperatorStats.getRuntimeStats(),
+                thriftOperatorStats.getPoolType());
     }
 
     private static MetadataUpdates convertFromThriftMetadataUpdates(

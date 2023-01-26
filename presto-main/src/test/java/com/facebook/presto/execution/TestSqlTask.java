@@ -345,6 +345,7 @@ public class TestSqlTask
                 Functions.identity(),
                 new DataSize(32, MEGABYTE),
                 new CounterStat(),
-                new SpoolingOutputBufferFactory(new FeaturesConfig()));
+                new SpoolingOutputBufferFactory(new FeaturesConfig()),
+                Optional.empty());
     }
 }

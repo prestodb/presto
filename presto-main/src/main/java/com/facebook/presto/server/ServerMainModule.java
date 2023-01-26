@@ -218,6 +218,7 @@ import com.google.inject.TypeLiteral;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.longs.LongSet;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Singleton;
@@ -381,6 +382,7 @@ public class ServerMainModule
         install(new DefaultThriftCodecsModule());
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlInvokedFunctionCodec.class);
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlFunctionIdCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(LongSetCodec.class);
 
         jsonCodecBinder(binder).bindListJsonCodec(TaskMemoryReservationSummary.class);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
@@ -643,6 +645,8 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
+        jsonBinder(binder).addSerializerBinding(LongSet.class).to(LongSetSerializer.class);
+        jsonBinder(binder).addDeserializerBinding(LongSet.class).to(LongSetDeserializer.class);
 
         // metadata updates
         jsonCodecBinder(binder).bindJsonCodec(MetadataUpdates.class);
@@ -667,6 +671,7 @@ public class ServerMainModule
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
                 .addProperty("resource_manager", String.valueOf(serverConfig.isResourceManager()))
                 .addProperty("catalog_server", String.valueOf(serverConfig.isCatalogServer()))
+                .addProperty("pool_type", serverConfig.getPoolType().orElse(""))
                 .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
 
         RaftConfig raftConfig = buildConfigObject(RaftConfig.class);

@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.operator.PartitionFunction;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -28,6 +29,8 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * TODO: Decouple node and partition management in presto-main and remove this hack
@@ -54,7 +57,7 @@ public class PrestoSparkNodePartitioningManager
     }
 
     @Override
-    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
+    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, Optional<Predicate<Node>> nodePredicate)
     {
         throw new UnsupportedOperationException("grouped execution is not supported in presto on spark");
     }
