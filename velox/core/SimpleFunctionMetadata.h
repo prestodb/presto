@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include <boost/algorithm/string.hpp>
-
 #include "folly/Likely.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
@@ -170,6 +168,19 @@ struct TypeAnalysisResults {
   }
 };
 
+namespace detail {
+// This function is a dummy wrapper around boost::algorithm::to_lower_copy.
+// Implementation is put into cpp file to avoid pretty expensive include
+// boost/algorithm/string/case_conv.hpp that otherwise would be leaked into
+// all dependent cpp files.
+// TODO: This feels a bit ugly, another approach to explore is to just
+// reimplement boost::algorithm::to_lower_copy with a for loop and std::tolower
+// in the header to keep it all in header. But this requires much more testing:
+// unit test to compare old and new way (do we need cover non-ASCII?),
+// possibly even benchmarks to make sure perf is the same.
+std::string strToLowerCopy(const std::string& str);
+} // namespace detail
+
 // A set of structs used to perform analysis on a static type to
 // collect information needed for signatrue construction.
 template <typename T>
@@ -181,12 +192,10 @@ struct TypeAnalysis {
         CppToType<T>::typeKind == TypeKind::OPAQUE);
     results.stats.concreteCount++;
     if (isDecimalKind(CppToType<T>::typeKind)) {
-      results.out << boost::algorithm::to_lower_copy(
-                         std::string(CppToType<T>::name))
+      results.out << detail::strToLowerCopy(std::string(CppToType<T>::name))
                   << "(" << kPrecisionVariable << "," << kScaleVariable << ")";
     } else {
-      results.out << boost::algorithm::to_lower_copy(
-          std::string(CppToType<T>::name));
+      results.out << detail::strToLowerCopy(std::string(CppToType<T>::name));
     }
   }
 };
