@@ -205,6 +205,9 @@ proxygen::RequestHandler* TaskResource::acknowledgeResults(
           proxygen::ResponseHandler* downstream) {
         try {
           taskManager_.acknowledgeResults(taskId, bufferId, token);
+        } catch (const velox::VeloxException& e) {
+          sendErrorResponse(downstream, e.what());
+          return;
         } catch (const std::exception& e) {
           sendErrorResponse(downstream, e.what());
           return;
@@ -365,6 +368,9 @@ proxygen::RequestHandler* TaskResource::deleteTask(
         std::unique_ptr<protocol::TaskInfo> taskInfo;
         try {
           taskInfo = taskManager_.deleteTask(taskId, abort);
+        } catch (const velox::VeloxException& e) {
+          sendErrorResponse(downstream, e.what());
+          return;
         } catch (const std::exception& e) {
           sendErrorResponse(downstream, e.what());
           return;
@@ -431,6 +437,13 @@ proxygen::RequestHandler* TaskResource::getResults(
                   .sendWithEOM();
             })
             .thenError(
+                folly::tag_t<velox::VeloxException>{},
+                [downstream, handlerState](const velox::VeloxException& e) {
+                  if (!handlerState->requestExpired()) {
+                    sendErrorResponse(downstream, e.what());
+                  }
+                })
+            .thenError(
                 folly::tag_t<std::exception>{},
                 [downstream, handlerState](const std::exception& e) {
                   if (!handlerState->requestExpired()) {
@@ -477,6 +490,13 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
                 }
               })
               .thenError(
+                  folly::tag_t<velox::VeloxException>{},
+                  [downstream, handlerState](const velox::VeloxException& e) {
+                    if (!handlerState->requestExpired()) {
+                      sendErrorResponse(downstream, e.what());
+                    }
+                  })
+              .thenError(
                   folly::tag_t<std::exception>{},
                   [downstream, handlerState](const std::exception& e) {
                     if (!handlerState->requestExpired()) {
@@ -516,6 +536,13 @@ proxygen::RequestHandler* TaskResource::getTaskInfo(
                 }
               })
               .thenError(
+                  folly::tag_t<velox::VeloxException>{},
+                  [downstream, handlerState](const velox::VeloxException& e) {
+                    if (!handlerState->requestExpired()) {
+                      sendErrorResponse(downstream, e.what());
+                    }
+                  })
+              .thenError(
                   folly::tag_t<std::exception>{},
                   [downstream, handlerState](const std::exception& e) {
                     if (!handlerState->requestExpired()) {
@@ -542,6 +569,9 @@ proxygen::RequestHandler* TaskResource::removeRemoteSource(
           proxygen::ResponseHandler* downstream) {
         try {
           taskManager_.removeRemoteSource(taskId, remoteId);
+        } catch (const velox::VeloxException& e) {
+          sendErrorResponse(downstream, e.what());
+          return;
         } catch (const std::exception& e) {
           sendErrorResponse(downstream, e.what());
           return;
