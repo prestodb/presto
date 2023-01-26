@@ -448,8 +448,7 @@ jobs:
           fuzzer_repro: "/tmp/join_fuzzer_repro"
           fuzzer_name: "Join"
           fuzzer_exe: "_build/debug/velox/exec/tests/velox_join_fuzzer_test"
-          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 \ 
-          --repro_persist_path=/tmp/join_fuzzer_repro"
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0"
 
   format-check:
     executor: check
