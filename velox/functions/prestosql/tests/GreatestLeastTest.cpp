@@ -25,7 +25,7 @@ class GreatestLeastTest : public functions::test::FunctionBaseTest {
   void runTest(
       const std::string& query,
       const std::vector<std::vector<T>>& inputs,
-      const std::vector<T>& output,
+      const std::vector<std::optional<T>>& output,
       std::optional<size_t> stringBuffersExpectedCount = std::nullopt) {
     // Create input vectors
     auto vectorSize = inputs[0].size();
@@ -40,7 +40,11 @@ class GreatestLeastTest : public functions::test::FunctionBaseTest {
     // Call evaluate to run the query on the created input
     auto result = evaluate<SimpleVector<T>>(query, makeRowVector(inputColumns));
     for (int32_t i = 0; i < vectorSize; ++i) {
-      ASSERT_EQ(result->valueAt(i), output[i]);
+      if (output[i].has_value()) {
+        ASSERT_EQ(result->valueAt(i), output[i]);
+      } else {
+        ASSERT_TRUE(result->isNullAt(i));
+      }
     }
 
     if (stringBuffersExpectedCount.has_value()) {
@@ -59,15 +63,18 @@ TEST_F(GreatestLeastTest, leastDouble) {
 }
 
 TEST_F(GreatestLeastTest, nanInput) {
+  std::vector<double> input{0, 1.1, std::nan("1")};
   assertUserInvalidArgument(
       [&]() { runTest<double>("least(c0)", {{0.0 / 0.0}}, {0}); },
       "Invalid argument to least(): NaN");
+  runTest<double>("try(least(c0, 1.0))", {input}, {0, 1.0, std::nullopt});
 
   assertUserInvalidArgument(
       [&]() {
         runTest<double>("greatest(c0)", {1, {0.0 / 0.0}}, {1, 0});
       },
       "Invalid argument to greatest(): NaN");
+  runTest<double>("try(greatest(c0, 1.0))", {input}, {1.0, 1.1, std::nullopt});
 }
 
 TEST_F(GreatestLeastTest, greatestDouble) {

@@ -76,7 +76,7 @@ class ExtremeValueFunction : public exec::VectorFunction {
     exec::DecodedArgs decodedArgs(rows, args, context);
 
     std::set<size_t> usedInputs;
-    rows.applyToSelected([&](int row) {
+    context.applyToSelectedNoThrow(rows, [&](int row) {
       size_t valueIndex = 0;
 
       T currentValue = decodedArgs.at(0)->valueAt<T>(row);
