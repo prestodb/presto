@@ -19,6 +19,7 @@
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
+#include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
@@ -60,7 +61,7 @@ std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
   protocol::PlanFragment prestoPlan = json::parse(fragment);
   auto pool = memory::getDefaultMemoryPool();
 
-  VeloxQueryPlanConverter converter(pool.get());
+  VeloxInteractiveQueryPlanConverter converter(pool.get());
   return converter
       .toVeloxQueryPlan(
           prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")
@@ -75,15 +76,11 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
   auto pool = memory::getDefaultMemoryPool();
-
-  VeloxQueryPlanConverter converter(pool.get());
+  VeloxBatchQueryPlanConverter converter(
+      shuffleName, std::move(serializedShuffleWriteInfo), pool.get());
   return converter
-      .toBatchVeloxQueryPlan(
-          prestoPlan,
-          nullptr,
-          "20201107_130540_00011_wrpkw.1.2.3",
-          shuffleName,
-          std::move(serializedShuffleWriteInfo))
+      .toVeloxQueryPlan(
+          prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")
       .planNode;
 }
 } // namespace
@@ -130,7 +127,7 @@ TEST_F(PlanConverterTest, offsetLimit) {
   ASSERT_TRUE(foundLimit);
 }
 
-TEST_F(PlanConverterTest, scanAggBatch) {
+TEST_F(PlanConverterTest, batchPlanConversion) {
   protocol::unregisterConnector("hive");
   protocol::registerConnector("hive", "hive");
   filesystems::registerLocalFileSystem();
@@ -167,4 +164,17 @@ TEST_F(PlanConverterTest, scanAggBatch) {
           localPartition->sources().back());
   ASSERT_NE(partitionAndSerializeNode, nullptr);
   ASSERT_EQ(partitionAndSerializeNode->numPartitions(), 3);
+
+  auto curNode = assertToBatchVeloxQueryPlan(
+      "FinalAgg.json",
+      std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
+      nullptr);
+
+  std::shared_ptr<const operators::ShuffleReadNode> shuffleReadNode;
+  while (!curNode->sources().empty()) {
+    curNode = curNode->sources().back();
+  }
+  shuffleReadNode =
+      std::dynamic_pointer_cast<const operators::ShuffleReadNode>(curNode);
+  ASSERT_NE(shuffleReadNode, nullptr);
 }
