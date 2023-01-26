@@ -139,11 +139,13 @@ class QueryCtx : public Context {
   }
 
   void initPool(const std::string& queryId) {
-    if (!pool_) {
+    if (pool_ == nullptr) {
       pool_ = memory::getProcessDefaultMemoryManager().getRoot().addChild(
           QueryCtx::generatePoolName(queryId));
     }
-    pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
+    if (pool_->getMemoryUsageTracker() == nullptr) {
+      pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
+    }
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;

@@ -356,8 +356,10 @@ class Operator : public BaseRuntimeStatWriter {
   virtual void close() {
     input_ = nullptr;
     results_.clear();
-    // Release the unused memory reservation on close.
-    operatorCtx_->pool()->getMemoryUsageTracker()->release();
+    if (operatorCtx_->pool()->getMemoryUsageTracker() != nullptr) {
+      // Release the unused memory reservation on close.
+      operatorCtx_->pool()->getMemoryUsageTracker()->release();
+    }
   }
 
   // Returns true if 'this' never has more output rows than input rows.
