@@ -37,4 +37,12 @@ public class TestHiveArrayFunctionQueries
         this.assertQueryFails("SELECT repeat(orderkey, 10001) FROM lineitem",
                 ".*Count argument of repeat function must be less than or equal to 10000.*");
     }
+
+    @Test
+    public void testShuffle()
+    {
+        this.assertQuerySucceeds("SELECT shuffle(quantities) FROM orders_ex");
+        this.assertQuerySucceeds("SELECT shuffle(array_sort(quantities)) FROM orders_ex");
+        this.assertQuery("SELECT array_sort(shuffle(quantities)) FROM orders_ex");
+    }
 }
