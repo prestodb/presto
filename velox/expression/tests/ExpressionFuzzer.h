@@ -137,22 +137,27 @@ class ExpressionFuzzer {
 
   core::TypedExprPtr getCallExprFromCallable(const CallableSignature& callable);
 
-  /// Generate an expression with a random concrete function signature that
-  /// returns returnType.
+  /// Generate an expression by randomly selecting a concrete function signature
+  /// that returns 'returnType' among all signatures that the function named
+  /// 'functionName' supports.
   core::TypedExprPtr generateExpressionFromConcreteSignatures(
-      const TypePtr& returnType);
+      const TypePtr& returnType,
+      const std::string& functionName);
 
-  /// Return a random signature template mapped to typeName in
-  /// signatureTemplateMap_ whose return type can match returnType. Return
-  /// nullptr if no such signature template exists.
+  /// Return a random signature template mapped to typeName and functionName in
+  /// expressionToTemplatedSignature_ whose return type can match returnType.
+  /// Return nullptr if no such signature template exists.
   const SignatureTemplate* chooseRandomSignatureTemplate(
       const TypePtr& returnType,
-      const std::string& typeName);
+      const std::string& typeName,
+      const std::string& functionName);
 
-  /// Generate an expression with a random function signature template that
-  /// returns returnType.
+  /// Generate an expression by randomly selecting a function signature template
+  /// that returns 'returnType' among all signature templates that the function
+  /// named 'functionName' supports.
   core::TypedExprPtr generateExpressionFromSignatureTemplate(
-      const TypePtr& returnType);
+      const TypePtr& returnType,
+      const std::string& functionName);
 
   /// Generate a cast expression that returns the specified type. Return a
   /// nullptr if casting to the specified type is not supported. The supported
@@ -194,18 +199,31 @@ class ExpressionFuzzer {
   size_t currentSeed_{0};
 
   std::vector<CallableSignature> signatures_;
-
-  /// Maps a given type to the functions that return that type.
-  std::unordered_map<TypeKind, std::vector<const CallableSignature*>>
-      signaturesMap_;
-
   std::vector<SignatureTemplate> signatureTemplates_;
 
-  /// Maps the base name of the return type signature to the functions that
-  /// return this type. Base name could be "T" if the return type is a type
-  /// variable.
-  std::unordered_map<std::string, std::vector<const SignatureTemplate*>>
-      signatureTemplateMap_;
+  /// Maps the base name of a return type signature to the function names that
+  /// support that return type. Base name could be "T" if the return type is a
+  /// type variable.
+  std::unordered_map<std::string, std::vector<std::string>>
+      typeToExpressionList_;
+
+  /// Maps the base name of a *concrete* return type signature to the function
+  /// names that support that return type. Those names then each further map to
+  /// a list of CallableSignature objects that they support. Base name could be
+  /// "T" if the return type is a type variable.
+  std::unordered_map<
+      std::string,
+      std::unordered_map<std::string, std::vector<const CallableSignature*>>>
+      expressionToSignature_;
+
+  /// Maps the base name of a *templated* return type signature to the function
+  /// names that support that return type. Those names then each further map to
+  /// a list of SignatureTemplate objects that they support. Base name could be
+  /// "T" if the return type is a type variable.
+  std::unordered_map<
+      std::string,
+      std::unordered_map<std::string, std::vector<const SignatureTemplate*>>>
+      expressionToTemplatedSignature_;
 
   /// The remaining levels of expression nesting. It's initialized by
   /// FLAGS_max_level_of_nesting and updated in generateExpression(). When its
