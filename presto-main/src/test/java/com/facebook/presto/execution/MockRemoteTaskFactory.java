@@ -460,6 +460,12 @@ public class MockRemoteTaskFactory
         }
 
         @Override
+        public boolean isNoMoreSplits(PlanNodeId sourceId)
+        {
+            return noMoreSplits.contains(sourceId);
+        }
+
+        @Override
         public void setOutputBuffers(OutputBuffers outputBuffers)
         {
             outputBuffer.setOutputBuffers(outputBuffers);

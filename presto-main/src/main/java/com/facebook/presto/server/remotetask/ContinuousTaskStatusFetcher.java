@@ -85,6 +85,8 @@ class ContinuousTaskStatusFetcher
 
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
+    private final boolean isLeaf;
+
     @GuardedBy("this")
     private boolean running;
 
@@ -104,7 +106,8 @@ class ContinuousTaskStatusFetcher
             RemoteTaskStats stats,
             boolean binaryTransportEnabled,
             boolean thriftTransportEnabled,
-            Protocol thriftProtocol)
+            Protocol thriftProtocol,
+            boolean isLeaf)
     {
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
@@ -118,11 +121,12 @@ class ContinuousTaskStatusFetcher
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
-        this.errorTracker = taskRequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status");
+        this.errorTracker = taskRequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status", isLeaf);
         this.stats = requireNonNull(stats, "stats is null");
         this.binaryTransportEnabled = binaryTransportEnabled;
         this.thriftTransportEnabled = thriftTransportEnabled;
         this.thriftProtocol = requireNonNull(thriftProtocol, "thriftProtocol is null");
+        this.isLeaf = isLeaf;
     }
 
     public synchronized void start()
@@ -191,6 +195,7 @@ class ContinuousTaskStatusFetcher
         future = httpClient.executeAsync(request, responseHandler);
         currentRequestStartNanos.set(System.nanoTime());
         FutureCallback callback;
+
         if (thriftTransportEnabled) {
             callback = new ThriftHttpResponseHandler(this, request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR);
         }

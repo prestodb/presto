@@ -25,6 +25,7 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageId;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
@@ -36,6 +37,7 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.remotetask.HttpRemoteTask;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -84,6 +86,7 @@ import static com.facebook.presto.server.ServerConfig.WORKER_POOL_TYPE_INTERMEDI
 import static com.facebook.presto.server.ServerConfig.WORKER_POOL_TYPE_LEAF;
 import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -250,7 +253,7 @@ public class SectionExecutionFactory
         }
         Set<SqlStageExecution> childStageExecutions = childStagesBuilder.build();
         stageExecution.addStateChangeListener(newState -> {
-            if (newState.isDone()) {
+            if (newState.isDone() && newState != StageExecutionState.FINISHED) {
                 childStageExecutions.forEach(SqlStageExecution::cancel);
             }
         });
@@ -315,23 +318,31 @@ public class SectionExecutionFactory
                             .filter(task -> !task.getTaskId().equals(taskId))
                             .filter(task -> task instanceof HttpRemoteTask)
                             .map(task -> (HttpRemoteTask) task)
+                            .filter(task -> task.getTaskStatus().getState() != TaskState.FAILED)
+//                            .filter(task -> !task.isNoMoreSplits(planNodeId))
                             .collect(toList());
+
+                    if (httpRemoteTasks.isEmpty()) {
+                        throw new PrestoException(REMOTE_TASK_ERROR, "Running out of the eligible remote tasks to retry");
+                    }
+
                     Collections.shuffle(httpRemoteTasks);
 
-                    checkState(remoteTask.getUnprocessedSplits().keySet().size() == 1
-                                    && remoteTask.getUnprocessedSplits().keySet().iterator().next().equals(planNodeId),
-                            "Unexpected plan node id");
-                    Iterator<List<Split>> splits = Iterables.partition(
-                            Iterables.transform(remoteTask.getUnprocessedSplits().get(planNodeId).values(), ScheduledSplit::getSplit),
-                            SPLIT_RETRY_BATCH_SIZE).iterator();
+                    synchronized (stageExecution) {
+                        checkState(remoteTask.isOnlyOneSplitLeft(planNodeId),
+                                "Unexpected plan node id");
+                        Iterator<List<Split>> splits = Iterables.partition(
+                                Iterables.transform(remoteTask.getAllSplits(planNodeId), ScheduledSplit::getSplit),
+                                SPLIT_RETRY_BATCH_SIZE).iterator();
 
-                    while (splits.hasNext()) {
-                        for (int i = 0; i < httpRemoteTasks.size() && splits.hasNext(); i++) {
-                            HttpRemoteTask httpRemoteTask = httpRemoteTasks.get(i);
-                            List<Split> scheduledSplit = splits.next();
-                            Multimap<PlanNodeId, Split> splitsToAdd = HashMultimap.create();
-                            splitsToAdd.putAll(planNodeId, scheduledSplit);
-                            httpRemoteTask.addSplits(splitsToAdd);
+                        while (splits.hasNext()) {
+                            for (int i = 0; i < httpRemoteTasks.size() && splits.hasNext(); i++) {
+                                HttpRemoteTask httpRemoteTask = httpRemoteTasks.get(i);
+                                List<Split> scheduledSplit = splits.next();
+                                Multimap<PlanNodeId, Split> splitsToAdd = HashMultimap.create();
+                                splitsToAdd.putAll(planNodeId, scheduledSplit);
+                                httpRemoteTask.addSplits(splitsToAdd);
+                            }
                         }
                     }
                 });
