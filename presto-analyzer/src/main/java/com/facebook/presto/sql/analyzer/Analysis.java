@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
@@ -66,8 +65,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
-import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.NOT_VISITED;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITED;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITING;
@@ -802,18 +799,18 @@ public class Analysis
         return ImmutableMap.copyOf(utilizedTableColumnReferences);
     }
 
-    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> getTableColumnAndSubfieldReferencesForAccessControl(Session session)
+    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> getTableColumnAndSubfieldReferencesForAccessControl(boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields)
     {
         Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> references;
-        if (!isCheckAccessControlWithSubfields(session)) {
-            references = (isCheckAccessControlOnUtilizedColumnsOnly(session) ? utilizedTableColumnReferences : tableColumnReferences).entrySet().stream()
+        if (!checkAccessControlWithSubfields) {
+            references = (checkAccessControlOnUtilizedColumnsOnly ? utilizedTableColumnReferences : tableColumnReferences).entrySet().stream()
                     .collect(toImmutableMap(
                             Map.Entry::getKey,
                             accessControlEntry -> accessControlEntry.getValue().entrySet().stream().collect(toImmutableMap(
                                     Map.Entry::getKey,
                                     tableEntry -> tableEntry.getValue().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet())))));
         }
-        else if (!isCheckAccessControlOnUtilizedColumnsOnly(session)) {
+        else if (!checkAccessControlOnUtilizedColumnsOnly) {
             references = tableColumnAndSubfieldReferences;
         }
         else {
