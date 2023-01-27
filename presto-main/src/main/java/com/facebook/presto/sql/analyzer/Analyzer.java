@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
+import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExternalFunctions;
@@ -101,7 +103,8 @@ public class Analyzer
      */
     public void checkColumnAccessPermissions(Analysis analysis)
     {
-        analysis.getTableColumnAndSubfieldReferencesForAccessControl(session).forEach((accessControlInfo, tableColumnReferences) ->
+        analysis.getTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session))
+                .forEach((accessControlInfo, tableColumnReferences) ->
                 tableColumnReferences.forEach((tableName, columns) ->
                         accessControlInfo.getAccessControl().checkCanSelectFromColumns(
                                 session.getRequiredTransactionId(),
