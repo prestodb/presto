@@ -526,6 +526,10 @@ class Task : public std::enable_shared_from_this<Task> {
       const core::PlanNodeId& planNodeId,
       uint32_t pipelineId);
 
+  /// Returns task execution error message or empty string if not error
+  /// occurred. This should only be called inside mutex_ protection.
+  std::string safeErrorMessage() const;
+
   // Counts the number of created tasks which is incremented on each task
   // creation.
   static std::atomic<uint64_t> numCreatedTasks_;
