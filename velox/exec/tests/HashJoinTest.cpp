@@ -1964,7 +1964,7 @@ TEST_P(MultiThreadedHashJoinTest, antiJoinWithFilterAndEmptyBuild) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, leftJoin) {
-  // Left side keys are [0, 1, 2,..10].
+  // Left side keys are [0, 1, 2,..20].
   // Use 3-rd column as row number to allow for asserting the order of results.
   std::vector<RowVectorPtr> probeVectors = mergeBatches(
       makeBatches(
@@ -1974,7 +1974,7 @@ TEST_P(MultiThreadedHashJoinTest, leftJoin) {
                 {"c0", "c1", "row_number"},
                 {
                     makeFlatVector<int32_t>(
-                        77, [](auto row) { return row % 11; }, nullEvery(13)),
+                        77, [](auto row) { return row % 21; }, nullEvery(13)),
                     makeFlatVector<int32_t>(77, [](auto row) { return row; }),
                     makeFlatVector<int32_t>(77, [](auto row) { return row; }),
                 });
@@ -1987,7 +1987,7 @@ TEST_P(MultiThreadedHashJoinTest, leftJoin) {
                 {
                     makeFlatVector<int32_t>(
                         97,
-                        [](auto row) { return (row + 3) % 11; },
+                        [](auto row) { return (row + 3) % 21; },
                         nullEvery(13)),
                     makeFlatVector<int32_t>(97, [](auto row) { return row; }),
                     makeFlatVector<int32_t>(
@@ -2323,14 +2323,14 @@ TEST_P(MultiThreadedHashJoinTest, leftJoinWithNullableFilter) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, rightJoin) {
-  // Left side keys are [0, 1, 2,..10].
+  // Left side keys are [0, 1, 2,..20].
   std::vector<RowVectorPtr> probeVectors = mergeBatches(
       makeBatches(
           3,
           [&](int32_t /*unused*/) {
             return makeRowVector({
                 makeFlatVector<int32_t>(
-                    137, [](auto row) { return row % 11; }, nullEvery(13)),
+                    137, [](auto row) { return row % 21; }, nullEvery(13)),
                 makeFlatVector<int32_t>(137, [](auto row) { return row; }),
             });
           }),
@@ -2340,7 +2340,7 @@ TEST_P(MultiThreadedHashJoinTest, rightJoin) {
             return makeRowVector({
                 makeFlatVector<int32_t>(
                     234,
-                    [](auto row) { return (row + 3) % 11; },
+                    [](auto row) { return (row + 3) % 21; },
                     nullEvery(13)),
                 makeFlatVector<int32_t>(234, [](auto row) { return row; }),
             });
@@ -2424,14 +2424,14 @@ TEST_P(MultiThreadedHashJoinTest, rightJoinWithEmptyBuild) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, rightJoinWithAllMatch) {
-  // Left side keys are [0, 1, 2,..10].
+  // Left side keys are [0, 1, 2,..20].
   std::vector<RowVectorPtr> probeVectors = mergeBatches(
       makeBatches(
           3,
           [&](int32_t /*unused*/) {
             return makeRowVector({
                 makeFlatVector<int32_t>(
-                    137, [](auto row) { return row % 11; }, nullEvery(13)),
+                    137, [](auto row) { return row % 21; }, nullEvery(13)),
                 makeFlatVector<int32_t>(137, [](auto row) { return row; }),
             });
           }),
@@ -2441,7 +2441,7 @@ TEST_P(MultiThreadedHashJoinTest, rightJoinWithAllMatch) {
             return makeRowVector({
                 makeFlatVector<int32_t>(
                     234,
-                    [](auto row) { return (row + 3) % 11; },
+                    [](auto row) { return (row + 3) % 21; },
                     nullEvery(13)),
                 makeFlatVector<int32_t>(234, [](auto row) { return row; }),
             });
@@ -2475,14 +2475,14 @@ TEST_P(MultiThreadedHashJoinTest, rightJoinWithAllMatch) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, rightJoinWithFilter) {
-  // Left side keys are [0, 1, 2,..10].
+  // Left side keys are [0, 1, 2,..20].
   std::vector<RowVectorPtr> probeVectors = mergeBatches(
       makeBatches(
           3,
           [&](int32_t /*unused*/) {
             return makeRowVector({
                 makeFlatVector<int32_t>(
-                    137, [](auto row) { return row % 11; }, nullEvery(13)),
+                    137, [](auto row) { return row % 21; }, nullEvery(13)),
                 makeFlatVector<int32_t>(137, [](auto row) { return row; }),
             });
           }),
@@ -2492,7 +2492,7 @@ TEST_P(MultiThreadedHashJoinTest, rightJoinWithFilter) {
             return makeRowVector({
                 makeFlatVector<int32_t>(
                     234,
-                    [](auto row) { return (row + 3) % 11; },
+                    [](auto row) { return (row + 3) % 21; },
                     nullEvery(13)),
                 makeFlatVector<int32_t>(234, [](auto row) { return row; }),
             });
@@ -2550,14 +2550,14 @@ TEST_P(MultiThreadedHashJoinTest, rightJoinWithFilter) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, fullJoin) {
-  // Left side keys are [0, 1, 2,..10].
+  // Left side keys are [0, 1, 2,..20].
   std::vector<RowVectorPtr> probeVectors = mergeBatches(
       makeBatches(
           3,
           [&](int32_t /*unused*/) {
             return makeRowVector({
                 makeFlatVector<int32_t>(
-                    213, [](auto row) { return row % 11; }, nullEvery(13)),
+                    213, [](auto row) { return row % 21; }, nullEvery(13)),
                 makeFlatVector<int32_t>(213, [](auto row) { return row; }),
             });
           }),
@@ -2567,7 +2567,7 @@ TEST_P(MultiThreadedHashJoinTest, fullJoin) {
             return makeRowVector({
                 makeFlatVector<int32_t>(
                     137,
-                    [](auto row) { return (row + 3) % 11; },
+                    [](auto row) { return (row + 3) % 21; },
                     nullEvery(13)),
                 makeFlatVector<int32_t>(137, [](auto row) { return row; }),
             });
