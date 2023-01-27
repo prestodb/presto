@@ -707,6 +707,20 @@ std::shared_ptr<const Type> createType(
 }
 
 template <>
+std::shared_ptr<const Type> createType<TypeKind::SHORT_DECIMAL>(
+    std::vector<std::shared_ptr<const Type>>&& /*children*/) {
+  std::string name{TypeTraits<TypeKind::SHORT_DECIMAL>::name};
+  VELOX_USER_FAIL("Not supported for kind: {}", name);
+}
+
+template <>
+std::shared_ptr<const Type> createType<TypeKind::LONG_DECIMAL>(
+    std::vector<std::shared_ptr<const Type>>&& /*children*/) {
+  std::string name{TypeTraits<TypeKind::LONG_DECIMAL>::name};
+  VELOX_USER_FAIL("Not supported for kind: {}", name);
+}
+
+template <>
 std::shared_ptr<const Type> createType<TypeKind::ROW>(
     std::vector<std::shared_ptr<const Type>>&& /*children*/) {
   std::string name{TypeTraits<TypeKind::ROW>::name};

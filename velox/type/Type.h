@@ -627,8 +627,15 @@ class DecimalType : public ScalarType<KIND> {
 
   DecimalType(const uint8_t precision = 18, const uint8_t scale = 0)
       : precision_(precision), scale_(scale) {
-    VELOX_CHECK_LE(scale, precision);
-    VELOX_CHECK_LE(precision, kMaxPrecision);
+    VELOX_CHECK_LE(
+        scale,
+        precision,
+        "Scale of decimal type must not exceed its precision");
+    VELOX_CHECK_LE(
+        precision,
+        kMaxPrecision,
+        "Precision of decimal type must not exceed {}",
+        kMaxPrecision);
   }
 
   inline bool equivalent(const Type& otherDecimal) const override {
@@ -1456,8 +1463,17 @@ std::shared_ptr<const Type> createType(
 }
 
 template <>
+std::shared_ptr<const Type> createType<TypeKind::SHORT_DECIMAL>(
+    std::vector<std::shared_ptr<const Type>>&& children);
+
+template <>
+std::shared_ptr<const Type> createType<TypeKind::LONG_DECIMAL>(
+    std::vector<std::shared_ptr<const Type>>&& children);
+
+template <>
 std::shared_ptr<const Type> createType<TypeKind::ROW>(
-    std::vector<std::shared_ptr<const Type>>&& /*children*/);
+    std::vector<std::shared_ptr<const Type>>&& children);
+
 template <>
 std::shared_ptr<const Type> createType<TypeKind::ARRAY>(
     std::vector<std::shared_ptr<const Type>>&& children);
@@ -1465,6 +1481,7 @@ std::shared_ptr<const Type> createType<TypeKind::ARRAY>(
 template <>
 std::shared_ptr<const Type> createType<TypeKind::MAP>(
     std::vector<std::shared_ptr<const Type>>&& children);
+
 template <>
 std::shared_ptr<const Type> createType<TypeKind::OPAQUE>(
     std::vector<std::shared_ptr<const Type>>&& children);

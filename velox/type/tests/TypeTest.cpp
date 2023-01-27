@@ -143,12 +143,16 @@ TEST(TypeTest, shortDecimal) {
   EXPECT_EQ(*SHORT_DECIMAL(10, 5), *shortDecimal);
   EXPECT_NE(*SHORT_DECIMAL(9, 5), *shortDecimal);
   EXPECT_NE(*SHORT_DECIMAL(10, 4), *shortDecimal);
-  try {
-    shortDecimal = SHORT_DECIMAL(19, 5);
-    FAIL() << "Function should throw.";
-  } catch (const VeloxRuntimeError& e) {
-    EXPECT_EQ("(19 vs. 18)", e.message());
-  }
+  VELOX_ASSERT_THROW(
+      SHORT_DECIMAL(19, 5), "Precision of decimal type must not exceed 18");
+  VELOX_ASSERT_THROW(
+      SHORT_DECIMAL(5, 6),
+      "Scale of decimal type must not exceed its precision");
+  VELOX_ASSERT_THROW(
+      createScalarType(TypeKind::SHORT_DECIMAL), "not a scalar type");
+  VELOX_ASSERT_THROW(
+      createType(TypeKind::SHORT_DECIMAL, {}),
+      "Not supported for kind: SHORT_DECIMAL");
 }
 
 TEST(TypeTest, longDecimal) {
@@ -162,12 +166,16 @@ TEST(TypeTest, longDecimal) {
   EXPECT_EQ(*LONG_DECIMAL(30, 5), *longDecimal);
   EXPECT_NE(*LONG_DECIMAL(9, 5), *longDecimal);
   EXPECT_NE(*LONG_DECIMAL(30, 3), *longDecimal);
-  try {
-    longDecimal = LONG_DECIMAL(39, 5);
-    FAIL() << "Function should throw.";
-  } catch (const VeloxRuntimeError& e) {
-    EXPECT_EQ("(39 vs. 38)", e.message());
-  }
+  VELOX_ASSERT_THROW(
+      LONG_DECIMAL(39, 5), "Precision of decimal type must not exceed 38");
+  VELOX_ASSERT_THROW(
+      LONG_DECIMAL(5, 6),
+      "Scale of decimal type must not exceed its precision");
+  VELOX_ASSERT_THROW(
+      createScalarType(TypeKind::LONG_DECIMAL), "not a scalar type");
+  VELOX_ASSERT_THROW(
+      createType(TypeKind::LONG_DECIMAL, {}),
+      "Not supported for kind: LONG_DECIMAL");
 }
 
 TEST(TypeTest, dateToString) {
@@ -339,6 +347,10 @@ TEST(TypeTest, row) {
   auto row2 = ROW({{"", INTEGER()}});
   EXPECT_EQ(row2->toString(), "ROW<\"\":INTEGER>");
   EXPECT_EQ(row2->nameOf(0), "");
+
+  VELOX_ASSERT_THROW(createScalarType(TypeKind::ROW), "not a scalar type");
+  VELOX_ASSERT_THROW(
+      createType(TypeKind::ROW, {}), "Not supported for kind: ROW");
 }
 
 class Foo {};
