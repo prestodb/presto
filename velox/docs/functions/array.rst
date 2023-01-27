@@ -31,6 +31,16 @@ Array Functions
         SELECT array_except(ARRAY [1, 2, 2], ARRAY [1, 3, 4]); -- [2]
         SELECT array_except(ARRAY [1, NULL, NULL], ARRAY [1, 1, NULL]); -- []
 
+.. function:: array_frequency(array(E) x) -> map(E, int)
+
+    Returns a map: keys are the unique elements in the array, values are how many times the key appears.
+    Ignores null elements. Empty array returns empty map. E must be bigint or varchar. ::
+
+        SELECT array_frequency(ARRAY [1, 1, 2, 2, 2, 2]); -- {1 -> 2, 2 -> 4}
+        SELECT array_frequency(ARRAY [1, 1, NULL, NULL, NULL]); -- {1 -> 2}
+        SELECT array_frequency(ARRAY ["knock", "knock", "who", "?"]); -- {"knock" -> 2, "who" -> 1, "?" -> 1}
+        SELECT array_frequency(ARRAY []); -- {}
+
 .. function:: array_has_duplicates(array(E)) -> boolean
 
     Returns a boolean: whether array has any elements that occur more than once.

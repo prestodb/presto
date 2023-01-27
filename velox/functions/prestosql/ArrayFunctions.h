@@ -399,4 +399,23 @@ struct ArrayHasDuplicatesFunction {
   }
 };
 
+// Function Signature: array<T> -> map<T, int>, where T is ("bigint", "varchar")
+// Returns a map with frequency of each element in the input array vector.
+template <typename TExecParams, typename T>
+struct ArrayFrequencyFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<velox::Map<T, int>>& out,
+      arg_type<velox::Array<T>> inputArray) {
+    folly::F14FastMap<arg_type<T>, int> frequencyCount;
+
+    for (const auto& item : inputArray.skipNulls()) {
+      frequencyCount[item]++;
+    }
+
+    out.copy_from(frequencyCount);
+  }
+};
+
 } // namespace facebook::velox::functions
