@@ -16,6 +16,7 @@
 #include "presto_cpp/external/json/json.hpp"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
+#include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
@@ -267,6 +268,14 @@ auto addShuffleWriteNode(
         nodeId, shuffleName, serializedWriteInfo, std::move(source));
   };
 }
+
+auto addShuffleReadNode(velox::RowTypePtr& outputType) {
+  return [&outputType](
+             core::PlanNodeId nodeId,
+             core::PlanNodePtr /* source */) -> core::PlanNodePtr {
+    return std::make_shared<ShuffleReadNode>(nodeId, outputType);
+  };
+}
 } // namespace
 
 class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
@@ -296,10 +305,6 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         std::make_unique<PartitionAndSerializeTranslator>());
     exec::Operator::registerOperator(
         std::make_unique<ShuffleWriteTranslator>());
-  }
-
-  void registerVectorSerde() override {
-    serializer::spark::UnsafeRowVectorSerde::registerVectorSerde();
   }
 
   static std::string makeTaskId(
@@ -405,6 +410,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         std::make_unique<PartitionAndSerializeTranslator>());
     exec::Operator::registerOperator(
         std::make_unique<ShuffleWriteTranslator>());
+    exec::Operator::registerOperator(std::make_unique<ShuffleReadTranslator>());
 
     // Flatten the inputs to avoid issues assertEqualResults referred here:
     // https://github.com/facebookincubator/velox/issues/2859
@@ -442,7 +448,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     // from shuffle.
     for (auto i = 0; i < numPartitions; ++i) {
       auto plan = exec::test::PlanBuilder()
-                      .exchange(dataType)
+                      .addNode(addShuffleReadNode(dataType))
                       .project(dataType->names())
                       .planNode();
 
