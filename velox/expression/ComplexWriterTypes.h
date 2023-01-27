@@ -18,11 +18,13 @@
 #include <folly/Likely.h>
 #include <optional>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <variant>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
+#include "velox/expression/ComplexViewTypes.h"
 #include "velox/expression/UdfTypeResolver.h"
 #include "velox/type/Type.h"
 #include "velox/vector/TypeAliases.h"

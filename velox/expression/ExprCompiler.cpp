@@ -409,7 +409,7 @@ ExprPtr compileExpression(
           "Found incompatible return types for '{}' ({} vs. {}) "
           "for input types ({}).",
           call->name(),
-          metadata.returnType(),
+          simpleFunctionEntry->type(),
           resultType,
           folly::join(", ", inputTypes));
       auto func = simpleFunctionEntry->createFunction()->createVectorFunction(

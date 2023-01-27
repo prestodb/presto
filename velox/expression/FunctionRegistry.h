@@ -101,25 +101,56 @@ class FunctionRegistry {
     return signatures;
   }
 
-  const FunctionEntry<Function, Metadata>* resolveFunction(
+  class ResolvedSimpleFunction {
+   public:
+    ResolvedSimpleFunction(
+        const FunctionEntry<Function, Metadata>& functionEntry,
+        const TypePtr& type)
+        : functionEntry_(functionEntry), type_(type) {}
+
+    auto createFunction() {
+      return functionEntry_.createFunction();
+    }
+
+    TypePtr& type() {
+      return type_;
+    }
+
+    const Metadata& getMetadata() const {
+      return functionEntry_.getMetadata();
+    }
+
+   private:
+    const FunctionEntry<Function, Metadata>& functionEntry_;
+    TypePtr type_;
+  };
+
+  std::optional<ResolvedSimpleFunction> resolveFunction(
       const std::string& name,
       const std::vector<TypePtr>& argTypes) const {
     const FunctionEntry<Function, Metadata>* selectedCandidate = nullptr;
-
+    TypePtr selectedCandidateType = nullptr;
     if (const auto* signatureMap = getSignatureMap(name)) {
       for (const auto& [candidateSignature, functionEntry] : *signatureMap) {
-        if (SignatureBinder(candidateSignature, argTypes).tryBind()) {
+        SignatureBinder binder(candidateSignature, argTypes);
+        if (binder.tryBind()) {
           auto* currentCandidate = functionEntry.get();
           if (!selectedCandidate ||
               currentCandidate->getMetadata().priority() <
                   selectedCandidate->getMetadata().priority()) {
             selectedCandidate = currentCandidate;
+            selectedCandidateType = binder.tryResolveReturnType();
           }
         }
       }
     }
 
-    return selectedCandidate;
+    VELOX_DCHECK(!selectedCandidate || selectedCandidateType);
+
+    return selectedCandidate
+        ? std::optional<ResolvedSimpleFunction>(
+              ResolvedSimpleFunction(*selectedCandidate, selectedCandidateType))
+        : std::nullopt;
   }
 
  private:

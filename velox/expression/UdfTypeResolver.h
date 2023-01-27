@@ -70,6 +70,8 @@ class MapWriter;
 
 class GenericView;
 
+class GenericWriter;
+
 namespace detail {
 template <typename T>
 struct resolver {
@@ -131,7 +133,7 @@ template <typename T>
 struct resolver<Generic<T>> {
   using in_type = GenericView;
   using null_free_in_type = in_type;
-  using out_type = void; // Not supported as output type yet.
+  using out_type = GenericWriter;
 };
 
 template <typename T>

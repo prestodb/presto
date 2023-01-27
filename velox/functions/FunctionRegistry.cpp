@@ -120,11 +120,9 @@ std::shared_ptr<const Type> resolveCallableSpecialForm(
 std::shared_ptr<const Type> resolveSimpleFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
-  auto resolvedFunction =
-      exec::SimpleFunctions().resolveFunction(functionName, argTypes);
-
-  if (resolvedFunction) {
-    return resolvedFunction->getMetadata().returnType();
+  if (auto resolvedFunction =
+          exec::SimpleFunctions().resolveFunction(functionName, argTypes)) {
+    return resolvedFunction->type();
   }
 
   return nullptr;

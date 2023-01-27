@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
@@ -203,6 +204,66 @@ TEST_F(FunctionResolutionTest, vectorOverSimpleFunction) {
   // In this case, the simple function should win over vector function
   test::assertEqualVectors(
       makeFlatVector<bool>({true, true, true}), evalResult);
+}
+
+// Return false always.
+template <typename T>
+struct Func1 {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  // If input is Array<float> out is double.
+  bool call(double&, const arg_type<Array<float>>&) {
+    return false;
+  }
+
+  // If input is Array<x> out is x.
+  bool call(out_type<Generic<T1>>&, const arg_type<Array<Generic<T1>>>&) {
+    return false;
+  }
+
+  // If input is Map<int32_t, int32_t> output is int64_t.
+  bool call(int64_t&, const arg_type<Map<int32_t, int32_t>>&) {
+    return false;
+  }
+
+  // If input is Map<x,y> out is Row(x,y).
+  bool call(
+      out_type<Row<Generic<T1>, Generic<T2>>>&,
+      const arg_type<Map<Generic<T1>, Generic<T2>>>&) {
+    return false;
+  }
+};
+
+TEST_F(FunctionResolutionTest, testGenericOutputTypeResolution) {
+  registerFunction<Func1, Generic<T1>, Array<Generic<T1>>>(
+      {"test_generic_out"});
+  registerFunction<Func1, double, Array<float>>({"test_generic_out"});
+  registerFunction<
+      Func1,
+      Row<Generic<T1>, Generic<T2>>,
+      Map<Generic<T1>, Generic<T2>>>({"test_generic_out"});
+  registerFunction<Func1, int64_t, Map<int32_t, int32_t>>({"test_generic_out"});
+
+  auto test = [&](const TypePtr& expected, const TypePtr& inputType) {
+    auto type = exec::SimpleFunctions()
+                    .resolveFunction("test_generic_out", {inputType})
+                    ->type();
+    EXPECT_TRUE(type->equivalent(*expected));
+  };
+
+  // When input is flaot output is double.
+  test(DOUBLE(), ARRAY(REAL()));
+
+  // Output is array element type.
+  test(DOUBLE(), ARRAY(DOUBLE()));
+  test(BIGINT(), ARRAY(BIGINT()));
+
+  // Output is int64_t when input is Map<int32_t, int32_t>.
+  test(BIGINT(), MAP(INTEGER(), INTEGER()));
+
+  // Output is map values.
+  test(ROW({INTEGER(), DOUBLE()}), MAP(INTEGER(), DOUBLE()));
+  test(ROW({INTEGER(), BIGINT()}), MAP(INTEGER(), BIGINT()));
+  test(ROW({INTEGER(), ARRAY(REAL())}), MAP(INTEGER(), ARRAY(REAL())));
 }
 
 } // namespace

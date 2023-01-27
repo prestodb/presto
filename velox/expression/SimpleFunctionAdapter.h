@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <optional>
+#include <type_traits>
 
 #include "velox/common/base/Portability.h"
 #include "velox/expression/ComplexWriterTypes.h"
@@ -61,10 +62,20 @@ struct udf_reuse_strings_from_arg<
     util::detail::void_t<decltype(T::reuse_strings_from_arg)>>
     : std::integral_constant<int32_t, T::reuse_strings_from_arg> {};
 
+struct GenericOutputTypeTrait {
+  static constexpr TypeKind typeKind = TypeKind::INVALID;
+  static constexpr bool isPrimitiveType = false;
+  static constexpr bool isFixedWidth = false;
+};
+
 template <typename FUNC>
 class SimpleFunctionAdapter : public VectorFunction {
   using T = typename FUNC::exec_return_type;
-  using return_type_traits = CppToType<typename FUNC::return_type>;
+  using return_type_traits = std::conditional_t<
+      isGenericType<typename FUNC::return_type>::value,
+      GenericOutputTypeTrait,
+      CppToType<typename FUNC::return_type>>;
+
   template <int32_t POSITION>
   using exec_arg_at = typename std::
       tuple_element<POSITION, typename FUNC::exec_arg_types>::type;
