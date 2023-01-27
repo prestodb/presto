@@ -488,7 +488,7 @@ jobs:
       - checkout
       - add_ssh_keys:
           fingerprints:
-            - "59:91:a0:91:69:c4:08:aa:73:f4:1f:dd:13:e2:04:ef"
+            - "7b:24:f3:1a:b1:15:97:c6:fe:06:46:27:3e:b7:6b:96"
       - run:
           name: "Build docs and update gh-pages"
           command: |
