@@ -27,7 +27,7 @@ using namespace facebook::velox;
 using namespace facebook::velox::dwrf;
 
 constexpr vector_size_t kVectorSize = 10000;
-vector_size_t kNumIterations = 100;
+vector_size_t kNumIterations = 1000;
 
 float genData(float pos) {
   return float(pos * (float)3.14);
