@@ -136,14 +136,19 @@ class ConstantTypedExpr : public ITypedExpr {
       return false;
     }
 
-    if (this->hasValueVector()) {
-      return casted->hasValueVector() &&
-          this->valueVector_->type()->kindEquals(
-              casted->valueVector_->type()) &&
-          this->valueVector_->equalValueAt(casted->valueVector_.get(), 0, 0);
+    if (!this->type()->kindEquals(casted->type())) {
+      return false;
     }
 
-    return !casted->hasValueVector() && this->value_ == casted->value_;
+    if (this->hasValueVector() != casted->hasValueVector()) {
+      return false;
+    }
+
+    if (this->hasValueVector()) {
+      return this->valueVector_->equalValueAt(casted->valueVector_.get(), 0, 0);
+    }
+
+    return this->value_ == casted->value_;
   }
 
   VELOX_DEFINE_CLASS_NAME(ConstantTypedExpr)
