@@ -816,7 +816,7 @@ public class MaterializedViewQueryOptimizer
         {
             QualifiedObjectName baseTableName = createQualifiedObjectName(session, table, table.getName());
 
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, baseTableName);
+            Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(baseTableName);
             if (!tableHandle.isPresent()) {
                 throw new SemanticException(MISSING_TABLE, node, "Table does not exist");
             }

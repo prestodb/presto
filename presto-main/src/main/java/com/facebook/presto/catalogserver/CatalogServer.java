@@ -86,7 +86,7 @@ public class CatalogServer
     public String getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session.toSession(sessionPropertyManager), table);
+        Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session.toSession(sessionPropertyManager)).getTableHandle(table);
         return tableHandle.map(handle -> writeValueAsString(handle, objectMapper))
                 .orElse(EMPTY_STRING);
     }

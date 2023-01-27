@@ -72,11 +72,6 @@ public interface Metadata
 
     List<String> listSchemaNames(Session session, String catalogName);
 
-    /**
-     * Returns a table handle for the specified table name.
-     */
-    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName);
-
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
