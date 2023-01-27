@@ -223,9 +223,8 @@ externalRoutineName
 queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
-      (FETCH FIRST fetchFirstNRows=INTEGER_VALUE ROWS ONLY)?
       (OFFSET offset=INTEGER_VALUE (ROW | ROWS)?)?
-      (LIMIT limit=(INTEGER_VALUE | ALL))?
+      ((LIMIT limit=(INTEGER_VALUE | ALL) | (FETCH FIRST fetchFirstNRows=INTEGER_VALUE ROWS ONLY))?)?
     ;
 
 queryTerm
