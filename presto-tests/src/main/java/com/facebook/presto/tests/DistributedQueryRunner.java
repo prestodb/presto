@@ -31,6 +31,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeState;
@@ -86,6 +87,7 @@ import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTI
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
@@ -209,7 +211,7 @@ public class DistributedQueryRunner
                 externalWorkers = ImmutableList.of();
 
                 for (int i = (coordinatorCount + (resourceManagerEnabled ? resourceManagerCount : 0)); i < nodeCount; i++) {
-                    String workerPool = i % 2 == 0 ? "leaf" : "intermediate";
+                    String workerPool = i % 2 == 0 ? ServerConfig.WORKER_POOL_TYPE_LEAF : ServerConfig.WORKER_POOL_TYPE_INTERMEDIATE;
                     Map<String, String> workerProperties = new HashMap<>(extraProperties);
                     workerProperties.put("pool-type", workerPool);
                     TestingPrestoServer worker = closer.register(createTestingPrestoServer(
@@ -568,7 +570,7 @@ public class DistributedQueryRunner
 
     public List<TestingPrestoServer> getCoordinatorWorkers()
     {
-        return getServers().stream().filter(server -> !server.isResourceManager()).collect(ImmutableList.toImmutableList());
+        return getServers().stream().filter(server -> !server.isResourceManager()).collect(toImmutableList());
     }
 
     public List<TestingPrestoServer> getServers()
