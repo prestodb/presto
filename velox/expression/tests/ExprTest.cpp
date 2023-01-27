@@ -3168,3 +3168,43 @@ TEST_F(ExprTest, stdExceptionInVectorFunction) {
       makeFlatVector<int32_t>({1, 2, 3}),
       AlwaysThrowsVectorFunction::kStdErrorMessage);
 }
+
+TEST_F(ExprTest, cseUnderTry) {
+  auto input = makeRowVector({
+      makeNullableFlatVector<int8_t>({31, 3, 31, 31, 2, std::nullopt}),
+  });
+
+  // All rows trigger overflow.
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "72::tinyint * 31::tinyint <> 4 or 72::tinyint * 31::tinyint <> 5",
+          input),
+      "integer overflow: 72 * 31");
+
+  auto result = evaluate(
+      "try(72::tinyint * 31::tinyint <> 4 or 72::tinyint * 31::tinyint <> 5)",
+      input);
+  assertEqualVectors(makeNullConstant(TypeKind::BOOLEAN, 6), result);
+
+  // Only some rows trigger overflow.
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "36::tinyint * c0 <> 4 or 36::tinyint * c0 <> 5 or 36::tinyint * c0 <> 6",
+          input),
+      "integer overflow: 36 * 31");
+
+  result = evaluate(
+      "try(36::tinyint * c0 <> 4 or 36::tinyint * c0 <> 5 or 36::tinyint * c0 <> 6)",
+      input);
+
+  assertEqualVectors(
+      makeNullableFlatVector<bool>({
+          std::nullopt,
+          true,
+          std::nullopt,
+          std::nullopt,
+          true,
+          std::nullopt,
+      }),
+      result);
+}

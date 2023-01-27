@@ -613,7 +613,11 @@ bool Expr::checkGetSharedSubexprValues(
         true /*override*/);
 
     evalEncodings(*missingRows, context, sharedSubexprValues_);
+
+    // Clear the rows which failed to compute.
+    context.deselectErrors(*sharedSubexprRows_);
   }
+
   context.moveOrCopyResult(sharedSubexprValues_, rows, result);
   return true;
 }
@@ -630,7 +634,17 @@ void Expr::checkUpdateSharedSubexprValues(
   if (!sharedSubexprRows_) {
     sharedSubexprRows_ = context.execCtx()->getSelectivityVector(rows.size());
   }
+
   *sharedSubexprRows_ = rows;
+  if (context.errors()) {
+    // Clear the rows which failed to compute.
+    context.deselectErrors(*sharedSubexprRows_);
+    if (!sharedSubexprRows_->hasSelections()) {
+      // Do not store a reference to 'result' if we cannot use any rows from it.
+      return;
+    }
+  }
+
   sharedSubexprValues_ = result;
 }
 
