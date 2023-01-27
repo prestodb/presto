@@ -121,88 +121,82 @@ FOLLY_ALWAYS_INLINE static int32_t findSetBitsNew(uint64_t value) {
       "Unexpected leading zeros {} for value {}", leadingZeros, value));
 }
 
-BENCHMARK(findSetBitsOld, iters) {
+size_t iters = 2000;
+
+BENCHMARK(findSetBitsOld) {
   uint64_t value = 0;
   for (int64_t i = 0; i < iters; i++) {
-    for (int64_t j = 0; j < iters; j++) {
-      value += INT16_MAX;
-      auto result = findSetBitsOld(value);
-      folly::doNotOptimizeAway(result);
-    }
+    value += INT16_MAX;
+    auto result = findSetBitsOld(value);
+    folly::doNotOptimizeAway(result);
   }
 }
 
-BENCHMARK_RELATIVE(findSetBitsNew, iters) {
+BENCHMARK_RELATIVE(findSetBitsNew) {
   uint64_t value = 0;
   for (int64_t i = 0; i < iters; i++) {
-    for (int64_t j = 0; j < iters; j++) {
-      value += INT16_MAX;
-      auto result = findSetBitsNew(value);
-      folly::doNotOptimizeAway(result);
-    }
+    value += INT16_MAX;
+    auto result = findSetBitsNew(value);
+    folly::doNotOptimizeAway(result);
   }
 }
 
-BENCHMARK(findSetBitsOld_low, iters) {
+BENCHMARK(findSetBitsOld_low) {
   uint64_t value = 0;
   for (int64_t i = 0; i < iters; i++) {
-    for (int64_t j = 0; j < iters; j++) {
-      value++;
-      auto result = findSetBitsOld(value);
-      folly::doNotOptimizeAway(result);
-      value = value & 0xff;
-    }
+    value++;
+    auto result = findSetBitsOld(value);
+    folly::doNotOptimizeAway(result);
+    value = value & 0xff;
   }
 }
 
-BENCHMARK_RELATIVE(findSetBitsNew_low, iters) {
+BENCHMARK_RELATIVE(findSetBitsNew_low) {
   uint64_t value = 0;
   for (int64_t i = 0; i < iters; i++) {
-    for (int64_t j = 0; j < iters; j++) {
-      value++;
-      auto result = findSetBitsNew(value);
-      folly::doNotOptimizeAway(result);
-      value = value & 0xff;
-    }
+    value++;
+    auto result = findSetBitsNew(value);
+    folly::doNotOptimizeAway(result);
+    value = value & 0xff;
   }
 }
 
-BENCHMARK(GenerateAutoIdOld_0, iters) {
+BENCHMARK(GenerateAutoIdOld_0) {
   for (int64_t i = 0; i < iters; i++) {
     auto result = generateAutoId(0, 100'000);
     folly::doNotOptimizeAway(result);
   }
 }
 
-BENCHMARK_RELATIVE(GenerateAutoIdNew_0, iters) {
+BENCHMARK_RELATIVE(GenerateAutoIdNew_0) {
   for (int64_t i = 0; i < iters; i++) {
     auto result = generateAutoId2(0, 100'000);
     folly::doNotOptimizeAway(result);
   }
 }
 
-BENCHMARK(GenerateAutoIdOld_32, iters) {
+BENCHMARK(GenerateAutoIdOld_32) {
   for (int64_t i = 0; i < iters; i++) {
     auto result = generateAutoId(INT32_MAX, 100'000);
     folly::doNotOptimizeAway(result);
   }
 }
 
-BENCHMARK_RELATIVE(GenerateAutoIdNew_32, iters) {
+BENCHMARK_RELATIVE(GenerateAutoIdNew_32) {
   for (int64_t i = 0; i < iters; i++) {
     auto result = generateAutoId2(INT32_MAX, 100'000);
     folly::doNotOptimizeAway(result);
   }
 }
 
-BENCHMARK(GenerateAutoIdOld_64, iters) {
+BENCHMARK(GenerateAutoIdOld_64) {
   for (int64_t i = 0; i < iters; i++) {
     auto result = generateAutoId(INT64_MAX - 500'000, 100'000);
     folly::doNotOptimizeAway(result);
   }
 }
 
-BENCHMARK_RELATIVE(GenerateAutoIdNew_64, iters) {
+BENCHMARK_RELATIVE(GenerateAutoIdNew_64) {
   for (int64_t i = 0; i < iters; i++) {
     auto result = generateAutoId2(INT64_MAX - 500'000, 100'000);
     folly::doNotOptimizeAway(result);
