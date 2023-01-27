@@ -89,6 +89,7 @@ import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTI
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
@@ -572,7 +573,7 @@ public class DistributedQueryRunner
 
     public List<TestingPrestoServer> getCoordinatorWorkers()
     {
-        return getServers().stream().filter(server -> !server.isResourceManager()).collect(ImmutableList.toImmutableList());
+        return getServers().stream().filter(server -> !server.isResourceManager()).collect(toImmutableList());
     }
 
     public List<TestingPrestoServer> getServers()
