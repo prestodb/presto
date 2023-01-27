@@ -78,7 +78,7 @@ public class CreateMaterializedViewTask
     {
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
 
-        Optional<TableHandle> viewHandle = metadata.getTableHandle(session, viewName);
+        Optional<TableHandle> viewHandle = metadata.getMetadataResolver(session).getTableHandle(viewName);
         if (viewHandle.isPresent()) {
             if (!statement.isNotExists()) {
                 throw new SemanticException(MATERIALIZED_VIEW_ALREADY_EXISTS, statement, "Materialized view '%s' already exists", viewName);

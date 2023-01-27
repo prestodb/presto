@@ -306,12 +306,6 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table)
-    {
-        return getOptionalTableHandle(session, transactionManager, table);
-    }
-
-    @Override
     public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName table, Map<String, Object> analyzeProperties)
     {
         requireNonNull(table, "table is null");
@@ -1019,7 +1013,7 @@ public class MetadataManager
     @Override
     public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
-        Optional<TableHandle> materializedViewHandle = getTableHandle(session, materializedViewName);
+        Optional<TableHandle> materializedViewHandle = getOptionalTableHandle(session, transactionManager, materializedViewName);
 
         ConnectorId connectorId = materializedViewHandle.get().getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
@@ -1332,6 +1326,12 @@ public class MetadataManager
             public boolean tableExists(QualifiedObjectName tableName)
             {
                 return getOptionalTableHandle(session, transactionManager, tableName).isPresent();
+            }
+
+            @Override
+            public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
+            {
+                return getOptionalTableHandle(session, transactionManager, tableName);
             }
 
             @Override

@@ -52,7 +52,7 @@ public class RenameColumnTask
     public ListenableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
-        Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandleOptional = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (!tableHandleOptional.isPresent()) {
             if (!statement.isTableExists()) {
                 throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);

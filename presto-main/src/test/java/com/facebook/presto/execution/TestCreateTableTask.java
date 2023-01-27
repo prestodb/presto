@@ -15,7 +15,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.AbstractMockMetadata;
@@ -240,12 +239,6 @@ public class TestCreateTableTask
             if (catalogHandle.getCatalogName().equals(catalogName)) {
                 return Optional.of(catalogHandle);
             }
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName)
-        {
             return Optional.empty();
         }
 

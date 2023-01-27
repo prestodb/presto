@@ -94,12 +94,6 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName)
-    {
-        return delegate.getTableHandle(session, tableName);
-    }
-
-    @Override
     public Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName)
     {
         return delegate.getSystemTable(session, tableName);

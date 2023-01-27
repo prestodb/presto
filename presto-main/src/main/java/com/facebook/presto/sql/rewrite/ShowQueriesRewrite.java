@@ -255,7 +255,7 @@ final class ShowQueriesRewrite
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
 
                 if (!metadataResolver.getView(qualifiedTableName).isPresent() &&
-                        !metadata.getTableHandle(session, qualifiedTableName).isPresent()) {
+                        !metadataResolver.getTableHandle(qualifiedTableName).isPresent()) {
                     throw new SemanticException(MISSING_TABLE, showGrants, "Table '%s' does not exist", tableName);
                 }
 
@@ -395,7 +395,7 @@ final class ShowQueriesRewrite
             QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
 
             if (!metadataResolver.getView(tableName).isPresent() &&
-                    !metadata.getTableHandle(session, tableName).isPresent()) {
+                    !metadataResolver.getTableHandle(tableName).isPresent()) {
                 throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
             }
 
@@ -459,7 +459,7 @@ final class ShowQueriesRewrite
                     if (materializedViewDefinition.isPresent()) {
                         throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
                     }
-                    if (metadata.getTableHandle(session, objectName).isPresent()) {
+                    if (metadataResolver.getTableHandle(objectName).isPresent()) {
                         throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
                     }
                     throw new SemanticException(MISSING_TABLE, node, "View '%s' does not exist", objectName);
@@ -471,7 +471,7 @@ final class ShowQueriesRewrite
             }
 
             if (node.getType() == MATERIALIZED_VIEW) {
-                Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
+                Optional<TableHandle> tableHandle = metadataResolver.getTableHandle(objectName);
 
                 if (!materializedViewDefinition.isPresent()) {
                     if (viewDefinition.isPresent()) {
@@ -508,7 +508,7 @@ final class ShowQueriesRewrite
                     throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
                 }
 
-                Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
+                Optional<TableHandle> tableHandle = metadataResolver.getTableHandle(objectName);
                 if (!tableHandle.isPresent()) {
                     throw new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", objectName);
                 }

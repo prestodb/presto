@@ -381,7 +381,7 @@ class StatementAnalyzer
             analysis.setUpdateType("INSERT");
 
             // verify the insert destination columns match the query
-            Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
+            Optional<TableHandle> targetTableHandle = metadataResolver.getTableHandle(targetTable);
             if (!targetTableHandle.isPresent()) {
                 throw new SemanticException(MISSING_TABLE, insert, "Table '%s' does not exist", targetTable);
             }
@@ -744,7 +744,7 @@ class StatementAnalyzer
                     warningCollector);
             queryAnalyzer.analyze(refreshQuery, Scope.create());
 
-            TableHandle tableHandle = metadata.getTableHandle(session, viewName)
+            TableHandle tableHandle = metadataResolver.getTableHandle(viewName)
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             List<ColumnHandle> targetColumnHandles = metadata.getTableMetadata(session, tableHandle).getColumns().stream()
@@ -1265,7 +1265,7 @@ class StatementAnalyzer
                 }
             }
 
-            Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadata.getTableHandle(session, name));
+            Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadataResolver.getTableHandle(name));
             if (!tableHandle.isPresent()) {
                 if (!metadataResolver.catalogExists(name.getCatalogName())) {
                     throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());

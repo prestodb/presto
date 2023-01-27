@@ -107,6 +107,12 @@ public abstract class AbstractMockMetadata
             }
 
             @Override
+            public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
+            {
+                return Optional.empty();
+            }
+
+            @Override
             public Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName)
             {
                 return Optional.empty();
@@ -134,12 +140,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public List<String> listSchemaNames(Session session, String catalogName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName)
     {
         throw new UnsupportedOperationException();
     }

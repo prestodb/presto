@@ -94,7 +94,7 @@ public class CreateTableTask
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (tableHandle.isPresent()) {
             if (!statement.isNotExists()) {
                 throw new SemanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
@@ -155,7 +155,7 @@ public class CreateTableTask
                 if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
                     throw new SemanticException(NOT_SUPPORTED, statement, "LIKE table across catalogs is not supported");
                 }
-                TableHandle likeTable = metadata.getTableHandle(session, likeTableName)
+                TableHandle likeTable = metadata.getMetadataResolver(session).getTableHandle(likeTableName)
                         .orElseThrow(() -> new SemanticException(MISSING_TABLE, statement, "LIKE table '%s' does not exist", likeTableName));
 
                 TableMetadata likeTableMetadata = metadata.getTableMetadata(session, likeTable);
