@@ -57,7 +57,7 @@ public class TruncateTableTask
             throw new SemanticException(NOT_SUPPORTED, statement, "Cannot truncate a view");
         }
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }

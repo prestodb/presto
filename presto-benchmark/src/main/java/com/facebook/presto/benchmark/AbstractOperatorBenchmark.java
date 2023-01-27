@@ -138,7 +138,7 @@ public abstract class AbstractOperatorBenchmark
         // look up the table
         Metadata metadata = localQueryRunner.getMetadata();
         QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
-        TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName)
+        TableHandle tableHandle = metadata.getMetadataResolver(session).getTableHandle(qualifiedTableName)
                 .orElseThrow(() -> new IllegalArgumentException(format("Table %s does not exist", qualifiedTableName)));
 
         Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);
@@ -156,7 +156,7 @@ public abstract class AbstractOperatorBenchmark
         // look up the table
         Metadata metadata = localQueryRunner.getMetadata();
         QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
-        TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName).orElse(null);
+        TableHandle tableHandle = metadata.getMetadataResolver(session).getTableHandle(qualifiedTableName).orElse(null);
         checkArgument(tableHandle != null, "Table %s does not exist", qualifiedTableName);
 
         // lookup the columns

@@ -529,7 +529,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         // LocalQueryRunner doesn't support DROP TABLE
         localQueryRunner.inTransaction(localQueryRunner.getDefaultSession(), transactionSession -> {
             Metadata metadata = localQueryRunner.getMetadata();
-            TableHandle tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName("hive", "default", table)).get();
+            TableHandle tableHandle = metadata.getMetadataResolver(transactionSession).getTableHandle(new QualifiedObjectName("hive", "default", table)).get();
             metadata.dropTable(transactionSession, tableHandle);
             return null;
         });
