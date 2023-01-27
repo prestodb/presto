@@ -157,7 +157,7 @@ TEST_F(MinMaxTest, constVarchar) {
            makeNullConstant(TypeKind::VARCHAR, 1'000)}),
       makeRowVector({
           makeConstant("banana", 1'000),
-          makeConstant(TypeKind::VARCHAR, 1'000),
+          makeNullConstant(TypeKind::VARCHAR, 1'000),
       })};
 
   testAggregations(

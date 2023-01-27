@@ -1594,7 +1594,7 @@ TEST_F(ExprTest, ifWithConstant) {
   vector_size_t size = 4;
 
   auto a = makeFlatVector<int32_t>({-1, -2, -3, -4});
-  auto b = makeConstant(variant(TypeKind::INTEGER), size); // 4 nulls
+  auto b = makeNullConstant(TypeKind::INTEGER, size); // 4 nulls
   auto result = evaluate("is_null(if(c0 > 0, c0, c1))", makeRowVector({a, b}));
   EXPECT_EQ(VectorEncoding::Simple::CONSTANT, result->encoding());
   EXPECT_EQ(true, result->as<ConstantVector<bool>>()->valueAt(0));

@@ -587,22 +587,24 @@ class VectorTestBase {
     return vectorMaker_.mapVector(offsets, keyVector, valueVector, nulls);
   }
 
-  template <typename T>
-  VectorPtr
-  makeConstant(T value, vector_size_t size, const TypePtr& type = {}) {
-    variant v;
-    if constexpr (std::is_same_v<T, UnscaledShortDecimal>) {
-      v = variant::shortDecimal(value.unscaledValue(), type);
-    } else if constexpr (std::is_same_v<T, UnscaledLongDecimal>) {
-      v = variant::longDecimal(value.unscaledValue(), type);
-    } else {
-      v = value;
-    }
-    return BaseVector::createConstant(v, size, pool());
+  VectorPtr makeConstant(const variant& value, vector_size_t size) {
+    return BaseVector::createConstant(value, size, pool());
   }
 
   template <typename T>
-  VectorPtr makeConstant(const std::optional<T>& value, vector_size_t size) {
+  VectorPtr makeConstant(
+      T value,
+      vector_size_t size,
+      const TypePtr& type = CppToType<EvalType<T>>::create()) {
+    return std::make_shared<ConstantVector<EvalType<T>>>(
+        pool(), size, false, type, std::move(value));
+  }
+
+  template <typename T>
+  VectorPtr makeConstant(
+      const std::optional<T>& value,
+      vector_size_t size,
+      const TypePtr& type = CppToType<EvalType<T>>::create()) {
     return std::make_shared<ConstantVector<EvalType<T>>>(
         pool(),
         size,

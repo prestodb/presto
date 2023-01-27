@@ -157,7 +157,7 @@ TEST_F(ArbitraryTest, varcharConstAndNulls) {
   auto vectors = {makeRowVector({
       makeFlatVector<int32_t>(100, [](auto row) { return row % 7; }),
       makeConstant("apple", 100),
-      makeConstant(TypeKind::VARCHAR, 100),
+      makeNullConstant(TypeKind::VARCHAR, 100),
   })};
 
   createDuckDbTable(vectors);
