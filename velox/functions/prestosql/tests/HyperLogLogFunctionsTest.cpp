@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/common/hyperloglog/SparseHll.h"
-#include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #define XXH_INLINE_ALL
@@ -47,19 +46,6 @@ class HyperLogLogFunctionsTest : public functions::test::FunctionBaseTest {
     serialized.resize(denseHll.serializedSize());
     denseHll.serialize(serialized.data());
     return serialized;
-  }
-
-  static std::unordered_set<std::string> getSignatureStrings(
-      const std::string& functionName) {
-    auto allSignatures = getFunctionSignatures();
-    const auto& signatures = allSignatures.at(functionName);
-
-    std::unordered_set<std::string> signatureStrings;
-    for (const auto& signature : signatures) {
-      signatureStrings.insert(signature->toString());
-      LOG(ERROR) << signature->toString();
-    }
-    return signatureStrings;
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};

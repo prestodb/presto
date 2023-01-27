@@ -253,6 +253,10 @@ class FunctionBaseTest : public testing::Test,
     return result[0];
   }
 
+  /// Returns a set of signatures for a given function serialized to strings.
+  static std::unordered_set<std::string> getSignatureStrings(
+      const std::string& functionName);
+
   std::shared_ptr<core::QueryCtx> queryCtx_{
       std::make_shared<core::QueryCtx>(executor_.get())};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};

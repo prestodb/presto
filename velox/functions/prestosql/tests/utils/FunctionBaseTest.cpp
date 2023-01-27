@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "FunctionBaseTest.h"
+#include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 
@@ -22,6 +23,19 @@ namespace facebook::velox::functions::test {
 void FunctionBaseTest::SetUpTestCase() {
   parse::registerTypeResolver();
   functions::prestosql::registerAllScalarFunctions();
+}
+
+// static
+std::unordered_set<std::string> FunctionBaseTest::getSignatureStrings(
+    const std::string& functionName) {
+  auto allSignatures = getFunctionSignatures();
+  const auto& signatures = allSignatures.at(functionName);
+
+  std::unordered_set<std::string> signatureStrings;
+  for (const auto& signature : signatures) {
+    signatureStrings.insert(signature->toString());
+  }
+  return signatureStrings;
 }
 
 } // namespace facebook::velox::functions::test

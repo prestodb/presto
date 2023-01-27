@@ -15,27 +15,13 @@
  */
 
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 namespace facebook::velox::test {
 
-class CustomTypeTest : public functions::test::FunctionBaseTest {
- protected:
-  static std::unordered_set<std::string> getSignatureStrings(
-      const std::string& functionName) {
-    auto allSignatures = getFunctionSignatures();
-    const auto& signatures = allSignatures.at(functionName);
-
-    std::unordered_set<std::string> signatureStrings;
-    for (const auto& signature : signatures) {
-      signatureStrings.insert(signature->toString());
-    }
-    return signatureStrings;
-  }
-};
+class CustomTypeTest : public functions::test::FunctionBaseTest {};
 
 namespace {
 struct FancyInt {
