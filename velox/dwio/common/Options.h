@@ -351,9 +351,7 @@ class ReaderOptions {
   static constexpr int32_t kDefaultLoadQuantum = 8 << 20; // 8MB
   static constexpr int32_t kDefaultCoalesceDistance = 512 << 10; // 512K
 
-  ReaderOptions(
-      velox::memory::MemoryPool* pool =
-          &facebook::velox::memory::getProcessDefaultMemoryManager().getRoot())
+  ReaderOptions(velox::memory::MemoryPool* pool)
       : tailLocation(std::numeric_limits<uint64_t>::max()),
         memoryPool(pool),
         fileFormat(FileFormat::UNKNOWN),

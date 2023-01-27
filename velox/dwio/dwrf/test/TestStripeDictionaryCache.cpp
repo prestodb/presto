@@ -26,6 +26,8 @@ using namespace ::testing;
 namespace facebook::velox::dwrf {
 
 namespace {
+auto defaultPool = velox::memory::getDefaultMemoryPool();
+
 folly::Function<BufferPtr(memory::MemoryPool*)> genConsecutiveRangeBuffer(
     int64_t begin,
     int64_t end) {
@@ -57,9 +59,8 @@ void verifyRange(BufferPtr bufferPtr, int64_t begin, int64_t end) {
 } // namespace
 
 TEST(TestStripeDictionaryCache, RegisterDictionary) {
-  auto& pool = memory::getProcessDefaultMemoryManager().getRoot();
   {
-    StripeDictionaryCache cache{&pool};
+    StripeDictionaryCache cache{defaultPool.get()};
     cache.registerIntDictionary({9, 0}, genConsecutiveRangeBuffer(0, 100));
     EXPECT_EQ(1, cache.intDictionaryFactories_.size());
     EXPECT_EQ(1, cache.intDictionaryFactories_.count({9, 0}));
@@ -69,7 +70,7 @@ TEST(TestStripeDictionaryCache, RegisterDictionary) {
   // StripeStream, so it won't matter. For here, we have to test that
   // the content is not changed in getDictionaryBuffer tests.
   {
-    StripeDictionaryCache cache{&pool};
+    StripeDictionaryCache cache{defaultPool.get()};
 
     cache.registerIntDictionary({9, 0}, genConsecutiveRangeBuffer(0, 100));
     cache.registerIntDictionary({9, 0}, genConsecutiveRangeBuffer(100, 200));
@@ -78,7 +79,7 @@ TEST(TestStripeDictionaryCache, RegisterDictionary) {
     EXPECT_EQ(1, cache.intDictionaryFactories_.count({9, 0}));
   }
   {
-    StripeDictionaryCache cache{&pool};
+    StripeDictionaryCache cache{defaultPool.get()};
 
     cache.registerIntDictionary({1, 0}, genConsecutiveRangeBuffer(0, 100));
     cache.registerIntDictionary({1, 1}, genConsecutiveRangeBuffer(0, 100));
@@ -92,9 +93,8 @@ TEST(TestStripeDictionaryCache, RegisterDictionary) {
 }
 
 TEST(TestStripeDictionaryCache, GetDictionaryBuffer) {
-  auto& pool = memory::getProcessDefaultMemoryManager().getRoot();
   {
-    StripeDictionaryCache cache{&pool};
+    StripeDictionaryCache cache{defaultPool.get()};
 
     cache.registerIntDictionary({9, 0}, genConsecutiveRangeBuffer(0, 100));
     verifyRange(cache.getIntDictionary({9, 0}), 0, 100);
@@ -105,7 +105,7 @@ TEST(TestStripeDictionaryCache, GetDictionaryBuffer) {
   // StripeStream, so it won't matter. For here, we have to test that
   // the content is not changed.
   {
-    StripeDictionaryCache cache{&pool};
+    StripeDictionaryCache cache{defaultPool.get()};
 
     cache.registerIntDictionary({9, 0}, genConsecutiveRangeBuffer(0, 100));
     cache.registerIntDictionary({9, 0}, genConsecutiveRangeBuffer(100, 200));
@@ -113,7 +113,7 @@ TEST(TestStripeDictionaryCache, GetDictionaryBuffer) {
     verifyRange(cache.getIntDictionary({9, 0}), 0, 100);
   }
   {
-    StripeDictionaryCache cache{&pool};
+    StripeDictionaryCache cache{defaultPool.get()};
 
     cache.registerIntDictionary({1, 0}, genConsecutiveRangeBuffer(0, 100));
     cache.registerIntDictionary({1, 1}, genConsecutiveRangeBuffer(0, 100));

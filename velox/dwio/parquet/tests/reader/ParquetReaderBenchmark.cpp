@@ -119,7 +119,7 @@ class ParquetReaderBenchmark {
       const ParquetReaderType& parquetReaderType,
       std::shared_ptr<ScanSpec> scanSpec,
       const RowTypePtr& rowType) {
-    dwio::common::ReaderOptions readerOpts;
+    dwio::common::ReaderOptions readerOpts{pool_.get()};
     auto input = std::make_unique<BufferedInput>(
         std::make_shared<LocalReadFile>("test.parquet"),
         readerOpts.getMemoryPool());

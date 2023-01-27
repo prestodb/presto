@@ -30,6 +30,9 @@ using namespace facebook::velox;
 using namespace facebook::velox::dwio::parquet;
 using namespace facebook::velox::parquet::duckdb_reader;
 
+namespace {
+auto defaultPool = memory::getDefaultMemoryPool();
+
 std::unique_ptr<ParquetReader> createFileInput(
     const std::string& path,
     const ReaderOptions& opts) {
@@ -38,6 +41,7 @@ std::unique_ptr<ParquetReader> createFileInput(
           std::make_shared<LocalReadFile>(path)),
       opts);
 }
+} // namespace
 
 class ParquetReaderTest : public ParquetReaderTestBase {
  public:
@@ -48,7 +52,7 @@ class ParquetReaderTest : public ParquetReaderTestBase {
       const RowVectorPtr& expected) {
     const auto filePath(getExampleFilePath(fileName));
 
-    ReaderOptions readerOptions;
+    ReaderOptions readerOptions{defaultPool.get()};
     auto reader = createFileInput(filePath, readerOptions);
     assertReadWithReaderAndFilters(
         std::move(reader), fileName, fileSchema, std::move(filters), expected);
@@ -69,7 +73,7 @@ TEST_F(ParquetReaderTest, readSampleFull) {
   //   b: [1.0..20.0]
   const std::string sample(getExampleFilePath("sample.parquet"));
 
-  ReaderOptions readerOptions;
+  ReaderOptions readerOptions{defaultPool.get()};
   auto reader = createFileInput(sample, readerOptions);
 
   EXPECT_EQ(reader->numberOfRows(), 20ULL);
@@ -95,7 +99,7 @@ TEST_F(ParquetReaderTest, readSampleFull) {
 TEST_F(ParquetReaderTest, readSampleRange1) {
   const std::string sample(getExampleFilePath("sample.parquet"));
 
-  ReaderOptions readerOptions;
+  ReaderOptions readerOptions{defaultPool.get()};
   auto reader = createFileInput(sample, readerOptions);
 
   auto rowReaderOpts = getReaderOpts(sampleSchema());
@@ -111,7 +115,7 @@ TEST_F(ParquetReaderTest, readSampleRange1) {
 TEST_F(ParquetReaderTest, readSampleRange2) {
   const std::string sample(getExampleFilePath("sample.parquet"));
 
-  ReaderOptions readerOptions;
+  ReaderOptions readerOptions{defaultPool.get()};
   auto reader = createFileInput(sample, readerOptions);
 
   auto rowReaderOpts = getReaderOpts(sampleSchema());
@@ -127,7 +131,7 @@ TEST_F(ParquetReaderTest, readSampleRange2) {
 TEST_F(ParquetReaderTest, readSampleEmptyRange) {
   const std::string sample(getExampleFilePath("sample.parquet"));
 
-  ReaderOptions readerOptions;
+  ReaderOptions readerOptions{defaultPool.get()};
   auto reader = createFileInput(sample, readerOptions);
 
   auto rowReaderOpts = getReaderOpts(sampleSchema());
@@ -187,7 +191,7 @@ TEST_F(ParquetReaderTest, dateRead) {
   //   date: [1969-12-27 .. 1970-01-20]
   const std::string sample(getExampleFilePath("date.parquet"));
 
-  ReaderOptions readerOptions;
+  ReaderOptions readerOptions{defaultPool.get()};
   auto reader = createFileInput(sample, readerOptions);
 
   EXPECT_EQ(reader->numberOfRows(), 25ULL);
@@ -225,7 +229,7 @@ TEST_F(ParquetReaderTest, intRead) {
   //   bigint: [1000 .. 1009]
   const std::string sample(getExampleFilePath("int.parquet"));
 
-  ReaderOptions readerOptions;
+  ReaderOptions readerOptions{defaultPool.get()};
   auto reader = createFileInput(sample, readerOptions);
 
   EXPECT_EQ(reader->numberOfRows(), 10ULL);

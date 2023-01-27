@@ -1489,7 +1489,7 @@ std::unique_ptr<DwrfReader> getDwrfReader(
   writer.close();
 
   std::string_view data(sinkPtr->getData(), sinkPtr->size());
-  ReaderOptions readerOpts;
+  ReaderOptions readerOpts{&pool};
   return std::make_unique<DwrfReader>(
       readerOpts,
       std::make_unique<BufferedInput>(

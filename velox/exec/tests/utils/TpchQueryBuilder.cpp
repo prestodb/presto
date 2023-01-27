@@ -80,7 +80,7 @@ void TpchQueryBuilder::initialize(const std::string& dataPath) {
         continue;
       }
       if (tableMetadata_[tableName].dataFiles.empty()) {
-        dwio::common::ReaderOptions readerOptions;
+        dwio::common::ReaderOptions readerOptions{pool_.get()};
         readerOptions.setFileFormat(format_);
         auto input = std::make_unique<dwio::common::BufferedInput>(
             std::make_shared<LocalReadFile>(dirEntry.path().string()),

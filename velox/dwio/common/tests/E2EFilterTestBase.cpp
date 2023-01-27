@@ -42,6 +42,10 @@ using dwio::common::InMemoryReadFile;
 using dwio::common::MemorySink;
 using velox::common::Subfield;
 
+namespace {
+auto defaultPool = velox::memory::getDefaultMemoryPool();
+}
+
 std::vector<RowVectorPtr> E2EFilterTestBase::makeDataset(
     std::function<void()> customize,
     bool forRowGroupSkip) {
@@ -89,7 +93,7 @@ void E2EFilterTestBase::readWithoutFilter(
     std::shared_ptr<ScanSpec> spec,
     const std::vector<RowVectorPtr>& batches,
     uint64_t& time) {
-  dwio::common::ReaderOptions readerOpts;
+  dwio::common::ReaderOptions readerOpts{defaultPool.get()};
   dwio::common::RowReaderOptions rowReaderOpts;
   std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
   auto input = std::make_unique<BufferedInput>(
@@ -140,7 +144,7 @@ void E2EFilterTestBase::readWithFilter(
     uint64_t& time,
     bool useValueHook,
     bool skipCheck) {
-  dwio::common::ReaderOptions readerOpts;
+  dwio::common::ReaderOptions readerOpts{defaultPool.get()};
   dwio::common::RowReaderOptions rowReaderOpts;
   std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
   auto input = std::make_unique<BufferedInput>(
@@ -364,7 +368,7 @@ void E2EFilterTestBase::testMetadataFilterImpl(
   specB->setChannel(1);
   specC->setProjectOut(true);
   specC->setChannel(0);
-  ReaderOptions readerOpts;
+  ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
   std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
   auto input = std::make_unique<BufferedInput>(

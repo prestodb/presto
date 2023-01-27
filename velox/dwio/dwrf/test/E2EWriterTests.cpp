@@ -45,6 +45,10 @@ using folly::Random;
 
 constexpr uint64_t kSizeMB = 1024UL * 1024UL;
 
+namespace {
+auto defaultPool = memory::getDefaultMemoryPool();
+}
+
 // This test can be run to generate test files. Run it with following command
 // buck test velox/dwio/dwrf/test:velox_dwrf_e2e_writer_tests --
 // DISABLED_TestFileCreation
@@ -252,7 +256,7 @@ TEST(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
       config,
       E2EWriterTestUtil::simpleFlushPolicyFactory(true));
 
-  ReaderOptions readerOpts;
+  ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
   auto reader = createReader(*sinkPtr, readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
@@ -497,7 +501,7 @@ void testFlatMapConfig(
 
   writer.close();
 
-  ReaderOptions readerOpts;
+  ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
   auto reader = createReader(*sinkPtr, readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
@@ -616,7 +620,7 @@ void testFlatMapFileStats(
 
   writer.close();
 
-  ReaderOptions readerOpts;
+  ReaderOptions readerOpts{pool.get()};
   RowReaderOptions rowReaderOpts;
   auto reader = createReader(*sinkPtr, readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
@@ -771,7 +775,7 @@ TEST(E2EWriterTests, PartialStride) {
   writer.write(batch);
   writer.close();
 
-  ReaderOptions readerOpts;
+  ReaderOptions readerOpts{defaultPool.get()};
   RowReaderOptions rowReaderOpts;
   auto reader = createReader(*sinkPtr, readerOpts);
   ASSERT_EQ(size - nullCount, reader->columnStatistics(1)->getNumberOfValues())
@@ -933,8 +937,7 @@ class E2EEncryptionTest : public Test {
       const std::shared_ptr<EncryptionSpecification>& spec,
       std::shared_ptr<DecrypterFactory> decrypterFactory =
           std::make_shared<TestDecrypterFactory>()) {
-    auto pool = memory::getProcessDefaultMemoryManager().getRoot().addChild(
-        "encryption_test");
+    auto pool = memory::getDefaultMemoryPool();
     HiveTypeParser parser;
     auto type = parser.parse(schema);
 
@@ -950,7 +953,7 @@ class E2EEncryptionTest : public Test {
     options.schema = type;
     options.encryptionSpec = spec;
     options.encrypterFactory = std::make_shared<TestEncrypterFactory>();
-    writer_ = std::make_unique<Writer>(options, std::move(sink), *pool);
+    writer_ = std::make_unique<Writer>(options, std::move(sink), pool);
 
     for (size_t i = 0; i < batchCount_; ++i) {
       auto batch = BatchMaker::createBatch(type, batchSize_, *pool, nullptr, i);
@@ -963,7 +966,7 @@ class E2EEncryptionTest : public Test {
     writer_->close();
 
     // read it back for compare
-    ReaderOptions readerOpts;
+    ReaderOptions readerOpts{defaultPool.get()};
     readerOpts.setDecrypterFactory(decrypterFactory);
     return createReader(*sink_, readerOpts);
   }

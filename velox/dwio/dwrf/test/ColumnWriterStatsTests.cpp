@@ -72,7 +72,7 @@ std::unique_ptr<RowReader> writeAndGetReader(
   auto readFile = std::make_shared<facebook::velox::InMemoryReadFile>(data);
   auto input = std::make_unique<BufferedInput>(readFile, pool);
 
-  ReaderOptions readerOpts;
+  ReaderOptions readerOpts{&pool};
   RowReaderOptions rowReaderOpts;
   auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
   return reader->createRowReader(rowReaderOpts);

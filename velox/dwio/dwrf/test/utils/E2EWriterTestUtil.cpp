@@ -48,9 +48,7 @@ namespace facebook::velox::dwrf {
   options.layoutPlannerFactory = layoutPlannerFactory;
 
   auto writer = std::make_unique<Writer>(
-      options,
-      std::move(sink),
-      velox::memory::getProcessDefaultMemoryManager().getRoot());
+      options, std::move(sink), velox::memory::getDefaultMemoryPool());
 
   for (size_t i = 0; i < batches.size(); ++i) {
     writer->write(batches[i]);
@@ -93,7 +91,7 @@ namespace facebook::velox::dwrf {
       std::string_view(sinkPtr->getData(), sinkPtr->size()));
   auto input = std::make_unique<BufferedInput>(readFile, pool);
 
-  ReaderOptions readerOpts;
+  ReaderOptions readerOpts{&pool};
   RowReaderOptions rowReaderOpts;
   auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
   EXPECT_GE(numStripesUpper, reader->getNumberOfStripes());
