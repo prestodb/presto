@@ -436,8 +436,6 @@ class MemoryManager final : public IMemoryManager {
 
   MemoryPool& getRoot() const final;
 
-  std::shared_ptr<MemoryPool> getRootAsSharedPtr() const;
-
   std::shared_ptr<MemoryPool> getChild(int64_t cap = kMaxMemory) final;
 
   int64_t getTotalBytes() const final;
