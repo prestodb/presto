@@ -1542,6 +1542,7 @@ class VectorCreateConstantTest : public VectorTest {
     ASSERT_TRUE(simpleVector != nullptr);
 
     ASSERT_EQ(KIND, simpleVector->typeKind());
+    ASSERT_TRUE(type->equivalent(*simpleVector->type()));
     ASSERT_EQ(size_, simpleVector->size());
     ASSERT_EQ(simpleVector->isScalar(), TypeTraits<KIND>::isPrimitiveType);
 

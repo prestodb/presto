@@ -226,4 +226,23 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
 
   ASSERT_TRUE(unregisterType("fancy_int"));
 }
+
+TEST_F(CustomTypeTest, nullConstant) {
+  ASSERT_TRUE(
+      registerType("fancy_int", std::make_unique<FancyIntTypeFactories>()));
+
+  auto names = getCustomTypeNames();
+  for (const auto& name : names) {
+    auto type = getType(name, {});
+    auto null = BaseVector::createNullConstant(type, 10, pool());
+    EXPECT_TRUE(null->isConstantEncoding());
+    EXPECT_TRUE(type->equivalent(*null->type()));
+    EXPECT_EQ(type->toString(), null->type()->toString());
+    for (auto i = 0; i < 10; ++i) {
+      EXPECT_TRUE(null->isNullAt(i));
+    }
+  }
+
+  ASSERT_TRUE(unregisterType("fancy_int"));
+}
 } // namespace facebook::velox::test

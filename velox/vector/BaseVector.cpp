@@ -27,8 +27,7 @@
 #include "velox/vector/VectorPool.h"
 #include "velox/vector/VectorTypeUtils.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 BaseVector::BaseVector(
     velox::memory::MemoryPool* pool,
@@ -674,27 +673,25 @@ VectorPtr BaseVector::createConstant(
       newConstant, value.kind(), value, size, pool);
 }
 
+namespace {
+
+template <TypeKind kind>
+VectorPtr newNullConstant(
+    const TypePtr& type,
+    vector_size_t size,
+    velox::memory::MemoryPool* pool) {
+  using T = typename KindToFlatVector<kind>::WrapperType;
+  return std::make_shared<ConstantVector<T>>(pool, size, true, type, T());
+}
+} // namespace
+
 std::shared_ptr<BaseVector> BaseVector::createNullConstant(
     const TypePtr& type,
     vector_size_t size,
     velox::memory::MemoryPool* pool) {
   VELOX_CHECK_NOT_NULL(type, "Vector creation requires a non-null type.");
-  if (!type->isPrimitiveType()) {
-    return std::make_shared<ConstantVector<ComplexType>>(
-        pool, size, true, type, ComplexType());
-  }
-
-  if (type->kind() == TypeKind::SHORT_DECIMAL) {
-    return std::make_shared<ConstantVector<UnscaledShortDecimal>>(
-        pool, size, true, type, UnscaledShortDecimal());
-  }
-
-  if (type->kind() == TypeKind::LONG_DECIMAL) {
-    return std::make_shared<ConstantVector<UnscaledLongDecimal>>(
-        pool, size, true, type, UnscaledLongDecimal());
-  }
-
-  return BaseVector::createConstant(variant(type->kind()), size, pool);
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
+      newNullConstant, type->kind(), type, size, pool);
 }
 
 // static
@@ -904,5 +901,4 @@ std::string printIndices(
   return out.str();
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox
