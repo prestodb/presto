@@ -395,9 +395,9 @@ struct DriverFactory {
   /// exchange.
   std::optional<core::PlanNodeId> needsExchangeClient() const {
     VELOX_CHECK(!planNodes.empty());
-    if (auto exchangeNode = std::dynamic_pointer_cast<const core::ExchangeNode>(
-            planNodes.front())) {
-      return exchangeNode->id();
+    const auto& leafNode = planNodes.front();
+    if (leafNode->requiresExchangeClient()) {
+      return leafNode->id();
     }
     return std::nullopt;
   }

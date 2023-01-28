@@ -22,6 +22,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -1014,6 +1015,113 @@ TEST_F(MultiFragmentTest, cancelledExchange) {
   std::this_thread::sleep_for(std::chrono::seconds(1));
   // We expect no references left except for ours.
   EXPECT_EQ(1, exchangeTask.use_count());
+}
+
+class TestCustomExchangeNode : public core::PlanNode {
+ public:
+  TestCustomExchangeNode(const core::PlanNodeId& id, const RowTypePtr type)
+      : PlanNode(id), outputType_(type) {}
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  const std::vector<core::PlanNodePtr>& sources() const override {
+    static std::vector<core::PlanNodePtr> kEmptySources;
+    return kEmptySources;
+  }
+
+  bool requiresExchangeClient() const override {
+    return true;
+  }
+
+  bool requiresSplits() const override {
+    return true;
+  }
+
+  std::string_view name() const override {
+    return "CustomExchange";
+  }
+
+ private:
+  void addDetails(std::stringstream& stream) const override {
+    // Nothing to add
+  }
+
+  RowTypePtr outputType_;
+};
+
+class TestCustomExchange : public exec::Exchange {
+ public:
+  TestCustomExchange(
+      int32_t operatorId,
+      DriverCtx* FOLLY_NONNULL ctx,
+      const std::shared_ptr<const TestCustomExchangeNode>& customExchangeNode,
+      std::shared_ptr<ExchangeClient> exchangeClient)
+      : exec::Exchange(
+            operatorId,
+            ctx,
+            std::make_shared<core::ExchangeNode>(
+                customExchangeNode->id(),
+                customExchangeNode->outputType()),
+            std::move(exchangeClient)) {}
+
+  RowVectorPtr getOutput() override {
+    stats_.wlock()->addRuntimeStat("testCustomExchangeStat", RuntimeCounter(1));
+    return exec::Exchange::getOutput();
+  }
+};
+
+class TestCustomExchangeTranslator : public exec::Operator::PlanNodeTranslator {
+ public:
+  std::unique_ptr<exec::Operator> toOperator(
+      exec::DriverCtx* ctx,
+      int32_t id,
+      const core::PlanNodePtr& node,
+      std::shared_ptr<ExchangeClient> exchangeClient) override {
+    if (auto customExchangeNode =
+            std::dynamic_pointer_cast<const TestCustomExchangeNode>(node)) {
+      return std::make_unique<TestCustomExchange>(
+          id, ctx, customExchangeNode, std::move(exchangeClient));
+    }
+    return nullptr;
+  }
+};
+
+TEST_F(MultiFragmentTest, customPlanNodeWithExchangeClient) {
+  setupSources(5, 100);
+  Operator::registerOperator(std::make_unique<TestCustomExchangeTranslator>());
+  auto leafTaskId = makeTaskId("leaf", 0);
+  auto leafPlan =
+      PlanBuilder().values(vectors_).partitionedOutput({}, 1).planNode();
+  auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+  Task::start(leafTask, 1);
+
+  CursorParameters params;
+  core::PlanNodeId testNodeId;
+  params.maxDrivers = 1;
+  params.planNode =
+      PlanBuilder()
+          .addNode([&leafPlan](std::string id, core::PlanNodePtr /* input */) {
+            return std::make_shared<TestCustomExchangeNode>(
+                id, leafPlan->outputType());
+          })
+          .capturePlanNodeId(testNodeId)
+          .planNode();
+
+  auto cursor = std::make_unique<TaskCursor>(params);
+  auto task = cursor->task();
+  addRemoteSplits(task, {leafTaskId});
+  while (cursor->moveNext()) {
+  }
+  EXPECT_NE(
+      toPlanStats(task->taskStats())
+          .at(testNodeId)
+          .customStats.count("testCustomExchangeStat"),
+      0);
+  ASSERT_TRUE(waitForTaskCompletion(leafTask.get(), 3'000'000))
+      << leafTask->taskId();
+  ASSERT_TRUE(waitForTaskCompletion(task.get(), 3'000'000)) << task->taskId();
 }
 
 // This test is to reproduce the race condition between task terminate and no

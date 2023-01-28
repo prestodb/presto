@@ -99,6 +99,14 @@ class PlanNode {
       const = 0;
 
   /// Returns true if this is a leaf plan node and corresponding operator
+  /// requires an ExchangeClient to retrieve data. For instance, TableScanNode
+  /// is a leaf node that doesn't require an ExchangeClient. But ExchangeNode is
+  /// a leaf node that requires an ExchangeClient.
+  virtual bool requiresExchangeClient() const {
+    return false;
+  }
+
+  /// Returns true if this is a leaf plan node and corresponding operator
   /// requires splits to make progress. ValueNode is a leaf node that doesn't
   /// require splits, but TableScanNode and ExchangeNode are leaf nodes that
   /// require splits.
@@ -683,6 +691,10 @@ class ExchangeNode : public PlanNode {
   }
 
   const std::vector<PlanNodePtr>& sources() const override;
+
+  bool requiresExchangeClient() const override {
+    return true;
+  }
 
   bool requiresSplits() const override {
     return true;

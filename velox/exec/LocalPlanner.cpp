@@ -419,7 +419,16 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
           assignUniqueIdNode->taskUniqueId(),
           assignUniqueIdNode->uniqueIdCounter()));
     } else {
-      auto extended = Operator::fromPlanNode(ctx.get(), id, planNode);
+      std::unique_ptr<Operator> extended;
+      if (planNode->requiresExchangeClient()) {
+        // NOTE: the exchange client can only be used by one operator in a
+        // driver.
+        VELOX_CHECK_NOT_NULL(exchangeClient);
+        extended = Operator::fromPlanNode(
+            ctx.get(), id, planNode, std::move(exchangeClient));
+      } else {
+        extended = Operator::fromPlanNode(ctx.get(), id, planNode);
+      }
       VELOX_CHECK(extended, "Unsupported plan node: {}", planNode->toString());
       operators.push_back(std::move(extended));
     }
