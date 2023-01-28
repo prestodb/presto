@@ -541,7 +541,8 @@ public class ExchangeClient
             requireNonNull(client, "client is null");
             requireNonNull(cause, "cause is null");
 
-            ExchangeClient.this.clientFailed(client, cause);
+            ExchangeClient.this.clientFinished(client);
+//            ExchangeClient.this.clientFailed(client, cause);
         }
     }
 
