@@ -31,10 +31,8 @@ void StreamArena::newRange(int32_t bytes, ByteRange* range) {
       allocations_.push_back(
           std::make_unique<memory::Allocation>(std::move(allocation_)));
     }
-    if (!pool_->allocateNonContiguous(
-            std::max(allocationQuantum_, numPages), allocation_)) {
-      throw std::bad_alloc();
-    }
+    pool_->allocateNonContiguous(
+        std::max(allocationQuantum_, numPages), allocation_);
     currentRun_ = 0;
     currentPage_ = 0;
     size_ += allocation_.byteSize();

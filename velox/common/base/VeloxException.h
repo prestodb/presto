@@ -89,6 +89,9 @@ inline constexpr auto kNotImplemented = "NOT_IMPLEMENTED"_fs;
 // An error raised when memory exceeded limits.
 inline constexpr auto kMemCapExceeded = "MEM_CAP_EXCEEDED"_fs;
 
+// Error caused by memory allocation failure.
+inline constexpr auto kMemAllocError = "MEM_ALLOC_ERROR"_fs;
+
 // Error caused by failing to allocate cache buffer space for IO.
 inline constexpr auto kNoCacheSpace = "NO_CACHE_SPACE"_fs;
 

@@ -38,9 +38,7 @@ char* AllocationPool::allocateFixed(uint64_t bytes) {
   // Use contiguous allocations from mapped memory if allocation size is large
   if (numPages > pool_->largestSizeClass()) {
     auto largeAlloc = std::make_unique<memory::ContiguousAllocation>();
-    if (!pool_->allocateContiguous(numPages, *largeAlloc)) {
-      throw std::bad_alloc();
-    }
+    pool_->allocateContiguous(numPages, *largeAlloc);
     largeAllocations_.emplace_back(std::move(largeAlloc));
     auto res = largeAllocations_.back()->data<char>();
     VELOX_CHECK_NOT_NULL(
@@ -65,10 +63,8 @@ void AllocationPool::newRunImpl(memory::MachinePageCount numPages) {
       allocations_.push_back(
           std::make_unique<memory::Allocation>(std::move(allocation_)));
     }
-    if (!pool_->allocateNonContiguous(
-            std::max<int32_t>(kMinPages, numPages), allocation_, numPages)) {
-      throw std::bad_alloc();
-    }
+    pool_->allocateNonContiguous(
+        std::max<int32_t>(kMinPages, numPages), allocation_, numPages);
     currentRun_ = 0;
   }
   currentOffset_ = 0;

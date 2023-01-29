@@ -46,6 +46,15 @@ DECLARE_int32(memory_usage_aggregation_interval_millis);
 namespace facebook {
 namespace velox {
 namespace memory {
+#define VELOX_MEM_ALLOC_ERROR(errorMessage)                         \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kMemAllocError.c_str(),        \
+      /* isRetriable */ true,                                       \
+      "{}",                                                         \
+      errorMessage);
+
 /// This class provides the memory allocation interfaces for a query execution.
 /// Each query execution entity creates a dedicated memory pool object. The
 /// memory pool objects from a query are organized as a tree with four levels
@@ -159,7 +168,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// and any memory formerly referenced by 'out' is freed. The function returns
   /// true if the allocation succeeded. If returning false, 'out' references no
   /// memory and any partially allocated memory is freed.
-  virtual bool allocateNonContiguous(
+  virtual void allocateNonContiguous(
       MachinePageCount numPages,
       Allocation& out,
       MachinePageCount minSizeClass = 0) = 0;
@@ -177,7 +186,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Makes a large contiguous mmap of 'numPages'. The new mapped pages are
   /// returned in 'out' on success. Any formly mapped pages referenced by
   /// 'out' is unmapped in all the cases even if the allocation fails.
-  virtual bool allocateContiguous(
+  virtual void allocateContiguous(
       MachinePageCount numPages,
       ContiguousAllocation& out) = 0;
 
@@ -232,6 +241,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     VELOX_NYI("release() needs to be implemented in derived memory pool.");
   }
 
+  virtual std::string toString() const = 0;
+
  protected:
   /// Invoked by addChild() to create a child memory pool object. 'parent' is
   /// a shared pointer created from this.
@@ -281,7 +292,7 @@ class MemoryPoolImpl : public MemoryPool {
 
   void free(void* FOLLY_NULLABLE p, int64_t size) override;
 
-  bool allocateNonContiguous(
+  void allocateNonContiguous(
       MachinePageCount numPages,
       Allocation& out,
       MachinePageCount minSizeClass = 0) override;
@@ -292,7 +303,7 @@ class MemoryPoolImpl : public MemoryPool {
 
   const std::vector<MachinePageCount>& sizeClasses() const override;
 
-  bool allocateContiguous(
+  void allocateContiguous(
       MachinePageCount numPages,
       ContiguousAllocation& allocation) override;
 
@@ -332,6 +343,8 @@ class MemoryPoolImpl : public MemoryPool {
   void reserve(int64_t size) override;
 
   void release(int64_t size) override;
+
+  std::string toString() const override;
 
  private:
   VELOX_FRIEND_TEST(MemoryPoolTest, Ctor);

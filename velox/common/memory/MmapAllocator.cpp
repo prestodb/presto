@@ -51,11 +51,20 @@ bool MmapAllocator::allocateNonContiguous(
     MachinePageCount minSizeClass) {
   VELOX_CHECK_GT(numPages, 0);
 
+  const SizeMix mix = allocationSize(numPages, minSizeClass);
+
   const auto numFreed = freeInternal(out);
   if (numFreed != 0) {
     numAllocated_.fetch_sub(numFreed);
   }
-  auto mix = allocationSize(numPages, minSizeClass);
+
+  if (injectedFailure_ == Failure::kCap) {
+    if (!isPersistentFailureInjection_) {
+      injectedFailure_ = Failure::kNone;
+    }
+    return false;
+  }
+
   if (numAllocated_ + mix.totalPages > capacity_) {
     return false;
   }

@@ -124,7 +124,7 @@ class MmapAllocator : public MemoryAllocator {
   /// function for validating otherwise unreachable error paths. If 'persistent'
   /// is false, then we only inject failure once in the next call. Otherwise, we
   /// keep injecting failures until next 'testingClearFailureInjection' call.
-  enum class Failure { kNone, kMadvise, kMmap, kAllocate };
+  enum class Failure { kNone, kMadvise, kMmap, kAllocate, kCap };
   void testingSetFailureInjection(Failure failure, bool persistent = false) {
     injectedFailure_ = failure;
     isPersistentFailureInjection_ = persistent;

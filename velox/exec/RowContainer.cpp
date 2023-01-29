@@ -711,10 +711,7 @@ RowPartitions::RowPartitions(int32_t numRows, memory::MemoryPool& pool)
   auto numPages =
       bits::roundUp(capacity_, memory::AllocationTraits::kPageSize) /
       memory::AllocationTraits::kPageSize;
-  if (!pool.allocateNonContiguous(numPages, allocation_)) {
-    VELOX_FAIL(
-        "Failed to allocate RowContainer partitions: {} pages", numPages);
-  }
+  pool.allocateNonContiguous(numPages, allocation_);
 }
 
 void RowPartitions::appendPartitions(folly::Range<const uint8_t*> partitions) {

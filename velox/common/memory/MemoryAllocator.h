@@ -333,9 +333,9 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
     int32_t totalPages{0};
   };
 
-  /// Returns a mix of standard sizes and allocation counts for covering
-  /// 'numPages' worth of memory. 'minSizeClass' is the size of the smallest
-  /// usable size class.
+  // Returns a mix of standard sizes and allocation counts for covering
+  // 'numPages' worth of memory. 'minSizeClass' is the size of the
+  // smallest usable size class.
   SizeMix allocationSize(
       MachinePageCount numPages,
       MachinePageCount minSizeClass) const;

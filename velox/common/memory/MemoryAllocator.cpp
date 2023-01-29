@@ -51,15 +51,16 @@ std::ostream& operator<<(std::ostream& out, const MemoryAllocator::Kind& kind) {
 MemoryAllocator::SizeMix MemoryAllocator::allocationSize(
     MachinePageCount numPages,
     MachinePageCount minSizeClass) const {
-  int32_t needed = numPages;
-  int32_t pagesToAlloc = 0;
-  SizeMix mix;
   VELOX_CHECK_LE(
       minSizeClass,
       sizeClassSizes_.back(),
       "Requesting minimum size {} larger than largest size class {}",
       minSizeClass,
       sizeClassSizes_.back());
+
+  MemoryAllocator::SizeMix mix;
+  int32_t needed = numPages;
+  int32_t pagesToAlloc = 0;
   for (int32_t sizeIndex = sizeClassSizes_.size() - 1; sizeIndex >= 0;
        --sizeIndex) {
     const int32_t size = sizeClassSizes_[sizeIndex];
@@ -78,6 +79,14 @@ MemoryAllocator::SizeMix MemoryAllocator::allocationSize(
       // size.
       ++numUnits;
       needed -= size;
+    }
+    if (FOLLY_UNLIKELY(numUnits * size > Allocation::PageRun::kMaxPagesInRun)) {
+      VELOX_MEM_ALLOC_ERROR(fmt::format(
+          "Too many pages {} to allocate, the number of units {} at size class of {} exceeds the PageRun limit {}",
+          numPages,
+          numUnits,
+          size,
+          Allocation::PageRun::kMaxPagesInRun));
     }
     mix.sizeCounts[mix.numSizes] = numUnits;
     pagesToAlloc += numUnits * size;
@@ -185,10 +194,10 @@ bool MallocAllocator::allocateNonContiguous(
     ReservationCallback reservationCB,
     MachinePageCount minSizeClass) {
   VELOX_CHECK_GT(numPages, 0);
+
+  const SizeMix mix = allocationSize(numPages, minSizeClass);
+
   const uint64_t freedBytes = freeNonContiguous(out);
-
-  const auto mix = allocationSize(numPages, minSizeClass);
-
   uint64_t bytesToAllocate = 0;
   if (reservationCB != nullptr) {
     for (int32_t i = 0; i < mix.numSizes; ++i) {

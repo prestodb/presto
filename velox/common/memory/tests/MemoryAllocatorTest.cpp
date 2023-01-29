@@ -34,7 +34,7 @@ using namespace facebook::velox::common::testutil;
 
 namespace facebook::velox::memory {
 
-static constexpr uint64_t kMaxMemoryAllocator = 128UL * 1024 * 1024;
+static constexpr uint64_t kMaxMemoryAllocator = 256UL * 1024 * 1024;
 static constexpr MachinePageCount kCapacity =
     (kMaxMemoryAllocator / AllocationTraits::kPageSize);
 
@@ -1013,6 +1013,18 @@ TEST_P(MemoryAllocatorTest, StlMemoryAllocator) {
     EXPECT_THROW(alloc.deallocate(p, 1ULL << 62), VeloxException);
     alloc.deallocate(p, 1);
   }
+}
+
+TEST_P(MemoryAllocatorTest, badNonContiguousAllocation) {
+  // Set the num of pages to allocate exceeds one PageRun limit.
+  constexpr MachinePageCount kNumPages =
+      Allocation::PageRun::kMaxPagesInRun + 1;
+  std::unique_ptr<Allocation> allocation(new Allocation());
+  ASSERT_THROW(
+      instance_->allocateNonContiguous(kNumPages, *allocation),
+      VeloxRuntimeError);
+  ASSERT_TRUE(instance_->allocateNonContiguous(kNumPages - 1, *allocation));
+  instance_->freeNonContiguous(*allocation);
 }
 
 DEBUG_ONLY_TEST_P(

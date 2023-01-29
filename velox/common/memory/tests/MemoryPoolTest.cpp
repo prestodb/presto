@@ -689,7 +689,7 @@ TEST_P(MemoryPoolTest, contiguousAllocate) {
     SCOPED_TRACE(testData.debugString());
     ContiguousAllocation allocation;
     ASSERT_TRUE(allocation.empty());
-    ASSERT_TRUE(pool->allocateContiguous(testData.numAllocPages, allocation));
+    pool->allocateContiguous(testData.numAllocPages, allocation);
     ASSERT_FALSE(allocation.empty());
     ASSERT_EQ(allocation.pool(), pool.get());
     ASSERT_EQ(allocation.numPages(), testData.numAllocPages);
@@ -730,7 +730,7 @@ TEST_P(MemoryPoolTest, contiguousAllocate) {
         : std::min(
               MemoryAllocator::getInstance()->largestSizeClass(),
               folly::Random().rand32() % kMaxAllocationPages);
-    ASSERT_TRUE(pool->allocateContiguous(pagesToAllocate, allocation));
+    pool->allocateContiguous(pagesToAllocate, allocation);
     numAllocatedPages += allocation.numPages();
     for (int32_t j = 0; j < allocation.size(); ++j) {
       allocation.data()[j] = c;
@@ -758,7 +758,7 @@ TEST_P(MemoryPoolTest, contiguousAllocateExceedLimit) {
   auto tracker = MemoryUsageTracker::create(kMemoryCapBytes);
   pool->setMemoryUsageTracker(tracker);
   ContiguousAllocation allocation;
-  ASSERT_TRUE(pool->allocateContiguous(kMaxNumPages, allocation));
+  pool->allocateContiguous(kMaxNumPages, allocation);
   ASSERT_THROW(
       pool->allocateContiguous(2 * kMaxNumPages, allocation),
       VeloxRuntimeError);
@@ -786,15 +786,24 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, contiguousAllocateError) {
       }));
   constexpr MachinePageCount kAllocSize = 8;
   std::unique_ptr<ContiguousAllocation> allocation(new ContiguousAllocation());
-  ASSERT_FALSE(pool->allocateContiguous(kAllocSize, *allocation));
+  ASSERT_THROW(
+      pool->allocateContiguous(kAllocSize, *allocation), VeloxRuntimeError);
   ASSERT_TRUE(allocation->empty());
   injectFailure = false;
   if (useMmap_) {
     mmapAllocator_->testingClearFailureInjection();
   }
-  ASSERT_TRUE(pool->allocateContiguous(kAllocSize, *allocation));
+  pool->allocateContiguous(kAllocSize, *allocation);
   pool->freeContiguous(*allocation);
   ASSERT_TRUE(allocation->empty());
+}
+
+TEST_P(MemoryPoolTest, badContiguousAllocation) {
+  auto manager = getMemoryManager(8 * GB);
+  auto pool = manager->getChild();
+  constexpr MachinePageCount kAllocSize = 8;
+  ContiguousAllocation allocation;
+  ASSERT_THROW(pool->allocateContiguous(0, allocation), VeloxRuntimeError);
 }
 
 TEST_P(MemoryPoolTest, nonContiguousAllocate) {
@@ -837,12 +846,12 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
       SCOPED_TRACE(testData.debugString());
       Allocation allocation;
       ASSERT_TRUE(allocation.empty());
-      ASSERT_TRUE(pool->allocateNonContiguous(
+      pool->allocateNonContiguous(
           testData.numAllocPages,
           allocation,
           std::min(
               testData.minSizeClass,
-              MemoryAllocator::getInstance()->largestSizeClass())));
+              MemoryAllocator::getInstance()->largestSizeClass()));
       ASSERT_FALSE(allocation.empty());
       ASSERT_EQ(allocation.pool(), pool.get());
       ASSERT_GT(allocation.numRuns(), 0);
@@ -871,8 +880,7 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
         : std::min(
               MemoryAllocator::getInstance()->largestSizeClass(),
               folly::Random().rand32() % kMaxAllocationPages);
-    ASSERT_TRUE(
-        pool->allocateNonContiguous(pagesToAllocate, allocation, minSizeClass));
+    pool->allocateNonContiguous(pagesToAllocate, allocation, minSizeClass);
     numAllocatedPages += allocation.numPages();
     allocations.push_back(std::move(allocation));
     while (numAllocatedPages > kMaxAllocationPages) {
@@ -883,6 +891,23 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
   }
 }
 
+TEST_P(MemoryPoolTest, badNonContiguousAllocation) {
+  auto manager = getMemoryManager(8 * GB);
+  auto pool = manager->getChild();
+  Allocation allocation;
+  // Bad zero page allocation size.
+  ASSERT_THROW(pool->allocateNonContiguous(0, allocation), VeloxRuntimeError);
+
+  // Set the num of pages to allocate exceeds one PageRun limit.
+  constexpr MachinePageCount kNumPages =
+      Allocation::PageRun::kMaxPagesInRun + 1;
+  ASSERT_THROW(
+      pool->allocateNonContiguous(kNumPages, allocation), VeloxRuntimeError);
+  pool->allocateNonContiguous(kNumPages - 1, allocation);
+  ASSERT_GE(allocation.numPages(), kNumPages - 1);
+  pool->freeNonContiguous(allocation);
+}
+
 TEST_P(MemoryPoolTest, nonContiguousAllocateExceedLimit) {
   const MachinePageCount kMaxNumPages = 1 << 10;
   const auto kMemoryCapBytes = kMaxNumPages * AllocationTraits::kPageSize;
@@ -891,7 +916,7 @@ TEST_P(MemoryPoolTest, nonContiguousAllocateExceedLimit) {
   auto tracker = MemoryUsageTracker::create(kMemoryCapBytes);
   pool->setMemoryUsageTracker(tracker);
   Allocation allocation;
-  ASSERT_TRUE(pool->allocateNonContiguous(kMaxNumPages, allocation));
+  pool->allocateNonContiguous(kMaxNumPages, allocation);
   ASSERT_THROW(
       pool->allocateNonContiguous(2 * kMaxNumPages, allocation),
       VeloxRuntimeError);
@@ -921,13 +946,14 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, nonContiguousAllocateError) {
 
   constexpr MachinePageCount kAllocSize = 8;
   std::unique_ptr<Allocation> allocation(new Allocation());
-  ASSERT_FALSE(pool->allocateNonContiguous(kAllocSize, *allocation));
+  ASSERT_THROW(
+      pool->allocateNonContiguous(kAllocSize, *allocation), VeloxRuntimeError);
   ASSERT_TRUE(allocation->empty());
   injectFailure = false;
   if (useMmap_) {
     mmapAllocator_->testingClearFailureInjection();
   }
-  ASSERT_TRUE(pool->allocateNonContiguous(kAllocSize, *allocation));
+  pool->allocateNonContiguous(kAllocSize, *allocation);
   pool->freeNonContiguous(*allocation);
   ASSERT_TRUE(allocation->empty());
 }
@@ -954,14 +980,345 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, transientNonContiguousAllocateError) {
   if (useCache_) {
     // We expect async data cache will retry the transient memory allocation
     // failures.
-    ASSERT_TRUE(pool->allocateNonContiguous(kAllocSize, *allocation));
+    pool->allocateNonContiguous(kAllocSize, *allocation);
     pool->freeNonContiguous(*allocation);
   } else {
-    ASSERT_FALSE(pool->allocateNonContiguous(kAllocSize, *allocation));
-    ASSERT_TRUE(pool->allocateNonContiguous(kAllocSize, *allocation));
+    ASSERT_THROW(
+        pool->allocateNonContiguous(kAllocSize, *allocation),
+        VeloxRuntimeError);
+    pool->allocateNonContiguous(kAllocSize, *allocation);
     pool->freeNonContiguous(*allocation);
   }
   ASSERT_TRUE(allocation->empty());
+}
+
+TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationError) {
+  if (!useMmap_) {
+    return;
+  }
+  struct {
+    int64_t allocateBytes;
+    bool expectedFailure;
+    bool persistentErrorInjection;
+    std::string debugString() const {
+      return fmt::format(
+          "allocateBytes {}, expectFailure {}, persistentErrorInjection {}",
+          allocateBytes,
+          expectedFailure,
+          persistentErrorInjection);
+    }
+  } testSettings[] = {// NOTE: the failure injection only applies for
+                      // allocations that are not delegated to malloc.
+                      {MemoryAllocator::kMaxMallocBytes - 1, false, false},
+                      {MemoryAllocator::kMaxMallocBytes, false, false},
+                      {MemoryAllocator::kMaxMallocBytes + 1, true, false},
+                      {MemoryAllocator::kMaxMallocBytes - 1, false, true},
+                      {MemoryAllocator::kMaxMallocBytes, false, true},
+                      {MemoryAllocator::kMaxMallocBytes + 1, true, true}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    auto manager = getMemoryManager(8 * GB);
+    auto pool = manager->getChild();
+    pool->setMemoryUsageTracker(MemoryUsageTracker::create());
+    mmapAllocator_->testingSetFailureInjection(
+        MmapAllocator::Failure::kCap, testData.persistentErrorInjection);
+    // Async data cache will retry transient memory allocation failure.
+    if (!testData.expectedFailure ||
+        (useCache_ && !testData.persistentErrorInjection)) {
+      void* buffer = pool->allocate(testData.allocateBytes);
+      pool->free(buffer, testData.allocateBytes);
+    } else {
+      ASSERT_THROW(pool->allocate(testData.allocateBytes), VeloxRuntimeError);
+    }
+    mmapAllocator_->testingClearFailureInjection();
+  }
+}
+
+TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationZeroFilledError) {
+  if (!useMmap_) {
+    return;
+  }
+
+  struct {
+    int64_t numEntries;
+    int64_t sizeEach;
+    bool expectedFailure;
+    bool persistentErrorInjection;
+    std::string debugString() const {
+      return fmt::format(
+          "numEntries {}, sizeEach {}, expectFailure {}, persistentErrorInjection {}",
+          numEntries,
+          sizeEach,
+          expectedFailure,
+          persistentErrorInjection);
+    }
+  } testSettings[] = {// NOTE: the failure injection only applies for
+                      // allocations that are not delegated to malloc.
+                      {MemoryAllocator::kMaxMallocBytes - 1, 1, false, false},
+                      {MemoryAllocator::kMaxMallocBytes, 1, false, false},
+                      {MemoryAllocator::kMaxMallocBytes + 1, 1, true, false},
+                      {MemoryAllocator::kMaxMallocBytes - 1, 1, false, true},
+                      {MemoryAllocator::kMaxMallocBytes, 1, false, true},
+                      {MemoryAllocator::kMaxMallocBytes + 1, 1, true, true}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    auto manager = getMemoryManager(8 * GB);
+    auto pool = manager->getChild();
+    pool->setMemoryUsageTracker(MemoryUsageTracker::create());
+    mmapAllocator_->testingSetFailureInjection(
+        MmapAllocator::Failure::kCap, testData.persistentErrorInjection);
+    // Async data cache will retry transient memory allocation failure.
+    if (!testData.expectedFailure ||
+        (useCache_ && !testData.persistentErrorInjection)) {
+      void* buffer =
+          pool->allocateZeroFilled(testData.numEntries, testData.sizeEach);
+      pool->free(buffer, testData.numEntries * testData.sizeEach);
+    } else {
+      ASSERT_THROW(
+          pool->allocateZeroFilled(testData.numEntries, testData.sizeEach),
+          VeloxRuntimeError);
+    }
+    mmapAllocator_->testingClearFailureInjection();
+  }
+}
+
+TEST_P(MemoryPoolTest, mmapAllocatorCapReallocateError) {
+  if (!useMmap_) {
+    return;
+  }
+  struct {
+    int64_t allocateBytes;
+    bool expectedFailure;
+    bool persistentErrorInjection;
+    std::string debugString() const {
+      return fmt::format(
+          "allocateBytes {}, expectFailure {}, persistentErrorInjection {}",
+          allocateBytes,
+          expectedFailure,
+          persistentErrorInjection);
+    }
+  } testSettings[] = {// NOTE: the failure injection only applies for
+                      // allocations that are not delegated to malloc.
+                      {MemoryAllocator::kMaxMallocBytes - 1, false, false},
+                      {MemoryAllocator::kMaxMallocBytes, false, false},
+                      {MemoryAllocator::kMaxMallocBytes + 1, true, false},
+                      {MemoryAllocator::kMaxMallocBytes - 1, false, true},
+                      {MemoryAllocator::kMaxMallocBytes, false, true},
+                      {MemoryAllocator::kMaxMallocBytes + 1, true, true}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    auto manager = getMemoryManager(8 * GB);
+    auto pool = manager->getChild();
+    pool->setMemoryUsageTracker(MemoryUsageTracker::create());
+    mmapAllocator_->testingSetFailureInjection(
+        MmapAllocator::Failure::kCap, testData.persistentErrorInjection);
+    // Async data cache will retry transient memory allocation failure.
+    if (!testData.expectedFailure ||
+        (useCache_ && !testData.persistentErrorInjection)) {
+      void* buffer = pool->reallocate(nullptr, 0, testData.allocateBytes);
+      pool->free(buffer, testData.allocateBytes);
+    } else {
+      ASSERT_THROW(
+          pool->reallocate(nullptr, 0, testData.allocateBytes),
+          VeloxRuntimeError);
+    }
+    mmapAllocator_->testingClearFailureInjection();
+  }
+}
+
+// Class used to test operations on MemoryPool.
+class MemoryPoolTester {
+ public:
+  MemoryPoolTester(int32_t id, int64_t maxMemory, memory::MemoryPool& pool)
+      : id_(id), maxMemory_(maxMemory), pool_(pool) {}
+
+  ~MemoryPoolTester() {
+    for (auto& allocation : contiguousAllocations_) {
+      pool_.freeContiguous(allocation);
+    }
+    for (auto& allocation : nonContiguiusAllocations_) {
+      pool_.freeNonContiguous(allocation);
+    }
+    for (auto& bufferEntry : allocBuffers_) {
+      pool_.free(bufferEntry.first, bufferEntry.second);
+    }
+    if (reservedBytes_ != 0) {
+      pool_.getMemoryUsageTracker()->release();
+    }
+  }
+
+  void run() {
+    const int32_t op = folly::Random().rand32() % 4;
+    switch (op) {
+      case 0: {
+        // Allocate buffers.
+        if ((folly::Random().rand32() % 2) && !allocBuffers_.empty()) {
+          pool_.free(allocBuffers_.back().first, allocBuffers_.back().second);
+          allocBuffers_.pop_back();
+        } else {
+          const int64_t allocateBytes =
+              folly::Random().rand32() % (maxMemory_ / 64);
+          try {
+            void* buffer = pool_.allocate(allocateBytes);
+            VELOX_CHECK_NOT_NULL(buffer);
+            allocBuffers_.push_back({buffer, allocateBytes});
+          } catch (VeloxException& e) {
+            // Ignore memory limit exception.
+            ASSERT_TRUE(e.message().find("Negative") == std::string::npos);
+            return;
+          }
+        }
+        break;
+      }
+      case 2: {
+        // Contiguous allocations.
+        if ((folly::Random().rand32() % 2) && !contiguousAllocations_.empty()) {
+          pool_.freeContiguous(contiguousAllocations_.back());
+          contiguousAllocations_.pop_back();
+        } else {
+          int64_t allocatePages = std::max<int64_t>(
+              1, folly::Random().rand32() % (maxMemory_ / 32) / 4096);
+          ContiguousAllocation allocation;
+          if (folly::Random().oneIn(2) && !contiguousAllocations_.empty()) {
+            allocation = std::move(contiguousAllocations_.back());
+            contiguousAllocations_.pop_back();
+            if (folly::Random().oneIn(2)) {
+              allocatePages = std::max<int64_t>(1, allocation.numPages() - 4);
+            }
+          }
+          try {
+            pool_.allocateContiguous(allocatePages, allocation);
+            contiguousAllocations_.push_back(std::move(allocation));
+          } catch (VeloxException& e) {
+            // Ignore memory limit exception.
+            ASSERT_TRUE(e.message().find("Negative") == std::string::npos);
+            return;
+          }
+        }
+        break;
+      }
+      case 1: {
+        // Non-contiguous allocations.
+        if ((folly::Random().rand32() % 2) &&
+            !nonContiguiusAllocations_.empty()) {
+          pool_.freeNonContiguous(nonContiguiusAllocations_.back());
+          nonContiguiusAllocations_.pop_back();
+        } else {
+          const int64_t allocatePages = std::max<int64_t>(
+              1, folly::Random().rand32() % (maxMemory_ / 32) / 4096);
+          Allocation allocation;
+          try {
+            pool_.allocateNonContiguous(allocatePages, allocation);
+            nonContiguiusAllocations_.push_back(std::move(allocation));
+          } catch (VeloxException& e) {
+            // Ignore memory limit exception.
+            ASSERT_TRUE(e.message().find("Negative") == std::string::npos);
+            return;
+          }
+        }
+        break;
+      }
+      case 3: {
+        // maybe reserve.
+        if (reservedBytes_ == 0) {
+          const uint64_t reservedBytes =
+              folly::Random().rand32() % (maxMemory_ / 32);
+          if (pool_.getMemoryUsageTracker()->maybeReserve(reservedBytes)) {
+            reservedBytes_ = reservedBytes;
+          }
+        } else {
+          pool_.getMemoryUsageTracker()->release();
+          reservedBytes_ = 0;
+        }
+        break;
+      }
+    }
+  }
+
+ private:
+  const int32_t id_;
+  const int64_t maxMemory_;
+  memory::MemoryPool& pool_;
+  uint64_t reservedBytes_{0};
+  std::vector<ContiguousAllocation> contiguousAllocations_;
+  std::vector<Allocation> nonContiguiusAllocations_;
+  std::vector<std::pair<void*, uint64_t>> allocBuffers_;
+};
+
+TEST_P(MemoryPoolTest, concurrentUpdateToDifferentPools) {
+  constexpr int64_t kMaxMemory = 10 * GB;
+  MemoryManager manager{{.capacity = kMaxMemory}};
+  auto& root = manager.getRoot();
+  auto tracker = memory::MemoryUsageTracker::create(kMaxMemory);
+  root.setMemoryUsageTracker(tracker);
+  const int32_t kNumThreads = 5;
+  // Create one memory tracker per each thread.
+  std::vector<std::shared_ptr<MemoryPool>> childPools;
+  for (int32_t i = 0; i < kNumThreads; ++i) {
+    childPools.push_back(root.addChild(fmt::format("{}", i)));
+  }
+
+  folly::Random::DefaultGenerator rng;
+  rng.seed(1234);
+
+  const int32_t kNumOpsPerThread = 1'000;
+  std::vector<std::thread> threads;
+  threads.reserve(kNumThreads);
+  for (size_t i = 0; i < kNumThreads; ++i) {
+    threads.emplace_back([&, i]() {
+      MemoryPoolTester tester(i, kMaxMemory, *childPools[i]);
+      for (int32_t iter = 0; iter < kNumOpsPerThread; ++iter) {
+        tester.run();
+      }
+    });
+  }
+
+  for (auto& th : threads) {
+    th.join();
+  }
+}
+
+TEST_P(MemoryPoolTest, concurrentUpdatesToTheSamePool) {
+  const std::vector<int> concurrentLevels({0, 1});
+  for (const bool concurrentLevel : concurrentLevels) {
+    SCOPED_TRACE(fmt::format("concurrentLevel:{}", concurrentLevel));
+    constexpr int64_t kMaxMemory = 8 * GB;
+    MemoryManager manager{{.capacity = kMaxMemory}};
+    auto& root = manager.getRoot();
+    auto tracker = memory::MemoryUsageTracker::create(kMaxMemory);
+    root.setMemoryUsageTracker(tracker);
+
+    const int32_t kNumThreads = 5;
+    const int32_t kNumChildPools = 2;
+    std::vector<std::shared_ptr<MemoryPool>> childPools;
+    if (concurrentLevel == 1) {
+      for (int32_t i = 0; i < kNumChildPools; ++i) {
+        childPools.push_back(root.addChild(fmt::format("{}", i)));
+      }
+    }
+
+    folly::Random::DefaultGenerator rng;
+    rng.seed(1234);
+
+    const int32_t kNumOpsPerThread = 1'000;
+    std::vector<std::thread> threads;
+    threads.reserve(kNumThreads);
+    for (size_t i = 0; i < kNumThreads; ++i) {
+      threads.emplace_back([&, i]() {
+        MemoryPoolTester tester(
+            i,
+            kMaxMemory,
+            concurrentLevel == 0 ? root : *childPools[i % kNumChildPools]);
+        for (int32_t iter = 0; iter < kNumOpsPerThread; ++iter) {
+          tester.run();
+        }
+      });
+    }
+
+    for (auto& th : threads) {
+      th.join();
+    }
+  }
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
