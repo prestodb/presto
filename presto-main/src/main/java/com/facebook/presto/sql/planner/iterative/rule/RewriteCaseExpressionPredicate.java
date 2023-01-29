@@ -17,9 +17,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
@@ -45,6 +46,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.replaceArgum
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
+import static com.facebook.presto.sql.planner.RowExpressionInterpreter.evaluateConstantRowExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -61,18 +63,18 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * can be converted into a series AND/OR clauses as below
  * <p>
- * (result1 = value AND expression=constant1) OR
- * (result2 = value AND expression=constant2 AND !(expression=constant1)) OR
- * (result3 = value AND expression=constant3 AND !(expression=constant1) AND !(expression=constant2)) OR
- * (elseResult = value AND !(expression=constant1) AND !(expression=constant2) AND !(expression=constant3))
+ * (result1 = value AND expression IS NOT NULL AND expression=constant1) OR
+ * (result2 = value AND expression IS NOT NULL AND expression=constant2 AND !(expression=constant1)) OR
+ * (result3 = value AND expression IS NOT NULL AND expression=constant3 AND !(expression=constant1) AND !(expression=constant2)) OR
+ * (elseResult = value AND ((expression IS NULL) OR (!(expression=constant1) AND !(expression=constant2) AND !(expression=constant3))))
  * <p>
  * The above conversion evaluates the conditions in WHEN clauses multiple times. But if we ensure these conditions are
  * disjunct, we can skip all the NOT of previous WHEN conditions and simplify the expression to:
  * <p>
- * (result1 = value AND expression=constant1) OR
- * (result2 = value AND expression=constant2) OR
- * (result3 = value AND expression=constant3) OR
- * (elseResult = value AND !(expression=constant1) AND !(expression=constant2) AND !(expression=constant3))
+ * (result1 = value AND expression IS NOT NULL AND expression=constant1) OR
+ * (result2 = value AND expression IS NOT NULL AND expression=constant2) OR
+ * (result3 = value AND expression IS NOT NULL AND expression=constant3) OR
+ * (elseResult = value AND ((expression IS NULL) OR (!(expression=constant1) AND !(expression=constant2) AND !(expression=constant3)))
  * <p>
  * To ensure the WHEN conditions are disjunct, the following criteria needs to be met:
  * 1. Value is either a constant or column reference or input reference and not any function
@@ -89,47 +91,56 @@ import static java.util.Objects.requireNonNull;
 public class RewriteCaseExpressionPredicate
         extends RowExpressionRewriteRuleSet
 {
-    public RewriteCaseExpressionPredicate(FunctionAndTypeManager functionAndTypeManager)
+    public RewriteCaseExpressionPredicate(Metadata metadata)
     {
-        super(new Rewriter(functionAndTypeManager));
+        super(new Rewriter(metadata));
     }
 
     private static class Rewriter
             implements PlanRowExpressionRewriter
     {
-        private final CaseExpressionPredicateRewriter caseExpressionPredicateRewriter;
+        private final Metadata metadata;
 
-        public Rewriter(FunctionAndTypeManager functionAndTypeManager)
+        public Rewriter(Metadata metadata)
         {
-            requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
-            this.caseExpressionPredicateRewriter = new CaseExpressionPredicateRewriter(functionAndTypeManager);
+            this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
         @Override
         public RowExpression rewrite(RowExpression expression, Rule.Context context)
         {
-            return RowExpressionTreeRewriter.rewriteWith(caseExpressionPredicateRewriter, expression);
+            return RowExpressionTreeRewriter.rewriteWith(new CaseExpressionPredicateRewriter(this.metadata, context.getSession()), expression);
         }
     }
 
     private static class CaseExpressionPredicateRewriter
             extends RowExpressionRewriter<Void>
     {
+        private final Metadata metadata;
+        private final Session session;
         private final FunctionResolution functionResolution;
         private final LogicalRowExpressions logicalRowExpressions;
+        private final DeterminismEvaluator determinismEvaluator;
 
-        private CaseExpressionPredicateRewriter(FunctionAndTypeManager functionAndTypeManager)
+        private CaseExpressionPredicateRewriter(Metadata metadata, Session session)
         {
-            this.functionResolution = new FunctionResolution(functionAndTypeManager);
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null");
+            this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
             this.logicalRowExpressions = new LogicalRowExpressions(
-                    new RowExpressionDeterminismEvaluator(functionAndTypeManager),
+                    new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
                     functionResolution,
-                    functionAndTypeManager);
+                    metadata.getFunctionAndTypeManager());
+            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager());
         }
 
         @Override
         public RowExpression rewriteCall(CallExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
         {
+            RowExpression rewritten = node;
+            if (!determinismEvaluator.isDeterministic(node)) {
+                return treeRewriter.defaultRewrite(rewritten, context);
+            }
             if (functionResolution.isComparisonFunction(node.getFunctionHandle()) && node.getArguments().size() == 2) {
                 RowExpression left = node.getArguments().get(0);
                 RowExpression right = node.getArguments().get(1);
@@ -140,7 +151,7 @@ public class RewriteCaseExpressionPredicate
                     return processCaseExpression(right, expression -> replaceArguments(node, left, expression), left);
                 }
             }
-            return null;
+            return treeRewriter.defaultRewrite(rewritten, context);
         }
 
         private boolean isCaseExpression(RowExpression expression)
@@ -221,6 +232,17 @@ public class RewriteCaseExpressionPredicate
             ImmutableList.Builder<RowExpression> andExpressions = new ImmutableList.Builder<>();
             ImmutableList.Builder<RowExpression> invertedOperands = new ImmutableList.Builder<>();
 
+            RowExpression nullCheckExpression;
+            if (caseOperand.isPresent()) {
+                nullCheckExpression = new SpecialFormExpression(IS_NULL, BOOLEAN, caseOperand.get());
+            }
+            else {
+                RowExpression whenOperand = whenClauses.stream().findFirst()
+                        .map(whenClause -> ((SpecialFormExpression) whenClause).getArguments().get(0))
+                        .orElseThrow(() -> new IllegalArgumentException("When clause is empty"));
+                nullCheckExpression = new SpecialFormExpression(IS_NULL, BOOLEAN, ((CallExpression) whenOperand).getArguments().get(0));
+            }
+
             for (RowExpression whenClause : whenClauses) {
                 RowExpression whenOperand = ((SpecialFormExpression) whenClause).getArguments().get(0);
                 if (caseOperand.isPresent()) {
@@ -232,12 +254,15 @@ public class RewriteCaseExpressionPredicate
                 }
 
                 RowExpression comparisonExpression = comparisonExpressionGenerator.apply(whenResult);
-                andExpressions.add(and(comparisonExpression, whenOperand));
+                andExpressions.add(and(
+                        comparisonExpression,
+                        logicalRowExpressions.notCallExpression(nullCheckExpression),
+                        whenOperand));
                 invertedOperands.add(logicalRowExpressions.notCallExpression(whenOperand));
             }
             RowExpression elseCondition = and(
                     getElseExpression(castExpression, value, elseResult, comparisonExpressionGenerator),
-                    and(invertedOperands.build()));
+                    or(nullCheckExpression, and(invertedOperands.build())));
             andExpressions.add(elseCondition);
 
             return or(andExpressions.build());
@@ -298,12 +323,16 @@ public class RewriteCaseExpressionPredicate
 
         private boolean allExpressionsAreConstantAndUnique(List<RowExpression> expressions)
         {
-            Set<RowExpression> expressionSet = new HashSet<>();
+            Set<Object> literals = new HashSet<>();
             for (RowExpression expression : expressions) {
-                if (!isConstantExpression(expression) || expressionSet.contains(expression)) {
+                if (!isConstantExpression(expression)) {
                     return false;
                 }
-                expressionSet.add(expression);
+                Object constantExpression = evaluateConstantRowExpression(expression, metadata, session.toConnectorSession());
+                if (constantExpression == null || literals.contains(constantExpression)) {
+                    return false;
+                }
+                literals.add(constantExpression);
             }
             return true;
         }
@@ -327,6 +356,7 @@ public class RewriteCaseExpressionPredicate
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
+                projectRowExpressionRewriteRule(),
                 filterRowExpressionRewriteRule(),
                 joinRowExpressionRewriteRule());
     }
