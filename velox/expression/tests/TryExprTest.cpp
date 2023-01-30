@@ -131,6 +131,37 @@ TEST_F(TryExprTest, nestedTryParentErrors) {
       result);
 }
 
+TEST_F(TryExprTest, skipExecutionEvalSimplified) {
+  registerFunction<CountCallsFunction, int64_t, int64_t>(
+      {"count_calls"}, BIGINT());
+
+  // Test that when a subset of the inputs to a function wrapped in a TRY throw
+  // exceptions, that function is only evaluated on the inputs that did not
+  // throw exceptions.
+  auto flatVector = makeFlatVector<StringView>({"1", "a", "1", "a", "1"});
+  auto result = evaluateSimplified<FlatVector<int64_t>>(
+      "try(count_calls(cast(c0 as integer)))", makeRowVector({flatVector}));
+
+  auto expected =
+      makeNullableFlatVector<int64_t>({0, std::nullopt, 1, std::nullopt, 2});
+  assertEqualVectors(expected, result);
+}
+
+TEST_F(TryExprTest, skipExecutionWholeBatchEvalSimplified) {
+  registerFunction<CountCallsFunction, int64_t, int64_t>(
+      {"count_calls"}, BIGINT());
+
+  // Test that when all the inputs to a function wrapped in a TRY throw
+  // exceptions, that function isn't evaluated and a NULL constant is returned
+  // directly.
+  auto flatVector = makeFlatVector<StringView>({"a", "b", "c"});
+  auto result = evaluateSimplified<ConstantVector<int64_t>>(
+      "try(count_calls(cast(c0 as integer)))", makeRowVector({flatVector}));
+
+  auto expected = makeNullConstant(TypeKind::BIGINT, 3);
+  assertEqualVectors(expected, result);
+}
+
 namespace {
 // A function that sets result to be a ConstantVector and then throws an
 // exception.

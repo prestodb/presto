@@ -312,6 +312,19 @@ void Expr::evalSimplifiedImpl(
     }
   }
 
+  // We need to deselect rows with errors since otherwise they will
+  // be cleared by Conjunct special form , as current assumption is
+  // that they are only invoked on rows that do not have exceptions.
+  if (context.errors()) {
+    context.deselectErrors(remainingRows);
+    if (!remainingRows.hasSelections()) {
+      releaseInputValues(context);
+      result =
+          BaseVector::createNullConstant(type(), rows.size(), context.pool());
+      return;
+    }
+  }
+
   // Apply the actual function.
   try {
     vectorFunction_->apply(
