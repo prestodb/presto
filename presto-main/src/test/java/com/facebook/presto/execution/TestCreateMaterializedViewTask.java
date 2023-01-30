@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
@@ -27,7 +26,6 @@ import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -42,7 +40,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.MetadataResolver;
-import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
@@ -252,51 +249,9 @@ public class TestCreateMaterializedViewTask
             return new MetadataResolver()
             {
                 @Override
-                public boolean catalogExists(String catalogName)
-                {
-                    return false;
-                }
-
-                @Override
-                public boolean schemaExists(CatalogSchemaName schema)
-                {
-                    return false;
-                }
-
-                @Override
-                public boolean tableExists(QualifiedObjectName tableName)
-                {
-                    return false;
-                }
-
-                @Override
                 public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
                 {
                     return getOptionalTableHandle(session, tableName);
-                }
-
-                @Override
-                public Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName)
-                {
-                    return Optional.empty();
-                }
-
-                @Override
-                public Optional<ViewDefinition> getView(QualifiedObjectName viewName)
-                {
-                    return Optional.empty();
-                }
-
-                @Override
-                public Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName viewName)
-                {
-                    return Optional.empty();
-                }
-
-                @Override
-                public List<Type> getTypes()
-                {
-                    return emptyList();
                 }
             };
         }

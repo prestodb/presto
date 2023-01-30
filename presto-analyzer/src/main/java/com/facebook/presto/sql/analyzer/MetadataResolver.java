@@ -15,13 +15,23 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlFunction;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import static java.util.Collections.emptyList;
 
 /**
  * Metadata resolver provides information about catalog, schema, tables, views, types, and functions required for analyzer functionality.
@@ -31,41 +41,60 @@ public interface MetadataResolver
     /**
      * Returns if the catalog with the given name is available in metadata.
      */
-    boolean catalogExists(String catalogName);
+    default boolean catalogExists(String catalogName)
+    {
+        return false;
+    }
 
     /**
      * Returns true if the schema exist in the metadata.
      *
      * @param schemaName represents the catalog and schema name.
      */
-    boolean schemaExists(CatalogSchemaName schemaName);
+    default boolean schemaExists(CatalogSchemaName schemaName)
+    {
+        return false;
+    }
 
     /**
      * Returns true if the table exist in the metadata.
      *
      * @param tableName the fully qualified name (catalog, schema and table) of the table
      */
-    boolean tableExists(QualifiedObjectName tableName);
+    default boolean tableExists(QualifiedObjectName tableName)
+    {
+        return getTableHandle(tableName).isPresent();
+    }
 
     /**
      * Returns tableHandle for provided tableName
      * @param tableName the fully qualified name (catalog, schema and table) of the table
      */
-    Optional<TableHandle> getTableHandle(QualifiedObjectName tableName);
+    default Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
+    {
+        return Optional.empty();
+    }
+
     /**
      * Returns the list of column metadata for the provided catalog, schema and table name.
      *
      * @param tableName the fully qualified name (catalog, schema and table) of the table
      * @throws SemanticException if the table does not exist
      */
-    Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName);
+    default Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName)
+    {
+        return Optional.empty();
+    }
 
     /**
      * Returns view metadata for a given view.
      *
      * @param viewName the fully qualified name (catalog, schema, and view) of the view.
      */
-    Optional<ViewDefinition> getView(QualifiedObjectName viewName);
+    default Optional<ViewDefinition> getView(QualifiedObjectName viewName)
+    {
+        return Optional.empty();
+    }
 
     /**
      * Returns true if provided object is a view.
@@ -82,7 +111,10 @@ public interface MetadataResolver
      *
      * @param viewName the fully qualified name (catalog, schema, and view) of the view.
      */
-    Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName viewName);
+    default Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName viewName)
+    {
+        return Optional.empty();
+    }
 
     /**
      * Returns true if provided catalog, schema and object name is a materialized view.
@@ -94,8 +126,71 @@ public interface MetadataResolver
         return getMaterializedView(viewName).isPresent();
     }
 
+    default Type getType(TypeSignature signature)
+    {
+        throw new UnsupportedOperationException("getType is not supported");
+    }
+
+    default Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    {
+        throw new UnsupportedOperationException("getParameterizedType is not supported");
+    }
+
     /**
      * Returns list of registered types.
      */
-    List<Type> getTypes();
+    default List<Type> getTypes()
+    {
+        return emptyList();
+    }
+
+    /**
+     * Determines if a value of a given actual type can be cast to an expected type.
+     *
+     * @param actualType The actual type of the value.
+     * @param expectedType The expected type of the value.
+     */
+    default boolean canCoerce(Type actualType, Type expectedType)
+    {
+        return false;
+    }
+
+    /**
+     * Returns a boolean value indicating whether the coercion from the actual type to the expected type is only a type coercion
+     *
+     * @param actualType the actual type of the value
+     * @param expectedType the expected type of the value
+     */
+    default boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+    {
+        return false;
+    }
+
+    /**
+     * Returns a common super type for given two types
+     * @param firstType the first type
+     * @param secondType the second type
+     */
+    default Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * List all built-in functions
+     */
+    default Collection<SqlFunction> listBuiltInFunctions()
+    {
+        return Collections.emptyList();
+    }
+
+    default FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
+    {
+        throw new UnsupportedOperationException("resolveOperator is not supported!");
+    }
+
+    default FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+    {
+        throw new UnsupportedOperationException("getFunctionMetadata is not supported!");
+    }
 }

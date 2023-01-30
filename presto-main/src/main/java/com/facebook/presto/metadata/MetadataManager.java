@@ -26,6 +26,7 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -57,6 +58,8 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -1323,12 +1326,6 @@ public class MetadataManager
             }
 
             @Override
-            public boolean tableExists(QualifiedObjectName tableName)
-            {
-                return getOptionalTableHandle(session, transactionManager, tableName).isPresent();
-            }
-
-            @Override
             public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
             {
                 return getOptionalTableHandle(session, transactionManager, tableName);
@@ -1384,9 +1381,57 @@ public class MetadataManager
             }
 
             @Override
+            public Type getType(TypeSignature signature)
+            {
+                return functionAndTypeManager.getType(signature);
+            }
+
+            @Override
+            public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+            {
+                return functionAndTypeManager.getParameterizedType(baseTypeName, typeParameters);
+            }
+
+            @Override
             public List<Type> getTypes()
             {
                 return functionAndTypeManager.getTypes();
+            }
+
+            @Override
+            public boolean canCoerce(Type actualType, Type expectedType)
+            {
+                return functionAndTypeManager.canCoerce(actualType, expectedType);
+            }
+
+            @Override
+            public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+            {
+                return functionAndTypeManager.isTypeOnlyCoercion(actualType, expectedType);
+            }
+
+            @Override
+            public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+            {
+                return functionAndTypeManager.getCommonSuperType(firstType, secondType);
+            }
+
+            @Override
+            public Collection<SqlFunction> listBuiltInFunctions()
+            {
+                return functionAndTypeManager.listBuiltInFunctions();
+            }
+
+            @Override
+            public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
+            {
+                return functionAndTypeManager.resolveOperator(operatorType, argumentTypes);
+            }
+
+            @Override
+            public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+            {
+                return functionAndTypeManager.getFunctionMetadata(functionHandle);
             }
         };
     }

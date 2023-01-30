@@ -17,7 +17,10 @@ import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.DelegatingMetadataManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -26,8 +29,12 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.sql.analyzer.MetadataResolver;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.transaction.TransactionManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -38,6 +45,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -172,12 +180,6 @@ public class RemoteMetadataManager
             }
 
             @Override
-            public boolean tableExists(QualifiedObjectName tableName)
-            {
-                return getTableHandle(tableName).isPresent();
-            }
-
-            @Override
             public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
             {
                 return getOptionalTableHandle(session, tableName);
@@ -219,9 +221,57 @@ public class RemoteMetadataManager
             }
 
             @Override
+            public Type getType(TypeSignature signature)
+            {
+                return getFunctionAndTypeManager().getType(signature);
+            }
+
+            @Override
+            public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+            {
+                return getFunctionAndTypeManager().getParameterizedType(baseTypeName, typeParameters);
+            }
+
+            @Override
             public List<Type> getTypes()
             {
                 return getFunctionAndTypeManager().getTypes();
+            }
+
+            @Override
+            public boolean canCoerce(Type actualType, Type expectedType)
+            {
+                return getFunctionAndTypeManager().canCoerce(actualType, expectedType);
+            }
+
+            @Override
+            public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+            {
+                return getFunctionAndTypeManager().isTypeOnlyCoercion(actualType, expectedType);
+            }
+
+            @Override
+            public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+            {
+                return getFunctionAndTypeManager().getCommonSuperType(firstType, secondType);
+            }
+
+            @Override
+            public Collection<SqlFunction> listBuiltInFunctions()
+            {
+                return getFunctionAndTypeManager().listBuiltInFunctions();
+            }
+
+            @Override
+            public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
+            {
+                return getFunctionAndTypeManager().resolveOperator(operatorType, argumentTypes);
+            }
+
+            @Override
+            public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+            {
+                return getFunctionAndTypeManager().getFunctionMetadata(functionHandle);
             }
         };
     }

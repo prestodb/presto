@@ -55,8 +55,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static java.util.Collections.emptyList;
-
 public abstract class AbstractMockMetadata
         implements Metadata
 {
@@ -86,56 +84,7 @@ public abstract class AbstractMockMetadata
     @Override
     public MetadataResolver getMetadataResolver(Session session)
     {
-        return new MetadataResolver()
-        {
-            @Override
-            public boolean catalogExists(String catalogName)
-            {
-                return false;
-            }
-
-            @Override
-            public boolean schemaExists(CatalogSchemaName schema)
-            {
-                return false;
-            }
-
-            @Override
-            public boolean tableExists(QualifiedObjectName tableName)
-            {
-                return false;
-            }
-
-            @Override
-            public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
-            {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName)
-            {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<ViewDefinition> getView(QualifiedObjectName viewName)
-            {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName viewName)
-            {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<Type> getTypes()
-            {
-                return emptyList();
-            }
-        };
+        return new MetadataResolver() {};
     }
 
     @Override
