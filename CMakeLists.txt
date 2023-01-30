@@ -37,17 +37,17 @@ option(
   VELOX_BUILD_MINIMAL
   "Build a minimal set of components only. This will override other build options."
   OFF)
-# option() always creats a BOOL variable so we have to use a normal cache
+# option() always creates a BOOL variable so we have to use a normal cache
 # variable with STRING type for this option.
 #
-# * AUTO: Try SYSTEM first fall back to
-# * BUNDLED SYSTEM Use installed dependencies via find_package
-# * BUNDLED Build dependencies from source
+# * AUTO: Try SYSTEM first fall back to BUNDLED.
+# * SYSTEM: Use installed dependencies via find_package.
+# * BUNDLED: Build dependencies from source.
 set(VELOX_DEPENDENCY_SOURCE
     ${VELOX_DEPENDENCY_SOURCE_DEFAULT}
     CACHE
       STRING
-      "Default source for all dependencies with source builds enabled. AUTO SYSTEM BUNDLED"
+      "Default source for all dependencies with source builds enabled: AUTO SYSTEM BUNDLED."
 )
 option(VELOX_ENABLE_DUCKDB "Build duckDB to enable differential testing." ON)
 option(VELOX_ENABLE_EXEC "Build exec." ON)
