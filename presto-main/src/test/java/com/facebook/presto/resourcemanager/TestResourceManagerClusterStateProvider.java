@@ -78,7 +78,7 @@ public class TestResourceManagerClusterStateProvider
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node1", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node2", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
 
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
         assertEquals(provider.getClusterQueries(), ImmutableList.of());
 
@@ -129,7 +129,7 @@ public class TestResourceManagerClusterStateProvider
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node1", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node2", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
 
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
         assertEquals(provider.getClusterQueries(), ImmutableList.of());
 
@@ -157,7 +157,7 @@ public class TestResourceManagerClusterStateProvider
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node2", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node3", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
 
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("50s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("50s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("local"));
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node1"));
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node2"));
@@ -204,7 +204,7 @@ public class TestResourceManagerClusterStateProvider
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node5", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node6", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
 
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("50s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("50s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("local"));
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node1"));
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node2"));
@@ -280,7 +280,7 @@ public class TestResourceManagerClusterStateProvider
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node4", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node5", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node6", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("50s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("50s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("local"));
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node1"));
         provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node2"));
@@ -394,7 +394,7 @@ public class TestResourceManagerClusterStateProvider
         long query2Sequence = 0;
         long query3Sequence = 0;
 
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
         // Memory pool starts off empty
         assertMemoryPoolMap(provider, 2, GENERAL_POOL, 0, 0, 0, 0, 0, Optional.empty());
@@ -481,7 +481,7 @@ public class TestResourceManagerClusterStateProvider
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         nodeHeartBeats.keySet().stream().forEach(nodeIdentifier ->
                 nodeManager.addNode(new ConnectorId("x"), new InternalNode(nodeIdentifier, URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true)));
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), Duration.valueOf("0s"), Duration.valueOf("20s"), true, newSingleThreadScheduledExecutor());
         nodeHeartBeats.entrySet().stream().forEach(entry ->
                 provider.registerResourceGroupRuntimeHeartbeat(entry.getKey(), entry.getValue()));
         Thread.sleep(SECONDS.toMillis(5));
@@ -492,7 +492,7 @@ public class TestResourceManagerClusterStateProvider
     public void testWorkerMemoryInfo()
             throws Exception
     {
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(new InMemoryNodeManager(), new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(new InMemoryNodeManager(), new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
         assertWorkerMemoryInfo(provider, 0);
 
@@ -514,7 +514,7 @@ public class TestResourceManagerClusterStateProvider
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         nodeManager.addShuttingDownNode(new InternalNode("node1", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
 
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
         assertEquals(provider.getClusterQueries(), ImmutableList.of());
 
@@ -546,7 +546,7 @@ public class TestResourceManagerClusterStateProvider
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         nodeManager.addShuttingDownNode(new InternalNode("node1", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
 
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
         assertEquals(provider.getRunningTaskCount(), 0);
 
@@ -566,6 +566,39 @@ public class TestResourceManagerClusterStateProvider
 
         provider.registerQueryHeartbeat("node1", createQueryInfo("4", FAILED), query4Sequence++);
         assertEquals(provider.getRunningTaskCount(), 11);
+    }
+
+    @Test
+    public void testResourceGroupStatsExpiry()
+            throws Exception
+    {
+        Map<String, List<ResourceGroupRuntimeInfo>> resourceGroupStates = ImmutableMap.of(
+                "node1", ImmutableList.of(ResourceGroupRuntimeInfo.builder(new ResourceGroupId("global-user1"))
+                        .addRunningQueries(2)
+                        .addQueuedQueries(3)
+                        .setResourceGroupSpecInfo(new ResourceGroupSpecInfo(20))
+                        .build()),
+                "node2", ImmutableList.of(ResourceGroupRuntimeInfo.builder(new ResourceGroupId("global-user2"))
+                        .addRunningQueries(5)
+                        .addQueuedQueries(100)
+                        .setResourceGroupSpecInfo(new ResourceGroupSpecInfo(20))
+                        .build()));
+
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"),
+                Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("10s"), Duration.valueOf("10s"), true, newSingleThreadScheduledExecutor());
+
+        resourceGroupStates.entrySet().stream().forEach(entry -> provider.registerResourceGroupRuntimeHeartbeat(entry.getKey(), entry.getValue()));
+        Thread.sleep(SECONDS.toMillis(1));
+        assertEquals(provider.getAdjustedQueueSize(), 18);
+
+        // Expire existing resourceGroupStates.
+        Thread.sleep(SECONDS.toMillis(10));
+
+        provider.registerResourceGroupRuntimeHeartbeat("node1", resourceGroupStates.get("node1"));
+        Thread.sleep(SECONDS.toMillis(1));
+        assertEquals(provider.getAdjustedQueueSize(), 3);
     }
 
     void assertWorkerMemoryInfo(ResourceManagerClusterStateProvider provider, int count)
