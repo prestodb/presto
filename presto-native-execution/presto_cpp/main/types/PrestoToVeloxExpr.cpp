@@ -143,6 +143,10 @@ velox::variant VeloxExprConverter::getConstantValue(
       return velox::variant(
           valueVector->as<velox::SimpleVector<velox::StringView>>()->valueAt(
               0));
+    case TypeKind::VARBINARY:
+      return velox::variant::binary(
+          valueVector->as<velox::SimpleVector<velox::StringView>>()->valueAt(
+              0));
     default:
       throw std::invalid_argument(
           "Unexpected Block type: " + mapTypeKindToName(typeKind));
@@ -411,7 +415,7 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
     default: {
       const auto value = getConstantValue(type, pexpr->valueBlock);
 
-      return std::make_shared<ConstantTypedExpr>(value);
+      return std::make_shared<ConstantTypedExpr>(type, value);
     }
   }
 }
