@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(
-  presto_operators PartitionAndSerialize.cpp ShuffleWrite.cpp
+  presto_operators PartitionAndSerialize.cpp ShuffleRead.cpp ShuffleWrite.cpp
                    UnsafeRowExchangeSource.cpp LocalPersistentShuffle.cpp)
 
 target_link_libraries(presto_operators presto_common velox_core velox_exec

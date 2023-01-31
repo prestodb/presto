@@ -316,13 +316,10 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
         auto fragment =
             velox::encoding::Base64::decode(*taskUpdateRequest.fragment);
         protocol::PlanFragment prestoPlan = json::parse(fragment);
-        VeloxQueryPlanConverter converter(pool_.get());
-        planFragment = converter.toBatchVeloxQueryPlan(
-            prestoPlan,
-            taskUpdateRequest.tableWriteInfo,
-            taskId,
-            shuffleName,
-            std::move(serializedShuffleWriteInfo));
+        VeloxBatchQueryPlanConverter converter(
+            shuffleName, std::move(serializedShuffleWriteInfo), pool_.get());
+        planFragment = converter.toVeloxQueryPlan(
+            prestoPlan, taskUpdateRequest.tableWriteInfo, taskId);
       });
 }
 
@@ -343,7 +340,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
           auto fragment =
               velox::encoding::Base64::decode(*taskUpdateRequest.fragment);
           protocol::PlanFragment prestoPlan = json::parse(fragment);
-          VeloxQueryPlanConverter converter(pool_.get());
+          auto converter = VeloxInteractiveQueryPlanConverter(pool_.get());
           planFragment = converter.toVeloxQueryPlan(
               prestoPlan, taskUpdateRequest.tableWriteInfo, taskId);
         }
