@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -25,10 +26,13 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Collections.emptyList;
@@ -186,11 +190,20 @@ public interface MetadataResolver
 
     default FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
-        throw new UnsupportedOperationException("resolveOperator is not supported!");
+        throw new UnsupportedOperationException("resolveOperator is not supported");
     }
 
     default FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
-        throw new UnsupportedOperationException("getFunctionMetadata is not supported!");
+        throw new UnsupportedOperationException("getFunctionMetadata is not supported");
+    }
+
+    default FunctionHandle resolveFunction(
+            Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
+            Optional<TransactionId> transactionId,
+            QualifiedObjectName functionName,
+            List<TypeSignatureProvider> parameterTypes)
+    {
+        throw new UnsupportedOperationException("resolveFunction is not supported");
     }
 }

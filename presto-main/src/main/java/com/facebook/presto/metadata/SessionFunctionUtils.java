@@ -25,6 +25,7 @@ import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+// TODO: Move this to presto-analyzer
 public final class SessionFunctionUtils
 {
     private SessionFunctionUtils() {}

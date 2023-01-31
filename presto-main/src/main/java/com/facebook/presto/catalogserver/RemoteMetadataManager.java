@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -32,6 +33,8 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sql.analyzer.MetadataResolver;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
@@ -272,6 +275,12 @@ public class RemoteMetadataManager
             public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
             {
                 return getFunctionAndTypeManager().getFunctionMetadata(functionHandle);
+            }
+
+            @Override
+            public FunctionHandle resolveFunction(Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions, Optional<TransactionId> transactionId, QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
+            {
+                return getFunctionAndTypeManager().resolveFunction(sessionFunctions, transactionId, functionName, parameterTypes);
             }
         };
     }

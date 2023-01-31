@@ -53,6 +53,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
+// TODO: Move this to presto-analyzer
 public final class ExpressionTreeUtils
 {
     private ExpressionTreeUtils() {}
