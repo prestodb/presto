@@ -1,0 +1,104 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Upload Benchmark Results
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'workflow run id to use the artifacts from'
+        required: true
+  workflow_run:
+    workflows: ["Ubuntu Benchmark"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: read
+  #TODO comment results to PR
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    steps:
+
+    - name: 'Download artifacts'
+      id: 'download'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const run_id = "${{ github.event.workflow_run.id || inputs.run_id }}";
+          let benchmark_run = await github.rest.actions.getWorkflowRun({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            run_id: run_id,
+          });
+
+          let run_data = benchmark_run.data;
+          let pr = run_data.pull_requests[0];
+          let pr_number = pr == undefined || run_data.event === 'push' ? '' : pr.number;
+            
+          core.setOutput('contender_sha', run_data.head_sha);
+          core.setOutput('pr_number', pr_number);
+
+
+          let artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            run_id: run_id,
+          });
+
+          var matchArtifact = artifacts.data.artifacts.filter((artifact) => {
+            return artifact.name == "benchmark-results"
+          })[0];
+
+          var download = await github.rest.actions.downloadArtifact({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            artifact_id: matchArtifact.id,
+            archive_format: 'zip',
+          });
+          
+          var fs = require('fs');
+          fs.writeFileSync('${{github.workspace}}/benchmark-results.zip', Buffer.from(download.data));
+    
+    - name: Extract artifact
+      run: unzip benchmark-results.zip -d benchmark-results
+
+    - uses: actions/checkout@v3
+      with:
+        path: velox
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+        cache: 'pip'
+        cache-dependency-path: "velox/scripts/*"
+    
+    - name: "Install dependencies"
+      run: python -m pip install -r velox/scripts/benchmark-requirements.txt
+    
+    - name: "Upload results"
+      env:
+        CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
+        CONBENCH_MACHINE_INFO_NAME: "GitHub-runner-8-core"
+        CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
+        CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASSWORD }}
+      run: |
+        ./velox/scripts/benchmark-runner.py upload \
+          --run_id "GHA-${{ github.run_id }}-${{ github.run_attempt }}" \
+          --pr_number "${{ steps.download.outputs.pr_number }}" \
+          --sha "${{ steps.download.outputs.contender_sha }}" \
+          --output_dir "${{ github.workspace }}/benchmark-results/contender/"

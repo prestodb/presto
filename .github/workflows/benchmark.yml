@@ -1,0 +1,130 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: "Ubuntu Benchmark"
+
+on:
+  pull_request:
+    paths:
+      - 'velox/**'
+      - 'third_party/**'
+      - 'pyvelox/**'
+      - '.github/workflows/benchmark.yml'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+#TODO  concurrency groups?
+jobs:
+  benchmark:
+    runs-on: 8-core
+    container: ghcr.io/facebookincubator/velox-dev:amd64-ubuntu-22.04-avx
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_BASEDIR: "${{ github.workspace }}"
+      BINARY_DIR: "${{ github.workspace }}/benchmarks/"
+      LINUX_DISTRO: "ubuntu"
+      RESULTS_ROOT: "${{ github.workspace }}/benchmark-results"
+      BASELINE_OUTPUT_PATH: "${{ github.workspace }}/benchmark-results/baseline/"
+      CONTENDER_OUTPUT_PATH: "${{ github.workspace }}/benchmark-results/contender/"
+    steps:
+      - name: "Setup ccache and python"
+        run: |
+            # Set up ccache configs .
+            mkdir -p .ccache
+            ccache -sz -M 5Gi
+            
+            # We can not use setup-python as we are running in a container
+            # TODO add to docker image and remove here
+            apt update
+            apt install -y lsb-release python3 pip
+
+      - name: "Restore ccache"
+        uses: actions/cache/restore@v3
+        id: restore-cache
+        with:
+          path: ".ccache"
+          key: ccache-benchmark-${{ github.sha }}
+          restore-keys: |
+            ccache-benchmark-
+
+      - name: "Checkout Contender"
+        uses: actions/checkout@v3
+        with:
+          path: 'velox'
+          submodules: 'recursive'
+
+      - name: Build Contender Benchmarks
+        working-directory: velox
+        run: |
+            n_cores=$(nproc)
+            make benchmarks-basic-build NUM_THREADS=$n_cores MAX_HIGH_MEM_JOBS=$n_cores MAX_LINK_JOBS=$n_cores
+            ccache -s
+            mkdir -p  ${BINARY_DIR}/contender/
+            cp -r --verbose _build/release/velox/benchmarks/basic/*  ${BINARY_DIR}/contender/
+
+      - name: "Checkout Baseline"
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/checkout@v3
+        with:
+          clean: true # make sure benchmarks are rebuilt
+          path: 'velox'
+          ref: ${{ github.event.pull_request.base.sha }}
+          submodules: 'recursive'
+
+      - name: Build Baseline Benchmarks
+        if: ${{ github.event_name == 'pull_request' }}
+        working-directory: velox
+        run: |
+            n_cores=$(nproc)
+            make benchmarks-basic-build NUM_THREADS=$n_cores MAX_HIGH_MEM_JOBS=$n_cores MAX_LINK_JOBS=$n_cores
+            ccache -s
+            mkdir -p ${BINARY_DIR}/baseline/
+            cp -r --verbose _build/release/velox/benchmarks/basic/* ${BINARY_DIR}/baseline/
+
+      - name: "Save ccache"
+        uses: actions/cache/save@v3
+        id: cache
+        with:
+          path: ".ccache"
+          key: ccache-benchmark-${{ github.sha }}
+
+      - name: "Install benchmark dependencies"
+        run: |
+          cd velox
+          python3 -m pip install -r scripts/benchmark-requirements.txt
+
+      - name: "Run Benchmarks - Contender"
+        working-directory: 'velox'
+        run: |
+            make benchmarks-basic-run \
+                EXTRA_BENCHMARK_FLAGS="--binary_path ${BINARY_DIR}/contender/ --output_path ${CONTENDER_OUTPUT_PATH}"
+
+      - name: "Run Benchmarks - Baseline"
+        if: ${{ github.event_name == 'pull_request' }}
+        working-directory: 'velox'
+        run: |
+            make benchmarks-basic-run \
+                EXTRA_BENCHMARK_FLAGS="--binary_path ${BINARY_DIR}/baseline/ --output_path ${BASELINE_OUTPUT_PATH}"
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: "benchmark-results"
+          name: "benchmark-results"
+

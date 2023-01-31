@@ -326,7 +326,7 @@ def run_all_benchmarks(
             raise e
 
 
-def upload_results(output_dir, run_id):
+def upload_results(output_dir, run_id, sha, pr_number):
     print(f"Uploading results from {output_dir=} to Conbench with {run_id=}")
 
     # Check there's actually results first
@@ -351,14 +351,9 @@ def upload_results(output_dir, run_id):
         )
         return
 
-    # This should work, though it would be much better to get the sha from velox
-    # directly so we know we're using the right one (see TODO below)
-    commit = os.environ["CIRCLE_SHA1"]
-
-    pr_number_env = os.getenv("CIRCLE_PR_NUMBER", "")
-    pr_number = int(pr_number_env) if pr_number_env else None
+    pr_number = int(pr_number) if pr_number else None
     run_reason = "pull request" if pr_number else "commit"
-    run_name = f"{run_reason}: {commit}"
+    run_name = f"{run_reason}: {sha}"
 
     conbench_upload_callable = FollyAdapter(
         # Since benchmarks have already run, this run command is a no-op
@@ -371,7 +366,7 @@ def upload_results(output_dir, run_id):
             "github": {
                 "repository": "https://github.com/facebookincubator/velox",
                 "pr_number": pr_number,
-                "commit": commit,
+                "commit": sha,
             },
         },
         result_fields_append={
@@ -387,6 +382,19 @@ def upload_results(output_dir, run_id):
     )
 
     conbench_upload_callable()
+
+
+def upload(args):
+    try:
+        upload_results(
+            output_dir=args.output_dir,
+            run_id=args.run_id,
+            sha=args.sha,
+            pr_number=args.pr_number,
+        )
+    except Exception:
+        print("ERROR caught during uploading results:")
+        print(traceback.format_exc())
 
 
 def run(args):
@@ -421,13 +429,6 @@ def run(args):
     else:
         run_all_benchmarks(**kwargs)
 
-    if args.conbench_upload_run_id:
-        try:
-            upload_results(output_dir=output_dir, run_id=args.conbench_upload_run_id)
-        except Exception:
-            print("ERROR caught during uploading results:")
-            print(traceback.format_exc())
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Velox Benchmark Runner Utility.")
@@ -437,6 +438,7 @@ def parse_args():
 
     # Arguments for the "run" subparser.
     parser_run = subparsers.add_parser("run", help="Run benchmarks and dump results.")
+    parser_run.set_defaults(func=run)
     parser_run.add_argument(
         "--binary_path",
         default=None,
@@ -486,15 +488,6 @@ def parse_args():
         "be run. This file needs to be generated using the "
         "--rerun_json_output flag.",
     )
-    parser_run.add_argument(
-        "--conbench_upload_run_id",
-        default=None,
-        help="A Conbench run ID unique to this build. If given, the run script will "
-        "upload results to Conbench upon completion. Requires the `benchadapt` package "
-        "installed and the following env vars set: CIRCLE_SHA1, CIRCLE_PR_NUMBER, "
-        "CONBENCH_URL, CONBENCH_EMAIL, CONBENCH_PASSWORD",
-    )
-    parser_run.set_defaults(func=run)
 
     # Arguments for the "compare" subparser.
     parser_compare = subparsers.add_parser(
@@ -540,6 +533,35 @@ def parse_args():
         action="store_true",
         help="Do not return failure code if comparisons fail.",
     )
+
+    parser_upload = subparsers.add_parser(
+        "upload",
+        help="Upload benchmark results to conbench. Requires the `benchadapt` package "
+        "installed and the following env vars set: "
+        "CONBENCH_URL, CONBENCH_EMAIL, CONBENCH_PASSWORD",
+    )
+    parser_upload.set_defaults(func=upload)
+    parser_upload.add_argument(
+        "--output_dir",
+        default=None,
+        help="Location of the benchmark results.",
+    )
+    parser_upload.add_argument(
+        "--run_id",
+        default=None,
+        help="A Conbench run ID unique to this build.",
+    )
+    parser_upload.add_argument(
+        "--sha",
+        default=None,
+        help="HEAD sha for the result upload to conbench.",
+    )
+    parser_upload.add_argument(
+        "--pr_number",
+        default=None,
+        help="PR number for the result upload to conbench.",
+    )
+
     return parser.parse_args()
 
 
