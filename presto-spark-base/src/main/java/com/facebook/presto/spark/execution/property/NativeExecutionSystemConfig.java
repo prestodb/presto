@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * This config class corresponds to config.properties for native execution process. Properties inside will be used in Configs::SystemConfig in Configs.h/cpp
  */
@@ -35,6 +37,7 @@ public class NativeExecutionSystemConfig
     private static final String SYSTEM_MEMORY_GB = "system-memory-gb";
     private static final String TASK_MAX_DRIVERS_PER_TASK = "task.max-drivers-per-task";
     private static final String DISCOVERY_URI = "discovery.uri";
+    private static final String SHUFFLE_NAME = "shuffle.name";
 
     private boolean enableSerializedPageChecksum = true;
     private boolean enableVeloxExpressionLogging;
@@ -48,6 +51,7 @@ public class NativeExecutionSystemConfig
     private int maxDriversPerTask = 15;
     private String prestoVersion = "dummy.presto.version";
     private String discoveryUri = "http://127.0.0.1";
+    private String shuffleName = "local";
 
     public Map<String, String> getAllProperties()
     {
@@ -64,7 +68,20 @@ public class NativeExecutionSystemConfig
                 .put(SYSTEM_MEMORY_GB, String.valueOf(getSystemMemoryGb()))
                 .put(TASK_MAX_DRIVERS_PER_TASK, String.valueOf(getMaxDriversPerTask()))
                 .put(DISCOVERY_URI, getDiscoveryUri())
+                .put(SHUFFLE_NAME, getShuffleName())
                 .build();
+    }
+
+    @Config(SHUFFLE_NAME)
+    public NativeExecutionSystemConfig setShuffleName(String shuffleName)
+    {
+        this.shuffleName = requireNonNull(shuffleName);
+        return this;
+    }
+
+    public String getShuffleName()
+    {
+        return shuffleName;
     }
 
     @Config(ENABLE_SERIALIZED_PAGE_CHECKSUM)
