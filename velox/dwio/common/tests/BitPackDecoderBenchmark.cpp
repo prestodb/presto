@@ -17,7 +17,11 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/dwio/common/BitPackDecoder.h"
+
+#ifdef __BMI2__
 #include "velox/dwio/common/tests/Lemire/bmipacking32.h"
+#endif
+
 #include "velox/external/duckdb/duckdb-fastpforlib.hpp"
 #include "velox/external/duckdb/parquet-amalgamation.hpp"
 #include "velox/vector/TypeAliases.h"
@@ -114,7 +118,11 @@ void lemirebmi2(uint8_t bitWidth, uint32_t* result) {
   const uint8_t* inputIter =
       reinterpret_cast<const uint8_t*>(bitPackedData[bitWidth].data());
 
+#ifdef __BMI2__
   bmiunpack32(inputIter, kNumValues, bitWidth, result);
+#else
+  VELOX_FAIL("bmiunpack32 is not supported on this platform.");
+#endif
 }
 
 template <typename T>

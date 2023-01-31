@@ -18,6 +18,9 @@
 // https://github.com/lemire/LittleIntPacker/blob/master/src/bmipacking32.c for
 // benchmarking use only.
 
+// Only supports x86 and x64 architecture due to inclusion of
+// <immintrin.h> and <x86intrin.h>.
+
 /**
  * This is conventional bit packing using portable C
  */
