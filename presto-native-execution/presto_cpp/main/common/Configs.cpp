@@ -44,6 +44,11 @@ int SystemConfig::httpServerHttpPort() const {
   return requiredProperty<int>(std::string(kHttpServerHttpPort));
 }
 
+bool SystemConfig::httpServerReusePort() const {
+  auto opt = optionalProperty<bool>(std::string(kHttpServerReusePort));
+  return opt.value_or(kHttpServerReusePortDefault);
+}
+
 std::string SystemConfig::prestoVersion() const {
   return requiredProperty(std::string(kPrestoVersion));
 }

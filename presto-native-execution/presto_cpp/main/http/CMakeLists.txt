@@ -13,6 +13,7 @@ add_library(presto_http HttpClient.cpp HttpServer.cpp)
 
 target_link_libraries(
   presto_http
+  presto_common
   velox_memory
   velox_exception
   ${PROXYGEN_LIBRARIES}
