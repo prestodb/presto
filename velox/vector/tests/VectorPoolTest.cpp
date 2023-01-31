@@ -15,6 +15,7 @@
  */
 #include "velox/vector/VectorPool.h"
 #include <gtest/gtest.h>
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::test {
@@ -98,7 +99,7 @@ TEST_F(VectorPoolTest, limit) {
   ASSERT_EQ(vectorPool.release(vectors), 10);
 }
 
-TEST_F(VectorPoolTest, ScopedVectorPtr) {
+TEST_F(VectorPoolTest, vectorRecycler) {
   VectorPool vectorPool(pool());
 
   // Empty scoped vector does nothing.
@@ -128,5 +129,21 @@ TEST_F(VectorPoolTest, ScopedVectorPtr) {
     vectorPtr = vectorPool.get(BIGINT(), 1'000);
     ASSERT_NE(rawPtr, vectorPtr.get());
   }
+}
+
+TEST_F(VectorPoolTest, customTypes) {
+  VectorPool vectorPool(pool());
+
+  auto vector = vectorPool.get(VARCHAR(), 1'000);
+  ASSERT_NE(vector, nullptr);
+  ASSERT_EQ(1'000, vector->size());
+  ASSERT_EQ(VARCHAR().get(), vector->type().get());
+
+  vectorPool.release(vector);
+
+  vector = vectorPool.get(JSON(), 1'000);
+  ASSERT_NE(vector, nullptr);
+  ASSERT_EQ(1'000, vector->size());
+  ASSERT_TRUE(isJsonType(vector->type()));
 }
 } // namespace facebook::velox::test

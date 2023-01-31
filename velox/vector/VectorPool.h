@@ -15,13 +15,18 @@
  */
 #pragma once
 
+#include <folly/container/F14Map.h>
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox {
 
 /// A thread-level cache of pre-allocated flat vectors of different types.
-/// Keeps up to 10 recyclable vectors of each of primitive types. A vector is
+/// Keeps up to 10 recyclable vectors of each type. A vector is
 /// recyclable if it is flat and recursively singly-referenced.
+/// Only singleton built-in types are supported. Decimal types, fixed-size array
+/// type, complex and custom types are not supported. Calling 'get' for an
+/// unsupported type already returns a newly allocated vector. Calling 'release'
+/// for an unsupported type is a no-op.
 class VectorPool {
  public:
   explicit VectorPool(memory::MemoryPool* pool) : pool_{pool} {}
@@ -38,8 +43,6 @@ class VectorPool {
   size_t release(std::vector<VectorPtr>& vectors);
 
  private:
-  static constexpr int32_t kNumCachedVectorTypes =
-      static_cast<int32_t>(TypeKind::ARRAY);
   /// Max number of elements for a vector to be recyclable. The larger
   /// the batch the less the win from recycling.
   static constexpr vector_size_t kMaxRecycleSize = 64 * 1024;
@@ -58,6 +61,9 @@ class VectorPool {
   };
 
   memory::MemoryPool* const pool_;
+
+  static constexpr int32_t kNumCachedVectorTypes =
+      static_cast<int32_t>(TypeKind::INTERVAL_DAY_TIME) + 1;
 
   /// Caches of pre-allocated vectors indexed by typeKind.
   std::array<TypePool, kNumCachedVectorTypes> vectors_;

@@ -17,13 +17,42 @@
 
 namespace facebook::velox {
 
-inline int32_t toCacheIndex(TypeKind kind) {
-  return static_cast<int32_t>(kind);
+namespace {
+
+/// Checks if specified type is supported and returns an index of the
+/// corresponding TypePool cache in VectorPool::vectors_ array. Return -1 if
+/// type is not supported, i.e. not a built-in singleton type.
+FOLLY_ALWAYS_INLINE int32_t toCacheIndex(const TypePtr& type) {
+  static constexpr int32_t kNumCachedVectorTypes =
+      static_cast<int32_t>(TypeKind::INTERVAL_DAY_TIME) + 1;
+
+  static std::array<const Type*, kNumCachedVectorTypes> kSupportedTypes = {
+      BOOLEAN().get(),
+      TINYINT().get(),
+      SMALLINT().get(),
+      INTEGER().get(),
+      BIGINT().get(),
+      REAL().get(),
+      DOUBLE().get(),
+      VARCHAR().get(),
+      VARBINARY().get(),
+      TIMESTAMP().get(),
+      DATE().get(),
+      INTERVAL_DAY_TIME().get(),
+  };
+
+  auto index = static_cast<int32_t>(type->kind());
+  if (index < kNumCachedVectorTypes && kSupportedTypes[index] == type.get()) {
+    return index;
+  }
+
+  return -1;
 }
+} // namespace
 
 VectorPtr VectorPool::get(const TypePtr& type, vector_size_t size) {
-  auto cacheIndex = toCacheIndex(type->kind());
-  if (cacheIndex < kNumCachedVectorTypes && size <= kMaxRecycleSize) {
+  auto cacheIndex = toCacheIndex(type);
+  if (cacheIndex >= 0 && size <= kMaxRecycleSize) {
     return vectors_[cacheIndex].pop(type, size, *pool_);
   }
   return BaseVector::create(type, size, pool_);
@@ -36,8 +65,9 @@ bool VectorPool::release(VectorPtr& vector) {
   if (!vector.unique() || vector->size() > kMaxRecycleSize) {
     return false;
   }
-  auto cacheIndex = toCacheIndex(vector->typeKind());
-  if (cacheIndex >= kNumCachedVectorTypes) {
+
+  auto cacheIndex = toCacheIndex(vector->type());
+  if (cacheIndex < 0) {
     return false;
   }
   return vectors_[cacheIndex].maybePushBack(vector);
