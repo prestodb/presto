@@ -35,6 +35,11 @@ class TimestampWithTimeZoneType : public RowType {
     return instance;
   }
 
+  bool equivalent(const Type& other) const override {
+    // Pointer comparison works since this type is a singleton.
+    return this == &other;
+  }
+
   std::string toString() const override {
     return "TIMESTAMP WITH TIME ZONE";
   }

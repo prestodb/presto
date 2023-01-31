@@ -136,7 +136,7 @@ class ConstantTypedExpr : public ITypedExpr {
       return false;
     }
 
-    if (!this->type()->kindEquals(casted->type())) {
+    if (!this->type()->equivalent(*casted->type())) {
       return false;
     }
 

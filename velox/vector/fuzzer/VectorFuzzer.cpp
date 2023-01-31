@@ -208,7 +208,10 @@ StringView randString(
 }
 
 template <TypeKind kind>
-variant randVariantImpl(
+VectorPtr fuzzConstantPrimitiveImpl(
+    memory::MemoryPool* pool,
+    const TypePtr& type,
+    vector_size_t size,
     FuzzerGenerator& rng,
     const VectorFuzzer::Options& opts) {
   using TCpp = typename TypeTraits<kind>::NativeType;
@@ -217,22 +220,25 @@ variant randVariantImpl(
     std::string buf;
     auto stringView = randString(rng, opts, buf, converter);
 
-    if constexpr (kind == TypeKind::VARCHAR) {
-      return variant(stringView);
-    } else if constexpr (kind == TypeKind::VARBINARY) {
-      return variant::binary(stringView);
-    } else {
-      VELOX_UNREACHABLE();
-    }
+    return std::make_shared<ConstantVector<TCpp>>(
+        pool, size, false, type, std::move(stringView));
   }
   if constexpr (std::is_same_v<TCpp, Timestamp>) {
-    return variant(randTimestamp(rng, opts.useMicrosecondPrecisionTimestamp));
+    return std::make_shared<ConstantVector<TCpp>>(
+        pool,
+        size,
+        false,
+        type,
+        randTimestamp(rng, opts.useMicrosecondPrecisionTimestamp));
   } else if constexpr (std::is_same_v<TCpp, Date>) {
-    return variant(randDate(rng));
+    return std::make_shared<ConstantVector<TCpp>>(
+        pool, size, false, type, randDate(rng));
   } else if constexpr (std::is_same_v<TCpp, IntervalDayTime>) {
-    return variant(randIntervalDayTime(rng));
+    return std::make_shared<ConstantVector<TCpp>>(
+        pool, size, false, type, randIntervalDayTime(rng));
   } else {
-    return variant(rand<TCpp>(rng));
+    return std::make_shared<ConstantVector<TCpp>>(
+        pool, size, false, type, rand<TCpp>(rng));
   }
 }
 
@@ -371,7 +377,14 @@ VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type, vector_size_t size) {
     if (type->isUnKnown()) {
       return BaseVector::createNullConstant(type, size, pool_);
     } else {
-      return BaseVector::createConstant(randVariant(type), size, pool_);
+      return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          fuzzConstantPrimitiveImpl,
+          type->kind(),
+          pool_,
+          type,
+          size,
+          rng_,
+          opts_);
     }
   }
 
@@ -682,12 +695,6 @@ BufferPtr VectorFuzzer::fuzzNulls(vector_size_t size) {
     }
   }
   return builder.build();
-}
-
-variant VectorFuzzer::randVariant(const TypePtr& arg) {
-  VELOX_CHECK(arg->isPrimitiveType());
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      randVariantImpl, arg->kind(), rng_, opts_);
 }
 
 TypePtr VectorFuzzer::randType(int maxDepth) {

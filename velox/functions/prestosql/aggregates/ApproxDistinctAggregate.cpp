@@ -23,6 +23,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -398,7 +399,7 @@ bool registerApproxDistinct(
   if (hllAsRawInput) {
     signatures.push_back(
         exec::AggregateFunctionSignatureBuilder()
-            .returnType(hllAsFinalResult ? "varbinary" : "bigint")
+            .returnType(hllAsFinalResult ? "hyperloglog" : "bigint")
             .intermediateType("varbinary")
             .argumentType("varbinary")
             .build());
@@ -416,14 +417,14 @@ bool registerApproxDistinct(
           "date"}) {
       signatures.push_back(
           exec::AggregateFunctionSignatureBuilder()
-              .returnType(hllAsFinalResult ? "varbinary" : "bigint")
+              .returnType(hllAsFinalResult ? "hyperloglog" : "bigint")
               .intermediateType("varbinary")
               .argumentType(inputType)
               .build());
 
       signatures.push_back(
           exec::AggregateFunctionSignatureBuilder()
-              .returnType(hllAsFinalResult ? "varbinary" : "bigint")
+              .returnType(hllAsFinalResult ? "hyperloglog" : "bigint")
               .intermediateType("varbinary")
               .argumentType(inputType)
               .argumentType("double")
@@ -452,6 +453,8 @@ bool registerApproxDistinct(
 } // namespace
 
 void registerApproxDistinctAggregates() {
+  registerType(
+      "hyperloglog", std::make_unique<const HyperLogLogTypeFactories>());
   registerApproxDistinct(kApproxDistinct, false, false);
   registerApproxDistinct(kApproxSet, true, false);
   registerApproxDistinct(kMerge, true, true);

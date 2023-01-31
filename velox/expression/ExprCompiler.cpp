@@ -444,7 +444,8 @@ ExprPtr compileExpression(
             folly::join(", ", inputTypes));
       } else {
         VELOX_FAIL(
-            "Scalar function {} not registered with arguments: ({}).  Found function registered with the following signatures:\n{}",
+            "Scalar function {} not registered with arguments: ({}). "
+            "Found function registered with the following signatures:\n{}",
             call->name(),
             folly::join(", ", inputTypes),
             folly::join("\n", signatures));

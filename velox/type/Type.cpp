@@ -228,7 +228,7 @@ bool ArrayType::equivalent(const Type& other) const {
   if (&other == this) {
     return true;
   }
-  if (!other.isArray()) {
+  if (!Type::hasSameTypeId(other)) {
     return false;
   }
   auto& otherArray = other.asArray();
@@ -259,13 +259,19 @@ std::string FixedSizeArrayType::toString() const {
 }
 
 bool FixedSizeArrayType::equivalent(const Type& other) const {
-  if (!ArrayType::equivalent(other)) {
+  if (&other == this) {
+    return true;
+  }
+
+  if (!Type::hasSameTypeId(other)) {
     return false;
   }
+
   auto otherFixedSizeArray = dynamic_cast<const FixedSizeArrayType*>(&other);
-  if (!otherFixedSizeArray) {
+  if (!child_->equivalent(*otherFixedSizeArray->child_)) {
     return false;
   }
+
   if (fixedElementsWidth() != otherFixedSizeArray->fixedElementsWidth()) {
     return false;
   }
@@ -375,7 +381,7 @@ bool RowType::equivalent(const Type& other) const {
   if (&other == this) {
     return true;
   }
-  if (other.kind() != TypeKind::ROW) {
+  if (!Type::hasSameTypeId(other)) {
     return false;
   }
   auto& otherTyped = other.asRow();
@@ -467,7 +473,7 @@ bool MapType::equivalent(const Type& other) const {
   if (&other == this) {
     return true;
   }
-  if (!other.isMap()) {
+  if (!Type::hasSameTypeId(other)) {
     return false;
   }
   auto& otherMap = other.asMap();
@@ -479,7 +485,7 @@ bool FunctionType::equivalent(const Type& other) const {
   if (&other == this) {
     return true;
   }
-  if (other.kind() != TypeKind::FUNCTION) {
+  if (!Type::hasSameTypeId(other)) {
     return false;
   }
   auto& otherTyped = *reinterpret_cast<const FunctionType*>(&other);
@@ -507,7 +513,7 @@ bool OpaqueType::equivalent(const Type& other) const {
   if (&other == this) {
     return true;
   }
-  if (other.kind() != TypeKind::OPAQUE) {
+  if (!Type::hasSameTypeId(other)) {
     return false;
   }
   return true;

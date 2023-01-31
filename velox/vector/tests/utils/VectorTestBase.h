@@ -609,7 +609,7 @@ class VectorTestBase {
         pool(),
         size,
         /*isNull=*/!value.has_value(),
-        CppToType<T>::create(),
+        type,
         value ? EvalType<T>(*value) : EvalType<T>(),
         SimpleVectorStats<EvalType<T>>{},
         sizeof(EvalType<T>));

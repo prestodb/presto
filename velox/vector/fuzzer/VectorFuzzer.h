@@ -281,8 +281,6 @@ class VectorFuzzer {
       BufferPtr& offsets,
       BufferPtr& sizes);
 
-  variant randVariant(const TypePtr& arg);
-
   VectorFuzzer::Options opts_;
 
   memory::MemoryPool* pool_;
