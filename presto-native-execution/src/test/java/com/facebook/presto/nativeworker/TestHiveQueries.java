@@ -226,6 +226,12 @@ abstract class TestHiveQueries
                 + "try_cast(linenumber AS INTEGER), try_cast(linenumber AS BIGINT), try_cast(quantity AS REAL), "
                 + "try_cast(orderkey AS DOUBLE), try_cast(orderkey AS VARCHAR) FROM lineitem");
 
+        // Casts to varbinary.
+        assertQuery("SELECT cast(null as varbinary)");
+        assertQuery("SELECT cast('' as varbinary)");
+        assertQuery("SELECT cast('string_longer_than_12_characters' as varbinary)");
+        assertQuery("SELECT cast(comment as varbinary) from orders");
+
         // Some values are too large and would trigger "Out of range for tinyint" for a regular cast.
         assertQuery("SELECT try_cast(orderkey as TINYINT) FROM lineitem");
 
