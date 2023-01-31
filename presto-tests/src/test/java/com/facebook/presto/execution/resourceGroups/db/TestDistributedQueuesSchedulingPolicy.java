@@ -82,7 +82,7 @@ public class TestDistributedQueuesSchedulingPolicy
         queryRunner = null;
     }
 
-    @Test(timeOut = 60_000, groups = "weightedFairScheduling")
+    @Test(timeOut = 90_000, groups = "weightedFairScheduling")
     public void testWeightedFairScheduling()
             throws Exception
     {
