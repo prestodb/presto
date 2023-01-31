@@ -75,11 +75,11 @@ TEST_F(SizeTest, sizetest) {
   testSize(mapVector, numRows);
 }
 
-// Ensure that out if set to -1 if `legacySizeOfNull`
+// Ensure that out if set to -1 if `spark.legacy-size-of-null`
 // is specified.
 TEST_F(SizeTest, legacySizeOfNull) {
   vector_size_t numRows = 100;
-  setConfig("legacySizeOfNull", false);
+  setConfig("spark.legacy-size-of-null", false);
   auto arrayVector =
       makeArrayVector<int64_t>(numRows, sizeAt, valueAt, nullEvery(1));
   testSizeLegacyNull(arrayVector, numRows);

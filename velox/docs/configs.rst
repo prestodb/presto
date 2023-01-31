@@ -190,3 +190,14 @@ the update mode field of the table writer operator output. ``OVERWRITE``
 sets the update mode to indicate overwriting a partition if exists.
 ``ERROR`` sets the update mode to indicate error throwing if writing
 to an existing partition.
+
+Spark-specific configuration
+----------------------------
+
+``spark.legacy-size-of-null``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``bool``
+    * **Default value:** ``true``
+
+If false, size function returns null for null input.
