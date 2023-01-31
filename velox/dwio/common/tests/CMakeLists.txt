@@ -24,6 +24,7 @@ add_executable(
   LocalFileSinkTest.cpp
   LoggedExceptionTest.cpp
   RangeTests.cpp
+  ReadFileInputStreamTests.cpp
   RetryTests.cpp
   TestBufferedInput.cpp
   TestColumnSelector.cpp
