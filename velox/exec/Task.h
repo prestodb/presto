@@ -528,7 +528,7 @@ class Task : public std::enable_shared_from_this<Task> {
 
   /// Returns task execution error message or empty string if not error
   /// occurred. This should only be called inside mutex_ protection.
-  std::string safeErrorMessage() const;
+  std::string errorMessageLocked() const;
 
   // Counts the number of created tasks which is incremented on each task
   // creation.

@@ -1525,7 +1525,7 @@ std::string Task::toString() const {
   out << "{Task " << shortId(taskId_) << " (" << taskId_ << ")";
 
   if (exception_) {
-    out << "Error: " << safeErrorMessage() << std::endl;
+    out << "Error: " << errorMessageLocked() << std::endl;
   }
 
   if (planFragment_.planNode) {
@@ -1677,13 +1677,13 @@ void Task::setError(const std::string& message) {
   }
 }
 
-std::string Task::safeErrorMessage() const {
+std::string Task::errorMessageLocked() const {
   return errorMessageImpl(exception_);
 }
 
 std::string Task::errorMessage() const {
   std::lock_guard<std::mutex> l(mutex_);
-  return safeErrorMessage();
+  return errorMessageLocked();
 }
 
 StopReason Task::enter(ThreadState& state) {
