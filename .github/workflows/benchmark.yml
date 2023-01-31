@@ -123,7 +123,17 @@ jobs:
             make benchmarks-basic-run \
                 EXTRA_BENCHMARK_FLAGS="--binary_path ${BINARY_DIR}/baseline/ --output_path ${BASELINE_OUTPUT_PATH}"
 
-      - uses: actions/upload-artifact@v3
+      - name: "Save PR number"
+        run: echo "${{ github.event.pull_request.number }}" > pr_number.txt
+
+      - name: "Upload PR number"
+        uses: actions/upload-artifact@v3
+        with:
+          path: "pr_number.txt"
+          name: "pr_number"
+      
+      - name: "Upload result artifact"
+        uses: actions/upload-artifact@v3
         with:
           path: "benchmark-results"
           name: "benchmark-results"
