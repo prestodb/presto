@@ -238,7 +238,7 @@ And here are the results:
     > [ROW ROW<sum_a:BIGINT,avg_a:DOUBLE,sum_b:BIGINT,avg_b:DOUBLE>: 1 elements, no nulls]
     0: {15, 2.5, 75, 12.5}
 
-You can use any of the available :doc:`Presto aggregate functions <functions/aggregate>`
+You can use any of the available :doc:`Presto aggregate functions <functions/presto/aggregate>`
 or add a new one by following :doc:`How to add an aggregate function? <develop/aggregate-functions>`
 guide. Check out :doc:`Aggregations <develop/aggregations>` article for a deep dive
 into aggregation-specific optimizations available in Velox.

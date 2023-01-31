@@ -9,7 +9,7 @@ application of each.
 Velox supports partial and final aggregations with zero, one or multiple
 grouping keys and zero, one or multiple aggregate functions.
 
-:doc:`Aggregate Functions <../functions/aggregate>` section of the documentation
+:doc:`Aggregate Functions <../functions/presto/aggregate>` section of the documentation
 lists all available aggregate functions and :doc:`How to add an aggregate
 function? <aggregate-functions>` guide explains how to add more.
 

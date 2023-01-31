@@ -7,8 +7,8 @@ Documentation
 
 * Add new articles: :doc:`Vectors <../develop/vectors>` and
   :doc:`Joins <../develop/joins>`.
-* Add Presto functions coverage maps: :doc:`all <../functions/coverage>`
-  and :doc:`most used <../functions/most_used_coverage>`.
+* Add Presto functions coverage maps: :doc:`all <../functions/presto/coverage>`
+  and :doc:`most used <../functions/presto/most_used_coverage>`.
 
 Core Library
 ------------

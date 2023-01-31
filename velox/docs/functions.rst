@@ -3,27 +3,27 @@ Presto Functions
 ***********************
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
 
-    functions/math
-    functions/bitwise
-    functions/comparison
-    functions/string
-    functions/datetime
-    functions/array
-    functions/map
-    functions/regexp
-    functions/binary
-    functions/json
-    functions/url
-    functions/aggregate
-    functions/window
-    functions/hyperloglog
+    functions/presto/math
+    functions/presto/bitwise
+    functions/presto/comparison
+    functions/presto/string
+    functions/presto/datetime
+    functions/presto/array
+    functions/presto/map
+    functions/presto/regexp
+    functions/presto/binary
+    functions/presto/json
+    functions/presto/url
+    functions/presto/aggregate
+    functions/presto/window
+    functions/presto/hyperloglog
 
 Here is a list of all scalar and aggregate Presto functions available in Velox.
 Function names link to function descriptions. Check out coverage maps
-for :doc:`all <functions/coverage>` and :doc:`most used
-<functions/most_used_coverage>` functions for broader context.
+for :doc:`all <functions/presto/coverage>` and :doc:`most used
+<functions/presto/most_used_coverage>` functions for broader context.
 
 .. raw:: html
 

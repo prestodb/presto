@@ -5,7 +5,7 @@ July 2022 Update
 Documentation
 =============
 
-* Add documentation for Presto related :doc:`/functions/json`.
+* Add documentation for Presto related :doc:`/functions/presto/json`.
 
 Core Library
 ============

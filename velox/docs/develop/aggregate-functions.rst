@@ -566,9 +566,9 @@ when they are resolved for a given expression.
 Documentation
 -------------
 
-Finally, document the new function by adding an entry to velox/docs/functions/aggregate.rst
+Finally, document the new function by adding an entry to velox/docs/functions/presto/aggregate.rst
 
-You can see the documentation for all functions at :doc:`../functions/aggregate` and read about how documentation is generated at https://github.com/facebookincubator/velox/tree/main/velox/docs#velox-documentation
+You can see the documentation for all functions at :doc:`../functions/presto/aggregate` and read about how documentation is generated at https://github.com/facebookincubator/velox/tree/main/velox/docs#velox-documentation
 
 Accumulator
 -----------

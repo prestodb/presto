@@ -9,7 +9,7 @@ This document describes the main concepts, features, and examples of the simple
 function API in Velox. For more real-world API usage examples, check
 **velox/example/SimpleFunctions.cpp**.
 
-A simple scalar function, e.g. a :doc:`mathematical function </functions/math>`,
+A simple scalar function, e.g. a :doc:`mathematical function </functions/presto/math>`,
 can be added by wrapping a C++ function in a templated class. For example, a
 ceil function can be implemented as:
 

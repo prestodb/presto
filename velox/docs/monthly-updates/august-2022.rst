@@ -6,7 +6,7 @@ Documentation
 =============
 
 * Add `website`_ for Velox.
-* Add documentation for :doc:`/functions/window`.
+* Add documentation for :doc:`/functions/presto/window`.
 * Add documentation for :func:`combinations` and :func:`array_sort` Presto functions.
 
 .. _website: https://velox-lib.io
