@@ -32,7 +32,6 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.PrestoException;
@@ -145,7 +144,6 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
@@ -817,7 +815,7 @@ public class ExpressionAnalyzer
 
             if (!JSON.equals(type)) {
                 try {
-                    functionAndTypeManager.lookupCast(CAST, VARCHAR, type);
+                    metadataResolver.lookupCast("CAST", VARCHAR, type);
                 }
                 catch (IllegalArgumentException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
@@ -1147,7 +1145,7 @@ public class ExpressionAnalyzer
             Type value = process(node.getExpression(), context);
             if (!value.equals(UNKNOWN) && !node.isTypeOnly()) {
                 try {
-                    metadataResolver.lookupCast(CAST, value, type);
+                    metadataResolver.lookupCast("CAST", value, type);
                 }
                 catch (OperatorNotFoundException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
@@ -1748,13 +1746,13 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalysis analyzeSqlFunctionExpression(
-            Metadata metadata,
+            MetadataResolver metadataResolver,
             SqlFunctionProperties sqlFunctionProperties,
             Expression expression,
             Map<String, Type> argumentTypes)
     {
         ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
+                metadataResolver,
                 Optional.empty(), // SQL function expression cannot contain session functions
                 Optional.empty(),
                 sqlFunctionProperties,
@@ -1809,7 +1807,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
     {
         return createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
+                metadata.getMetadataResolver(session),
                 session,
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
@@ -1821,7 +1819,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
     {
         return createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
+                metadata.getMetadataResolver(session),
                 session,
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
@@ -1831,7 +1829,7 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalyzer createWithoutSubqueries(
-            FunctionAndTypeManager functionAndTypeManager,
+            MetadataResolver metadataResolver,
             Session session,
             Map<NodeRef<Parameter>, Expression> parameters,
             SemanticErrorCode errorCode,
@@ -1840,7 +1838,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         return createWithoutSubqueries(
-                functionAndTypeManager,
+                metadataResolver,
                 session,
                 TypeProvider.empty(),
                 parameters,

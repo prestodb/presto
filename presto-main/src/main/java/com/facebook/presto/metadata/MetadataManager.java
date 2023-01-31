@@ -1442,6 +1442,12 @@ public class MetadataManager
             {
                 return functionAndTypeManager.resolveFunction(sessionFunctions, transactionId, functionName, parameterTypes);
             }
+
+            @Override
+            public FunctionHandle lookupCast(String castType, Type fromType, Type toType)
+            {
+                return functionAndTypeManager.lookupCast(CastType.valueOf(castType), fromType, toType);
+            }
         };
     }
 

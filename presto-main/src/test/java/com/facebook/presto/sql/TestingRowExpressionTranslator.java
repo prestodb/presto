@@ -98,7 +98,7 @@ public class TestingRowExpressionTranslator
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression, TypeProvider typeProvider)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
+                metadata.getMetadataResolver(TEST_SESSION),
                 TEST_SESSION,
                 typeProvider,
                 emptyMap(),

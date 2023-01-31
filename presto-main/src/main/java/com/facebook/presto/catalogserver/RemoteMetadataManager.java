@@ -22,6 +22,7 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.DelegatingMetadataManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -281,6 +282,12 @@ public class RemoteMetadataManager
             public FunctionHandle resolveFunction(Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions, Optional<TransactionId> transactionId, QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
             {
                 return getFunctionAndTypeManager().resolveFunction(sessionFunctions, transactionId, functionName, parameterTypes);
+            }
+
+            @Override
+            public FunctionHandle lookupCast(String castType, Type fromType, Type toType)
+            {
+                return getFunctionAndTypeManager().lookupCast(CastType.valueOf(castType), fromType, toType);
             }
         };
     }

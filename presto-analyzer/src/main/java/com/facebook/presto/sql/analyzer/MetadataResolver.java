@@ -206,4 +206,9 @@ public interface MetadataResolver
     {
         throw new UnsupportedOperationException("resolveFunction is not supported");
     }
+
+    default FunctionHandle lookupCast(String castType, Type fromType, Type toType)
+    {
+        throw new UnsupportedOperationException("lookupCast is not supported");
+    }
 }
