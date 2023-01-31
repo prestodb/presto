@@ -233,6 +233,14 @@ class S3FileSystem::Impl {
     if (origCount == 0) {
       Aws::SDKOptions awsOptions;
       awsOptions.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Fatal;
+      // In some situations, curl triggers a SIGPIPE signal causing the entire
+      // process to be terminated without any notification.
+      // This behavior is seen via Prestissimo on AmazonLinux2 on AWS EC2.
+      // Relevant documentation in AWS SDK C++
+      // https://github.com/aws/aws-sdk-cpp/blob/276ee83080fcc521d41d456dbbe61d49392ddf77/src/aws-cpp-sdk-core/include/aws/core/Aws.h#L96
+      // This option allows the AWS SDK C++ to catch the SIGPIPE signal and
+      // log a message.
+      awsOptions.httpOptions.installSigPipeHandler = true;
       Aws::InitAPI(awsOptions);
     }
   }
