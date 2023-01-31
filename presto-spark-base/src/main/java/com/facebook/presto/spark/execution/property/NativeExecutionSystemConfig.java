@@ -30,6 +30,7 @@ public class NativeExecutionSystemConfig
     private static final String ENABLE_VELOX_EXPRESSION_LOGGING = "enable_velox_expression_logging";
     private static final String ENABLE_VELOX_TASK_LOGGING = "enable_velox_task_logging";
     private static final String HTTP_SERVER_HTTP_PORT = "http-server.http.port";
+    private static final String HTTP_SERVER_REUSE_PORT = "http-server.reuse-port";
     private static final String HTTP_EXEC_THREADS = "http_exec_threads";
     private static final String NUM_IO_THREADS = "num-io-threads";
     private static final String PRESTO_VERSION = "presto.version";
@@ -42,6 +43,7 @@ public class NativeExecutionSystemConfig
     private boolean enableSerializedPageChecksum = true;
     private boolean enableVeloxExpressionLogging;
     private boolean enableVeloxTaskLogging = true;
+    private boolean httpServerReusePort = true;
     private int httpServerPort = 7777;
     private int httpExecThreads = 32;
     private int numIoThreads = 30;
@@ -61,6 +63,7 @@ public class NativeExecutionSystemConfig
                 .put(ENABLE_VELOX_EXPRESSION_LOGGING, String.valueOf(isEnableVeloxExpressionLogging()))
                 .put(ENABLE_VELOX_TASK_LOGGING, String.valueOf(isEnableVeloxTaskLogging()))
                 .put(HTTP_SERVER_HTTP_PORT, String.valueOf(getHttpServerPort()))
+                .put(HTTP_SERVER_REUSE_PORT, String.valueOf(isHttpServerReusePort()))
                 .put(HTTP_EXEC_THREADS, String.valueOf(getHttpExecThreads()))
                 .put(NUM_IO_THREADS, String.valueOf(getNumIoThreads()))
                 .put(PRESTO_VERSION, getPrestoVersion())
@@ -130,6 +133,18 @@ public class NativeExecutionSystemConfig
     public int getHttpServerPort()
     {
         return httpServerPort;
+    }
+
+    @Config(HTTP_SERVER_REUSE_PORT)
+    public NativeExecutionSystemConfig setHttpServerReusePort(boolean httpServerReusePort)
+    {
+        this.httpServerReusePort = httpServerReusePort;
+        return this;
+    }
+
+    public boolean isHttpServerReusePort()
+    {
+        return httpServerReusePort;
     }
 
     @Config(HTTP_EXEC_THREADS)
