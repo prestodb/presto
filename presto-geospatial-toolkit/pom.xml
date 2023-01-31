@@ -111,6 +111,7 @@
                     <ignoredResourcePatterns>
                         <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
                         <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                        <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
