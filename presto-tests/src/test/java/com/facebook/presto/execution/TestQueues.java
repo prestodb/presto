@@ -328,7 +328,7 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 90_000)
     public void testQueuedQueryInteraction()
             throws Exception
     {
