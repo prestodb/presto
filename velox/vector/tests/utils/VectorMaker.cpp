@@ -97,39 +97,21 @@ vector_size_t VectorMaker::createOffsetsAndSizes(
 ArrayVectorPtr VectorMaker::allNullArrayVector(
     vector_size_t size,
     const std::shared_ptr<const Type>& elementType) {
-  BufferPtr nulls = AlignedBuffer::allocate<bool>(size, pool_);
-  auto* rawNulls = nulls->asMutable<uint64_t>();
-  BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool_);
-  auto* rawOffsets = offsets->asMutable<vector_size_t>();
-  BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(size, pool_);
-  auto* rawSizes = sizes->asMutable<vector_size_t>();
-
-  for (vector_size_t i = 0; i < size; i++) {
-    bits::setNull(rawNulls, i, true);
-    rawOffsets[i] = 0;
-    rawSizes[i] = 0;
-  }
+  BufferPtr nulls = allocateNulls(size, pool_, bits::kNull);
+  BufferPtr offsets = allocateOffsets(size, pool_);
+  BufferPtr sizes = allocateSizes(size, pool_);
 
   return std::make_shared<ArrayVector>(
-      pool_, ARRAY(elementType), nulls, size, offsets, sizes, nullptr, size);
+      pool_, ARRAY(elementType), nulls, size, offsets, sizes, nullptr);
 }
 
 MapVectorPtr VectorMaker::allNullMapVector(
     vector_size_t size,
     const std::shared_ptr<const Type>& keyType,
     const std::shared_ptr<const Type>& valueType) {
-  BufferPtr nulls = AlignedBuffer::allocate<bool>(size, pool_);
-  auto* rawNulls = nulls->asMutable<uint64_t>();
-  BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool_);
-  auto* rawOffsets = offsets->asMutable<vector_size_t>();
-  BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(size, pool_);
-  auto* rawSizes = sizes->asMutable<vector_size_t>();
-
-  for (vector_size_t i = 0; i < size; i++) {
-    bits::setNull(rawNulls, i, true);
-    rawOffsets[i] = 0;
-    rawSizes[i] = 0;
-  }
+  BufferPtr nulls = allocateNulls(size, pool_, bits::kNull);
+  BufferPtr offsets = allocateOffsets(size, pool_);
+  BufferPtr sizes = allocateSizes(size, pool_);
 
   return std::make_shared<MapVector>(
       pool_,
@@ -139,8 +121,7 @@ MapVectorPtr VectorMaker::allNullMapVector(
       offsets,
       sizes,
       nullptr,
-      nullptr,
-      size);
+      nullptr);
 }
 
 namespace {

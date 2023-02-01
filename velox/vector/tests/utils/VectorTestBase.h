@@ -230,6 +230,12 @@ class VectorTestBase {
     return vectorMaker_.arrayVector<T>(data);
   }
 
+  ArrayVectorPtr makeAllNullArrayVector(
+      vector_size_t size,
+      const TypePtr& elementType) {
+    return vectorMaker_.allNullArrayVector(size, elementType);
+  }
+
   // Create an ArrayVector<ROW> from nested std::vectors of variants.
   // Example:
   //   auto arrayVector = makeArrayOfRowVector(
@@ -585,6 +591,13 @@ class VectorTestBase {
       const VectorPtr& valueVector,
       const std::vector<vector_size_t>& nulls = {}) {
     return vectorMaker_.mapVector(offsets, keyVector, valueVector, nulls);
+  }
+
+  MapVectorPtr makeAllNullMapVector(
+      vector_size_t size,
+      const TypePtr& keyType,
+      const TypePtr& valueType) {
+    return vectorMaker_.allNullMapVector(size, keyType, valueType);
   }
 
   VectorPtr makeConstant(const variant& value, vector_size_t size) {

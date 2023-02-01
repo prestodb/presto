@@ -408,7 +408,7 @@ TEST_F(JsonCastTest, fromArray) {
       jsonArrayOfDictElementsExpected);
 
   // Tests array vector with nulls at all rows.
-  auto allNullArray = vectorMaker_.allNullArrayVector(5, BIGINT());
+  auto allNullArray = makeAllNullArrayVector(5, BIGINT());
   auto allNullExpected = makeNullableFlatVector<JsonNativeType>(
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt},
       JSON());
@@ -505,7 +505,7 @@ TEST_F(JsonCastTest, fromMap) {
       jsonMapOfDictElementsExpected);
 
   // Tests map vector with nulls at all rows.
-  auto allNullMap = vectorMaker_.allNullMapVector(5, VARCHAR(), BIGINT());
+  auto allNullMap = makeAllNullMapVector(5, VARCHAR(), BIGINT());
   auto allNullExpected = makeNullableFlatVector<JsonNativeType>(
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt},
       JSON());
@@ -582,7 +582,7 @@ TEST_F(JsonCastTest, fromRow) {
       jsonRowOfDictElementsExpected);
 
   // Tests row vector with nulls at all rows.
-  auto allNullChild = vectorMaker_.allNullFlatVector<int64_t>(5);
+  auto allNullChild = makeAllNullFlatVector<int64_t>(5);
   auto nulls = AlignedBuffer::allocate<bool>(5, pool());
   auto rawNulls = nulls->asMutable<uint64_t>();
   bits::fillBits(rawNulls, 0, 5, false);
