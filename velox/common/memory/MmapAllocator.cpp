@@ -531,7 +531,7 @@ bool MmapAllocator::SizeClass::allocateLocked(
   auto numPagesToAllocate = numPages;
   if (considerMappedOnly > 0) {
     const auto previousPages = out.numPages();
-    allocateFromMappdFree(considerMappedOnly, out);
+    allocateFromMappedFree(considerMappedOnly, out);
     const auto numAllocated = (out.numPages() - previousPages) / unitSize_;
     VELOX_CHECK_EQ(
         numAllocated,
@@ -610,7 +610,7 @@ xsimd::batch<uint64_t> MmapAllocator::SizeClass::mappedFreeBits(int32_t index) {
       xsimd::load_unaligned(pageMapped_.data() + index);
 }
 
-void MmapAllocator::SizeClass::allocateFromMappdFree(
+void MmapAllocator::SizeClass::allocateFromMappedFree(
     int32_t numPages,
     Allocation& allocation) {
   constexpr int32_t kWidth = xsimd::batch<int64_t>::size;
