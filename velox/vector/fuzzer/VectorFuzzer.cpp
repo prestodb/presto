@@ -123,12 +123,10 @@ IntervalDayTime randIntervalDayTime(FuzzerGenerator& rng) {
   return IntervalDayTime(rand<int64_t>(rng));
 }
 
-size_t genContainerLength(
+size_t getElementsVectorLength(
     const VectorFuzzer::Options& opts,
-    FuzzerGenerator& rng) {
-  return opts.containerVariableLength
-      ? rand<uint32_t>(rng) % opts.containerLength
-      : opts.containerLength;
+    vector_size_t size) {
+  return std::min(size * opts.containerLength, opts.complexElementsMaxSize);
 }
 
 /// Unicode character ranges. Ensure the vector indexes match the UTF8CharList
@@ -426,7 +424,9 @@ VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
   // Arrays.
   else if (type->isArray()) {
     return fuzzArray(
-        fuzzFlat(type->asArray().elementType(), size * opts_.containerLength),
+        fuzzFlat(
+            type->asArray().elementType(),
+            getElementsVectorLength(opts_, size)),
         size);
   }
   // Maps.
@@ -435,10 +435,12 @@ VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
     // not specify the order they'll be called in, leading to inconsistent
     // results across platforms.
     auto keys = opts_.normalizeMapKeys
-        ? fuzzFlatNotNull(type->asMap().keyType(), size * opts_.containerLength)
-        : fuzzFlat(type->asMap().keyType(), size * opts_.containerLength);
-    auto values =
-        fuzzFlat(type->asMap().valueType(), size * opts_.containerLength);
+        ? fuzzFlatNotNull(
+              type->asMap().keyType(), getElementsVectorLength(opts_, size))
+        : fuzzFlat(
+              type->asMap().keyType(), getElementsVectorLength(opts_, size));
+    auto values = fuzzFlat(
+        type->asMap().valueType(), getElementsVectorLength(opts_, size));
     return fuzzMap(keys, values, size);
   }
   // Rows.
@@ -492,7 +494,9 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
 
     case TypeKind::ARRAY:
       return fuzzArray(
-          fuzz(type->asArray().elementType(), size * opts_.containerLength),
+          fuzz(
+              type->asArray().elementType(),
+              getElementsVectorLength(opts_, size)),
           size);
 
     case TypeKind::MAP: {
@@ -500,10 +504,11 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
       // does not specify the order they'll be called in, leading to
       // inconsistent results across platforms.
       auto keys = opts_.normalizeMapKeys
-          ? fuzzNotNull(type->asMap().keyType(), size * opts_.containerLength)
-          : fuzz(type->asMap().keyType(), size * opts_.containerLength);
+          ? fuzzNotNull(
+                type->asMap().keyType(), getElementsVectorLength(opts_, size))
+          : fuzz(type->asMap().keyType(), getElementsVectorLength(opts_, size));
       auto values =
-          fuzz(type->asMap().valueType(), size * opts_.containerLength);
+          fuzz(type->asMap().valueType(), getElementsVectorLength(opts_, size));
       return fuzzMap(keys, values, size);
     }
 

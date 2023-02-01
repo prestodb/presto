@@ -121,6 +121,10 @@ class VectorFuzzer {
     /// `containerLength` is treated as maximum length.
     bool containerVariableLength{false};
 
+    /// Restricts the maximum inner (elements) vector size created when
+    /// generating nested vectors (arrays, maps, and rows).
+    size_t complexElementsMaxSize{10000};
+
     /// If true, generated map keys are normalized (unique and not-null).
     bool normalizeMapKeys{true};
 
