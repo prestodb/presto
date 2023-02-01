@@ -142,6 +142,7 @@ inline bool isZeroCopyEligible(const ::duckdb::LogicalType& duckType) {
 
   if (duckType.id() == LogicalTypeId::HUGEINT ||
       duckType.id() == LogicalTypeId::TIMESTAMP ||
+      duckType.id() == LogicalTypeId::BLOB ||
       duckType.id() == LogicalTypeId::VARCHAR) {
     return false;
   }
@@ -318,6 +319,8 @@ VectorPtr toVeloxVector(
     }
     case LogicalTypeId::VARCHAR:
       return convert<DuckStringConversion>(duckVector, veloxType, size, pool);
+    case LogicalTypeId::BLOB:
+      return convert<DuckBlobConversion>(duckVector, veloxType, size, pool);
     case LogicalTypeId::DATE:
       return convert<DuckDateConversion>(duckVector, veloxType, size, pool);
     case LogicalTypeId::TIMESTAMP:

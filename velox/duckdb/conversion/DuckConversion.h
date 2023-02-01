@@ -91,6 +91,21 @@ struct DuckStringConversion {
   }
 };
 
+struct DuckBlobConversion {
+  typedef ::duckdb::string_t DUCK_TYPE;
+  typedef StringView VELOX_TYPE;
+
+  static ::duckdb::string_t toDuck(
+      const StringView& input,
+      ::duckdb::Vector& result) {
+    return ::duckdb::StringVector::AddStringOrBlob(
+        result, input.data(), input.size());
+  }
+  static StringView toVelox(const ::duckdb::string_t& input) {
+    return StringView(input.GetDataUnsafe(), input.GetSize());
+  }
+};
+
 struct DuckInt16DecimalConversion {
   typedef int16_t DUCK_TYPE;
   typedef UnscaledShortDecimal VELOX_TYPE;

@@ -142,6 +142,9 @@ TEST_F(BaseDuckWrapperTest, scalarTypes) {
   verifyUnaryResult<StringView>(
       "SELECT 'this is a long, non-inlined, example string'",
       {StringView("this is a long, non-inlined, example string")});
+
+  // blob
+  verifyUnaryResult<StringView>("SELECT '\\xFF'::BLOB", {StringView("\xFF")});
 }
 
 TEST_F(BaseDuckWrapperTest, types) {
