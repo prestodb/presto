@@ -67,6 +67,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -139,6 +140,7 @@ import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.Files.createTempDir;
@@ -6042,22 +6044,20 @@ public class TestHiveIntegrationSmokeTest
         }
     }
 
+    protected List<HiveStorageFormat> getSupportedHiveStorageFormats()
+    {
+        // CSV supports only unbounded VARCHAR type, and Alpha does not support DML yet
+        return Arrays.stream(HiveStorageFormat.values())
+                .filter(format -> format != HiveStorageFormat.CSV && format != HiveStorageFormat.ALPHA)
+                .collect(toImmutableList());
+    }
+
     private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
     {
         Session session = getSession();
-        ImmutableList.Builder<TestingHiveStorageFormat> formats = ImmutableList.builder();
-        for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
-            if (hiveStorageFormat == HiveStorageFormat.CSV) {
-                // CSV supports only unbounded VARCHAR type
-                continue;
-            }
-            if (hiveStorageFormat == HiveStorageFormat.ALPHA) {
-                // Alpha does not support DML yet
-                continue;
-            }
-            formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
-        }
-        return formats.build();
+        return getSupportedHiveStorageFormats().stream()
+                .map(format -> new TestingHiveStorageFormat(session, format))
+                .collect(toImmutableList());
     }
 
     private static class TestingHiveStorageFormat
