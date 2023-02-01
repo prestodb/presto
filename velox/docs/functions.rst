@@ -3,7 +3,7 @@ Presto Functions
 ***********************
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
 
     functions/presto/math
     functions/presto/bitwise
