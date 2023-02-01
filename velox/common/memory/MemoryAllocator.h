@@ -311,6 +311,40 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// multiple of 'alignmentBytes'.
   static void alignmentCheck(uint64_t allocateBytes, uint16_t alignmentBytes);
 
+  /// Causes 'failure' to occur in memory allocation calls. This is a test-only
+  /// function for validating error paths which are rare to trigger in unit
+  /// test. If 'persistent' is false, then we only inject failure once in the
+  /// next call. Otherwise, we keep injecting failures until next
+  /// 'testingClearFailureInjection' call.
+  enum class InjectedFailure {
+    kNone,
+    /// Mimic case of not finding anything to advise away.
+    ///
+    /// NOTE: this only applies for MmapAllocator.
+    kMadvise,
+    /// Mimic running out of mmaps for process.
+    ///
+    /// NOTE: this only applies for MmapAllocator.
+    kMmap,
+    /// Mimic the actual memory allocation failure.
+    kAllocate,
+    /// Mimic the case that exceeds the memory allocator's internal cap limit.
+    ///
+    /// NOTE: this only applies for MmapAllocator.
+    kCap
+  };
+  void testingSetFailureInjection(
+      InjectedFailure failure,
+      bool persistent = false) {
+    injectedFailure_ = failure;
+    isPersistentFailureInjection_ = persistent;
+  }
+
+  void testingClearFailureInjection() {
+    injectedFailure_ = InjectedFailure::kNone;
+    isPersistentFailureInjection_ = false;
+  }
+
  protected:
   MemoryAllocator() = default;
 
@@ -340,10 +374,26 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
       MachinePageCount numPages,
       MachinePageCount minSizeClass) const;
 
+  FOLLY_ALWAYS_INLINE bool testingHasInjectedFailure(InjectedFailure failure) {
+    if (FOLLY_LIKELY(injectedFailure_ != failure)) {
+      return false;
+    }
+    if (!isPersistentFailureInjection_) {
+      injectedFailure_ = InjectedFailure::kNone;
+    }
+    return true;
+  }
+
   // The machine page counts corresponding to different sizes in order
   // of increasing size.
   const std::vector<MachinePageCount>
       sizeClassSizes_{1, 2, 4, 8, 16, 32, 64, 128, 256};
+
+  // Indicates if the failure injection is persistent or transient.
+  //
+  // NOTE: this is only used for testing purpose.
+  InjectedFailure injectedFailure_{InjectedFailure::kNone};
+  bool isPersistentFailureInjection_{false};
 
  private:
   static std::mutex initMutex_;

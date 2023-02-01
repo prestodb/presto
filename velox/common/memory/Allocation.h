@@ -28,8 +28,13 @@ class MemoryPool;
 using MachinePageCount = uint64_t;
 
 struct AllocationTraits {
-  /// Define a machine page size in bytes.
+  /// Defines a machine page size in bytes.
   static constexpr uint64_t kPageSize = 4096;
+
+  /// Returns the bytes of the given number pages.
+  FOLLY_ALWAYS_INLINE static uint64_t pageBytes(MachinePageCount numPages) {
+    return numPages * kPageSize;
+  }
 };
 
 /// Represents a set of PageRuns that are allocated together.

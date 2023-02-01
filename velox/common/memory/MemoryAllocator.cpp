@@ -22,9 +22,6 @@
 
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/memory/Memory.h"
-#include "velox/common/testutil/TestValue.h"
-
-using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
 
@@ -124,7 +121,7 @@ class MallocAllocator : public MemoryAllocator {
       ReservationCallback reservationCB = nullptr) override {
     VELOX_CHECK_GT(numPages, 0);
     bool result;
-    stats_.recordAllocate(numPages * AllocationTraits::kPageSize, 1, [&]() {
+    stats_.recordAllocate(AllocationTraits::pageBytes(numPages), 1, [&]() {
       result = allocateContiguousImpl(
           numPages, collateral, allocation, reservationCB);
     });
@@ -203,7 +200,7 @@ bool MallocAllocator::allocateNonContiguous(
     for (int32_t i = 0; i < mix.numSizes; ++i) {
       MachinePageCount numPages =
           mix.sizeCounts[i] * sizeClassSizes_[mix.sizeIndices[i]];
-      bytesToAllocate += numPages * AllocationTraits::kPageSize;
+      bytesToAllocate += AllocationTraits::pageBytes(numPages);
     }
     bytesToAllocate -= freedBytes;
     try {
@@ -223,26 +220,18 @@ bool MallocAllocator::allocateNonContiguous(
   std::vector<void*> pages;
   pages.reserve(mix.numSizes);
   for (int32_t i = 0; i < mix.numSizes; ++i) {
-    if (TestValue::enabled()) {
-      // NOTE: if 'injectAllocFailure' is set to true by test callback, then
-      // we break out the loop to trigger a memory allocation failure scenario
-      // which doesn't have all the request memory allocated.
-      bool injectAllocFailure = false;
-      TestValue::adjust(
-          "facebook::velox::memory::MallocAllocator::allocateNonContiguous",
-          &injectAllocFailure);
-      if (injectAllocFailure) {
-        break;
-      }
+    // Trigger allocation failure by breaking out the loop.
+    if (testingHasInjectedFailure(InjectedFailure::kAllocate)) {
+      break;
     }
     MachinePageCount numPages =
         mix.sizeCounts[i] * sizeClassSizes_[mix.sizeIndices[i]];
     void* ptr;
     stats_.recordAllocate(
-        sizeClassSizes_[mix.sizeIndices[i]] * AllocationTraits::kPageSize,
+        AllocationTraits::pageBytes(sizeClassSizes_[mix.sizeIndices[i]]),
         mix.sizeCounts[i],
         [&]() {
-          ptr = ::malloc(numPages * AllocationTraits::kPageSize); // NOLINT
+          ptr = ::malloc(AllocationTraits::pageBytes(numPages)); // NOLINT
         });
     if (ptr == nullptr) {
       // Failed to allocate memory from memory.
@@ -303,12 +292,12 @@ bool MallocAllocator::allocateContiguousImpl(
       numPages - numCollateralPages - numContiguousCollateralPages;
   if (reservationCB != nullptr) {
     try {
-      reservationCB(numNeededPages * AllocationTraits::kPageSize, true);
+      reservationCB(AllocationTraits::pageBytes(numNeededPages), true);
     } catch (std::exception& e) {
       // If the new memory reservation fails, we need to release the memory
       // reservation of the freed contiguous and non-contiguous memory.
       LOG(WARNING) << "Failed to reserve "
-                   << numNeededPages * AllocationTraits::kPageSize
+                   << AllocationTraits::pageBytes(numNeededPages)
                    << " bytes for contiguous allocation of " << numPages
                    << " pages, then release "
                    << (numCollateralPages + numContiguousCollateralPages) *
@@ -324,23 +313,15 @@ bool MallocAllocator::allocateContiguousImpl(
   numAllocated_.fetch_add(numPages);
   numMapped_.fetch_add(numNeededPages + numContiguousCollateralPages);
 
-  if (TestValue::enabled()) {
-    bool injectMmapError = false;
-    TestValue::adjust(
-        "facebook::velox::memory::MallocAllocator::allocateContiguousImpl",
-        &injectMmapError);
-    if (injectMmapError) {
-      return false;
-    }
-  }
   void* data = ::mmap(
       nullptr,
-      numPages * AllocationTraits::kPageSize,
+      AllocationTraits::pageBytes(numPages),
       PROT_READ | PROT_WRITE,
       MAP_PRIVATE | MAP_ANONYMOUS,
       -1,
       0);
-  allocation.set(data, numPages * AllocationTraits::kPageSize);
+  // TODO: add handling of MAP_FAILED.
+  allocation.set(data, AllocationTraits::pageBytes(numPages));
   return true;
 }
 
@@ -360,15 +341,15 @@ int64_t MallocAllocator::freeNonContiguous(Allocation& allocation) {
     }
     stats_.recordFree(
         std::min<int64_t>(
-            sizeClassSizes_.back() * AllocationTraits::kPageSize,
-            run.numPages() * AllocationTraits::kPageSize),
+            AllocationTraits::pageBytes(sizeClassSizes_.back()),
+            AllocationTraits::pageBytes(run.numPages())),
         [&]() {
           ::free(ptr); // NOLINT
         });
   }
   numAllocated_.fetch_sub(numFreed);
   allocation.clear();
-  return numFreed * AllocationTraits::kPageSize;
+  return AllocationTraits::pageBytes(numFreed);
 }
 
 void MallocAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {

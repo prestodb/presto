@@ -78,7 +78,7 @@ class MmapAllocator : public MemoryAllocator {
 
   bool allocateContiguous(
       MachinePageCount numPages,
-      Allocation* FOLLY_NULLABLE collateral,
+      Allocation* collateral,
       ContiguousAllocation& allocation,
       ReservationCallback reservationCB = nullptr) override {
     VELOX_CHECK_GT(numPages, 0);
@@ -95,8 +95,7 @@ class MmapAllocator : public MemoryAllocator {
         allocation.size(), [&]() { freeContiguousImpl(allocation); });
   }
 
-  void* FOLLY_NULLABLE
-  allocateBytes(uint64_t bytes, uint16_t alignment) override;
+  void* allocateBytes(uint64_t bytes, uint16_t alignment) override;
 
   void freeBytes(void* p, uint64_t bytes) noexcept override;
 
@@ -118,21 +117,6 @@ class MmapAllocator : public MemoryAllocator {
 
   MachinePageCount numMapped() const override {
     return numMapped_;
-  }
-
-  /// Causes 'failure' to occur in memory allocation calls. This is a test-only
-  /// function for validating otherwise unreachable error paths. If 'persistent'
-  /// is false, then we only inject failure once in the next call. Otherwise, we
-  /// keep injecting failures until next 'testingClearFailureInjection' call.
-  enum class Failure { kNone, kMadvise, kMmap, kAllocate, kCap };
-  void testingSetFailureInjection(Failure failure, bool persistent = false) {
-    injectedFailure_ = failure;
-    isPersistentFailureInjection_ = persistent;
-  }
-
-  void testingClearFailureInjection() {
-    injectedFailure_ = MmapAllocator::Failure::kNone;
-    isPersistentFailureInjection_ = false;
   }
 
   MachinePageCount numExternalMapped() const {
@@ -193,7 +177,7 @@ class MmapAllocator : public MemoryAllocator {
 
     // True if 'ptr' is in the address range of 'this'. Checks that ptr is at a
     // size class page boundary.
-    bool isInRange(uint8_t* FOLLY_NONNULL ptr) const;
+    bool isInRange(uint8_t* ptr) const;
 
     std::string toString() const;
 
@@ -213,7 +197,7 @@ class MmapAllocator : public MemoryAllocator {
     // allocation.
     bool allocateLocked(
         ClassPageCount numPages,
-        MachinePageCount* FOLLY_NULLABLE numUnmapped,
+        MachinePageCount* numUnmapped,
         Allocation& out);
 
     // Returns the bit offset of the first bit of a 512 bit group in
@@ -253,20 +237,24 @@ class MmapAllocator : public MemoryAllocator {
         MachinePageCount& numUnmapped,
         Allocation& allocation);
 
-    // Serializes access to all data members and private methods.
-    std::mutex mutex_;
-
     // Number of size class pages. Number of valid bits in
     const uint64_t capacity_;
 
     // Size of one size class page in machine pages.
     const MachinePageCount unitSize_;
 
-    // Start of address range.
-    uint8_t* FOLLY_NONNULL address_;
-
     // Size in bytes of the address range.
     const size_t byteSize_;
+
+    // Number of meaningful words in 'pageAllocated_'/'pageMapped'. The arrays
+    // themselves are padded with extra zeros for SIMD access.
+    const int32_t pageBitmapSize_;
+
+    // Serializes access to all data members and private methods.
+    std::mutex mutex_;
+
+    // Start of address range.
+    uint8_t* address_;
 
     // Index of last modified word in 'pageAllocated_'. Sweeps over
     // the bitmaps when looking for free pages.
@@ -282,10 +270,6 @@ class MmapAllocator : public MemoryAllocator {
     // pageAllocated_/pageMapped_ has at least one mapped free bit. Contains 1
     // bit for each 8 words of pageAllocated_/pageMapped_.
     std::vector<uint64_t> mappedFreeLookup_;
-
-    // Number of meaningful words in 'pageAllocated_'/'pageMapped'. The arrays
-    // themselves are padded with extra zeros for SIMD access.
-    const int32_t pageBitmapSize_;
 
     // Has a 1 bit if the corresponding size class page is allocated.
     std::vector<uint64_t> pageAllocated_;
@@ -306,7 +290,7 @@ class MmapAllocator : public MemoryAllocator {
 
   bool allocateContiguousImpl(
       MachinePageCount numPages,
-      Allocation* FOLLY_NULLABLE collateral,
+      Allocation* collateral,
       ContiguousAllocation& allocation,
       ReservationCallback reservationCB);
 
@@ -372,12 +356,6 @@ class MmapAllocator : public MemoryAllocator {
   std::unique_ptr<ManagedMmapArenas> managedArenas_;
 
   Stats stats_;
-
-  // Indicates if the failure injection is persistent or transient only once.
-  //
-  // NOTE: this is only used for testing purpose.
-  Failure injectedFailure_{Failure::kNone};
-  bool isPersistentFailureInjection_{false};
 };
 
 } // namespace facebook::velox::memory

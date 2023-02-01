@@ -22,10 +22,8 @@
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MmapAllocator.h"
-#include "velox/common/testutil/TestValue.h"
 
 using namespace ::testing;
-using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::cache;
 
 constexpr int64_t KB = 1024L;
@@ -60,10 +58,6 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
   }
 
  protected:
-  static void SetUpTestCase() {
-    TestValue::enable();
-  }
-
   MemoryPoolTest()
       : useMmap_(GetParam().useMmap), useCache_(GetParam().useCache) {}
 
@@ -73,21 +67,22 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
     const uint64_t kCapacity = 8UL << 30;
     if (useMmap_) {
       MmapAllocator::Options opts{8UL << 30};
-      mmapAllocator_ = std::make_shared<MmapAllocator>(opts);
+      allocator_ = std::make_shared<MmapAllocator>(opts);
       if (useCache_) {
-        cache_ = std::make_shared<AsyncDataCache>(
-            mmapAllocator_, kCapacity, nullptr);
+        cache_ =
+            std::make_shared<AsyncDataCache>(allocator_, kCapacity, nullptr);
         MemoryAllocator::setDefaultInstance(cache_.get());
       } else {
-        MemoryAllocator::setDefaultInstance(mmapAllocator_.get());
+        MemoryAllocator::setDefaultInstance(allocator_.get());
       }
     } else {
+      allocator_ = MemoryAllocator::createDefaultInstance();
       if (useCache_) {
-        cache_ = std::make_shared<AsyncDataCache>(
-            MemoryAllocator::createDefaultInstance(), kCapacity, nullptr);
+        cache_ =
+            std::make_shared<AsyncDataCache>(allocator_, kCapacity, nullptr);
         MemoryAllocator::setDefaultInstance(cache_.get());
       } else {
-        MemoryAllocator::setDefaultInstance(nullptr);
+        MemoryAllocator::setDefaultInstance(allocator_.get());
       }
     }
     const auto seed =
@@ -97,10 +92,13 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
   }
 
   void TearDown() override {
-    if (mmapAllocator_ != nullptr) {
-      mmapAllocator_->testingClearFailureInjection();
-    }
+    allocator_->testingClearFailureInjection();
     MmapAllocator::setDefaultInstance(nullptr);
+  }
+
+  void reset() {
+    TearDown();
+    SetUp();
   }
 
   std::shared_ptr<IMemoryManager> getMemoryManager(int64_t quota) {
@@ -116,7 +114,7 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
   const bool useMmap_;
   const bool useCache_;
   folly::Random::DefaultGenerator rng_;
-  std::shared_ptr<MmapAllocator> mmapAllocator_;
+  std::shared_ptr<MemoryAllocator> allocator_;
   std::shared_ptr<AsyncDataCache> cache_;
 };
 
@@ -480,6 +478,8 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
   auto& root = manager.getRoot();
 
   auto pool = root.addChild("static_quota");
+  pool->setMemoryUsageTracker(
+      MemoryUsageTracker::create(manager.getMemoryQuota()));
 
   // Capping memory manager.
   {
@@ -487,10 +487,12 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
     try {
       pool->allocate(128L * MB);
     } catch (const velox::VeloxRuntimeError& ex) {
-      EXPECT_EQ(error_source::kErrorSourceRuntime.c_str(), ex.errorSource());
-      EXPECT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
-      EXPECT_TRUE(ex.isRetriable());
-      EXPECT_EQ("Exceeded memory manager cap of 127 MB", ex.message());
+      ASSERT_EQ(error_source::kErrorSourceRuntime.c_str(), ex.errorSource());
+      ASSERT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
+      ASSERT_TRUE(ex.isRetriable());
+      ASSERT_EQ(
+          "Exceeded memory cap of 127.00MB when requesting 128.00MB",
+          ex.message());
     }
   }
 }
@@ -769,35 +771,6 @@ TEST_P(MemoryPoolTest, contiguousAllocateExceedLimit) {
   ASSERT_TRUE(allocation.empty());
 }
 
-DEBUG_ONLY_TEST_P(MemoryPoolTest, contiguousAllocateError) {
-  auto manager = getMemoryManager(8 * GB);
-  auto pool = manager->getChild();
-  if (useMmap_) {
-    mmapAllocator_->testingSetFailureInjection(
-        MmapAllocator::Failure::kMmap, true);
-  }
-  std::atomic<bool> injectFailure = true;
-  SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::MallocAllocator::allocateContiguousImpl",
-      std::function<void(bool*)>([&](bool* testFlag) {
-        if (injectFailure) {
-          *testFlag = true;
-        }
-      }));
-  constexpr MachinePageCount kAllocSize = 8;
-  std::unique_ptr<ContiguousAllocation> allocation(new ContiguousAllocation());
-  ASSERT_THROW(
-      pool->allocateContiguous(kAllocSize, *allocation), VeloxRuntimeError);
-  ASSERT_TRUE(allocation->empty());
-  injectFailure = false;
-  if (useMmap_) {
-    mmapAllocator_->testingClearFailureInjection();
-  }
-  pool->allocateContiguous(kAllocSize, *allocation);
-  pool->freeContiguous(*allocation);
-  ASSERT_TRUE(allocation->empty());
-}
-
 TEST_P(MemoryPoolTest, badContiguousAllocation) {
   auto manager = getMemoryManager(8 * GB);
   auto pool = manager->getChild();
@@ -858,6 +831,7 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
       ASSERT_GE(allocation.numPages(), testData.numAllocPages);
     }
   }
+
   // Random tests.
   const int32_t numIterations = 100;
   const MachinePageCount kMaxAllocationPages = 32 << 10; // Total 128MB
@@ -888,6 +862,530 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
       ASSERT_GE(numAllocatedPages, 0);
       allocations.pop_back();
     }
+  }
+}
+
+TEST_P(MemoryPoolTest, nonContiguousAllocateWithOldAllocation) {
+  auto manager = getMemoryManager(8 * GB);
+  auto pool = manager->getChild();
+  pool->setMemoryUsageTracker(MemoryUsageTracker::create());
+  struct {
+    MachinePageCount numOldPages;
+    MachinePageCount numNewPages;
+    std::string debugString() const {
+      return fmt::format(
+          "numOldPages:{}, numNewPages:{}", numOldPages, numNewPages);
+    }
+  } testSettings[] = {
+      {0, 100},
+      {0, Allocation::PageRun::kMaxPagesInRun / 2},
+      {0, Allocation::PageRun::kMaxPagesInRun},
+      {100, 100},
+      {Allocation::PageRun::kMaxPagesInRun / 2,
+       Allocation::PageRun::kMaxPagesInRun / 2},
+      {Allocation::PageRun::kMaxPagesInRun,
+       Allocation::PageRun::kMaxPagesInRun},
+      {200, 100},
+      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+       Allocation::PageRun::kMaxPagesInRun / 2},
+      {Allocation::PageRun::kMaxPagesInRun,
+       Allocation::PageRun::kMaxPagesInRun - 1},
+      {Allocation::PageRun::kMaxPagesInRun,
+       Allocation::PageRun::kMaxPagesInRun / 2}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    Allocation allocation;
+    if (testData.numOldPages > 0) {
+      pool->allocateNonContiguous(testData.numOldPages, allocation);
+    }
+    ASSERT_GE(allocation.numPages(), testData.numOldPages);
+    pool->allocateNonContiguous(testData.numNewPages, allocation);
+    ASSERT_GE(allocation.numPages(), testData.numNewPages);
+  }
+}
+
+TEST_P(MemoryPoolTest, persistentNonContiguousAllocateFailure) {
+  struct {
+    MachinePageCount numOldPages;
+    MachinePageCount numNewPages;
+    MemoryAllocator::InjectedFailure injectedFailure;
+    std::string debugString() const {
+      return fmt::format(
+          "numOldPages:{}, numNewPages:{}, injectedFailure:{}",
+          numOldPages,
+          numNewPages,
+          injectedFailure);
+    }
+  } testSettings[] = {// Cap failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {100, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {200, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun - 1,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      // Allocate failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kAllocate},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {100, 100, MemoryAllocator::InjectedFailure::kAllocate},
+                      {Allocation::PageRun::kMaxPagesInRun / 2,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      {200, 100, MemoryAllocator::InjectedFailure::kAllocate},
+                      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun - 1,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      // Madvise failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kMadvise},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {200, 100, MemoryAllocator::InjectedFailure::kMadvise}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(fmt::format(
+        "{}, useMmap:{}, useCache:{}",
+        testData.debugString(),
+        useMmap_,
+        useCache_));
+    if ((testData.injectedFailure !=
+         MemoryAllocator::InjectedFailure::kAllocate) &&
+        !useMmap_) {
+      // Non-Allocate failure injection only applies for MmapAllocator.
+      continue;
+    }
+    reset();
+    auto manager = getMemoryManager(8 * GB);
+    auto pool = manager->getChild();
+    pool->setMemoryUsageTracker(MemoryUsageTracker::create());
+    Allocation allocation;
+    if (testData.numOldPages > 0) {
+      pool->allocateNonContiguous(testData.numOldPages, allocation);
+    }
+    ASSERT_GE(allocation.numPages(), testData.numOldPages);
+    allocator_->testingSetFailureInjection(testData.injectedFailure, true);
+    ASSERT_THROW(
+        pool->allocateNonContiguous(testData.numNewPages, allocation),
+        VeloxRuntimeError);
+    allocator_->testingClearFailureInjection();
+  }
+}
+
+TEST_P(MemoryPoolTest, transientNonContiguousAllocateFailure) {
+  struct {
+    MachinePageCount numOldPages;
+    MachinePageCount numNewPages;
+    MemoryAllocator::InjectedFailure injectedFailure;
+    std::string debugString() const {
+      return fmt::format(
+          "numOldPages:{}, numNewPages:{}, injectedFailure:{}",
+          numOldPages,
+          numNewPages,
+          injectedFailure);
+    }
+  } testSettings[] = {// Cap failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {100, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {200, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun - 1,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      // Allocate failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kAllocate},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {100, 100, MemoryAllocator::InjectedFailure::kAllocate},
+                      {Allocation::PageRun::kMaxPagesInRun / 2,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      {200, 100, MemoryAllocator::InjectedFailure::kAllocate},
+                      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun - 1,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kAllocate},
+                      // Madvise failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kMadvise},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {200, 100, MemoryAllocator::InjectedFailure::kMadvise}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(fmt::format(
+        "{}, useMmap:{}, useCache:{}",
+        testData.debugString(),
+        useMmap_,
+        useCache_));
+    if ((testData.injectedFailure !=
+         MemoryAllocator::InjectedFailure::kAllocate) &&
+        !useMmap_) {
+      // Non-Allocate failure injection only applies for MmapAllocator.
+      continue;
+    }
+    reset();
+    auto manager = getMemoryManager(8 * GB);
+    auto pool = manager->getChild();
+    pool->setMemoryUsageTracker(MemoryUsageTracker::create());
+    Allocation allocation;
+    if (testData.numOldPages > 0) {
+      pool->allocateNonContiguous(testData.numOldPages, allocation);
+    }
+    ASSERT_GE(allocation.numPages(), testData.numOldPages);
+    allocator_->testingSetFailureInjection(testData.injectedFailure);
+    if (useCache_) {
+      pool->allocateNonContiguous(testData.numNewPages, allocation);
+      ASSERT_EQ(allocation.numPages(), testData.numNewPages);
+    } else {
+      ASSERT_THROW(
+          pool->allocateNonContiguous(testData.numNewPages, allocation),
+          VeloxRuntimeError);
+    }
+    allocator_->testingClearFailureInjection();
+  }
+}
+
+TEST_P(MemoryPoolTest, contiguousAllocateWithOldAllocation) {
+  auto manager = getMemoryManager(8 * GB);
+  auto pool = manager->getChild();
+  pool->setMemoryUsageTracker(MemoryUsageTracker::create());
+  struct {
+    MachinePageCount numOldPages;
+    MachinePageCount numNewPages;
+    std::string debugString() const {
+      return fmt::format(
+          "numOldPages:{}, numNewPages:{}", numOldPages, numNewPages);
+    }
+  } testSettings[] = {
+      {0, 100},
+      {0, Allocation::PageRun::kMaxPagesInRun / 2},
+      {0, Allocation::PageRun::kMaxPagesInRun},
+      {100, 100},
+      {Allocation::PageRun::kMaxPagesInRun / 2,
+       Allocation::PageRun::kMaxPagesInRun / 2},
+      {Allocation::PageRun::kMaxPagesInRun,
+       Allocation::PageRun::kMaxPagesInRun},
+      {Allocation::PageRun::kMaxPagesInRun,
+       Allocation::PageRun::kMaxPagesInRun * 2},
+      {200, 100},
+      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+       Allocation::PageRun::kMaxPagesInRun / 2},
+      {Allocation::PageRun::kMaxPagesInRun,
+       Allocation::PageRun::kMaxPagesInRun - 1},
+      {Allocation::PageRun::kMaxPagesInRun * 2,
+       Allocation::PageRun::kMaxPagesInRun}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    ContiguousAllocation allocation;
+    if (testData.numOldPages > 0) {
+      pool->allocateContiguous(testData.numOldPages, allocation);
+    }
+    ASSERT_EQ(allocation.numPages(), testData.numOldPages);
+    pool->allocateContiguous(testData.numNewPages, allocation);
+    ASSERT_EQ(allocation.numPages(), testData.numNewPages);
+  }
+}
+
+TEST_P(MemoryPoolTest, persistentContiguousAllocateFailure) {
+  struct {
+    MachinePageCount numOldPages;
+    MachinePageCount numNewPages;
+    MemoryAllocator::InjectedFailure injectedFailure;
+    std::string debugString() const {
+      return fmt::format(
+          "numOldPages:{}, numNewPages:{}, injectedFailure:{}",
+          numOldPages,
+          numNewPages,
+          injectedFailure);
+    }
+  } testSettings[] = {// Cap failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {100, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {200, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun - 1,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      // Mmap failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kMmap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {100, 100, MemoryAllocator::InjectedFailure::kMmap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      {200, 100, MemoryAllocator::InjectedFailure::kMmap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun - 1,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      // Madvise failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kMadvise},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {100, 100, MemoryAllocator::InjectedFailure::kMadvise},
+                      {Allocation::PageRun::kMaxPagesInRun / 2,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {200, 100, MemoryAllocator::InjectedFailure::kMadvise},
+                      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun - 1,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMadvise}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    if (!useMmap_) {
+      // No failure injections supported for contiguous allocation of
+      // MallocAllocator.
+      continue;
+    }
+    auto manager = getMemoryManager(8 * GB);
+    auto pool = manager->getChild();
+    pool->setMemoryUsageTracker(MemoryUsageTracker::create());
+    ContiguousAllocation allocation;
+    if (testData.numOldPages > 0) {
+      pool->allocateContiguous(testData.numOldPages, allocation);
+    }
+    allocator_->testingSetFailureInjection(testData.injectedFailure, true);
+    ASSERT_EQ(allocation.numPages(), testData.numOldPages);
+    if ((testData.numOldPages >= testData.numNewPages) &&
+        testData.injectedFailure != MemoryAllocator::InjectedFailure::kMmap) {
+      pool->allocateContiguous(testData.numNewPages, allocation);
+      ASSERT_EQ(allocation.numPages(), testData.numNewPages);
+    } else {
+      ASSERT_THROW(
+          pool->allocateContiguous(testData.numNewPages, allocation),
+          VeloxRuntimeError);
+    }
+    allocator_->testingClearFailureInjection();
+  }
+}
+
+TEST_P(MemoryPoolTest, transientContiguousAllocateFailure) {
+  struct {
+    MachinePageCount numOldPages;
+    MachinePageCount numNewPages;
+    MemoryAllocator::InjectedFailure injectedFailure;
+    std::string debugString() const {
+      return fmt::format(
+          "numOldPages:{}, numNewPages:{}, injectedFailure:{}",
+          numOldPages,
+          numNewPages,
+          injectedFailure);
+    }
+  } testSettings[] = {// Cap failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {100, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {200, 100, MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun - 1,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      // Mmap failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kMmap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kCap},
+                      {100, 100, MemoryAllocator::InjectedFailure::kMmap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      {200, 100, MemoryAllocator::InjectedFailure::kMmap},
+                      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun - 1,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMmap},
+                      // Madvise failure injection.
+                      {0, 100, MemoryAllocator::InjectedFailure::kMadvise},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {0,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {100, 100, MemoryAllocator::InjectedFailure::kMadvise},
+                      {Allocation::PageRun::kMaxPagesInRun / 2,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {200, 100, MemoryAllocator::InjectedFailure::kMadvise},
+                      {Allocation::PageRun::kMaxPagesInRun / 2 + 100,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun - 1,
+                       MemoryAllocator::InjectedFailure::kMadvise},
+                      {Allocation::PageRun::kMaxPagesInRun,
+                       Allocation::PageRun::kMaxPagesInRun / 2,
+                       MemoryAllocator::InjectedFailure::kMadvise}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(fmt::format(
+        "{}, useCache:{} , useMmap:{}",
+        testData.debugString(),
+        useCache_,
+        useMmap_));
+    if (!useMmap_) {
+      // No failure injections supported for contiguous allocation of
+      // MallocAllocator.
+      continue;
+    }
+    auto manager = getMemoryManager(8 * GB);
+    auto pool = manager->getChild();
+    pool->setMemoryUsageTracker(MemoryUsageTracker::create());
+    ContiguousAllocation allocation;
+    if (testData.numOldPages > 0) {
+      pool->allocateContiguous(testData.numOldPages, allocation);
+    }
+    allocator_->testingSetFailureInjection(testData.injectedFailure);
+    ASSERT_EQ(allocation.numPages(), testData.numOldPages);
+    // NOTE: AsyncDataCache will retry on the transient memory allocation
+    // failures from the underlying allocator.
+    if (useCache_ ||
+        ((testData.numOldPages >= testData.numNewPages) &&
+         testData.injectedFailure != MemoryAllocator::InjectedFailure::kMmap)) {
+      pool->allocateContiguous(testData.numNewPages, allocation);
+      ASSERT_EQ(allocation.numPages(), testData.numNewPages);
+    } else {
+      ASSERT_THROW(
+          pool->allocateContiguous(testData.numNewPages, allocation),
+          VeloxRuntimeError);
+    }
+    allocator_->testingClearFailureInjection();
   }
 }
 
@@ -927,68 +1425,19 @@ TEST_P(MemoryPoolTest, nonContiguousAllocateExceedLimit) {
   ASSERT_TRUE(allocation.empty());
 }
 
-DEBUG_ONLY_TEST_P(MemoryPoolTest, nonContiguousAllocateError) {
+TEST_P(MemoryPoolTest, nonContiguousAllocateError) {
   auto manager = getMemoryManager(8 * GB);
   auto pool = manager->getChild();
-  if (useMmap_) {
-    mmapAllocator_->testingSetFailureInjection(
-        MmapAllocator::Failure::kAllocate, true);
-  }
-  std::atomic<bool> injectFailure{true};
-  SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::MallocAllocator::allocateNonContiguous",
-      std::function<void(bool*)>([&](bool* testFlag) {
-        if (!injectFailure) {
-          return;
-        }
-        *testFlag = true;
-      }));
-
+  allocator_->testingSetFailureInjection(
+      MemoryAllocator::InjectedFailure::kAllocate, true);
   constexpr MachinePageCount kAllocSize = 8;
   std::unique_ptr<Allocation> allocation(new Allocation());
   ASSERT_THROW(
       pool->allocateNonContiguous(kAllocSize, *allocation), VeloxRuntimeError);
   ASSERT_TRUE(allocation->empty());
-  injectFailure = false;
-  if (useMmap_) {
-    mmapAllocator_->testingClearFailureInjection();
-  }
+  allocator_->testingClearFailureInjection();
   pool->allocateNonContiguous(kAllocSize, *allocation);
   pool->freeNonContiguous(*allocation);
-  ASSERT_TRUE(allocation->empty());
-}
-
-DEBUG_ONLY_TEST_P(MemoryPoolTest, transientNonContiguousAllocateError) {
-  auto manager = getMemoryManager(8 * GB);
-  auto pool = manager->getChild();
-  if (useMmap_) {
-    mmapAllocator_->testingSetFailureInjection(
-        MmapAllocator::Failure::kAllocate);
-  }
-  std::atomic<bool> testingSetFailureInjectionOnce{true};
-  SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::MallocAllocator::allocateNonContiguous",
-      std::function<void(bool*)>([&](bool* testFlag) {
-        if (!testingSetFailureInjectionOnce.exchange(false)) {
-          return;
-        }
-        *testFlag = true;
-      }));
-
-  constexpr MachinePageCount kAllocSize = 8;
-  std::unique_ptr<Allocation> allocation(new Allocation());
-  if (useCache_) {
-    // We expect async data cache will retry the transient memory allocation
-    // failures.
-    pool->allocateNonContiguous(kAllocSize, *allocation);
-    pool->freeNonContiguous(*allocation);
-  } else {
-    ASSERT_THROW(
-        pool->allocateNonContiguous(kAllocSize, *allocation),
-        VeloxRuntimeError);
-    pool->allocateNonContiguous(kAllocSize, *allocation);
-    pool->freeNonContiguous(*allocation);
-  }
   ASSERT_TRUE(allocation->empty());
 }
 
@@ -1020,8 +1469,9 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationError) {
     auto manager = getMemoryManager(8 * GB);
     auto pool = manager->getChild();
     pool->setMemoryUsageTracker(MemoryUsageTracker::create());
-    mmapAllocator_->testingSetFailureInjection(
-        MmapAllocator::Failure::kCap, testData.persistentErrorInjection);
+    allocator_->testingSetFailureInjection(
+        MemoryAllocator::InjectedFailure::kCap,
+        testData.persistentErrorInjection);
     // Async data cache will retry transient memory allocation failure.
     if (!testData.expectedFailure ||
         (useCache_ && !testData.persistentErrorInjection)) {
@@ -1030,7 +1480,7 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationError) {
     } else {
       ASSERT_THROW(pool->allocate(testData.allocateBytes), VeloxRuntimeError);
     }
-    mmapAllocator_->testingClearFailureInjection();
+    allocator_->testingClearFailureInjection();
   }
 }
 
@@ -1065,8 +1515,9 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationZeroFilledError) {
     auto manager = getMemoryManager(8 * GB);
     auto pool = manager->getChild();
     pool->setMemoryUsageTracker(MemoryUsageTracker::create());
-    mmapAllocator_->testingSetFailureInjection(
-        MmapAllocator::Failure::kCap, testData.persistentErrorInjection);
+    allocator_->testingSetFailureInjection(
+        MemoryAllocator::InjectedFailure::kCap,
+        testData.persistentErrorInjection);
     // Async data cache will retry transient memory allocation failure.
     if (!testData.expectedFailure ||
         (useCache_ && !testData.persistentErrorInjection)) {
@@ -1078,7 +1529,7 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationZeroFilledError) {
           pool->allocateZeroFilled(testData.numEntries, testData.sizeEach),
           VeloxRuntimeError);
     }
-    mmapAllocator_->testingClearFailureInjection();
+    allocator_->testingClearFailureInjection();
   }
 }
 
@@ -1110,8 +1561,9 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapReallocateError) {
     auto manager = getMemoryManager(8 * GB);
     auto pool = manager->getChild();
     pool->setMemoryUsageTracker(MemoryUsageTracker::create());
-    mmapAllocator_->testingSetFailureInjection(
-        MmapAllocator::Failure::kCap, testData.persistentErrorInjection);
+    allocator_->testingSetFailureInjection(
+        MemoryAllocator::InjectedFailure::kCap,
+        testData.persistentErrorInjection);
     // Async data cache will retry transient memory allocation failure.
     if (!testData.expectedFailure ||
         (useCache_ && !testData.persistentErrorInjection)) {
@@ -1122,7 +1574,7 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapReallocateError) {
           pool->reallocate(nullptr, 0, testData.allocateBytes),
           VeloxRuntimeError);
     }
-    mmapAllocator_->testingClearFailureInjection();
+    allocator_->testingClearFailureInjection();
   }
 }
 
@@ -1249,8 +1701,7 @@ TEST_P(MemoryPoolTest, concurrentUpdateToDifferentPools) {
   constexpr int64_t kMaxMemory = 10 * GB;
   MemoryManager manager{{.capacity = kMaxMemory}};
   auto& root = manager.getRoot();
-  auto tracker = memory::MemoryUsageTracker::create(kMaxMemory);
-  root.setMemoryUsageTracker(tracker);
+  root.setMemoryUsageTracker(memory::MemoryUsageTracker::create(kMaxMemory));
   const int32_t kNumThreads = 5;
   // Create one memory tracker per each thread.
   std::vector<std::shared_ptr<MemoryPool>> childPools;
@@ -1285,8 +1736,7 @@ TEST_P(MemoryPoolTest, concurrentUpdatesToTheSamePool) {
     constexpr int64_t kMaxMemory = 8 * GB;
     MemoryManager manager{{.capacity = kMaxMemory}};
     auto& root = manager.getRoot();
-    auto tracker = memory::MemoryUsageTracker::create(kMaxMemory);
-    root.setMemoryUsageTracker(tracker);
+    root.setMemoryUsageTracker(memory::MemoryUsageTracker::create(kMaxMemory));
 
     const int32_t kNumThreads = 5;
     const int32_t kNumChildPools = 2;
