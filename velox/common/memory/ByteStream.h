@@ -26,7 +26,7 @@ struct ByteRange {
   // Start of buffer. Not owned.
   uint8_t* buffer;
 
-  // Number of bytes or bits  starting at 'buffer'.
+  // Number of bytes or bits starting at 'buffer'.
   int32_t size;
 
   // Index of next byte/bit to be read/written in 'buffer'.
@@ -112,6 +112,7 @@ class ByteStream {
   void resetInput(std::vector<ByteRange>&& ranges) {
     ranges_ = std::move(ranges);
     current_ = &ranges_[0];
+    lastRangeEnd_ = ranges_.back().size;
   }
 
   void setRange(ByteRange range) {
