@@ -281,7 +281,6 @@ void Expr::evalSimplifiedImpl(
   inputValues_.resize(inputs_.size());
   const bool defaultNulls = vectorFunction_->isDefaultNullBehavior();
 
-  LocalDecodedVector decodedVector(context);
   for (int32_t i = 0; i < inputs_.size(); ++i) {
     auto& inputValue = inputValues_[i];
     inputs_[i]->evalSimplified(remainingRows, context, inputValue);
@@ -296,8 +295,7 @@ void Expr::evalSimplifiedImpl(
     // If the resulting vector has nulls, merge them into our current remaining
     // rows bitmap.
     if (defaultNulls && inputValue->mayHaveNulls()) {
-      decodedVector.get()->decode(*inputValue, rows);
-      if (auto* rawNulls = decodedVector->nulls()) {
+      if (auto* rawNulls = inputValue->rawNulls()) {
         remainingRows.deselectNulls(
             rawNulls, remainingRows.begin(), remainingRows.end());
       }
