@@ -286,7 +286,8 @@ ExpressionFuzzer::ExpressionFuzzer(
           {FLAGS_disable_constant_folding,
            FLAGS_repro_persist_path,
            FLAGS_persist_and_run_once}),
-      vectorFuzzer_(getFuzzerOptions(), execCtx_.pool()) {
+      vectorFuzzer_(getFuzzerOptions(), execCtx_.pool()),
+      expressionBank_(rng_, remainingLevelOfNesting_) {
   seed(initialSeed);
 
   size_t totalFunctions = 0;
@@ -608,63 +609,58 @@ std::vector<core::TypedExprPtr> ExpressionFuzzer::generateSwitchArgs(
 
 // Either generates a new expression of the required return type or if already
 // generated expressions of the same return type exist then there is a 30%
-// chance that it will re-use one of them. Only expressions with no nested
-// expressions are re-used.
+// chance that it will re-use one of them.
 core::TypedExprPtr ExpressionFuzzer::generateExpression(
     const TypePtr& returnType) {
   VELOX_CHECK_GT(remainingLevelOfNesting_, 0);
   --remainingLevelOfNesting_;
   auto guard = folly::makeGuard([&] { ++remainingLevelOfNesting_; });
 
-  auto& listOfCandidateExprs = typeToExpressions_[returnType->toString()];
-  bool reuseExpression = FLAGS_velox_fuzzer_enable_expression_reuse &&
-      !listOfCandidateExprs.empty() && vectorFuzzer_.coinToss(0.3);
-  if (!reuseExpression) {
-    auto baseType = typeToBaseName(returnType);
-    VELOX_CHECK_NE(
-        baseType, "T", "returnType should have all concrete types defined");
-    // Randomly pick among all functions that support this return type. Also,
-    // consider all functions that have return type "T" as they can
-    // support any concrete return type.
-    auto& baseList = typeToExpressionList_[baseType];
-    auto& templateList = typeToExpressionList_[kTypeParameterName];
-    uint32_t numEligible = baseList.size() + templateList.size();
-    core::TypedExprPtr expression;
-
-    if (numEligible > 0) {
-      size_t chosenExprIndex =
-          boost::random::uniform_int_distribution<uint32_t>(
-              0, numEligible - 1)(rng_);
-      std::string chosenFunctionName;
-      if (chosenExprIndex < baseList.size()) {
-        chosenFunctionName = baseList[chosenExprIndex];
-      } else {
-        chosenExprIndex -= baseList.size();
-        chosenFunctionName = templateList[chosenExprIndex];
-      }
-
-      expression = generateExpressionFromConcreteSignatures(
-          returnType, chosenFunctionName);
-      if (!expression && FLAGS_velox_fuzzer_enable_complex_types) {
-        expression = generateExpressionFromSignatureTemplate(
-            returnType, chosenFunctionName);
-      }
+  core::TypedExprPtr expression;
+  bool reuseExpression =
+      FLAGS_velox_fuzzer_enable_expression_reuse && vectorFuzzer_.coinToss(0.3);
+  if (reuseExpression) {
+    expression = expressionBank_.getRandomExpression(
+        returnType, remainingLevelOfNesting_ + 1);
+    if (expression) {
+      return expression;
     }
-    if (!expression) {
-      LOG(INFO) << "Couldn't find any function to return '"
-                << returnType->toString() << "'. Returning a constant instead.";
-      return generateArgConstant(returnType);
-    }
-
-    if (remainingLevelOfNesting_ == 0) {
-      // Only add expressions that do not have nested expressions.
-      listOfCandidateExprs.emplace_back(expression);
-    }
-    return expression;
   }
-  size_t chosenExprIndex = boost::random::uniform_int_distribution<uint32_t>(
-      0, listOfCandidateExprs.size() - 1)(rng_);
-  return listOfCandidateExprs[chosenExprIndex];
+  auto baseType = typeToBaseName(returnType);
+  VELOX_CHECK_NE(
+      baseType, "T", "returnType should have all concrete types defined");
+  // Randomly pick among all functions that support this return type. Also,
+  // consider all functions that have return type "T" as they can
+  // support any concrete return type.
+  auto& baseList = typeToExpressionList_[baseType];
+  auto& templateList = typeToExpressionList_[kTypeParameterName];
+  uint32_t numEligible = baseList.size() + templateList.size();
+
+  if (numEligible > 0) {
+    size_t chosenExprIndex = boost::random::uniform_int_distribution<uint32_t>(
+        0, numEligible - 1)(rng_);
+    std::string chosenFunctionName;
+    if (chosenExprIndex < baseList.size()) {
+      chosenFunctionName = baseList[chosenExprIndex];
+    } else {
+      chosenExprIndex -= baseList.size();
+      chosenFunctionName = templateList[chosenExprIndex];
+    }
+
+    expression = generateExpressionFromConcreteSignatures(
+        returnType, chosenFunctionName);
+    if (!expression && FLAGS_velox_fuzzer_enable_complex_types) {
+      expression = generateExpressionFromSignatureTemplate(
+          returnType, chosenFunctionName);
+    }
+  }
+  if (!expression) {
+    LOG(INFO) << "Couldn't find any function to return '"
+              << returnType->toString() << "'. Returning a constant instead.";
+    return generateArgConstant(returnType);
+  }
+  expressionBank_.insert(expression);
+  return expression;
 }
 
 std::vector<core::TypedExprPtr> ExpressionFuzzer::getArgsForCallable(
@@ -830,7 +826,7 @@ void ExpressionFuzzer::reset() {
   VELOX_CHECK(inputRowTypes_.empty());
   VELOX_CHECK(inputRowNames_.empty());
   typeToColumnNames_.clear();
-  typeToExpressions_.clear();
+  expressionBank_.reset();
 }
 
 void ExpressionFuzzer::logStats() {
@@ -889,6 +885,46 @@ void ExpressionFuzzer::logStats() {
               << (elem.second.numTimesSelected * 100.00) / totalSelections
               << "% " << elem.second.numProcessedRows;
   }
+}
+
+void ExpressionFuzzer::ExprBank::insert(const core::TypedExprPtr& expression) {
+  auto typeString = expression->type()->toString();
+  if (typeToExprsByLevel_.find(typeString) == typeToExprsByLevel_.end()) {
+    typeToExprsByLevel_.insert(
+        {typeString, ExprsIndexedByLevel(maxLevelOfNesting_ + 1)});
+  }
+  auto& expressionsByLevel = typeToExprsByLevel_[typeString];
+  int nestingLevel = getNestedLevel(expression);
+  VELOX_CHECK_LE(nestingLevel, maxLevelOfNesting_);
+  expressionsByLevel[nestingLevel].push_back(expression);
+}
+
+core::TypedExprPtr ExpressionFuzzer::ExprBank::getRandomExpression(
+    const facebook::velox::TypePtr& returnType,
+    int uptoLevelOfNesting) {
+  VELOX_CHECK_LE(uptoLevelOfNesting, maxLevelOfNesting_);
+  auto typeString = returnType->toString();
+  if (typeToExprsByLevel_.find(typeString) == typeToExprsByLevel_.end()) {
+    return nullptr;
+  }
+  auto& expressionsByLevel = typeToExprsByLevel_[typeString];
+  int totalToConsider = 0;
+  for (int i = 0; i <= uptoLevelOfNesting; i++) {
+    totalToConsider += expressionsByLevel[i].size();
+  }
+  if (totalToConsider > 0) {
+    int choice = boost::random::uniform_int_distribution<uint32_t>(
+        0, totalToConsider - 1)(rng_);
+    for (int i = 0; i <= uptoLevelOfNesting; i++) {
+      if (choice >= expressionsByLevel[i].size()) {
+        choice -= expressionsByLevel[i].size();
+        continue;
+      }
+      return expressionsByLevel[i][choice];
+    }
+    VELOX_CHECK(false, "Should have found an expression.");
+  }
+  return nullptr;
 }
 
 void ExpressionFuzzer::go() {

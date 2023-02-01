@@ -48,6 +48,58 @@ class ExpressionFuzzer {
   /// Return a random legit expression that returns returnType.
   core::TypedExprPtr generateExpression(const TypePtr& returnType);
 
+  /// Used to enable re-use of sub-expressions by exposing an API that allows
+  /// for randomly picking an expression that has a specific return type and a
+  /// nesting level less than or equal to a specified limit. It ensures that all
+  /// expressions that are valid candidates have an equal probability of
+  /// selection.
+  class ExprBank {
+   public:
+    ExprBank(FuzzerGenerator& rng, int maxLevelOfNesting)
+        : rng_(rng), maxLevelOfNesting_(maxLevelOfNesting) {}
+
+    /// Adds an expression to the bank.
+    void insert(const core::TypedExprPtr& expression);
+
+    /// Returns a randomly selected expression of the requested 'returnType'
+    /// which is guaranteed to have a nesting level less than or equal to
+    /// 'uptoLevelOfNesting'. Returns a nullptr if no such function can be
+    /// found.
+    core::TypedExprPtr getRandomExpression(
+        const TypePtr& returnType,
+        int uptoLevelOfNesting);
+
+    /// Removes all the expressions from the bank. Should be called after
+    /// every fuzzer iteration.
+    void reset() {
+      typeToExprsByLevel_.clear();
+    }
+
+   private:
+    int getNestedLevel(const core::TypedExprPtr& expression) {
+      int level = 0;
+      for (auto& input : expression->inputs()) {
+        level = std::max(level, getNestedLevel(input) + 1);
+      }
+      return level;
+    }
+
+    /// Reference to the random generator of the expression fuzzer.
+    FuzzerGenerator& rng_;
+
+    /// Only expression having less than or equal to this level of nesting will
+    /// be supported.
+    int maxLevelOfNesting_;
+
+    /// Represents a vector where each index contains a list of expressions such
+    /// that the depth of each expression tree is equal to that index.
+    typedef std::vector<std::vector<core::TypedExprPtr>> ExprsIndexedByLevel;
+
+    /// Maps a 'Type' serialized as a string to an object of type
+    /// ExprsIndexedByLevel
+    std::unordered_map<std::string, ExprsIndexedByLevel> typeToExprsByLevel_;
+  };
+
  private:
   struct ExprUsageStats {
     // Num of times the expression was randomly selected.
@@ -255,14 +307,8 @@ class ExpressionFuzzer {
   /// specific type is required as input to a callable.
   std::unordered_map<std::string, std::vector<std::string>> typeToColumnNames_;
 
-  /// Maps a 'Type' serialized as a string to the expressions that have already
-  /// been generated and have the same return type. Used to easily look up
-  /// expressions that can be re-used when a specific return type is required.
-  /// Only expressions with no nested expressions are tracked here and can be
-  /// re-used.
-  /// TODO: add support for sharing multi-level expressions.
-  std::unordered_map<std::string, std::vector<core::TypedExprPtr>>
-      typeToExpressions_;
+  /// Used to track all generated expressions and support expreesion re-use.
+  ExprBank expressionBank_;
 
   std::shared_ptr<ExprStatsListener> statListener_;
   std::unordered_map<std::string, ExprUsageStats> exprNameToStats_;
