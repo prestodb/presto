@@ -583,7 +583,7 @@ int32_t MmapAllocator::SizeClass::findMappedFreeGroup() {
     index = 0;
   }
   auto lookupSize = mappedFreeLookup_.size() + kSimdTail;
-  for (auto counter = 0; counter <= lookupSize; ++counter) {
+  for (auto counter = 0; counter <= lookupSize; counter += kWidth) {
     auto candidates = xsimd::load_unaligned(mappedFreeLookup_.data() + index);
     auto bits = simd::allSetBitMask<int64_t>() ^
         simd::toBitMask(candidates == xsimd::broadcast<uint64_t>(0LL));
