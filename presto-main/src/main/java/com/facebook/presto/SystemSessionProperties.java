@@ -189,6 +189,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_CONSTANT_GROUPING_KEYS = "optimize_constant_grouping_keys";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
+    public static final String PUSHDOWN_SUBFIELDS_FROM_LAMBDA_ENABLED = "pushdown_subfields_from_lambda_enabled";
     public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
     public static final String INDEX_LOADER_TIMEOUT = "index_loader_timeout";
     public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
@@ -1039,6 +1040,11 @@ public final class SystemSessionProperties
                         PUSHDOWN_SUBFIELDS_ENABLED,
                         "Experimental: enable subfield pruning",
                         featuresConfig.isPushdownSubfieldsEnabled(),
+                        false),
+                booleanProperty(
+                        PUSHDOWN_SUBFIELDS_FROM_LAMBDA_ENABLED,
+                        "Enable subfield pruning from lambdas",
+                        featuresConfig.isPushdownSubfieldsFromLambdaEnabled(),
                         false),
                 booleanProperty(
                         PUSHDOWN_DEREFERENCE_ENABLED,
@@ -2373,6 +2379,11 @@ public final class SystemSessionProperties
     public static boolean isPushdownSubfieldsEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPushdownSubfieldsFromArrayLambdasEnabled(Session session)
+    {
+        return session.getSystemProperty(PUSHDOWN_SUBFIELDS_FROM_LAMBDA_ENABLED, Boolean.class);
     }
 
     public static boolean isPushdownDereferenceEnabled(Session session)

@@ -193,6 +193,7 @@ public class FeaturesConfig
     private boolean optimizedRepartitioningEnabled;
 
     private boolean pushdownSubfieldsEnabled;
+    private boolean pushdownSubfieldsFromLambdaEnabled;
 
     private boolean tableWriterMergeOperatorEnabled = true;
 
@@ -1839,6 +1840,19 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldsEnabled()
     {
         return pushdownSubfieldsEnabled;
+    }
+
+    @Config("pushdown-subfields-from-lambda-enabled")
+    @ConfigDescription("Enable subfield pruning from lambda expressions")
+    public FeaturesConfig setPushdownSubfieldsFromLambdaEnabled(boolean pushdownSubfieldsFromLambdaEnabled)
+    {
+        this.pushdownSubfieldsFromLambdaEnabled = pushdownSubfieldsFromLambdaEnabled;
+        return this;
+    }
+
+    public boolean isPushdownSubfieldsFromLambdaEnabled()
+    {
+        return pushdownSubfieldsFromLambdaEnabled;
     }
 
     @Config("experimental.pushdown-dereference-enabled")
