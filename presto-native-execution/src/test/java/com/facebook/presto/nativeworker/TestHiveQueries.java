@@ -540,8 +540,8 @@ abstract class TestHiveQueries
     @Test
     public void testWidthBucket()
     {
-        assertQuery("SELECT width_bucket(to_unixtime(ds), array[1609487900, 1619740800, 1622419200]) FROM customer_bucketed");
-        assertQuery("SELECT width_bucket(to_unixtime(ds), array[1609487900.1, 1619740800.2, 1622419200.3]) FROM customer_bucketed");
+        assertQuery("SELECT width_bucket(to_unixtime(cast(ds as timestamp)), array[1609487900, 1619740800, 1622419200]) FROM customer_bucketed");
+        assertQuery("SELECT width_bucket(to_unixtime(cast(ds as timestamp)), array[1609487900.1, 1619740800.2, 1622419200.3]) FROM customer_bucketed");
     }
 
     @Test
