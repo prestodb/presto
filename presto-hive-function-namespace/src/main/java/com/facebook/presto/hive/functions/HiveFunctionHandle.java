@@ -41,6 +41,12 @@ public class HiveFunctionHandle
         return signature.getName().getCatalogSchemaName();
     }
 
+    @Override
+    public String getName()
+    {
+        return signature.getName().toString();
+    }
+
     @JsonProperty
     public Signature getSignature()
     {

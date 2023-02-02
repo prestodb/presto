@@ -300,6 +300,7 @@ public class TestQueryStateInfo
                 ImmutableSet.of(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 ImmutableList.of());
     }
 }

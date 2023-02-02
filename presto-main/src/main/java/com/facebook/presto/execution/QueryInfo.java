@@ -92,6 +92,7 @@ public class QueryInfo
     private final Set<SqlFunctionId> removedSessionFunctions;
     private final StatsAndCosts planStatsAndCosts;
     private final List<PlanOptimizerInformation> optimizerInformation;
+    private final List<String> functionNames;
     // Using a list rather than map, to avoid implementing map key deserializer
     private final List<CanonicalPlanWithInfo> planCanonicalInfo;
 
@@ -133,6 +134,7 @@ public class QueryInfo
             @JsonProperty("removedSessionFunctions") Set<SqlFunctionId> removedSessionFunctions,
             @JsonProperty("planStatsAndCosts") StatsAndCosts planStatsAndCosts,
             @JsonProperty("optimizerInformation") List<PlanOptimizerInformation> optimizerInformation,
+            @JsonProperty("functionNames")List<String> functionNames,
             List<CanonicalPlanWithInfo> planCanonicalInfo)
     {
         requireNonNull(queryId, "queryId is null");
@@ -163,6 +165,7 @@ public class QueryInfo
         requireNonNull(removedSessionFunctions, "removedSessionFunctions is null");
         requireNonNull(planStatsAndCosts, "planStatsAndCosts is null");
         requireNonNull(optimizerInformation, "optimizerInformation is null");
+        requireNonNull(functionNames, "functionNames is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -205,6 +208,7 @@ public class QueryInfo
         this.removedSessionFunctions = ImmutableSet.copyOf(removedSessionFunctions);
         this.planStatsAndCosts = planStatsAndCosts;
         this.optimizerInformation = optimizerInformation;
+        this.functionNames = functionNames;
         this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
     }
 
@@ -438,6 +442,12 @@ public class QueryInfo
     public List<PlanOptimizerInformation> getOptimizerInformation()
     {
         return optimizerInformation;
+    }
+
+    @JsonProperty
+    public List<String> getFunctionNames()
+    {
+        return functionNames;
     }
 
     // Don't serialize this field because it can be big

@@ -900,6 +900,11 @@ public class Analysis
         return currentQuerySpecification;
     }
 
+    public List<String> getInvokedFunctionNames()
+    {
+        return ImmutableList.copyOf(functionHandles.values().stream().map(FunctionHandle::getName).collect(toImmutableSet()));
+    }
+
     @Immutable
     public static final class Insert
     {

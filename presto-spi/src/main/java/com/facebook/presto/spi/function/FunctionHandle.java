@@ -22,4 +22,6 @@ import com.facebook.presto.common.CatalogSchemaName;
 public interface FunctionHandle
 {
     CatalogSchemaName getCatalogSchemaName();
+
+    String getName();
 }

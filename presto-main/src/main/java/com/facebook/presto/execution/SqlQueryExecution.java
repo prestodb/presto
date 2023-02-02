@@ -82,6 +82,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.getExecutionPolicy;
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
+import static com.facebook.presto.SystemSessionProperties.isLogInvokedFunctionNamesEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseLegacyScheduler;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
@@ -228,6 +229,10 @@ public class SqlQueryExecution
 
             this.remoteTaskFactory = new TrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
             this.partialResultQueryManager = requireNonNull(partialResultQueryManager, "partialResultQueryManager is null");
+
+            if (isLogInvokedFunctionNamesEnabled(getSession())) {
+                stateMachine.setFunctionNames(analysis.getInvokedFunctionNames());
+            }
         }
     }
 
