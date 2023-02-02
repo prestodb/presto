@@ -240,6 +240,9 @@ SubstraitVeloxExprConverter::toVeloxExpr(
           BaseVector::wrapInConstant(1, 0, literalsToArrayVector(substraitLit));
       return std::make_shared<const core::ConstantTypedExpr>(constantVector);
     }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kDate:
+      return std::make_shared<core::ConstantTypedExpr>(
+          variant(Date(substraitLit.date())));
     default:
       VELOX_NYI(
           "Substrait conversion not supported for type case '{}'", typeCase);

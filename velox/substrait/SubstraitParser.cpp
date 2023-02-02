@@ -113,6 +113,11 @@ std::shared_ptr<SubstraitParser::SubstraitType> SubstraitParser::parseType(
       nullability = substraitType.string().nullability();
       break;
     }
+    case ::substrait::Type::KindCase::kDate: {
+      typeName = "DATE";
+      nullability = substraitType.date().nullability();
+      break;
+    }
     default:
       VELOX_NYI(
           "Parsing for Substrait type not supported: {}",

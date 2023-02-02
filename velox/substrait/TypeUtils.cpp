@@ -117,6 +117,9 @@ TypePtr toVeloxType(const std::string& typeName) {
       }
       return ROW(std::move(names), std::move(types));
     }
+    case TypeKind::DATE: {
+      return DATE();
+    }
     case TypeKind::UNKNOWN:
       return UNKNOWN();
     default:
