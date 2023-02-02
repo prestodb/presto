@@ -107,6 +107,15 @@ class SubstraitVeloxPlanConverter {
   /// name>:<arg_type0>_<arg_type1>_..._<arg_typeN>
   const std::string& findFunction(uint64_t id) const;
 
+  /// Integrate Substrait emit feature. Here a given 'substrait::RelCommon'
+  /// is passed and check if emit is defined for this relation. Basically a
+  /// ProjectNode is added on top of 'noEmitNode' to represent output order
+  /// specified in 'relCommon::emit'. Return 'noEmitNode' as is
+  /// if output order is 'kDriect'.
+  core::PlanNodePtr processEmit(
+      const ::substrait::RelCommon& relCommon,
+      const core::PlanNodePtr& noEmitNode);
+
  private:
   /// Returns unique ID to use for plan node. Produces sequential numbers
   /// starting from zero.
