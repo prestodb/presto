@@ -78,7 +78,7 @@ TEST_F(NtileTest, singlePartitionWithSortOrders) {
 
 TEST_F(NtileTest, multiInput) {
   NtileTest::testWindowFunction(
-      {makeSinglePartitionVector(75), makeSinglePartitionVector(50)},
+      {makeSinglePartitionVector(100), makeSinglePartitionVector(75)},
       kBasicOverClauses);
 }
 
