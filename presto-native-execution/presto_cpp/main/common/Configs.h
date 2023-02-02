@@ -76,6 +76,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPrestoVersion{"presto.version"};
   static constexpr std::string_view kHttpServerHttpPort{
       "http-server.http.port"};
+  // This option allows a port closed in TIME_WAIT state to be reused
+  // immediately upon worker startup. This property is mainly used by batch
+  // processing. For interactive query, the worker uses a dynamic port upon
+  // startup.
+  static constexpr std::string_view kHttpServerReusePort{
+      "http-server.reuse-port"};
   static constexpr std::string_view kDiscoveryUri{"discovery.uri"};
   static constexpr std::string_view kMaxDriversPerTask{
       "task.max-drivers-per-task"};
@@ -107,6 +113,7 @@ class SystemConfig : public ConfigBase {
   // Setting the default maximum drivers per task to this value will
   // provide a better off-shelf experience.
   static constexpr int32_t kMaxDriversPerTaskDefault = 16;
+  static constexpr bool kHttpServerReusePortDefault = false;
   static constexpr int32_t kConcurrentLifespansPerTaskDefault = 1;
   static constexpr int32_t kHttpExecThreadsDefault = 8;
   static constexpr int32_t kNumIoThreadsDefault = 30;
@@ -127,6 +134,8 @@ class SystemConfig : public ConfigBase {
   static SystemConfig* instance();
 
   int httpServerHttpPort() const;
+
+  bool httpServerReusePort() const;
 
   std::string prestoVersion() const;
 
