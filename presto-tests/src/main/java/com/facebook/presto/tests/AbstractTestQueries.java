@@ -62,6 +62,7 @@ import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
+import static com.facebook.presto.SystemSessionProperties.USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -6407,5 +6408,48 @@ public abstract class AbstractTestQueries
         assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") == -1);
         plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderkey from orders group by orderkey limit 100000");
         assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") == -1);
+    }
+
+    @DataProvider(name = "use_default_literal_coalesce")
+    public static Object[][] useDefaultLiteralCoalesce()
+    {
+        return new Object[][] {
+                {true},
+                {false}
+        };
+    }
+
+    @Test(dataProvider = "use_default_literal_coalesce")
+    public void testCoalesceWithDefaultsForPushingAggregationThroughOuterJoins(boolean useDefaultLiteralCoalesce)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS, Boolean.toString(useDefaultLiteralCoalesce))
+                .build();
+
+        // Queries that will use the default literal optimization
+        assertQuery(session,
+                "select count(*) from nation n where (select count(*) from customer c where n.nationkey=c.nationkey)>0",
+                "select 25");
+
+        assertQuery(session,
+                "select count(*) from nation n where (select count(name) from customer c where n.nationkey=c.nationkey)>0",
+                "select 25");
+
+        assertQuery(session,
+                "select count(*) from nation n where (select max(custkey) from customer c where n.nationkey=c.nationkey)>0",
+                "select 25");
+
+        assertQuery(session, "select count(*) from nation n where (select sum(custkey) from customer c where n.nationkey=c.nationkey)>0",
+                "select 25");
+
+        // Queries that will perform a cross join to compute the aggregation over nulls
+        // approx_distinct and max_by return true for isCalledOnNullInput
+        assertQuery(session,
+                "select count(*) from nation n where (select approx_distinct(custkey) from customer c where n.nationkey=c.nationkey)>0",
+                "select 25");
+
+        assertQuery(session,
+                "select count(*) from nation n where (select max_by(custkey, c.name) from customer c where n.nationkey=c.nationkey)>2000",
+                "select 0");
     }
 }
