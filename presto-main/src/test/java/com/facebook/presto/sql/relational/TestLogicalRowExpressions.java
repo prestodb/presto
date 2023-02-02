@@ -72,7 +72,7 @@ public class TestLogicalRowExpressions
     public void setup()
     {
         functionAndTypeManager = createTestFunctionAndTypeManager();
-        logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager), functionAndTypeManager);
+        logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()), functionAndTypeManager);
     }
 
     @Test
@@ -539,7 +539,7 @@ public class TestLogicalRowExpressions
     {
         return call(
                 operator.getOperator(),
-                new FunctionResolution(functionAndTypeManager).comparisonFunction(operator, left.getType(), right.getType()),
+                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()).comparisonFunction(operator, left.getType(), right.getType()),
                 BOOLEAN,
                 left,
                 right);
@@ -562,6 +562,6 @@ public class TestLogicalRowExpressions
 
     private RowExpression not(RowExpression expression)
     {
-        return new CallExpression("not", new FunctionResolution(functionAndTypeManager).notFunction(), BOOLEAN, ImmutableList.of(expression));
+        return new CallExpression("not", new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()).notFunction(), BOOLEAN, ImmutableList.of(expression));
     }
 }

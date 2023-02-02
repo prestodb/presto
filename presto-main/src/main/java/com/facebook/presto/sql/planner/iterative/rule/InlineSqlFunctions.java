@@ -133,7 +133,7 @@ public class InlineSqlFunctions
                 return getSqlFunctionExpression(
                         functionMetadata,
                         (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle),
-                        metadata,
+                        metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                         variableAllocator,
                         session.getSqlFunctionProperties(),
                         rewrittenArguments);

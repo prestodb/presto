@@ -249,7 +249,7 @@ public class IndexJoinOptimizer
             this.domainTranslator = new RowExpressionDomainTranslator(metadata);
             this.logicalRowExpressions = new LogicalRowExpressions(
                     new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
-                    new FunctionResolution(metadata.getFunctionAndTypeManager()),
+                    new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
                     metadata.getFunctionAndTypeManager());
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.session = requireNonNull(session, "session is null");

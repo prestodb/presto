@@ -132,7 +132,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
     @Test
     public void testSimpleSemijoins()
     {
-        tester().assertThat(ImmutableSet.of(new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin()), new LogicalPropertiesProviderImpl(new FunctionResolution(getFunctionManager())))
+        tester().assertThat(ImmutableSet.of(new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin()), new LogicalPropertiesProviderImpl(new FunctionResolution(getFunctionManager().getFunctionAndTypeResolver())))
                 .on("SELECT * FROM nation WHERE regionkey IN (SELECT regionkey FROM region)")
                 .matches(output(anyTree(
                         aggregation(
@@ -143,7 +143,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
                                                 tableScan("nation", ImmutableMap.of("regionkey", "regionkey", "nationkey", "nationkey", "name", "name", "comment", "comment"))),
                                         tableScan("region", ImmutableMap.of("regionkey_1", "regionkey")))))));
 
-        tester().assertThat(ImmutableSet.of(new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin()), new LogicalPropertiesProviderImpl(new FunctionResolution(getFunctionManager())))
+        tester().assertThat(ImmutableSet.of(new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin()), new LogicalPropertiesProviderImpl(new FunctionResolution(getFunctionManager().getFunctionAndTypeResolver())))
                 .on("SELECT * FROM nation WHERE regionkey IN (SELECT regionkey FROM region) AND name IN (SELECT name FROM region)")
                 .matches(output(anyTree(
                         aggregation(

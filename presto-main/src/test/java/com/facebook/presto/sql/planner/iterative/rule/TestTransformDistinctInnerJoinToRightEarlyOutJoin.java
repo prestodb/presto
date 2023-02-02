@@ -62,7 +62,7 @@ public class TestTransformDistinctInnerJoinToRightEarlyOutJoin
     @Test
     public void testAggregationPushedDown()
     {
-        tester().assertThat(new TransformDistinctInnerJoinToRightEarlyOutJoin(), new LogicalPropertiesProviderImpl(new FunctionResolution(getFunctionManager())))
+        tester().assertThat(new TransformDistinctInnerJoinToRightEarlyOutJoin(), new LogicalPropertiesProviderImpl(new FunctionResolution(getFunctionManager().getFunctionAndTypeResolver())))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BIGINT);
                     VariableReferenceExpression b = p.variable("b", BIGINT);

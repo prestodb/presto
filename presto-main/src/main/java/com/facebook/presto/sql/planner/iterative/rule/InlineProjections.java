@@ -75,7 +75,7 @@ public class InlineProjections
 
     public InlineProjections(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionResolution = new FunctionResolution(functionAndTypeManager);
+        this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
     }
 
     @Override

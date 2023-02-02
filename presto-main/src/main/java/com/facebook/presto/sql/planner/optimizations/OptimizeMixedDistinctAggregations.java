@@ -87,7 +87,7 @@ public class OptimizeMixedDistinctAggregations
     public OptimizeMixedDistinctAggregations(Metadata metadata)
     {
         this.metadata = metadata;
-        this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
+        this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
     }
 
     @Override

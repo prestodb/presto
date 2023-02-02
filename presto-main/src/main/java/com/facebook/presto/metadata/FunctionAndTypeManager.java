@@ -51,6 +51,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.gen.CacheStatsMBean;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -107,6 +108,10 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
+/**
+ * TODO: This should not extend from FunctionMetadataManager and TypeManager
+ * Functionalities relying on TypeManager and FunctionMetadataManager interfaces should rely on FunctionAndTypeResolver
+ */
 @ThreadSafe
 public class FunctionAndTypeManager
         implements FunctionMetadataManager, TypeManager
@@ -152,6 +157,83 @@ public class FunctionAndTypeManager
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
     {
         return new FunctionAndTypeManager(createTestTransactionManager(), new BlockEncodingManager(), new FeaturesConfig(), new HandleResolver(), ImmutableSet.of());
+    }
+
+    public FunctionAndTypeResolver getFunctionAndTypeResolver()
+    {
+        return new FunctionAndTypeResolver()
+        {
+            // TODO: Remove the methods from the FunctionAndTypeManager class
+            @Override
+            public Type getType(TypeSignature signature)
+            {
+                return FunctionAndTypeManager.this.getType(signature);
+            }
+
+            @Override
+            public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+            {
+                return FunctionAndTypeManager.this.getParameterizedType(baseTypeName, typeParameters);
+            }
+
+            @Override
+            public boolean canCoerce(Type actualType, Type expectedType)
+            {
+                return FunctionAndTypeManager.this.canCoerce(actualType, expectedType);
+            }
+
+            @Override
+            public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
+            {
+                return FunctionAndTypeManager.this.resolveOperator(operatorType, argumentTypes);
+            }
+
+            @Override
+            public FunctionHandle lookupFunction(String functionName, List<TypeSignatureProvider> fromTypes)
+            {
+                return FunctionAndTypeManager.this.lookupFunction(functionName, fromTypes);
+            }
+
+            @Override
+            public FunctionHandle resolveFunction(
+                    Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
+                    Optional<TransactionId> transactionId,
+                    QualifiedObjectName functionName,
+                    List<TypeSignatureProvider> parameterTypes)
+            {
+                return FunctionAndTypeManager.this.resolveFunction(sessionFunctions, transactionId, functionName, parameterTypes);
+            }
+
+            @Override
+            public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+            {
+                return FunctionAndTypeManager.this.getFunctionMetadata(functionHandle);
+            }
+
+            @Override
+            public Collection<SqlFunction> listBuiltInFunctions()
+            {
+                return FunctionAndTypeManager.this.listBuiltInFunctions();
+            }
+
+            @Override
+            public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+            {
+                return FunctionAndTypeManager.this.getCommonSuperType(firstType, secondType);
+            }
+
+            @Override
+            public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+            {
+                return FunctionAndTypeManager.this.isTypeOnlyCoercion(actualType, expectedType);
+            }
+
+            @Override
+            public FunctionHandle lookupCast(String castType, Type fromType, Type toType)
+            {
+                return FunctionAndTypeManager.this.lookupCast(CastType.valueOf(castType), fromType, toType);
+            }
+        };
     }
 
     @Managed
