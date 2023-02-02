@@ -116,6 +116,14 @@ class ExtremeValueFunction : public exec::VectorFunction {
         applyTyped<TypeTraits<TypeKind::BIGINT>::NativeType>(
             rows, args, outputType, context, result);
         return;
+      case TypeKind::SHORT_DECIMAL:
+        applyTyped<TypeTraits<TypeKind::SHORT_DECIMAL>::NativeType>(
+            rows, args, outputType, context, result);
+        return;
+      case TypeKind::LONG_DECIMAL:
+        applyTyped<TypeTraits<TypeKind::LONG_DECIMAL>::NativeType>(
+            rows, args, outputType, context, result);
+        return;
       case TypeKind::DOUBLE:
         applyTyped<TypeTraits<TypeKind::DOUBLE>::NativeType>(
             rows, args, outputType, context, result);
@@ -151,6 +159,13 @@ class ExtremeValueFunction : public exec::VectorFunction {
                                   .variableArity()
                                   .build());
     }
+    signatures.emplace_back(exec::FunctionSignatureBuilder()
+                                .integerVariable("precision")
+                                .integerVariable("scale")
+                                .returnType("DECIMAL(precision, scale)")
+                                .argumentType("DECIMAL(precision, scale)")
+                                .variableArity()
+                                .build());
     return signatures;
   }
 };
