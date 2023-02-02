@@ -34,6 +34,7 @@ enum class TokenType {
   Byte,
   Short,
   Integer,
+  Date,
   Long,
   Float,
   Double,

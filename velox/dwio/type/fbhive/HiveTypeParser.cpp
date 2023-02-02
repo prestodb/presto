@@ -50,6 +50,7 @@ HiveTypeParser::HiveTypeParser() {
   setupMetadata<TokenType::Short, TypeKind::SMALLINT>("smallint");
   setupMetadata<TokenType::Integer, TypeKind::INTEGER>({"integer", "int"});
   setupMetadata<TokenType::Long, TypeKind::BIGINT>("bigint");
+  setupMetadata<TokenType::Date, TypeKind::DATE>("date");
   setupMetadata<TokenType::Float, TypeKind::REAL>({"float", "real"});
   setupMetadata<TokenType::Double, TypeKind::DOUBLE>("double");
   setupMetadata<TokenType::ShortDecimal, TypeKind::SHORT_DECIMAL>("decimal");
