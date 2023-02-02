@@ -13,22 +13,15 @@
  */
 package com.facebook.presto.spi.function;
 
-import static com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor.defaultFunctionDescriptor;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-public interface SqlFunction
-{
-    Signature getSignature();
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-    SqlFunctionVisibility getVisibility();
-
-    boolean isDeterministic();
-
-    boolean isCalledOnNullInput();
-
-    String getDescription();
-
-    default ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
-    {
-        return defaultFunctionDescriptor();
-    }
+@Retention(RUNTIME)
+@Target({METHOD, TYPE})
+public @interface IntArray {
+    int[] value() default {};
 }

@@ -30,10 +30,12 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
@@ -62,6 +64,8 @@ public final class MapConstructor
 {
     public static final MapConstructor MAP_CONSTRUCTOR = new MapConstructor();
 
+    private final ComplexTypeFunctionDescriptor descriptor;
+
     private static final MethodHandle METHOD_HANDLE = methodHandle(
             MapConstructor.class,
             "createMap",
@@ -87,6 +91,12 @@ public final class MapConstructor
                 TypeSignature.parseTypeSignature("map(K,V)"),
                 ImmutableList.of(TypeSignature.parseTypeSignature("array(K)"), TypeSignature.parseTypeSignature("array(V)")),
                 false));
+        descriptor = new ComplexTypeFunctionDescriptor(
+                false,
+                ImmutableList.of(),
+                Optional.of(ImmutableSet.of(1)),
+                Optional.of(ComplexTypeFunctionDescriptor::allSubfieldsRequired),
+                getSignature());
     }
 
     @Override
@@ -105,6 +115,12 @@ public final class MapConstructor
     public String getDescription()
     {
         return DESCRIPTION;
+    }
+
+    @Override
+    public ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
+    {
+        return descriptor;
     }
 
     @Override
