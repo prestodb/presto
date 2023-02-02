@@ -473,6 +473,26 @@ void Expr::evalFlatNoNulls(
     EvalCtx& context,
     VectorPtr& result,
     bool topLevel) {
+  if (deterministic_ && isMultiplyReferenced_ && !inputs_.empty()) {
+    evaluateSharedSubexpr(
+        rows,
+        context,
+        result,
+        [&](const SelectivityVector& rows,
+            EvalCtx& context,
+            VectorPtr& result) {
+          evalFlatNoNullsImpl(rows, context, result, topLevel);
+        });
+  } else {
+    evalFlatNoNullsImpl(rows, context, result, topLevel);
+  }
+}
+
+void Expr::evalFlatNoNullsImpl(
+    const SelectivityVector& rows,
+    EvalCtx& context,
+    VectorPtr& result,
+    bool topLevel) {
   ExprExceptionContext exprExceptionContext{this, context.row()};
   ExceptionContextSetter exceptionContext(
       {topLevel ? onTopLevelException : onException,
@@ -571,18 +591,26 @@ void Expr::eval(
   //
   // For now, disable the optimization if any encodings have been peeled off.
   if (deterministic_ && isMultiplyReferenced_ && !context.hasWrap()) {
-    evaluateSharedSubexpr(rows, context, result);
+    evaluateSharedSubexpr(
+        rows,
+        context,
+        result,
+        [&](const SelectivityVector& rows,
+            EvalCtx& context,
+            VectorPtr& result) { evalEncodings(rows, context, result); });
   } else {
     evalEncodings(rows, context, result);
   }
 }
 
+template <typename TEval>
 void Expr::evaluateSharedSubexpr(
     const SelectivityVector& rows,
     EvalCtx& context,
-    VectorPtr& result) {
+    VectorPtr& result,
+    TEval eval) {
   if (sharedSubexprValues_ == nullptr) {
-    evalEncodings(rows, context, result);
+    eval(rows, context, result);
 
     if (!sharedSubexprRows_) {
       sharedSubexprRows_ = context.execCtx()->getSelectivityVector(rows.size());
@@ -632,7 +660,7 @@ void Expr::evaluateSharedSubexpr(
   ScopedFinalSelectionSetter setter(
       context, newFinalSelection, true /*checkCondition*/, true /*override*/);
 
-  evalEncodings(*missingRows, context, sharedSubexprValues_);
+  eval(*missingRows, context, sharedSubexprValues_);
 
   // Clear the rows which failed to compute.
   context.deselectErrors(*missingRows);

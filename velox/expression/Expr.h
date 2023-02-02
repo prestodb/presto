@@ -125,6 +125,12 @@ class Expr {
       VectorPtr& result,
       bool topLevel = false);
 
+  void evalFlatNoNullsImpl(
+      const SelectivityVector& rows,
+      EvalCtx& context,
+      VectorPtr& result,
+      bool topLevel);
+
   // Simplified path for expression evaluation (flattens all vectors).
   void evalSimplified(
       const SelectivityVector& rows,
@@ -343,10 +349,12 @@ class Expr {
 
   // Evaluate common sub-expression. Check if sharedSubexprValues_ already has
   // values for all 'rows'. If not, compute missing values.
+  template <typename TEval>
   void evaluateSharedSubexpr(
       const SelectivityVector& rows,
       EvalCtx& context,
-      VectorPtr& result);
+      VectorPtr& result,
+      TEval eval);
 
   void evalSimplifiedImpl(
       const SelectivityVector& rows,
