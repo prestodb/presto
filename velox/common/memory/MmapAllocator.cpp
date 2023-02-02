@@ -697,7 +697,7 @@ MachinePageCount MmapAllocator::SizeClass::adviseAway(
 bool MmapAllocator::SizeClass::isInRange(uint8_t* ptr) const {
   if (ptr >= address_ && ptr < address_ + byteSize_) {
     // See that ptr falls on a page boundary.
-    if ((ptr - address_) % unitSize_ != 0) {
+    if ((ptr - address_) % AllocationTraits::pageBytes(unitSize_) != 0) {
       VELOX_FAIL("Pointer is in a SizeClass but not at page boundary");
     }
     return true;
