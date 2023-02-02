@@ -7,6 +7,7 @@ Velox Documentation
 
     velox-in-10-min
     functions
+    spark_functions
     configs
     develop
     monthly-updates

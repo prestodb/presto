@@ -17,7 +17,7 @@ Presto Functions
 Spark Functions
 ===============
 
-* Add shiftleft and shiftright scalar functions.
+* Add :spark:func:`shiftleft` and :spark:func:`shiftright` scalar functions.
 
 Hive Connector
 ==============
