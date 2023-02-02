@@ -62,6 +62,7 @@ int main(int argc, char** argv) {
       "element_at",
       "width_bucket",
       "array_intersect",
+      "array_frequency", // https://github.com/facebookincubator/velox/issues/3906
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return FuzzerRunner::run(
