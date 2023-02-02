@@ -143,7 +143,7 @@ public class MaterializedViewQueryOptimizer
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
-                new FunctionResolution(functionAndTypeManager),
+                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
                 functionAndTypeManager);
     }
 
@@ -497,7 +497,7 @@ public class MaterializedViewQueryOptimizer
                 RowExpression rewriteLogicExpression = and(baseQueryWhereCondition,
                         call(baseQueryWhereCondition.getSourceLocation(),
                                 "not",
-                                new FunctionResolution(metadata.getFunctionAndTypeManager()).notFunction(),
+                                new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()).notFunction(),
                                 materializedViewWhereCondition.getType(),
                                 materializedViewWhereCondition));
                 RowExpression disjunctiveNormalForm = logicalRowExpressions.convertToDisjunctiveNormalForm(rewriteLogicExpression);
@@ -758,7 +758,7 @@ public class MaterializedViewQueryOptimizer
                     coercedMaybe,
                     coercedExpressionAnalysis.getExpressionTypes(),
                     ImmutableMap.of(),
-                    metadata.getFunctionAndTypeManager(),
+                    metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                     session);
         }
 

@@ -144,7 +144,7 @@ public class ImplementIntersectAndExceptAsUnion
         {
             requireNonNull(functionAndTypeManager, "functionManager is null");
             this.session = requireNonNull(session, "session is null");
-            this.functionResolution = new FunctionResolution(functionAndTypeManager);
+            this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         }

@@ -69,7 +69,7 @@ public class RemoveUnsupportedDynamicFilters
         requireNonNull(functionAndTypeManager, "functionManager is null");
         this.logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
-                new FunctionResolution(functionAndTypeManager),
+                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
                 functionAndTypeManager);
     }
 

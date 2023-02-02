@@ -14,8 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.spi.PrestoException;
@@ -29,6 +27,7 @@ import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
@@ -54,12 +53,12 @@ import static java.util.Objects.requireNonNull;
 public class StatisticsAggregationPlanner
 {
     private final PlanVariableAllocator variableAllocator;
-    private final Metadata metadata;
+    private final FunctionAndTypeResolver functionAndTypeResolver;
 
-    public StatisticsAggregationPlanner(PlanVariableAllocator variableAllocator, Metadata metadata)
+    public StatisticsAggregationPlanner(PlanVariableAllocator variableAllocator, FunctionAndTypeResolver functionAndTypeResolver)
     {
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
     }
 
     public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata, Map<String, VariableReferenceExpression> columnToVariableMap, boolean useOriginalExpression)
@@ -76,7 +75,7 @@ public class StatisticsAggregationPlanner
         }
 
         ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
-        StandardFunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
+        StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeResolver);
         for (TableStatisticType type : statisticsMetadata.getTableStatistics()) {
             if (type != ROW_COUNT) {
                 throw new PrestoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
@@ -137,9 +136,8 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(String functionName, RowExpression input, Type inputType, Type outputType)
     {
-        FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-        FunctionHandle functionHandle = functionAndTypeManager.lookupFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
-        Type resolvedType = metadata.getType(getOnlyElement(functionAndTypeManager.getFunctionMetadata(functionHandle).getArgumentTypes()));
+        FunctionHandle functionHandle = functionAndTypeResolver.lookupFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
+        Type resolvedType = functionAndTypeResolver.getType(getOnlyElement(functionAndTypeResolver.getFunctionMetadata(functionHandle).getArgumentTypes()));
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(

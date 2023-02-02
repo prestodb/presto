@@ -66,7 +66,7 @@ public class ScalarAggregationToJoinRewriter
     public ScalarAggregationToJoinRewriter(FunctionAndTypeManager functionAndTypeManager, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         requireNonNull(functionAndTypeManager, "metadata is null");
-        this.functionResolution = new FunctionResolution(functionAndTypeManager);
+        this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");

@@ -114,7 +114,7 @@ public class TestLogicalPropertyPropagation
     {
         tester = new RuleTester(emptyList(), ImmutableMap.of(), Optional.of(1), new TestTableConstraintsConnectorFactory(1));
         ConnectorId connectorId = tester().getCurrentConnectorId();
-        functionResolution = new FunctionResolution(tester.getMetadata().getFunctionAndTypeManager());
+        functionResolution = new FunctionResolution(tester.getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver());
         logicalPropertiesProvider = new LogicalPropertiesProviderImpl(functionResolution);
 
         TpchTableHandle customerTpchTableHandle = new TpchTableHandle("customer", 1.0);

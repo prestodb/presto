@@ -15,7 +15,6 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
@@ -93,9 +92,4 @@ public interface MetadataResolver
     {
         return getMaterializedView(viewName).isPresent();
     }
-
-    /**
-     * Returns list of registered types.
-     */
-    List<Type> getTypes();
 }

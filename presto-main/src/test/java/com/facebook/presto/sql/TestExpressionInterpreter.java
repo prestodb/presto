@@ -1780,7 +1780,7 @@ public class TestExpressionInterpreter
     private static boolean isRemovableCast(Object value)
     {
         if (value instanceof CallExpression &&
-                new FunctionResolution(METADATA.getFunctionAndTypeManager()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
+                new FunctionResolution(METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
             Type targetType = ((CallExpression) value).getType();
             Type sourceType = ((CallExpression) value).getArguments().get(0).getType();
             return METADATA.getFunctionAndTypeManager().canCoerce(sourceType, targetType);

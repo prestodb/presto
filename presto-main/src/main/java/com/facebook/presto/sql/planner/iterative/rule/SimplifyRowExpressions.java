@@ -89,8 +89,8 @@ public class SimplifyRowExpressions
         public LogicalExpressionRewriter(FunctionAndTypeManager functionAndTypeManager)
         {
             requireNonNull(functionAndTypeManager, "functionManager is null");
-            this.functionResolution = new FunctionResolution(functionAndTypeManager);
-            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager), functionAndTypeManager);
+            this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()), functionAndTypeManager);
         }
 
         @Override

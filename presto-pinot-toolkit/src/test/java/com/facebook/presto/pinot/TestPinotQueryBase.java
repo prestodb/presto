@@ -86,7 +86,7 @@ import static java.util.stream.Collectors.toMap;
 public class TestPinotQueryBase
 {
     protected static final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeManager);
+    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
 
     protected static ConnectorId pinotConnectorId = new ConnectorId("id");
     protected static PinotTableHandle realtimeOnlyTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "realtimeOnly");
@@ -235,7 +235,7 @@ public class TestPinotQueryBase
                 expression,
                 ImmutableMap.of(),
                 WarningCollector.NOOP);
-        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionAndTypeManager, session);
+        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionAndTypeManager.getFunctionAndTypeResolver(), session);
     }
 
     protected LimitNode limit(PlanBuilder pb, long count, PlanNode source)

@@ -292,12 +292,6 @@ public class TestCreateMaterializedViewTask
                 {
                     return Optional.empty();
                 }
-
-                @Override
-                public List<Type> getTypes()
-                {
-                    return emptyList();
-                }
             };
         }
 

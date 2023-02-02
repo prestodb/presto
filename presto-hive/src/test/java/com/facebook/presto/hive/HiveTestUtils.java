@@ -101,7 +101,7 @@ public final class HiveTestUtils
 
     public static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = METADATA.getFunctionAndTypeManager();
 
-    public static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getFunctionAndTypeManager());
+    public static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver());
 
     public static final RowExpressionService ROW_EXPRESSION_SERVICE = new RowExpressionService()
     {
