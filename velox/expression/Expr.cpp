@@ -1204,6 +1204,64 @@ inline bool isPeelable(VectorEncoding::Simple encoding) {
       return false;
   }
 }
+
+/// Maintains a set of rows for evaluation and removes rows with
+/// nulls or errors as needed. Helps to avoid copying SelectivityVector in cases
+/// when evaluation doesn't encounter nulls or errors.
+class MutableRemainingRows {
+ public:
+  /// @param rows Initial set of rows.
+  MutableRemainingRows(const SelectivityVector& rows, EvalCtx& context)
+      : context_{context}, rows_{&rows}, mutableRowsHolder_{context} {}
+
+  /// @return current set of rows which may be different from the initial set if
+  /// deselectNulls or deselectErrors were called.
+  const SelectivityVector& rows() const {
+    return *rows_;
+  }
+
+  /// Removes rows with nulls.
+  /// @return true if at least one row remains.
+  bool deselectNulls(const uint64_t* rawNulls) {
+    ensureMutableRemainingRows();
+    mutableRows_->deselectNulls(rawNulls, rows_->begin(), rows_->end());
+
+    return mutableRows_->hasSelections();
+  }
+
+  /// Removes rows with errors (as recorded in EvalCtx::errors).
+  /// @return true if at least one row remains.
+  bool deselectErrors() {
+    ensureMutableRemainingRows();
+    context_.deselectErrors(*mutableRows_);
+
+    return mutableRows_->hasSelections();
+  }
+
+  /// @return true if current set of rows might be different from the original
+  /// set of rows, which may happen if deselectNull() or deselectErrors() were
+  /// called. May return 'true' even if current set of rows is the same as
+  /// original set. Returns 'false' only if current set of rows is for sure the
+  /// same as original.
+  bool mayHaveChanged() const {
+    return mutableRows_ != nullptr && !mutableRows_->isAllSelected();
+  }
+
+ private:
+  void ensureMutableRemainingRows() {
+    if (mutableRows_ == nullptr) {
+      mutableRows_ = mutableRowsHolder_.get(*rows_);
+      rows_ = mutableRows_;
+    }
+  }
+
+  EvalCtx& context_;
+  const SelectivityVector* rows_;
+
+  SelectivityVector* mutableRows_{nullptr};
+  LocalSelectivityVector mutableRowsHolder_;
+};
+
 } // namespace
 
 void Expr::evalAll(
@@ -1224,33 +1282,20 @@ void Expr::evalAll(
 
   // Tracks what subset of rows shall un-evaluated inputs and current expression
   // evaluates. Initially points to rows.
-  const SelectivityVector* remainingRows = &rows;
-
-  // Points to a mutable remainingRows, allocated using
-  // mutableRemainingRowsHolder only if needed.
-  SelectivityVector* mutableRemainingRows = nullptr;
-  LocalSelectivityVector mutableRemainingRowsHolder(context);
+  MutableRemainingRows remainingRows(rows, context);
 
   inputValues_.resize(inputs_.size());
   for (int32_t i = 0; i < inputs_.size(); ++i) {
-    inputs_[i]->eval(*remainingRows, context, inputValues_[i]);
+    inputs_[i]->eval(remainingRows.rows(), context, inputValues_[i]);
     tryPeelArgs = tryPeelArgs && isPeelable(inputValues_[i]->encoding());
 
     // Avoid subsequent computation on rows with known null output.
     if (defaultNulls && inputValues_[i]->mayHaveNulls()) {
-      LocalDecodedVector decoded(context, *inputValues_[i], *remainingRows);
+      LocalDecodedVector decoded(
+          context, *inputValues_[i], remainingRows.rows());
 
       if (auto* rawNulls = decoded->nulls()) {
-        // Allocate remainingRows before the first time writing to it.
-        if (mutableRemainingRows == nullptr) {
-          mutableRemainingRows = mutableRemainingRowsHolder.get(rows);
-          remainingRows = mutableRemainingRows;
-        }
-
-        mutableRemainingRows->deselectNulls(
-            rawNulls, remainingRows->begin(), remainingRows->end());
-
-        if (!remainingRows->hasSelections()) {
+        if (!remainingRows.deselectNulls(rawNulls)) {
           releaseInputValues(context);
           setAllNulls(rows, context, result);
           return;
@@ -1265,15 +1310,8 @@ void Expr::evalAll(
   // them.  It's safe to skip evaluating them since the value for this branch
   // of the expression tree will be NULL for those rows anyway.
   if (context.errors()) {
-    // Allocate remainingRows before the first time writing to it.
-    if (mutableRemainingRows == nullptr) {
-      mutableRemainingRows = mutableRemainingRowsHolder.get(rows);
-      remainingRows = mutableRemainingRows;
-    }
-    context.deselectErrors(*mutableRemainingRows);
-
-    // All rows have at least one null output or error.
-    if (!remainingRows->hasSelections()) {
+    if (!remainingRows.deselectErrors()) {
+      // All rows have at least one null output or error.
       releaseInputValues(context);
       setAllNulls(rows, context, result);
       return;
@@ -1281,14 +1319,14 @@ void Expr::evalAll(
   }
 
   if (!tryPeelArgs ||
-      !applyFunctionWithPeeling(rows, *remainingRows, context, result)) {
-    applyFunction(*remainingRows, context, result);
+      !applyFunctionWithPeeling(rows, remainingRows.rows(), context, result)) {
+    applyFunction(remainingRows.rows(), context, result);
   }
 
   // Write non-selected rows in remainingRows as nulls in the result if some
   // rows have been skipped.
-  if (mutableRemainingRows && !mutableRemainingRows->isAllSelected()) {
-    addNulls(rows, mutableRemainingRows->asRange().bits(), context, result);
+  if (remainingRows.mayHaveChanged()) {
+    addNulls(rows, remainingRows.rows().asRange().bits(), context, result);
   }
   releaseInputValues(context);
 }
@@ -1470,20 +1508,18 @@ void Expr::applyFunction(
   }
 
   if (!result) {
-    LocalSelectivityVector mutableRemainingRowsHolder(context);
-    auto mutableRemainingRows = mutableRemainingRowsHolder.get(rows);
-    context.deselectErrors(*mutableRemainingRows);
+    MutableRemainingRows remainingRows(rows, context);
 
     // If there are rows with no result and no exception this is a bug in the
     // function implementation.
-    if (mutableRemainingRows->hasSelections()) {
+    if (remainingRows.deselectErrors()) {
       try {
         // This isn't performant, but it gives us the relevant context and
         // should only apply when the UDF is buggy (hopefully rarely).
         VELOX_USER_FAIL(
             "Function neither returned results nor threw exception.");
       } catch (const std::exception& e) {
-        context.setErrors(*mutableRemainingRows, std::current_exception());
+        context.setErrors(remainingRows.rows(), std::current_exception());
       }
     }
 
