@@ -389,6 +389,10 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   const std::vector<MachinePageCount>
       sizeClassSizes_{1, 2, 4, 8, 16, 32, 64, 128, 256};
 
+  std::atomic<MachinePageCount> numAllocated_{0};
+  // Tracks the number of mapped pages.
+  std::atomic<MachinePageCount> numMapped_{0};
+
   // Indicates if the failure injection is persistent or transient.
   //
   // NOTE: this is only used for testing purpose.

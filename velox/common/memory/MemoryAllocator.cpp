@@ -170,10 +170,6 @@ class MallocAllocator : public MemoryAllocator {
 
   const Kind kind_;
 
-  std::atomic<MachinePageCount> numAllocated_;
-  // When using mmap/madvise, the current of number pages backed by memory.
-  std::atomic<MachinePageCount> numMapped_;
-
   std::mutex mallocsMutex_;
   // Tracks malloc'd pointers to detect bad frees.
   std::unordered_set<void*> mallocs_;
@@ -182,8 +178,7 @@ class MallocAllocator : public MemoryAllocator {
 
 } // namespace
 
-MallocAllocator::MallocAllocator()
-    : kind_(MemoryAllocator::Kind::kMalloc), numAllocated_(0), numMapped_(0) {}
+MallocAllocator::MallocAllocator() : kind_(MemoryAllocator::Kind::kMalloc) {}
 
 bool MallocAllocator::allocateNonContiguous(
     MachinePageCount numPages,
@@ -311,7 +306,7 @@ bool MallocAllocator::allocateContiguousImpl(
     }
   }
   numAllocated_.fetch_add(numPages);
-  numMapped_.fetch_add(numNeededPages + numContiguousCollateralPages);
+  numMapped_.fetch_add(numPages);
 
   void* data = ::mmap(
       nullptr,

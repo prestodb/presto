@@ -164,6 +164,10 @@ class MemoryAllocatorTest : public testing::TestWithParam<TestParam> {
   }
 
   void SetUp() override {
+    setupAllocator();
+  }
+
+  void setupAllocator() {
     MemoryAllocator::testingDestroyInstance();
     useMmap_ = GetParam().useMmap;
     if (useMmap_) {
@@ -739,6 +743,86 @@ TEST_P(MemoryAllocatorTest, externalAdvise) {
   EXPECT_TRUE(instance->checkConsistency());
   clearAllocations(allocations);
   EXPECT_TRUE(instance->checkConsistency());
+}
+
+TEST_P(MemoryAllocatorTest, allocContiguous) {
+  struct {
+    MachinePageCount nonContiguousPages;
+    MachinePageCount oldContiguousPages;
+    MachinePageCount newContiguousPages;
+
+    std::string debugString() const {
+      return fmt::format(
+          "nonContiguousPages:{} oldContiguousPages:{} newContiguousPages:{}",
+          nonContiguousPages,
+          oldContiguousPages,
+          newContiguousPages);
+    }
+  } testSettings[] = {
+      {100, 100, 200},
+      {100, 200, 200},
+      {200, 100, 200},
+      {200, 100, 400},
+      {0, 100, 100},
+      {0, 200, 100},
+      {0, 100, 200},
+      {100, 0, 100},
+      {200, 0, 100},
+      {100, 0, 200}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(fmt::format(
+        "{} useMmap{} hasTracker{}",
+        testData.debugString(),
+        useMmap_,
+        hasMemoryTracker_));
+    setupAllocator();
+    const MachinePageCount nonContiguousPages = 100;
+    Allocation allocation;
+    if (testData.nonContiguousPages != 0) {
+      instance_->allocateNonContiguous(testData.nonContiguousPages, allocation);
+    }
+    ContiguousAllocation contiguousAllocation;
+    if (testData.oldContiguousPages != 0) {
+      instance_->allocateContiguous(
+          testData.oldContiguousPages, nullptr, contiguousAllocation);
+    }
+    instance_->allocateContiguous(
+        testData.newContiguousPages, &allocation, contiguousAllocation);
+    ASSERT_EQ(instance_->numAllocated(), testData.newContiguousPages);
+
+    if (useMmap_) {
+      if (testData.nonContiguousPages > 0) {
+        // Mmap allocator doesn't free mapped pages count for the old
+        // non-contiguous allocation.
+        ASSERT_GE(
+            instance_->numMapped(),
+            testData.newContiguousPages + testData.nonContiguousPages);
+      } else {
+        ASSERT_EQ(instance_->numMapped(), testData.newContiguousPages);
+      }
+      auto mappedAllocator = dynamic_cast<MmapAllocator*>(allocator_.get());
+      ASSERT_EQ(
+          mappedAllocator->numExternalMapped(), testData.newContiguousPages);
+    } else {
+      ASSERT_EQ(instance_->numMapped(), testData.newContiguousPages);
+    }
+
+    instance_->freeContiguous(contiguousAllocation);
+
+    if (useMmap_) {
+      ASSERT_EQ(instance_->numAllocated(), 0);
+      if (testData.nonContiguousPages > 0) {
+        ASSERT_GE(instance_->numMapped(), testData.nonContiguousPages);
+      } else {
+        ASSERT_EQ(instance_->numMapped(), 0);
+      }
+      auto mappedAllocator = dynamic_cast<MmapAllocator*>(allocator_.get());
+      ASSERT_EQ(mappedAllocator->numExternalMapped(), 0);
+    } else {
+      ASSERT_EQ(instance_->numMapped(), 0);
+      ASSERT_EQ(instance_->numAllocated(), 0);
+    }
+  }
 }
 
 TEST_P(MemoryAllocatorTest, allocContiguousFail) {
