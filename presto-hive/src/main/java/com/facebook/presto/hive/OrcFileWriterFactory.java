@@ -33,6 +33,7 @@ import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Splitter;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,7 +50,9 @@ import org.weakref.jmx.Managed;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -117,6 +120,8 @@ public class OrcFileWriterFactory
      * compound column statistics.
      */
     private static final String ORC_MAP_STATISTICS_KEY = "orc.map.statistics";
+    private static final String HOSTNAME_METADATA_KEY = "orc.writer.host";
+    private static final Supplier<Optional<String>> HOSTNAME = Suppliers.memoize(OrcFileWriterFactory::getHostname);
 
     private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
@@ -249,6 +254,15 @@ public class OrcFileWriterFactory
             boolean mapStatisticsEnabled = isMapStatisticsEnabled(schema);
             Set<Integer> flattenedColumns = getFlattenedColumns(schema, session);
 
+            ImmutableMap.Builder<String, String> metadata = ImmutableMap.<String, String>builder()
+                    .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
+                    .put(MetastoreUtil.PRESTO_QUERY_ID_NAME, session.getQueryId());
+
+            // add the writer's hostname to the file footer, it is useful for troubleshooting file corruption issues
+            if (orcFileWriterConfig.isAddHostnameToFileMetadataEnabled() && HOSTNAME.get().isPresent()) {
+                metadata.put(HOSTNAME_METADATA_KEY, HOSTNAME.get().get());
+            }
+
             return Optional.of(new OrcFileWriter(
                     dataSink,
                     rollbackAction,
@@ -276,10 +290,7 @@ public class OrcFileWriterFactory
                             .withCompressionLevel(getCompressionLevel(session))
                             .build(),
                     fileInputColumnIndexes,
-                    ImmutableMap.<String, String>builder()
-                            .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
-                            .put(MetastoreUtil.PRESTO_QUERY_ID_NAME, session.getQueryId())
-                            .build(),
+                    metadata.build(),
                     hiveStorageTimeZone,
                     validationInputFactory,
                     getOrcOptimizedWriterValidateMode(session),
@@ -383,5 +394,19 @@ public class OrcFileWriterFactory
     private boolean isMapStatisticsEnabled(Properties schema)
     {
         return parseBoolean(schema.getProperty(ORC_MAP_STATISTICS_KEY, "false"));
+    }
+
+    // The result is cached by the Suppliers.memoize because getCanonicalHostName does a DNS call.
+    // Guava's MemoizingSupplier produced by the Suppliers.memoize does internal synchronization on get(),
+    // that's why we don't need to synchronize this method.
+    private static Optional<String> getHostname()
+    {
+        try {
+            String canonicalHostname = InetAddress.getLocalHost().getCanonicalHostName().toLowerCase(Locale.US);
+            return Optional.of(canonicalHostname);
+        }
+        catch (Exception ignore) {
+        }
+        return Optional.empty();
     }
 }
