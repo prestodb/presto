@@ -194,7 +194,7 @@ public class PredicatePushDown
             this.session = requireNonNull(session, "session is null");
             this.expressionEquivalence = new ExpressionEquivalence(metadata, sqlParser);
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
-            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(metadata.getFunctionAndTypeManager()), metadata.getFunctionAndTypeManager());
+            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()), metadata.getFunctionAndTypeManager());
             this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
             this.externalCallExpressionChecker = new ExternalCallExpressionChecker(functionAndTypeManager);
         }
@@ -315,7 +315,7 @@ public class PredicatePushDown
             // TryExpressions should not be pushed down. However they are now being handled as lambda
             // passed to a FunctionCall now and should not affect predicate push down. So we want to make
             // sure the conjuncts are not TryExpressions.
-            FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager);
+            FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
             verify(uniqueSubExpressions(expression)
                     .stream()
                     .noneMatch(subExpression -> subExpression instanceof CallExpression &&

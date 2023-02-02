@@ -17,7 +17,6 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -25,6 +24,7 @@ import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
@@ -64,13 +64,13 @@ public final class SqlFunctionUtils
     public static Expression getSqlFunctionExpression(
             FunctionMetadata functionMetadata,
             SqlInvokedScalarFunctionImplementation implementation,
-            Metadata metadata,
+            FunctionAndTypeResolver functionAndTypeResolver,
             PlanVariableAllocator variableAllocator,
             SqlFunctionProperties sqlFunctionProperties,
             List<Expression> arguments)
     {
-        Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, metadata, variableAllocator);
-        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, metadata, variableAllocator, sqlFunctionProperties, argumentVariables);
+        Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, functionAndTypeResolver, variableAllocator);
+        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeResolver, variableAllocator, sqlFunctionProperties, argumentVariables);
         return SqlFunctionArgumentBinder.bindFunctionArguments(
                 expression,
                 functionMetadata.getArgumentNames().get(),
@@ -81,27 +81,27 @@ public final class SqlFunctionUtils
     public static RowExpression getSqlFunctionRowExpression(
             FunctionMetadata functionMetadata,
             SqlInvokedScalarFunctionImplementation implementation,
-            Metadata metadata,
+            FunctionAndTypeResolver functionAndTypeResolver,
             SqlFunctionProperties sqlFunctionProperties,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             List<RowExpression> arguments)
     {
         PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
-        Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, metadata, variableAllocator);
-        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, metadata, variableAllocator, sqlFunctionProperties, argumentVariables);
+        Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, functionAndTypeResolver, variableAllocator);
+        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeResolver, variableAllocator, sqlFunctionProperties, argumentVariables);
 
         // Translate to row expression
         return SqlFunctionArgumentBinder.bindFunctionArguments(
                 SqlToRowExpressionTranslator.translate(
                         expression,
                         analyzeSqlFunctionExpression(
-                                metadata,
+                                functionAndTypeResolver,
                                 sqlFunctionProperties,
                                 expression,
                                 argumentVariables.values().stream()
                                         .collect(toImmutableMap(VariableReferenceExpression::getName, VariableReferenceExpression::getType))).getExpressionTypes(),
                         ImmutableMap.of(),
-                        metadata.getFunctionAndTypeManager(),
+                        functionAndTypeResolver,
                         Optional.empty(),
                         Optional.empty(),
                         sqlFunctionProperties,
@@ -114,7 +114,7 @@ public final class SqlFunctionUtils
     private static Expression getSqlFunctionImplementationExpression(
             FunctionMetadata functionMetadata,
             SqlInvokedScalarFunctionImplementation implementation,
-            Metadata metadata,
+            FunctionAndTypeResolver functionAndTypeResolver,
             PlanVariableAllocator variableAllocator,
             SqlFunctionProperties sqlFunctionProperties,
             Map<String, VariableReferenceExpression> argumentVariables)
@@ -123,7 +123,7 @@ public final class SqlFunctionUtils
         checkArgument(functionMetadata.getArgumentNames().isPresent(), "ArgumentNames is missing");
         Expression expression = normalizeParameters(functionMetadata.getArgumentNames().get(), parseSqlFunctionExpression(implementation, sqlFunctionProperties));
         ExpressionAnalysis functionAnalysis = analyzeSqlFunctionExpression(
-                metadata,
+                functionAndTypeResolver,
                 sqlFunctionProperties,
                 expression,
                 argumentVariables.entrySet().stream()
@@ -157,10 +157,10 @@ public final class SqlFunctionUtils
         return new SqlParser().createReturn(functionImplementation.getImplementation(), parsingOptions).getExpression();
     }
 
-    private static Map<String, VariableReferenceExpression> allocateFunctionArgumentVariables(FunctionMetadata functionMetadata, Metadata metadata, PlanVariableAllocator variableAllocator)
+    private static Map<String, VariableReferenceExpression> allocateFunctionArgumentVariables(FunctionMetadata functionMetadata, FunctionAndTypeResolver functionAndTypeResolver, PlanVariableAllocator variableAllocator)
     {
         List<String> argumentNames = functionMetadata.getArgumentNames().get();
-        List<Type> argumentTypes = functionMetadata.getArgumentTypes().stream().map(metadata::getType).collect(toImmutableList());
+        List<Type> argumentTypes = functionMetadata.getArgumentTypes().stream().map(functionAndTypeResolver::getType).collect(toImmutableList());
         checkState(argumentNames.size() == argumentTypes.size(), format("Expect argumentNames (size %d) and argumentTypes (size %d) to be of the same size", argumentNames.size(), argumentTypes.size()));
         ImmutableMap.Builder<String, VariableReferenceExpression> builder = ImmutableMap.builder();
         for (int i = 0; i < argumentNames.size(); i++) {

@@ -473,7 +473,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        Optional.of(new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager()))),
+                        Optional.of(new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()))),
                         ImmutableSet.of(
                                 new RemoveRedundantDistinct(),
                                 new RemoveRedundantTopN(),
@@ -607,7 +607,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                Optional.of(new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager()))),
+                Optional.of(new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()))),
                 ImmutableSet.of(
                         new TransformDistinctInnerJoinToLeftEarlyOutJoin(),
                         new TransformDistinctInnerJoinToRightEarlyOutJoin(),

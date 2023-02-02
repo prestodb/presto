@@ -49,7 +49,7 @@ public class TestTranslateExpressions
 {
     private static final Metadata METADATA = createTestMetadataManager();
     private static final FunctionAndTypeManager FUNCTION_MANAGER = METADATA.getFunctionAndTypeManager();
-    private static final FunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(FUNCTION_MANAGER);
+    private static final FunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(FUNCTION_MANAGER.getFunctionAndTypeResolver());
     private static final FunctionHandle REDUCE_AGG = FUNCTION_MANAGER.lookupFunction(
             "reduce_agg",
             fromTypes(

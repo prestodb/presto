@@ -71,7 +71,7 @@ public class WindowFilterPushDown
         this.domainTranslator = new RowExpressionDomainTranslator(metadata);
         this.logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
-                new FunctionResolution(metadata.getFunctionAndTypeManager()),
+                new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
                 metadata.getFunctionAndTypeManager());
     }
 

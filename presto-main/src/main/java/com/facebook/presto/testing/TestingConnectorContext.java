@@ -59,7 +59,7 @@ public class TestingConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new ConnectorId("test"));
     private final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-    private final StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager);
+    private final StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
     private final Metadata metadata = MetadataManager.createTestMetadataManager();

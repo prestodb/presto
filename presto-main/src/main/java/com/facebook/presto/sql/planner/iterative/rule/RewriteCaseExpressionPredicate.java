@@ -120,7 +120,7 @@ public class RewriteCaseExpressionPredicate
 
         private CaseExpressionPredicateRewriter(FunctionAndTypeManager functionAndTypeManager)
         {
-            this.functionResolution = new FunctionResolution(functionAndTypeManager);
+            this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
             this.logicalRowExpressions = new LogicalRowExpressions(
                     new RowExpressionDeterminismEvaluator(functionAndTypeManager),
                     functionResolution,

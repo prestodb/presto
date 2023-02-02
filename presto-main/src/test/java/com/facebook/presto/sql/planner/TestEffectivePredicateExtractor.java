@@ -113,7 +113,7 @@ public class TestEffectivePredicateExtractor
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private final LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
             new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
-            new FunctionResolution(metadata.getFunctionAndTypeManager()),
+            new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
             metadata.getFunctionAndTypeManager());
     private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(
             new RowExpressionDomainTranslator(metadata),

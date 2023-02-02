@@ -111,7 +111,7 @@ public class ReorderJoins
     {
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
+        this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
         this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager());
 
         this.joinNodePattern = join().matching(

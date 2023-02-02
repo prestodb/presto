@@ -119,7 +119,7 @@ public class ExpressionEquivalence
                 WarningCollector.NOOP);
 
         // convert to row expression
-        return translate(expression, expressionTypes, variableInput, metadata.getFunctionAndTypeManager(), session);
+        return translate(expression, expressionTypes, variableInput, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), session);
     }
 
     private static class CanonicalizationVisitor

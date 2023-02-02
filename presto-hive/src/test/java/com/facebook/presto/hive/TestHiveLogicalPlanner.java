@@ -256,7 +256,7 @@ public class TestHiveLogicalPlanner
                 output(values("linenumber")));
 
         FunctionAndTypeManager functionAndTypeManager = getQueryRunner().getMetadata().getFunctionAndTypeManager();
-        FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager);
+        FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
         RowExpression remainingPredicate = new CallExpression(EQUAL.name(),
                 functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
                 BOOLEAN,
