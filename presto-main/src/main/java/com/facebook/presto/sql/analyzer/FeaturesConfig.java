@@ -118,6 +118,7 @@ public class FeaturesConfig
     private boolean distributedSort = true;
     private boolean optimizeJoinsWithEmptySources;
     private boolean logFormattedQueryEnabled;
+    private boolean logInvokedFunctionNamesEnabled;
 
     private boolean dictionaryAggregation;
 
@@ -1940,6 +1941,19 @@ public class FeaturesConfig
     public FeaturesConfig setLogFormattedQueryEnabled(boolean logFormattedQueryEnabled)
     {
         this.logFormattedQueryEnabled = logFormattedQueryEnabled;
+        return this;
+    }
+
+    public boolean isLogInvokedFunctionNamesEnabled()
+    {
+        return logInvokedFunctionNamesEnabled;
+    }
+
+    @Config("log-invoked-function-names-enabled")
+    @ConfigDescription("Log the names of the functions invoked by the query when enabled.")
+    public FeaturesConfig setLogInvokedFunctionNamesEnabled(boolean logInvokedFunctionNamesEnabled)
+    {
+        this.logInvokedFunctionNamesEnabled = logInvokedFunctionNamesEnabled;
         return this;
     }
 

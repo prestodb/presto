@@ -214,6 +214,7 @@ public final class SystemSessionProperties
     public static final String SPOOLING_OUTPUT_BUFFER_ENABLED = "spooling_output_buffer_enabled";
     public static final String SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED = "spark_assign_bucket_to_partition_for_partitioned_table_write_enabled";
     public static final String LOG_FORMATTED_QUERY_ENABLED = "log_formatted_query_enabled";
+    public static final String LOG_INVOKED_FUNCTION_NAMES_ENABLED = "log_invoked_function_names_enabled";
     public static final String QUERY_RETRY_LIMIT = "query_retry_limit";
     public static final String QUERY_RETRY_MAX_EXECUTION_TIME = "query_retry_max_execution_time";
     public static final String PARTIAL_RESULTS_ENABLED = "partial_results_enabled";
@@ -1185,6 +1186,11 @@ public final class SystemSessionProperties
                         LOG_FORMATTED_QUERY_ENABLED,
                         "Log formatted prepared query instead of raw query when enabled",
                         featuresConfig.isLogFormattedQueryEnabled(),
+                        false),
+                booleanProperty(
+                        LOG_INVOKED_FUNCTION_NAMES_ENABLED,
+                        "Log the names of the functions invoked by the query when enabled.",
+                        featuresConfig.isLogInvokedFunctionNamesEnabled(),
                         false),
                 new PropertyMetadata<>(
                         QUERY_RETRY_LIMIT,
@@ -2222,6 +2228,11 @@ public final class SystemSessionProperties
     public static boolean isLogFormattedQueryEnabled(Session session)
     {
         return session.getSystemProperty(LOG_FORMATTED_QUERY_ENABLED, Boolean.class);
+    }
+
+    public static boolean isLogInvokedFunctionNamesEnabled(Session session)
+    {
+        return session.getSystemProperty(LOG_INVOKED_FUNCTION_NAMES_ENABLED, Boolean.class);
     }
 
     public static int getQueryRetryLimit(Session session)

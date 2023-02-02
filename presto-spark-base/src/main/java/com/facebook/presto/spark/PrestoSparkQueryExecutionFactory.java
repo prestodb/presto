@@ -352,6 +352,7 @@ public class PrestoSparkQueryExecutionFactory
                 ImmutableSet.of(),
                 planAndMore.map(PlanAndMore::getPlan).map(Plan::getStatsAndCosts).orElseGet(StatsAndCosts::empty),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 planAndMore.map(PlanAndMore::getPlanCanonicalInfo).orElseGet(ImmutableList::of));
     }
 

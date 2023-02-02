@@ -161,6 +161,7 @@ public class QueryStateMachine
     private final Set<SqlFunctionId> removedSessionFunctions = Sets.newConcurrentHashSet();
 
     private final WarningCollector warningCollector;
+    private final AtomicReference<List<String>> functionNames = new AtomicReference<>(ImmutableList.of());
 
     private QueryStateMachine(
             String query,
@@ -483,6 +484,7 @@ public class QueryStateMachine
                 removedSessionFunctions,
                 Optional.ofNullable(planStatsAndCosts.get()).orElseGet(StatsAndCosts::empty),
                 session.getOptimizerInformationCollector().getOptimizationInfo(),
+                functionNames.get(),
                 Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of));
     }
 
@@ -548,6 +550,12 @@ public class QueryStateMachine
     {
         requireNonNull(output, "output is null");
         this.output.set(output);
+    }
+
+    public void setFunctionNames(List<String> functionNames)
+    {
+        requireNonNull(functionNames, "functionNames is null");
+        this.functionNames.set(ImmutableList.copyOf(functionNames));
     }
 
     private void addSerializedCommitOutputToOutput(ConnectorCommitHandle commitHandle)
@@ -1063,6 +1071,7 @@ public class QueryStateMachine
                 queryInfo.getRemovedSessionFunctions(),
                 StatsAndCosts.empty(),
                 queryInfo.getOptimizerInformation(),
+                queryInfo.getFunctionNames(),
                 ImmutableList.of());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }

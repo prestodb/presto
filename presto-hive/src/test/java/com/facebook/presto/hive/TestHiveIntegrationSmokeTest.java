@@ -85,6 +85,7 @@ import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.LOG_INVOKED_FUNCTION_NAMES_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
@@ -154,6 +155,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEqualsNoOrder;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -5896,6 +5898,39 @@ public class TestHiveIntegrationSmokeTest
         // Alpha does not support DML yet
         assertQueryFails("INSERT INTO test_alpha_dml_partitioned_table VALUES (1, '2022-01-01')", "Serializer does not exist: com.facebook.alpha.AlphaSerde");
         assertUpdate("DROP TABLE test_alpha_dml_partitioned_table");
+    }
+
+    @Test
+    public void testInvokedFunctionNamesLog()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session logFunctionNamesEnabledSession = Session.builder(getSession())
+                .setSystemProperty(LOG_INVOKED_FUNCTION_NAMES_ENABLED, "true")
+                .build();
+        ResultWithQueryId<MaterializedResult> resultWithQueryId;
+        QueryInfo queryInfo;
+
+        @Language("SQL") String queryWithScalarFunctions =
+                "SELECT abs(acctbal), round(acctbal), round(acctbal, 1), repeat(custkey, 2), repeat(name, 3),  repeat(mktsegment, 4) FROM customer";
+        resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithScalarFunctions);
+        queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
+        assertEqualsNoOrder(queryInfo.getFunctionNames(), ImmutableList.of("presto.default.abs", "presto.default.round", "presto.default.repeat"));
+
+        @Language("SQL") String queryWithAggregateFunctions = "SELECT nationkey, mktsegment, arbitrary(name), arbitrary(comment), " +
+                "approx_percentile(acctbal, 0.1), approx_percentile(acctbal, 0.3, 0.01) FROM customer GROUP BY nationkey, mktsegment";
+        resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithAggregateFunctions);
+        queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
+        assertEqualsNoOrder(queryInfo.getFunctionNames(), ImmutableList.of("presto.default.arbitrary", "presto.default.approx_percentile"));
+
+        @Language("SQL") String queryWithWindowFunctions = "SELECT row_number() OVER(PARTITION BY mktsegment), nth_value(name, 5) OVER(PARTITION BY nationkey) FROM customer";
+        resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithWindowFunctions);
+        queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
+        assertEqualsNoOrder(queryInfo.getFunctionNames(), ImmutableList.of("presto.default.row_number", "presto.default.nth_value"));
+
+        @Language("SQL") String queryWithNestedFunctions = "SELECT DISTINCT nationkey FROM customer WHERE mktsegment='BUILDING' AND contains(regexp_split( phone, '-' ), '11' )";
+        resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithNestedFunctions);
+        queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
+        assertEqualsNoOrder(queryInfo.getFunctionNames(), ImmutableList.of("presto.default.contains", "presto.default.regexp_split"));
     }
 
     protected String retentionDays(int days)
