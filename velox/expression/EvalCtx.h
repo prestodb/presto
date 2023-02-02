@@ -211,6 +211,10 @@ class EvalCtx {
     return wrapEncoding_;
   }
 
+  bool hasWrap() const {
+    return wrapEncoding_ != VectorEncoding::Simple::FLAT;
+  }
+
   void setConstantWrap(vector_size_t wrapIndex) {
     wrapEncoding_ = VectorEncoding::Simple::CONSTANT;
     constantWrapIndex_ = wrapIndex;

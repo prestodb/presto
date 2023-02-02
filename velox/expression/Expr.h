@@ -341,18 +341,12 @@ class Expr {
       EvalCtx& context,
       LocalSelectivityVector& nullHolder);
 
-  // If this is a common subexpression, checks if there is a previously
-  // calculated result and populates the 'result'.
-  bool checkGetSharedSubexprValues(
+  // Evaluate common sub-expression. Check if sharedSubexprValues_ already has
+  // values for all 'rows'. If not, compute missing values.
+  void evaluateSharedSubexpr(
       const SelectivityVector& rows,
       EvalCtx& context,
       VectorPtr& result);
-
-  // If this is a common subexpression, stores the newly calculated result.
-  void checkUpdateSharedSubexprValues(
-      const SelectivityVector& rows,
-      EvalCtx& context,
-      const VectorPtr& result);
 
   void evalSimplifiedImpl(
       const SelectivityVector& rows,

@@ -563,21 +563,6 @@ void Expr::eval(
     return;
   }
 
-  // Check if this expression has been evaluated already. If so, fetch and
-  // return the previously computed result.
-  if (checkGetSharedSubexprValues(rows, context, result)) {
-    return;
-  }
-
-  evalEncodings(rows, context, result);
-
-  checkUpdateSharedSubexprValues(rows, context, result);
-}
-
-bool Expr::checkGetSharedSubexprValues(
-    const SelectivityVector& rows,
-    EvalCtx& context,
-    VectorPtr& result) {
   // Common subexpression optimization and peeling off of encodings and lazy
   // vectors do not work well together. There are cases when expression
   // initially is evaluated on rows before peeling and later is evaluated on
@@ -585,74 +570,75 @@ bool Expr::checkGetSharedSubexprValues(
   // not comparable to 'rows'.
   //
   // For now, disable the optimization if any encodings have been peeled off.
-
-  if (!deterministic_ || !isMultiplyReferenced_ || !sharedSubexprValues_ ||
-      context.wrapEncoding() != VectorEncoding::Simple::FLAT) {
-    return false;
+  if (deterministic_ && isMultiplyReferenced_ && !context.hasWrap()) {
+    evaluateSharedSubexpr(rows, context, result);
+  } else {
+    evalEncodings(rows, context, result);
   }
-
-  if (!rows.isSubset(*sharedSubexprRows_)) {
-    LocalSelectivityVector missingRowsHolder(context, rows);
-    auto missingRows = missingRowsHolder.get();
-    VELOX_DCHECK_NOT_NULL(missingRows);
-    missingRows->deselect(*sharedSubexprRows_);
-
-    // Add the missingRows to sharedSubexprRows_ that will eventually be
-    // evaluated and added to sharedSubexprValues_.
-    sharedSubexprRows_->select(*missingRows);
-
-    // Fix finalSelection to avoid losing values outside missingRows.
-    LocalSelectivityVector newFinalSelectionHolder(
-        context, *sharedSubexprRows_);
-    auto newFinalSelection = newFinalSelectionHolder.get();
-    VELOX_DCHECK_NOT_NULL(newFinalSelection);
-    if (!context.isFinalSelection()) {
-      // In case currently set finalSelection does not include all rows in
-      // sharedSubexprRows_.
-      VELOX_DCHECK_NOT_NULL(context.finalSelection());
-      newFinalSelection->select(*context.finalSelection());
-    }
-
-    ScopedFinalSelectionSetter scopedFinalSelectionSetter(
-        context,
-        const_cast<const SelectivityVector*>(newFinalSelection),
-        true /*checkCondition*/,
-        true /*override*/);
-
-    evalEncodings(*missingRows, context, sharedSubexprValues_);
-
-    // Clear the rows which failed to compute.
-    context.deselectErrors(*sharedSubexprRows_);
-  }
-
-  context.moveOrCopyResult(sharedSubexprValues_, rows, result);
-  return true;
 }
 
-void Expr::checkUpdateSharedSubexprValues(
+void Expr::evaluateSharedSubexpr(
     const SelectivityVector& rows,
     EvalCtx& context,
-    const VectorPtr& result) {
-  if (!isMultiplyReferenced_ || sharedSubexprValues_ ||
-      context.wrapEncoding() != VectorEncoding::Simple::FLAT) {
+    VectorPtr& result) {
+  if (sharedSubexprValues_ == nullptr) {
+    evalEncodings(rows, context, result);
+
+    if (!sharedSubexprRows_) {
+      sharedSubexprRows_ = context.execCtx()->getSelectivityVector(rows.size());
+    }
+
+    *sharedSubexprRows_ = rows;
+    if (context.errors()) {
+      // Clear the rows which failed to compute.
+      context.deselectErrors(*sharedSubexprRows_);
+      if (!sharedSubexprRows_->hasSelections()) {
+        // Do not store a reference to 'result' if we cannot use any rows from
+        // it.
+        return;
+      }
+    }
+
+    sharedSubexprValues_ = result;
     return;
   }
 
-  if (!sharedSubexprRows_) {
-    sharedSubexprRows_ = context.execCtx()->getSelectivityVector(rows.size());
+  if (rows.isSubset(*sharedSubexprRows_)) {
+    // We have results for all requested rows. No need to compute anything.
+    context.moveOrCopyResult(sharedSubexprValues_, rows, result);
+    return;
   }
 
-  *sharedSubexprRows_ = rows;
-  if (context.errors()) {
-    // Clear the rows which failed to compute.
-    context.deselectErrors(*sharedSubexprRows_);
-    if (!sharedSubexprRows_->hasSelections()) {
-      // Do not store a reference to 'result' if we cannot use any rows from it.
-      return;
-    }
+  // We are missing results for some or all of the requested rows. Need to
+  // compute these and save for future use.
+
+  // Identify a subset of rows that need to be computed: rows -
+  // sharedSubexprRows_.
+  LocalSelectivityVector missingRowsHolder(context, rows);
+  auto missingRows = missingRowsHolder.get();
+  missingRows->deselect(*sharedSubexprRows_);
+  VELOX_DCHECK(missingRows->hasSelections());
+
+  // Fix finalSelection to avoid losing values outside missingRows.
+  // Final selection of rows need to include sharedSubexprRows_, missingRows and
+  // current final selection of rows if set.
+  LocalSelectivityVector newFinalSelectionHolder(context, *sharedSubexprRows_);
+  auto newFinalSelection = newFinalSelectionHolder.get();
+  newFinalSelection->select(*missingRows);
+  if (!context.isFinalSelection()) {
+    newFinalSelection->select(*context.finalSelection());
   }
 
-  sharedSubexprValues_ = result;
+  ScopedFinalSelectionSetter setter(
+      context, newFinalSelection, true /*checkCondition*/, true /*override*/);
+
+  evalEncodings(*missingRows, context, sharedSubexprValues_);
+
+  // Clear the rows which failed to compute.
+  context.deselectErrors(*missingRows);
+
+  sharedSubexprRows_->select(*missingRows);
+  context.moveOrCopyResult(sharedSubexprValues_, *missingRows, result);
 }
 
 namespace {
