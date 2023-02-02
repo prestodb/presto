@@ -202,8 +202,8 @@ class MmapAllocator : public MemoryAllocator {
 
     // Returns the bit offset of the first bit of a 512 bit group in
     // 'pageAllocated_'/'pageMapped_'  that contains at least one mapped free
-    // page. Returns < 0 if none exists.
-    int32_t findMappedFreeGroup();
+    // page.
+    uint32_t findMappedFreeGroup();
 
     // Returns a word of 256 bits with a set bit for each mapped free page in
     // the range. 'index' is an index of a word in

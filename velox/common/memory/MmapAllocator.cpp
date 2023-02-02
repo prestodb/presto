@@ -574,7 +574,7 @@ bool isAllZero(xsimd::batch<uint64_t> bits) {
 }
 } // namespace
 
-int32_t MmapAllocator::SizeClass::findMappedFreeGroup() {
+uint32_t MmapAllocator::SizeClass::findMappedFreeGroup() {
   constexpr int32_t kWidth = xsimd::batch<int64_t>::size;
   int32_t index = lastLookupIndex_;
   if (index == kNoLastLookup) {
@@ -615,30 +615,22 @@ void MmapAllocator::SizeClass::allocateFromMappedFree(
   constexpr int32_t kWordsPerGroup = kPagesPerLookupBit / 64;
   int needed = numPages;
   for (;;) {
-    auto group = findMappedFreeGroup() * kWordsPerGroup;
-    if (group < 0) {
-      return;
-    }
+    const auto group = findMappedFreeGroup();
+    const auto startWord = group * kWordsPerGroup;
+    const auto endWord = startWord + kWordsPerGroup;
     bool anyFound = false;
-    bool groupEmpty = false;
-    for (auto index = group; index <= group + kWidth && !groupEmpty;
-         index += kWidth) {
-      auto bits = mappedFreeBits(index);
-      uint16_t mask = simd::allSetBitMask<int64_t>() ^
+    for (auto word = startWord; word < endWord; word += kWidth) {
+      const auto bits = mappedFreeBits(word);
+      uint16_t wordMask = simd::allSetBitMask<int64_t>() ^
           simd::toBitMask(bits == xsimd::broadcast<uint64_t>(0));
-      if (!mask) {
-        if (!(index < group + kWidth || anyFound)) {
-          LOG(ERROR) << "MMAPL: Lookup bit set but no free mapped pages class "
-                     << unitSize_;
-          bits::setBit(mappedFreeLookup_.data(), group / kWordsPerGroup, false);
-          return;
-        }
+      if (wordMask == 0) {
         continue;
       }
-      auto firstWord = bits::getAndClearLastSetBit(mask);
+
       anyFound = true;
-      auto allUsed = bits::testBits(
-          reinterpret_cast<uint64_t*>(&bits),
+      const auto firstWord = bits::getAndClearLastSetBit(wordMask);
+      const auto wordAllUsed = bits::testBits(
+          reinterpret_cast<const uint64_t*>(&bits),
           firstWord * 64,
           sizeof(bits) * 8,
           true,
@@ -646,7 +638,7 @@ void MmapAllocator::SizeClass::allocateFromMappedFree(
             if (!needed) {
               return false;
             }
-            auto page = index * 64 + bit;
+            const auto page = word * 64 + bit;
             bits::setBit(pageAllocated_.data(), page);
             allocation.append(
                 address_ + AllocationTraits::pageBytes(page * unitSize_),
@@ -655,16 +647,25 @@ void MmapAllocator::SizeClass::allocateFromMappedFree(
             return true;
           });
 
-      if (allUsed) {
-        if (index == group + kWidth ||
-            isAllZero(mappedFreeBits(index + kWidth))) {
-          bits::setBit(mappedFreeLookup_.data(), group / kWordsPerGroup, false);
-          groupEmpty = true;
+      if (needed == 0) {
+        if (!wordAllUsed) {
+          return;
         }
-      }
-      if (!needed) {
+        for (word += kWidth; word < endWord; word += kWidth) {
+          if (!isAllZero(mappedFreeBits(word))) {
+            return;
+          }
+        }
+        bits::setBit(mappedFreeLookup_.data(), group, false);
         return;
       }
+    }
+
+    bits::setBit(mappedFreeLookup_.data(), group, false);
+    if (!anyFound) {
+      LOG(ERROR) << "MMAPL: Lookup bit set but no free mapped pages class "
+                 << unitSize_;
+      return;
     }
   }
 }

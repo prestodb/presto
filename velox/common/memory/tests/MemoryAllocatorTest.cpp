@@ -565,47 +565,47 @@ TEST_P(MemoryAllocatorTest, singleAllocationTest) {
     auto size = sizes[i];
     allocateMultiple(size, capacity / size + 10, allocations);
     if (useMmap_) {
-      EXPECT_EQ(allocations.size(), capacity / size);
+      ASSERT_EQ(allocations.size(), capacity / size);
     } else {
       // NOTE: the non-mmap allocator doesn't enforce capacity for now.
-      EXPECT_EQ(allocations.size(), capacity / size + 10);
+      ASSERT_EQ(allocations.size(), capacity / size + 10);
     }
-    EXPECT_TRUE(instance_->checkConsistency());
-    EXPECT_GT(instance_->numAllocated(), 0);
+    ASSERT_TRUE(instance_->checkConsistency());
+    ASSERT_GT(instance_->numAllocated(), 0);
 
     clearAllocations(allocations);
-    EXPECT_EQ(instance_->numAllocated(), 0);
+    ASSERT_EQ(instance_->numAllocated(), 0);
 
     auto stats = instance_->stats();
-    EXPECT_LT(0, stats.sizes[i].clocks());
-    EXPECT_GE(
+    ASSERT_LT(0, stats.sizes[i].clocks());
+    ASSERT_GE(
         stats.sizes[i].totalBytes, capacity * AllocationTraits::kPageSize);
-    EXPECT_GE(stats.sizes[i].numAllocations, capacity / size);
+    ASSERT_GE(stats.sizes[i].numAllocations, capacity / size);
 
     if (useMmap_) {
-      EXPECT_EQ(instance_->numMapped(), kCapacity);
+      ASSERT_EQ(instance_->numMapped(), kCapacity);
     }
-    EXPECT_TRUE(instance_->checkConsistency());
+    ASSERT_TRUE(instance_->checkConsistency());
   }
   for (int32_t i = sizes.size() - 2; i >= 0; --i) {
     auto size = sizes[i];
     allocateMultiple(size, capacity / size + 10, allocations);
-    EXPECT_EQ(allocations[0]->numPages(), size);
+    ASSERT_EQ(allocations[0]->numPages(), size);
     if (useMmap_) {
-      EXPECT_EQ(allocations.size(), capacity / size);
+      ASSERT_EQ(allocations.size(), capacity / size);
     } else {
       // NOTE: the non-mmap allocator doesn't enforce capacity for now.
-      EXPECT_EQ(allocations.size(), capacity / size + 10);
+      ASSERT_EQ(allocations.size(), capacity / size + 10);
     }
-    EXPECT_TRUE(instance_->checkConsistency());
-    EXPECT_GT(instance_->numAllocated(), 0);
+    ASSERT_TRUE(instance_->checkConsistency());
+    ASSERT_GT(instance_->numAllocated(), 0);
 
     clearAllocations(allocations);
-    EXPECT_EQ(instance_->numAllocated(), 0);
+    ASSERT_EQ(instance_->numAllocated(), 0);
     if (useMmap_) {
-      EXPECT_EQ(instance_->numMapped(), kCapacity);
+      ASSERT_EQ(instance_->numMapped(), kCapacity);
     }
-    EXPECT_TRUE(instance_->checkConsistency());
+    ASSERT_TRUE(instance_->checkConsistency());
   }
 }
 
