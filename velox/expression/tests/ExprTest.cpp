@@ -3208,3 +3208,22 @@ TEST_F(ExprTest, cseUnderTry) {
       }),
       result);
 }
+
+TEST_F(ExprTest, conjunctUnderTry) {
+  auto input = makeRowVector({
+      makeFlatVector<StringView>({"a"_sv, "b"_sv}),
+      makeFlatVector<bool>({true, true}),
+      makeFlatVector<bool>({true, true}),
+  });
+
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "array_constructor(like(c0, 'test', 'escape'), c1 OR c2)", input),
+      "Escape string must be a single character");
+
+  auto result = evaluate(
+      "try(array_constructor(like(c0, 'test', 'escape'), c1 OR c2))", input);
+  auto expected =
+      BaseVector::createNullConstant(ARRAY(BOOLEAN()), input->size(), pool());
+  assertEqualVectors(expected, result);
+}

@@ -285,6 +285,15 @@ void Expr::evalSimplifiedImpl(
     auto& inputValue = inputValues_[i];
     inputs_[i]->evalSimplified(remainingRows, context, inputValue);
 
+    // Do not continue evaluation for rows with errors.
+    context.deselectErrors(remainingRows);
+    if (!remainingRows.hasSelections()) {
+      releaseInputValues(context);
+      result =
+          BaseVector::createNullConstant(type(), rows.size(), context.pool());
+      return;
+    }
+
     BaseVector::flattenVector(inputValue, rows.end());
     VELOX_CHECK(
         inputValue->encoding() == VectorEncoding::Simple::FLAT ||
@@ -298,28 +307,15 @@ void Expr::evalSimplifiedImpl(
       if (auto* rawNulls = inputValue->rawNulls()) {
         remainingRows.deselectNulls(
             rawNulls, remainingRows.begin(), remainingRows.end());
+
+        // All rows are null, return a null constant.
+        if (!remainingRows.hasSelections()) {
+          releaseInputValues(context);
+          result = BaseVector::createNullConstant(
+              type(), rows.size(), context.pool());
+          return;
+        }
       }
-    }
-
-    // All rows are null, return a null constant.
-    if (!remainingRows.hasSelections()) {
-      releaseInputValues(context);
-      result =
-          BaseVector::createNullConstant(type(), rows.size(), context.pool());
-      return;
-    }
-  }
-
-  // We need to deselect rows with errors since otherwise they will
-  // be cleared by Conjunct special form , as current assumption is
-  // that they are only invoked on rows that do not have exceptions.
-  if (context.errors()) {
-    context.deselectErrors(remainingRows);
-    if (!remainingRows.hasSelections()) {
-      releaseInputValues(context);
-      result =
-          BaseVector::createNullConstant(type(), rows.size(), context.pool());
-      return;
     }
   }
 
@@ -1289,6 +1285,14 @@ void Expr::evalAll(
     inputs_[i]->eval(remainingRows.rows(), context, inputValues_[i]);
     tryPeelArgs = tryPeelArgs && isPeelable(inputValues_[i]->encoding());
 
+    // Do not continue evaluation for rows with errors.
+    if (context.errors() && !remainingRows.deselectErrors()) {
+      // All rows are either null or have an error.
+      releaseInputValues(context);
+      setAllNulls(rows, context, result);
+      return;
+    }
+
     // Avoid subsequent computation on rows with known null output.
     if (defaultNulls && inputValues_[i]->mayHaveNulls()) {
       LocalDecodedVector decoded(
@@ -1301,20 +1305,6 @@ void Expr::evalAll(
           return;
         }
       }
-    }
-  }
-
-  // If any errors occurred evaluating the arguments, it's possible (even
-  // likely) that the values for those arguments were not defined which could
-  // lead to undefined behavior if we try to evaluate the current function on
-  // them.  It's safe to skip evaluating them since the value for this branch
-  // of the expression tree will be NULL for those rows anyway.
-  if (context.errors()) {
-    if (!remainingRows.deselectErrors()) {
-      // All rows have at least one null output or error.
-      releaseInputValues(context);
-      setAllNulls(rows, context, result);
-      return;
     }
   }
 
@@ -1670,11 +1660,21 @@ std::string makeUuid() {
 }
 } // namespace
 
+std::unordered_map<std::string, exec::ExprStats> ExprSet::stats() const {
+  std::unordered_map<std::string, exec::ExprStats> stats;
+  std::unordered_set<const exec::Expr*> uniqueExprs;
+  for (const auto& expr : exprs()) {
+    addStats(*expr, stats, uniqueExprs);
+  }
+
+  return stats;
+}
+
 ExprSet::~ExprSet() {
   exprSetListeners().withRLock([&](auto& listeners) {
     if (!listeners.empty()) {
-      std::unordered_map<std::string, exec::ExprStats> stats;
-      std::unordered_set<const exec::Expr*> uniqueExprs;
+      auto exprStats = stats();
+
       std::vector<std::string> sqls;
       for (const auto& expr : exprs()) {
         try {
@@ -1683,13 +1683,12 @@ ExprSet::~ExprSet() {
           LOG_EVERY_N(WARNING, 100) << "Failed to generate SQL: " << e.what();
           sqls.emplace_back("<failed to generate>");
         }
-        addStats(*expr, stats, uniqueExprs);
       }
 
       auto uuid = makeUuid();
       for (const auto& listener : listeners) {
         listener->onCompletion(
-            uuid, {stats, sqls, execCtx()->queryCtx()->queryId()});
+            uuid, {exprStats, sqls, execCtx()->queryCtx()->queryId()});
       }
     }
   });

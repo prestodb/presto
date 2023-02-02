@@ -89,11 +89,19 @@ class FunctionBaseTest : public testing::Test,
 
   // Use this directly if you don't want it to cast the returned vector.
   VectorPtr evaluate(const std::string& expression, const RowVectorPtr& data) {
-    auto rowType = std::dynamic_pointer_cast<const RowType>(data->type());
-    auto typedExpr = makeTypedExpr(expression, rowType);
+    auto typedExpr = makeTypedExpr(expression, asRowType(data->type()));
 
     return evaluate(typedExpr, data);
   }
+
+  /// Evaluates the expression on specified inputs and returns a pair of result
+  /// vector and evaluation statistics. The statistics are reported per function
+  /// or special form. If a function or a special form occurs in the expression
+  /// multiple times, the returned statistics will contain values aggregated
+  /// across all calls. Statistics will be missing for functions and
+  /// special forms that didn't get evaluated.
+  std::pair<VectorPtr, std::unordered_map<std::string, exec::ExprStats>>
+  evaluateWithStats(const std::string& expression, const RowVectorPtr& data);
 
   // Use this function if you want to evaluate a manually-constructed expression
   // tree.
@@ -117,8 +125,7 @@ class FunctionBaseTest : public testing::Test,
   std::shared_ptr<T> evaluateSimplified(
       const std::string& expression,
       const RowVectorPtr& data) {
-    auto rowType = std::dynamic_pointer_cast<const RowType>(data->type());
-    auto typedExpr = makeTypedExpr(expression, rowType);
+    auto typedExpr = makeTypedExpr(expression, asRowType(data->type()));
     auto result = evaluateImpl<exec::ExprSetSimplified>(typedExpr, data);
 
     return castEvaluateResult<T>(result, expression);
@@ -130,11 +137,10 @@ class FunctionBaseTest : public testing::Test,
       RowVectorPtr data,
       const SelectivityVector& rows,
       VectorPtr& result) {
-    auto rowType = std::dynamic_pointer_cast<const RowType>(data->type());
-    facebook::velox::exec::ExprSet exprSet(
-        {makeTypedExpr(expression, rowType)}, &execCtx_);
+    exec::ExprSet exprSet(
+        {makeTypedExpr(expression, asRowType(data->type()))}, &execCtx_);
 
-    facebook::velox::exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
+    exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
     std::vector<VectorPtr> results{std::move(result)};
     exprSet.eval(rows, evalCtx, results);
     result = results[0];

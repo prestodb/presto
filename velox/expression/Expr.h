@@ -532,6 +532,13 @@ class ExprSet {
   /// Otherwise, prints a tree of expressions one node per line.
   std::string toString(bool compact = true) const;
 
+  /// Returns evaluation statistics as a map keyed on function or special form
+  /// name. If a function or a special form occurs in the expression
+  /// multiple times, the statistics will be aggregated across all calls.
+  /// Statistics will be missing for functions and special forms that didn't get
+  /// evaluated.
+  std::unordered_map<std::string, exec::ExprStats> stats() const;
+
  protected:
   void clearSharedSubexprs();
 
