@@ -31,7 +31,7 @@ from
 			and n1.regionkey = r.regionkey
 			and r.name = 'AMERICA'
 			and s.nationkey = n2.nationkey
-			and o.orderdate between date '1995-01-01' and date '1996-12-31'
+			and o.orderdate between '1995-01-01' and '1996-12-31'
 			and p.type = 'ECONOMY ANODIZED STEEL'
 	) as all_nations
 group by
