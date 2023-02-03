@@ -18,68 +18,80 @@
 
 namespace facebook::velox::window::test {
 
-/// Common set of window function over clauses using a combination of two
+/// Common set of window function over clauses using a combination of three
 /// columns.
 static std::vector<std::string> kBasicOverClauses = {
-    "partition by c0 order by c1",
-    "partition by c1 order by c0",
-    "partition by c0 order by c1 desc",
-    "partition by c1 order by c0 desc",
-    // No partition by clause.
-    "order by c0, c1",
-    "order by c1, c0",
-    "order by c0 asc, c1 desc",
-    "order by c1 asc, c0 desc",
-    // No order by clause.
-    "partition by c0, c1",
-};
-
-/// Common set of window function over clauses with different sort orders
-/// using a combination of two columns.
-static std::vector<std::string> kSortOrderBasedOverClauses = {
-    "partition by c0 order by c1 nulls first",
-    "partition by c1 order by c0 nulls first",
-    "partition by c0 order by c1 desc nulls first",
-    "partition by c1 order by c0 desc nulls first",
-    // No partition by clause.
-    "order by c0 asc nulls first, c1 desc nulls first",
-    "order by c1 asc nulls first, c0 desc nulls first",
-    "order by c0 desc nulls first, c1 asc nulls first",
-    "order by c1 desc nulls first, c0 asc nulls first",
-};
-
-/// Common set of window function over clauses for window frame tests to ensure
-/// total ordering for deterministic results in ROW mode.
-static std::vector<std::string> kFrameOverClauses = {
-    "partition by c0 order by c1, c2",
-    "partition by c1 order by c0, c2",
+    "partition by c0 order by c1 desc, c2",
+    "partition by c1 order by c0, c2 desc",
     "partition by c0 order by c2, c1",
-    "partition by c1 order by c2, c0",
+    "partition by c1 order by c2, c0 desc",
     // No partition by clause.
-    "order by c0 asc nulls first, c1 desc, c2 asc",
+    "order by c0 asc nulls first, c1 desc, c2",
     "order by c1 asc, c0 desc nulls last, c2 desc",
     "order by c0 asc, c2 desc, c1 asc nulls last",
-    "order by c2 asc, c1 desc nulls first, c0 asc",
+    "order by c2 asc, c1 desc nulls first, c0",
     // No order by clause.
     "partition by c0, c1, c2",
 };
 
-/// Common set of window function frame clauses in RANGE mode, with current row,
-/// unbounded preceding, and unbounded following frame combinations.
-static std::vector<std::string> kRangeFrameClauses = {
+/// Common set of window function over clauses with different sort orders
+/// using a combination of three columns.
+static std::vector<std::string> kSortOrderBasedOverClauses = {
+    "partition by c0 order by c1 nulls first, c2",
+    "partition by c0, c2 order by c1 nulls first",
+    "partition by c1 order by c0 nulls first, c2",
+    "partition by c1, c2 order by c0 nulls first",
+    "partition by c0 order by c1 desc nulls first, c2",
+    "partition by c0, c2 order by c1 desc nulls first",
+    "partition by c1 order by c0 desc nulls first, c2",
+    "partition by c1, c2 order by c0 desc nulls first",
+    // No partition by clause.
+    "order by c0 asc nulls first, c1 desc nulls first, c2",
+    "order by c1 asc nulls first, c0 desc nulls first, c2",
+    "order by c0 desc nulls first, c1 asc nulls first, c2",
+    "order by c1 desc nulls first, c0 asc nulls first, c2",
+};
+
+/// Exhaustive set of window function frame combinations.
+static std::vector<std::string> kFrameClauses = {
+    // Frame clauses in RANGE mode, with current row, unbounded preceding, and
+    // unbounded following frame combinations.
     "range unbounded preceding",
     "range current row",
     "range between current row and unbounded following",
     "range between unbounded preceding and unbounded following",
-};
 
-/// Common set of window function frame clauses in ROWS mode, with current row,
-/// unbounded preceding, and unbounded following frame combinations.
-static std::vector<std::string> kRowsFrameClauses = {
+    // Frame clauses in ROWS mode, with current row, unbounded preceding, and
+    // unbounded following frame combinations.
     "rows unbounded preceding",
     "rows current row",
     "rows between current row and unbounded following",
     "rows between unbounded preceding and unbounded following",
+
+    // Frame clauses in ROWS mode with k preceding and k following frame bounds,
+    // where k is a constant integer.
+    "rows between 1 preceding and current row",
+    "rows between 5 preceding and current row",
+    "rows between 1 preceding and unbounded following",
+    "rows between 5 preceding and unbounded following",
+    "rows between current row and 1 following",
+    "rows between current row and 5 following",
+    "rows between unbounded preceding and 1 following",
+    "rows between unbounded preceding and 5 following",
+    "rows between 1 preceding and 5 following",
+    "rows between 5 preceding and 1 following",
+    "rows between 1 preceding and 1 following",
+    "rows between 5 preceding and 5 following",
+
+    // Frame clauses in ROWS mode with k preceding and k following frame bounds,
+    // where k is a column.
+    "rows between c2 preceding and current row",
+    "rows between c2 preceding and unbounded following",
+    "rows between current row and c2 following",
+    "rows between unbounded preceding and c2 following",
+    "rows between c2 preceding and c2 following",
+    "rows between c1 preceding and c2 following",
+    "rows between c2 preceding and c1 following",
 };
 
 class WindowTestBase : public exec::test::OperatorTestBase {
@@ -111,6 +123,19 @@ class WindowTestBase : public exec::test::OperatorTestBase {
       int numVectors,
       float nullRatio = 0.0);
 
+  /// This function generates a column of test data using the VectorFuzzer.
+  VectorPtr makeFlatFuzzVector(
+      const TypePtr& type,
+      vector_size_t size,
+      float nullRatio = 0.0);
+
+  /// Helper function to generate a list of over clauses by appending a suffix
+  /// to the input list. Used to get over clauses containing all input columns
+  /// in order to impose a deterministic output row order.
+  std::vector<std::string> addSuffixToClauses(
+      const std::string& suffix,
+      const std::vector<std::string>& inputClauses);
+
   /// This function tests SQL queries for the window function and
   /// the specified overClauses with the input RowVectors.
   /// Note : 'function' should be a full window function invocation string
@@ -119,7 +144,7 @@ class WindowTestBase : public exec::test::OperatorTestBase {
       const std::vector<RowVectorPtr>& input,
       const std::string& function,
       const std::vector<std::string>& overClauses,
-      const std::vector<std::string>& frameClauses = {""});
+      const std::string& frameClause = "");
 
   /// This function tests the SQL query for the window function and overClause
   /// combination with the input RowVectors. It is expected that query execution
@@ -130,11 +155,21 @@ class WindowTestBase : public exec::test::OperatorTestBase {
       const std::string& overClause,
       const std::string& errorMessage);
 
+  /// This function tests the SQL query for the window function, overClause,
+  /// and frameClause combination with the input RowVectors. It is expected that
+  /// query execution will throw an exception with the errorMessage specified.
+  void assertWindowFunctionError(
+      const std::vector<RowVectorPtr>& input,
+      const std::string& function,
+      const std::string& overClause,
+      const std::string& frameClause,
+      const std::string& errorMessage);
+
  private:
   void testWindowFunction(
       const std::vector<RowVectorPtr>& input,
       const std::string& function,
       const std::string& overClause,
-      const std::string& frameClause = "");
+      const std::string& frameClause);
 };
 }; // namespace facebook::velox::window::test

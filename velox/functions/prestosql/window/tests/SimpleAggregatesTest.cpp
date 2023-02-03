@@ -22,41 +22,69 @@ namespace facebook::velox::window::test {
 
 namespace {
 
+static const std::vector<std::string> kAggregateFunctions = {
+    std::string("sum(c2)"),
+    std::string("min(c2)"),
+    std::string("max(c2)"),
+    std::string("count(c2)"),
+    std::string("avg(c2)"),
+    std::string("sum(1)")};
+
+struct TestParam {
+  const std::string aggregateFunction;
+  const std::string frameClause;
+};
+
+std::vector<TestParam> getTestParams(
+    const std::vector<std::string>& frameClauses) {
+  std::vector<TestParam> params;
+  for (auto aggregateFunction : kAggregateFunctions) {
+    for (auto frameClause : frameClauses) {
+      params.push_back({aggregateFunction, frameClause});
+    }
+  }
+  return params;
+}
+
 class SimpleAggregatesTest : public WindowTestBase {
  protected:
-  SimpleAggregatesTest(const std::string& function) : function_(function) {}
+  SimpleAggregatesTest(const TestParam& testParam)
+      : function_(testParam.aggregateFunction),
+        frameClause_(testParam.frameClause) {}
 
   RowVectorPtr makeBasicVectors(vector_size_t size) {
     return makeRowVector({
-        makeFlatVector<int32_t>(
-            size, [](auto row) -> int32_t { return row % 10; }),
-        makeFlatVector<int32_t>(
-            size, [](auto row) -> int32_t { return row % 7; }),
-        makeFlatVector<int32_t>(size, [](auto row) -> int32_t { return row; }),
+        makeFlatVector<int32_t>(size, [](auto row) { return row % 10; }),
+        // These columns are used for k PRECEDING/FOLLOWING frame bounds. So
+        // they should have values >= 1.
+        makeFlatVector<int64_t>(size, [](auto row) { return row % 7 + 1; }),
+        makeFlatVector<int64_t>(size, [](auto row) { return row + 1; }),
     });
   }
 
   RowVectorPtr makeSinglePartitionVector(vector_size_t size) {
     return makeRowVector({
         makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),
-        makeFlatVector<int32_t>(size, [](auto row) { return row % 50; }),
-        makeFlatVector<int32_t>(size, [](auto row) -> int32_t { return row; }),
+        // These columns are used for k PRECEDING/FOLLOWING frame bounds. So
+        // they should have values >= 1.
+        makeFlatVector<int64_t>(size, [](auto row) { return row % 50 + 1; }),
+        makeFlatVector<int64_t>(size, [](auto row) { return row + 1; }),
     });
   }
 
   void testWindowFunction(
       const std::vector<RowVectorPtr>& vectors,
-      const std::vector<std::string>& overClauses,
-      const std::vector<std::string>& frameClauses = {""}) {
+      const std::vector<std::string>& overClauses) {
     WindowTestBase::testWindowFunction(
-        vectors, function_, overClauses, frameClauses);
+        vectors, function_, overClauses, frameClause_);
   }
 
   const std::string function_;
+  const std::string frameClause_;
 };
 
 class MultiAggregatesTest : public SimpleAggregatesTest,
-                            public testing::WithParamInterface<std::string> {
+                            public testing::WithParamInterface<TestParam> {
  public:
   MultiAggregatesTest() : SimpleAggregatesTest(GetParam()) {}
 };
@@ -83,67 +111,28 @@ TEST_P(MultiAggregatesTest, singlePartitionWithSortOrders) {
 }
 
 TEST_P(MultiAggregatesTest, randomInput) {
-  auto vectors = makeFuzzVectors(
-      ROW({"c0", "c1", "c2", "c3"},
-          {BIGINT(), SMALLINT(), INTEGER(), BIGINT()}),
-      10,
-      2);
-  createDuckDbTable(vectors);
+  auto size = 50;
+  std::vector<VectorPtr> vectors;
+  // Columns c1, c2 are used for k PRECEDING/FOLLOWING frame bounds. So they
+  // should have values >= 1.
+  auto input = makeRowVector(
+      {makeFlatFuzzVector(BIGINT(), size),
+       makeFlatVector<int64_t>(size, [](auto row) { return row % 5 + 1; }),
+       makeFlatVector<int64_t>(size, [](auto row) { return row + 1; }),
+       makeFlatFuzzVector(INTEGER(), size),
+       makeFlatFuzzVector(BIGINT(), size)});
 
-  std::vector<std::string> overClauses = {
-      "partition by c0 order by c1, c2, c3",
-      "partition by c1 order by c0, c2, c3",
-      "partition by c0 order by c1 desc, c2, c3",
-      "partition by c1 order by c0 desc, c2, c3",
-      "partition by c0 order by c1",
-      "partition by c0 order by c2",
-      "partition by c0 order by c3",
-      "partition by c1 order by c0 desc",
-      "partition by c0, c1 order by c2, c3",
-      "partition by c0, c1 order by c2",
-      "partition by c0, c1 order by c2 desc",
-      "order by c0, c1, c2, c3",
-      "partition by c0, c1, c2, c3",
-  };
-
-  testWindowFunction(vectors, overClauses);
-}
-
-TEST_P(MultiAggregatesTest, basicRangeFrames) {
-  SimpleAggregatesTest::testWindowFunction(
-      {makeBasicVectors(50)}, kFrameOverClauses, kRangeFrameClauses);
-}
-
-TEST_P(MultiAggregatesTest, basicRangeFramesWithSortOrders) {
-  SimpleAggregatesTest::testWindowFunction(
-      {makeBasicVectors(50)}, kSortOrderBasedOverClauses, kRangeFrameClauses);
-}
-
-TEST_P(MultiAggregatesTest, singlePartitionRangeFrames) {
-  SimpleAggregatesTest::testWindowFunction(
-      {makeSinglePartitionVector(100)}, kFrameOverClauses, kRangeFrameClauses);
-}
-
-TEST_P(MultiAggregatesTest, basicRowFrames) {
-  SimpleAggregatesTest::testWindowFunction(
-      {makeBasicVectors(50)}, kFrameOverClauses, kRowsFrameClauses);
-}
-
-TEST_P(MultiAggregatesTest, singlePartitionRowFrames) {
-  SimpleAggregatesTest::testWindowFunction(
-      {makeSinglePartitionVector(100)}, kFrameOverClauses, kRowsFrameClauses);
+  createDuckDbTable({input});
+  // Add columns c3, c4 in sort order in overClauses to impose a deterministic
+  // output row order in the tests.
+  testWindowFunction(
+      {input}, addSuffixToClauses(", c3, c4", kBasicOverClauses));
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     SimpleAggregatesTest,
     MultiAggregatesTest,
-    testing::ValuesIn(
-        {std::string("sum(c2)"),
-         std::string("min(c2)"),
-         std::string("max(c2)"),
-         std::string("count(c2)"),
-         std::string("avg(c2)"),
-         std::string("sum(1)")}));
+    testing::ValuesIn(getTestParams(kFrameClauses)));
 
 class StringAggregatesTest : public WindowTestBase {};
 

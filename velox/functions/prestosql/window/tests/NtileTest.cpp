@@ -42,6 +42,7 @@ class NtileTest : public WindowTestBase {
         makeFlatVector<int64_t>(size, [](auto row) { return row % 5 + 1; }),
         makeFlatVector<int64_t>(
             size, [](auto row) { return row % 7 + 1; }, nullEvery(15)),
+        makeFlatVector<int64_t>(size, [](auto row) { return row % 11; }),
     });
   }
 };
