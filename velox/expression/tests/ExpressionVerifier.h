@@ -18,6 +18,7 @@
 
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/expression/tests/FuzzerToolkit.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
@@ -55,10 +56,12 @@ class ExpressionVerifier {
   // columns/children in the input row vector that should be wrapped in a lazy
   // layer before running it through the common evaluation path.
   // Returns:
-  //  - true if both paths succeeded and returned the exact same results.
-  //  - false if both failed with compatible exceptions.
+  //  - result of evaluating the expression if both paths succeeded and returned
+  //  the exact same vectors.
+  //  - exception thrown by the common path if both paths failed with compatible
+  //  exceptions.
   //  - throws otherwise (incompatible exceptions or different results).
-  bool verify(
+  ResultOrError verify(
       const core::TypedExprPtr& plan,
       const RowVectorPtr& rowVector,
       VectorPtr&& resultVector,

@@ -274,6 +274,43 @@ std::vector<column_index_t> generateLazyColumnIds(
   return columnsToWrapInLazy;
 }
 
+/// Returns row numbers for non-null rows in 'data' or null if all rows are
+/// null.
+BufferPtr extractNonNullIndices(const VectorPtr& data) {
+  BufferPtr indices = allocateIndices(data->size(), data->pool());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  vector_size_t cnt = 0;
+  for (auto i = 0; i < data->size(); ++i) {
+    if (!data->isNullAt(i)) {
+      rawIndices[cnt++] = i;
+    }
+  }
+
+  if (cnt == 0) {
+    return nullptr;
+  }
+
+  indices->setSize(cnt * sizeof(vector_size_t));
+  return indices;
+}
+
+/// Wraps child vectors of the specified 'rowVector' in dictionary using
+/// specified 'indices'. Returns new RowVector created from the wrapped vectors.
+RowVectorPtr wrapChildren(
+    const BufferPtr& indices,
+    const RowVectorPtr& rowVector) {
+  auto size = indices->size() / sizeof(vector_size_t);
+
+  std::vector<VectorPtr> newInputs;
+  for (const auto& child : rowVector->children()) {
+    newInputs.push_back(
+        BaseVector::wrapInDictionary(nullptr, indices, size, child));
+  }
+
+  return std::make_shared<RowVector>(
+      rowVector->pool(), rowVector->type(), nullptr, size, newInputs);
+}
+
 } // namespace
 
 ExpressionFuzzer::ExpressionFuzzer(
@@ -980,26 +1017,50 @@ void ExpressionFuzzer::go() {
     // If both paths threw compatible exceptions, we add a try() function to
     // the expression's root and execute it again. This time the expression
     // cannot throw.
-    if (!verifier_.verify(
-            plan,
-            rowVector,
-            resultVector ? BaseVector::copy(*resultVector) : nullptr,
-            true,
-            columnsToWrapInLazy) &&
+    if (verifier_
+            .verify(
+                plan,
+                rowVector,
+                resultVector ? BaseVector::copy(*resultVector) : nullptr,
+                true, // canThrow
+                columnsToWrapInLazy)
+            .exceptionPtr &&
         FLAGS_retry_with_try) {
       LOG(INFO)
           << "Both paths failed with compatible exceptions. Retrying expression using try().";
 
-      plan = std::make_shared<core::CallTypedExpr>(
+      auto tryPlan = std::make_shared<core::CallTypedExpr>(
           plan->type(), std::vector<core::TypedExprPtr>{plan}, "try");
 
       // At this point, the function throws if anything goes wrong.
-      verifier_.verify(
-          plan,
-          rowVector,
-          resultVector ? BaseVector::copy(*resultVector) : nullptr,
-          false,
-          columnsToWrapInLazy);
+      auto tryResult =
+          verifier_
+              .verify(
+                  tryPlan,
+                  rowVector,
+                  resultVector ? BaseVector::copy(*resultVector) : nullptr,
+                  false, // canThrow
+                  columnsToWrapInLazy)
+              .result->childAt(0);
+
+      // Re-evaluate the original expression on rows that didn't produce an
+      // error (i.e. returned non-NULL results when evaluated with TRY).
+      BufferPtr noErrorIndices = extractNonNullIndices(tryResult);
+      if (noErrorIndices != nullptr) {
+        auto noErrorRowVector = wrapChildren(noErrorIndices, rowVector);
+
+        LOG(INFO) << "Retrying original expression on "
+                  << noErrorRowVector->size() << " rows without errors";
+
+        verifier_.verify(
+            plan,
+            noErrorRowVector,
+            resultVector ? BaseVector::copy(*resultVector)
+                               ->slice(0, noErrorRowVector->size())
+                         : nullptr,
+            false, // canThrow
+            columnsToWrapInLazy);
+      }
     }
 
     LOG(INFO) << "==============================> Done with iteration " << i;

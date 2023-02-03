@@ -74,11 +74,6 @@ using facebook::velox::test::SignatureTemplate;
 namespace facebook::velox::exec::test {
 namespace {
 
-struct ResultOrError {
-  RowVectorPtr result;
-  std::exception_ptr exceptionPtr;
-};
-
 class AggregationFuzzer {
  public:
   AggregationFuzzer(
@@ -182,12 +177,14 @@ class AggregationFuzzer {
       const std::vector<RowVectorPtr>& input,
       const core::PlanNodePtr& plan);
 
-  ResultOrError execute(const core::PlanNodePtr& plan, bool injectSpill);
+  velox::test::ResultOrError execute(
+      const core::PlanNodePtr& plan,
+      bool injectSpill);
 
   void testPlans(
       const std::vector<core::PlanNodePtr>& plans,
       bool verifyResults,
-      const ResultOrError& expected) {
+      const velox::test::ResultOrError& expected) {
     for (auto i = 0; i < plans.size(); ++i) {
       LOG(INFO) << "Testing plan #" << i;
       testPlan(plans[i], false /*injectSpill*/, verifyResults, expected);
@@ -201,7 +198,7 @@ class AggregationFuzzer {
       const core::PlanNodePtr& plan,
       bool injectSpill,
       bool verifyResults,
-      const ResultOrError& expected);
+      const velox::test::ResultOrError& expected);
 
   const std::unordered_map<std::string, std::string> orderDependentFunctions_;
   const bool persistAndRunOnce_;
@@ -589,13 +586,13 @@ void AggregationFuzzer::go() {
   stats_.print(iteration);
 }
 
-ResultOrError AggregationFuzzer::execute(
+velox::test::ResultOrError AggregationFuzzer::execute(
     const core::PlanNodePtr& plan,
     bool injectSpill) {
   LOG(INFO) << "Executing query plan: " << std::endl
             << plan->toString(true, true);
 
-  ResultOrError resultOrError;
+  velox::test::ResultOrError resultOrError;
   try {
     std::shared_ptr<TempDirectoryPath> spillDirectory;
     AssertQueryBuilder builder(plan);
@@ -825,7 +822,7 @@ void AggregationFuzzer::testPlan(
     const core::PlanNodePtr& plan,
     bool injectSpill,
     bool verifyResults,
-    const ResultOrError& expected) {
+    const velox::test::ResultOrError& expected) {
   auto actual = execute(plan, injectSpill);
 
   // Compare results or exceptions (if any). Fail is anything is different.

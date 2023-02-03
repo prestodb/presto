@@ -16,7 +16,7 @@
 #pragma once
 
 #include "velox/expression/FunctionSignature.h"
-#include "velox/type/Type.h"
+#include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::test {
 
@@ -38,6 +38,11 @@ struct SignatureTemplate {
   std::string name;
   const exec::FunctionSignature* signature;
   std::unordered_set<std::string> typeVariables;
+};
+
+struct ResultOrError {
+  RowVectorPtr result;
+  std::exception_ptr exceptionPtr;
 };
 
 /// Sort callable function signatures.
