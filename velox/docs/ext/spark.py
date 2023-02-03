@@ -424,6 +424,94 @@ class SparkObject(ObjectDescription[Tuple[str, str]]):
         """
         return False
 
+    def handle_signature(self, sig: str, signode: desc_signature) -> tuple[str, str]:
+        """Transform a Spark signature into RST nodes.
+        Return (fully qualified name of the thing, classname if any).
+        If inside a class, the current class name is handled intelligently:
+        * it is stripped from the displayed name if present
+        * it is added to the full name (return value) if not present
+        """
+        m = spark_sig_re.match(sig)
+        if m is None:
+            raise ValueError
+        prefix, name, arglist, retann = m.groups()
+
+        # determine module and class name (if applicable), as well as full name
+        modname = self.options.get("module", self.env.ref_context.get("spark:module"))
+        classname = self.env.ref_context.get("spark:class")
+        if classname:
+            add_module = False
+            if prefix and (prefix == classname or prefix.startswith(classname + ".")):
+                fullname = prefix + name
+                # class name is given again in the signature
+                prefix = prefix[len(classname) :].lstrip(".")
+            elif prefix:
+                # class name is given in the signature, but different
+                # (shouldn't happen)
+                fullname = classname + "." + prefix + name
+            else:
+                # class name is not given in the signature
+                fullname = classname + "." + name
+        else:
+            add_module = True
+            if prefix:
+                classname = prefix.rstrip(".")
+                fullname = prefix + name
+            else:
+                classname = ""
+                fullname = name
+
+        signode["module"] = modname
+        signode["class"] = classname
+        signode["fullname"] = fullname
+
+        sig_prefix = self.get_signature_prefix(sig)
+        if sig_prefix:
+            if type(sig_prefix) is str:
+                raise TypeError(
+                    "Python directive method get_signature_prefix()"
+                    " must return a list of nodes."
+                    f" Return value was '{sig_prefix}'."
+                )
+            else:
+                signode += addnodes.desc_annotation(str(sig_prefix), "", *sig_prefix)
+
+        if prefix:
+            signode += addnodes.desc_addname(prefix, prefix)
+        elif modname and add_module and self.env.config.add_module_names:
+            nodetext = modname + "."
+            signode += addnodes.desc_addname(nodetext, nodetext)
+
+        signode += addnodes.desc_name(name, name)
+        if arglist:
+            try:
+                signode += _parse_arglist(arglist, self.env)
+            except SyntaxError:
+                # fallback to parse arglist original parser.
+                # it supports to represent optional arguments (ex. "func(foo [, bar])")
+                _pseudo_parse_arglist(signode, arglist)
+            except NotImplementedError as exc:
+                logger.warning(
+                    "could not parse arglist (%r): %s", arglist, exc, location=signode
+                )
+                _pseudo_parse_arglist(signode, arglist)
+        else:
+            if self.needs_arglist():
+                # for callables, add an empty parameter list
+                signode += addnodes.desc_parameterlist()
+
+        if retann:
+            children = _parse_annotation(retann, self.env)
+            signode += addnodes.desc_returns(retann, "", *children)
+
+        anno = self.options.get("annotation")
+        if anno:
+            signode += addnodes.desc_annotation(
+                " " + anno, "", addnodes.desc_sig_space(), nodes.Text(anno)
+            )
+
+        return fullname, prefix
+
     def _object_hierarchy_parts(self, sig_node: desc_signature) -> tuple[str, ...]:
         if "fullname" not in sig_node:
             return ()
@@ -937,7 +1025,6 @@ class SparkDomain(Domain):
         multiple_matches = len(matches) > 1
 
         for name, obj in matches:
-
             if multiple_matches and obj.aliased:
                 # Skip duplicated matches
                 continue
