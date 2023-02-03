@@ -33,6 +33,28 @@ class HivePartitionUtilTest : public ::testing::Test,
         makeIndices(data.size() * 10, [](auto row) { return row / 10; });
     return wrapInDictionary(indices, data.size(), base);
   };
+
+  RowVectorPtr makePartitionsVector(
+      RowVectorPtr input,
+      const std::vector<column_index_t>& partitionChannels) {
+    std::vector<VectorPtr> partitions;
+    std::vector<std::string> partitonKeyNames;
+    std::vector<TypePtr> partitionKeyTypes;
+
+    RowTypePtr inputType = asRowType(input->type());
+    for (column_index_t channel : partitionChannels) {
+      partitions.push_back(input->childAt(channel));
+      partitonKeyNames.push_back(inputType->nameOf(channel));
+      partitionKeyTypes.push_back(inputType->childAt(channel));
+    }
+
+    return std::make_shared<RowVector>(
+        pool(),
+        ROW(std::move(partitonKeyNames), std::move(partitionKeyTypes)),
+        nullptr,
+        input->size(),
+        partitions);
+  }
 };
 
 TEST_F(HivePartitionUtilTest, partitionName) {
@@ -68,7 +90,7 @@ TEST_F(HivePartitionUtilTest, partitionName) {
       std::iota(partitionChannels.begin(), partitionChannels.end(), 0);
 
       EXPECT_EQ(
-          makePartitionName(input, partitionChannels, 0),
+          makePartitionName(makePartitionsVector(input, partitionChannels), 0),
           folly::join(
               "/",
               std::vector<std::string>(
@@ -77,6 +99,7 @@ TEST_F(HivePartitionUtilTest, partitionName) {
     }
   }
 
+  // Test unsupported partition type.
   {
     RowVectorPtr input = makeRowVector(
         {"map_col"},
@@ -86,7 +109,7 @@ TEST_F(HivePartitionUtilTest, partitionName) {
     std::vector<column_index_t> partitionChannels{0};
 
     VELOX_ASSERT_THROW(
-        makePartitionName(input, partitionChannels, 0),
+        makePartitionName(makePartitionsVector(input, partitionChannels), 0),
         "Unsupported partition type: MAP");
   }
 }

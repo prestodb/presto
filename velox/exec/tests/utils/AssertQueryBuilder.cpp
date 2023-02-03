@@ -64,6 +64,14 @@ AssertQueryBuilder& AssertQueryBuilder::config(
   return *this;
 }
 
+AssertQueryBuilder& AssertQueryBuilder::connectorConfig(
+    const std::string& connectorId,
+    const std::string& key,
+    const std::string& value) {
+  connectorConfigs_[connectorId][key] = value;
+  return *this;
+}
+
 AssertQueryBuilder& AssertQueryBuilder::split(Split split) {
   this->split(getOnlyLeafPlanNodeId(params_.planNode), std::move(split));
   return *this;
@@ -184,13 +192,21 @@ std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>>
 AssertQueryBuilder::readCursor() {
   VELOX_CHECK_NOT_NULL(params_.planNode);
 
-  if (!configs_.empty()) {
+  if (!configs_.empty() || !connectorConfigs_.empty()) {
     if (!params_.queryCtx) {
       // NOTE: the destructor of 'executor_' will wait for all the async task
       // activities to finish on AssertQueryBuilder dtor.
       params_.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     }
+  }
+  if (!configs_.empty()) {
     params_.queryCtx->setConfigOverridesUnsafe(std::move(configs_));
+  }
+  if (!connectorConfigs_.empty()) {
+    for (auto& [connectorId, configs] : connectorConfigs_) {
+      params_.queryCtx->setConnectorConfigOverridesUnsafe(
+          connectorId, std::move(configs));
+    }
   }
 
   bool noMoreSplits = false;

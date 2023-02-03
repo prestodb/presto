@@ -238,15 +238,15 @@ class PlanBuilder {
           connector::CommitStrategy::kNoCommit,
       const std::string& rowCountColumnName = "rowCount");
 
-  /// Add a TableWriteNode assuming that input columns names match column names
-  /// in the target table.
+  /// Add a TableWriteNode assuming that input columns match the source node
+  /// columns in order.
   ///
-  /// @param columnNames A subset of input columns to write.
+  /// @param tableColumnNames Column names in the target table.
   /// @param insertHandle Connector-specific table handle.
   /// @param rowCountColumnName The name of the output column containing the
   /// number of rows written.
   PlanBuilder& tableWrite(
-      const std::vector<std::string>& columnNames,
+      const std::vector<std::string>& tableColumnNames,
       const std::shared_ptr<core::InsertTableHandle>& insertHandle,
       connector::CommitStrategy commitStrategy =
           connector::CommitStrategy::kNoCommit,

@@ -139,25 +139,36 @@ TEST_F(PartitionIdGeneratorTest, stableIdsMultipleKeys) {
   }
 }
 
-TEST_F(PartitionIdGeneratorTest, maxPartitionId) {
+TEST_F(PartitionIdGeneratorTest, numPartitions) {
   PartitionIdGenerator idGenerator(ROW({BIGINT()}), {0}, 100, pool());
 
-  // Make 10 partitions: 0,..9.
+  // First run to process partition 0,..,9. Total num of partitions processed by
+  // far is 10.
   auto firstInput = makeRowVector({
       makeFlatVector<int64_t>(1000, [&](auto row) { return row % 10; }),
   });
 
   raw_vector<uint64_t> ids;
   idGenerator.run(firstInput, ids);
-  EXPECT_EQ(idGenerator.recentMaxPartitionId(), 9);
+  EXPECT_EQ(idGenerator.numPartitions(), 10);
 
-  // Feed data for the first 8 partitions.
+  // Second run to process partition 10,...,19. Total number of partitions
+  // processed by far is 20.
   auto secondInput = makeRowVector({
-      makeFlatVector<int64_t>(1000, [&](auto row) { return row % 8; }),
+      makeFlatVector<int64_t>(1000, [&](auto row) { return row % 10 + 10; }),
   });
 
   idGenerator.run(secondInput, ids);
-  EXPECT_EQ(idGenerator.recentMaxPartitionId(), 7);
+  EXPECT_EQ(idGenerator.numPartitions(), 20);
+
+  // Third run to process partition 0,...,9. Total number of partitions
+  // processed by far is 20.
+  auto thirdInput = makeRowVector({
+      makeFlatVector<int64_t>(1000, [&](auto row) { return row % 10; }),
+  });
+
+  idGenerator.run(secondInput, ids);
+  EXPECT_EQ(idGenerator.numPartitions(), 20);
 }
 
 TEST_F(PartitionIdGeneratorTest, limitOfPartitionNumber) {
@@ -173,7 +184,8 @@ TEST_F(PartitionIdGeneratorTest, limitOfPartitionNumber) {
   raw_vector<uint64_t> ids;
 
   VELOX_ASSERT_THROW(
-      idGenerator.run(input, ids), "Exceeded limit of distinct partitions.");
+      idGenerator.run(input, ids),
+      fmt::format("Exceeded limit of {} distinct partitions.", maxPartitions));
 }
 
 } // namespace facebook::velox::connector::hive

@@ -266,13 +266,13 @@ PlanBuilder& PlanBuilder::filter(const std::string& filter) {
 }
 
 PlanBuilder& PlanBuilder::tableWrite(
-    const std::vector<std::string>& columnNames,
+    const std::vector<std::string>& tableColumnNames,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
     CommitStrategy commitStrategy,
     const std::string& rowCountColumnName) {
   return tableWrite(
       planNode_->outputType(),
-      columnNames,
+      tableColumnNames,
       insertHandle,
       commitStrategy,
       rowCountColumnName);

@@ -123,6 +123,15 @@ class QueryCtx : public Context {
         std::make_shared<const MemConfig>(std::move(configOverrides)));
   }
 
+  // Overrides the previous connector-specific configuration. Note that this
+  // function is NOT thread-safe and should probably only be used in tests.
+  void setConnectorConfigOverridesUnsafe(
+      const std::string& connectorId,
+      std::unordered_map<std::string, std::string>&& configOverrides) {
+    connectorConfigs_[connectorId] =
+        std::make_shared<MemConfig>(std::move(configOverrides));
+  }
+
   folly::Executor* FOLLY_NULLABLE spillExecutor() const {
     return spillExecutor_.get();
   }
@@ -245,7 +254,7 @@ class ExecCtx : public Context {
   }
 
  private:
-  // Pool for all Buffers for this thread
+  // Pool for all Buffers for this thread.
   memory::MemoryPool* FOLLY_NONNULL pool_;
   QueryCtx* FOLLY_NULLABLE queryCtx_;
   // A pool of preallocated DecodedVectors for use by expressions and operators.

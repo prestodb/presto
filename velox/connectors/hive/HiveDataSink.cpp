@@ -19,6 +19,7 @@
 #include "velox/common/base/Fs.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HivePartitionUtil.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 
 #include <boost/lexical_cast.hpp>
@@ -32,8 +33,19 @@ namespace facebook::velox::connector::hive {
 
 namespace {
 
-std::string makeUuid() {
-  return boost::lexical_cast<std::string>(boost::uuids::random_generator()());
+// Returns a subset of column indices corresponding to partition keys.
+std::vector<column_index_t> getPartitionChannels(
+    const std::shared_ptr<const HiveInsertTableHandle>& insertTableHandle) {
+  std::vector<column_index_t> channels;
+
+  for (column_index_t i = 0; i < insertTableHandle->inputColumns().size();
+       i++) {
+    if (insertTableHandle->inputColumns()[i]->isPartitionKey()) {
+      channels.push_back(i);
+    }
+  }
+
+  return channels;
 }
 
 std::string makePartitionDirectory(
@@ -43,6 +55,10 @@ std::string makePartitionDirectory(
     return (fs::path(tableDirectory) / partitionSubdirectory.value()).string();
   }
   return tableDirectory;
+}
+
+std::string makeUuid() {
+  return boost::lexical_cast<std::string>(boost::uuids::random_generator()());
 }
 
 } // namespace
@@ -55,17 +71,59 @@ HiveDataSink::HiveDataSink(
     : inputType_(std::move(inputType)),
       insertTableHandle_(std::move(insertTableHandle)),
       connectorQueryCtx_(connectorQueryCtx),
-      commitStrategy_(commitStrategy) {}
+      commitStrategy_(commitStrategy),
+      partitionChannels_(getPartitionChannels(insertTableHandle_)),
+      partitionIdGenerator_(
+          !partitionChannels_.empty() ? std::make_unique<PartitionIdGenerator>(
+                                            inputType_,
+                                            partitionChannels_,
+                                            HiveConfig::maxPartitionsPerWriters(
+                                                connectorQueryCtx_->config()),
+                                            connectorQueryCtx_->memoryPool())
+                                      : nullptr) {}
 
-void HiveDataSink::appendData(VectorPtr input) {
-  // For the time being the hive data sink supports one file
-  // To extend it we can create a new writer for every
-  // partition
-  if (writers_.empty()) {
-    createWriter(std::nullopt);
+void HiveDataSink::appendData(RowVectorPtr input) {
+  // Write to unpartitioned table.
+  if (partitionChannels_.empty()) {
+    ensureSingleWriter();
+
+    writers_[0]->write(input);
+    writerInfo_[0]->numWrittenRows += input->size();
+    return;
   }
-  writers_[0]->write(input);
-  writerInfo_[0]->numWrittenRows += input->size();
+
+  // Write to partitioned table.
+  partitionIdGenerator_->run(input, partitionIds_);
+
+  ensurePartitionWriters();
+
+  for (column_index_t i = 0; i < input->childrenSize(); i++) {
+    input->childAt(i)->loadedVector();
+  }
+
+  const auto numPartitions = partitionIdGenerator_->numPartitions();
+
+  // All inputs belong to a single partition.
+  if (numPartitions == 1) {
+    writers_[0]->write(input);
+    writerInfo_[0]->numWrittenRows += input->size();
+    return;
+  }
+
+  computePartitionRowCountsAndIndices();
+
+  for (auto id = 0; id < numPartitions; id++) {
+    vector_size_t partitionSize = partitionSizes_[id];
+    if (partitionSize == 0) {
+      continue;
+    }
+
+    RowVectorPtr writerInput = partitionSize == input->size()
+        ? input
+        : exec::wrap(partitionSize, partitionRows_[id], input);
+    writers_[id]->write(writerInput);
+    writerInfo_[id]->numWrittenRows += partitionSize;
+  }
 }
 
 std::vector<std::string> HiveDataSink::finish() const {
@@ -107,7 +165,28 @@ void HiveDataSink::close() {
   }
 }
 
-void HiveDataSink::createWriter(
+void HiveDataSink::ensureSingleWriter() {
+  if (writers_.empty()) {
+    appendWriter(std::nullopt);
+  }
+}
+
+void HiveDataSink::ensurePartitionWriters() {
+  const auto numPartitions = partitionIdGenerator_->numPartitions();
+  const auto numWriters = writers_.size();
+
+  VELOX_CHECK_LE(numWriters, numPartitions);
+
+  if (numWriters < numPartitions) {
+    writers_.reserve(numPartitions);
+    writerInfo_.reserve(numPartitions);
+    for (auto id = numWriters; id < numPartitions; id++) {
+      appendWriter(partitionIdGenerator_->partitionName(id));
+    }
+  }
+}
+
+void HiveDataSink::appendWriter(
     const std::optional<std::string>& partitionName) {
   auto config = std::make_shared<WriterConfig>();
   // TODO: Wire up serde properties to writer configs.
@@ -118,14 +197,42 @@ void HiveDataSink::createWriter(
   // Without explicitly setting flush policy, the default memory based flush
   // policy is used.
   auto writerParameters = getWriterParameters(partitionName);
-
-  writerInfo_.emplace_back(std::make_shared<HiveWriterInfo>(*writerParameters));
-
   auto writePath = fs::path(writerParameters->writeDirectory()) /
       writerParameters->writeFileName();
+
   auto sink = dwio::common::DataSink::create(writePath);
   writers_.push_back(std::make_unique<Writer>(
       options, std::move(sink), *connectorQueryCtx_->memoryPool()));
+  writerInfo_.push_back(std::make_shared<HiveWriterInfo>(*writerParameters));
+}
+
+void HiveDataSink::computePartitionRowCountsAndIndices() {
+  const auto numPartitions = partitionIdGenerator_->numPartitions();
+  const auto numRows = partitionIds_.size();
+
+  partitionSizes_.resize(numPartitions);
+  std::fill(partitionSizes_.begin(), partitionSizes_.end(), 0);
+
+  partitionRows_.resize(numPartitions, nullptr);
+  rawPartitionRows_.resize(numPartitions);
+  for (auto id = 0; id < numPartitions; id++) {
+    if (partitionRows_[id] == nullptr ||
+        partitionRows_[id]->capacity() < numRows * sizeof(vector_size_t)) {
+      partitionRows_[id] =
+          allocateIndices(numRows, connectorQueryCtx_->memoryPool());
+      rawPartitionRows_[id] = partitionRows_[id]->asMutable<vector_size_t>();
+    }
+  }
+
+  for (auto row = 0; row < numRows; row++) {
+    uint64_t id = partitionIds_[row];
+    rawPartitionRows_[id][partitionSizes_[id]] = row;
+    partitionSizes_[id]++;
+  }
+
+  for (auto id = 0; id < numPartitions; id++) {
+    partitionRows_[id]->setSize(partitionSizes_[id] * sizeof(vector_size_t));
+  }
 }
 
 std::shared_ptr<const HiveWriterParameters> HiveDataSink::getWriterParameters(

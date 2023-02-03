@@ -16,6 +16,8 @@
 
 #include "velox/connectors/hive/PartitionIdGenerator.h"
 
+#include "velox/connectors/hive/HivePartitionUtil.h"
+
 namespace facebook::velox::connector::hive {
 
 PartitionIdGenerator::PartitionIdGenerator(
@@ -32,13 +34,17 @@ PartitionIdGenerator::PartitionIdGenerator(
         exec::VectorHasher::create(inputType->childAt(channel), channel));
   }
 
+  std::vector<std::string> partitionKeyNames;
   std::vector<TypePtr> partitionKeyTypes;
   for (auto channel : partitionChannels_) {
+    partitionKeyNames.push_back(inputType->nameOf(channel));
     partitionKeyTypes.push_back(inputType->childAt(channel));
   }
 
   partitionValues_ = BaseVector::create<RowVector>(
-      ROW(std::move(partitionKeyTypes)), maxPartitions_, pool);
+      ROW(std::move(partitionKeyNames), std::move(partitionKeyTypes)),
+      maxPartitions_,
+      pool);
   for (auto& key : partitionValues_->children()) {
     key->resize(maxPartitions_);
   }
@@ -71,7 +77,8 @@ void PartitionIdGenerator::run(
       VELOX_USER_CHECK_LT(
           nextPartitionId,
           maxPartitions_,
-          "Exceeded limit of distinct partitions.");
+          "Exceeded limit of {} distinct partitions.",
+          maxPartitions_);
 
       partitionIds_.emplace(valueId, nextPartitionId);
       savePartitionValues(nextPartitionId, input, i);
@@ -79,8 +86,10 @@ void PartitionIdGenerator::run(
       result[i] = nextPartitionId;
     }
   }
+}
 
-  recentMaxId_ = *std::max_element(result.begin(), result.end());
+std::string PartitionIdGenerator::partitionName(uint64_t partitionId) const {
+  return makePartitionName(partitionValues_, partitionId);
 }
 
 void PartitionIdGenerator::computeValueIds(

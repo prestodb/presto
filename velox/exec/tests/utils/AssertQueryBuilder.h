@@ -39,6 +39,13 @@ class AssertQueryBuilder {
   /// properties.
   AssertQueryBuilder& config(const std::string& key, const std::string& value);
 
+  /// Set connector-specific configuration property. May be called multiple
+  /// times to set multiple properties for one or multiple connectors.
+  AssertQueryBuilder& connectorConfig(
+      const std::string& connectorId,
+      const std::string& key,
+      const std::string& value);
+
   // Methods to add splits.
 
   /// Add a single split for the specified plan node.
@@ -121,6 +128,8 @@ class AssertQueryBuilder {
   DuckDbQueryRunner* FOLLY_NULLABLE const duckDbQueryRunner_;
   CursorParameters params_;
   std::unordered_map<std::string, std::string> configs_;
+  std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+      connectorConfigs_;
   std::unordered_map<core::PlanNodeId, std::vector<Split>> splits_;
 };
 } // namespace facebook::velox::exec::test

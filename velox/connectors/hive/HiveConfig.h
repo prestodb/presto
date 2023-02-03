@@ -31,8 +31,14 @@ class HiveConfig {
   static constexpr const char* kInsertExistingPartitionsBehavior =
       "insert_existing_partitions_behavior";
 
+  /// Maximum number of partitions per a single table writer instance.
+  static constexpr const char* kMaxPartitionsPerWriters =
+      "max_partitions_per_writers";
+
   static InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
       const Config* config);
+
+  static uint32_t maxPartitionsPerWriters(const Config* config);
 };
 
 } // namespace facebook::velox::connector::hive

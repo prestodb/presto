@@ -184,7 +184,7 @@ class HiveDataSource : public DataSource {
   ExpressionEvaluator* FOLLY_NONNULL expressionEvaluator_;
   uint64_t completedRows_ = 0;
 
-  // Reusable memory for remaining filter evaluation
+  // Reusable memory for remaining filter evaluation.
   VectorPtr filterResult_;
   SelectivityVector filterRows_;
   exec::FilterEvalCtx filterEvalCtx_;

@@ -19,12 +19,10 @@
 
 namespace facebook::velox::connector::hive {
 
-/// Make partition name in the typical Hive style, which
-/// is key1=value1/key2=value2/... It would be the leaf directory
-/// of the partition path.
+/// Make the partition name in the Hive style, with the partition values at row.
+/// Partition name is in the format of key1=value1/key2=value2/...
 std::string makePartitionName(
-    const RowVectorPtr& input,
-    const std::vector<column_index_t>& partitionChannels,
+    const RowVectorPtr& partitionsVector,
     vector_size_t row);
 
 } // namespace facebook::velox::connector::hive

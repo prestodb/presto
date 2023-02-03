@@ -72,20 +72,19 @@ std::string makePartitionKeyValueString(
 } // namespace
 
 std::string makePartitionName(
-    const RowVectorPtr& input,
-    const std::vector<column_index_t>& partitionChannels,
+    const RowVectorPtr& partitionsVector,
     vector_size_t row) {
   std::stringstream ss;
-  for (auto i = 0; i < partitionChannels.size(); i++) {
+  for (auto i = 0; i < partitionsVector->childrenSize(); i++) {
     if (i > 0) {
       ss << '/';
     }
     ss << PARTITION_TYPE_DISPATCH(
         makePartitionKeyValueString,
-        input->childAt(partitionChannels[i])->typeKind(),
-        input->childAt(partitionChannels[i])->loadedVector(),
+        partitionsVector->childAt(i)->typeKind(),
+        partitionsVector->childAt(i)->loadedVector(),
         row,
-        asRowType(input->type())->nameOf(partitionChannels[i]));
+        asRowType(partitionsVector->type())->nameOf(i));
   }
   return ss.str();
 }

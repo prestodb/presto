@@ -47,4 +47,9 @@ HiveConfig::insertExistingPartitionsBehavior(const Config* config) {
       : InsertExistingPartitionsBehavior::kError;
 }
 
+// static
+uint32_t HiveConfig::maxPartitionsPerWriters(const Config* config) {
+  return config->get<uint32_t>(kMaxPartitionsPerWriters, 100);
+}
+
 } // namespace facebook::velox::connector::hive

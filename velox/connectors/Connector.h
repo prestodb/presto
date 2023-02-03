@@ -101,9 +101,9 @@ class DataSink {
  public:
   virtual ~DataSink() = default;
 
-  /// Add the next data (vector) to be written. This call is blocking
-  // TODO maybe at some point we want to make it async
-  virtual void appendData(VectorPtr input) = 0;
+  /// Add the next data (vector) to be written. This call is blocking.
+  // TODO maybe at some point we want to make it async.
+  virtual void appendData(RowVectorPtr input) = 0;
 
   /// Called once after all data has been added via possibly multiple calls to
   /// appendData(). Could return data in the string form that would be included

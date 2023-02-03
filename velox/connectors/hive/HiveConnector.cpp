@@ -321,7 +321,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
     return;
   }
 
-  // Check filters and see if the whole split can be skipped
+  // Check filters and see if the whole split can be skipped.
   if (!testFilters(scanSpec_.get(), reader_.get(), split_->filePath)) {
     emptySplit_ = true;
     ++runtimeStats_.skippedSplits;
@@ -417,7 +417,7 @@ std::optional<RowVectorPtr> HiveDataSource::next(
         !output_->mayHaveNulls(), "Top-level row vector cannot have nulls");
     auto rowsRemaining = output_->size();
     if (rowsRemaining == 0) {
-      // no rows passed the pushed down filters
+      // no rows passed the pushed down filters.
       return RowVector::createEmpty(outputType_, pool_);
     }
 

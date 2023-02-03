@@ -176,7 +176,7 @@ Hive Connector
     * **Type:** ``integer``
     * **Default value:** ``100``
 
-Maximum number of partitions per writer.
+Maximum number of partitions per a single table writer instance.
 
 ``insert_existing_partitions_behavior``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
