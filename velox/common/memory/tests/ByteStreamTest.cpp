@@ -23,7 +23,7 @@
 using namespace facebook::velox;
 using namespace facebook::velox::memory;
 
-class ByteStreamTest : public testing::TestWithParam<bool> {
+class ByteStreamTest : public testing::Test {
  protected:
   void SetUp() override {
     constexpr uint64_t kMaxMappedMemory = 64 << 20;
