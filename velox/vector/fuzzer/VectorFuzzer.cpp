@@ -359,6 +359,10 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
   return vector;
 }
 
+VectorPtr VectorFuzzer::fuzz(const GeneratorSpec& generatorSpec) {
+  return generatorSpec.generateData(rng_, pool_, opts_.vectorSize);
+}
+
 VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type) {
   return fuzzConstant(type, opts_.vectorSize);
 }
