@@ -160,6 +160,10 @@ class CachedBufferedInput : public BufferedInput {
   std::shared_ptr<cache::CoalescedLoad> coalescedLoad(
       const SeekableInputStream* FOLLY_NONNULL stream);
 
+  folly::Executor* FOLLY_NULLABLE executor() const override {
+    return executor_;
+  }
+
  private:
   // Sorts requests and makes CoalescedLoads for nearby requests. If 'prefetch'
   // is true, starts background loading.

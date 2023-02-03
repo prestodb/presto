@@ -116,6 +116,10 @@ class BufferedInput {
     return input_;
   }
 
+  virtual folly::Executor* FOLLY_NULLABLE executor() const {
+    return nullptr;
+  }
+
  protected:
   std::shared_ptr<ReadFileInputStream> input_;
   memory::MemoryPool& pool_;

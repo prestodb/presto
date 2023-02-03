@@ -94,6 +94,11 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
     inputRows_ = outputRows_;
   }
 
+  void moveScanSpec(SelectiveColumnReader& other) override {
+    auto otherStruct = dynamic_cast<SelectiveStructColumnReaderBase*>(&other);
+    scanSpec_->moveAdaptationFrom(*otherStruct->scanSpec_);
+  }
+
   const std::string& debugString() const {
     return debugString_;
   }

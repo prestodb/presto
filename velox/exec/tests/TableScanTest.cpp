@@ -485,14 +485,17 @@ TEST_F(TableScanTest, splitDoubleRead) {
 }
 
 TEST_F(TableScanTest, multipleSplits) {
-  auto filePaths = makeFilePaths(10);
-  auto vectors = makeVectors(10, 1'000);
+  auto filePaths = makeFilePaths(100);
+  auto vectors = makeVectors(100, 100);
   for (int32_t i = 0; i < vectors.size(); i++) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
   createDuckDbTable(vectors);
 
-  assertQuery(tableScanNode(), filePaths, "SELECT * FROM tmp");
+  auto task = assertQuery(tableScanNode(), filePaths, "SELECT * FROM tmp");
+  auto stats = getTableScanRuntimeStats(task);
+  auto preload = stats.at("preloadedSplits");
+  EXPECT_LT(10, preload.sum);
 }
 
 TEST_F(TableScanTest, waitForSplit) {
@@ -2230,6 +2233,7 @@ TEST_F(TableScanTest, errorInLoadLazy) {
     assertQuery(planNode, {filePath}, "");
     FAIL() << "Excepted exception";
   } catch (VeloxException& ex) {
-    EXPECT_TRUE(ex.context().find(filePath->path, 0) != std::string::npos);
+    EXPECT_TRUE(ex.context().find(filePath->path, 0) != std::string::npos)
+        << ex.context();
   }
 }

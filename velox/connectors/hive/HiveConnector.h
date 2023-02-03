@@ -133,6 +133,12 @@ class HiveDataSource : public DataSource {
 
   std::unordered_map<std::string, RuntimeCounter> runtimeStats() override;
 
+  bool allPrefetchIssued() const override {
+    return rowReader_ && rowReader_->allPrefetchIssued();
+  }
+
+  void setFromDataSource(std::shared_ptr<DataSource> source) override;
+
   int64_t estimatedRowSize() override;
 
  private:
@@ -224,6 +230,10 @@ class HiveConnector final : public Connector {
         executor_);
   }
 
+  bool supportsSplitPreload() override {
+    return true;
+  }
+
   std::shared_ptr<DataSink> createDataSink(
       RowTypePtr inputType,
       std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
@@ -237,7 +247,7 @@ class HiveConnector final : public Connector {
         inputType, hiveInsertHandle, connectorQueryCtx, commitStrategy);
   }
 
-  folly::Executor* FOLLY_NULLABLE executor() {
+  folly::Executor* FOLLY_NULLABLE executor() const override {
     return executor_;
   }
 

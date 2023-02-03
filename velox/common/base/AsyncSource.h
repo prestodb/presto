@@ -23,6 +23,7 @@
 #include <memory>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/Portability.h"
 #include "velox/common/future/VeloxPromise.h"
 
 namespace facebook::velox {
@@ -125,11 +126,12 @@ class AsyncSource {
   // If true, move() will not block. But there is no guarantee that somebody
   // else will not get the item first.
   bool hasValue() const {
+    tsan_lock_guard<std::mutex> l(mutex_);
     return item_ != nullptr || exception_ != nullptr;
   }
 
  private:
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
   // True if 'prepare() is making the item.
   bool making_{false};
   std::unique_ptr<ContinuePromise> promise_;

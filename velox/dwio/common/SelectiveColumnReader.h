@@ -359,6 +359,11 @@ class SelectiveColumnReader {
     initTimeClocks_ = 0;
   }
 
+  /// Moves the adaptation encoded in ScanSpec from 'other' to 'this'.
+  virtual void moveScanSpec(SelectiveColumnReader& /*other*/) {
+    VELOX_NYI();
+  }
+
   virtual void filterRowGroups(
       uint64_t rowGroupSize,
       const dwio::common::StatsContext& context,

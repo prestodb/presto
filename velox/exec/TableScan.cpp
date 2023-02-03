@@ -18,6 +18,8 @@
 #include "velox/exec/Task.h"
 #include "velox/expression/Expr.h"
 
+DEFINE_int32(split_preload_per_driver, 2, "Prefetch split metadata");
+
 namespace facebook::velox::exec {
 
 TableScan::TableScan(
@@ -45,14 +47,18 @@ RowVectorPtr TableScan::getOutput() {
     if (needNewSplit_) {
       exec::Split split;
       blockingReason_ = driverCtx_->task->getSplitOrFuture(
-          driverCtx_->splitGroupId, planNodeId(), split, blockingFuture_);
+          driverCtx_->splitGroupId,
+          planNodeId(),
+          split,
+          blockingFuture_,
+          maxPreloadedSplits_,
+          splitPreloader_);
       if (blockingReason_ != BlockingReason::kNotBlocked) {
         return nullptr;
       }
 
       if (!split.hasConnectorSplit()) {
         noMoreSplits_ = true;
-
         if (dataSource_) {
           auto connectorStats = dataSource_->runtimeStats();
           auto lockedStats = stats_.wlock();
@@ -96,12 +102,39 @@ RowVectorPtr TableScan::getOutput() {
           "Split {} Task {}",
           connectorSplit->toString(),
           operatorCtx_->task()->taskId());
-      dataSource_->addSplit(connectorSplit);
+
+      ExceptionContextSetter exceptionContext(
+          {[](VeloxException::Type /*exceptionType*/, auto* debugString) {
+             return *static_cast<std::string*>(debugString);
+           },
+           &debugString_});
+
+      if (connectorSplit->dataSource) {
+        ++numPreloadedSplits_;
+        // The AsyncSource returns a unique_ptr to a shared_ptr. The
+        // unique_ptr will be nullptr if there was a cancellation.
+        numReadyPreloadedSplits_ += connectorSplit->dataSource->hasValue();
+        auto preparedPtr = connectorSplit->dataSource->move();
+        if (!preparedPtr) {
+          // There must be a cancellation.
+          VELOX_CHECK(operatorCtx_->task()->isCancelled());
+          return nullptr;
+        }
+        auto preparedDataSource = std::move(*preparedPtr);
+        dataSource_->setFromDataSource(std::move(preparedDataSource));
+      } else {
+        dataSource_->addSplit(connectorSplit);
+      }
       ++stats_.wlock()->numSplits;
       setBatchSize();
     }
 
     const auto ioTimeStartMicros = getCurrentTimeMicro();
+    // Check for  cancellation since scans that filter everything out will not
+    // hit the check in Driver.
+    if (operatorCtx_->task()->isCancelled()) {
+      return nullptr;
+    }
     ExceptionContextSetter exceptionContext(
         {[](VeloxException::Type /*exceptionType*/, auto* debugString) {
            return *static_cast<std::string*>(debugString);
@@ -109,6 +142,7 @@ RowVectorPtr TableScan::getOutput() {
          &debugString_});
 
     auto dataOptional = dataSource_->next(readBatchSize_, blockingFuture_);
+    checkPreload();
     if (!dataOptional.has_value()) {
       blockingReason_ = BlockingReason::kWaitForConnector;
       return nullptr;
@@ -134,8 +168,76 @@ RowVectorPtr TableScan::getOutput() {
       }
     }
 
+    {
+      auto lockedStats = stats_.wlock();
+      lockedStats->addRuntimeStat(
+          "preloadedSplits",
+          RuntimeCounter(numPreloadedSplits_, RuntimeCounter::Unit::kNone));
+      numPreloadedSplits_ = 0;
+      lockedStats->addRuntimeStat(
+          "readyPreloadedSplits",
+          RuntimeCounter(
+              numReadyPreloadedSplits_, RuntimeCounter::Unit::kNone));
+      numReadyPreloadedSplits_ = 0;
+    }
+
     driverCtx_->task->splitFinished();
     needNewSplit_ = true;
+  }
+}
+
+void TableScan::preload(std::shared_ptr<connector::ConnectorSplit> split) {
+  // The AsyncSource returns a unique_ptr to the shared_ptr of the
+  // DataSource. The callback may outlive the Task, hence it captures
+  // a shared_ptr to it. This is required to keep memory pools live
+  // for the duration. The callback checks for task cancellation to
+  // avoid needless work.
+  using DataSourcePtr = std::shared_ptr<connector::DataSource>;
+  split->dataSource = std::make_shared<AsyncSource<DataSourcePtr>>(
+      [type = outputType_,
+       table = tableHandle_,
+       columns = columnHandles_,
+       connector = connector_,
+       ctx = connectorQueryCtx_,
+       task = operatorCtx_->task(),
+       split]() -> std::unique_ptr<DataSourcePtr> {
+        if (task->isCancelled()) {
+          return nullptr;
+        }
+        auto ptr = std::make_unique<DataSourcePtr>();
+        auto debugString =
+            fmt::format("Split {} Task {}", split->toString(), task->taskId());
+        ExceptionContextSetter exceptionContext(
+            {[](VeloxException::Type /*exceptionType*/, auto* debugString) {
+               return *static_cast<std::string*>(debugString);
+             },
+             &debugString});
+
+        *ptr = connector->createDataSource(type, table, columns, ctx.get());
+        if (task->isCancelled()) {
+          return nullptr;
+        }
+        (*ptr)->addSplit(split);
+        return ptr;
+      });
+}
+
+void TableScan::checkPreload() {
+  auto executor = connector_->executor();
+  if (FLAGS_split_preload_per_driver == 0 || !executor ||
+      !connector_->supportsSplitPreload()) {
+    return;
+  }
+  if (dataSource_->allPrefetchIssued()) {
+    maxPreloadedSplits_ = driverCtx_->task->numDrivers(driverCtx_->driver) *
+        FLAGS_split_preload_per_driver;
+    if (!splitPreloader_) {
+      splitPreloader_ =
+          [executor, this](std::shared_ptr<connector::ConnectorSplit> split) {
+            preload(split);
+            executor->add([split]() { split->dataSource->prepare(); });
+          };
+    }
   }
 }
 

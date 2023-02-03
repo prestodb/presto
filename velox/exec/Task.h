@@ -291,16 +291,22 @@ class Task : public std::enable_shared_from_this<Task> {
       std::shared_ptr<Task> self,
       Driver* FOLLY_NONNULL instance);
 
-  // Returns a split for the source operator corresponding to plan node with
-  // specified ID. If there are no splits and no-more-splits signal has been
-  // received, sets split to null and returns kNotBlocked. Otherwise, returns
-  // kWaitForSplit and sets a future that will complete when split becomes
-  // available or no-more-splits signal is received.
+  // Returns a split for the source operator corresponding to plan
+  // node with specified ID. If there are no splits and no-more-splits
+  // signal has been received, sets split to null and returns
+  // kNotBlocked. Otherwise, returns kWaitForSplit and sets a future
+  // that will complete when split becomes available or no-more-splits
+  // signal is received. If 'maxPreloadSplits' is given, ensures that
+  // so many of splits at the head of the queue are preloading. If
+  // they are not, calls preload on them to start preload.
   BlockingReason getSplitOrFuture(
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId,
       exec::Split& split,
-      ContinueFuture& future);
+      ContinueFuture& future,
+      int32_t maxPreloadSplits = 0,
+      std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload =
+          nullptr);
 
   void splitFinished();
 
@@ -454,6 +460,14 @@ class Task : public std::enable_shared_from_this<Task> {
   // are to yield.
   StopReason shouldStop();
 
+  // Returns true if Driver or async executor threads for 'this'
+  // should silently stop and drop any results that may be
+  // pending. This is like shouldStop() but can be called multiple
+  // times since not affect a yield counter.
+  bool isCancelled() const {
+    return terminateRequested_;
+  }
+
   // Requests the Task to stop activity.  The returned future is
   // realized when all running threads have stopped running. Activity
   // can be resumed with resume() after the future is realized.
@@ -491,6 +505,11 @@ class Task : public std::enable_shared_from_this<Task> {
 
   std::mutex& mutex() {
     return mutex_;
+  }
+
+  /// Returns the number of concurrent drivers in the pipeline of 'driver'.
+  int32_t numDrivers(Driver* driver) {
+    return driverFactories_[driver->driverCtx()->pipelineId]->numDrivers;
   }
 
   /// Returns the number of created and deleted tasks since the velox engine
@@ -572,11 +591,17 @@ class Task : public std::enable_shared_from_this<Task> {
   BlockingReason getSplitOrFutureLocked(
       SplitsStore& splitsStore,
       exec::Split& split,
-      ContinueFuture& future);
+      ContinueFuture& future,
+      int32_t maxPreloadSplits = 0,
+      std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload =
+          nullptr);
 
   /// Returns next split from the store. The caller must ensure the store is not
   /// empty.
-  exec::Split getSplitLocked(SplitsStore& splitsStore);
+  exec::Split getSplitLocked(
+      SplitsStore& splitsStore,
+      int32_t maxPreloadSplits,
+      std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload);
 
   /// Creates for the given split group and fills up the 'SplitGroupState'
   /// structure, which stores inter-operator state (local exchange, bridges).

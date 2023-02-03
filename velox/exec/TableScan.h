@@ -50,6 +50,18 @@ class TableScan : public SourceOperator {
  private:
   static constexpr int32_t kDefaultBatchSize = 1024;
 
+  // Sets 'maxPreloadSplits' and 'splitPreloader' if prefetching
+  // splits is appropriate. The preloader will be applied to the
+  // 'first 'maxPreloadSplits' of the Tasks's split queue for 'this'
+  // when getting splits.
+  void checkPreload();
+
+  // Sets 'split->dataSource' to be a Asyncsource that makes a
+  // DataSource to read 'split'. This source will be prepared in the
+  // background on the executor of the connector. If the DataSource is
+  // needed before prepare is done, it will be made when needed.
+  void preload(std::shared_ptr<connector::ConnectorSplit> split);
+
   // Adjust batch size according to split information.
   void setBatchSize();
 
@@ -68,6 +80,23 @@ class TableScan : public SourceOperator {
   // Dynamic filters to add to the data source when it gets created.
   std::unordered_map<column_index_t, std::shared_ptr<common::Filter>>
       pendingDynamicFilters_;
+
+  int32_t maxPreloadedSplits_{0};
+
+  // Callback passed to getSplitOrFuture() for triggering async
+  // preload. The callback's lifetime is the lifetime of 'this'. This
+  // callback can schedule preloads on an executor. These preloads may
+  // outlive the Task and therefore need to capture a shared_ptr to
+  // it.
+  std::function<void(std::shared_ptr<connector::ConnectorSplit>)>
+      splitPreloader_{nullptr};
+
+  // Count of splits that started background preload.
+  int32_t numPreloadedSplits_{0};
+
+  // Count of splits that finished preloading before being read.
+  int32_t numReadyPreloadedSplits_{0};
+
   int32_t readBatchSize_{kDefaultBatchSize};
 
   // String shown in ExceptionContext inside DataSource and LazyVector loading.

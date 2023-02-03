@@ -29,6 +29,8 @@
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 
+DECLARE_int32(split_preload_per_driver);
+
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
@@ -55,6 +57,9 @@ class ParquetTpchTestBase : public testing::Test {
 
     parse::registerTypeResolver();
     filesystems::registerLocalFileSystem();
+    if (parquetReaderType_ == ParquetReaderType::DUCKDB) {
+      FLAGS_split_preload_per_driver = 0;
+    }
     registerParquetReaderFactory(parquetReaderType_);
 
     auto hiveConnector =

@@ -53,6 +53,8 @@ class ScanSpec {
 
   explicit ScanSpec(const std::string& name) : fieldName_(name) {}
 
+  ScanSpec(const ScanSpec& other);
+
   // Filter to apply. If 'this' corresponds to a struct/list/map, this
   // can only be isNull or isNotNull, other filtering is given by
   // 'children'.
@@ -167,6 +169,13 @@ class ScanSpec {
     return children_;
   }
 
+  // Returns 'children in a stable order. May be used for parallel
+  // construction and read-ahead of reader trees while the main user
+  // of 'this' is running. 'children_' may be reordered while running
+  // but the tree being constructed must see a single, unchanging
+  // order.
+  const std::vector<ScanSpec*>& stableChildren();
+
   // Returns a read sequence number. This can b used for tagging
   // lazy vectors with a generation number so that we can check that
   // the reader that made them has not advanced between the making and
@@ -274,6 +283,14 @@ class ScanSpec {
   // Returns the child which produces values for 'channel'. Throws if not found.
   ScanSpec& getChildByChannel(column_index_t channel);
 
+  // sets filter order and filters of 'this' from 'other'. Used when
+  // initializing a ScanSpec for a new split or stripe. This transfers
+  // dynamically acquired filters and adaptive filter order. 'other'
+  // should not be used after this. Different splits or stripes may
+  // have their own ScanSpec trees, so we only move the content, not
+  // the ScanSpec tree itself.
+  void moveAdaptationFrom(ScanSpec& other);
+
   std::string toString() const;
 
   // Add all fields from RowType to this ScanSpec.  All fields added will be
@@ -282,6 +299,9 @@ class ScanSpec {
 
  private:
   void reorder();
+
+  // Serializes stableChildren().
+  std::mutex mutex_;
 
   // Number of times read is called on the corresponding reader. This
   // is used for setup on first use and to produce a read sequence
@@ -337,6 +357,11 @@ class ScanSpec {
   // true differentiates pruning from the case of extracting all children.
 
   std::vector<std::shared_ptr<ScanSpec>> children_;
+  // Read-only copy of children, not subject to reordering. Used when
+  // asynchronously constructing reader trees for read-ahead, while
+  // 'children_' is reorderable by a running scan.
+  std::vector<ScanSpec*> stableChildren_;
+
   mutable std::optional<bool> hasFilter_;
   ValueHook* valueHook_ = nullptr;
 };

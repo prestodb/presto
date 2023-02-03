@@ -756,6 +756,7 @@ void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
   }
 
   if (!isTaskRunning) {
+    // Safe because 'split' is moved away above only if 'isTaskRunning'.
     addRemoteSplit(planNodeId, split);
   }
 }
@@ -787,6 +788,12 @@ std::unique_ptr<ContinuePromise> Task::addSplitLocked(
   ++taskStats_.numTotalSplits;
   ++taskStats_.numQueuedSplits;
 
+  if (split.connectorSplit) {
+    // Tests may use the same splits list many times. Make sure there
+    // is no async load pending on any, if, for example, a test did
+    // not process all its splits.
+    split.connectorSplit->dataSource.reset();
+  }
   if (isUngroupedExecution()) {
     VELOX_USER_DCHECK(
         not split.hasGroup(),
@@ -942,24 +949,36 @@ BlockingReason Task::getSplitOrFuture(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId,
     exec::Split& split,
-    ContinueFuture& future) {
+    ContinueFuture& future,
+    int32_t maxPreloadSplits,
+    std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload) {
   std::lock_guard<std::mutex> l(mutex_);
 
   auto& splitsState = splitsStates_[planNodeId];
 
   if (isUngroupedExecution()) {
     return getSplitOrFutureLocked(
-        splitsState.groupSplitsStores[0], split, future);
+        splitsState.groupSplitsStores[0],
+        split,
+        future,
+        maxPreloadSplits,
+        preload);
   } else {
     return getSplitOrFutureLocked(
-        splitsState.groupSplitsStores[splitGroupId], split, future);
+        splitsState.groupSplitsStores[splitGroupId],
+        split,
+        future,
+        maxPreloadSplits,
+        preload);
   }
 }
 
 BlockingReason Task::getSplitOrFutureLocked(
     SplitsStore& splitsStore,
     exec::Split& split,
-    ContinueFuture& future) {
+    ContinueFuture& future,
+    int32_t maxPreloadSplits,
+    std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload) {
   if (splitsStore.splits.empty()) {
     if (splitsStore.noMoreSplits) {
       return BlockingReason::kNotBlocked;
@@ -971,13 +990,33 @@ BlockingReason Task::getSplitOrFutureLocked(
     return BlockingReason::kWaitForSplit;
   }
 
-  split = getSplitLocked(splitsStore);
+  split = getSplitLocked(splitsStore, maxPreloadSplits, preload);
   return BlockingReason::kNotBlocked;
 }
 
-exec::Split Task::getSplitLocked(SplitsStore& splitsStore) {
-  auto split = std::move(splitsStore.splits.front());
-  splitsStore.splits.pop_front();
+exec::Split Task::getSplitLocked(
+    SplitsStore& splitsStore,
+    int32_t maxPreloadSplits,
+    std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload) {
+  int32_t readySplitIndex = -1;
+  if (maxPreloadSplits) {
+    for (auto i = 0; i < splitsStore.splits.size() && i < maxPreloadSplits;
+         ++i) {
+      auto& split = splitsStore.splits[i].connectorSplit;
+      if (!split->dataSource) {
+        // Initializes split->dataSource
+        preload(split);
+      } else if (readySplitIndex == -1 && split->dataSource->hasValue()) {
+        readySplitIndex = i;
+      }
+    }
+  }
+  if (readySplitIndex == -1) {
+    readySplitIndex = 0;
+  }
+  assert(!splitsStore.splits.empty());
+  auto split = std::move(splitsStore.splits[readySplitIndex]);
+  splitsStore.splits.erase(splitsStore.splits.begin() + readySplitIndex);
 
   --taskStats_.numQueuedSplits;
   ++taskStats_.numRunningSplits;
@@ -1366,7 +1405,7 @@ ContinueFuture Task::terminate(TaskState terminalState) {
         std::vector<exec::Split> splits;
         for (auto& [groupId, store] : splitState.groupSplitsStores) {
           while (!store.splits.empty()) {
-            splits.emplace_back(getSplitLocked(store));
+            splits.emplace_back(getSplitLocked(store, 0, nullptr));
           }
         }
         if (!splits.empty()) {
