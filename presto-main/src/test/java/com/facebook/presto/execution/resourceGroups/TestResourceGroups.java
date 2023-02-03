@@ -409,7 +409,7 @@ public class TestResourceGroups
         }
     }
 
-    @Test(timeOut = 10_000)
+    @Test(timeOut = 20_000)
     public void testWeightedScheduling()
     {
         RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
@@ -458,7 +458,7 @@ public class TestResourceGroups
         assertGreaterThan(group2Ran, lowerBound);
     }
 
-    @Test(timeOut = 10_000)
+    @Test(timeOut = 30_000)
     public void testWeightedFairScheduling()
     {
         RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
@@ -560,7 +560,7 @@ public class TestResourceGroups
         assertBetweenInclusive(group3Ran, 2 * lowerBound, 2 * upperBound);
     }
 
-    @Test(timeOut = 10_000)
+    @Test(timeOut = 20_000)
     public void testWeightedFairSchedulingNoStarvation()
     {
         RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);

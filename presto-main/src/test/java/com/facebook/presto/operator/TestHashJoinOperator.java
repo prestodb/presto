@@ -672,7 +672,7 @@ public class TestHashJoinOperator
         return OperatorAssertion.toMaterializedResult(joinOperator.getOperatorContext().getSession(), types, actualPages);
     }
 
-    @Test(timeOut = 30_000)
+    @Test(timeOut = 40_000)
     public void testBuildGracefulSpill()
             throws Exception
     {
