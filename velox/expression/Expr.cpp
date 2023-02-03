@@ -756,7 +756,7 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
         setPeeled(leaf, fieldIndex, context, maybePeeled);
         continue;
       }
-      if (numLevels == 0 && leaf->isConstant(rows)) {
+      if (numLevels == 0 && leaf->isConstantEncoding()) {
         leaf = context.ensureFieldLoaded(fieldIndex, rows);
         setPeeled(leaf, fieldIndex, context, maybePeeled);
         constantFields.resize(numFields);
@@ -859,11 +859,8 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
     if (!values) {
       continue;
     }
-    if (!constantFields.empty() && constantFields[i]) {
-      context.setPeeled(
-          i, BaseVector::wrapInConstant(rows.size(), rows.begin(), values));
-    } else {
-      context.setPeeled(i, values);
+    context.setPeeled(i, values);
+    if (constantFields.empty() || !constantFields[i]) {
       ++numPeeled;
     }
   }
@@ -1372,17 +1369,8 @@ bool Expr::applyFunctionWithPeeling(
         setPeeledArg(leaf, i, numArgs, maybePeeled);
         continue;
       }
-      if ((numLevels == 0 && leaf->isConstant(rows)) ||
-          leaf->isConstantEncoding()) {
-        if (leaf->isConstantEncoding()) {
-          setPeeledArg(leaf, i, numArgs, maybePeeled);
-        } else {
-          setPeeledArg(
-              BaseVector::wrapInConstant(leaf->size(), rows.begin(), leaf),
-              i,
-              numArgs,
-              maybePeeled);
-        }
+      if (leaf->isConstantEncoding()) {
+        setPeeledArg(leaf, i, numArgs, maybePeeled);
         constantArgs.resize(numArgs);
         constantArgs.at(i) = true;
         ++numConstant;

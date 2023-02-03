@@ -135,10 +135,6 @@ class SequenceVector : public SimpleVector<T> {
     return sequenceValues_->retainedSize() + sequenceLengths_->capacity();
   }
 
-  bool isConstant(const SelectivityVector& rows) const override {
-    return offsetOfIndex(rows.begin()) == offsetOfIndex(rows.end() - 1);
-  }
-
   bool isScalar() const override {
     return sequenceValues_->isScalar();
   }

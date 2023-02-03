@@ -253,7 +253,7 @@ class InPredicate : public exec::VectorFunction {
     // Indicates whether result can be true or null only, e.g. no false results.
     const bool passOrNull = filter_->testNull();
 
-    if (arg->isConstant(rows)) {
+    if (arg->isConstantEncoding()) {
       auto simpleArg = arg->asUnchecked<SimpleVector<T>>();
       VectorPtr localResult;
       if (simpleArg->isNullAt(rows.begin())) {

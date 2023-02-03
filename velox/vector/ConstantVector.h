@@ -231,11 +231,6 @@ class ConstantVector final : public SimpleVector<T> {
     return const_cast<ConstantVector<T>*>(this)->loadedVector();
   }
 
-  // Fast Check to optimize for constant vectors
-  bool isConstant(const SelectivityVector& rows) const override {
-    return true;
-  }
-
   bool isScalar() const override {
     return valueVector_ ? valueVector_->isScalar()
                         : (this->typeKind() != TypeKind::UNKNOWN);

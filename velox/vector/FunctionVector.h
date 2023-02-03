@@ -167,14 +167,6 @@ class FunctionVector : public BaseVector {
     return index;
   }
 
-  // Fast shortcut for determining constancy. The vector will nearly
-  // always have a single function. If the non-function argument of a
-  // lambda-accepting function is wrapped in a dictionary, the
-  // dictionary can be peeled off if the function is constant.
-  bool isConstant(const SelectivityVector& /*rows*/) const override {
-    return functions_.size() == 1;
-  }
-
   Iterator iterator(const SelectivityVector* rows) const {
     return Iterator(this, rows);
   }
