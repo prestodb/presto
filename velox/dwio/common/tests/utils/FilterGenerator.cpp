@@ -78,6 +78,12 @@ VectorPtr getChildBySubfield(
 uint32_t AbstractColumnStats::counter_ = 0;
 
 template <>
+int64_t ColumnStats<UnscaledShortDecimal>::getIntegerValue(
+    const UnscaledShortDecimal& value) {
+  return value.unscaledValue();
+}
+
+template <>
 std::unique_ptr<Filter> ColumnStats<bool>::makeRangeFilter(
     const FilterSpec& filterSpec) {
   if (values_.empty()) {
@@ -86,39 +92,6 @@ std::unique_ptr<Filter> ColumnStats<bool>::makeRangeFilter(
   bool value = valueAtPct(filterSpec.startPct + filterSpec.selectPct);
   return std::make_unique<velox::common::BoolValue>(
       value, filterSpec.selectPct > 50);
-}
-
-template <>
-std::unique_ptr<Filter> ColumnStats<UnscaledShortDecimal>::makeRangeFilter(
-    const FilterSpec& filterSpec) {
-  if (values_.empty()) {
-    return std::make_unique<velox::common::IsNull>();
-  }
-  int32_t lowerIndex;
-  int32_t upperIndex;
-  UnscaledShortDecimal lower = valueAtPct(filterSpec.startPct, &lowerIndex);
-  UnscaledShortDecimal upper =
-      valueAtPct(filterSpec.startPct + filterSpec.selectPct, &upperIndex);
-  if (upperIndex - lowerIndex < 1000 && ++counter_ % 10 <= 3) {
-    std::vector<int64_t> in;
-    for (auto i = lowerIndex; i <= upperIndex; ++i) {
-      in.push_back(values_[i].unscaledValue());
-    }
-    // make sure we don't accidentally generate an AlwaysFalse filter
-    if (counter_ % 2 == 1 && filterSpec.selectPct < 100.0) {
-      return velox::common::createNegatedBigintValues(in, true);
-    }
-    return velox::common::createBigintValues(in, true);
-  }
-  // sometimes make a negated filter instead (1/4 chance)
-  if (counter_ % 4 == 1 && filterSpec.selectPct < 100.0) {
-    return std::make_unique<velox::common::NegatedBigintRange>(
-        lower.unscaledValue(),
-        upper.unscaledValue(),
-        filterSpec.selectPct < 75);
-  }
-  return std::make_unique<velox::common::BigintRange>(
-      lower.unscaledValue(), upper.unscaledValue(), filterSpec.selectPct > 25);
 }
 
 template <>

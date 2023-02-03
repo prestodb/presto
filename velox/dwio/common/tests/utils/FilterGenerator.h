@@ -254,6 +254,10 @@ class ColumnStats : public AbstractColumnStats {
     return values_[boundedIndex];
   }
 
+  int64_t getIntegerValue(const T& value) {
+    return value;
+  }
+
   std::unique_ptr<Filter> makeRangeFilter(const FilterSpec& filterSpec) {
     if (values_.empty()) {
       if (filterSpec.allowNulls_) {
@@ -268,12 +272,13 @@ class ColumnStats : public AbstractColumnStats {
     T upper =
         valueAtPct(filterSpec.startPct + filterSpec.selectPct, &upperIndex);
     if (!filterSpec.allowNulls_) {
-      return std::make_unique<velox::common::BigintRange>(lower, upper, false);
+      return std::make_unique<velox::common::BigintRange>(
+          getIntegerValue(lower), getIntegerValue(upper), false);
     }
     if (upperIndex - lowerIndex < 1000 && ++counter_ % 10 <= 3) {
       std::vector<int64_t> in;
       for (auto i = lowerIndex; i <= upperIndex; ++i) {
-        in.push_back(values_[i]);
+        in.push_back(getIntegerValue(values_[i]));
       }
       // make sure we don't accidentally generate an AlwaysFalse filter
       if (counter_ % 2 == 1 && filterSpec.selectPct < 100.0) {
@@ -284,10 +289,14 @@ class ColumnStats : public AbstractColumnStats {
     // sometimes make a negated filter instead (1/4 chance)
     if (counter_ % 4 == 1 && filterSpec.selectPct < 100.0) {
       return std::make_unique<velox::common::NegatedBigintRange>(
-          lower, upper, filterSpec.selectPct < 75);
+          getIntegerValue(lower),
+          getIntegerValue(upper),
+          filterSpec.selectPct < 75);
     }
     return std::make_unique<velox::common::BigintRange>(
-        lower, upper, filterSpec.selectPct > 25);
+        getIntegerValue(lower),
+        getIntegerValue(upper),
+        filterSpec.selectPct > 25);
   }
 
   std::unique_ptr<Filter> makeRowGroupSkipRangeFilter(
@@ -316,12 +325,8 @@ class ColumnStats : public AbstractColumnStats {
         }
       }
     }
-    if constexpr (std::is_same_v<T, UnscaledShortDecimal>) {
-      return std::make_unique<velox::common::BigintRange>(
-          max.unscaledValue(), max.unscaledValue(), false);
-    } else {
-      return std::make_unique<velox::common::BigintRange>(max, max, false);
-    }
+    return std::make_unique<velox::common::BigintRange>(
+        getIntegerValue(max), getIntegerValue(max), false);
   }
 
   // The sample size is 65536.

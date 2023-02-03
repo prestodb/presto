@@ -78,12 +78,12 @@ class DataSetBuilder {
   template <typename T>
   DataSetBuilder& withIntDistributionForField(
       const common::Subfield& field,
-      T min,
-      T max,
+      int64_t min,
+      int64_t max,
       int32_t repeats,
       int32_t rareFrequency,
-      T rareMin,
-      T rareMax,
+      int64_t rareMin,
+      int64_t rareMax,
       bool keepNulls) {
     int counter = 0;
     auto vec = *batches_;
@@ -94,20 +94,19 @@ class DataSetBuilder {
         if (keepNulls && numbers->isNullAt(row)) {
           continue;
         }
-        T value;
         if (counter % 100 < repeats) {
-          value = T(counter % repeats);
-          numbers->set(row, value);
+          numbers->set(row, T(counter % repeats));
         } else if (counter % 100 > 90 && row > 0) {
           numbers->copy(numbers, row - 1, row, 1);
         } else {
+          int64_t value;
           if (rareFrequency && counter % rareFrequency == 0) {
-            value = rareMin +
-                (T(folly::Random::rand32(rng_)) % T(rareMax - rareMin));
+            value =
+                rareMin + (folly::Random::rand32(rng_) % (rareMax - rareMin));
           } else {
-            value = min + (T(folly::Random::rand32(rng_)) % (max - min));
+            value = min + (folly::Random::rand32(rng_) % (max - min));
           }
-          numbers->set(row, value);
+          numbers->set(row, T(value));
         }
         ++counter;
       }

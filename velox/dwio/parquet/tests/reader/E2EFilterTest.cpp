@@ -266,12 +266,12 @@ TEST_F(E2EFilterTest, shortDecimalDictionary) {
         [&]() {
           makeIntDistribution<UnscaledShortDecimal>(
               "shortdecimal_val",
-              UnscaledShortDecimal(10), // min
-              UnscaledShortDecimal(100), // max
+              10, // min
+              100, // max
               22, // repeats
               19, // rareFrequency
-              UnscaledShortDecimal(-999), // rareMin
-              UnscaledShortDecimal(30000), // rareMax
+              -999, // rareMin
+              30000, // rareMax
               true);
         },
         false,
@@ -296,12 +296,12 @@ TEST_F(E2EFilterTest, shortDecimalDirect) {
         [&]() {
           makeIntDistribution<UnscaledShortDecimal>(
               "shortdecimal_val",
-              UnscaledShortDecimal(10), // min
-              UnscaledShortDecimal(100), // max
+              10, // min
+              100, // max
               22, // repeats
               19, // rareFrequency
-              UnscaledShortDecimal(-999), // rareMin
-              UnscaledShortDecimal(30000), // rareMax
+              -999, // rareMin
+              30000, // rareMax
               true);
         },
         false,
@@ -334,12 +334,12 @@ TEST_F(E2EFilterTest, longDecimalDictionary) {
         [&]() {
           makeIntDistribution<UnscaledLongDecimal>(
               "longdecimal_val",
-              UnscaledLongDecimal(10), // min
-              UnscaledLongDecimal(100), // max
+              10, // min
+              100, // max
               22, // repeats
               19, // rareFrequency
-              UnscaledLongDecimal(-999), // rareMin
-              UnscaledLongDecimal(30000), // rareMax
+              -999, // rareMin
+              30000, // rareMax
               true);
         },
         true,
@@ -364,12 +364,12 @@ TEST_F(E2EFilterTest, longDecimalDirect) {
         [&]() {
           makeIntDistribution<UnscaledLongDecimal>(
               "longdecimal_val",
-              UnscaledLongDecimal(10), // min
-              UnscaledLongDecimal(100), // max
+              10, // min
+              100, // max
               22, // repeats
               19, // rareFrequency
-              UnscaledLongDecimal(-999), // rareMin
-              UnscaledLongDecimal(30000), // rareMax
+              -999, // rareMin
+              30000, // rareMax
               true);
         },
         true,

@@ -105,12 +105,12 @@ class E2EFilterTestBase : public testing::Test {
   template <typename T>
   void makeIntDistribution(
       const std::string& fieldName,
-      T min,
-      T max,
+      int64_t min,
+      int64_t max,
       int32_t repeats,
       int32_t rareFrequency,
-      T rareMin,
-      T rareMax,
+      int64_t rareMin,
+      int64_t rareMax,
       bool keepNulls) {
     dataSetBuilder_->withIntDistributionForField<T>(
         Subfield(fieldName),
