@@ -514,6 +514,39 @@ abstract class TestHiveQueries
     }
 
     @Test
+    public void testBinaryFunctions()
+    {
+        // crc32.
+        assertQuery("SELECT crc32(cast(comment as varbinary)) FROM orders");
+
+        // from_base64, to_base64.
+        assertQuery("SELECT from_base64(to_base64(cast(comment as varbinary))) FROM orders");
+
+        // from_hex, to_hex.
+        assertQuery("SELECT from_hex(to_hex(cast(comment as varbinary))) FROM orders");
+
+        // hmac_sha1, hmac_sha256, hmac_sha512.
+        assertQuery("SELECT hmac_sha1(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
+        assertQuery("SELECT hmac_sha256(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
+        assertQuery("SELECT hmac_sha512(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
+
+        // md5.
+        assertQuery("SELECT md5(cast(comment as varbinary)) FROM orders");
+
+        // sha1, sha256, sha512.
+        assertQuery("SELECT sha1(cast(comment as varbinary)) FROM orders");
+        assertQuery("SELECT sha256(cast(comment as varbinary)) FROM orders");
+        assertQuery("SELECT sha512(cast(comment as varbinary)) FROM orders");
+
+        // spooky_hash_v2_32, spooky_hash_v2_64.
+        assertQuery("SELECT spooky_hash_v2_32(cast(comment as varbinary)) FROM orders");
+        assertQuery("SELECT spooky_hash_v2_64(cast(comment as varbinary)) FROM orders");
+
+        // xxhash64.
+        assertQuery("SELECT xxhash64(cast(comment as varbinary)) FROM orders");
+    }
+
+    @Test
     public void testArrayAndMapFunctions()
     {
         assertQuery("SELECT array[orderkey, partkey] FROM lineitem");
