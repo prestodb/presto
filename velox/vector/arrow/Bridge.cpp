@@ -426,6 +426,7 @@ void exportFlat(
     case TypeKind::SMALLINT:
     case TypeKind::INTEGER:
     case TypeKind::BIGINT:
+    case TypeKind::DATE:
     case TypeKind::REAL:
     case TypeKind::DOUBLE:
     case TypeKind::SHORT_DECIMAL:

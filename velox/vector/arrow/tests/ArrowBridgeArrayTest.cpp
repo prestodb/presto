@@ -308,6 +308,17 @@ TEST_F(ArrowBridgeArrayExportTest, flatDouble) {
   });
 }
 
+TEST_F(ArrowBridgeArrayExportTest, flatDate) {
+  testFlatVector<Date>({
+      std::numeric_limits<int32_t>::min(),
+      std::nullopt,
+      std::numeric_limits<int32_t>::max(),
+      std::numeric_limits<int32_t>::max(),
+      std::nullopt,
+      std::nullopt,
+  });
+}
+
 TEST_F(ArrowBridgeArrayExportTest, flatString) {
   testFlatVector<std::string>({
       "my string",
@@ -649,10 +660,6 @@ TEST_F(ArrowBridgeArrayExportTest, unsupported) {
   vector = vectorMaker_.flatVectorNullable<Timestamp>({});
   EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
-  // Dates.
-  vector = vectorMaker_.flatVectorNullable<Date>({});
-  EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
-
   // Constant encoding.
   vector = BaseVector::createConstant(variant(10), 10, pool_.get());
   EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
@@ -815,6 +822,8 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
 
     testArrowImport<int16_t>("s", {5, 4, 3, 1, 2});
     testArrowImport<int32_t>("i", {5, 4, 3, 1, 2});
+
+    testArrowImport<Date>("tdD", {5, 4, 3, 1, 2});
 
     testArrowImport<int64_t>("l", {});
     testArrowImport<int64_t>("l", {std::nullopt});
