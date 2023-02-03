@@ -49,12 +49,10 @@ jobs:
             # Set up ccache configs .
             mkdir -p .ccache
             ccache -sz -M 5Gi
-            
+
             # We can not use setup-python as we are running in a container
-            # TODO add to docker image and remove here
             apt update
             apt install -y lsb-release python3 pip
-
       - name: "Restore ccache"
         uses: actions/cache/restore@v3
         id: restore-cache

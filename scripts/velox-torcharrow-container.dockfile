@@ -14,7 +14,7 @@
 
 # Build container to be used for TorchArrow.
 
-FROM quay.io/pypa/manylinux2014_x86_64:2022-02-13-594988e
+FROM quay.io/pypa/manylinux2014_x86_64
 ARG cpu_target
 COPY setup-velox-torcharrow.sh /
 COPY setup-helper-functions.sh /

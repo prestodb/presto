@@ -20,7 +20,11 @@ FROM ${base}
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt update && \
-      apt install -y sudo
+      apt install -y sudo \
+            lsb-release \
+            pip \
+            python3
+            
 
 ADD scripts /velox/scripts/
 

@@ -24,27 +24,26 @@ CPU_TARGET="${CPU_TARGET:-avx}"
 export CFLAGS=$(get_cxx_flags $CPU_TARGET)
 export CXXFLAGS=$CFLAGS  # Used by boost.
 
-yum -y install ccache
-yum -y install ninja-build
-yum -y install git
-yum -y install double-conversion-devel
-yum -y install glog-devel
-yum -y install bzip2-devel
-yum -y install gflags-devel
-yum -y install libevent-devel
-yum -y install lz4-devel
-yum -y install libzstd-devel
-yum -y install re2-devel
-yum -y install snappy-devel
-yum -y install lzo-devel
-yum -y install wget
-yum -y install python3-devel.x86_64
-yum -y install fmt-devel
-yum -y install perl-core
-yum -y install pcre-devel
-yum -y install zlib-devel
-yum -y install flex
-yum -y install libicu-devel
+yum -y install bzip2-devel \
+  ccache \
+  double-conversion-devel \
+  flex \
+  gflags-devel \
+  git \
+  glog-devel \
+  libevent-devel \
+  libicu-devel \
+  libzstd-devel \
+  lz4-devel \
+  lzo-devel \
+  ninja-build \
+  pcre-devel \
+  perl-core \
+  python3-devel.x86_64 \
+  re2-devel \
+  snappy-devel \
+  wget \
+  zlib-devel
 
 #Install conda
 rpm --import https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc
@@ -78,6 +77,7 @@ wget_and_untar https://github.com/gflags/gflags/archive/refs/tags/v2.2.2.tar.gz 
 wget_and_untar https://ftp.openssl.org/source/openssl-1.1.1k.tar.gz openssl &
 wget_and_untar https://boostorg.jfrog.io/artifactory/main/release/1.69.0/source/boost_1_69_0.tar.gz boost &
 wget_and_untar https://github.com/facebook/folly/archive/v2022.11.14.00.tar.gz folly &
+wget_and_untar https://github.com/fmtlib/fmt/archive/refs/tags/8.0.1.tar.gz fmt &
 
 wait
 
@@ -95,4 +95,5 @@ wait
 )
 
 cmake_install gflags -DBUILD_SHARED_LIBS=ON
+cmake_install fmt -DFMT_TEST=OFF
 cmake_install folly
