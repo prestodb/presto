@@ -497,6 +497,25 @@ TEST_F(E2EFilterTest, map) {
       10);
 }
 
+TEST_F(E2EFilterTest, largeMetadata) {
+  writerProperties_ =
+      ::parquet::WriterProperties::Builder().max_row_group_length(1)->build();
+  rowType_ = ROW({INTEGER()});
+  std::vector<RowVectorPtr> batches;
+  batches.push_back(std::static_pointer_cast<RowVector>(
+      test::BatchMaker::createBatch(rowType_, 1000, *pool_, nullptr, 0)));
+  writeToMemory(rowType_, batches, false);
+  dwio::common::ReaderOptions readerOpts{pool_.get()};
+  readerOpts.setDirectorySizeGuess(1024);
+  readerOpts.setFilePreloadThreshold(1024 * 8);
+  dwio::common::RowReaderOptions rowReaderOpts;
+  std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
+  auto input = std::make_unique<BufferedInput>(
+      std::make_shared<InMemoryReadFile>(data), readerOpts.getMemoryPool());
+  auto reader = makeReader(readerOpts, std::move(input));
+  EXPECT_EQ(1000, reader->numberOfRows());
+}
+
 // Define main so that gflags get processed.
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);

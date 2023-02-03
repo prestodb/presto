@@ -28,9 +28,6 @@
 
 namespace facebook::velox::dwrf {
 
-constexpr uint64_t DIRECTORY_SIZE_GUESS = 1024 * 1024;
-constexpr uint64_t FILE_PRELOAD_THRESHOLD = 1024 * 1024 * 8;
-
 class ReaderBase;
 
 class FooterStatisticsImpl : public dwio::common::Statistics {
@@ -67,6 +64,10 @@ class ReaderBase {
       std::unique_ptr<dwio::common::BufferedInput> input,
       std::shared_ptr<dwio::common::encryption::DecrypterFactory>
           decryptorFactory = nullptr,
+      uint64_t directorySizeGuess =
+          dwio::common::ReaderOptions::kDefaultDirectorySizeGuess,
+      uint64_t filePreloadThreshold =
+          dwio::common::ReaderOptions::kDefaultFilePreloadThreshold,
       dwio::common::FileFormat fileFormat = dwio::common::FileFormat::DWRF);
 
   ReaderBase(
@@ -138,6 +139,10 @@ class ReaderBase {
 
   const encryption::DecryptionHandler& getDecryptionHandler() const {
     return *handler_;
+  }
+
+  uint64_t getDirectorySizeGuess() const {
+    return directorySizeGuess_;
   }
 
   uint64_t getFileLength() const {
@@ -233,6 +238,10 @@ class ReaderBase {
   // Keeps factory alive for possibly async prefetch.
   std::shared_ptr<dwio::common::encryption::DecrypterFactory> decryptorFactory_;
   std::unique_ptr<encryption::DecryptionHandler> handler_;
+  const uint64_t directorySizeGuess_{
+      dwio::common::ReaderOptions::kDefaultDirectorySizeGuess};
+  const uint64_t filePreloadThreshold_{
+      dwio::common::ReaderOptions::kDefaultFilePreloadThreshold};
 
   std::unique_ptr<dwio::common::BufferedInput> input_;
   RowTypePtr schema_;
