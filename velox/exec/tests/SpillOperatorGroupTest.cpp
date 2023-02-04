@@ -67,7 +67,8 @@ class SpillOperatorGroupTest : public testing::Test {
               driverCtx,
               nullptr,
               operatorId,
-              "SpillNode",
+              // Ensure the spill plan node id is unique.
+              fmt::format("SpillNode{}", operatorId),
               "SpillOperator"),
           spillGroup_(spillGroup),
           spillFuture_(ContinueFuture::makeEmpty()) {

@@ -64,32 +64,39 @@ uint64_t MemoryPool::getChildCount() const {
 
 void MemoryPool::visitChildren(std::function<void(MemoryPool*)> visitor) const {
   folly::SharedMutex::ReadHolder guard{childrenMutex_};
-  for (const auto& child : children_) {
-    visitor(child);
+  for (const auto& entry : children_) {
+    auto childPtr = entry.second.lock();
+    if (childPtr != nullptr) {
+      visitor(childPtr.get());
+    }
   }
 }
 
 std::shared_ptr<MemoryPool> MemoryPool::addChild(const std::string& name) {
   folly::SharedMutex::WriteHolder guard{childrenMutex_};
-  // Upon name collision we would throw and not modify the map.
+  VELOX_CHECK_EQ(
+      children_.count(name),
+      0,
+      "Child memory pool {} already exists in {}",
+      name,
+      toString());
   auto child = genChild(shared_from_this(), name);
-  if (auto usageTracker = getMemoryUsageTracker()) {
-    child->setMemoryUsageTracker(usageTracker->addChild());
+  if (auto tracker = getMemoryUsageTracker()) {
+    child->setMemoryUsageTracker(tracker->addChild());
   }
-  children_.emplace_back(child.get());
+  children_.emplace(name, child);
   return child;
 }
 
-void MemoryPool::dropChild(const MemoryPool* FOLLY_NONNULL child) {
+void MemoryPool::dropChild(const MemoryPool* child) {
   folly::SharedMutex::WriteHolder guard{childrenMutex_};
-  // Implicitly synchronized in dtor of child so it's impossible for
-  // MemoryManager to access after destruction of child.
-  auto iter = std::find_if(
-      children_.begin(), children_.end(), [child](const MemoryPool* e) {
-        return e == child;
-      });
-  VELOX_CHECK(iter != children_.end());
-  children_.erase(iter);
+  const auto ret = children_.erase(child->name());
+  VELOX_CHECK_EQ(
+      ret,
+      1,
+      "Child memory pool {} doesn't exist in {}",
+      child->name(),
+      toString());
 }
 
 size_t MemoryPool::getPreferredSize(size_t size) {
@@ -415,9 +422,8 @@ MemoryPool& MemoryManager::getRoot() const {
 }
 
 std::shared_ptr<MemoryPool> MemoryManager::getChild(int64_t cap) {
-  return root_->addChild(fmt::format(
-      "default_usage_node_{}",
-      folly::to<std::string>(folly::Random::rand64())));
+  static std::atomic<int64_t> poolId{0};
+  return root_->addChild(fmt::format("default_usage_node_{}", poolId++));
 }
 
 int64_t MemoryManager::getTotalBytes() const {

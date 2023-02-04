@@ -157,12 +157,15 @@ TEST(MemoryPoolTest, AddChild) {
   ASSERT_EQ(2, root.getChildCount());
   root.visitChildren(
       [&nodes](MemoryPool* child) { nodes.emplace_back(child); });
-  EXPECT_THAT(
+  ASSERT_THAT(
       nodes, UnorderedElementsAreArray({childOne.get(), childTwo.get()}));
-
-  // We no longer care about name uniqueness.
-  auto childTree = root.addChild("child_one");
-  EXPECT_EQ(3, root.getChildCount());
+  // Child pool name collision.
+  ASSERT_THROW(root.addChild("child_one"), VeloxRuntimeError);
+  ASSERT_EQ(2, root.getChildCount());
+  childOne.reset();
+  ASSERT_EQ(1, root.getChildCount());
+  childOne = root.addChild("child_one");
+  ASSERT_EQ(2, root.getChildCount());
 }
 
 TEST_P(MemoryPoolTest, dropChild) {
@@ -190,7 +193,8 @@ TEST_P(MemoryPoolTest, dropChild) {
   auto* rawChild = child.get();
   auto grandChild1 = child->addChild("grandChild1");
   ASSERT_EQ(grandChild1->parent(), child.get());
-  auto grandChild2 = child->addChild("grandChild1");
+  ASSERT_THROW(child->addChild("grandChild1"), VeloxRuntimeError);
+  auto grandChild2 = child->addChild("grandChild2");
   ASSERT_EQ(grandChild2->parent(), child.get());
   ASSERT_EQ(1, root.getChildCount());
   ASSERT_EQ(2, child->getChildCount());
@@ -1769,6 +1773,63 @@ TEST_P(MemoryPoolTest, concurrentUpdatesToTheSamePool) {
       th.join();
     }
   }
+}
+
+TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
+  folly::Random::DefaultGenerator rng;
+  rng.seed(1234);
+  constexpr int64_t kMaxMemory = 8 * GB;
+  MemoryManager manager{{.capacity = kMaxMemory}};
+  auto& root = manager.getRoot();
+  std::atomic<int64_t> poolId{0};
+  std::mutex lock;
+  std::vector<std::shared_ptr<MemoryPool>> pools;
+  const int32_t kNumThreads = 20;
+  const int32_t kNumOpsPerThread = 1'000;
+  const std::string kPoolNamePrefix("concurrent");
+
+  std::vector<std::thread> threads;
+  threads.reserve(kNumThreads);
+  for (size_t i = 0; i < kNumThreads; ++i) {
+    threads.emplace_back([&]() {
+      for (int32_t op = 0; op < kNumOpsPerThread; ++op) {
+        std::shared_ptr<MemoryPool> pool;
+        {
+          std::lock_guard<std::mutex> l(lock);
+          if (pools.empty() || folly::Random().oneIn(5)) {
+            auto pool =
+                root.addChild(fmt::format("{}{}", kPoolNamePrefix, poolId++));
+            pools.push_back(pool);
+            continue;
+          }
+          const auto idx = folly::Random().rand32() % pools.size();
+          if (folly::Random().oneIn(3)) {
+            pools.erase(pools.begin() + idx);
+            continue;
+          }
+          pool = pools[idx];
+        }
+        if (folly::Random().oneIn(2)) {
+          auto childPool =
+              pool->addChild(fmt::format("{}{}", kPoolNamePrefix, poolId++));
+          std::lock_guard<std::mutex> l(lock);
+          pools.push_back(std::move(childPool));
+          continue;
+        }
+        pool->visitChildren([&](MemoryPool* pool) {
+          VELOX_CHECK_EQ(
+              pool->name().compare(0, kPoolNamePrefix.size(), kPoolNamePrefix),
+              0);
+        });
+      }
+    });
+  }
+
+  for (auto& th : threads) {
+    th.join();
+  }
+  pools.clear();
+  ASSERT_EQ(root.getChildCount(), 0);
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

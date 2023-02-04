@@ -82,7 +82,10 @@ class QueryCtx : public Context {
   }
 
   static std::string generatePoolName(const std::string& queryId) {
-    return fmt::format("query.{}", queryId.c_str());
+    // We attach a monotonically increasing sequence number to ensure the pool
+    // name is unique.
+    static std::atomic<int64_t> seqNum{0};
+    return fmt::format("query.{}.{}", queryId.c_str(), seqNum++);
   }
 
   memory::MemoryPool* FOLLY_NONNULL pool() const {

@@ -36,7 +36,6 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
   // why).
   std::array<std::string, 14> expectedTexts = {
       "Exceeded memory cap of 5.00MB when requesting 2.00MB.",
-      "query.: total: 5.00MB",
       "node.0: 0B in 1 operators, min 0B, max 0B",
       "op.0.0.0.Values: 0B in 1 instances, min 0B, max 0B",
       "node.1: 12.00KB in 1 operators, min 12.00KB, max 12.00KB",
