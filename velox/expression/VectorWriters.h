@@ -32,6 +32,8 @@
 
 namespace facebook::velox::exec {
 
+// TODO: add documentation for the static API.
+
 // This default is for scalar types.
 template <typename T, typename = void>
 struct VectorWriter {
@@ -55,6 +57,8 @@ struct VectorWriter {
       data_ = vector_->mutableRawValues();
     }
   }
+
+  void finalizeNull() {}
 
   VectorWriter() {}
 
@@ -140,9 +144,15 @@ struct VectorWriter<Array<V>> {
     writer_.finalize();
   }
 
+  void finalizeNull() {
+    writer_.resetLength();
+    // Call it on the children
+    childWriter_.finalizeNull();
+  }
+
   // Commit a null value.
   void commitNull() {
-    writer_.finalizeNull();
+    finalizeNull();
     arrayVector_->setNull(offset_, true);
   }
 
@@ -223,9 +233,16 @@ struct VectorWriter<Map<K, V>> {
     writer_.finalize();
   }
 
+  void finalizeNull() {
+    writer_.resetLength();
+    // Call it on the children
+    keyWriter_.finalizeNull();
+    valWriter_.finalizeNull();
+  }
+
   // Commit a null value.
   void commitNull() {
-    writer_.finalizeNull();
+    finalizeNull();
     mapVector_->setNull(offset_, true);
   }
 
@@ -290,9 +307,14 @@ struct VectorWriter<Row<T...>> {
     }
   }
 
+  void finalizeNull() {
+    // TODO: we could pull the logic out of finalizeNullOnChildren to here.
+    writer_.finalizeNullOnChildren();
+  }
+
   void commitNull() {
     rowVector_->setNull(writer_.offset_, true);
-    writer_.finalizeNull();
+    finalizeNull();
   }
 
   void commit(bool isSet = true) {
@@ -356,6 +378,8 @@ struct VectorWriter<
   using vector_t = typename TypeToFlatVector<T>::type;
   using exec_out_t = StringWriter<>;
 
+  void finalizeNull() {}
+
   void init(vector_t& vector, bool uniqueAndMutable = false) {
     proxy_.vector_ = &vector;
   }
@@ -406,6 +430,8 @@ struct VectorWriter<T, std::enable_if_t<std::is_same_v<T, bool>>> {
   void init(vector_t& vector, bool uniqueAndMutable = false) {
     vector_ = &vector;
   }
+
+  void finalizeNull() {}
 
   void finish() {}
 
@@ -463,6 +489,8 @@ struct VectorWriter<std::shared_ptr<T>> {
 
   void finish() {}
 
+  void finalizeNull() {}
+
   void ensureSize(size_t size) {
     if (size > vector_->size()) {
       vector_->resize(size, /*setNotNull*/ false);
@@ -517,6 +545,30 @@ struct VectorWriter<Generic<T>> {
     writer_.initialize(vector_);
   }
 
+  template <typename F>
+  struct isRowWriter : public std::false_type {};
+
+  template <typename... F>
+  struct isRowWriter<writer_ptr_t<Row<F...>>> : public std::true_type {};
+
+  template <typename F>
+  void finalizeNullDispatch(F& writer) {
+    if constexpr (
+        std::is_same_v<F, writer_ptr_t<Array<Any>>> ||
+        std::is_same_v<F, writer_ptr_t<Map<Any, Any>>> ||
+        std::is_same_v<F, writer_ptr_t<DynamicRow>> || isRowWriter<F>::value) {
+      writer->finalizeNull();
+    }
+  }
+
+  void finalizeNull() {
+    if (castType_) {
+      std::visit(
+          [&](auto&& castedWriter) { finalizeNullDispatch(castedWriter); },
+          castWriter_);
+    }
+  }
+
   // This should be called once all rows are processed to resize the vectors to
   // the actual used size. No need to call finish() if the generic writer is
   // never casted.
@@ -549,6 +601,9 @@ struct VectorWriter<Generic<T>> {
     } else {
       vector_->setNull(offset_, true);
     }
+    // No need to call finalizeNull here since commitNull will call it in
+    // castType_ is true.
+    // otherwse there is nothing to do.
   }
 
   // User can only add values after casting a generic writer to an actual type.
@@ -643,9 +698,9 @@ class DynamicRowWriter {
     }
   }
 
-  void finalizeNull() {
+  void finalizeNullOnChildren() {
     for (int i = 0; i < childrenCount_; ++i) {
-      childrenWriters_[i]->current().finalizeNull();
+      childrenWriters_[i]->finalizeNull();
       needCommit_[i] = false;
     }
   }
@@ -702,8 +757,12 @@ struct VectorWriter<DynamicRow, void> {
     }
   }
 
+  void finalizeNull() {
+    writer_.finalizeNullOnChildren();
+  }
+
   void commitNull() {
-    writer_.finalizeNull();
+    finalizeNull();
     rowVector_->setNull(writer_.offset_, true);
   }
 

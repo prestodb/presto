@@ -792,6 +792,52 @@ TEST_F(ArrayWriterTest, finishPostSize) {
   ASSERT_EQ(arrayElements->as<ArrayVector>()->elements()->size(), 10);
 }
 
+TEST_F(ArrayWriterTest, nestedArrayWriteThenCommitNull) {
+  VectorPtr result;
+  SelectivityVector rows(2);
+  BaseVector::ensureWritable(rows, ARRAY(ARRAY(BIGINT())), pool(), result);
+
+  exec::VectorWriter<Array<Array<int64_t>>> writer;
+  writer.init(*result->as<ArrayVector>());
+  {
+    writer.setOffset(0);
+
+    auto& current = writer.current();
+
+    auto& nestedArray = current.add_item();
+    nestedArray.push_back(1);
+    nestedArray.push_back(2);
+
+    writer.commitNull();
+  }
+
+  {
+    writer.setOffset(1);
+
+    auto& current = writer.current();
+    auto& nestedArray = current.add_item();
+    nestedArray.push_back(10);
+    writer.commit();
+  }
+
+  writer.finish();
+
+  DecodedVector decoded;
+  decoded.decode(*result.get(), rows);
+  exec::VectorReader<Array<Array<int64_t>>> reader(&decoded);
+  // Total space used in the underlying
+  ASSERT_EQ(
+      result->as<ArrayVector>()
+          ->elements()
+          ->as<ArrayVector>()
+          ->elements()
+          ->size(),
+      1);
+
+  ASSERT_EQ(reader.readNullFree(1).at(0).size(), 1);
+  ASSERT_EQ(reader.readNullFree(1)[0][0], 10);
+}
+
 // ArrayWriter should append and not overwrite elements vectors.
 TEST_F(ArrayWriterTest, appendToElements) {
   using out_t = Array<int32_t>;

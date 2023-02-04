@@ -130,7 +130,7 @@ class ArrayWriter {
 
   // Should be called by the user (VectorWriter) when null is committed to
   // pretect against user miss-use (writing to the writer then committing null).
-  void finalizeNull() {
+  void resetLength() {
     // No need to commit last written items and innerOffset_ stays the same for
     // the next item.
     length_ = 0;
@@ -449,7 +449,7 @@ class MapWriter {
   // Should be called by the user (VectorWriter) when null is committed to
   // pretect against user miss-use (writing to the writer then committing
   // null).
-  void finalizeNull() {
+  void resetLength() {
     // No need to commit last written items and innerOffset_ stays the same
     // for the next item.
     length_ = 0;
@@ -684,12 +684,12 @@ class RowWriter {
         ...);
   }
 
-  void finalizeNull() {
-    finalizeNullImpl(std::index_sequence_for<T...>{});
+  void finalizeNullOnChildren() {
+    finalizeNullOnChildrenImpl(std::index_sequence_for<T...>{});
   }
 
   template <std::size_t... Is>
-  void finalizeNullImpl(std::index_sequence<Is...>) {
+  void finalizeNullOnChildrenImpl(std::index_sequence<Is...>) {
     using children_types = std::tuple<T...>;
     (
         [&]() {
@@ -698,7 +698,7 @@ class RowWriter {
               !provide_std_interface<current_t> &&
               !isOpaqueType<current_t>::value) {
             if (UNLIKELY(std::get<Is>(needCommit_))) {
-              std::get<Is>(childrenWriters_).current().finalizeNull();
+              std::get<Is>(childrenWriters_).finalizeNull();
               std::get<Is>(needCommit_) = false;
             }
           }
@@ -729,6 +729,9 @@ class RowWriter {
   friend auto get(const RowWriter<Types...>& writer);
 };
 
+template <typename T>
+using writer_ptr_t = std::shared_ptr<VectorWriter<T, void>>;
+
 // GenericWriter represents a writer of any type. It has to be casted to one
 // specific type first in order to write values to a vector. A GenericWriter
 // must be casted to the same type throughout its lifetime, or an exception
@@ -742,9 +745,6 @@ class GenericWriter {
   GenericWriter(const GenericWriter&) = delete;
 
   GenericWriter& operator=(const GenericWriter&) = delete;
-
-  template <typename T>
-  using writer_ptr_t = std::shared_ptr<VectorWriter<T, void>>;
 
   using writer_variant_t = std::variant<
       writer_ptr_t<bool>,
@@ -801,30 +801,6 @@ class GenericWriter {
     }
 
     return castToImpl<ToType, true>();
-  }
-
-  template <typename T>
-  struct isRowWriter : public std::false_type {};
-
-  template <typename... T>
-  struct isRowWriter<writer_ptr_t<Row<T...>>> : public std::false_type {};
-
-  template <typename T>
-  void finalizeNullDispatch(T& writer) {
-    if constexpr (
-        std::is_same_v<T, writer_ptr_t<Array<Any>>> ||
-        std::is_same_v<T, writer_ptr_t<Map<Any, Any>>> ||
-        std::is_same_v<T, writer_ptr_t<DynamicRow>> || isRowWriter<T>::value) {
-      writer->current().finalizeNull();
-    }
-  }
-
-  void finalizeNull() {
-    if (castType_) {
-      std::visit(
-          [&](auto&& castedWriter) { finalizeNullDispatch(castedWriter); },
-          castWriter_);
-    }
   }
 
  private:
