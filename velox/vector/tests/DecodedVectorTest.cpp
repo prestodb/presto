@@ -595,9 +595,14 @@ TEST_F(DecodedVectorTest, dictionaryOverConstant) {
 }
 
 TEST_F(DecodedVectorTest, wrapOnDictionaryEncoding) {
+  // This test exercises the use-case of unnesting the children of a rowVector
+  // and making sure the wrap over the row vector is correctly applied on its
+  // children. The input vector here is a dictionary wrapped over a
+  // rowVector.
   const int kSize = 12;
-  auto intVector = makeFlatVector<int32_t>(kSize, [](auto row) { return row; });
-  auto rowVector = makeRowVector({intVector});
+  auto intChildVector =
+      makeFlatVector<int32_t>(kSize, [](auto row) { return row; });
+  auto rowVector = makeRowVector({intChildVector});
   SelectivityVector allRows(kSize);
   DecodedVector decoded;
 
@@ -607,28 +612,28 @@ TEST_F(DecodedVectorTest, wrapOnDictionaryEncoding) {
   auto dictionaryVector =
       BaseVector::wrapInDictionary(nullsOne, indicesOne, kSize, rowVector);
 
-  // Test dictionary with depth one
-
+  // Test dictionary with depth one, a.k.a. dict-over-flat encoding structure.
   auto checkDepthOne = [&](auto& decoded, auto& wrappedVector) {
     for (auto i = 0; i < kSize; i++) {
       if (i < 2) {
         ASSERT_TRUE(wrappedVector->isNullAt(i));
       } else {
-        ASSERT_TRUE(
-            wrappedVector->equalValueAt(intVector.get(), i, decoded.index(i)));
+        ASSERT_TRUE(wrappedVector->equalValueAt(
+            intChildVector.get(), i, decoded.index(i)));
       }
     }
   };
 
   decoded.decode(*dictionaryVector, allRows);
-  auto wrappedVector = decoded.wrap(intVector, *dictionaryVector, allRows);
+  auto wrappedVector = decoded.wrap(intChildVector, *dictionaryVector, allRows);
   checkDepthOne(decoded, wrappedVector);
 
   decoded.decode(*dictionaryVector);
-  wrappedVector = decoded.wrap(intVector, *dictionaryVector, kSize);
+  wrappedVector = decoded.wrap(intChildVector, *dictionaryVector, kSize);
   checkDepthOne(decoded, wrappedVector);
 
-  // Test dictionary with depth two
+  // Test dictionary with depth two, a.k.a. dict(dict(flat)) multi-level
+  // encoding structure.
   auto nullsTwo =
       makeNulls(kSize, [](auto row) { return row >= 2 && row < 4; });
   auto indicesTwo = makeIndices(kSize, [](vector_size_t i) { return i; });
@@ -640,23 +645,23 @@ TEST_F(DecodedVectorTest, wrapOnDictionaryEncoding) {
       if (i < 4) {
         ASSERT_TRUE(wrappedVector->isNullAt(i));
       } else {
-        ASSERT_TRUE(
-            wrappedVector->equalValueAt(intVector.get(), i, decoded.index(i)));
+        ASSERT_TRUE(wrappedVector->equalValueAt(
+            intChildVector.get(), i, decoded.index(i)));
       }
     }
   };
 
   decoded.decode(*dictionaryOverDictionaryVector, allRows);
   wrappedVector =
-      decoded.wrap(intVector, *dictionaryOverDictionaryVector, allRows);
+      decoded.wrap(intChildVector, *dictionaryOverDictionaryVector, allRows);
   checkDepthTwo(decoded, wrappedVector);
 
   decoded.decode(*dictionaryOverDictionaryVector);
   wrappedVector =
-      decoded.wrap(intVector, *dictionaryOverDictionaryVector, kSize);
+      decoded.wrap(intChildVector, *dictionaryOverDictionaryVector, kSize);
   checkDepthTwo(decoded, wrappedVector);
 
-  // Test dictionrary with depth two and no nulls
+  // Test dictionary with depth two and no nulls
   auto noNullDictionaryVector =
       BaseVector::wrapInDictionary(nullptr, indicesOne, kSize, rowVector);
   auto noNullDictionaryOverDictionaryVector = BaseVector::wrapInDictionary(
@@ -664,24 +669,28 @@ TEST_F(DecodedVectorTest, wrapOnDictionaryEncoding) {
 
   auto checkDepthTwoAndNoNulls = [&](auto& decoded, auto& wrappedVector) {
     for (auto i = 0; i < kSize; i++) {
-      ASSERT_TRUE(
-          wrappedVector->equalValueAt(intVector.get(), i, decoded.index(i)));
+      ASSERT_TRUE(wrappedVector->equalValueAt(
+          intChildVector.get(), i, decoded.index(i)));
       ASSERT_FALSE(wrappedVector->isNullAt(i));
     }
   };
 
   decoded.decode(*noNullDictionaryOverDictionaryVector, allRows);
-  wrappedVector =
-      decoded.wrap(intVector, *noNullDictionaryOverDictionaryVector, allRows);
+  wrappedVector = decoded.wrap(
+      intChildVector, *noNullDictionaryOverDictionaryVector, allRows);
   checkDepthTwoAndNoNulls(decoded, wrappedVector);
 
   decoded.decode(*noNullDictionaryOverDictionaryVector);
-  wrappedVector =
-      decoded.wrap(intVector, *noNullDictionaryOverDictionaryVector, kSize);
+  wrappedVector = decoded.wrap(
+      intChildVector, *noNullDictionaryOverDictionaryVector, kSize);
   checkDepthTwoAndNoNulls(decoded, wrappedVector);
 }
 
 TEST_F(DecodedVectorTest, wrapOnConstantEncoding) {
+  // This test exercises the use-case of unnesting the children of a rowVector
+  // and making sure the wrap over the row vector is correctly applied on its
+  // children. The input vector here is a constant wrapped over a
+  // rowVector.
   const int kSize = 12;
   SelectivityVector allRows(kSize);
 
@@ -745,7 +754,10 @@ TEST_F(DecodedVectorTest, wrapOnConstantEncoding) {
 }
 
 TEST_F(DecodedVectorTest, dictionaryWrapOnConstantVector) {
-  // Constant Vector
+  // This test exercises the use-case of unnesting the children of a rowVector
+  // and making sure the wrap over the row vector is correctly applied on its
+  // children. Input row vector used here contains a child which is a constant
+  // vector.
   constexpr vector_size_t size = 100;
   auto constantVector =
       BaseVector::createConstant(variant("abc"), size, pool_.get());
@@ -787,6 +799,224 @@ TEST_F(DecodedVectorTest, dictionaryWrapOnConstantVector) {
     // dictionary encoding set.
     EXPECT_EQ(dictionarySize, wrappedIntVector->size());
     EXPECT_EQ(dictionarySize, wrappedConstVector->size());
+  }
+}
+
+TEST_F(DecodedVectorTest, testWrapBehavior) {
+  // This test exercises various cases that wrap() can encounter and verifies
+  // the expected behavior.
+  size_t vectorSize = 5;
+  auto intVector =
+      makeFlatVector<int32_t>(vectorSize, [](auto row) { return row; });
+  auto arrayVector = makeArrayVector<int32_t>(
+      100,
+      [](auto /* row */) { return 2; },
+      [](auto row, auto index) { return row * index; });
+  auto nullArray = makeNullableArrayVector<int32_t>({std::nullopt});
+  auto indices = makeIndicesInReverse(vectorSize);
+  auto nulls = makeNulls(vectorSize, nullEvery(2));
+  BufferPtr noNulls = nullptr;
+
+  // Case 1: Dictionary(Constant(Flat))
+  // Dictionary: no nulls, Constant: no null
+  {
+    auto constant = BaseVector::wrapInConstant(vectorSize, 1, intVector);
+    auto dict =
+        BaseVector::wrapInDictionary(noNulls, indices, vectorSize, constant);
+
+    DecodedVector decodedVector(*dict);
+    EXPECT_TRUE(decodedVector.isConstantMapping());
+    EXPECT_TRUE(decodedVector.base() == constant.get());
+    auto wrappedVector = decodedVector.wrap(constant, *dict, vectorSize);
+    EXPECT_TRUE(wrappedVector->isConstantEncoding());
+    assertEqualVectors(dict, wrappedVector);
+  }
+
+  // Case 2: Dictionary(Constant(Complex))
+  // Dictionary: no nulls, Constant: no null
+  {
+    auto constant = BaseVector::wrapInConstant(vectorSize, 1, arrayVector);
+    auto dict =
+        BaseVector::wrapInDictionary(noNulls, indices, vectorSize, constant);
+
+    DecodedVector decodedVector(*dict);
+    EXPECT_TRUE(decodedVector.isConstantMapping());
+    EXPECT_TRUE(decodedVector.base() == arrayVector.get());
+    auto wrappedVector = decodedVector.wrap(arrayVector, *dict, vectorSize);
+    EXPECT_TRUE(wrappedVector->isConstantEncoding());
+    assertEqualVectors(dict, wrappedVector);
+  }
+
+  // Case 3: Dictionary(Constant(Flat))
+  // Dictionary: no nulls, Constant: null
+  {
+    auto constant = BaseVector::createNullConstant(
+        intVector->type(), vectorSize, intVector->pool());
+    auto dict =
+        BaseVector::wrapInDictionary(noNulls, indices, vectorSize, constant);
+
+    DecodedVector decodedVector(*dict);
+    EXPECT_TRUE(decodedVector.isConstantMapping());
+    EXPECT_TRUE(decodedVector.base() == constant.get());
+    auto wrappedVector = decodedVector.wrap(constant, *dict, vectorSize);
+    EXPECT_TRUE(wrappedVector->isConstantEncoding());
+    assertEqualVectors(dict, wrappedVector);
+  }
+
+  // Case 4: Dictionary(Constant(Complex))
+  // Dictionary: no nulls, Constant: null
+  {
+    auto constant = BaseVector::wrapInConstant(vectorSize, 0, nullArray);
+    auto dict =
+        BaseVector::wrapInDictionary(noNulls, indices, vectorSize, constant);
+
+    DecodedVector decodedVector(*dict);
+    EXPECT_TRUE(decodedVector.isConstantMapping());
+    EXPECT_TRUE(decodedVector.base() == constant->valueVector().get());
+    // Resultant wrap would wrap input vector into a null constant wrap.
+    auto wrappedVector = decodedVector.wrap(arrayVector, *dict, vectorSize);
+    EXPECT_TRUE(wrappedVector->isConstantEncoding());
+    assertEqualVectors(dict, wrappedVector);
+  }
+
+  // Case 5: Dictionary(Constant(Flat))
+  // Dictionary: adds nulls, Constant: no null
+  {
+    auto constant = BaseVector::wrapInConstant(vectorSize, 1, intVector);
+    auto dict =
+        BaseVector::wrapInDictionary(nulls, indices, vectorSize, constant);
+
+    DecodedVector decodedVector(*dict);
+    EXPECT_FALSE(decodedVector.isConstantMapping());
+    EXPECT_TRUE(decodedVector.base() == constant.get());
+    auto wrappedVector = decodedVector.wrap(constant, *dict, vectorSize);
+    EXPECT_TRUE(isDictionary(wrappedVector->encoding()));
+    assertEqualVectors(dict, wrappedVector);
+  }
+
+  // Case 6: Dictionary(Constant(Complex))
+  // Dictionary: adds nulls, Constant: no null
+  {
+    auto constant = BaseVector::wrapInConstant(vectorSize, 1, arrayVector);
+    auto dict =
+        BaseVector::wrapInDictionary(nulls, indices, vectorSize, constant);
+
+    DecodedVector decodedVector(*dict);
+    EXPECT_FALSE(decodedVector.isConstantMapping());
+    EXPECT_TRUE(decodedVector.base() == arrayVector.get());
+    auto wrappedVector = decodedVector.wrap(arrayVector, *dict, vectorSize);
+    EXPECT_TRUE(isDictionary(wrappedVector->encoding()));
+    assertEqualVectors(dict, wrappedVector);
+  }
+  // Case 7: Dictionary(Constant(Flat))
+  // Dictionary: adds nulls, Constant: null
+  {
+    auto constant = BaseVector::createNullConstant(
+        intVector->type(), vectorSize, intVector->pool());
+    auto dict =
+        BaseVector::wrapInDictionary(nulls, indices, vectorSize, constant);
+
+    DecodedVector decodedVector(*dict);
+    EXPECT_TRUE(decodedVector.isConstantMapping());
+    EXPECT_TRUE(decodedVector.base() == constant.get());
+    auto wrappedVector = decodedVector.wrap(constant, *dict, vectorSize);
+    EXPECT_TRUE(wrappedVector->isConstantEncoding());
+    assertEqualVectors(dict, wrappedVector);
+  }
+
+  // Case 8: Dictionary(Constant(Complex))
+  // Dictionary: adds nulls, Constant: null
+  {
+    auto constant = BaseVector::wrapInConstant(vectorSize, 0, nullArray);
+    auto dict =
+        BaseVector::wrapInDictionary(nulls, indices, vectorSize, constant);
+
+    DecodedVector decodedVector(*dict);
+    EXPECT_TRUE(decodedVector.isConstantMapping());
+    EXPECT_TRUE(decodedVector.base() == constant->valueVector().get());
+    // Resultant wrap would wrap input vector into a null constant wrap.
+    auto wrappedVector = decodedVector.wrap(arrayVector, *dict, vectorSize);
+    EXPECT_TRUE(wrappedVector->isConstantEncoding());
+    assertEqualVectors(dict, wrappedVector);
+  }
+
+  // Case 9: Dictionary(Flat)
+  // Dictionary: adds nulls, Flat: has nulls
+  // verify that nulls from the base (innermost vector) are also propagated in
+  // the wrap. There used to exist a shortcut for Dictionary over flat where the
+  // indices and nulls of the original dictionary layer were returned, which
+  // would not contain the nulls from the base.
+  {
+    // Flat vector identical intVector but has a null at index 1.
+    auto intNullableVector =
+        makeFlatVector<int32_t>(vectorSize, [](auto row) { return row; });
+    intNullableVector->setNull(1, true);
+    // Dict null at indices = 0, 2, 4
+    auto dict = BaseVector::wrapInDictionary(
+        nulls, indices, vectorSize, intNullableVector);
+    DecodedVector decodedVector(*dict);
+    EXPECT_FALSE(decodedVector.isConstantMapping());
+    EXPECT_TRUE(decodedVector.base() == intNullableVector.get());
+
+    // Now wrap intVector which does not have any nulls.
+    auto wrappedVector = decodedVector.wrap(intVector, *dict, vectorSize);
+    EXPECT_TRUE(isDictionary(wrappedVector->encoding()));
+    // Ensure all nulls are propagated correctly.
+    assertEqualVectors(dict, wrappedVector);
+  }
+
+  // Case 10: Dictionary2(Dictionary1(Flat))
+  // Dictionary1: adds nulls, Dictionary2: no nulls, Flat: has nulls
+  // verify that nulls from the base (innermost vector) are also propagated in
+  // the wrap.
+  {
+    // Flat vector identical intVector but has a null at index 1.
+    auto intNullableVector =
+        makeFlatVector<int32_t>(vectorSize, [](auto row) { return row; });
+    intNullableVector->setNull(1, true);
+    // Dict null at indices = 0, 2, 4
+    auto dict = BaseVector::wrapInDictionary(
+        nulls, indices, vectorSize, intNullableVector);
+    dict = BaseVector::wrapInDictionary(nullptr, indices, vectorSize, dict);
+    DecodedVector decodedVector(*dict);
+    EXPECT_FALSE(decodedVector.isConstantMapping());
+    EXPECT_TRUE(decodedVector.base() == intNullableVector.get());
+
+    // Now wrap intVector which does not have any nulls.
+    auto wrappedVector = decodedVector.wrap(intVector, *dict, vectorSize);
+    EXPECT_TRUE(isDictionary(wrappedVector->encoding()));
+    // Ensure all nulls are propagated correctly.
+    assertEqualVectors(dict, wrappedVector);
+  }
+
+  // Case 11: Dictionary(Flat)
+  // Dictionary: no nulls, Flat: has nulls
+  // Ideally the nulls from the base (innermost vector) should be propagated in
+  // the wrap. But a previous fix tried to skip adding nulls if only the base
+  // had nulls and the wrap did not have any nulls. This bug was introduced in
+  // #2678 as a solution to another bug caused due to how Cast Expr mis-uses the
+  // wrap functionality to implement its own peeling. Therefore, it should be
+  // reverted once #3553 is merged. Keeping this test case for now with a
+  // TODO to ensure it is updated with the right behavior once its fixed.
+  {
+    // Flat vector identical intVector but has a null at index 1.
+    auto intNullableVector =
+        makeFlatVector<int32_t>(vectorSize, [](auto row) { return row; });
+    intNullableVector->setNull(1, true);
+    auto dict = BaseVector::wrapInDictionary(
+        noNulls, indices, vectorSize, intNullableVector);
+    DecodedVector decodedVector(*dict);
+    EXPECT_FALSE(decodedVector.isConstantMapping());
+    EXPECT_TRUE(decodedVector.base() == intNullableVector.get());
+
+    // Now wrap intVector which does not have any nulls.
+    auto wrappedVector = decodedVector.wrap(intVector, *dict, vectorSize);
+    EXPECT_TRUE(isDictionary(wrappedVector->encoding()));
+    // TODO: Switch this to ensure all nulls from base are propagated correctly
+    // which should be the correct expected behavior.
+    auto exptected =
+        BaseVector::wrapInDictionary(noNulls, indices, vectorSize, intVector);
+    assertEqualVectors(exptected, wrappedVector);
   }
 }
 

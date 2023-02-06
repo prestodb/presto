@@ -921,3 +921,51 @@ TEST_F(CastExprTest, castAsCall) {
   auto expected = makeNullableFlatVector(outputValues);
   assertEqualVectors(expected, result);
 }
+
+namespace {
+/// Wraps input in a constant encoding that repeats the first element and then
+/// in dictionary that reverses the order of rows.
+class TestingDictionaryOverConstFunction : public exec::VectorFunction {
+ public:
+  TestingDictionaryOverConstFunction() {}
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& /*outputType*/,
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    const auto size = rows.size();
+    auto constant = BaseVector::wrapInConstant(size, 0, args[0]);
+
+    auto indices = makeIndicesInReverse(size, context.pool());
+    auto nulls = allocateNulls(size, context.pool());
+    result =
+        BaseVector::wrapInDictionary(nulls, indices, size, std::move(constant));
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    // T -> T
+    return {exec::FunctionSignatureBuilder()
+                .typeVariable("T")
+                .returnType("T")
+                .argumentType("T")
+                .build()};
+  }
+};
+} // namespace
+
+TEST_F(CastExprTest, dictionaryOverConst) {
+  // Verify that cast properly handles an input where the vector has a
+  // dictionary layer wrapped over a constant layer.
+  exec::registerVectorFunction(
+      "dictionary_over_const",
+      TestingDictionaryOverConstFunction::signatures(),
+      std::make_unique<TestingDictionaryOverConstFunction>());
+
+  auto data = makeFlatVector<int64_t>({1, 2, 3, 4, 5});
+  auto result = evaluate(
+      "cast(dictionary_over_const(c0) as smallint)", makeRowVector({data}));
+  auto expected = makeNullableFlatVector<int16_t>({1, 1, 1, 1, 1});
+  assertEqualVectors(expected, result);
+}

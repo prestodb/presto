@@ -27,6 +27,54 @@ namespace facebook::velox {
 /// dictionary wrappings and converts it into a flat or constant base vector +
 /// at most one wrapping. Combines multiple layers of indices and nulls into
 /// one.
+///
+/// Decoding a vector is straightforward if it is flat. However, if it is not,
+/// the following steps are taken:
+/// 1. It first traverses the top dictionary layers (if they exist) and
+///    combines their indices and nulls
+
+/// 2. Next, if it encounters a constant layer, it does the following:
+///    ** If the dictionary layers over it were adding additional nulls, then it
+///    replaces all non-null indices with the constant index.
+///    ** Else if the dictionary layers did not add any additional nulls then it
+///    converts the resultant wrap into a single constant wrap with the same
+///    index as this constant layer.
+///    ** However, if the constant layer is a null constant, then regardless of
+///    the dictionary layers, it converts the resultant wrap into a constant
+///    wrap representing a null constant
+///    ** Finally, if the constant is a scalar, the base is set to the
+///    constantVector itself, otherwise the base points to the complex vector
+///    wrapped underneath the constant layer
+/// 3. Next, If it encounters a non-constant base layer:
+///    ** It combines the nulls from that base layer into the set of nulls that
+///    it is tracking
+///    ** Additionally, it will flatten the base layer if its not already flat.
+///    Currently, such a transformation is only supported for bias encoding.
+///
+/// Having access to a flat base’s data buffer and a single level of indices and
+/// nulls (or a constant index) means that we can read all values in constant
+/// time.
+///
+/// Memory Allocation of internal state:
+///
+/// All memory required is directly allocated from the system’s memory allocator
+/// and is not managed by any memory pool. This means that the indices and nulls
+/// buffers either point directly to the corresponding buffers of the input
+/// vector which is decoded, or, are directly malloced from the system
+/// allocator. This allows objects of DecodedVector to be cached and re-used
+/// when such operations need to be performed frequently. This saves time wasted
+/// on memory allocations (see LocalDecodedVector class).
+///
+/// NOTE:
+///
+/// If all layers are traversed, then the nulls of the base vector are also
+/// combined into the resultant nulls buffer. Therefore, if dictionaryWrapping()
+/// and wrap() are used then the nulls from the base will also propagate to the
+/// wrap which ultimately gets applied.
+///
+/// The number of layers to merge can also be controlled using makeIndices() API
+/// which takes in a ’level’ parameter for the same. Please see method comment
+/// for makeIndices() for more details.
 class DecodedVector {
  public:
   /// Default constructor. The caller must call decode() or makeIndices() next.
@@ -84,6 +132,11 @@ class DecodedVector {
 
   /// Given a dictionary vector with at least 'numLevel' levels of dictionary
   /// wrapping, combines 'numLevel' wrappings into one.
+  /// Example usage: <InputVector> : Dictionary2(Dictionary1(Complex)) If we
+  /// call makeIndices(<Input Vector>, Level = 2), only Dictionary2 and
+  /// Dictionary1 will have indices and nulls merged and the nulls from the
+  /// Complex flat vector will not be merged. If instead Level is set to 3, then
+  /// additionally nulls from the complex base vector will also be merged.
   void makeIndices(
       const BaseVector& vector,
       const SelectivityVector& rows,
@@ -214,9 +267,13 @@ class DecodedVector {
     BufferPtr nulls;
   };
 
-  /// Returns 'indices' and 'nulls' buffers that represnt the combined
+  /// Returns 'indices' and 'nulls' buffers that represent the combined
   /// dictionary wrapping of the decoded vector. Requires
   /// isIdentityMapping() == false and isConstantMapping() == false.
+  /// NOTE: The nulls buffer returned will also have nulls from the base()
+  /// combined into it. To control which levels are combined, please make sure
+  /// to use makeIndices() instead of decoded() when initializing the
+  /// DecodedVector.
   DictionaryWrapping dictionaryWrapping(
       const BaseVector& wrapper,
       vector_size_t size) const;

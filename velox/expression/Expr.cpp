@@ -682,11 +682,22 @@ inline void setPeeled(
   peeled[fieldIndex] = leaf;
 }
 
+/// Returns true if 'wrapper' is a dictionary vector over a flat vector.
+bool isDictionaryOverFlat(const BaseVector& wrapper) {
+  return wrapper.encoding() == VectorEncoding::Simple::DICTIONARY &&
+      wrapper.valueVector()->isFlatEncoding();
+}
+
 void setDictionaryWrapping(
     DecodedVector& decoded,
     const SelectivityVector& rows,
     BaseVector& firstWrapper,
     EvalCtx& context) {
+  if (isDictionaryOverFlat(firstWrapper)) {
+    // Re-use indices and nulls buffers.
+    context.setDictionaryWrap(firstWrapper.wrapInfo(), firstWrapper.nulls());
+    return;
+  }
   auto wrapping = decoded.dictionaryWrapping(firstWrapper, rows.end());
   context.setDictionaryWrap(
       std::move(wrapping.indices), std::move(wrapping.nulls));

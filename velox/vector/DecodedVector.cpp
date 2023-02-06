@@ -446,13 +446,6 @@ bool isWrapper(VectorEncoding::Simple encoding) {
       encoding == VectorEncoding::Simple::DICTIONARY;
 }
 
-/// Returns true if 'wrapper' is a dictionary vector wrapping non-dictionary
-/// vector.
-bool isOneLevelDictionary(const BaseVector& wrapper) {
-  return wrapper.encoding() == VectorEncoding::Simple::DICTIONARY &&
-      !isWrapper(wrapper.valueVector()->encoding());
-}
-
 /// Copies 'size' entries from 'indices' into a newly allocated buffer.
 BufferPtr copyIndicesBuffer(
     const vector_size_t* indices,
@@ -487,41 +480,32 @@ DecodedVector::DictionaryWrapping DecodedVector::dictionaryWrapping(
     vector_size_t size) const {
   VELOX_CHECK(!isIdentityMapping_);
   VELOX_CHECK(!isConstantMapping_);
-
   VELOX_CHECK_LE(size, size_);
 
-  if (isOneLevelDictionary(wrapper)) {
-    // Re-use indices and nulls buffers.
-    return {wrapper.wrapInfo(), wrapper.nulls()};
-  } else {
-    // Make a copy of the indices and nulls buffers.
-    BufferPtr indices = copyIndicesBuffer(indices_, size, wrapper.pool());
-    // Only copy nulls if we have nulls coming from one of the wrappers, don't
-    // do it if nulls are missing or from the base vector.
-    BufferPtr nulls = hasExtraNulls_
-        ? copyNullsBuffer(nulls_, size, wrapper.pool())
-        : nullptr;
-    return {std::move(indices), std::move(nulls)};
-  }
+  // Make a copy of the indices and nulls buffers.
+  BufferPtr indices = copyIndicesBuffer(indices_, size, wrapper.pool());
+  // Only copy nulls if we have nulls coming from one of the wrappers, don't
+  // do it if nulls are missing or from the base vector.
+  // TODO: remove the check for hasExtraNulls_ after #3553 is merged.
+  BufferPtr nulls =
+      hasExtraNulls_ ? copyNullsBuffer(nulls_, size, wrapper.pool()) : nullptr;
+  return {std::move(indices), std::move(nulls)};
 }
 
 VectorPtr DecodedVector::wrap(
     VectorPtr data,
     const BaseVector& wrapper,
     vector_size_t size) {
-  // Return `data` as is if it is constant encoded and the vector size matches
-  // exactly with the selection size. Otherwise, the constant vector will need
-  // to be resized to match it. The resizing will be done in the wrapping code
-  // later.
-  if (data->isConstantEncoding() && size == data->size()) {
-    return data;
-  }
-
-  if (wrapper.isConstantEncoding()) {
-    if (wrapper.isNullAt(0)) {
+  if (isConstantMapping_) {
+    if (isNullAt(0)) {
       return BaseVector::createNullConstant(data->type(), size, data->pool());
+    } else if (data->isConstantEncoding() && size == data->size()) {
+      // Return `data` as is if it is constant encoded and the vector size
+      // matches exactly with the selection size. Otherwise, the constant vector
+      // will need to be resized to match it.
+      return data;
     }
-    return BaseVector::wrapInConstant(size, wrapper.wrappedIndex(0), data);
+    return BaseVector::wrapInConstant(size, constantIndex_, data);
   }
 
   auto wrapping = dictionaryWrapping(wrapper, size);
