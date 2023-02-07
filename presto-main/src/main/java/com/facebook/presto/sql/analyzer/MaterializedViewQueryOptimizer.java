@@ -859,7 +859,7 @@ public class MaterializedViewQueryOptimizer
                 baseQueryDomain = MaterializedViewUtils.getDomainFromFilter(session, domainTranslator, rowExpression);
             }
 
-            return metadata.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
+            return metadataResolver.getMaterializedViewStatus(materializedViewName, baseQueryDomain);
         }
     }
 }

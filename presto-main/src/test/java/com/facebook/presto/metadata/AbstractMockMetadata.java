@@ -27,7 +27,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
-import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
@@ -54,6 +53,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
 public abstract class AbstractMockMetadata
         implements Metadata
@@ -84,8 +86,7 @@ public abstract class AbstractMockMetadata
     @Override
     public MetadataResolver getMetadataResolver(Session session)
     {
-        return new MetadataResolver()
-        {
+        return new MetadataResolver() {
             @Override
             public boolean catalogExists(String catalogName)
             {
@@ -93,13 +94,7 @@ public abstract class AbstractMockMetadata
             }
 
             @Override
-            public boolean schemaExists(CatalogSchemaName schema)
-            {
-                return false;
-            }
-
-            @Override
-            public boolean tableExists(QualifiedObjectName tableName)
+            public boolean schemaExists(CatalogSchemaName schemaName)
             {
                 return false;
             }
@@ -111,9 +106,15 @@ public abstract class AbstractMockMetadata
             }
 
             @Override
-            public Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName)
+            public List<ColumnMetadata> getColumns(TableHandle tableHandle)
             {
-                return Optional.empty();
+                return emptyList();
+            }
+
+            @Override
+            public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+            {
+                return emptyMap();
             }
 
             @Override
@@ -456,12 +457,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void dropMaterializedView(Session session, QualifiedObjectName viewName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
         throw new UnsupportedOperationException();
     }
