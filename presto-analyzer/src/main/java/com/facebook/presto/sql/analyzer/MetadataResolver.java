@@ -15,12 +15,19 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.TableHandle;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
 /**
  * Metadata resolver provides information about catalog, schema, tables, views, types, and functions required for analyzer functionality.
@@ -30,41 +37,70 @@ public interface MetadataResolver
     /**
      * Returns if the catalog with the given name is available in metadata.
      */
-    boolean catalogExists(String catalogName);
+    default boolean catalogExists(String catalogName)
+    {
+        return false;
+    }
 
     /**
      * Returns true if the schema exist in the metadata.
      *
      * @param schemaName represents the catalog and schema name.
      */
-    boolean schemaExists(CatalogSchemaName schemaName);
+    default boolean schemaExists(CatalogSchemaName schemaName)
+    {
+        return false;
+    }
 
     /**
      * Returns true if the table exist in the metadata.
      *
      * @param tableName the fully qualified name (catalog, schema and table) of the table
      */
-    boolean tableExists(QualifiedObjectName tableName);
+    default boolean tableExists(QualifiedObjectName tableName)
+    {
+        return getTableHandle(tableName).isPresent();
+    }
 
     /**
      * Returns tableHandle for provided tableName
      * @param tableName the fully qualified name (catalog, schema and table) of the table
      */
-    Optional<TableHandle> getTableHandle(QualifiedObjectName tableName);
+    default Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
+    {
+        return Optional.empty();
+    }
+
     /**
      * Returns the list of column metadata for the provided catalog, schema and table name.
      *
-     * @param tableName the fully qualified name (catalog, schema and table) of the table
+     * @param tableHandle of the table
      * @throws SemanticException if the table does not exist
      */
-    Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName);
+    default List<ColumnMetadata> getColumns(TableHandle tableHandle)
+    {
+        return emptyList();
+    }
+
+    /**
+     * Returns the map of columnName to ColumnHandle for the provided tableHandle.
+     *
+     * @param tableHandle of the table
+     */
+    default Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+    {
+        return emptyMap();
+    }
 
     /**
      * Returns view metadata for a given view.
      *
      * @param viewName the fully qualified name (catalog, schema, and view) of the view.
      */
-    Optional<ViewDefinition> getView(QualifiedObjectName viewName);
+    default Optional<ViewDefinition> getView(QualifiedObjectName viewName)
+    {
+        return Optional.empty();
+    }
 
     /**
      * Returns true if provided object is a view.
@@ -81,7 +117,10 @@ public interface MetadataResolver
      *
      * @param viewName the fully qualified name (catalog, schema, and view) of the view.
      */
-    Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName viewName);
+    default Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName viewName)
+    {
+        return Optional.empty();
+    }
 
     /**
      * Returns true if provided catalog, schema and object name is a materialized view.
@@ -91,5 +130,15 @@ public interface MetadataResolver
     default boolean isMaterializedView(QualifiedObjectName viewName)
     {
         return getMaterializedView(viewName).isPresent();
+    }
+
+    /**
+     * Get the materialized view status to inform the engine how much data has been materialized in the view
+     * @param materializedViewName materialized view name
+     * @param baseQueryDomain The domain from which to consider missing partitions.
+     */
+    default MaterializedViewStatus getMaterializedViewStatus(QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
+    {
+        throw new UnsupportedOperationException("getMaterializedViewStatus is not supported");
     }
 }

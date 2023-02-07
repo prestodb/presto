@@ -67,7 +67,6 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.MetadataResolver;
-import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.sql.planner.PartitioningHandle;
@@ -124,7 +123,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.analyzer.ViewDefinition.ViewColumn;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -1010,8 +1008,7 @@ public class MetadataManager
         metadata.dropMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
     }
 
-    @Override
-    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
+    private MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
         Optional<TableHandle> materializedViewHandle = getOptionalTableHandle(session, transactionManager, materializedViewName);
 
@@ -1335,14 +1332,15 @@ public class MetadataManager
             }
 
             @Override
-            public Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName)
+            public List<ColumnMetadata> getColumns(TableHandle tableHandle)
             {
-                Optional<TableHandle> tableHandle = getOptionalTableHandle(session, transactionManager, tableName);
-                if (!tableHandle.isPresent()) {
-                    throw new SemanticException(MISSING_TABLE, "Table does not exist: " + tableName.toString());
-                }
-                TableMetadata tableMetadata = getTableMetadata(session, tableHandle.get());
-                return Optional.of(tableMetadata.getColumns());
+                return getTableMetadata(session, tableHandle).getColumns();
+            }
+
+            @Override
+            public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+            {
+                return MetadataManager.this.getColumnHandles(session, tableHandle);
             }
 
             @Override
@@ -1381,6 +1379,12 @@ public class MetadataManager
                     return metadata.getMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
                 }
                 return Optional.empty();
+            }
+
+            @Override
+            public MaterializedViewStatus getMaterializedViewStatus(QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
+            {
+                return MetadataManager.this.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
             }
         };
     }

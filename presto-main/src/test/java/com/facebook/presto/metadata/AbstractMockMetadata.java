@@ -27,7 +27,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
-import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
@@ -84,50 +83,7 @@ public abstract class AbstractMockMetadata
     @Override
     public MetadataResolver getMetadataResolver(Session session)
     {
-        return new MetadataResolver()
-        {
-            @Override
-            public boolean catalogExists(String catalogName)
-            {
-                return false;
-            }
-
-            @Override
-            public boolean schemaExists(CatalogSchemaName schema)
-            {
-                return false;
-            }
-
-            @Override
-            public boolean tableExists(QualifiedObjectName tableName)
-            {
-                return false;
-            }
-
-            @Override
-            public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
-            {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName)
-            {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<ViewDefinition> getView(QualifiedObjectName viewName)
-            {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName viewName)
-            {
-                return Optional.empty();
-            }
-        };
+        return new MetadataResolver() {};
     }
 
     @Override
@@ -456,12 +412,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void dropMaterializedView(Session session, QualifiedObjectName viewName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
         throw new UnsupportedOperationException();
     }
