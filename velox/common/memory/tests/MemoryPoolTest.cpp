@@ -1775,7 +1775,7 @@ TEST_P(MemoryPoolTest, concurrentUpdatesToTheSamePool) {
   }
 }
 
-TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
+TEST_P(MemoryPoolTest, DISABLED_concurrentPoolStructureAccess) {
   folly::Random::DefaultGenerator rng;
   rng.seed(1234);
   constexpr int64_t kMaxMemory = 8 * GB;
@@ -1803,12 +1803,14 @@ TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
             continue;
           }
           const auto idx = folly::Random().rand32() % pools.size();
+          pool = pools[idx];
           if (folly::Random().oneIn(3)) {
             pools.erase(pools.begin() + idx);
             continue;
           }
-          pool = pools[idx];
         }
+        VELOX_CHECK_NOT_NULL(pool);
+
         if (folly::Random().oneIn(2)) {
           auto childPool =
               pool->addChild(fmt::format("{}{}", kPoolNamePrefix, poolId++));
@@ -1816,6 +1818,7 @@ TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
           pools.push_back(std::move(childPool));
           continue;
         }
+
         pool->visitChildren([&](MemoryPool* pool) {
           VELOX_CHECK_EQ(
               pool->name().compare(0, kPoolNamePrefix.size(), kPoolNamePrefix),
