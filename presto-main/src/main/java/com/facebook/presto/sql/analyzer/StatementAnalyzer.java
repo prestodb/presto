@@ -39,7 +39,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -185,7 +184,6 @@ import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPart
 import static com.facebook.presto.common.RuntimeMetricName.GET_COLUMN_METADATA_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_MATERIALIZED_VIEW_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_HANDLE_TIME_NANOS;
-import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_METADATA_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_VIEW_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -390,8 +388,8 @@ class StatementAnalyzer
             }
             accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), targetTable);
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
-            List<String> tableColumns = tableMetadata.getColumns().stream()
+            List<ColumnMetadata> columnsMetadata = metadataResolver.getColumns(targetTableHandle.get());
+            List<String> tableColumns = columnsMetadata.stream()
                     .filter(column -> !column.isHidden())
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
@@ -418,17 +416,25 @@ class StatementAnalyzer
             }
 
             List<ColumnMetadata> expectedColumns = insertColumns.stream()
-                    .map(insertColumn -> tableMetadata.getColumn(insertColumn))
+                    .map(insertColumn -> getColumnMetadata(columnsMetadata, insertColumn))
                     .collect(toImmutableList());
 
             checkTypesMatchForInsert(insert, queryScope, expectedColumns);
 
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
+            Map<String, ColumnHandle> columnHandles = metadataResolver.getColumnHandles(targetTableHandle.get());
             analysis.setInsert(new Analysis.Insert(
                     targetTableHandle.get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
             return createAndAssignScope(insert, scope, Field.newUnqualified(insert.getLocation(), "rows", BIGINT));
+        }
+
+        private ColumnMetadata getColumnMetadata(List<ColumnMetadata> columnsMetadata, String columnName)
+        {
+            return columnsMetadata.stream()
+                    .filter(columnMetadata -> columnMetadata.getName().equals(columnName))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(String.format("Invalid column name: %s", columnName)));
         }
 
         private void checkTypesMatchForInsert(Insert insert, Scope queryScope, List<ColumnMetadata> expectedColumns)
@@ -599,7 +605,7 @@ class StatementAnalyzer
 
             // user must have read and insert permission in order to analyze stats of a table
             Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
-                    .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet()))
+                    .putAll(tableName, metadataResolver.getColumnHandles(tableHandle).keySet().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet()))
                     .build();
             analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), tableColumnMap, tableColumnMap);
             try {
@@ -749,8 +755,8 @@ class StatementAnalyzer
 
             TableHandle tableHandle = metadataResolver.getTableHandle(viewName)
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-            List<ColumnHandle> targetColumnHandles = metadata.getTableMetadata(session, tableHandle).getColumns().stream()
+            Map<String, ColumnHandle> columnHandles = metadataResolver.getColumnHandles(tableHandle);
+            List<ColumnHandle> targetColumnHandles = metadataResolver.getColumns(tableHandle).stream()
                     .filter(column -> !column.isHidden())
                     .map(column -> columnHandles.get(column.getName()))
                     .collect(toImmutableList());
@@ -828,9 +834,9 @@ class StatementAnalyzer
             }
 
             // Check return type
-            Type returnType = metadata.getType(parseTypeSignature(node.getReturnType()));
+            Type returnType = functionAndTypeResolver.getType(parseTypeSignature(node.getReturnType()));
             List<Field> fields = node.getParameters().stream()
-                    .map(parameter -> Field.newUnqualified(parameter.getName().getLocation(), parameter.getName().getValue(), metadata.getType(parseTypeSignature(parameter.getType()))))
+                    .map(parameter -> Field.newUnqualified(parameter.getName().getLocation(), parameter.getName().getValue(), functionAndTypeResolver.getType(parseTypeSignature(parameter.getType()))))
                     .collect(toImmutableList());
             Scope functionScope = Scope.builder()
                     .withRelationType(RelationId.anonymous(), new RelationType(fields))
@@ -1279,15 +1285,11 @@ class StatementAnalyzer
                 throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
             }
 
-            TableMetadata tableMetadata = session.getRuntimeStats().profileNanos(
-                    GET_TABLE_METADATA_TIME_NANOS,
-                    () -> metadata.getTableMetadata(session, tableHandle.get()));
-
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+            Map<String, ColumnHandle> columnHandles = metadataResolver.getColumnHandles(tableHandle.get());
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
-            for (ColumnMetadata column : tableMetadata.getColumns()) {
+            for (ColumnMetadata column : metadataResolver.getColumns(tableHandle.get())) {
                 Field field = Field.newQualified(
                         Optional.empty(),
                         table.getName(),
@@ -1325,26 +1327,35 @@ class StatementAnalyzer
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
 
+            Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadataResolver.getTableHandle(tableName));
+            if (!tableHandle.isPresent()) {
+                if (!metadataResolver.catalogExists(tableName.getCatalogName())) {
+                    throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", tableName.getCatalogName());
+                }
+                if (!metadataResolver.schemaExists(new CatalogSchemaName(tableName.getCatalogName(), tableName.getSchemaName()))) {
+                    throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", tableName.getSchemaName());
+                }
+                throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", tableName);
+            }
+
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
 
-            Optional<List<ColumnMetadata>> columns = session.getRuntimeStats().profileNanos(
+            List<ColumnMetadata> columnsMetadata = session.getRuntimeStats().profileNanos(
                     GET_COLUMN_METADATA_TIME_NANOS,
-                    () -> metadataResolver.getColumns(tableName));
+                    () -> metadataResolver.getColumns(tableHandle.get()));
 
-            if (columns.isPresent()) {
-                for (ColumnMetadata column : columns.get()) {
-                    Field field = Field.newQualified(
-                            Optional.empty(),
-                            table.getName(),
-                            Optional.of(column.getName()),
-                            column.getType(),
-                            column.isHidden(),
-                            Optional.of(tableName),
-                            Optional.of(column.getName()),
-                            false);
-                    fields.add(field);
-                }
+            for (ColumnMetadata columnMetadata : columnsMetadata) {
+                Field field = Field.newQualified(
+                        Optional.empty(),
+                        table.getName(),
+                        Optional.of(columnMetadata.getName()),
+                        columnMetadata.getType(),
+                        columnMetadata.isHidden(),
+                        Optional.of(tableName),
+                        Optional.of(columnMetadata.getName()),
+                        false);
+                fields.add(field);
             }
 
             return createAndAssignScope(table, scope, fields.build());
@@ -1485,7 +1496,7 @@ class StatementAnalyzer
                 Optional<MaterializedViewDefinition> materializedViewDefinition = metadataResolver.getMaterializedView(materializedViewName);
                 if (!materializedViewDefinition.isPresent()) {
                     log.warn("Materialized view definition not present as expected when fetching materialized view status");
-                    return metadata.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
+                    return metadataResolver.getMaterializedViewStatus(materializedViewName, baseQueryDomain);
                 }
 
                 Scope sourceScope = getScopeFromTable(table, scope);
@@ -1525,7 +1536,7 @@ class StatementAnalyzer
                 }
             }
 
-            return metadata.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
+            return metadataResolver.getMaterializedViewStatus(materializedViewName, baseQueryDomain);
         }
 
         @Override
