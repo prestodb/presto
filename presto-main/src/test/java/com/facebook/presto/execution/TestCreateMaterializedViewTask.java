@@ -258,13 +258,7 @@ public class TestCreateMaterializedViewTask
                 }
 
                 @Override
-                public boolean schemaExists(CatalogSchemaName schema)
-                {
-                    return false;
-                }
-
-                @Override
-                public boolean tableExists(QualifiedObjectName tableName)
+                public boolean schemaExists(CatalogSchemaName schemaName)
                 {
                     return false;
                 }
@@ -276,9 +270,15 @@ public class TestCreateMaterializedViewTask
                 }
 
                 @Override
-                public Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName)
+                public List<ColumnMetadata> getColumns(TableHandle tableHandle)
                 {
-                    return Optional.empty();
+                    return emptyList();
+                }
+
+                @Override
+                public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+                {
+                    return emptyMap();
                 }
 
                 @Override

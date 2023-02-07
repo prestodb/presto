@@ -21,12 +21,11 @@ import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.DelegatingMetadataManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.analyzer.MetadataResolver;
-import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.transaction.TransactionManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -41,7 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static java.util.Objects.requireNonNull;
 
 // TODO : Use thrift to serialize metadata objects instead of json serde on catalog server in the future
@@ -183,14 +181,15 @@ public class RemoteMetadataManager
             }
 
             @Override
-            public Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName)
+            public List<ColumnMetadata> getColumns(TableHandle tableHandle)
             {
-                Optional<TableHandle> tableHandle = getTableHandle(tableName);
-                if (!tableHandle.isPresent()) {
-                    throw new SemanticException(MISSING_TABLE, "Table does not exist: " + tableName.toString());
-                }
-                TableMetadata tableMetadata = getTableMetadata(session, tableHandle.get());
-                return Optional.of(tableMetadata.getColumns());
+                return getTableMetadata(session, tableHandle).getColumns();
+            }
+
+            @Override
+            public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
+            {
+                return RemoteMetadataManager.this.getColumnHandles(session, tableHandle);
             }
 
             @Override
