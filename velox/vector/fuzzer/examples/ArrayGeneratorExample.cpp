@@ -32,6 +32,7 @@ int main() {
   constexpr int32_t lo = 100, hi = 1000;
   constexpr double mu = 5.0, sigma = 2.0;
   constexpr double p = 0.25;
+  constexpr double nullProbability = 0.38;
 
   auto normal = std::normal_distribution<double>(mu, sigma);
   auto uniform = std::uniform_int_distribution<int32_t>(lo, hi);
@@ -39,7 +40,8 @@ int main() {
   FuzzerGenerator rng;
   auto pool = memory::getDefaultMemoryPool();
 
-  GeneratorSpecPtr randomArray = RANDOM_ARRAY(RANDOM_DOUBLE(normal), uniform);
+  GeneratorSpecPtr randomArray =
+      RANDOM_ARRAY(RANDOM_DOUBLE(normal, nullProbability), uniform);
 
   VectorPtr vector = randomArray->generateData(rng, pool.get(), sampleSize);
   ArrayVector* arrayVector = vector->as<ArrayVector>();

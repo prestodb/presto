@@ -28,10 +28,11 @@ int main() {
   // This example shows how to use our GeneratorSpec class to generate vectors
   // of scalars with user defined distributions.
 
-  const int sampleSize = 100000;
-  const int32_t lo = 0, hi = 10;
-  const double mu = 5.0, sigma = 2.0;
-  const double userLo = 0.01, userHi = 0.99;
+  constexpr int sampleSize = 100000;
+  constexpr int32_t lo = 0, hi = 10;
+  constexpr double mu = 5.0, sigma = 2.0;
+  constexpr double userLo = 0.01, userHi = 0.99;
+  constexpr double nullProbability = 0.18;
 
   auto uniform = std::uniform_int_distribution<int32_t>(lo, hi);
   auto normal = std::normal_distribution<double>(mu, sigma);
@@ -50,9 +51,12 @@ int main() {
   FuzzerGenerator rng;
   auto pool = memory::getDefaultMemoryPool();
 
-  GeneratorSpecPtr uniformIntGenerator = RANDOM_INTEGER(uniform);
-  GeneratorSpecPtr normalDoubleGenerator = RANDOM_DOUBLE(normal);
-  GeneratorSpecPtr userDefinedGenerator = RANDOM_DOUBLE(userDefined);
+  GeneratorSpecPtr uniformIntGenerator =
+      RANDOM_INTEGER(uniform, nullProbability);
+  GeneratorSpecPtr normalDoubleGenerator =
+      RANDOM_DOUBLE(normal, nullProbability);
+  GeneratorSpecPtr userDefinedGenerator =
+      RANDOM_DOUBLE(userDefined, nullProbability);
 
   VectorPtr uniformVector =
       uniformIntGenerator->generateData(rng, pool.get(), sampleSize);

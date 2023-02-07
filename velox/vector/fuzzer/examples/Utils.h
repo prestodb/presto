@@ -21,26 +21,37 @@
 namespace facebook::velox::generator_spec_examples {
 
 using Rng = std::mt19937;
-using Sample = std::map<int32_t, size_t>;
+using Sample =
+    std::tuple<std::map<int32_t, size_t>, int32_t, int32_t>; // (histogram, null
+                                                             // count, total
+                                                             // count)
 
 template <typename T>
 Sample convertToSample(FlatVector<T>* flatVector) {
   Sample sample;
+  auto& [hist, nulls, total] = sample;
+  nulls = 0;
+  total = flatVector->size();
   for (auto i = 0; i < flatVector->size(); ++i) {
-    int32_t val = std::round(flatVector->valueAt(i));
-    sample[val]++;
+    if (flatVector->isNullAt(i)) {
+      ++nulls;
+    } else {
+      int32_t val = std::round(flatVector->valueAt(i));
+      hist[val]++;
+    }
   }
   return sample;
 }
 
 template <typename T>
 std::string plotVector(FlatVector<T>* flatVector, const size_t norm = 200) {
-  auto sample = convertToSample(flatVector);
+  const auto& [hist, nulls, total] = convertToSample(flatVector);
   std::stringstream sstream;
-  for (auto [val, num] : sample) {
+  for (auto [val, num] : hist) {
     sstream << std::setw(2) << val << ' ' << std::string(num / norm, '*')
             << "\n";
   }
+  sstream << "Null ratio = " << ((double)nulls / (double)total) << "\n";
   return sstream.str();
 }
 

@@ -20,21 +20,27 @@
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/VectorTypeUtils.h"
+#include "velox/vector/fuzzer/Utils.h"
 
 namespace facebook::velox {
 
-using FuzzerGenerator = std::mt19937;
+using namespace generator_spec_utils;
 
 class GeneratorSpec {
   // Blueprint for generating a Velox vector of random data
  public:
-  explicit GeneratorSpec(const TypePtr& type) : type_(type) {}
+  explicit GeneratorSpec(const TypePtr& type, double nullProbability)
+      : type_(type), nullProbability_(nullProbability) {}
 
   VectorPtr generateData(
-      FuzzerGenerator& gen,
+      FuzzerGenerator& rng,
       memory::MemoryPool* pool,
       size_t vectorLength = 100) const {
-    return generateDataImpl(gen, pool, vectorLength);
+    auto randomVector = generateDataImpl(rng, pool, vectorLength);
+    auto nullsBuffer =
+        generateNullsBuffer(rng, pool, vectorLength, nullProbability_);
+    randomVector->setNulls(nullsBuffer);
+    return randomVector;
   }
 
   virtual ~GeneratorSpec() {}
@@ -50,6 +56,7 @@ class GeneratorSpec {
       size_t vectorLength) const = 0;
 
   TypePtr type_;
+  double nullProbability_;
 };
 
 using GeneratorSpecPtr = std::shared_ptr<const GeneratorSpec>;
@@ -57,8 +64,11 @@ using GeneratorSpecPtr = std::shared_ptr<const GeneratorSpec>;
 template <TypeKind KIND, typename Distribution>
 class ScalarGeneratorSpec : public GeneratorSpec {
  public:
-  ScalarGeneratorSpec(TypePtr type, Distribution&& distribution)
-      : GeneratorSpec(type),
+  ScalarGeneratorSpec(
+      TypePtr type,
+      Distribution&& distribution,
+      double nullProbability)
+      : GeneratorSpec(type, nullProbability),
         distribution_(std::forward<Distribution>(distribution)) {
     using TCpp = typename TypeTraits<KIND>::NativeType;
     using Ret = std::result_of_t<Distribution(FuzzerGenerator&)>;
@@ -75,7 +85,6 @@ class ScalarGeneratorSpec : public GeneratorSpec {
     using TFlat = typename KindToFlatVector<KIND>::type;
     VectorPtr vector = BaseVector::create(type_, vectorSize, pool);
     auto flatVector = vector->as<TFlat>();
-
     for (size_t i = 0; i < vectorSize; ++i) {
       flatVector->set(i, distribution_(rng));
     }
@@ -90,8 +99,10 @@ class RowGeneratorSpec : public GeneratorSpec {
  public:
   RowGeneratorSpec(
       TypePtr type,
-      std::vector<GeneratorSpecPtr>&& generatorSpecVector)
-      : GeneratorSpec(type), children_(generatorSpecVector) {}
+      std::vector<GeneratorSpecPtr>&& generatorSpecVector,
+      double nullProbability)
+      : GeneratorSpec(type, nullProbability),
+        children_(std::move(generatorSpecVector)) {}
 
   ~RowGeneratorSpec() {}
 
@@ -104,12 +115,9 @@ class RowGeneratorSpec : public GeneratorSpec {
     for (auto child : children_) {
       children.push_back(child->generateData(rng, pool, vectorSize));
     }
-
-    BufferPtr nulls = nullptr;
     auto rowType = std::dynamic_pointer_cast<const RowType>(type_);
-
     return std::make_shared<RowVector>(
-        pool, rowType, nulls, vectorSize, std::move(children));
+        pool, rowType, nullptr, vectorSize, std::move(children));
   }
 
  private:
@@ -122,8 +130,9 @@ class ArrayGeneratorSpec : public GeneratorSpec {
   ArrayGeneratorSpec(
       TypePtr type,
       GeneratorSpecPtr elements,
-      Distribution&& lengthDistribution)
-      : GeneratorSpec(type),
+      Distribution&& lengthDistribution,
+      double nullProbability)
+      : GeneratorSpec(type, nullProbability),
         elements_(elements),
         lengthDistribution_(std::forward<Distribution>(lengthDistribution)) {
     using Ret = std::result_of_t<Distribution(FuzzerGenerator&)>;
@@ -150,11 +159,9 @@ class ArrayGeneratorSpec : public GeneratorSpec {
       rawSizes[i] = length;
       numElements += length;
     }
-    BufferPtr nulls = nullptr;
     VectorPtr elementsVector = elements_->generateData(rng, pool, numElements);
-
     return std::make_shared<ArrayVector>(
-        pool, type_, nulls, vectorSize, offsets, sizes, elementsVector);
+        pool, type_, nullptr, vectorSize, offsets, sizes, elementsVector);
   }
 
  private:
@@ -169,8 +176,9 @@ class MapGeneratorSpec : public GeneratorSpec {
       TypePtr type,
       GeneratorSpecPtr keys,
       GeneratorSpecPtr values,
-      Distribution&& lengthDistribution)
-      : GeneratorSpec(type),
+      Distribution&& lengthDistribution,
+      double nullProbability)
+      : GeneratorSpec(type, nullProbability),
         keys_(keys),
         values_(values),
         lengthDistribution_(std::forward<Distribution>(lengthDistribution)) {
@@ -198,13 +206,10 @@ class MapGeneratorSpec : public GeneratorSpec {
       rawSizes[i] = length;
       childSize += length;
     }
-
-    BufferPtr nulls = nullptr;
     VectorPtr keys = keys_->generateData(rng, pool, childSize);
     VectorPtr values = values_->generateData(rng, pool, childSize);
-
     return std::make_shared<MapVector>(
-        pool, type_, nulls, vectorSize, offsets, sizes, keys, values);
+        pool, type_, nullptr, vectorSize, offsets, sizes, keys, values);
   }
 
  private:
@@ -219,14 +224,14 @@ namespace generator_spec_maker {
 #error "Macro name collision: DEFINE_RANDOM_SCALAR_FACTORY"
 #endif
 
-#define DEFINE_RANDOM_SCALAR_FACTORY(FACTORY_NAME, KIND)          \
-  template <typename Distribution>                                \
-  inline std::shared_ptr<                                         \
-      const ScalarGeneratorSpec<TypeKind::KIND, Distribution>>    \
-  FACTORY_NAME(Distribution&& distribution) {                     \
-    return std::make_shared<                                      \
-        const ScalarGeneratorSpec<TypeKind::KIND, Distribution>>( \
-        KIND(), std::forward<Distribution>(distribution));        \
+#define DEFINE_RANDOM_SCALAR_FACTORY(FACTORY_NAME, KIND)                    \
+  template <typename Distribution>                                          \
+  inline std::shared_ptr<                                                   \
+      const ScalarGeneratorSpec<TypeKind::KIND, Distribution>>              \
+  FACTORY_NAME(Distribution&& distribution, double nullProbability = 0.0) { \
+    return std::make_shared<                                                \
+        const ScalarGeneratorSpec<TypeKind::KIND, Distribution>>(           \
+        KIND(), std::forward<Distribution>(distribution), nullProbability); \
   }
 
 DEFINE_RANDOM_SCALAR_FACTORY(RANDOM_BOOLEAN, BOOLEAN)
@@ -240,33 +245,43 @@ DEFINE_RANDOM_SCALAR_FACTORY(RANDOM_DOUBLE, DOUBLE)
 #undef DEFINE_RANDOM_SCALAR_FACTORY
 
 inline GeneratorSpecPtr RANDOM_ROW(
-    std::vector<GeneratorSpecPtr>&& generatorSpecVector) {
+    std::vector<GeneratorSpecPtr>&& generatorSpecVector,
+    double nullProbability = 0.0) {
   std::vector<TypePtr> types;
   for (auto generatorSpec : generatorSpecVector) {
     types.push_back(generatorSpec->type());
   }
   auto rowType = ROW(std::move(types));
   return std::make_shared<const RowGeneratorSpec>(
-      rowType, std::move(generatorSpecVector));
+      rowType, std::move(generatorSpecVector), nullProbability);
 }
 
 template <typename Distribution>
 inline GeneratorSpecPtr RANDOM_ARRAY(
     GeneratorSpecPtr generatorSpec,
-    Distribution&& distribution) {
+    Distribution&& distribution,
+    double nullProbability = 0.0) {
   auto arrayType = ARRAY(generatorSpec->type());
   return std::make_shared<const ArrayGeneratorSpec<Distribution>>(
-      arrayType, generatorSpec, std::forward<Distribution>(distribution));
+      arrayType,
+      generatorSpec,
+      std::forward<Distribution>(distribution),
+      nullProbability);
 }
 
 template <typename Distribution>
 inline GeneratorSpecPtr RANDOM_MAP(
     GeneratorSpecPtr keys,
     GeneratorSpecPtr values,
-    Distribution&& distribution) {
+    Distribution&& distribution,
+    double nullProbability = 0.0) {
   auto mapType = MAP(keys->type(), values->type());
   return std::make_shared<const MapGeneratorSpec<Distribution>>(
-      mapType, keys, values, std::forward<Distribution>(distribution));
+      mapType,
+      keys,
+      values,
+      std::forward<Distribution>(distribution),
+      nullProbability);
 }
 
 } // namespace generator_spec_maker
