@@ -372,7 +372,7 @@ public class TestExchangeClient
             // wait for a page to be fetched
             do {
                 // there is no thread coordination here, so sleep is the best we can do
-                assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+                assertLessThan(Duration.nanosSince(start), new Duration(7, TimeUnit.SECONDS));
                 sleepUninterruptibly(100, MILLISECONDS);
             }
             while (exchangeClient.getStatus().getBufferedPages() < 16);

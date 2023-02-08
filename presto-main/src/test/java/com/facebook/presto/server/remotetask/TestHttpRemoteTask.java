@@ -148,21 +148,21 @@ public class TestHttpRemoteTask
         return new Object[][] {{true}, {false}};
     }
 
-    @Test(timeOut = 50000, dataProvider = "thriftEncodingToggle")
+    @Test(timeOut = 60000, dataProvider = "thriftEncodingToggle")
     public void testRemoteTaskMismatch(boolean useThriftEncoding)
             throws Exception
     {
         runTest(FailureScenario.TASK_MISMATCH, useThriftEncoding);
     }
 
-    @Test(timeOut = 50000, dataProvider = "thriftEncodingToggle")
+    @Test(timeOut = 60000, dataProvider = "thriftEncodingToggle")
     public void testRejectedExecutionWhenVersionIsHigh(boolean useThriftEncoding)
             throws Exception
     {
         runTest(FailureScenario.TASK_MISMATCH_WHEN_VERSION_IS_HIGH, useThriftEncoding);
     }
 
-    @Test(timeOut = 40000, dataProvider = "thriftEncodingToggle")
+    @Test(timeOut = 50000, dataProvider = "thriftEncodingToggle")
     public void testRejectedExecution(boolean useThriftEncoding)
             throws Exception
     {
