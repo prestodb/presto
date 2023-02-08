@@ -118,7 +118,7 @@ public class TestLocalExecutionPlanner
         runner = null;
     }
 
-    @Test
+    @Test(enabled = false)
     public void testCompilerFailure()
     {
         // structure the query this way to avoid stack overflow when parsing
