@@ -320,6 +320,11 @@ class Expr {
   void
   evalAll(const SelectivityVector& rows, EvalCtx& context, VectorPtr& result);
 
+  void evalAllImpl(
+      const SelectivityVector& rows,
+      EvalCtx& context,
+      VectorPtr& result);
+
   // Checks 'inputValues_' for peelable wrappers (constants,
   // dictionaries etc) and applies the function of 'this' to distinct
   // values as opposed to all values. Wraps the return value into a
@@ -347,8 +352,21 @@ class Expr {
       EvalCtx& context,
       LocalSelectivityVector& nullHolder);
 
-  // Evaluate common sub-expression. Check if sharedSubexprValues_ already has
-  // values for all 'rows'. If not, compute missing values.
+  /// Returns true if this is a deterministic shared sub-expressions with at
+  /// least one input (i.e. not a constant or field access expression).
+  /// Evaluation of such expression is optimized by memoizing and reusing
+  /// the results of prior evaluations. That logic is implemented in
+  /// 'evaluateSharedSubexpr'.
+  bool shouldEvaluateSharedSubexp() const {
+    return deterministic_ && isMultiplyReferenced_ && !inputs_.empty();
+  }
+
+  /// Evaluate common sub-expression. Check if sharedSubexprValues_ already has
+  /// values for all 'rows'. If not, compute missing values.
+  ///
+  /// The callers of this method must ensure that 'rows' are comparable between
+  /// invocations, i.e. take care when evaluating CSEs on lazy vectors or
+  /// vectors with encodings.
   template <typename TEval>
   void evaluateSharedSubexpr(
       const SelectivityVector& rows,

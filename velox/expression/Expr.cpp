@@ -84,11 +84,11 @@ bool isMember(
 
 void mergeFields(
     std::vector<FieldReference*>& distinctFields,
-    std::unordered_set<FieldReference*>& multiplyReferencedFields_,
+    std::unordered_set<FieldReference*>& multiplyReferencedFields,
     const std::vector<FieldReference*>& moreFields) {
   for (auto* newField : moreFields) {
     if (isMember(distinctFields, *newField)) {
-      multiplyReferencedFields_.insert(newField);
+      multiplyReferencedFields.insert(newField);
     } else {
       distinctFields.emplace_back(newField);
     }
@@ -473,7 +473,7 @@ void Expr::evalFlatNoNulls(
     EvalCtx& context,
     VectorPtr& result,
     bool topLevel) {
-  if (deterministic_ && isMultiplyReferenced_ && !inputs_.empty()) {
+  if (shouldEvaluateSharedSubexp()) {
     evaluateSharedSubexpr(
         rows,
         context,
@@ -556,16 +556,27 @@ void Expr::eval(
   // all the time. Therefore, we should delay loading lazy vectors until we
   // know the minimum subset of rows needed to be loaded.
   //
-  // Load fields multiply referenced by inputs unconditionally. It's hard to
-  // know the superset of rows the multiple inputs need to load.
-  //
   // If there is only one field, load it unconditionally. The very first IF,
   // AND or OR will have to load it anyway. Pre-loading enables peeling of
   // encodings at a higher level in the expression tree and avoids repeated
   // peeling and wrapping in the sub-nodes.
   //
+  // Also load fields referenced by shared sub expressions to ensure that if
+  // there is an encoding on the loaded vector, then it is always peeled before
+  // evaluating sub-expression. Otherwise, the first call to
+  // evaluateSharedSubexpr might pass rows before peeling and the next one pass
+  // rows after peeling.
+  //
+  // Finally, for non-null propagating expressions, load multiply referenced
+  // inputs unconditionally as it is hard to keep track of the superset of rows
+  // that would end up being evaluated among all its children (and hence need to
+  // be loaded). This is because any of the children might have null propagating
+  // expressions that end up operating on a reduced set of rows. So, one sub
+  // tree might need only a subset, whereas other might need a different subset.
+  //
   // TODO: Re-work the logic of deciding when to load which field.
-  if (!hasConditionals_ || distinctFields_.size() == 1) {
+  if (!hasConditionals_ || distinctFields_.size() == 1 ||
+      shouldEvaluateSharedSubexp()) {
     // Load lazy vectors if any.
     for (const auto& field : distinctFields_) {
       context.ensureFieldLoaded(field->index(context), rows);
@@ -583,24 +594,7 @@ void Expr::eval(
     return;
   }
 
-  // Common subexpression optimization and peeling off of encodings and lazy
-  // vectors do not work well together. There are cases when expression
-  // initially is evaluated on rows before peeling and later is evaluated on
-  // rows after peeling. In this case the row numbers in sharedSubexprRows_ are
-  // not comparable to 'rows'.
-  //
-  // For now, disable the optimization if any encodings have been peeled off.
-  if (deterministic_ && isMultiplyReferenced_ && !context.hasWrap()) {
-    evaluateSharedSubexpr(
-        rows,
-        context,
-        result,
-        [&](const SelectivityVector& rows,
-            EvalCtx& context,
-            VectorPtr& result) { evalEncodings(rows, context, result); });
-  } else {
-    evalEncodings(rows, context, result);
-  }
+  evalEncodings(rows, context, result);
 }
 
 template <typename TEval>
@@ -666,7 +660,7 @@ void Expr::evaluateSharedSubexpr(
   context.deselectErrors(*missingRows);
 
   sharedSubexprRows_->select(*missingRows);
-  context.moveOrCopyResult(sharedSubexprValues_, *missingRows, result);
+  context.moveOrCopyResult(sharedSubexprValues_, rows, result);
 }
 
 namespace {
@@ -1291,6 +1285,26 @@ void Expr::evalAll(
     result = BaseVector::createNullConstant(type(), 0, context.pool());
     return;
   }
+
+  if (shouldEvaluateSharedSubexp()) {
+    evaluateSharedSubexpr(
+        rows,
+        context,
+        result,
+        [&](const SelectivityVector& rows,
+            EvalCtx& context,
+            VectorPtr& result) { evalAllImpl(rows, context, result); });
+  } else {
+    evalAllImpl(rows, context, result);
+  }
+}
+
+void Expr::evalAllImpl(
+    const SelectivityVector& rows,
+    EvalCtx& context,
+    VectorPtr& result) {
+  VELOX_DCHECK(rows.hasSelections());
+
   if (isSpecialForm()) {
     evalSpecialFormWithStats(rows, context, result);
     return;
