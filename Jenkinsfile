@@ -54,6 +54,7 @@ pipeline {
 
                 echo "build prestodb source code with build version ${PRESTO_BUILD_VERSION}"
                 sh '''
+                    exit 0
                     unset MAVEN_CONFIG && ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-docs'
                     tree /root/.m2/repository/com/facebook/presto/
                 '''
@@ -65,6 +66,7 @@ pipeline {
                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
+                        exit 0
                         aws s3 cp presto-server/target/${PRESTO_PKG}  ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
                         aws s3 cp presto-cli/target/${PRESTO_CLI_JAR} ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
                     '''
@@ -93,6 +95,7 @@ pipeline {
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''#!/bin/bash -ex
+                                exit 0
                                 cd docker/
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_PKG}     . --no-progress
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_CLI_JAR} . --no-progress
@@ -114,10 +117,10 @@ pipeline {
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''#!/bin/bash -ex
-                                cd presto-native-execution/
-                                make runtime-container
+                                cd presto-native-execution/scripts/
+                                ./build-centos.sh
                                 docker image ls
-                                docker tag presto/prestissimo-avx-centos:latest "${DOCKER_NATIVE_IMAGE}-amd64"
+                                # docker tag presto/prestissimo-avx-centos:latest "${DOCKER_NATIVE_IMAGE}-amd64"
                             '''
                         }
                     }
