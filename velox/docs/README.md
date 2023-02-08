@@ -23,7 +23,7 @@ GitHub pages is configured to display the contents of the top-level docs directo
 found in the gh-pages branch. The documentation is available at
 https://facebookincubator.github.io/velox.
 
-To publish updated documentation copy the contents of the _build/html
+To publish updated documentation, copy the contents of the _build/html
 directory to the top-level docs folder and push to gh-pages branch.
 
 ```
