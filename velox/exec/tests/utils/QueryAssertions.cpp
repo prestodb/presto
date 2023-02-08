@@ -879,20 +879,27 @@ std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
   return {std::move(cursor), std::move(result)};
 }
 
-bool waitForTaskCompletion(exec::Task* task, uint64_t maxWaitMicros) {
+bool waitForTaskFinish(
+    exec::Task* task,
+    TaskState expectedState,
+    uint64_t maxWaitMicros) {
   // Wait for task to transition to finished state.
-  if (!waitForTaskStateChange(task, TaskState::kFinished, maxWaitMicros)) {
+  if (!waitForTaskStateChange(task, expectedState, maxWaitMicros)) {
     return false;
   }
   return waitForTaskDriversToFinish(task, maxWaitMicros);
 }
 
+bool waitForTaskCompletion(exec::Task* task, uint64_t maxWaitMicros) {
+  return waitForTaskFinish(task, TaskState::kFinished, maxWaitMicros);
+}
+
 bool waitForTaskFailure(exec::Task* task, uint64_t maxWaitMicros) {
-  // Wait for task to transition to finished state.
-  if (!waitForTaskStateChange(task, TaskState::kFailed, maxWaitMicros)) {
-    return false;
-  }
-  return waitForTaskDriversToFinish(task, maxWaitMicros);
+  return waitForTaskFinish(task, TaskState::kFailed, maxWaitMicros);
+}
+
+bool waitForTaskAborted(exec::Task* task, uint64_t maxWaitMicros) {
+  return waitForTaskFinish(task, TaskState::kAborted, maxWaitMicros);
 }
 
 bool waitForTaskStateChange(

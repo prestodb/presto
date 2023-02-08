@@ -77,8 +77,6 @@ class HashBuild final : public Operator {
 
   bool isFinished() override;
 
-  void close() override {}
-
  private:
   void setState(State state);
   void checkStateTransition(State state);

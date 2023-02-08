@@ -204,6 +204,8 @@ void MemoryUsageTracker::sanityCheckLocked() const {
 }
 
 bool MemoryUsageTracker::maybeReserve(uint64_t increment) {
+  TestValue::adjust(
+      "facebook::velox::memory::MemoryUsageTracker::maybeReserve", this);
   constexpr int32_t kGrowthQuantum = 8 << 20;
   const auto reservationToAdd = bits::roundUp(increment, kGrowthQuantum);
   try {

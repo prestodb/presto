@@ -4190,4 +4190,64 @@ TEST_F(HashJoinTest, spillFileSize) {
         .run();
   }
 }
+
+// The test is to verify if the hash build reservation has been released on task
+// error.
+DEBUG_ONLY_TEST_F(HashJoinTest, buildReservationReleaseCheck) {
+  std::vector<RowVectorPtr> probeVectors =
+      makeBatches(1, [&](int32_t /*unused*/) {
+        return std::dynamic_pointer_cast<RowVector>(
+            BatchMaker::createBatch(probeType_, 1000, *pool_));
+      });
+  std::vector<RowVectorPtr> buildVectors = makeBatches(10, [&](int32_t index) {
+    return std::dynamic_pointer_cast<RowVector>(
+        BatchMaker::createBatch(buildType_, 5000 * (1 + index), *pool_));
+  });
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  CursorParameters params;
+  params.planNode = PlanBuilder(planNodeIdGenerator)
+                        .values(probeVectors, true)
+                        .hashJoin(
+                            {"t_k1"},
+                            {"u_k1"},
+                            PlanBuilder(planNodeIdGenerator)
+                                .values(buildVectors, true)
+                                .planNode(),
+                            "",
+                            concat(probeType_->names(), buildType_->names()))
+                        .planNode();
+  params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  // NOTE: the spilling setup is to trigger memory reservation code path which
+  // only gets executed when spilling is enabled. We don't care about if
+  // spilling is really triggered in test or not so set the max memory limit to
+  // avoid any memory reservation related errors.
+  auto tracker = memory::MemoryUsageTracker::create();
+  params.queryCtx->pool()->setMemoryUsageTracker(tracker);
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+  params.spillDirectory = spillDirectory->path;
+  params.queryCtx->setConfigOverridesUnsafe(
+      {{core::QueryConfig::kSpillEnabled, "true"},
+       {core::QueryConfig::kMaxSpillLevel, "0"},
+       {core::QueryConfig::kJoinSpillEnabled, "true"}});
+  params.maxDrivers = 1;
+
+  auto cursor = std::make_unique<TaskCursor>(params);
+  auto* task = cursor->task().get();
+
+  // Set up a testvalue to trigger task abort when hash build tries to reserve
+  // memory.
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::MemoryUsageTracker::maybeReserve",
+      std::function<void(memory::MemoryUsageTracker*)>(
+          [&](memory::MemoryUsageTracker* /*unused*/) {
+            task->requestAbort();
+          }));
+  auto runTask = [&]() {
+    while (cursor->moveNext()) {
+    }
+  };
+  VELOX_ASSERT_THROW(runTask(), "");
+  ASSERT_TRUE(waitForTaskAborted(task, 5'000'000));
+}
 } // namespace
