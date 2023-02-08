@@ -18,6 +18,9 @@
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/HyperLogLogType.h"
+#include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace {
 using namespace facebook::velox;
@@ -266,5 +269,52 @@ TEST_F(FunctionResolutionTest, testGenericOutputTypeResolution) {
   test(ROW({INTEGER(), ARRAY(REAL())}), MAP(INTEGER(), ARRAY(REAL())));
 }
 
+template <typename T>
+struct FuncHyperLogLog {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  bool call(out_type<HyperLogLog>&) {
+    return false;
+  }
+};
+
+TEST_F(FunctionResolutionTest, resolveCustomTypeHyperLogLog) {
+  registerFunction<FuncHyperLogLog, HyperLogLog>({"f_hyper_log_log"});
+
+  auto type =
+      exec::SimpleFunctions().resolveFunction("f_hyper_log_log", {})->type();
+  EXPECT_EQ(type->toString(), HYPERLOGLOG()->toString());
+}
+
+template <typename T>
+struct FuncJson {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  bool call(out_type<Json>&) {
+    return false;
+  }
+};
+
+TEST_F(FunctionResolutionTest, resolveCustomTypeJson) {
+  registerFunction<FuncJson, Json>({"f_json"});
+
+  auto type = exec::SimpleFunctions().resolveFunction("f_json", {})->type();
+  EXPECT_EQ(type->toString(), JSON()->toString());
+}
+
+template <typename T>
+struct FuncTimestampWithTimeZone {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  bool call(out_type<TimestampWithTimezone>&) {
+    return false;
+  }
+};
+
+TEST_F(FunctionResolutionTest, resolveCustomTypeTimestampWithTimeZone) {
+  registerFunction<FuncTimestampWithTimeZone, TimestampWithTimezone>(
+      {"f_timestampzone"});
+
+  auto type =
+      exec::SimpleFunctions().resolveFunction("f_timestampzone", {})->type();
+  EXPECT_EQ(type->toString(), TIMESTAMP_WITH_TIME_ZONE()->toString());
+}
 } // namespace
 } // namespace facebook::velox::exec
