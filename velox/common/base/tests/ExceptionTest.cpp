@@ -838,3 +838,33 @@ TEST(ExceptionTest, wrappedExceptionWithContext) {
         std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
   }
 }
+
+TEST(ExceptionTest, exceptionMacroInlining) {
+  // Verify that the right formatting method is inlined when using _VELOX_THROW
+  // macro. This test can be removed if fmt::vformat changes behavior and starts
+  // ignoring extra brackets.
+
+  // The following string should throw an error when passed to fmt::vformat.
+  std::string errorStr = "This {} {is a test.";
+  // Inlined with the method that directly returns the std::string input.
+  try {
+    VELOX_USER_FAIL(errorStr);
+  } catch (const VeloxUserError& ve) {
+    ASSERT_EQ(ve.message(), errorStr);
+  }
+
+  // Inlined with the method that directly returns the char* input.
+  try {
+    VELOX_USER_FAIL(errorStr.c_str());
+  } catch (const VeloxUserError& ve) {
+    ASSERT_EQ(ve.message(), errorStr);
+  }
+
+  // Inlined with the method that passes the errorStr and the next argument via
+  // fmt::vformat. Should throw format_error.
+  try {
+    VELOX_USER_FAIL(errorStr, "definitely");
+  } catch (const std::exception& e) {
+    ASSERT_TRUE(folly::StringPiece{e.what()}.startsWith("argument not found"));
+  }
+}

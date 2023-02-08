@@ -142,6 +142,10 @@ inline const char* errorMessage(const char* s) {
   return s;
 }
 
+inline std::string errorMessage(const std::string& str) {
+  return str;
+}
+
 template <typename... Args>
 std::string errorMessage(fmt::string_view fmt, const Args&... args) {
   return fmt::vformat(fmt, fmt::make_format_args(args...));
