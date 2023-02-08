@@ -382,6 +382,18 @@ TEST(FilterTest, bigintValuesUsingHashTableSimd) {
   }
 
   applySimdTestToVector(numbers32, *filter, verify);
+
+  // Make a filter with sizeMask_'s slot filled and the kPaddingElements'
+  // slots tested
+  // numbers has 4 elements, so the sizeMask_ is 15 (1 << log2(4*5) - 1 = 15)
+  // The 15'th slot is filled by 19 (19 * 0xc6a4a7935bd1e995L & 15L = 15L)
+  // The test value 3 will also be hashed to 15'th slot
+  // (3 * 0xc6a4a7935bd1e995L & 15L = 15L), and 3 is within [min, max]
+  numbers = {0, 1, 19, 10'000};
+  filter = createBigintValues(numbers, false);
+  ASSERT_TRUE(dynamic_cast<BigintValuesUsingHashTable*>(filter.get()));
+  int64_t values[] = {3, 3, 3, 3};
+  checkSimd(filter.get(), values, verify);
 }
 
 TEST(FilterTest, negatedBigintValuesUsingHashTableSimd) {
