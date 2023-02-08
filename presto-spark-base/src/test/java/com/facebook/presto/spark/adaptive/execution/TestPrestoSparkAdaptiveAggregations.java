@@ -22,18 +22,6 @@ public class TestPrestoSparkAdaptiveAggregations
         extends TestPrestoSparkAggregations
 {
     @Override
-    public void testAggregationPushedBelowOuterJoin()
-    {
-        // TODO Fix test (issue #18969).
-    }
-
-    @Override
-    public void testSingleDistinctOptimizer()
-    {
-        // TODO Fix test (issue #18969).
-    }
-
-    @Override
     protected Session getSession()
     {
         return Session.builder(super.getSession())
