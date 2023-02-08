@@ -496,6 +496,11 @@ jobs:
             git config --global user.email "velox@users.noreply.github.com"
             git config --global user.name "velox"
             git checkout main
+            conda init bash
+            source ~/.bashrc
+            conda create -y --name docgenenv python=3.7
+            conda activate docgenenv
+            pip install sphinx sphinx-tabs breathe sphinx_rtd_theme 
             make -C velox/docs html
             git checkout gh-pages
             cp -R velox/docs/_build/html/* docs

@@ -17,18 +17,11 @@
 from __future__ import annotations
 
 import ast
-import builtins
-import inspect
 import re
-import typing
-from inspect import Parameter
-from typing import Any, Iterable, Iterator, List, NamedTuple, Tuple, cast
-
 from docutils import nodes
 from docutils.nodes import Element, Node
 from docutils.parsers.rst import directives
-from docutils.parsers.rst.states import Inliner
-
+from inspect import Parameter
 from sphinx import addnodes
 from sphinx.addnodes import desc_signature, pending_xref
 from sphinx.application import Sphinx
@@ -47,6 +40,7 @@ from sphinx.util.nodes import (
     make_refnode,
 )
 from sphinx.util.typing import OptionSpec
+from typing import Any, Iterable, Iterator, NamedTuple, Tuple, cast
 
 logger = logging.getLogger(__name__)
 
@@ -253,7 +247,7 @@ def _parse_annotation(annotation: str, env: BuildEnvironment | None) -> list[Nod
         return flattened
 
     try:
-        tree = ast.parse(annotation, type_comments=True)
+        tree = ast.parse(annotation)
         result: list[Node] = []
         for node in unparse(tree):
             if isinstance(node, nodes.literal):
