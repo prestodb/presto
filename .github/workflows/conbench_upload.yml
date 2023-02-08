@@ -27,12 +27,15 @@ on:
 permissions:
   contents: read
   actions: read
+  statuses: write
   #TODO comment results to PR
 
 jobs:
   upload:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ (github.event.workflow_run.conclusion == 'success' || 
+             github.event_name == 'workflow_dispatch') &&
+            github.repository == 'facebookincubator/velox' }}
     steps:
 
     - name: 'Download artifacts'
@@ -116,3 +119,33 @@ jobs:
           --pr_number "${{ steps.extract.outputs.pr_number }}" \
           --sha "${{ steps.download.outputs.contender_sha }}" \
           --output_dir "${{ github.workspace }}/benchmark-results/contender/"
+
+    - name: "Status Check"
+      # Status functions like failure() only work in `if:`
+      if: failure()
+      id: status
+      run: echo "failed=true" >> $GITHUB_OUTPUT
+
+    - name: "Create commit status"
+      uses: actions/github-script@v6
+      if: always()
+      with:
+        script: |
+          let url = 'https://github.com/${{github.repository}}/actions/runs/${{ github.run_id }}'
+          let state = 'success'
+          let description = 'Result upload succeeded!'
+          
+          if(${{ steps.status.outputs.failed || false }}) {
+            state = 'failure'
+            description = 'Result upload failed!'
+          }
+
+          github.rest.repos.createCommitStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            sha: '${{ steps.download.outputs.contender_sha }}',
+            state: state,
+            target_url: url,
+            description: description,
+            context: 'Benchmark Result Upload'
+          })

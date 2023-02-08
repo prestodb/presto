@@ -31,20 +31,31 @@ _OUTPUT_NUM_COLS = 100
 
 
 # Cosmetic helper functions.
+# GitHub Actions does not provide a tty but can still display colors
+def in_gha() -> bool:
+    return os.getenv("GITHUB_ACTIONS") == "true"
+
+
 def color_red(text) -> str:
-    return "\033[91m{}\033[00m".format(text) if sys.stdout.isatty() else text
+    return (
+        "\033[91m{}\033[00m".format(text) if sys.stdout.isatty() or in_gha() else text
+    )
 
 
 def color_yellow(text) -> str:
-    return "\033[93m{}\033[00m".format(text) if sys.stdout.isatty() else text
+    return (
+        "\033[93m{}\033[00m".format(text) if sys.stdout.isatty() or in_gha() else text
+    )
 
 
 def color_green(text) -> str:
-    return "\033[92m{}\033[00m".format(text) if sys.stdout.isatty() else text
+    return (
+        "\033[92m{}\033[00m".format(text) if sys.stdout.isatty() or in_gha() else text
+    )
 
 
 def bold(text) -> str:
-    return "\033[1m{}\033[00m".format(text) if sys.stdout.isatty() else text
+    return "\033[1m{}\033[00m".format(text) if sys.stdout.isatty() or in_gha() else text
 
 
 def get_benchmark_handle(file_path, name):
@@ -71,7 +82,7 @@ def get_retry_name(args, file_name):
     """
     path = _normalize_path(file_name)
     try:
-        parent_path = path.relative_to(_normalize_path(args.target_path))
+        parent_path = path.relative_to(_normalize_path(args.contender_path))
     except:
         parent_path = path.relative_to(_normalize_path(args.baseline_path))
     return str(parent_path.parent)
@@ -188,7 +199,7 @@ def compare(args):
 
     # Read file lists from both directories.
     baseline_map = find_json_files(pathlib.Path(args.baseline_path), args.recursive)
-    target_map = find_json_files(pathlib.Path(args.target_path), args.recursive)
+    target_map = find_json_files(pathlib.Path(args.contender_path), args.recursive)
 
     all_passes = []
     all_faster = []
@@ -199,7 +210,7 @@ def compare(args):
     rerun_log = {}
 
     # Compare json results from each file.
-    for file_name, target_path in target_map.items():
+    for file_name, contender_path in target_map.items():
         print("=" * _OUTPUT_NUM_COLS)
         print(file_name)
         print("=" * _OUTPUT_NUM_COLS)
@@ -208,7 +219,7 @@ def compare(args):
             print("WARNING: baseline file for '%s' not found. Skipping." % file_name)
             continue
 
-        target_data = read_json_files(target_path)
+        target_data = read_json_files(contender_path)
         baseline_data = read_json_files(baseline_map[file_name])
 
         passes, faster, failures = compare_file(args, target_data, baseline_data)
@@ -326,7 +337,12 @@ def run_all_benchmarks(
             raise e
 
 
-def upload_results(output_dir, run_id, sha, pr_number):
+def upload_results(args):
+    output_dir = args.output_dir
+    run_id = args.run_id
+    sha = args.sha
+    pr_number = args.pr_number
+
     print(f"Uploading results from {output_dir=} to Conbench with {run_id=}")
 
     # Check there's actually results first
@@ -382,19 +398,6 @@ def upload_results(output_dir, run_id, sha, pr_number):
     )
 
     conbench_upload_callable()
-
-
-def upload(args):
-    try:
-        upload_results(
-            output_dir=args.output_dir,
-            run_id=args.run_id,
-            sha=args.sha,
-            pr_number=args.pr_number,
-        )
-    except Exception:
-        print("ERROR caught during uploading results:")
-        print(traceback.format_exc())
 
 
 def run(args):
@@ -500,7 +503,7 @@ def parse_args():
         help="Path where containing base dump results.",
     )
     parser_compare.add_argument(
-        "--target_path",
+        "--contender_path",
         required=True,
         help="Path where containing target dump results.",
     )
@@ -540,7 +543,7 @@ def parse_args():
         "installed and the following env vars set: "
         "CONBENCH_URL, CONBENCH_EMAIL, CONBENCH_PASSWORD",
     )
-    parser_upload.set_defaults(func=upload)
+    parser_upload.set_defaults(func=upload_results)
     parser_upload.add_argument(
         "--output_dir",
         default=None,

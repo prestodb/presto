@@ -18,6 +18,7 @@ on:
   pull_request:
     paths:
       - 'velox/**'
+      - '!velox/docs/**'
       - 'third_party/**'
       - 'pyvelox/**'
       - '.github/workflows/benchmark.yml'
@@ -33,6 +34,7 @@ defaults:
 #TODO  concurrency groups?
 jobs:
   benchmark:
+    if: github.repository == 'facebookincubator/velox'
     runs-on: 8-core
     container: ghcr.io/facebookincubator/velox-dev:amd64-ubuntu-22.04-avx
     env:
@@ -62,26 +64,10 @@ jobs:
           restore-keys: |
             ccache-benchmark-
 
-      - name: "Checkout Contender"
-        uses: actions/checkout@v3
-        with:
-          path: 'velox'
-          submodules: 'recursive'
-
-      - name: Build Contender Benchmarks
-        working-directory: velox
-        run: |
-            n_cores=$(nproc)
-            make benchmarks-basic-build NUM_THREADS=$n_cores MAX_HIGH_MEM_JOBS=$n_cores MAX_LINK_JOBS=$n_cores
-            ccache -s
-            mkdir -p  ${BINARY_DIR}/contender/
-            cp -r --verbose _build/release/velox/benchmarks/basic/*  ${BINARY_DIR}/contender/
-
       - name: "Checkout Baseline"
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@v3
         with:
-          clean: true # make sure benchmarks are rebuilt
           path: 'velox'
           ref: ${{ github.event.pull_request.base.sha }}
           submodules: 'recursive'
@@ -96,6 +82,23 @@ jobs:
             mkdir -p ${BINARY_DIR}/baseline/
             cp -r --verbose _build/release/velox/benchmarks/basic/* ${BINARY_DIR}/baseline/
 
+      - name: "Checkout Contender"
+        uses: actions/checkout@v3
+        with:
+          clean: true # make sure benchmarks are rebuilt
+          path: 'velox'
+          ref: ${{ github.event.pull_request.head.sha || '' }}
+          submodules: 'recursive'
+
+      - name: Build Contender Benchmarks
+        working-directory: velox
+        run: |
+            n_cores=$(nproc)
+            make benchmarks-basic-build NUM_THREADS=$n_cores MAX_HIGH_MEM_JOBS=$n_cores MAX_LINK_JOBS=$n_cores
+            ccache -s
+            mkdir -p  ${BINARY_DIR}/contender/
+            cp -r --verbose _build/release/velox/benchmarks/basic/*  ${BINARY_DIR}/contender/
+
       - name: "Save ccache"
         uses: actions/cache/save@v3
         id: cache
@@ -105,14 +108,7 @@ jobs:
 
       - name: "Install benchmark dependencies"
         run: |
-          cd velox
-          python3 -m pip install -r scripts/benchmark-requirements.txt
-
-      - name: "Run Benchmarks - Contender"
-        working-directory: 'velox'
-        run: |
-            make benchmarks-basic-run \
-                EXTRA_BENCHMARK_FLAGS="--binary_path ${BINARY_DIR}/contender/ --output_path ${CONTENDER_OUTPUT_PATH}"
+          python3 -m pip install -r velox/scripts/benchmark-requirements.txt
 
       - name: "Run Benchmarks - Baseline"
         if: ${{ github.event_name == 'pull_request' }}
@@ -120,6 +116,59 @@ jobs:
         run: |
             make benchmarks-basic-run \
                 EXTRA_BENCHMARK_FLAGS="--binary_path ${BINARY_DIR}/baseline/ --output_path ${BASELINE_OUTPUT_PATH}"
+
+      - name: "Run Benchmarks - Contender"
+        working-directory: 'velox'
+        run: |
+            make benchmarks-basic-run \
+                EXTRA_BENCHMARK_FLAGS="--binary_path ${BINARY_DIR}/contender/ --output_path ${CONTENDER_OUTPUT_PATH}"
+                
+      - name: "Compare initial results"
+        id: compare
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+            ./velox/scripts/benchmark-runner.py compare \
+                --baseline_path ${BASELINE_OUTPUT_PATH} \
+                --contender_path ${CONTENDER_OUTPUT_PATH} \
+                --rerun_json_output "benchmark-results/rerun_json_output_0.json" \
+                --do_not_fail
+
+      - name: "Rerun Benchmarks"
+        if: ${{ github.event_name == 'pull_request'}}    
+        working-directory: 'velox'
+        run: |
+          for i in 1 2 3 4 5; do
+            CURRENT_JSON_RERUN="${RESULTS_ROOT}/rerun_json_output_$((${i} - 1)).json"
+            NEXT_JSON_RERUN="${RESULTS_ROOT}/rerun_json_output_${i}.json"
+  
+            if [ ! -s "${CURRENT_JSON_RERUN}" ]; then
+              echo "::notice::Rerun iteration ${i} found empty file. Finalizing."
+              break
+            fi
+
+            echo "::group::Rerun iteration: ${i}"
+            make benchmarks-basic-run \
+                EXTRA_BENCHMARK_FLAGS="--binary_path ${BINARY_DIR}/baseline/ --output_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${CURRENT_JSON_RERUN}"
+
+            make benchmarks-basic-run \
+                EXTRA_BENCHMARK_FLAGS="--binary_path ${BINARY_DIR}/contender/ --output_path ${CONTENDER_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${CURRENT_JSON_RERUN}"
+
+            ./scripts/benchmark-runner.py compare \
+                --baseline_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ \
+                --contender_path ${CONTENDER_OUTPUT_PATH}/rerun-${i}/ \
+                --rerun_json_output ${NEXT_JSON_RERUN} \
+                --do_not_fail
+          echo "::endgroup::"
+          done
+          
+
+          echo "::group::Compare final results"
+          ./scripts/benchmark-runner.py compare \
+                --baseline_path ${BASELINE_OUTPUT_PATH} \
+                --contender_path ${CONTENDER_OUTPUT_PATH} \
+                --recursive \
+                --do_not_fail
+          echo "::endgroup::"
 
       - name: "Save PR number"
         run: echo "${{ github.event.pull_request.number }}" > pr_number.txt
