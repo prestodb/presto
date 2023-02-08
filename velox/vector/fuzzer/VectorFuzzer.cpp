@@ -107,6 +107,16 @@ uint32_t rand(FuzzerGenerator& rng) {
   return boost::random::uniform_int_distribution<uint32_t>()(rng);
 }
 
+template <>
+uint64_t rand(FuzzerGenerator& rng) {
+  return boost::random::uniform_int_distribution<uint64_t>()(rng);
+}
+
+template <>
+int128_t rand(FuzzerGenerator& rng) {
+  return buildInt128(rand<int64_t>(rng), rand<uint64_t>(rng));
+}
+
 Timestamp randTimestamp(
     FuzzerGenerator& rng,
     bool useMicrosecondPrecisionTimestamp = false) {
@@ -127,6 +137,20 @@ size_t getElementsVectorLength(
     const VectorFuzzer::Options& opts,
     vector_size_t size) {
   return std::min(size * opts.containerLength, opts.complexElementsMaxSize);
+}
+
+UnscaledShortDecimal randShortDecimal(
+    const TypePtr& type,
+    FuzzerGenerator& rng) {
+  auto precision = type->asShortDecimal().precision();
+  auto randVal = rand<int64_t>(rng) % DecimalUtil::kPowersOfTen[precision];
+  return UnscaledShortDecimal(randVal);
+}
+
+UnscaledLongDecimal randLongDecimal(const TypePtr& type, FuzzerGenerator& rng) {
+  auto precision = type->asLongDecimal().precision();
+  auto randVal = rand<int128_t>(rng) % DecimalUtil::kPowersOfTen[precision];
+  return UnscaledLongDecimal(randVal);
 }
 
 /// Unicode character ranges. Ensure the vector indexes match the UTF8CharList
@@ -234,6 +258,12 @@ VectorPtr fuzzConstantPrimitiveImpl(
   } else if constexpr (std::is_same_v<TCpp, IntervalDayTime>) {
     return std::make_shared<ConstantVector<TCpp>>(
         pool, size, false, type, randIntervalDayTime(rng));
+  } else if constexpr (std::is_same_v<TCpp, UnscaledShortDecimal>) {
+    return std::make_shared<ConstantVector<TCpp>>(
+        pool, size, false, type, randShortDecimal(type, rng));
+  } else if constexpr (std::is_same_v<TCpp, UnscaledLongDecimal>) {
+    return std::make_shared<ConstantVector<TCpp>>(
+        pool, size, false, type, randLongDecimal(type, rng));
   } else {
     return std::make_shared<ConstantVector<TCpp>>(
         pool, size, false, type, rand<TCpp>(rng));
@@ -262,6 +292,10 @@ void fuzzFlatPrimitiveImpl(
       flatVector->set(i, randDate(rng));
     } else if constexpr (std::is_same_v<TCpp, IntervalDayTime>) {
       flatVector->set(i, randIntervalDayTime(rng));
+    } else if constexpr (std::is_same_v<TCpp, UnscaledShortDecimal>) {
+      flatVector->set(i, randShortDecimal(vector->type(), rng));
+    } else if constexpr (std::is_same_v<TCpp, UnscaledLongDecimal>) {
+      flatVector->set(i, randLongDecimal(vector->type(), rng));
     } else {
       flatVector->set(i, rand<TCpp>(rng));
     }
@@ -379,7 +413,7 @@ VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type, vector_size_t size) {
     if (type->isUnKnown()) {
       return BaseVector::createNullConstant(type, size, pool_);
     } else {
-      return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
           fuzzConstantPrimitiveImpl,
           type->kind(),
           pool_,
@@ -475,7 +509,7 @@ VectorPtr VectorFuzzer::fuzzFlatPrimitive(
     // First, fill it with random values.
     // TODO: We should bias towards edge cases (min, max, Nan, etc).
     auto kind = vector->typeKind();
-    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
         fuzzFlatPrimitiveImpl, kind, vector, rng_, opts_);
 
     // Second, generate a random null vector.
@@ -706,7 +740,21 @@ BufferPtr VectorFuzzer::fuzzNulls(vector_size_t size) {
   return builder.build();
 }
 
+std::pair<int8_t, int8_t> VectorFuzzer::randPrecisionScale(TypeKind kind) {
+  VELOX_DCHECK(isDecimalKind(kind));
+  // Generate precision in range [1, Decimal type max precision]
+  auto precision = 1 +
+      rand<int8_t>(rng_) %
+          (kind == TypeKind::SHORT_DECIMAL ? ShortDecimalType::kMaxPrecision
+                                           : LongDecimalType::kMaxPrecision);
+  // Generate scale in range [0, precision]
+  auto scale = rand<int8_t>(rng_) % (precision + 1);
+  return {precision, scale};
+}
+
 TypePtr VectorFuzzer::randType(int maxDepth) {
+  // @TODO Add decimal TypeKinds to randType.
+  // Refer https://github.com/facebookincubator/velox/issues/3942
   static TypePtr kScalarTypes[]{
       BOOLEAN(),
       TINYINT(),

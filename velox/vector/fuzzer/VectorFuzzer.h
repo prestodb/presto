@@ -230,6 +230,18 @@ class VectorFuzzer {
   TypePtr randType(int maxDepth = 5);
   RowTypePtr randRowType(int maxDepth = 5);
 
+  // Generates short decimal TypePtr with random precision and scale.
+  inline TypePtr randShortDecimalType() {
+    auto [precision, scale] = randPrecisionScale(TypeKind::SHORT_DECIMAL);
+    return SHORT_DECIMAL(precision, scale);
+  }
+
+  // Generates long decimal TypePtr with random precision and scale.
+  inline TypePtr randLongDecimalType() {
+    auto [precision, scale] = randPrecisionScale(TypeKind::LONG_DECIMAL);
+    return LONG_DECIMAL(precision, scale);
+  }
+
   void reSeed(size_t seed) {
     rng_.seed(seed);
   }
@@ -260,6 +272,11 @@ class VectorFuzzer {
  private:
   // Generates a flat vector for primitive types.
   VectorPtr fuzzFlatPrimitive(const TypePtr& type, vector_size_t size);
+
+  /// Generates random precision in range [1, max precision for decimal
+  /// TypeKind] and scale in range [0, random precision generated].
+  /// @param kind must be a decimal type kind.
+  std::pair<int8_t, int8_t> randPrecisionScale(TypeKind kind);
 
   // Returns a complex vector with randomized data and nulls.  The children and
   // all other descendant vectors will randomly use constant, dictionary, or

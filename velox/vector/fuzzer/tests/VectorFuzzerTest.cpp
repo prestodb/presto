@@ -99,7 +99,8 @@ TEST_F(VectorFuzzerTest, flatPrimitive) {
       TIMESTAMP(),
       INTERVAL_DAY_TIME(),
       UNKNOWN(),
-  };
+      fuzzer.randShortDecimalType(),
+      fuzzer.randLongDecimalType()};
 
   for (const auto& type : types) {
     vector = fuzzer.fuzzFlat(type);
@@ -223,6 +224,18 @@ TEST_F(VectorFuzzerTest, constants) {
 
   vector = fuzzer.fuzzConstant(VARCHAR());
   ASSERT_TRUE(vector->type()->kindEquals(VARCHAR()));
+  ASSERT_EQ(VectorEncoding::Simple::CONSTANT, vector->encoding());
+  ASSERT_FALSE(vector->mayHaveNulls());
+
+  auto shortDecimalType = fuzzer.randShortDecimalType();
+  vector = fuzzer.fuzzConstant(shortDecimalType);
+  ASSERT_TRUE(vector->type()->kindEquals(shortDecimalType));
+  ASSERT_EQ(VectorEncoding::Simple::CONSTANT, vector->encoding());
+  ASSERT_FALSE(vector->mayHaveNulls());
+
+  auto longDecimalType = fuzzer.randLongDecimalType();
+  vector = fuzzer.fuzzConstant(longDecimalType);
+  ASSERT_TRUE(vector->type()->kindEquals(longDecimalType));
   ASSERT_EQ(VectorEncoding::Simple::CONSTANT, vector->encoding());
   ASSERT_FALSE(vector->mayHaveNulls());
 
