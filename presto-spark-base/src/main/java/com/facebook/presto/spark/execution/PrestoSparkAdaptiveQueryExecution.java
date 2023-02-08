@@ -231,21 +231,11 @@ public class PrestoSparkAdaptiveQueryExecution
                         {
                             if (result.isSuccess()) {
                                 Optional<MapOutputStatistics> mapOutputStats = Optional.ofNullable(result.get());
-                                try {
-                                    fragmentEventQueue.put(new FragmentCompletionSuccessEvent(currentFragment.getFragment().getId(), mapOutputStats));
-                                }
-                                catch (InterruptedException e) {
-                                    throw new RuntimeException(e);
-                                }
+                                publishFragmentCompletionEvent(new FragmentCompletionSuccessEvent(currentFragment.getFragment().getId(), mapOutputStats));
                             }
                             else {
                                 Throwable throwable = result.failed().get();
-                                try {
-                                    fragmentEventQueue.put(new FragmentCompletionFailureEvent(currentFragment.getFragment().getId(), throwable));
-                                }
-                                catch (InterruptedException e) {
-                                    throw new RuntimeException(e);
-                                }
+                                publishFragmentCompletionEvent(new FragmentCompletionFailureEvent(currentFragment.getFragment().getId(), throwable));
                             }
                             return null;
                         }
@@ -254,11 +244,12 @@ public class PrestoSparkAdaptiveQueryExecution
                 else {
                     log.info("Fragment %s will not get executed now either because there was no exchange involved (a broadcast is present) or because of an unknown issue.",
                             fragment.getFragment().getId());
+                    // Mark this fragment/non-shuffle stage as completed to continue next stage plan generation
+                    publishFragmentCompletionEvent(new FragmentCompletionSuccessEvent(currentFragment.getFragment().getId(), Optional.empty()));
                 }
             }
 
             // Consume the next fragment execution completion event (block if no new fragment execution has finished) and re-optimize if possible.
-            // TODO Put this in a separate thread?
             FragmentCompletionEvent fragmentEvent;
             try {
                 fragmentEvent = fragmentEventQueue.poll(computeNextTimeout(queryCompletionDeadline), MILLISECONDS);
@@ -292,6 +283,16 @@ public class PrestoSparkAdaptiveQueryExecution
         setFinalFragmentedPlan(finalFragment);
 
         return executeFinalFragment(finalFragment);
+    }
+
+    private void publishFragmentCompletionEvent(FragmentCompletionEvent fragmentCompletionEvent)
+    {
+        try {
+            fragmentEventQueue.put(fragmentCompletionEvent);
+        }
+        catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

@@ -22,20 +22,6 @@ public class TestPrestoSparkAdaptiveJoinQueries
         extends TestPrestoSparkJoinQueries
 {
     @Override
-    protected void assertQuery(String sql)
-    {
-        // Disabling these tests for now as many non-trivial joins are failing.
-        // TODO Fix tests (issue #18969).
-    }
-
-    @Override
-    protected void assertQuery(String actual, String expected)
-    {
-        // Disabling these tests for now as many non-trivial joins are failing.
-        // TODO Fix tests (issue #18969).
-    }
-
-    @Override
     protected Session getSession()
     {
         return Session.builder(super.getSession())
