@@ -7,7 +7,6 @@ import "google/protobuf/any.proto";
 import "velox/substrait/proto/substrait/extensions/extensions.proto";
 import "velox/substrait/proto/substrait/type.proto";
 
-option cc_enable_arenas = true;
 option csharp_namespace = "Substrait.Protobuf";
 option go_package = "github.com/substrait-io/substrait-go/proto";
 option java_multiple_files = true;
@@ -366,6 +365,10 @@ message Rel {
     ExtensionMultiRel extension_multi = 10;
     ExtensionLeafRel extension_leaf = 11;
     CrossRel cross = 12;
+
+    //Physical relations
+    HashJoinRel hash_join = 13;
+    MergeJoinRel merge_join = 14;
   }
 }
 
@@ -478,6 +481,60 @@ message WriteRel {
     // subplans in the body of the Rel input) and return those with anounter PlanRel.relations.
     OUTPUT_MODE_MODIFIED_TUPLES = 2;
   }
+}
+
+// The hash equijoin join operator will build a hash table out of the right input based on a set of join keys.
+// It will then probe that hash table for incoming inputs, finding matches.
+message HashJoinRel {
+  RelCommon common = 1;
+  Rel left = 2;
+  Rel right = 3;
+  repeated Expression.FieldReference left_keys = 4;
+  repeated Expression.FieldReference right_keys = 5;
+  Expression post_join_filter = 6;
+
+  JoinType type = 7;
+
+  enum JoinType {
+    JOIN_TYPE_UNSPECIFIED = 0;
+    JOIN_TYPE_INNER = 1;
+    JOIN_TYPE_OUTER = 2;
+    JOIN_TYPE_LEFT = 3;
+    JOIN_TYPE_RIGHT = 4;
+    JOIN_TYPE_LEFT_SEMI = 5;
+    JOIN_TYPE_RIGHT_SEMI = 6;
+    JOIN_TYPE_LEFT_ANTI = 7;
+    JOIN_TYPE_RIGHT_ANTI = 8;
+  }
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+// The merge equijoin does a join by taking advantage of two sets that are sorted on the join keys.
+// This allows the join operation to be done in a streaming fashion.
+message MergeJoinRel {
+  RelCommon common = 1;
+  Rel left = 2;
+  Rel right = 3;
+  repeated Expression.FieldReference left_keys = 4;
+  repeated Expression.FieldReference right_keys = 5;
+  Expression post_join_filter = 6;
+
+  JoinType type = 7;
+
+  enum JoinType {
+    JOIN_TYPE_UNSPECIFIED = 0;
+    JOIN_TYPE_INNER = 1;
+    JOIN_TYPE_OUTER = 2;
+    JOIN_TYPE_LEFT = 3;
+    JOIN_TYPE_RIGHT = 4;
+    JOIN_TYPE_LEFT_SEMI = 5;
+    JOIN_TYPE_RIGHT_SEMI = 6;
+    JOIN_TYPE_LEFT_ANTI = 7;
+    JOIN_TYPE_RIGHT_ANTI = 8;
+  }
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
 }
 
 // The argument of a function

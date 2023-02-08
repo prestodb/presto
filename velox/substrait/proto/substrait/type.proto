@@ -5,7 +5,6 @@ package substrait;
 
 import "google/protobuf/empty.proto";
 
-option cc_enable_arenas = true;
 option csharp_namespace = "Substrait.Protobuf";
 option go_package = "github.com/substrait-io/substrait-go/proto";
 option java_multiple_files = true;
