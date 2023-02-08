@@ -52,9 +52,6 @@ jobs:
             mkdir -p .ccache
             ccache -sz -M 5Gi
 
-            # We can not use setup-python as we are running in a container
-            apt update
-            apt install -y lsb-release python3 pip
       - name: "Restore ccache"
         uses: actions/cache/restore@v3
         id: restore-cache
@@ -63,14 +60,27 @@ jobs:
           key: ccache-benchmark-${{ github.sha }}
           restore-keys: |
             ccache-benchmark-
-
-      - name: "Checkout Baseline"
+      
+      - name: "Checkout Repo"
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@v3
         with:
           path: 'velox'
-          ref: ${{ github.event.pull_request.base.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
           submodules: 'recursive'
+
+      - name: "Checkout Merge Base"
+        if: ${{ github.event_name == 'pull_request' }}
+        working-directory: velox
+        run: |
+          git fetch origin
+          git status
+          merge_base=$(git merge-base 'origin/${{ github.base_ref }}' 'origin/${{ github.head_ref }}')
+          echo "Merge Base: $merge_base"
+          git checkout $merge_base
+          echo $(git log -n 1)
 
       - name: Build Baseline Benchmarks
         if: ${{ github.event_name == 'pull_request' }}
@@ -82,12 +92,18 @@ jobs:
             mkdir -p ${BINARY_DIR}/baseline/
             cp -r --verbose _build/release/velox/benchmarks/basic/* ${BINARY_DIR}/baseline/
 
+      - name: "Checkout Contender PR"
+        if: ${{ github.event_name == 'pull_request' }}
+        working-directory: velox
+        run: |
+          git checkout '${{ github.event.pull_request.head.sha }}'
+
       - name: "Checkout Contender"
+        if: ${{ github.event_name == 'push' }}
         uses: actions/checkout@v3
         with:
-          clean: true # make sure benchmarks are rebuilt
           path: 'velox'
-          ref: ${{ github.event.pull_request.head.sha || '' }}
+          ref: ${{ github.sha }}
           submodules: 'recursive'
 
       - name: Build Contender Benchmarks
