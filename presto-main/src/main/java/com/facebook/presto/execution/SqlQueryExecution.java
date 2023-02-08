@@ -510,7 +510,17 @@ public class SqlQueryExecution
             stateMachine.beginAnalysis();
 
             // plan query
-            LogicalPlanner logicalPlanner = new LogicalPlanner(false, stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector(), planChecker);
+            LogicalPlanner logicalPlanner = new LogicalPlanner(
+                    false,
+                    stateMachine.getSession(),
+                    planOptimizers,
+                    idAllocator,
+                    metadata,
+                    sqlParser,
+                    statsCalculator,
+                    costCalculator,
+                    stateMachine.getWarningCollector(),
+                    planChecker);
             Plan plan = getSession().getRuntimeStats().profileNanos(
                     LOGICAL_PLANNER_TIME_NANOS,
                     () -> logicalPlanner.plan(analysis));
@@ -910,7 +920,7 @@ public class SqlQueryExecution
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
             checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
 
-            SqlQueryExecution execution = new SqlQueryExecution(
+            return new SqlQueryExecution(
                     preparedQuery,
                     stateMachine,
                     slug,
@@ -937,8 +947,6 @@ public class SqlQueryExecution
                     planChecker,
                     partialResultQueryManager,
                     historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider());
-
-            return execution;
         }
     }
 }
