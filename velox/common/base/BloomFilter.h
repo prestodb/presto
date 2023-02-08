@@ -19,21 +19,23 @@
 #include <cstdint>
 #include <vector>
 
-#include <folly/Hash.h>
-
 #include "velox/common/base/BitUtil.h"
+#include "velox/common/base/Exceptions.h"
+#include "velox/common/base/IOUtils.h"
 
 namespace facebook::velox {
-
 // BloomFilter filter with groups of 64 bits, of which 4 are set. The hash
 // number has 4 6 bit fields that selct the bits in the word and the
 // remaining bits select the word in the filter. With 8 bits per
 // expected entry, we get ~2% false positives. 'hashInput' determines
 // if the value added or checked needs to be hashed. If this is false,
 // we assume that the input is already a 64 bit hash number.
-template <bool hashInput = true>
+template <typename Allocator = std::allocator<uint64_t>>
 class BloomFilter {
  public:
+  explicit BloomFilter() : bits_{Allocator()} {}
+  explicit BloomFilter(const Allocator& allocator) : bits_{allocator} {}
+
   // Prepares 'this' for use with an expected 'capacity'
   // entries. Drops any prior content.
   void reset(int32_t capacity) {
@@ -42,18 +44,56 @@ class BloomFilter {
     bits_.resize(std::max<int32_t>(4, bits::nextPowerOfTwo(capacity) / 4));
   }
 
-  // Adds 'value'.
-  void insert(uint64_t value) {
-    set(bits_.data(),
-        bits_.size(),
-        hashInput ? folly::hasher<uint64_t>()(value) : value);
+  bool isSet() {
+    return bits_.size() > 0;
   }
 
+  // Adds 'value'.
+  // Input is hashed uint64_t value, optional hash function is
+  // folly::hasher<InputType>()(value).
+  void insert(uint64_t value) {
+    set(bits_.data(), bits_.size(), value);
+  }
+
+  // Input is hashed uint64_t value, optional hash function is
+  // folly::hasher<InputType>()(value).
   bool mayContain(uint64_t value) const {
-    return test(
-        bits_.data(),
-        bits_.size(),
-        hashInput ? folly::hasher<uint64_t>()(value) : value);
+    return test(bits_.data(), bits_.size(), value);
+  }
+
+  void merge(const char* serialized) {
+    common::InputByteStream stream(serialized);
+    auto version = stream.read<int8_t>();
+    VELOX_CHECK_EQ(kBloomFilterV1, version);
+    auto size = stream.read<int32_t>();
+    bits_.resize(size);
+    auto bitsdata =
+        reinterpret_cast<const uint64_t*>(serialized + stream.offset());
+    if (bits_.size() == 0) {
+      for (auto i = 0; i < size; i++) {
+        bits_[i] = bitsdata[i];
+      }
+      return;
+    } else if (size == 0) {
+      return;
+    }
+    VELOX_DCHECK_EQ(bits_.size(), size);
+    bits::orBits(bits_.data(), bitsdata, 0, 64 * size);
+  }
+
+  uint32_t serializedSize() {
+    return 1 /* version */
+        + 4 /* number of bits */
+        + bits_.size() * 8;
+  }
+
+  void serialize(char* output) {
+    common::OutputByteStream stream(output);
+    stream.appendOne(kBloomFilterV1);
+    stream.appendOne((int32_t)bits_.size());
+    for (auto bit : bits_) {
+      stream.appendOne(bit);
+    }
   }
 
  private:
@@ -89,7 +129,8 @@ class BloomFilter {
     return mask == (bloom[index] & mask);
   }
 
-  std::vector<uint64_t> bits_;
+  const int8_t kBloomFilterV1 = 1;
+  std::vector<uint64_t, Allocator> bits_;
 };
 
 } // namespace facebook::velox
