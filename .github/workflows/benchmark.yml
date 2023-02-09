@@ -75,9 +75,14 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         working-directory: velox
         run: |
+          # Choose merge base from upstream main to avoid issues with
+          # outdated fork branches
           git fetch origin
+          git remote add upstream https://github.com/facebookincubator/velox
+          git fetch upstream
           git status
-          merge_base=$(git merge-base 'origin/${{ github.base_ref }}' 'origin/${{ github.head_ref }}')
+          merge_base=$(git merge-base 'upstream/${{ github.base_ref }}' 'origin/${{ github.head_ref }}') || \
+            { echo "::error::Failed to find merge base"; exit 1; }
           echo "Merge Base: $merge_base"
           git checkout $merge_base
           echo $(git log -n 1)
