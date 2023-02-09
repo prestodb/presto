@@ -67,7 +67,6 @@ public class HudiPartitionSplitGenerator
     private final Queue<String> concurrentPartitionQueue;
     private final String latestInstant;
     private final HudiSplitWeightProvider splitWeightProvider;
-    private boolean isRunning;
 
     public HudiPartitionSplitGenerator(
             ConnectorSession session,
@@ -88,7 +87,6 @@ public class HudiPartitionSplitGenerator
         this.concurrentPartitionQueue = requireNonNull(concurrentPartitionQueue, "concurrentPartitionQueue is null");
         this.latestInstant = requireNonNull(latestInstant, "latestInstant is null");
         this.splitWeightProvider = createSplitWeightProvider(requireNonNull(session, "session is null"));
-        this.isRunning = true;
     }
 
     @Override
@@ -96,7 +94,7 @@ public class HudiPartitionSplitGenerator
     {
         HoodieTimer timer = new HoodieTimer().startTimer();
 
-        while (isRunning || !concurrentPartitionQueue.isEmpty()) {
+        while (!concurrentPartitionQueue.isEmpty()) {
             String partitionName = concurrentPartitionQueue.poll();
 
             if (partitionName != null) {
@@ -104,11 +102,6 @@ public class HudiPartitionSplitGenerator
             }
         }
         log.debug("HudiPartitionSplitGenerator %s finishes in %d ms", this, timer.endTimer());
-    }
-
-    public void stopRunning()
-    {
-        this.isRunning = false;
     }
 
     private void generateSplitsFromPartition(String partitionName)

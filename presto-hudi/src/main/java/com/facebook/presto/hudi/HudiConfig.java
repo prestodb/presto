@@ -98,7 +98,7 @@ public class HudiConfig
     }
 
     @Config("hudi.max-outstanding-splits")
-    @ConfigDescription("Maximum outstanding splits in a batch enqueued for processing.")
+    @ConfigDescription("Maximum outstanding splits per batch for query.")
     public HudiConfig setMaxOutstandingSplits(int maxOutstandingSplits)
     {
         this.maxOutstandingSplits = maxOutstandingSplits;
@@ -112,7 +112,7 @@ public class HudiConfig
     }
 
     @Config("hudi.split-generator-parallelism")
-    @ConfigDescription("Number of threads to generate splits from partitions.")
+    @ConfigDescription("Number of threads used to generate splits from partitions.")
     public HudiConfig setSplitGeneratorParallelism(int splitGeneratorParallelism)
     {
         this.splitGeneratorParallelism = splitGeneratorParallelism;
@@ -126,7 +126,7 @@ public class HudiConfig
     }
 
     @Config("hudi.split-loader-parallelism")
-    @ConfigDescription("Number of threads to run background split loader. "
+    @ConfigDescription("Number of threads used to run background split loader. "
             + "A single background split loader is needed per query.")
     public HudiConfig setSplitLoaderParallelism(int splitLoaderParallelism)
     {

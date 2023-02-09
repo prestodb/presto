@@ -91,11 +91,6 @@ public class HudiBackgroundSplitLoader
             splitGeneratorFutures.add(splitGeneratorExecutorService.submit(generator));
         }
 
-        for (HudiPartitionSplitGenerator generator : splitGeneratorList) {
-            // Let the split generator stop once the partition queue is empty
-            generator.stopRunning();
-        }
-
         // Wait for all split generators to finish
         for (Future future : splitGeneratorFutures) {
             try {
