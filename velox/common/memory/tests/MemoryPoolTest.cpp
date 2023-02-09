@@ -1775,7 +1775,7 @@ TEST_P(MemoryPoolTest, concurrentUpdatesToTheSamePool) {
   }
 }
 
-TEST_P(MemoryPoolTest, DISABLED_concurrentPoolStructureAccess) {
+TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
   folly::Random::DefaultGenerator rng;
   rng.seed(1234);
   constexpr int64_t kMaxMemory = 8 * GB;
@@ -1803,11 +1803,11 @@ TEST_P(MemoryPoolTest, DISABLED_concurrentPoolStructureAccess) {
             continue;
           }
           const auto idx = folly::Random().rand32() % pools.size();
-          pool = pools[idx];
           if (folly::Random().oneIn(3)) {
             pools.erase(pools.begin() + idx);
             continue;
           }
+          pool = pools[idx];
         }
         VELOX_CHECK_NOT_NULL(pool);
 

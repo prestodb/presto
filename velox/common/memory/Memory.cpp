@@ -63,12 +63,30 @@ uint64_t MemoryPool::getChildCount() const {
 }
 
 void MemoryPool::visitChildren(std::function<void(MemoryPool*)> visitor) const {
-  folly::SharedMutex::ReadHolder guard{childrenMutex_};
-  for (const auto& entry : children_) {
-    auto childPtr = entry.second.lock();
-    if (childPtr != nullptr) {
-      visitor(childPtr.get());
+  std::vector<std::shared_ptr<MemoryPool>> children;
+  {
+    folly::SharedMutex::ReadHolder guard{childrenMutex_};
+    children.reserve(children_.size());
+    for (const auto& entry : children_) {
+      auto child = entry.second.lock();
+      if (child != nullptr) {
+        children.push_back(std::move(child));
+      }
     }
+  }
+
+  // NOTE: we should call 'visitor' on child pool object out of
+  // 'childrenMutex_' to avoid potential recursive locking issues. Firstly, the
+  // user provided 'visitor' might try to acquire this memory pool lock again.
+  // Secondly, the shared child pool reference created from the weak pointer
+  // might be the last reference if some other threads drop all the external
+  // references during this time window. Then drop of this last shared reference
+  // after 'visitor' call will trigger child memory pool destruction in that
+  // case. The child memory pool destructor will remove its weak pointer
+  // reference from the parent pool which needs to acquire this memory pool lock
+  // again.
+  for (const auto& child : children) {
+    visitor(child.get());
   }
 }
 
