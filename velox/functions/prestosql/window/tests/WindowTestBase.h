@@ -92,6 +92,14 @@ static std::vector<std::string> kFrameClauses = {
     "rows between c2 preceding and c2 following",
     "rows between c1 preceding and c2 following",
     "rows between c2 preceding and c1 following",
+
+    // Frame clauses with invalid frames.
+    "rows between unbounded preceding and 1 preceding",
+    "rows between 1 preceding and 4 preceding",
+    "rows between 4 preceding and 1 preceding",
+    "rows between 1 following and unbounded following",
+    "rows between 1 following and 4 following",
+    "rows between 4 following and 1 following",
 };
 
 class WindowTestBase : public exec::test::OperatorTestBase {

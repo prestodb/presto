@@ -111,14 +111,18 @@ class AggregateWindowFunction : public exec::WindowFunction {
       const BufferPtr& /*peerGroupEnds*/,
       const BufferPtr& frameStarts,
       const BufferPtr& frameEnds,
+      const SelectivityVector& validRows,
       vector_size_t resultOffset,
       const VectorPtr& result) override {
-    int numRows = frameStarts->size() / sizeof(vector_size_t);
+    if (handleAllEmptyFrames(validRows, resultOffset, result)) {
+      return;
+    }
+
     auto rawFrameStarts = frameStarts->as<vector_size_t>();
     auto rawFrameEnds = frameEnds->as<vector_size_t>();
 
     FrameMetadata frameMetadata =
-        analyzeFrameValues(rawFrameStarts, rawFrameEnds, numRows);
+        analyzeFrameValues(validRows, rawFrameStarts, rawFrameEnds);
 
     if (frameMetadata.incrementalAggregation) {
       vector_size_t startRow;
@@ -141,7 +145,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
 
       fillArgVectors(startRow, frameMetadata.lastRow);
       incrementalAggregation(
-          numRows,
+          validRows,
           startRow,
           frameMetadata.lastRow,
           rawFrameEnds,
@@ -150,7 +154,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
     } else {
       fillArgVectors(frameMetadata.firstRow, frameMetadata.lastRow);
       simpleAggregation(
-          numRows,
+          validRows,
           frameMetadata.firstRow,
           frameMetadata.lastRow,
           rawFrameStarts,
@@ -179,24 +183,50 @@ class AggregateWindowFunction : public exec::WindowFunction {
     bool usePreviousAggregate;
   };
 
+  bool handleAllEmptyFrames(
+      const SelectivityVector& validRows,
+      vector_size_t resultOffset,
+      const VectorPtr& result) {
+    if (!validRows.hasSelections()) {
+      uint64_t* rawNulls = result->mutableRawNulls();
+      for (auto row = 0; row < validRows.size(); row++) {
+        bits::setNull(rawNulls, row + resultOffset, true);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // Computes the least frameStart row and the max frameEnds row
+  // indices for the valid frames of this output block. These indices are used
+  // as bounds when reading input parameter vectors for aggregation.
+  // This method expects to have at least 1 valid frame in the block.
+  // Blocks with all empty frames are handled before this point.
   FrameMetadata analyzeFrameValues(
+      const SelectivityVector& validRows,
       const vector_size_t* rawFrameStarts,
-      const vector_size_t* rawFrameEnds,
-      vector_size_t numRows) {
-    vector_size_t firstRow = rawFrameStarts[0];
+      const vector_size_t* rawFrameEnds) {
+    VELOX_DCHECK(validRows.hasSelections());
+
+    // Use first valid frame row for the initialization.
+    auto firstValidRow = validRows.begin();
+    vector_size_t firstRow = rawFrameStarts[firstValidRow];
     vector_size_t fixedFrameStartRow = firstRow;
-    vector_size_t lastRow = rawFrameEnds[0];
+    vector_size_t lastRow = rawFrameEnds[firstValidRow];
+    vector_size_t prevFrameEnds = lastRow;
 
     bool incrementalAggregation = true;
-    for (int i = 1; i < numRows; i++) {
+    validRows.applyToSelected([&](auto i) {
       firstRow = std::min(firstRow, rawFrameStarts[i]);
       lastRow = std::max(lastRow, rawFrameEnds[i]);
+
       // Incremental aggregation can be done if :
       // i) All rows have the same frameStart value.
       // ii) The frame end values are non-decreasing.
       incrementalAggregation &= (rawFrameStarts[i] == fixedFrameStartRow);
-      incrementalAggregation &= rawFrameEnds[i] >= rawFrameEnds[i - 1];
-    }
+      incrementalAggregation &= rawFrameEnds[i] >= prevFrameEnds;
+      prevFrameEnds = rawFrameEnds[i];
+    });
 
     bool usePreviousAggregate = false;
     if (previousFrameMetadata_.has_value()) {
@@ -207,7 +237,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
       // lastRow of the first block and the first row of the current block.
       if (incrementalAggregation && previousFrame.incrementalAggregation &&
           previousFrame.firstRow == firstRow &&
-          previousFrame.lastRow <= rawFrameEnds[0]) {
+          previousFrame.lastRow <= rawFrameEnds[firstValidRow]) {
         usePreviousAggregate = true;
       }
     }
@@ -245,7 +275,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
   }
 
   void incrementalAggregation(
-      vector_size_t numRows,
+      const SelectivityVector& validRows,
       vector_size_t startFrame,
       vector_size_t endFrame,
       const vector_size_t* rawFrameEnds,
@@ -259,7 +289,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
     // and increasing frameEnd values. In that case, we can
     // incrementally aggregate over the new rows seen in the frame between
     // the previous and current row.
-    for (int i = 0; i < numRows; i++) {
+    validRows.applyToSelected([&](auto i) {
       auto currentFrameEnd = rawFrameEnds[i] - startFrame + 1;
       if (currentFrameEnd > prevFrameEnd) {
         computeAggregate(rows, prevFrameEnd, currentFrameEnd);
@@ -267,11 +297,14 @@ class AggregateWindowFunction : public exec::WindowFunction {
 
       result->copy(aggregateResultVector_.get(), resultOffset + i, 0, 1);
       prevFrameEnd = currentFrameEnd;
-    }
+    });
+
+    // Set null values for empty (non valid) frames in the output block.
+    setEmptyFramesResults(validRows, resultOffset, result);
   }
 
   void simpleAggregation(
-      vector_size_t numRows,
+      const SelectivityVector& validRows,
       vector_size_t minFrame,
       vector_size_t maxFrame,
       const vector_size_t* frameStartsVector,
@@ -281,7 +314,8 @@ class AggregateWindowFunction : public exec::WindowFunction {
     SelectivityVector rows;
     rows.resize(maxFrame + 1 - minFrame);
     static auto kSingleGroup = std::vector<vector_size_t>{0};
-    for (int i = 0; i < numRows; i++) {
+
+    validRows.applyToSelected([&](auto i) {
       // This is a very naive algorithm.
       // It evaluates the entire aggregation for each row by iterating over
       // input rows from frameStart to frameEnd in the SelectivityVector.
@@ -296,9 +330,25 @@ class AggregateWindowFunction : public exec::WindowFunction {
       auto frameEndIndex = frameEndsVector[i] - minFrame + 1;
       computeAggregate(rows, frameStartIndex, frameEndIndex);
       result->copy(aggregateResultVector_.get(), resultOffset + i, 0, 1);
-    }
+    });
+
+    // Set null values for empty (non valid) frames in the output block.
+    setEmptyFramesResults(validRows, resultOffset, result);
   }
 
+  void setEmptyFramesResults(
+      const SelectivityVector& validRows,
+      vector_size_t resultOffset,
+      const VectorPtr& result) {
+    if (validRows.isAllSelected()) {
+      return;
+    }
+    // Rows with empty (not-valid) frames have nullptr in the result.
+    invalidRows_.resizeFill(validRows.size(), true);
+    invalidRows_.deselect(validRows);
+    invalidRows_.applyToSelected(
+        [&](auto i) { result->setNull(resultOffset + i, true); });
+  }
   // Aggregate function object required for this window function evaluation.
   std::unique_ptr<exec::Aggregate> aggregate_;
 
@@ -329,6 +379,9 @@ class AggregateWindowFunction : public exec::WindowFunction {
   // Stores metadata about the previous output block of the partition
   // to optimize aggregate computation and reading argument vectors.
   std::optional<FrameMetadata> previousFrameMetadata_;
+
+  // Used for setting null for empty frames.
+  SelectivityVector invalidRows_;
 };
 
 } // namespace

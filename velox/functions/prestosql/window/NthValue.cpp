@@ -61,16 +61,18 @@ class NthValueFunction : public exec::WindowFunction {
       const BufferPtr& /*peerGroupEnds*/,
       const BufferPtr& frameStarts,
       const BufferPtr& frameEnds,
+      const SelectivityVector& validRows,
       int32_t resultOffset,
       const VectorPtr& result) override {
     auto numRows = frameStarts->size() / sizeof(vector_size_t);
     auto frameStartsPtr = frameStarts->as<vector_size_t>();
     auto frameEndsPtr = frameEnds->as<vector_size_t>();
 
+    rowNumbers_.resize(numRows);
     if (constantOffset_.has_value() || isConstantOffsetNull_) {
-      setRowNumbersForConstantOffset(numRows, frameStartsPtr, frameEndsPtr);
+      setRowNumbersForConstantOffset(validRows, frameStartsPtr, frameEndsPtr);
     } else {
-      setRowNumbers(numRows, frameStartsPtr, frameEndsPtr);
+      setRowNumbers(numRows, validRows, frameStartsPtr, frameEndsPtr);
     }
 
     auto rowNumbersRange = folly::Range(rowNumbers_.data(), numRows);
@@ -87,31 +89,32 @@ class NthValueFunction : public exec::WindowFunction {
   // which the input value should be copied.
   // A rowNumber of -1 is for nullptr in the result.
   void setRowNumbersForConstantOffset(
-      vector_size_t numRows,
+      const SelectivityVector& validRows,
       const vector_size_t* frameStarts,
       const vector_size_t* frameEnds) {
-    rowNumbers_.resize(numRows);
-
     if (isConstantOffsetNull_) {
       std::fill(rowNumbers_.begin(), rowNumbers_.end(), -1);
       return;
     }
 
     auto constantOffsetValue = constantOffset_.value();
-    for (int i = 0; i < numRows; i++) {
+    validRows.applyToSelected([&](auto i) {
       setRowNumber(i, frameStarts, frameEnds, constantOffsetValue);
-    }
+    });
+
+    setRowNumbersForEmptyFrames(validRows);
   }
 
   void setRowNumbers(
       vector_size_t numRows,
+      const SelectivityVector& validRows,
       const vector_size_t* frameStarts,
       const vector_size_t* frameEnds) {
-    rowNumbers_.resize(numRows);
     offsets_->resize(numRows);
     partition_->extractColumn(
         offsetIndex_, partitionOffset_, numRows, 0, offsets_);
-    for (int i = 0; i < numRows; i++) {
+
+    validRows.applyToSelected([&](auto i) {
       if (offsets_->isNullAt(i)) {
         rowNumbers_[i] = -1;
       } else {
@@ -119,7 +122,20 @@ class NthValueFunction : public exec::WindowFunction {
         VELOX_USER_CHECK_GE(offset, 1, "Offset must be at least 1");
         setRowNumber(i, frameStarts, frameEnds, offset);
       }
+    });
+
+    setRowNumbersForEmptyFrames(validRows);
+  }
+
+  void setRowNumbersForEmptyFrames(const SelectivityVector& validRows) {
+    if (validRows.isAllSelected()) {
+      return;
     }
+    // Rows with empty (not-valid) frames have nullptr in the result.
+    // So mark rowNumber to copy as -1 for it.
+    invalidRows_.resizeFill(validRows.size(), true);
+    invalidRows_.deselect(validRows);
+    invalidRows_.applyToSelected([&](auto i) { rowNumbers_[i] = -1; });
   }
 
   inline void setRowNumber(
@@ -159,6 +175,9 @@ class NthValueFunction : public exec::WindowFunction {
   // to copy between the 2 vectors. This variable is used for the rowNumber
   // vector across getOutput calls.
   std::vector<vector_size_t> rowNumbers_;
+
+  // Member variable re-used for setting null for empty frames.
+  SelectivityVector invalidRows_;
 };
 
 template <TypeKind kind>

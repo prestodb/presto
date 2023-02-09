@@ -234,6 +234,16 @@ class Window : public Operator {
   std::vector<BufferPtr> frameStartBuffers_;
   std::vector<BufferPtr> frameEndBuffers_;
 
+  // Frame types for kPreceding or kFollowing could result in empty
+  // frames if the frameStart > frameEnds, or frameEnds < firstPartitionRow
+  // or frameStarts > lastPartitionRow. Such frames usually evaluate to NULL
+  // in the window function.
+  // This SelectivityVector captures the valid (non-empty) frames in the
+  // buffer being worked on. The window function can use this to compute
+  // output values.
+  // There is one SelectivityVector per window function.
+  std::vector<SelectivityVector> validFrames_;
+
   // Number of rows output from the WindowOperator so far. The rows
   // are output in the same order of the pointers in sortedRows. This
   // value is updated as the WindowFunction::apply() function is

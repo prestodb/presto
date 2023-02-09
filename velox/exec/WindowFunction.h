@@ -73,6 +73,10 @@ class WindowFunction {
   /// frame for the current row starts.
   /// @param frameEnds  A buffer of the indexes of rows at which the frame
   /// for the current row ends.
+  /// @param validRows A SelectivityVector whose bits are turned on for
+  /// valid (and off for empty) window frames in this batch of rows.
+  /// Empty window frames have boundaries that violate the condition that
+  /// the frameStart <= frameEnd for that row.
   /// @param resultOffset  This function is invoked multiple times for a
   /// partition as output buffers are available for it. resultOffset
   /// is the offset in the result buffer corresponding to the current
@@ -88,6 +92,7 @@ class WindowFunction {
       const BufferPtr& peerGroupEnds,
       const BufferPtr& frameStarts,
       const BufferPtr& frameEnds,
+      const SelectivityVector& validRows,
       vector_size_t resultOffset,
       const VectorPtr& result) = 0;
 
