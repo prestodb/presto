@@ -28,17 +28,14 @@ add_executable(velox_example_opaque_type OpaqueType.cpp)
 target_link_libraries(velox_example_opaque_type velox_type velox_vector
                       velox_expression velox_memory)
 
-add_executable(velox_example_scan_and_sort ScanAndSort.cpp)
+# This is disabled temporarily until we figure out why g++ is crashing linking
+# it on linux builds.
 
-target_link_libraries(
-  velox_example_scan_and_sort
-  velox_type
-  velox_vector
-  velox_exec
-  velox_exec_test_lib
-  velox_hive_connector
-  velox_memory
-  velox_vector_test_lib)
+# add_executable(velox_example_scan_and_sort ScanAndSort.cpp)
+
+# target_link_libraries( velox_example_scan_and_sort velox_type velox_vector
+# velox_exec velox_exec_test_lib velox_hive_connector velox_memory
+# velox_vector_test_lib)
 
 add_executable(velox_example_scan_orc ScanOrc.cpp)
 
