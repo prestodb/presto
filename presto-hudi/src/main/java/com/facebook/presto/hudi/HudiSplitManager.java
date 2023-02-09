@@ -107,7 +107,7 @@ public class HudiSplitManager
         // Retrieve and prune partitions
         HoodieTimer timer = new HoodieTimer().startTimer();
         List<String> partitions = hudiPartitionManager.getEffectivePartitions(session, metastore, table.getSchemaName(), table.getTableName(), layout.getTupleDomain());
-        log.info("Took %d ms to get %d partitions", timer.endTimer(), partitions.size());
+        log.debug("Took %d ms to get %d partitions", timer.endTimer(), partitions.size());
         if (partitions.isEmpty()) {
             return new FixedSplitSource(ImmutableList.of());
         }
