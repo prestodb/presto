@@ -102,6 +102,8 @@ TEST_F(RemainderTest, int32) {
   EXPECT_EQ(-11, remainder<int32_t>(-15181535, -12));
   EXPECT_EQ(INT32_MAX, remainder<int32_t>(INT32_MAX, INT32_MIN));
   EXPECT_EQ(-1, remainder<int32_t>(INT32_MIN, INT32_MAX));
+  EXPECT_EQ(0, remainder<int32_t>(-15181535, -1));
+  EXPECT_EQ(0, remainder<int32_t>(INT32_MIN, -1));
 }
 
 TEST_F(RemainderTest, int64) {

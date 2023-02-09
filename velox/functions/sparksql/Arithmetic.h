@@ -51,7 +51,11 @@ struct RemainderFunction {
     if (UNLIKELY(n == 0)) {
       return false;
     }
-    result = a % n;
+    if (UNLIKELY(n == 1 || n == -1)) {
+      result = 0;
+    } else {
+      result = a % n;
+    }
     return true;
   }
 };
