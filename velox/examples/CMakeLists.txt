@@ -52,3 +52,14 @@ add_executable(velox_example_vector_reader_writer VectorReaderWriter.cpp)
 
 target_link_libraries(velox_example_vector_reader_writer velox_expression
                       velox_type velox_vector)
+
+add_executable(velox_example_operator_extensibility OperatorExtensibility.cpp)
+
+target_link_libraries(
+  velox_example_operator_extensibility
+  velox_type
+  velox_vector
+  velox_exec
+  velox_exec_test_lib
+  velox_memory
+  velox_vector_test_lib)
