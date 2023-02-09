@@ -54,7 +54,7 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.InterpretedFunctionInvoker;
+import com.facebook.presto.sql.analyzer.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -1364,7 +1364,7 @@ public class PlanPrinter
 
         try {
             FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, type, VARCHAR);
-            Slice coerced = (Slice) new InterpretedFunctionInvoker(functionAndTypeManager).invoke(cast, session.getSqlFunctionProperties(), value);
+            Slice coerced = (Slice) new InterpretedFunctionInvoker(functionAndTypeManager.getFunctionAndTypeResolver()).invoke(cast, session.getSqlFunctionProperties(), value);
             return "\"" + coerced.toStringUtf8().replace("\"", "\\\"") + "\"";
         }
         catch (OperatorNotFoundException e) {

@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.sql.analyzer.BuiltInScalarFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;

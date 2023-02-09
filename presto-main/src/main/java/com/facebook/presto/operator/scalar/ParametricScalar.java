@@ -21,6 +21,7 @@ import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplement
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.sql.analyzer.BuiltInScalarFunctionImplementation;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Optional;

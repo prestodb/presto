@@ -39,7 +39,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.InterpretedFunctionInvoker;
+import com.facebook.presto.sql.analyzer.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.Interpreters.LambdaVariableResolver;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -150,7 +150,7 @@ public class RowExpressionInterpreter
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
         this.optimizationLevel = optimizationLevel;
-        this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
+        this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
         this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager());
         this.resolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
         this.functionAndTypeManager = metadata.getFunctionAndTypeManager();

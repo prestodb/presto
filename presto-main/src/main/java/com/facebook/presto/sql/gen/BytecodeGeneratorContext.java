@@ -19,9 +19,9 @@ import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.analyzer.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
 
 import java.util.List;

@@ -18,15 +18,16 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
+import com.facebook.presto.sql.analyzer.BuiltInScalarFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class CastFromUnknownOperator

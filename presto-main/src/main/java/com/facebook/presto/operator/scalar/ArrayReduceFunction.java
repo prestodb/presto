@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.sql.analyzer.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
@@ -32,12 +33,12 @@ import java.lang.invoke.MethodHandle;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.functionTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentProperty.functionTypeArgumentProperty;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArrayReduceFunction

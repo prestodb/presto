@@ -40,7 +40,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.sql.InterpretedFunctionInvoker;
+import com.facebook.presto.sql.analyzer.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BinaryLiteral;
@@ -73,7 +73,6 @@ import static com.facebook.presto.common.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
@@ -186,7 +185,7 @@ public final class LiteralInterpreter
         private LiteralVisitor(Metadata metadata)
         {
             this.metadata = metadata;
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
         }
 
         @Override
@@ -246,18 +245,18 @@ public final class LiteralInterpreter
         @Override
         protected Object visitGenericLiteral(GenericLiteral node, ConnectorSession session)
         {
-            Type type = metadata.getType(parseTypeSignature(node.getType()));
+            Type type = metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver().getType(parseTypeSignature(node.getType()));
             if (type == null) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
             if (JSON.equals(type)) {
-                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupFunction("json_parse", fromTypes(VARCHAR));
+                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver().lookupFunction("json_parse", fromTypes(VARCHAR));
                 return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
 
             try {
-                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupCast(CAST, VARCHAR, type);
+                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver().lookupCast("CAST", VARCHAR, type);
                 return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {

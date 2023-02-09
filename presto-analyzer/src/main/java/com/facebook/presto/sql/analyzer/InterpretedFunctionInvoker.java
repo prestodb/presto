@@ -11,43 +11,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql;
+package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
+import com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.google.common.base.Defaults;
+import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.sql.gen.BytecodeUtils.getAllScalarFunctionImplementationChoices;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.NullConvention.USE_NULL_FLAG;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ReturnPlaceConvention.STACK;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
 public class InterpretedFunctionInvoker
 {
-    private final FunctionAndTypeManager functionAndTypeManager;
+    private final FunctionAndTypeResolver functionAndTypeResolver;
 
-    public InterpretedFunctionInvoker(FunctionAndTypeManager functionAndTypeManager)
+    public InterpretedFunctionInvoker(FunctionAndTypeResolver functionAndTypeResolver)
     {
-        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "registry is null");
+        this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
     }
 
     public Object invoke(FunctionHandle functionHandle, SqlFunctionProperties properties, Object... arguments)
@@ -57,7 +57,7 @@ public class InterpretedFunctionInvoker
 
     public Object invoke(FunctionHandle functionHandle, SqlFunctionProperties properties, List<Object> arguments)
     {
-        return invoke(functionAndTypeManager.getJavaScalarFunctionImplementation(functionHandle), properties, arguments);
+        return invoke(functionAndTypeResolver.getJavaScalarFunctionImplementation(functionHandle), properties, arguments);
     }
 
     /**
@@ -111,6 +111,19 @@ public class InterpretedFunctionInvoker
         catch (Throwable throwable) {
             throw propagate(throwable);
         }
+    }
+
+    public static List<ScalarFunctionImplementationChoice> getAllScalarFunctionImplementationChoices(JavaScalarFunctionImplementation function)
+    {
+        if (function instanceof BuiltInScalarFunctionImplementation) {
+            return ((BuiltInScalarFunctionImplementation) function).getAllChoices();
+        }
+        return ImmutableList.of(new ScalarFunctionImplementationChoice(
+                function.isNullable(),
+                function.getInvocationConvention().getArgumentConventions().stream().map(ArgumentProperty::valueTypeArgumentProperty).collect(toImmutableList()),
+                STACK,
+                function.getMethodHandle(),
+                Optional.empty()));
     }
 
     private static MethodHandle bindInstanceFactory(MethodHandle method, JavaScalarFunctionImplementation implementation)

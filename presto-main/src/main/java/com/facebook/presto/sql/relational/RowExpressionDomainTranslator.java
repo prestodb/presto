@@ -45,7 +45,7 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.InterpretedFunctionInvoker;
+import com.facebook.presto.sql.analyzer.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -298,7 +298,7 @@ public final class RowExpressionDomainTranslator
 
         private Visitor(Metadata metadata, ConnectorSession session, ColumnExtractor<T> columnExtractor)
         {
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
             this.metadata = metadata;
             this.session = session;
             this.functionAndTypeManager = metadata.getFunctionAndTypeManager();

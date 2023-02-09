@@ -233,6 +233,12 @@ public class FunctionAndTypeManager
             {
                 return FunctionAndTypeManager.this.lookupCast(CastType.valueOf(castType), fromType, toType);
             }
+
+            @Override
+            public JavaScalarFunctionImplementation getJavaScalarFunctionImplementation(FunctionHandle functionHandle)
+            {
+                return FunctionAndTypeManager.this.getJavaScalarFunctionImplementation(functionHandle);
+            }
         };
     }
 

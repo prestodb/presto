@@ -14,8 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.sql.analyzer.BuiltInScalarFunctionImplementation;
 
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;

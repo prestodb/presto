@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.scalar;
+package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention;
 import com.facebook.presto.spi.function.InvocationConvention;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
+import com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentProperty;
+import com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ReturnPlaceConvention;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;

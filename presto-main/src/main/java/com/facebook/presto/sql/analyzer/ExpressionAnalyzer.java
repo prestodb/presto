@@ -1808,7 +1808,11 @@ public class ExpressionAnalyzer
                 analysis.isDescribe());
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(FunctionAndTypeResolver functionAndTypeResolver, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
+    public static ExpressionAnalyzer createConstantAnalyzer(
+            FunctionAndTypeResolver functionAndTypeResolver,
+            Session session,
+            Map<NodeRef<Parameter>, Expression> parameters,
+            WarningCollector warningCollector)
     {
         return createWithoutSubqueries(
                 functionAndTypeResolver,
@@ -1820,10 +1824,15 @@ public class ExpressionAnalyzer
                 false);
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
+    public static ExpressionAnalyzer createConstantAnalyzer(
+            FunctionAndTypeResolver functionAndTypeResolver,
+            Session session,
+            Map<NodeRef<Parameter>, Expression> parameters,
+            WarningCollector warningCollector,
+            boolean isDescribe)
     {
         return createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                functionAndTypeResolver,
                 session,
                 parameters,
                 EXPRESSION_NOT_CONSTANT,

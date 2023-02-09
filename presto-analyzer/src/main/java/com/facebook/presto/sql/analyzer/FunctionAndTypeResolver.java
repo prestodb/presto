@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -49,4 +50,6 @@ public interface FunctionAndTypeResolver
     boolean isTypeOnlyCoercion(Type actualType, Type expectedType);
 
     FunctionHandle lookupCast(String castType, Type fromType, Type toType);
+
+    JavaScalarFunctionImplementation getJavaScalarFunctionImplementation(FunctionHandle functionHandle);
 }

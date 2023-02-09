@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.scalar;
+package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention;
@@ -22,12 +22,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentType.FUNCTION_TYPE;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.BLOCK_AND_POSITION;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_NULL_FLAG;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentType.FUNCTION_TYPE;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.NullConvention.BLOCK_AND_POSITION;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.NullConvention.USE_NULL_FLAG;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;

@@ -17,20 +17,20 @@ import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice;
+import com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
-import static com.facebook.presto.sql.gen.BytecodeUtils.getAllScalarFunctionImplementationChoices;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.sql.analyzer.utils.FunctionsUtil.getAllScalarFunctionImplementationChoices;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 

@@ -31,8 +31,8 @@ import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
+import com.facebook.presto.sql.analyzer.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -275,7 +275,7 @@ public final class ExpressionDomainTranslator
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
         }
 
         private Type checkedTypeLookup(Expression expression)

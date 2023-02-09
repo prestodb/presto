@@ -25,10 +25,11 @@ import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
+import com.facebook.presto.sql.analyzer.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice;
+import com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentProperty;
+import com.facebook.presto.sql.analyzer.utils.FunctionsUtil;
 import com.facebook.presto.sql.gen.InputReferenceCompiler.InputReferenceNode;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -46,14 +47,12 @@ import static com.facebook.presto.bytecode.OpCode.NOP;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.BLOCK_AND_POSITION;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ReturnPlaceConvention.STACK;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.NullConvention.BLOCK_AND_POSITION;
+import static com.facebook.presto.sql.analyzer.ScalarFunctionImplementationChoice.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -227,7 +226,7 @@ public final class BytecodeUtils
         int realParameterIndex = 0;
 
         // Go through all the choices in the function and then pick the best one
-        List<ScalarFunctionImplementationChoice> choices = getAllScalarFunctionImplementationChoices(function);
+        List<ScalarFunctionImplementationChoice> choices = FunctionsUtil.getAllScalarFunctionImplementationChoices(function);
         ScalarFunctionImplementationChoice bestChoice = null;
         for (ScalarFunctionImplementationChoice currentChoice : choices) {
             boolean isValid = true;
@@ -455,19 +454,6 @@ public final class BytecodeUtils
                                 .getVariable(outputBlockVariable)
                                 .getVariable(tempValue)
                                 .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
-    }
-
-    public static List<ScalarFunctionImplementationChoice> getAllScalarFunctionImplementationChoices(JavaScalarFunctionImplementation function)
-    {
-        if (function instanceof BuiltInScalarFunctionImplementation) {
-            return ((BuiltInScalarFunctionImplementation) function).getAllChoices();
-        }
-        return ImmutableList.of(new ScalarFunctionImplementationChoice(
-                function.isNullable(),
-                function.getInvocationConvention().getArgumentConventions().stream().map(ArgumentProperty::valueTypeArgumentProperty).collect(toImmutableList()),
-                STACK,
-                function.getMethodHandle(),
-                Optional.empty()));
     }
 
     public static class OutputBlockVariableAndType
