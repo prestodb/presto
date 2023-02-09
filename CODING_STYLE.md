@@ -57,7 +57,11 @@ line width, indentation and ordering (for includes, using directives and etc). 
 * Use **snake_case** for namespace names and build targets
 * Use **UPPER_SNAKE_CASE** for macros.
 * Use **kPascalCase** for static constants and enumerators.
-
+* Use **testing** prefix for test only class methods, e.g. obj.testingFoo().
+  As much as possible, refrain from adding test methods, and test objects using
+  their public APIs. Only use test methods in rare edge cases where this is not
+  possible. For example, MemoryAllocator::testingSetFailureInjection() is used
+  to to inject various memory allocation failures to test error handling paths.
 
 ## Comments
 
