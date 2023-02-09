@@ -27,11 +27,19 @@ namespace generator_spec_utils {
 
 bool coinToss(FuzzerGenerator& rng, double threshold);
 
+vector_size_t getRandomIndex(FuzzerGenerator& rng, vector_size_t maxIndex);
+
 BufferPtr generateNullsBuffer(
     FuzzerGenerator& rng,
     memory::MemoryPool* pool,
     vector_size_t vectorSize,
     double nullProbability);
+
+BufferPtr generateIndicesBuffer(
+    FuzzerGenerator& rng,
+    memory::MemoryPool* pool,
+    vector_size_t bufferSize,
+    vector_size_t baseVectorSize);
 
 } // namespace generator_spec_utils
 } // namespace facebook::velox

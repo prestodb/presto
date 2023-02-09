@@ -23,6 +23,12 @@ bool coinToss(FuzzerGenerator& rng, double threshold) {
   return dist(rng) < threshold;
 }
 
+vector_size_t getRandomIndex(FuzzerGenerator& rng, vector_size_t maxIndex) {
+  std::uniform_int_distribution<vector_size_t> indexGenerator(
+      0, maxIndex); // generates index in [0, maxIndex]
+  return indexGenerator(rng);
+}
+
 BufferPtr generateNullsBuffer(
     FuzzerGenerator& rng,
     memory::MemoryPool* pool,
@@ -35,6 +41,22 @@ BufferPtr generateNullsBuffer(
     }
   }
   return builder.build();
+}
+
+BufferPtr generateIndicesBuffer(
+    FuzzerGenerator& rng,
+    memory::MemoryPool* pool,
+    vector_size_t bufferSize,
+    vector_size_t baseVectorSize) {
+  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(bufferSize, pool);
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  auto indicesGenerator =
+      std::uniform_int_distribution<vector_size_t>(0, baseVectorSize - 1);
+
+  for (size_t i = 0; i < bufferSize; ++i) {
+    rawIndices[i] = indicesGenerator(rng);
+  }
+  return indices;
 }
 
 } // namespace facebook::velox::generator_spec_utils

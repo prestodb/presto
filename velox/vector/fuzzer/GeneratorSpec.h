@@ -29,6 +29,14 @@ using namespace generator_spec_utils;
 class GeneratorSpec {
   // Blueprint for generating a Velox vector of random data
  public:
+  enum class EncoderSpecCodes {
+    // We view BaseVector::slice as an encoding in this context
+    CONSTANT,
+    SLICE,
+    DICTIONARY,
+    PLAIN
+  };
+
   explicit GeneratorSpec(const TypePtr& type, double nullProbability)
       : type_(type), nullProbability_(nullProbability) {}
 
@@ -218,6 +226,92 @@ class MapGeneratorSpec : public GeneratorSpec {
   Distribution lengthDistribution_;
 };
 
+template <typename Distribution>
+class EncoderSpec : public GeneratorSpec {
+ public:
+  EncoderSpec(
+      TypePtr type,
+      GeneratorSpecPtr base,
+      Distribution&& encodingDistribution,
+      vector_size_t minNesting,
+      vector_size_t maxNesting,
+      double nullProbability)
+      : GeneratorSpec(type, nullProbability),
+        base_(base),
+        encoding_(std::forward<Distribution>(encodingDistribution)),
+        nesting_(minNesting, maxNesting) {
+    using Ret = std::result_of_t<Distribution(FuzzerGenerator&)>;
+    static_assert(std::is_convertible_v<Ret, EncoderSpecCodes>);
+  }
+
+ private:
+  static const vector_size_t BASE_SIZE_MULTIPLIER = 2;
+
+  VectorPtr addEncoding(
+      FuzzerGenerator& rng,
+      memory::MemoryPool* pool,
+      vector_size_t nextSize,
+      const VectorPtr& vec) const {
+    VectorPtr ret;
+    auto curSize = vec->size();
+    auto encodingCode = encoding_(rng);
+    switch (encodingCode) {
+      case EncoderSpecCodes::CONSTANT: {
+        auto index = getRandomIndex(rng, curSize - 1);
+        if (coinToss(rng, nullProbability_)) {
+          ret = BaseVector::createNullConstant(type_, nextSize, pool);
+        } else {
+          ret = BaseVector::wrapInConstant(nextSize, index, vec);
+        }
+        break;
+      }
+      case EncoderSpecCodes::SLICE: {
+        auto offset = getRandomIndex(rng, curSize - 1);
+        auto length = getRandomIndex(rng, curSize - offset - 1);
+        ret = vec->slice(offset, length);
+        break;
+      }
+      case EncoderSpecCodes::DICTIONARY: {
+        auto indicesBuffer =
+            generateIndicesBuffer(rng, pool, nextSize, curSize);
+        auto nullsBuffer =
+            generateNullsBuffer(rng, pool, nextSize, nullProbability_);
+        ret = BaseVector::wrapInDictionary(
+            nullsBuffer, indicesBuffer, nextSize, vec);
+        break;
+      }
+      case EncoderSpecCodes::PLAIN: {
+        // No encoding layer
+        ret = vec;
+        break;
+      }
+      default: {
+        VELOX_UNREACHABLE()
+        break;
+      }
+    }
+    return ret;
+  }
+
+  VectorPtr generateDataImpl(
+      FuzzerGenerator& rng,
+      memory::MemoryPool* pool,
+      size_t vectorSize) const override {
+    vector_size_t curSize = BASE_SIZE_MULTIPLIER * vectorSize;
+    vector_size_t nestingLevel = nesting_(rng);
+    VectorPtr ret = base_->generateData(rng, pool, curSize);
+
+    for (auto i = nestingLevel; i > 0; --i) {
+      ret = addEncoding(rng, pool, vectorSize, ret);
+    }
+    return ret;
+  }
+
+  GeneratorSpecPtr base_;
+  Distribution encoding_;
+  mutable std::uniform_int_distribution<vector_size_t> nesting_;
+};
+
 namespace generator_spec_maker {
 
 #ifdef DEFINE_RANDOM_SCALAR_FACTORY
@@ -281,6 +375,23 @@ inline GeneratorSpecPtr RANDOM_MAP(
       keys,
       values,
       std::forward<Distribution>(distribution),
+      nullProbability);
+}
+
+template <typename Distribution>
+inline GeneratorSpecPtr ENCODE(
+    GeneratorSpecPtr base,
+    Distribution&& distribution,
+    size_t minNesting = 1,
+    size_t maxNesting = 1,
+    double nullProbability = 0.0) {
+  auto type = base->type();
+  return std::make_shared<const EncoderSpec<Distribution>>(
+      type,
+      base,
+      std::forward<Distribution>(distribution),
+      minNesting,
+      maxNesting,
       nullProbability);
 }
 
