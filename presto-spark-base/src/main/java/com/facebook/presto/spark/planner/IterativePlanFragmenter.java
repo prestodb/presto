@@ -68,6 +68,7 @@ import static com.facebook.presto.sql.planner.PlanFragmenterUtils.finalizeSubPla
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.getTableWriterNodeIds;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -252,13 +253,19 @@ public class IterativePlanFragmenter
         @Override
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<FragmentProperties> context)
         {
-            if (isFragmentReadyForExecution(node)) {
+            if (node.getScope() != REMOTE_MATERIALIZED || isFragmentReadyForExecution(node)) {
                 // create child fragments
                 return super.visitExchange(node, context);
             }
 
             // don't fragment
-            return context.defaultRewrite(node, context.get());
+            ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
+            for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
+                FragmentProperties childProperties = new FragmentProperties(node.getPartitioningScheme().translateOutputLayout(node.getInputs().get(sourceIndex)));
+                builder.add(context.rewrite(node.getSources().get(sourceIndex), childProperties));
+                context.get().addChildren(childProperties.getChildren());
+            }
+            return node.replaceChildren(builder.build());
         }
 
         @Override
