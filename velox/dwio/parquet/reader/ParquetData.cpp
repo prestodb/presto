@@ -91,10 +91,6 @@ void ParquetData::enqueueRowGroup(
       chunk.__isset.meta_data,
       "ColumnMetaData does not exist for schema Id ",
       type_->column);
-  VELOX_CHECK(
-      chunk.__isset.meta_data,
-      "ColumnMetaData does not exist for schema Id ",
-      type_->column);
   auto& metaData = chunk.meta_data;
 
   uint64_t chunkReadOffset = metaData.data_page_offset;
