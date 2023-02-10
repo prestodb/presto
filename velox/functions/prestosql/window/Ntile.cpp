@@ -45,7 +45,7 @@ class NtileFunction : public exec::WindowFunction {
     bucketFlatVector_ = bucketVector_->asFlatVector<int64_t>();
   }
 
-  void resetPartition(const exec::WindowPartition* partition) {
+  void resetPartition(const exec::WindowPartition* partition) override {
     partition_ = partition;
     partitionOffset_ = 0;
     numPartitionRows_ = partition->numRows();
@@ -69,7 +69,7 @@ class NtileFunction : public exec::WindowFunction {
       const BufferPtr& /*frameEnds*/,
       const SelectivityVector& /*validRows*/,
       vector_size_t resultOffset,
-      const VectorPtr& result) {
+      const VectorPtr& result) override {
     int numRows = peerGroupStarts->size() / sizeof(vector_size_t);
 
     if (bucketColumn_.has_value()) {
