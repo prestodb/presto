@@ -2108,7 +2108,7 @@ TEST_F(VectorTest, lifetime) {
         childPool.reset();
         v.reset();
       },
-      "Memory pool should be destroyed only after all allocated memory has been freed.");
+      "Memory pool test should be destroyed only after all allocated memory has been freed.");
 }
 
 TEST_F(VectorTest, ensureNullsCapacity) {

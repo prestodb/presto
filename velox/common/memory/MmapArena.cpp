@@ -15,14 +15,12 @@
  */
 
 #include "velox/common/memory/MmapArena.h"
+
 #include <sys/mman.h>
 #include "velox/common/base/BitUtil.h"
+#include "velox/common/memory/Memory.h"
 
 namespace facebook::velox::memory {
-namespace {
-constexpr int32_t kLogEveryN = 32;
-}
-
 uint64_t MmapArena::roundBytes(uint64_t bytes) {
   return bits::nextPowerOfTwo(bytes);
 }
@@ -65,7 +63,7 @@ void* MmapArena::allocate(uint64_t bytes) {
   // First match in the list that can give this many bytes
   auto lookupItr = freeLookup_.lower_bound(bytes);
   if (lookupItr == freeLookup_.end()) {
-    LOG_EVERY_N(WARNING, kLogEveryN)
+    VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
         << "Cannot find a free block that is large enough to allocate " << bytes
         << " bytes. Current arena freeBytes " << freeBytes_ << " & lookup table"
         << freeLookupStr();

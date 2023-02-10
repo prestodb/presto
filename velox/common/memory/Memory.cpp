@@ -153,7 +153,8 @@ MemoryPoolImpl::~MemoryPoolImpl() {
     VELOX_CHECK_EQ(
         0,
         remainingBytes,
-        "Memory pool should be destroyed only after all allocated memory has been freed. Remaining bytes allocated: {}, cumulative bytes allocated: {}, number of allocations: {}",
+        "Memory pool {} should be destroyed only after all allocated memory has been freed. Remaining bytes allocated: {}, cumulative bytes allocated: {}, number of allocations: {}",
+        name(),
         remainingBytes,
         tracker->cumulativeBytes(),
         tracker->numAllocs());
@@ -423,7 +424,8 @@ MemoryManager::MemoryManager(const Options& options)
 MemoryManager::~MemoryManager() {
   auto currentBytes = getTotalBytes();
   if (currentBytes > 0) {
-    LOG(WARNING) << "Leaked total memory of " << currentBytes << " bytes.";
+    VELOX_MEM_LOG(WARNING) << "Leaked total memory of " << currentBytes
+                           << " bytes.";
   }
 }
 

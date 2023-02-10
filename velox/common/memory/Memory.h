@@ -30,6 +30,7 @@
 
 #include <velox/common/base/Exceptions.h>
 #include "folly/CPortability.h"
+#include "folly/GLog.h"
 #include "folly/Likely.h"
 #include "folly/Random.h"
 #include "folly/SharedMutex.h"
@@ -46,6 +47,11 @@ DECLARE_int32(memory_usage_aggregation_interval_millis);
 namespace facebook {
 namespace velox {
 namespace memory {
+#define VELOX_MEM_LOG_PREFIX "[MEM] "
+#define VELOX_MEM_LOG(severity) LOG(severity) << VELOX_MEM_LOG_PREFIX
+#define VELOX_MEM_LOG_EVERY_MS(severity, ms) \
+  FB_LOG_EVERY_MS(severity, ms) << VELOX_MEM_LOG_PREFIX
+
 #define VELOX_MEM_ALLOC_ERROR(errorMessage)                         \
   _VELOX_THROW(                                                     \
       ::facebook::velox::VeloxRuntimeError,                         \

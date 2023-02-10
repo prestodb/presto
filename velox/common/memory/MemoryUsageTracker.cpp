@@ -15,16 +15,14 @@
  */
 
 #include "velox/common/memory/MemoryUsageTracker.h"
+
 #include "velox/common/base/SuccinctPrinter.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/common/testutil/TestValue.h"
 
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
-namespace {
-constexpr int32_t kLogEveryN = 32;
-}
-
 std::shared_ptr<MemoryUsageTracker> MemoryUsageTracker::create(
     const std::shared_ptr<MemoryUsageTracker>& parent,
     int64_t maxMemory) {
@@ -35,8 +33,7 @@ std::shared_ptr<MemoryUsageTracker> MemoryUsageTracker::create(
 MemoryUsageTracker::~MemoryUsageTracker() {
   VELOX_DCHECK_EQ(usedReservationBytes_, 0);
   if (usedReservationBytes_ != 0) {
-    LOG_EVERY_N(ERROR, kLogEveryN)
-        << "used reservation is not zero " << toString();
+    VELOX_MEM_LOG(ERROR) << "used reservation is not zero " << toString();
   }
   VELOX_CHECK(
       (reservationBytes_ == 0) && (grantedReservationBytes_ == 0) &&
@@ -198,7 +195,7 @@ void MemoryUsageTracker::sanityCheckLocked() const {
       toString());
   VELOX_DCHECK_GE(usedReservationBytes_, 0);
   if (usedReservationBytes_ < 0) {
-    LOG_EVERY_N(ERROR, kLogEveryN)
+    VELOX_MEM_LOG_EVERY_MS(ERROR, 1000)
         << "used reservation is negative " << toString();
   }
 }
