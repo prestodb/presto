@@ -100,7 +100,17 @@ public class HashJoinBenchmark
 
             List<Type> lineItemTypes = getColumnTypes("lineitem", "orderkey", "quantity");
             OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
-            OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(1, new PlanNodeId("test"), lookupSourceFactoryManager, lineItemTypes, Ints.asList(0), OptionalInt.empty(), Optional.empty(), OptionalInt.empty(), unsupportedPartitioningSpillerFactory());
+            OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(
+                    1,
+                    new PlanNodeId("test"),
+                    lookupSourceFactoryManager,
+                    lineItemTypes,
+                    Ints.asList(0),
+                    OptionalInt.empty(),
+                    Optional.empty(),
+                    OptionalInt.empty(),
+                    unsupportedPartitioningSpillerFactory(),
+                    false);
             NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"));
             this.probeDriverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty(), UNGROUPED_EXECUTION, Optional.empty());
 
