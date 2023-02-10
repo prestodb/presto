@@ -245,6 +245,7 @@ public class FeaturesConfig
     private boolean inPredicatesAsInnerJoinsEnabled;
     private double pushAggregationBelowJoinByteReductionThreshold = 1;
     private boolean prefilterForGroupbyLimit;
+    private boolean isOptimizeJoinProbeWithEmptyBuildRuntime;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2340,6 +2341,19 @@ public class FeaturesConfig
     public FeaturesConfig setPrefilterForGroupbyLimit(boolean prefilterForGroupbyLimit)
     {
         this.prefilterForGroupbyLimit = prefilterForGroupbyLimit;
+        return this;
+    }
+
+    public boolean isOptimizeJoinProbeForEmptyBuildRuntimeEnabled()
+    {
+        return isOptimizeJoinProbeWithEmptyBuildRuntime;
+    }
+
+    @Config("optimizer.optimize-probe-for-empty-build-runtime")
+    @ConfigDescription("Optimize join probe at runtime if build side is empty")
+    public FeaturesConfig setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(boolean isOptimizeJoinProbeWithEmptyBuildRuntime)
+    {
+        this.isOptimizeJoinProbeWithEmptyBuildRuntime = isOptimizeJoinProbeWithEmptyBuildRuntime;
         return this;
     }
 }

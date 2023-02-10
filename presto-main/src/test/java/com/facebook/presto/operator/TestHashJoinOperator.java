@@ -243,7 +243,8 @@ public class TestHashJoinOperator
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+                PARTITIONING_SPILLER_FACTORY,
+                false);
 
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(buildSideSetup);
@@ -1267,7 +1268,8 @@ public class TestHashJoinOperator
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+                PARTITIONING_SPILLER_FACTORY,
+                false);
 
         // drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1303,7 +1305,8 @@ public class TestHashJoinOperator
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+                PARTITIONING_SPILLER_FACTORY,
+                false);
 
         // drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1345,7 +1348,8 @@ public class TestHashJoinOperator
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+                PARTITIONING_SPILLER_FACTORY,
+                false);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1390,7 +1394,8 @@ public class TestHashJoinOperator
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+                PARTITIONING_SPILLER_FACTORY,
+                false);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1434,7 +1439,8 @@ public class TestHashJoinOperator
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+                PARTITIONING_SPILLER_FACTORY,
+                false);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1483,7 +1489,8 @@ public class TestHashJoinOperator
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY);
+                PARTITIONING_SPILLER_FACTORY,
+                false);
     }
 
     private OperatorFactory innerJoinOperatorFactory(
@@ -1509,7 +1516,8 @@ public class TestHashJoinOperator
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 totalOperatorsCount,
-                partitioningSpillerFactory);
+                partitioningSpillerFactory,
+                false);
     }
 
     private BuildSideSetup setupBuildSide(

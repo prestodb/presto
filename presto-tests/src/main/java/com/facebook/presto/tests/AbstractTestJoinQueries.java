@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -2465,6 +2466,13 @@ public abstract class AbstractTestJoinQueries
                         "SELECT lineitem.orderkey FROM lineitem INNER JOIN small_part ON lineitem.partkey = small_part.partkey");
 
         assertEquals(actual.getRowCount(), 0);
+
+        actual = computeActual(
+                optimizeJoinForEmptyBuildRuntime(),
+                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') " +
+                        "SELECT lineitem.orderkey FROM lineitem INNER JOIN small_part ON lineitem.partkey = small_part.partkey");
+
+        assertEquals(actual.getRowCount(), 0);
     }
 
     @Test
@@ -2472,6 +2480,10 @@ public abstract class AbstractTestJoinQueries
     {
         assertQuery(
                 noJoinReordering(),
+                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem RIGHT JOIN small_part ON lineitem.partkey = small_part.partkey");
+
+        assertQuery(
+                optimizeJoinForEmptyBuildRuntime(),
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem RIGHT JOIN small_part ON lineitem.partkey = small_part.partkey");
     }
 
@@ -2481,6 +2493,9 @@ public abstract class AbstractTestJoinQueries
         assertQuery(
                 noJoinReordering(),
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
+        assertQuery(
+                optimizeJoinForEmptyBuildRuntime(),
+                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
     }
 
     @Test
@@ -2488,6 +2503,12 @@ public abstract class AbstractTestJoinQueries
     {
         assertQuery(
                 noJoinReordering(),
+                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem FULL OUTER JOIN small_part ON lineitem.partkey = small_part.partkey",
+                // H2 doesn't support FULL OUTER
+                "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
+
+        assertQuery(
+                optimizeJoinForEmptyBuildRuntime(),
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem FULL OUTER JOIN small_part ON lineitem.partkey = small_part.partkey",
                 // H2 doesn't support FULL OUTER
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
@@ -2514,6 +2535,13 @@ public abstract class AbstractTestJoinQueries
         return Session.builder(getSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.name())
+                .build();
+    }
+
+    protected Session optimizeJoinForEmptyBuildRuntime()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME, "true")
                 .build();
     }
 
