@@ -464,8 +464,29 @@ std::shared_ptr<const core::IExpr> parseCastExpr(
   // We may need to expand toVeloxType in the future to support
   // Map and Array and Struct properly.
   auto targetType = toVeloxType(castExpr.cast_type);
-  const bool nullOnFailure = castExpr.try_cast;
   VELOX_CHECK(!params.empty());
+  if (targetType->isBoolean()) {
+    // DuckDB parses BOOLEAN literal as cast expression.  Try to restore it back
+    // to constant expression here.
+    if (auto* constant =
+            dynamic_cast<const core::ConstantExpr*>(params[0].get())) {
+      if (constant->type()->isVarchar()) {
+        auto& value = constant->value();
+        if (!value.isNull() && value.kind() == TypeKind::VARCHAR) {
+          auto& s = value.value<TypeKind::VARCHAR>();
+          if (s == "t") {
+            return std::make_shared<const core::ConstantExpr>(
+                variant::create<TypeKind::BOOLEAN>(true), getAlias(expr));
+          }
+          if (s == "f") {
+            return std::make_shared<const core::ConstantExpr>(
+                variant::create<TypeKind::BOOLEAN>(false), getAlias(expr));
+          }
+        }
+      }
+    }
+  }
+  const bool nullOnFailure = castExpr.try_cast;
   return std::make_shared<const core::CastExpr>(
       targetType, params[0], nullOnFailure, getAlias(expr));
 }
