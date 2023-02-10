@@ -16,7 +16,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/functions/prestosql/aggregates/AverageDecimalAccumulator.h"
+#include "velox/functions/prestosql/aggregates/DecimalAggregate.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -219,7 +219,7 @@ TEST_F(AverageAggregationTest, partialResults) {
 }
 
 TEST_F(AverageAggregationTest, decimalAccumulator) {
-  AverageDecimalAccumulator accumulator;
+  LongDecimalWithOverflowState accumulator;
   accumulator.sum = -1000;
   accumulator.count = 10;
   accumulator.overflow = -1;
@@ -227,7 +227,7 @@ TEST_F(AverageAggregationTest, decimalAccumulator) {
   char* buffer = new char[accumulator.serializedSize()];
   StringView serialized(buffer, accumulator.serializedSize());
   accumulator.serialize(serialized);
-  AverageDecimalAccumulator mergedAccumulator;
+  LongDecimalWithOverflowState mergedAccumulator;
   mergedAccumulator.mergeWith(serialized);
 
   ASSERT_EQ(mergedAccumulator.sum, accumulator.sum);
