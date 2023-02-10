@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/TaskManager.h"
 #include <folly/executors/ThreadedExecutor.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
@@ -35,6 +36,7 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Type.h"
 
+using namespace ::testing;
 using namespace facebook::velox;
 using namespace facebook::presto;
 
@@ -674,7 +676,10 @@ TEST_F(TaskManagerTest, emptyFile) {
     if (not taskStatus->failures.empty()) {
       EXPECT_EQ(1, taskStatus->failures.size());
       const auto& failure = taskStatus->failures.front();
-      EXPECT_EQ("fileLength_ > 0 ORC file is empty", failure.message);
+      EXPECT_THAT(
+          failure.message,
+          testing::ContainsRegex(
+              "fileLength_ > 0 ORC file is empty Split \\[.*\\] Task scan\\.0\\.0\\.1"));
       EXPECT_EQ("VeloxException", failure.type);
       break;
     }
