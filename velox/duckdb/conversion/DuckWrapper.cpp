@@ -142,6 +142,7 @@ inline bool isZeroCopyEligible(const ::duckdb::LogicalType& duckType) {
 
   if (duckType.id() == LogicalTypeId::HUGEINT ||
       duckType.id() == LogicalTypeId::TIMESTAMP ||
+      duckType.id() == LogicalTypeId::BOOLEAN ||
       duckType.id() == LogicalTypeId::BLOB ||
       duckType.id() == LogicalTypeId::VARCHAR) {
     return false;
