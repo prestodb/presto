@@ -59,7 +59,7 @@ void ConstantExpr::evalSpecialFormSimplified(
 
   // Simplified path should never ask us to write to a vector that was already
   // pre-allocated.
-  VELOX_CHECK(result == nullptr);
+  VELOX_CHECK_NULL(result);
 
   if (sharedSubexprValues_ == nullptr) {
     result = BaseVector::createConstant(value_, rows.end(), context.pool());

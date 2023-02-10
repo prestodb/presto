@@ -328,7 +328,7 @@ ExprPtr tryFoldIfConstant(const ExprPtr& expr, Scope* scope) {
     // If not, in case this expression is never hit at execution time (for
     // instance, if other arguments are all null in a function with default null
     // behavior), the query won't fail.
-    catch (const std::exception&) {
+    catch (const VeloxUserError&) {
     }
   }
   return expr;
