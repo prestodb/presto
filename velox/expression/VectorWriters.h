@@ -32,11 +32,9 @@
 
 namespace facebook::velox::exec {
 
-// TODO: add documentation for the static API.
-
 // This default is for scalar types.
 template <typename T, typename = void>
-struct VectorWriter {
+struct VectorWriter : public VectorWriterBase {
   using exec_out_t = typename VectorExec::template resolver<T>::out_type;
   using vector_t = typename TypeToFlatVector<T>::type;
 
@@ -49,16 +47,12 @@ struct VectorWriter {
     }
   }
 
-  void finish() {}
-
-  void ensureSize(size_t size) {
+  void ensureSize(size_t size) override {
     if (size > vector_->size()) {
       vector_->resize(size, /*setNotNull*/ false);
       data_ = vector_->mutableRawValues();
     }
   }
-
-  void finalizeNull() {}
 
   VectorWriter() {}
 
@@ -78,7 +72,7 @@ struct VectorWriter {
     vector_->setNull(offset_, true);
   }
 
-  void commit(bool isSet) {
+  void commit(bool isSet) override {
     // this code path is called when the slice is top-level
     if (!isSet) {
       vector_->setNull(offset_, true);
@@ -87,21 +81,16 @@ struct VectorWriter {
     }
   }
 
-  FOLLY_ALWAYS_INLINE void setOffset(int32_t offset) {
-    offset_ = offset;
-  }
-
-  FOLLY_ALWAYS_INLINE vector_t& vector() {
+  vector_t& vector() {
     return *vector_;
   }
 
   vector_t* vector_;
   exec_out_t* data_;
-  size_t offset_ = 0;
 };
 
 template <typename V>
-struct VectorWriter<Array<V>> {
+struct VectorWriter<Array<V>> : public VectorWriterBase {
   using vector_t = typename TypeToFlatVector<Array<V>>::type;
   using child_vector_t = typename TypeToFlatVector<V>::type;
   using exec_out_t = ArrayWriter<V>;
@@ -113,7 +102,7 @@ struct VectorWriter<Array<V>> {
   }
 
   // This should be called once all rows are processed.
-  void finish() {
+  void finish() override {
     writer_.elementsVector_->resize(writer_.valuesOffset_);
     arrayVector_ = nullptr;
     childWriter_.finish();
@@ -129,7 +118,7 @@ struct VectorWriter<Array<V>> {
     return *arrayVector_;
   }
 
-  void ensureSize(size_t size) {
+  void ensureSize(size_t size) override {
     if (size > arrayVector_->size()) {
       arrayVector_->resize(size);
     }
@@ -144,7 +133,7 @@ struct VectorWriter<Array<V>> {
     writer_.finalize();
   }
 
-  void finalizeNull() {
+  void finalizeNull() override {
     writer_.resetLength();
     // Call it on the children
     childWriter_.finalizeNull();
@@ -156,17 +145,12 @@ struct VectorWriter<Array<V>> {
     arrayVector_->setNull(offset_, true);
   }
 
-  void commit(bool isSet) {
+  void commit(bool isSet) override {
     if (LIKELY(isSet)) {
       commit();
     } else {
       commitNull();
     }
-  }
-
-  // Set the index being written.
-  void setOffset(vector_size_t offset) {
-    offset_ = offset;
   }
 
   void reset() {
@@ -178,13 +162,10 @@ struct VectorWriter<Array<V>> {
   exec_out_t writer_;
 
   VectorWriter<V> childWriter_;
-
-  // The index being written in the array vector.
-  vector_size_t offset_ = 0;
 };
 
 template <typename K, typename V>
-struct VectorWriter<Map<K, V>> {
+struct VectorWriter<Map<K, V>> : public VectorWriterBase {
   using vector_t = typename TypeToFlatVector<Map<K, V>>::type;
   using key_vector_t = typename TypeToFlatVector<K>::type;
   using val_vector_t = typename TypeToFlatVector<V>::type;
@@ -198,7 +179,7 @@ struct VectorWriter<Map<K, V>> {
   }
 
   // This should be called once all rows are processed.
-  void finish() {
+  void finish() override {
     // Downsize to actual used size.
     writer_.keysVector_->resize(writer_.innerOffset_);
     writer_.valuesVector_->resize(writer_.innerOffset_);
@@ -217,7 +198,7 @@ struct VectorWriter<Map<K, V>> {
     return *mapVector_;
   }
 
-  void ensureSize(size_t size) {
+  void ensureSize(size_t size) override {
     if (size > mapVector_->size()) {
       mapVector_->resize(size);
     }
@@ -233,7 +214,7 @@ struct VectorWriter<Map<K, V>> {
     writer_.finalize();
   }
 
-  void finalizeNull() {
+  void finalizeNull() override {
     writer_.resetLength();
     // Call it on the children
     keyWriter_.finalizeNull();
@@ -246,17 +227,12 @@ struct VectorWriter<Map<K, V>> {
     mapVector_->setNull(offset_, true);
   }
 
-  void commit(bool isSet) {
+  void commit(bool isSet) override {
     if (LIKELY(isSet)) {
       commit();
     } else {
       commitNull();
     }
-  }
-
-  // Set the index being written.
-  void setOffset(vector_size_t offset) {
-    offset_ = offset;
   }
 
   void reset() {
@@ -268,11 +244,10 @@ struct VectorWriter<Map<K, V>> {
   vector_t* mapVector_;
   VectorWriter<K> keyWriter_;
   VectorWriter<V> valWriter_;
-  size_t offset_ = 0;
 };
 
 template <typename... T>
-struct VectorWriter<Row<T...>> {
+struct VectorWriter<Row<T...>> : public VectorWriterBase {
   using children_types = std::tuple<T...>;
   using vector_t = typename TypeToFlatVector<Row<T...>>::type;
   using exec_out_t = typename VectorExec::resolver<Row<T...>>::out_type;
@@ -288,7 +263,7 @@ struct VectorWriter<Row<T...>> {
   }
 
   // This should be called once all rows are processed.
-  void finish() {
+  void finish() override {
     finishChildren(std::index_sequence_for<T...>());
   }
 
@@ -300,15 +275,15 @@ struct VectorWriter<Row<T...>> {
     return *rowVector_;
   }
 
-  void ensureSize(size_t size) {
+  void ensureSize(size_t size) override {
     if (size > rowVector_->size()) {
       rowVector_->resize(size, /*setNotNull*/ false);
       resizeVectorWriters<0>(rowVector_->size());
     }
   }
 
-  void finalizeNull() {
-    // TODO: we could pull the logic out of finalizeNullOnChildren to here.
+  void finalizeNull() override {
+    // TODO: we could pull the logic out to here also.
     writer_.finalizeNullOnChildren();
   }
 
@@ -317,7 +292,7 @@ struct VectorWriter<Row<T...>> {
     finalizeNull();
   }
 
-  void commit(bool isSet = true) {
+  void commit(bool isSet = true) override {
     VELOX_DCHECK(rowVector_->size() > writer_.offset_);
 
     if (LIKELY(isSet)) {
@@ -328,7 +303,7 @@ struct VectorWriter<Row<T...>> {
     }
   }
 
-  void setOffset(size_t offset) {
+  void setOffset(vector_size_t offset) override {
     writer_.offset_ = offset;
   }
 
@@ -373,20 +348,16 @@ struct VectorWriter<Row<T...>> {
 template <typename T>
 struct VectorWriter<
     T,
-    std::enable_if_t<
-        std::is_same_v<T, Varchar> | std::is_same_v<T, Varbinary>>> {
+    std::enable_if_t<std::is_same_v<T, Varchar> | std::is_same_v<T, Varbinary>>>
+    : public VectorWriterBase {
   using vector_t = typename TypeToFlatVector<T>::type;
   using exec_out_t = StringWriter<>;
-
-  void finalizeNull() {}
 
   void init(vector_t& vector, bool uniqueAndMutable = false) {
     proxy_.vector_ = &vector;
   }
 
-  void finish() {}
-
-  void ensureSize(size_t size) {
+  void ensureSize(size_t size) override {
     if (size > proxy_.vector_->size()) {
       proxy_.vector_->resize(size, /*setNotNull*/ false);
     }
@@ -402,7 +373,7 @@ struct VectorWriter<
     proxy_.vector_->setNull(proxy_.offset_, true);
   }
 
-  void commit(bool isSet) {
+  void commit(bool isSet) override {
     // this code path is called when the slice is top-level
     if (isSet) {
       proxy_.finalize();
@@ -412,7 +383,7 @@ struct VectorWriter<
     proxy_.prepareForReuse(isSet);
   }
 
-  void setOffset(int32_t offset) {
+  void setOffset(vector_size_t offset) override {
     proxy_.offset_ = offset;
   }
 
@@ -423,7 +394,8 @@ struct VectorWriter<
 };
 
 template <typename T>
-struct VectorWriter<T, std::enable_if_t<std::is_same_v<T, bool>>> {
+struct VectorWriter<T, std::enable_if_t<std::is_same_v<T, bool>>>
+    : public VectorWriterBase {
   using vector_t = typename TypeToFlatVector<T>::type;
   using exec_out_t = bool;
 
@@ -431,11 +403,7 @@ struct VectorWriter<T, std::enable_if_t<std::is_same_v<T, bool>>> {
     vector_ = &vector;
   }
 
-  void finalizeNull() {}
-
-  void finish() {}
-
-  void ensureSize(size_t size) {
+  void ensureSize(size_t size) override {
     if (size > vector_->size()) {
       vector_->resize(size, /*setNotNull*/ false);
     }
@@ -455,7 +423,7 @@ struct VectorWriter<T, std::enable_if_t<std::is_same_v<T, bool>>> {
     vector_->setNull(offset_, true);
   }
 
-  void commit(bool isSet) {
+  void commit(bool isSet) override {
     // this code path is called when the slice is top-level
     if (isSet) {
       copyCommit(proxy_);
@@ -464,21 +432,16 @@ struct VectorWriter<T, std::enable_if_t<std::is_same_v<T, bool>>> {
     }
   }
 
-  void setOffset(int32_t offset) {
-    offset_ = offset;
-  }
-
   vector_t& vector() {
     return *vector_;
   }
 
   bool proxy_;
   vector_t* vector_;
-  size_t offset_ = 0;
 };
 
 template <typename T>
-struct VectorWriter<std::shared_ptr<T>> {
+struct VectorWriter<std::shared_ptr<T>> : public VectorWriterBase {
   using exec_out_t =
       typename VectorExec::template resolver<std::shared_ptr<T>>::out_type;
   using vector_t = typename TypeToFlatVector<std::shared_ptr<void>>::type;
@@ -487,11 +450,7 @@ struct VectorWriter<std::shared_ptr<T>> {
     vector_ = &vector;
   }
 
-  void finish() {}
-
-  void finalizeNull() {}
-
-  void ensureSize(size_t size) {
+  void ensureSize(size_t size) override {
     if (size > vector_->size()) {
       vector_->resize(size, /*setNotNull*/ false);
     }
@@ -515,7 +474,7 @@ struct VectorWriter<std::shared_ptr<T>> {
     vector_->setNull(offset_, true);
   }
 
-  void commit(bool isSet) {
+  void commit(bool isSet) override {
     // this code path is called when the slice is top-level
     if (isSet) {
       copyCommit(proxy_);
@@ -524,25 +483,22 @@ struct VectorWriter<std::shared_ptr<T>> {
     }
   }
 
-  void setOffset(int32_t offset) {
-    offset_ = offset;
-  }
-
   exec_out_t proxy_;
   vector_t* vector_;
-  size_t offset_ = 0;
 };
 
 template <typename T>
-struct VectorWriter<Generic<T>> {
+struct VectorWriter<Generic<T>> : public VectorWriterBase {
   using exec_out_t = GenericWriter;
   using vector_t = BaseVector;
 
   VectorWriter<Generic<T>>() : writer_{castWriter_, castType_, offset_} {}
 
-  void init(vector_t& vector) {
-    vector_ = &vector;
-    writer_.initialize(vector_);
+  void setOffset(vector_size_t offset) override {
+    offset_ = offset;
+    if (castWriter_) {
+      castWriter_->setOffset(offset);
+    }
   }
 
   template <typename F>
@@ -551,39 +507,29 @@ struct VectorWriter<Generic<T>> {
   template <typename... F>
   struct isRowWriter<writer_ptr_t<Row<F...>>> : public std::true_type {};
 
-  template <typename F>
-  void finalizeNullDispatch(F& writer) {
-    if constexpr (
-        std::is_same_v<F, writer_ptr_t<Array<Any>>> ||
-        std::is_same_v<F, writer_ptr_t<Map<Any, Any>>> ||
-        std::is_same_v<F, writer_ptr_t<DynamicRow>> || isRowWriter<F>::value) {
-      writer->finalizeNull();
-    }
-  }
-
-  void finalizeNull() {
+  void finalizeNull() override {
     if (castType_) {
-      std::visit(
-          [&](auto&& castedWriter) { finalizeNullDispatch(castedWriter); },
-          castWriter_);
+      castWriter_->finalizeNull();
     }
   }
 
   // This should be called once all rows are processed to resize the vectors to
   // the actual used size. No need to call finish() if the generic writer is
   // never casted.
-  void finish() {
+  void finish() override {
     if (castType_) {
-      std::visit(
-          [](auto&& castedWriter) { castedWriter->finish(); }, castWriter_);
+      castWriter_->finish();
     }
   }
 
-  void ensureSize(size_t size) {
+  void init(vector_t& vector) {
+    vector_ = &vector;
+    writer_.initialize(vector_);
+  }
+
+  void ensureSize(size_t size) override {
     if (castType_) {
-      std::visit(
-          [&](auto&& castedWriter) { castedWriter->ensureSize(size); },
-          castWriter_);
+      castWriter_->ensureSize(size);
     } else {
       vector_->resize(size, false);
     }
@@ -596,8 +542,7 @@ struct VectorWriter<Generic<T>> {
   // Commit a null value.
   void commitNull() {
     if (castType_) {
-      std::visit(
-          [](auto&& castedWriter) { castedWriter->commitNull(); }, castWriter_);
+      castWriter_->commit(false);
     } else {
       vector_->setNull(offset_, true);
     }
@@ -608,21 +553,12 @@ struct VectorWriter<Generic<T>> {
 
   // User can only add values after casting a generic writer to an actual type.
   // If the writer has not been casted, commit should do nothing.
-  void commit(bool isSet) {
-    if (castType_) {
-      std::visit(
-          [&](auto&& castedWriter) { castedWriter->commit(isSet); },
-          castWriter_);
-    }
-  }
-
-  // Set the index being written.
-  FOLLY_ALWAYS_INLINE void setOffset(int32_t offset) {
-    offset_ = offset;
-    if (castType_) {
-      std::visit(
-          [&](auto&& castedWriter) { castedWriter->setOffset(offset); },
-          castWriter_);
+  void commit(bool isSet) override {
+    if (!isSet) {
+      commitNull();
+    } else {
+      VELOX_CHECK(castWriter_);
+      castWriter_->commit(isSet);
     }
   }
 
@@ -632,9 +568,9 @@ struct VectorWriter<Generic<T>> {
 
   vector_t* vector_;
   exec_out_t writer_;
-  size_t offset_ = 0;
+  vector_size_t offset_ = 0;
 
-  GenericWriter::writer_variant_t castWriter_;
+  std::shared_ptr<VectorWriterBase> castWriter_;
   TypePtr castType_;
 };
 
@@ -722,7 +658,7 @@ class DynamicRowWriter {
 };
 
 template <>
-struct VectorWriter<DynamicRow, void> {
+struct VectorWriter<DynamicRow, void> : public VectorWriterBase {
   using vector_t = RowVector;
   using exec_out_t = DynamicRowWriter;
 
@@ -734,7 +670,7 @@ struct VectorWriter<DynamicRow, void> {
   }
 
   // This should be called once all rows are processed.
-  void finish() {
+  void finish() override {
     for (int i = 0; i < writer_.childrenCount_; ++i) {
       writer_.childrenWriters_[i]->finish();
     }
@@ -748,7 +684,7 @@ struct VectorWriter<DynamicRow, void> {
     return *rowVector_;
   }
 
-  void ensureSize(size_t size) {
+  void ensureSize(size_t size) override {
     if (size > rowVector_->size()) {
       rowVector_->resize(size, /*setNotNull*/ false);
       for (int i = 0; i < writer_.childrenCount_; ++i) {
@@ -757,7 +693,7 @@ struct VectorWriter<DynamicRow, void> {
     }
   }
 
-  void finalizeNull() {
+  void finalizeNull() override {
     writer_.finalizeNullOnChildren();
   }
 
@@ -766,7 +702,7 @@ struct VectorWriter<DynamicRow, void> {
     rowVector_->setNull(writer_.offset_, true);
   }
 
-  void commit(bool isSet = true) {
+  void commit(bool isSet = true) override {
     VELOX_DCHECK(rowVector_->size() > writer_.offset_);
 
     if (LIKELY(isSet)) {
@@ -777,7 +713,7 @@ struct VectorWriter<DynamicRow, void> {
     }
   }
 
-  void setOffset(size_t offset) {
+  void setOffset(vector_size_t offset) override {
     writer_.offset_ = offset;
   }
 

@@ -106,7 +106,7 @@ TEST_F(GenericWriterTest, varchar) {
       result);
 }
 
-TEST_F(GenericWriterTest, array) {
+TEST_F(GenericWriterTest, arrayAnyCast) {
   VectorPtr result;
   BaseVector::ensureWritable(
       SelectivityVector(5), ARRAY(BIGINT()), pool(), result);
@@ -138,6 +138,63 @@ TEST_F(GenericWriterTest, array) {
 
   ASSERT_NO_THROW(current.tryCastTo<double>());
   ASSERT_TRUE(current.tryCastTo<double>() == nullptr);
+}
+
+TEST_F(GenericWriterTest, castToDifferentTypesNotSupported) {
+  VectorPtr result;
+  BaseVector::ensureWritable(
+      SelectivityVector(5), ARRAY(BIGINT()), pool(), result);
+  VectorWriter<Any> writer;
+  writer.init(*result);
+
+  writer.setOffset(0);
+  auto& current1 = writer.current().castTo<Array<Any>>();
+  writer.commit(false);
+
+  writer.setOffset(1);
+  auto& current2 = writer.current().castTo<Array<Any>>();
+  writer.commit(false);
+
+  writer.setOffset(2);
+  // Not allowed to cast to two different types.
+  EXPECT_THROW(writer.current().castTo<Array<int64_t>>(), VeloxException);
+
+  writer.finish();
+}
+
+TEST_F(GenericWriterTest, arrayIntCast) {
+  VectorPtr result;
+  BaseVector::ensureWritable(
+      SelectivityVector(5), ARRAY(BIGINT()), pool(), result);
+
+  VectorWriter<Any> writer;
+  writer.init(*result);
+  for (int i = 0; i < 5; ++i) {
+    writer.setOffset(i);
+
+    auto& current = writer.current().castTo<Array<int64_t>>();
+
+    current.add_item() = i * 3;
+    current.add_item() = i * 3 + 1;
+    current.add_item() = i * 3 + 2;
+
+    writer.commit(true);
+  }
+  writer.finish();
+
+  ASSERT_EQ(result->as<ArrayVector>()->elements()->size(), 15);
+
+  auto data = makeNullableArrayVector<int64_t>(
+      {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}, {9, 10, 11}, {12, 13, 14}});
+  test::assertEqualVectors(data, result);
+
+  writer.setOffset(0);
+  auto& current = writer.current();
+  ASSERT_THROW(current.castTo<double>(), VeloxUserError);
+
+  ASSERT_NO_THROW(current.tryCastTo<double>());
+  ASSERT_TRUE(current.tryCastTo<double>() == nullptr);
+  ASSERT_THROW(current.tryCastTo<Array<Any>>(), VeloxUserError);
 }
 
 TEST_F(GenericWriterTest, arrayWriteThenCommitNull) {
@@ -209,7 +266,7 @@ TEST_F(GenericWriterTest, genericWriteThenCommitNull) {
   ASSERT_EQ(reader.readNullFree(1).at<0>().size(), 0);
 }
 
-TEST_F(GenericWriterTest, map) {
+TEST_F(GenericWriterTest, mapAnyAnyCast) {
   VectorPtr result;
   BaseVector::ensureWritable(
       SelectivityVector(4), MAP(VARCHAR(), BIGINT()), pool(), result);
@@ -228,6 +285,41 @@ TEST_F(GenericWriterTest, map) {
 
     auto& key = current.add_null();
     key.castTo<Varchar>().copy_from(std::to_string(i * 2 + 1));
+
+    writer.commit(true);
+  }
+  writer.finish();
+
+  ASSERT_EQ(result->as<MapVector>()->mapKeys()->size(), 8);
+  ASSERT_EQ(result->as<MapVector>()->mapValues()->size(), 8);
+
+  auto data = makeNullableMapVector<StringView, int64_t>(
+      {{{{"0"_sv, 0}, {"1"_sv, std::nullopt}}},
+       {{{"2"_sv, 2}, {"3"_sv, std::nullopt}}},
+       {{{"4"_sv, 4}, {"5"_sv, std::nullopt}}},
+       {{{"6"_sv, 6}, {"7"_sv, std::nullopt}}}});
+  test::assertEqualVectors(data, result);
+}
+
+TEST_F(GenericWriterTest, mapVarcharIntCast) {
+  VectorPtr result;
+  BaseVector::ensureWritable(
+      SelectivityVector(4), MAP(VARCHAR(), BIGINT()), pool(), result);
+
+  VectorWriter<Any> writer;
+  writer.init(*result);
+
+  for (int i = 0; i < 4; ++i) {
+    writer.setOffset(i);
+
+    auto& current = writer.current().castTo<Map<Varchar, int64_t>>();
+
+    auto [keyWriter, valueWriter] = current.add_item();
+    keyWriter.copy_from(std::to_string(i * 2));
+    valueWriter = i * 2;
+
+    auto& key = current.add_null();
+    key.copy_from(std::to_string(i * 2 + 1));
 
     writer.commit(true);
   }
@@ -306,9 +398,7 @@ TEST_F(GenericWriterTest, row) {
 
   // Casting to DynamicRow after casting to Row<Any, ...> is not allowed.
   ASSERT_THROW(current.castTo<DynamicRow>(), VeloxUserError);
-
-  ASSERT_NO_THROW(current.tryCastTo<DynamicRow>());
-  ASSERT_TRUE(current.tryCastTo<DynamicRow>() == nullptr);
+  ASSERT_THROW(current.tryCastTo<DynamicRow>(), VeloxUserError);
 }
 
 TEST_F(GenericWriterTest, dynamicRow) {
@@ -366,9 +456,7 @@ TEST_F(GenericWriterTest, dynamicRow) {
   writer.setOffset(0);
   auto& current = writer.current();
   ASSERT_THROW((current.castTo<Row<Any, Any>>()), VeloxUserError);
-
-  ASSERT_NO_THROW((current.tryCastTo<Row<Any, Any>>()));
-  ASSERT_TRUE((current.tryCastTo<Row<Any, Any>>()) == nullptr);
+  ASSERT_THROW((current.tryCastTo<Row<Any, Any>>()), VeloxUserError);
 
   // Accessing child writer at an index greater than or equal to the number of
   // children should fail.
