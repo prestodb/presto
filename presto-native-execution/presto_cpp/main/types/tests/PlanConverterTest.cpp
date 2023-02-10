@@ -36,7 +36,9 @@ std::string getDataPath(const std::string& fileName) {
   std::string currentPath = fs::current_path().c_str();
 
   if (boost::algorithm::ends_with(currentPath, "fbcode")) {
-    return currentPath + "/presto_cpp/main/types/tests/data/" + fileName;
+    return currentPath +
+        "/github/presto-trunk/presto-native-execution/presto_cpp/main/types/tests/data/" +
+        fileName;
   }
 
   if (boost::algorithm::ends_with(currentPath, "fbsource")) {
