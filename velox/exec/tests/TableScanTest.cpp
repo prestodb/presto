@@ -28,6 +28,8 @@
 #include "velox/type/Type.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
 
+DECLARE_int32(split_preload_per_driver);
+
 using namespace facebook::velox;
 using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::exec;
@@ -485,17 +487,26 @@ TEST_F(TableScanTest, splitDoubleRead) {
 }
 
 TEST_F(TableScanTest, multipleSplits) {
-  auto filePaths = makeFilePaths(100);
-  auto vectors = makeVectors(100, 100);
-  for (int32_t i = 0; i < vectors.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
-  }
-  createDuckDbTable(vectors);
+  std::vector<int32_t> numPrefetchSplits = {0, 2};
+  for (const auto& numPrefetchSplit : numPrefetchSplits) {
+    SCOPED_TRACE(fmt::format("numPrefetchSplit {}", numPrefetchSplit));
+    FLAGS_split_preload_per_driver = numPrefetchSplit;
+    auto filePaths = makeFilePaths(100);
+    auto vectors = makeVectors(100, 100);
+    for (int32_t i = 0; i < vectors.size(); i++) {
+      writeToFile(filePaths[i]->path, vectors[i]);
+    }
+    createDuckDbTable(vectors);
 
-  auto task = assertQuery(tableScanNode(), filePaths, "SELECT * FROM tmp");
-  auto stats = getTableScanRuntimeStats(task);
-  auto preload = stats.at("preloadedSplits");
-  EXPECT_LT(10, preload.sum);
+    auto task = assertQuery(tableScanNode(), filePaths, "SELECT * FROM tmp");
+    auto stats = getTableScanRuntimeStats(task);
+    auto preload = stats.at("preloadedSplits");
+    if (numPrefetchSplit != 0) {
+      ASSERT_GT(preload.sum, 10);
+    } else {
+      ASSERT_EQ(preload.sum, 0);
+    }
+  }
 }
 
 TEST_F(TableScanTest, waitForSplit) {
