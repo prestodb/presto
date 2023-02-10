@@ -119,6 +119,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+
 public class LogicalPlanner
 {
     public enum Stage
@@ -151,25 +152,9 @@ public class LogicalPlanner
             WarningCollector warningCollector,
             PlanChecker planChecker)
     {
-        this(explain, session, planOptimizers, planChecker, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
-    }
-
-    public LogicalPlanner(
-            boolean explain,
-            Session session,
-            List<PlanOptimizer> planOptimizers,
-            PlanChecker planChecker,
-            PlanNodeIdAllocator idAllocator,
-            Metadata metadata,
-            SqlParser sqlParser,
-            StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
-            WarningCollector warningCollector)
-    {
         this.explain = explain;
         this.session = requireNonNull(session, "session is null");
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
-        this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -177,6 +162,7 @@ public class LogicalPlanner
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.planChecker = requireNonNull(planChecker, "planChecker is null");
     }
 
     public Plan plan(Analysis analysis)

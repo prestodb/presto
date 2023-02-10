@@ -1053,7 +1053,7 @@ public class LocalQueryRunner
                 distributedPlanChecker);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(preparedQuery.getWrappedStatement() instanceof Explain, session, optimizers, singleNodePlanChecker, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(preparedQuery.getWrappedStatement() instanceof Explain, session, optimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector, singleNodePlanChecker);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         return logicalPlanner.plan(analysis, stage);
