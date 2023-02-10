@@ -254,6 +254,7 @@ public final class SystemSessionProperties
     public static final String REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED = "remove_redundant_distinct_aggregation_enabled";
     public static final String PREFILTER_FOR_GROUPBY_LIMIT = "prefilter_for_groupby_limit";
     public static final String PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS = "prefilter_for_groupby_limit_timeout_ms";
+    public static final String OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME = "optimize_join_probe_for_empty_build_runtime";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1444,6 +1445,11 @@ public final class SystemSessionProperties
                         PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS,
                         "Timeout for finding the LIMIT number of keys for group by",
                         10000,
+                        false),
+                booleanProperty(
+                        OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME,
+                        "Optimize join probe at runtime if build side is empty",
+                        featuresConfig.isOptimizeJoinProbeForEmptyBuildRuntimeEnabled(),
                         false));
     }
 
@@ -2430,5 +2436,10 @@ public final class SystemSessionProperties
     public static int getPrefilterForGroupbyLimitTimeoutMS(Session session)
     {
         return session.getSystemProperty(PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS, Integer.class);
+    }
+
+    public static boolean isOptimizeJoinProbeForEmptyBuildRuntimeEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME, Boolean.class);
     }
 }

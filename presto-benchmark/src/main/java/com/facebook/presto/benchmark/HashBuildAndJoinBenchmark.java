@@ -140,7 +140,8 @@ public class HashBuildAndJoinBenchmark
                 hashChannel,
                 Optional.empty(),
                 OptionalInt.empty(),
-                unsupportedPartitioningSpillerFactory());
+                unsupportedPartitioningSpillerFactory(),
+                false);
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test")));
         DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION, Optional.empty());

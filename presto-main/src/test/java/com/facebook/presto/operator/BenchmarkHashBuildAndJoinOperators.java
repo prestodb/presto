@@ -339,7 +339,8 @@ public class BenchmarkHashBuildAndJoinOperators
                 joinContext.getHashChannel(),
                 Optional.of(joinContext.getOutputChannels()),
                 OptionalInt.empty(),
-                unsupportedPartitioningSpillerFactory());
+                unsupportedPartitioningSpillerFactory(),
+                false);
 
         DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
