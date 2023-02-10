@@ -72,11 +72,6 @@ DEFINE_bool(
 
 DEFINE_bool(enable_cast, false, "Enable testing with cast expression.");
 
-DEFINE_bool(
-    choose_root_type_from_signature_template,
-    false,
-    "Allow choosing the top-level root type from signature templates.");
-
 DEFINE_string(
     repro_persist_path,
     "",
@@ -983,8 +978,7 @@ void ExpressionFuzzer::go() {
         (chooseFromConcreteSignatures && !signatures_.empty()) ||
         (!chooseFromConcreteSignatures && signatureTemplates_.empty());
     TypePtr rootType;
-    if (!FLAGS_choose_root_type_from_signature_template ||
-        chooseFromConcreteSignatures) {
+    if (chooseFromConcreteSignatures) {
       // Pick a random signature to choose the root return type.
       VELOX_CHECK(!signatures_.empty(), "No function signature available.");
       size_t idx = boost::random::uniform_int_distribution<uint32_t>(
