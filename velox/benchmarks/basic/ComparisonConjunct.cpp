@@ -99,10 +99,12 @@ class ComparisonBenchmark : public functions::test::FunctionBenchmarkBase {
     folly::BenchmarkSuspender suspender;
     auto exprSet = compileExpression(expression, inputType_);
     suspender.dismiss();
-
+    // For functions like eq, the construction if the selectivity vector is
+    // effect the total runtime, hence we pulled out of the evaluation loop.
+    SelectivityVector rows(rowVector_->size());
     size_t count = 0;
     for (auto i = 0; i < times; i++) {
-      count += evaluate(exprSet, rowVector_)->size();
+      count += evaluate(exprSet, rowVector_, rows)->size();
     }
     return count;
   }
