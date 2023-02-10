@@ -82,6 +82,10 @@ Array Functions
         SELECT array_min(ARRAY [-1, -2, NULL]); -- NULL
         SELECT array_min(ARRAY []); -- NULL
 
+.. function:: array_normalize(array(E), E) -> array(E)
+
+    Normalizes array ``x`` by dividing each element by the p-norm of the array. It is equivalent to ``TRANSFORM(array, v -> v / REDUCE(array, 0, (a, v) -> a + POW(ABS(v), p), a -> POW(a, 1 / p))``, but the reduce part is only executed once. Returns null if the array is null or there are null array elements. If ``p`` is 0, then the input array is returned. Only REAL and DOUBLE types are supported.
+
 .. function:: arrays_overlap(x, y) -> boolean
 
     Tests if arrays ``x`` and ``y`` have any non-null elements in common.

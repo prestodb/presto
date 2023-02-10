@@ -67,6 +67,15 @@ inline void registerArrayFrequencyFunctions() {
       Array<T>>({"array_frequency"});
 }
 
+template <typename T>
+inline void registerArrayNormalizeFunctions() {
+  registerFunction<
+      ParameterBinder<ArrayNormalizeFunction, T>,
+      Array<T>,
+      Array<T>,
+      T>({"array_normalize"});
+}
+
 void registerArrayFunctions() {
   registerArrayConstructor("array_constructor");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_distinct, "array_distinct");
@@ -131,5 +140,8 @@ void registerArrayFunctions() {
 
   registerArrayFrequencyFunctions<int64_t>();
   registerArrayFrequencyFunctions<Varchar>();
+
+  registerArrayNormalizeFunctions<float>();
+  registerArrayNormalizeFunctions<double>();
 }
 }; // namespace facebook::velox::functions
