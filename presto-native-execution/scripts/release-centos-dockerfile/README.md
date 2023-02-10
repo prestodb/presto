@@ -6,7 +6,7 @@
 
 ## Practical Velox implementation using PrestoCpp
 
-> 📝 _**Note:** This readme and the build process was adapted from internal pipeline. You can e-mail the author if you've got questions [milosz.linkiewicz@intel.com](mailto:milosz.linkiewicz@intel.com)_
+> 📝 _**Note:** This readme and the build process was adapted from internal pipeline and is now developed by PrestoDB community. If you now how to improve it - click the edit button and propose any changes!
 
 Prestissimo, marked in PrestoDB GitHub repository as 'presto-native-execution', is effort of making PrestoDB even better using Velox library as a starting point. Both of mentioned - PrestoCpp and Velox - are mainly written using low level `C` and `C++ 17` languages, which makes the build-from-scratch process humongously complicated. This workflow simplifies and automates Docker build process based on unmodified project GitHub repository.
 

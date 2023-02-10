@@ -1,4 +1,16 @@
-# Prestissimo - C++ Presto worker implementation using Velox
+# Prestissimo - Presto Velox worker native execution
+
+> 💡 _**Notice:** Prestissimo is worker role implementation only and it still requires coordinator, Presto JAVA Server, to work._
+
+Prestissimo is a Presto Worker native execution query engine written using low-level programming languages like C++ and by design overcoming all of JAVA performance bottlenecks by utilizing modern CPU vector operations instructions sets like `avx`.
+
+## Practical Velox implementation using PrestoCpp
+
+> 📝 _**Note:** This readme and the build process was adapted from internal pipeline and is now developed by PrestoDB community. If you now how to improve it - click the edit button and propose any changes._
+
+> 📝 _**Note:** One of main downsides of such approach is humongously complicated build-from-scratch process that may require sophisticated knowledge of whole hardware from CPU to software up to operation system stack._
+
+Prestissimo, marked in PrestoDB GitHub repository as 'presto-native-execution', is effort of making PrestoDB even better and extremely fast using game changing query engine Velox as a starting point. Both of mentioned - Prestissimo and Velox - are designed and written only using fastest low level languages like`C` and `C++ 17`. This readme and all the scripts that are developer by the community, for the community, are designed to make the process of acquiring working application as easy as it can be.
 
 ## Build Notes
 
@@ -17,11 +29,13 @@
 
 
 ## Building
+
 Run `make` in the root directory to compile the sources. For development, use
 `make debug` to build a non-optimized debug version.  Use `make unittest` to build
 and run tests.
 
 ## Building Dockerfile from source
+
 Run `make runtime-container` in the presto-native-execution root directory
 to build run-ready containerized version of PrestoCpp. Information on available
 configuration options can be found in [scripts/release-centos-dockerfile/README.md](scripts/release-centos-dockerfile/README.md)
@@ -36,6 +50,7 @@ A reminder of the available Makefile targets can be obtained using `make help`
     build                   Build the software based in BUILD_DIR and BUILD_TYPE variables
     debug                   Build with debugging symbols
     release                 Build the release version
+    submodules              Update and download required submodules
     unittest                Build with debugging and run unit tests
     format-fix              Fix formatting issues in the current branch
     format-check            Check for formatting issues on the current branch
@@ -47,67 +62,154 @@ A reminder of the available Makefile targets can be obtained using `make help`
     runtime-container       Build the software in container using current git commit
     help                    Show the help messages
 ```
+## Quick start - OS wide installation approach
 
-## Code formatting, headers and clang-tidy
+> 💡 _**Tip:** For best end-user experience it is advised to build and work with Prestissimo in containerized environment._
 
-### Showing, Fixing and Passing Checks
+Currently supported systems for automated dependency installation and configuration are:
 
-Makefile targets exist for showing, fixing and checking formatting, license
-headers and clang-tidy warnings.  These targets are shortcuts for calling
-`./scripts/check.py`.
+* Centos Linux [scripts/setup-centos.sh](./scripts/setup-centos.sh)
+* Ubuntu Linux [scripts/setup-ubuntu.sh](./scripts/setup-ubuntu.sh)
+* MacOS [scripts/setup-macos.sh](./scripts/setup-macos.sh)
 
-GitHub Actions run `make format-check`, `make header-check` and
-`make tidy-check` as part of our continuous integration.  Pull requests should
-pass linux-build, format-check, header-check and other jobs without errors
-before being accepted.
+For each of operating systems there are required packages to be installed before proceeding with configuration: `git`, `make`, `bash`
 
-Formatting issues found on the changed lines in the current commit can be
-displayed using `make format-show`.  These issues can be fixed by using `make
-format-fix`.  This will apply formatting changes to changed lines in the
-current commit.
+After having above installed open a terminal, clone the repository and update the submodules:
 
-Header issues found on the changed files in the current commit can be displayed
-using `make header-show`.  These issues can be fixed by using `make
-header-fix`.  This will apply license header updates to the files in the current
-commit.
-
-Similar commands `make tidy-show`, `make-tidy-fix`, `make tidy-check` exist for
-running clang-tidy, but these checks are currently advisory only.
-
-An entire directory tree of files can be formatted and have license headers added
-using the `tree` variant of the format.sh commands:
-```
-    ./scripts/check.py format tree
-    ./scripts/check.py format tree --fix
-
-    ./scripts/check.py header tree
-    ./scripts/check.py header tree --fix
+```bash
+git clone https://github.com/prestodb/presto prestodb
+cd prestodb/presto-native-execution/
+make submodules
 ```
 
-All the available formatting commands can be displayed by using
-`./scripts/check.py help`.
+Having this done, install Velox dependencies for your OS using one of provided scripts:
 
-There is not currently a mechanism to *opt out* files or directories from the
-checks.  When we need one it can be added.
+* Centos Linux [velox/scripts/setup-centos.sh](./velox/scripts/setup-centos8.sh)
+* Ubuntu Linux [velox/scripts/setup-ubuntu.sh](./velox/scripts/setup-ubuntu.sh)
+* MacOS [velox/scripts/setup-macos.sh](./velox/scripts/setup-macos.sh)
 
-## Development Env.
+For example to configure Ubuntu user should run following terminal commands, while being in `prestodb/presto-native-execution/` subdirectory:
 
-### Basic setup on MacOS
+```bash
+./velox/scripts/setup-ubuntu.sh
+./scripts/setup-ubuntu.sh
+```
+
+After the installation finish successful the system is ready for Prestissimo with Velox build and compilation. To begin the build process type in your terminal:
+
+```bash
+make release
+```
+
+## Quick Start - containerized approach
+
+> 💡 _**Know-more:** External link explaining a little more https://www.atlassian.com/microservices/cloud-computing/containers-vs-vms_
+
+For bellow steps to make sense in the first place user should install - even in the most simplified version - packages like `git`, `make`, `docker` and `bash`. What is more by command line/terminal etc. author is referring to `bash`. Following bellow steps can be done without reading the explanation, but it is not advised.
+
+### 1. Clone this repository
+
+Clone the repository and update the submodules by running
+
+```bash
+git clone https://github.com/prestodb/presto prestodb
+cd prestodb/presto-native-execution/
+make submodules
+```
+
+### 2. (Optional) Define and export Docker image args and settings.
+
+> 📝 _**Note:** Remember to end your `IMAGE_REGISTRY` variable with `/` as this is required for full scripted tag generation._
+
+> 💡 _**Tip:** Depending on your configuration you may need to run all bellow commands as root user for them to work - preceding each of them with `sudo`._
+
+> 💡 _**Tip:** If `IMAGE_REGISTRY` is not specified `IMAGE_PUSH` should be set `'0'` or docker image push scripted stage will fail._
+
+For this, type in you terminal, changing variables values to meet your needs:
+
+```bash
+# defaults to 'avx', more info on Velox GitHub
+export CPU_TARGET="avx"
+# defaults to 'presto/prestissimo-${CPU_TARGET}-centos'
+export IMAGE_NAME='presto/prestissimo-${CPU_TARGET}-centos'
+# defaults to 'latest'
+export IMAGE_TAG='latest'
+# defaults to ''
+export IMAGE_REGISTRY='https://my_docker_registry.com/'
+# defaults to '0'
+export IMAGE_PUSH='0'
+```
+
+Additionally if you are using docker registry cache for downloading images bellow values should be exported as follows:
+
+```bash
+# defaults to 'quay.io/centos/'
+export IMAGE_CACHE_REGISTRY='my.company.registry.cache.xyz:5000/path/to/library/'
+# this will be concatenated with (defaults to 'centos:stream8')
+export IMAGE_BASE_NAME='centos:stream8'
+# resulting in BASE_IMAGE:
+export BASE_IMAGE="${IMAGE_CACHE_REGISTRY}${IMAGE_BASE_NAME}"
+```
+
+### 3. Make sure Docker daemon is running
+
+(Ubuntu users) Type in your console:
+
+```bash
+systemctl status docker
+```
+
+### 4. Build Dockerfile repo
+
+Type in your console:
+
+```bash
+cd prestodb/presto-native-execution
+make runtime-container
+```
+
+The process is fully automated and require no interaction for user. The process of building images for the first time can take up to couple of hours (~1-2h using 10 processor cores).
+
+### 5. Run container
+
+> 📝 _**Note:** Remember that you should start Presto JAVA server first_
+
+Depending on values you have set the container tag is defined as
+
+`PRESTO_CPP_TAG="${IMAGE_REGISTRY}${IMAGE_NAME}:${IMAGE_TAG}"`
+
+for default values this will be just:
+
+`PRESTO_CPP_TAG=presto/prestissimo-avx-centos:latest`
+
+to run container build with default tag execute:
+
+```bash
+docker run "presto/prestissimo-avx-centos:latest" \
+            --use-env-params \
+            --discovery-uri=http://localhost:8080 \
+            --http-server-port=8080"
+```
+
+to run container interactively, not executing entrypoint file:
+
+```bash
+docker run -it --entrypoint=/bin/bash "presto/prestissimo-avx-centos:latest"
+```
+
+## MacOS IDE setup
 
 * Clone the whole Presto repository.
 * Run `presto/presto-native-execution/scripts/setup-macos.sh`.
 * Add the cmake-format bin to your $PATH, maybe something like this
   in your ~/.profile:
+
 ```
 export PATH=$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH
 ```
+
 * It is recommended to use some sort of IDE on MacOS.
   [CLion](https://www.jetbrains.com/clion/) is an option.
-
-### Basic setup on Linux (CentOs 8 or later)
-
-* Clone the whole Presto repository.
-* Run `presto/presto-native-execution/scripts/setup-centos.sh`
 
 ### Setting up local Presto environment on MacOS (with optional IntelliJ and CLion)
 Clone the whole Presto repository.
@@ -157,6 +259,7 @@ Run CLion:
     ![ScreenShot](cl_clangformat_switcherenable.png)
 
 ### Using local Presto environment on MacOS (with optional IntelliJ and CLion)
+
 Running Presto Coordinator + Worker on MacOS
 * Note that everything below can be done w/o using IDEs by running command line commands (not in this readme).
 * Run 'HiveQueryRunnerExternal' from IntelliJ and wait until it started (`======== SERVER STARTED ========` in the log output).
@@ -169,8 +272,52 @@ Running Presto Coordinator + Worker on MacOS
   2. Run `Presto Client` Application (see above on how to create and setup the configuration) inside IntelliJ
 * You can start from `show tables;` and `describe table;` queries and execute more queries as needed.
 
+## Contributing
+
+### Showing, Fixing and Passing Checks
+
+Makefile targets exist for showing, fixing and checking formatting, license
+headers and clang-tidy warnings.  These targets are shortcuts for calling
+`./scripts/check.py`.
+
+GitHub Actions run `make format-check`, `make header-check` and
+`make tidy-check` as part of our continuous integration.  Pull requests should
+pass linux-build, format-check, header-check and other jobs without errors
+before being accepted.
+
+Formatting issues found on the changed lines in the current commit can be
+displayed using `make format-show`.  These issues can be fixed by using `make
+format-fix`.  This will apply formatting changes to changed lines in the
+current commit.
+
+Header issues found on the changed files in the current commit can be displayed
+using `make header-show`.  These issues can be fixed by using `make
+header-fix`.  This will apply license header updates to the files in the current
+commit.
+
+Similar commands `make tidy-show`, `make-tidy-fix`, `make tidy-check` exist for
+running clang-tidy, but these checks are currently advisory only.
+
+An entire directory tree of files can be formatted and have license headers added
+using the `tree` variant of the format.sh commands:
+
+```bash
+./scripts/check.py format tree
+./scripts/check.py format tree --fix
+
+./scripts/check.py header tree
+./scripts/check.py header tree --fix
+```
+
+All the available formatting commands can be displayed by using
+`./scripts/check.py help`.
+
+There is not currently a mechanism to *opt out* files or directories from the
+checks.  When we need one it can be added.
+
 ### Running Integration (End to End or E2E) Tests on MacOS (with optional IntelliJ and CLion)
-* Note that everything below can be done w/o using IDEs by running command line commands (not in this readme).
+
+> 📝 _**Note:** that everything below can be done w/o using IDEs by running command lines insider a terminal, this is not in this readme._
 * Open a test file which has the test(s) you want to run in IntelliJ from `presto/presto-native-execution/src/test/java/com/facebook/presto/nativeworker` path.
 * Click the green arrow to the left of the test class line of code and chose if you want to Run or Debug. This will run all tests in this class.
 * Alternatively click the green arrow to the left of the test class' test method line of code and chose if you want tor Run or Debug. This will run all tests only in this class's member.
@@ -178,6 +325,7 @@ Running Presto Coordinator + Worker on MacOS
 * Similarly, the unit tests of Velox and presto_cpp can be run from CLion.
 
 ### Advancing Velox's version
+
 * For presto_cpp to use a newer Velox's version from the presto repository root:
   * `git -C presto-native-execution/velox checkout main`
   * `git -C presto-native-execution/velox pull`
@@ -186,6 +334,7 @@ Running Presto Coordinator + Worker on MacOS
   * Submit a PR, get it approved and merged.
 
 ### Creating PRs for presto/presto-native-execution/
+
 * Submit PRs as usual following [Presto repository guidelines](https://github.com/prestodb/presto/wiki/Review-and-Commit-guidelines).
 * On top of it please add `[native]` prefix in the `title` as well as to the `commit message` for PRs modifying anything in `presto-native-execution`.
 * PRs that only change files in `presto-native-execution` should be approved by a Code Owner ([team-velox](https://github.com/orgs/prestodb/teams/team-velox)) to have merging enabled.
