@@ -128,8 +128,14 @@ target_link_libraries(velox_aggregation_fuzzer velox_type velox_vector_fuzzer
 
 add_executable(velox_aggregation_fuzzer_test AggregationFuzzerTest.cpp)
 
-target_link_libraries(velox_aggregation_fuzzer_test velox_aggregation_fuzzer
-                      velox_aggregates velox_window gtest gtest_main)
+target_link_libraries(
+  velox_aggregation_fuzzer_test
+  velox_aggregation_fuzzer
+  velox_aggregates
+  velox_window
+  velox_vector_test_lib
+  gtest
+  gtest_main)
 
 # Join Fuzzer.
 

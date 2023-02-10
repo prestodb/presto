@@ -26,27 +26,8 @@ namespace facebook::velox::exec::test {
 using MaterializedRow = std::vector<velox::variant>;
 using DuckDBQueryResult = std::unique_ptr<::duckdb::MaterializedQueryResult>;
 
-// Comparison function used in tests which compares floating point variants
-// using 'epsilon' parameter to treat close enough floating point values as
-// equal.
-struct MaterializedRowComparator {
-  bool operator()(const MaterializedRow& lhs, const MaterializedRow& rhs)
-      const {
-    const auto minSize = std::min(lhs.size(), rhs.size());
-    for (size_t i = 0; i < minSize; ++i) {
-      if (lhs[i].equalsWithEpsilon(rhs[i])) {
-        continue;
-      }
-      // The 1st non-equal element determines if 'left' is smaller or not.
-      return lhs[i].lessThanWithEpsilon(rhs[i]);
-    }
-    // The shorter vector is smaller.
-    return lhs.size() < rhs.size();
-  }
-};
-// Multiset that uses 'epsilon' to compare doubles.
-using MaterializedRowMultiset =
-    std::multiset<MaterializedRow, MaterializedRowComparator>;
+// Multiset that compares floating-point values directly.
+using MaterializedRowMultiset = std::multiset<MaterializedRow>;
 
 class DuckDbQueryRunner {
  public:
@@ -194,6 +175,25 @@ velox::variant readSingleValue(
     const std::shared_ptr<const core::PlanNode>& plan,
     int32_t maxDrivers = 1);
 
+/// assertEqualResults() has limited support for results with floating-point
+/// columns.
+///   1. When there is one or more floating-point columns, we try to group the
+///   rows in each set by the non-floating-point columns. If every group
+///   contains only one row in both sets, we compare their rows
+///   via the sort-merge algorithm with epsilon comparator.
+///   2. If there is no floating-point column, we loop over every row in one set
+///   and try to find it in the other via std::multiset::find(). Values are
+///   compared directly without epsilon.
+/// We made this difference because some operations, such as aggregation,
+/// require tolerance to imprecision of floating-point computation in their
+/// results, while epsilon comparator doesn't satisfy the strict weak ordering
+/// requirement of std::multiset. Since aggregation results typically have one
+/// row per group, we use sort-merge algorithm with epsilon comparator to verify
+/// their results. This condition may be relaxed if there is only one
+/// floating-point column in each set. Verifying arbitrary result sets with
+/// epsilon comparison would require more advanced algorithms such as maximum
+/// bipartite matching. Hence we leave them as future work. Check out
+/// https://github.com/facebookincubator/velox/issues/3493 for more dicsussion.
 bool assertEqualResults(
     const std::vector<RowVectorPtr>& expected,
     const std::vector<RowVectorPtr>& actual);

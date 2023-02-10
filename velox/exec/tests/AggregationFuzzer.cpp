@@ -25,6 +25,7 @@
 #include "velox/expression/tests/FuzzerToolkit.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 DEFINE_int32(steps, 10, "Number of plans to generate and execute.");
 
@@ -144,6 +145,14 @@ class AggregationFuzzer {
   CallableSignature pickSignature();
 
   std::vector<RowVectorPtr> generateInputData(
+      std::vector<std::string> names,
+      std::vector<TypePtr> types);
+
+  // Generate a RowVector of the given types of children with an additional
+  // child named "row_number" of BIGINT row numbers that differentiates every
+  // row. Row numbers start from 0. This additional input vector is needed for
+  // result verification of window aggregations.
+  std::vector<RowVectorPtr> generateInputDataWithRowNumber(
       std::vector<std::string> names,
       std::vector<TypePtr> types);
 
@@ -471,7 +480,7 @@ std::vector<std::string> AggregationFuzzer::generateKeys(
     keys.push_back(fmt::format("{}{}", prefix, i));
 
     // Pick random scalar type.
-    types.push_back(vectorFuzzer_.randType(0 /*maxDepth*/));
+    types.push_back(vectorFuzzer_.randScalarNonFloatingPointType());
     names.push_back(keys.back());
   }
   return keys;
@@ -484,6 +493,28 @@ std::vector<RowVectorPtr> AggregationFuzzer::generateInputData(
   std::vector<RowVectorPtr> input;
   for (auto i = 0; i < FLAGS_num_batches; ++i) {
     input.push_back(vectorFuzzer_.fuzzInputRow(inputType));
+  }
+  return input;
+}
+
+std::vector<RowVectorPtr> AggregationFuzzer::generateInputDataWithRowNumber(
+    std::vector<std::string> names,
+    std::vector<TypePtr> types) {
+  names.push_back("row_number");
+  types.push_back(BIGINT());
+
+  std::vector<RowVectorPtr> input;
+  auto size = vectorFuzzer_.getOptions().vectorSize;
+  velox::test::VectorMaker vectorMaker{pool_.get()};
+  int64_t rowNumber = 0;
+  for (auto j = 0; j < FLAGS_num_batches; ++j) {
+    std::vector<VectorPtr> children;
+    for (auto i = 0; i < types.size() - 1; ++i) {
+      children.push_back(vectorFuzzer_.fuzz(types[i], size));
+    }
+    children.push_back(vectorMaker.flatVector<int64_t>(
+        size, [&](auto /*row*/) { return rowNumber++; }));
+    input.push_back(vectorMaker.rowVector(names, children));
   }
   return input;
 }
@@ -529,7 +560,7 @@ void AggregationFuzzer::go() {
 
         auto partitionKeys = generateKeys("p", argNames, argTypes);
         auto sortingKeys = generateKeys("s", argNames, argTypes);
-        auto input = generateInputData(argNames, argTypes);
+        auto input = generateInputDataWithRowNumber(argNames, argTypes);
 
         verifyWindow(partitionKeys, sortingKeys, {call}, input, orderDependent);
       } else {

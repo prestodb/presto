@@ -752,6 +752,23 @@ std::pair<int8_t, int8_t> VectorFuzzer::randPrecisionScale(TypeKind kind) {
   return {precision, scale};
 }
 
+TypePtr VectorFuzzer::randScalarNonFloatingPointType() {
+  static TypePtr kNonFloatingPointTypes[]{
+      BOOLEAN(),
+      TINYINT(),
+      SMALLINT(),
+      INTEGER(),
+      BIGINT(),
+      VARCHAR(),
+      VARBINARY(),
+      TIMESTAMP(),
+      DATE(),
+  };
+  static constexpr int kNumTypes =
+      sizeof(kNonFloatingPointTypes) / sizeof(kNonFloatingPointTypes[0]);
+  return kNonFloatingPointTypes[rand<uint32_t>(rng_) % kNumTypes];
+}
+
 TypePtr VectorFuzzer::randType(int maxDepth) {
   // @TODO Add decimal TypeKinds to randType.
   // Refer https://github.com/facebookincubator/velox/issues/3942

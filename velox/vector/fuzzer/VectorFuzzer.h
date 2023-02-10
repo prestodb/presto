@@ -242,6 +242,10 @@ class VectorFuzzer {
     return LONG_DECIMAL(precision, scale);
   }
 
+  // Generate a random non-floating-point primitive type to be used as join keys
+  // or group-by key for aggregations, etc.
+  TypePtr randScalarNonFloatingPointType();
+
   void reSeed(size_t seed) {
     rng_.seed(seed);
   }

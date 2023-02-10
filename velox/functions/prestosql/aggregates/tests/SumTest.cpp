@@ -223,7 +223,7 @@ TEST_F(SumTest, sumFloat) {
       "SELECT sum(c0) FROM tmp");
 }
 
-TEST_F(SumTest, sumDoubleAndFloatg) {
+TEST_F(SumTest, sumDoubleAndFloat) {
   for (int iter = 0; iter < 3; ++iter) {
     SCOPED_TRACE(fmt::format("test iterations: {}", iter));
     auto rowType = ROW({"c0", "c1", "c2"}, {REAL(), DOUBLE(), INTEGER()});
