@@ -191,6 +191,12 @@
             <artifactId>presto-parser</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-analyzer</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

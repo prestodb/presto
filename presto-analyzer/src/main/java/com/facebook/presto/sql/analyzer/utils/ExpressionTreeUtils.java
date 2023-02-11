@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.analyzer;
+package com.facebook.presto.sql.analyzer.utils;
 
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
@@ -19,6 +19,8 @@ import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FieldId;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -57,7 +59,7 @@ public final class ExpressionTreeUtils
 {
     private ExpressionTreeUtils() {}
 
-    static List<FunctionCall> extractAggregateFunctions(
+    public static List<FunctionCall> extractAggregateFunctions(
             Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles,
             Iterable<? extends Node> nodes,
             FunctionAndTypeResolver functionAndTypeResolver)
@@ -65,12 +67,12 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionHandles, functionAndTypeResolver));
     }
 
-    static List<FunctionCall> extractWindowFunctions(Iterable<? extends Node> nodes)
+    public static List<FunctionCall> extractWindowFunctions(Iterable<? extends Node> nodes)
     {
         return extractExpressions(nodes, FunctionCall.class, ExpressionTreeUtils::isWindowFunction);
     }
 
-    static List<FunctionCall> extractExternalFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionAndTypeResolver functionAndTypeResolver)
+    public static List<FunctionCall> extractExternalFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionAndTypeResolver functionAndTypeResolver)
     {
         return extractExpressions(nodes, FunctionCall.class, isExternalFunctionPredicate(functionHandles, functionAndTypeResolver));
     }

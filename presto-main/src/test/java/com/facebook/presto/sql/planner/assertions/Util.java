@@ -21,7 +21,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern.Ordering;
 import com.google.common.collect.Maps;
 

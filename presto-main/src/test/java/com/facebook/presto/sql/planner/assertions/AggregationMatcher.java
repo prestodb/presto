@@ -20,7 +20,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.analyzer.Symbol;
 
 import java.util.Collection;
 import java.util.List;

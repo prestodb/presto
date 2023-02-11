@@ -22,7 +22,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.analyzer.PlanVariableAllocator;
 
 import java.util.Optional;
 

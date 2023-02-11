@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.analyzer.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;

@@ -18,14 +18,14 @@ import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.analyzer.ExpressionTreeUtils;
+import com.facebook.presto.sql.analyzer.utils.ExpressionTreeUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
+import static com.facebook.presto.sql.analyzer.utils.ExpressionTreeUtils.createSymbolReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 

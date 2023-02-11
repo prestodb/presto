@@ -35,13 +35,13 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExternalFunctions;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.UtilizedColumnsAnalyzer.analyzeForUtilizedColumns;
+import static com.facebook.presto.sql.analyzer.utils.ExpressionTreeUtils.extractAggregateFunctions;
+import static com.facebook.presto.sql.analyzer.utils.ExpressionTreeUtils.extractExpressions;
+import static com.facebook.presto.sql.analyzer.utils.ExpressionTreeUtils.extractExternalFunctions;
+import static com.facebook.presto.sql.analyzer.utils.ExpressionTreeUtils.extractWindowFunctions;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer

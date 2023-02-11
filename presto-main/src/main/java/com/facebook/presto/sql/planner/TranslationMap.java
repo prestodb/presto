@@ -38,9 +38,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
+import static com.facebook.presto.sql.analyzer.utils.ExpressionTreeUtils.createSymbolReference;
+import static com.facebook.presto.sql.analyzer.utils.ExpressionTreeUtils.getNodeLocation;
+import static com.facebook.presto.sql.analyzer.utils.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

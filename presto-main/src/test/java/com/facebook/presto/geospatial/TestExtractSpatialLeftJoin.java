@@ -16,7 +16,7 @@ package com.facebook.presto.geospatial;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.analyzer.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialLeftJoin;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;

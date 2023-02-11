@@ -21,9 +21,9 @@ import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplem
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.analyzer.PlanVariableAllocator;
+import com.facebook.presto.sql.analyzer.TypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;

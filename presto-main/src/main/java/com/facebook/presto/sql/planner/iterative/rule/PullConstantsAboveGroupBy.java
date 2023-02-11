@@ -31,7 +31,7 @@ import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.isOptimizeConstantGroupingKeys;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isConstant;
+import static com.facebook.presto.sql.analyzer.utils.ExpressionTreeUtils.isConstant;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;

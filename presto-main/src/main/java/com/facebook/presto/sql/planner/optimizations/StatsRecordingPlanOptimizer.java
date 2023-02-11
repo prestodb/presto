@@ -17,9 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.sql.analyzer.PlanVariableAllocator;
+import com.facebook.presto.sql.analyzer.TypeProvider;
 import com.facebook.presto.sql.planner.OptimizerStatsRecorder;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.annotations.VisibleForTesting;
 
 import static java.util.Objects.requireNonNull;

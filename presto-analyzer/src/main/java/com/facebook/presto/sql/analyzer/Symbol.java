@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeLocation;

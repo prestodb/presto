@@ -31,7 +31,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.isOffsetClauseEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
+import static com.facebook.presto.sql.analyzer.utils.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.offset;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
