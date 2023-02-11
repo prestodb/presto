@@ -171,27 +171,17 @@ void VeloxToSubstraitPlanConvertor::toSubstrait(
   ::substrait::ReadRel_VirtualTable* virtualTable =
       readRel->mutable_virtual_table();
 
-  // The row number of the input data.
-  int64_t numVectors = valuesNode->values().size();
-
-  // There can be multiple rows in the data and each row is a RowVectorPtr.
-  for (int64_t row = 0; row < numVectors; ++row) {
-    // The row data.
+  for (const auto& vector : valuesNode->values()) {
     ::substrait::Expression_Literal_Struct* litValue =
         virtualTable->add_values();
-    const auto& rowVector = valuesNode->values().at(row);
-    // The column number of the row data.
-    int64_t numColumns = rowVector->childrenSize();
 
-    for (int64_t column = 0; column < numColumns; ++column) {
+    for (const auto& column : vector->children()) {
       ::substrait::Expression_Literal* substraitField =
           google::protobuf::Arena::CreateMessage<
               ::substrait::Expression_Literal>(&arena);
 
-      const VectorPtr& child = rowVector->childAt(column);
-
-      substraitField->MergeFrom(exprConvertor_->toSubstraitExpr(
-          arena, std::make_shared<core::ConstantTypedExpr>(child), litValue));
+      substraitField->MergeFrom(
+          exprConvertor_->toSubstraitLiteral(arena, column, litValue));
     }
   }
 

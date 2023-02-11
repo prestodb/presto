@@ -61,6 +61,12 @@ class VeloxToSubstraitExprConvertor {
       const std::shared_ptr<const core::FieldAccessTypedExpr>& fieldExpr,
       const RowTypePtr& inputType);
 
+  /// Convert Velox vector to Substrait literal.
+  const ::substrait::Expression_Literal& toSubstraitLiteral(
+      google::protobuf::Arena& arena,
+      const velox::VectorPtr& vectorValue,
+      ::substrait::Expression_Literal_Struct* litValue);
+
  private:
   /// Convert Velox Cast Expression to Substrait Cast Expression.
   const ::substrait::Expression_Cast& toSubstraitExpr(
@@ -73,12 +79,6 @@ class VeloxToSubstraitExprConvertor {
       google::protobuf::Arena& arena,
       const std::shared_ptr<const core::CallTypedExpr>& callTypeExpr,
       const RowTypePtr& inputType);
-
-  /// Convert Velox vector to Substrait literal.
-  const ::substrait::Expression_Literal& toSubstraitLiteral(
-      google::protobuf::Arena& arena,
-      const velox::VectorPtr& vectorValue,
-      ::substrait::Expression_Literal_Struct* litValue);
 
   /// Convert Velox variant to Substrait Literal Expression.
   const ::substrait::Expression_Literal& toSubstraitLiteral(

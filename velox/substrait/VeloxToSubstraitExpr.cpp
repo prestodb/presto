@@ -378,7 +378,7 @@ void convertVectorValue(
 
   using T = typename TypeTraits<kind>::NativeType;
 
-  auto childToFlatVec = vectorValue->asFlatVector<T>();
+  auto childToFlatVec = vectorValue->as<SimpleVector<T>>();
 
   //  Get the batchSize and convert each value in it.
   vector_size_t flatVecSize = childToFlatVec->size();
