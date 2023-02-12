@@ -165,6 +165,53 @@ TEST_F(MapTest, fewerValuesThanKeys) {
       evaluate<MapVector>("try(map(c0, c1))", makeRowVector({keys, values})));
 }
 
+TEST_F(MapTest, fewerValuesThanKeysInLast) {
+  // Element 0 of the map vector is valid, element 1 is missing values
+  // and should come out empty when not throwing errors. The starts of
+  // the keys and values are aligned but the lengths are not.
+  auto size = 2;
+
+  auto keys = makeArrayVector<int64_t>(
+      size,
+      [](vector_size_t row) { return 10; },
+      [](vector_size_t row) { return row % 11; });
+  auto values = makeArrayVector<int32_t>(
+      size,
+      [](vector_size_t row) { return row == 0 ? 10 : 1; },
+      [](vector_size_t row) { return row % 13; });
+
+  VELOX_ASSERT_THROW(
+      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
+      "(10 vs. 1) Key and value arrays must be the same length");
+
+  auto map =
+      evaluate<MapVector>("try(map(c0, c1))", makeRowVector({keys, values}));
+  EXPECT_EQ(10, map->sizeAt(0));
+  EXPECT_EQ(0, map->sizeAt(1));
+
+  auto condition = makeFlatVector<bool>({true, false, true, false, true});
+
+  // Makes a vector of keys and values where items 0, 2 and 4 are
+  // aligned. The keys vector as a whole is still longer than the
+  // values vector.
+  auto keys2 = evaluate(
+      "if(c0, array[3, 2, 1], array[6, 5, 4])", makeRowVector({condition}));
+  auto values2 = evaluate(
+      "if(c0, array[30, 20, 10], array[40])", makeRowVector({condition}));
+
+  auto result = evaluate<MapVector>(
+      "try("
+      "   if(c0, "
+      "       map(c1, c2), "
+      "       cast(null as map(integer, integer))))",
+      makeRowVector({condition, keys2, values2}));
+  EXPECT_EQ(0, result->offsetAt(0));
+  EXPECT_EQ(3, result->offsetAt(2));
+  EXPECT_EQ(6, result->offsetAt(4));
+  EXPECT_EQ(9, result->mapKeys()->size());
+  EXPECT_EQ(9, result->mapValues()->size());
+}
+
 TEST_F(MapTest, fewerKeysThanValues) {
   auto size = 1'000;
 

@@ -51,10 +51,6 @@ class MapFunction : public exec::VectorFunction {
       auto keysArray = keys->as<ArrayVector>();
       auto valuesArray = values->as<ArrayVector>();
 
-      // In the fast path, we do not need to exclude 'failed' rows from
-      // processing. It is same to include these in the MapVector and rely on
-      // the expression evaluation framework to handle failures.
-
       // Verify there are no null keys.
       auto keysElements = keysArray->elements();
       if (keysElements->mayHaveNulls()) {
@@ -66,15 +62,6 @@ class MapFunction : public exec::VectorFunction {
           }
         });
       }
-
-      // Check array lengths
-      context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
-        VELOX_USER_CHECK_EQ(
-            keysArray->sizeAt(row),
-            valuesArray->sizeAt(row),
-            "{}",
-            kArrayLengthsMismatch);
-      });
 
       auto mapVector = std::make_shared<MapVector>(
           context.pool(),
@@ -200,21 +187,31 @@ class MapFunction : public exec::VectorFunction {
   }
 
  private:
-  // Can only take the fast path if:
-  // - the offsets in both keys and values vectors are the same.
-  // - if the number of elements is equal or larger than rows.end().
-  //
-  // (if element sizes are different keys and values the Map function will
-  // throw).
+  // Can only take the fast path if keys and values have an equal
+  // number of arrays and the offsets and sizes of these arrays match
+  // 1:1. The map must be well formed for all elements, also ones not
+  // in 'rows' in apply(). This is because canonicalize() will touch
+  // all elements in any case.
   bool canTakeFastPath(
       ArrayVector* keys,
       ArrayVector* values,
       const SelectivityVector& rows) const {
     VELOX_CHECK_GE(keys->size(), rows.end());
     VELOX_CHECK_GE(values->size(), rows.end());
-    return rows.testSelected([&](vector_size_t row) {
-      return keys->offsetAt(row) == values->offsetAt(row);
-    });
+    // the fast path takes a reference to the keys and values and the
+    // offsets and sizes from keys. This is valid only if the keys and
+    // values align for all rows for both size and offset. Anything
+    // else will break canonicalize().
+    if (keys->size() != values->size()) {
+      return false;
+    }
+    for (auto row = 0; row < keys->size(); ++row) {
+      if (keys->offsetAt(row) != values->offsetAt(row) ||
+          keys->sizeAt(row) != values->sizeAt(row)) {
+        return false;
+      }
+    }
+    return true;
   }
 };
 } // namespace
