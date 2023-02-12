@@ -38,11 +38,13 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
@@ -88,10 +90,12 @@ import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBuffer
 import static com.facebook.presto.SystemSessionProperties.isUseLegacyScheduler;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -523,20 +527,34 @@ public class SqlQueryExecution
             stateMachine.beginAnalysis();
 
             // plan query
+            final PlanVariableAllocator planVariableAllocator = new PlanVariableAllocator();
             LogicalPlanner logicalPlanner = new LogicalPlanner(
-                    false,
                     stateMachine.getSession(),
-                    planOptimizers,
                     idAllocator,
                     metadata,
-                    sqlParser,
-                    statsCalculator,
-                    costCalculator,
-                    stateMachine.getWarningCollector(),
-                    planChecker);
-            Plan plan = getSession().getRuntimeStats().profileNanos(
+                    planVariableAllocator);
+
+            PlanNode planNode = getSession().getRuntimeStats().profileNanos(
                     LOGICAL_PLANNER_TIME_NANOS,
                     () -> logicalPlanner.plan(analysis));
+
+            Optimizer optimizer = new Optimizer(
+                    stateMachine.getSession(),
+                    metadata,
+                    planOptimizers,
+                    planChecker,
+                    sqlParser,
+                    planVariableAllocator,
+                    idAllocator,
+                    stateMachine.getWarningCollector(),
+                    statsCalculator,
+                    costCalculator,
+                    false);
+
+            Plan plan = getSession().getRuntimeStats().profileNanos(
+                    OPTIMIZER_TIME_NANOS,
+                    () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
+
             queryPlan.set(plan);
             stateMachine.setPlanStatsAndCosts(plan.getStatsAndCosts());
             stateMachine.setPlanCanonicalInfo(getCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
