@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TopNNode;
-import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -53,7 +53,7 @@ public class TestUnion
     {
         Plan plan = plan(
                 "SELECT suppkey FROM supplier UNION ALL SELECT nationkey FROM nation",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 false);
 
         List<PlanNode> remotes = searchFrom(plan.getRoot())
@@ -75,7 +75,7 @@ public class TestUnion
                         "   SELECT nationkey FROM nation" +
                         ") t(a) " +
                         "ORDER BY a LIMIT 1",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 false);
 
         List<PlanNode> remotes = searchFrom(plan.getRoot())
@@ -102,7 +102,7 @@ public class TestUnion
                         "   SELECT 1 FROM nation " +
                         "   UNION ALL " +
                         "   SELECT 1 FROM nation))",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 false);
 
         List<PlanNode> remotes = searchFrom(plan.getRoot())
@@ -119,7 +119,7 @@ public class TestUnion
     {
         Plan plan = plan(
                 "SELECT orderstatus, sum(orderkey) FROM (SELECT orderkey, orderstatus FROM orders UNION ALL SELECT orderkey, orderstatus FROM orders) x GROUP BY (orderstatus)",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 false);
         assertAtMostOneAggregationBetweenRemoteExchanges(plan);
         assertPlanIsFullyDistributed(plan);
@@ -130,7 +130,7 @@ public class TestUnion
     {
         Plan plan = plan(
                 "SELECT orderstatus, sum(orderkey) FROM (SELECT orderkey, orderstatus FROM orders UNION ALL SELECT orderkey, orderstatus FROM orders) x GROUP BY ROLLUP (orderstatus)",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 false);
         assertAtMostOneAggregationBetweenRemoteExchanges(plan);
         assertPlanIsFullyDistributed(plan);
@@ -141,7 +141,7 @@ public class TestUnion
     {
         Plan plan = plan(
                 "SELECT regionkey, count(*) FROM (SELECT regionkey FROM nation UNION ALL SELECT * FROM (VALUES 2, 100) t(regionkey)) GROUP BY regionkey",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 false);
         assertAtMostOneAggregationBetweenRemoteExchanges(plan);
         // TODO: Enable this check once distributed UNION can handle both partitioned and single node sources at the same time
@@ -153,7 +153,7 @@ public class TestUnion
     {
         Plan plan = plan(
                 "SELECT * FROM (SELECT * FROM nation UNION ALL SELECT * from nation) n, region r WHERE n.regionkey=r.regionkey",
-                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED,
                 false);
 
         assertPlanIsFullyDistributed(plan);

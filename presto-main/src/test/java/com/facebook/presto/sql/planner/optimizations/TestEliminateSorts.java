@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
-import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
+import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;

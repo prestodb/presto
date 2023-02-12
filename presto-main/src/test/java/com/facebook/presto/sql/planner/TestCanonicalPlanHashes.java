@@ -20,6 +20,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -358,7 +359,7 @@ public class TestCanonicalPlanHashes
     private List<PlanNode> getStatsEquivalentPlanHashes(String sql)
     {
         Session session = createSession();
-        PlanNode root = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
+        PlanNode root = plan(sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, session).getRoot();
         assertTrue(root.getStatsEquivalentPlanNode().isPresent());
 
         ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
@@ -372,7 +373,7 @@ public class TestCanonicalPlanHashes
             throws Exception
     {
         Session session = createSession();
-        PlanNode plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
+        PlanNode plan = plan(sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, session).getRoot();
         assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
         return getObjectMapper().writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy, getObjectMapper()).get());
     }

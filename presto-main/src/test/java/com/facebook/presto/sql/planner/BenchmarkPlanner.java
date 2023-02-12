@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.ColumnNaming;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -67,7 +68,7 @@ public class BenchmarkPlanner
         private String iterativeOptimizerEnabled = "true";
 
         @Param({"optimized", "created"})
-        private String stage = LogicalPlanner.Stage.OPTIMIZED.toString();
+        private String stage = Optimizer.PlanStage.OPTIMIZED.toString();
 
         private LocalQueryRunner queryRunner;
         private List<String> queries;
@@ -117,7 +118,7 @@ public class BenchmarkPlanner
     public List<Plan> planQueries(BenchmarkData benchmarkData)
     {
         return benchmarkData.queryRunner.inTransaction(transactionSession -> {
-            LogicalPlanner.Stage stage = LogicalPlanner.Stage.valueOf(benchmarkData.stage.toUpperCase());
+            Optimizer.PlanStage stage = Optimizer.PlanStage.valueOf(benchmarkData.stage.toUpperCase());
             return benchmarkData.queries.stream()
                     .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, stage, false, WarningCollector.NOOP))
                     .collect(toImmutableList());
