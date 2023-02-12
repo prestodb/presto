@@ -148,6 +148,7 @@ import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
@@ -174,6 +175,7 @@ import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.RemoteSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -247,6 +249,8 @@ import static com.facebook.presto.SystemSessionProperties.getHeapDumpFileDirecto
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.isHeapDumpOnExceededMemoryLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemoryLimitErrorsEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
 import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
@@ -254,6 +258,7 @@ import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSched
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
@@ -989,15 +994,15 @@ public class LocalQueryRunner
     @Override
     public Plan createPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
     {
-        return createPlan(session, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, warningCollector);
+        return createPlan(session, sql, OPTIMIZED_AND_VALIDATED, warningCollector);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, WarningCollector warningCollector)
+    public Plan createPlan(Session session, @Language("SQL") String sql, Optimizer.PlanStage stage, WarningCollector warningCollector)
     {
         return createPlan(session, sql, stage, true, warningCollector);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, WarningCollector warningCollector)
+    public Plan createPlan(Session session, @Language("SQL") String sql, Optimizer.PlanStage stage, boolean forceSingleNode, WarningCollector warningCollector)
     {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
         BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
@@ -1030,10 +1035,10 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)
     {
-        return createPlan(session, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, warningCollector);
+        return createPlan(session, sql, optimizers, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, warningCollector);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector)
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, Optimizer.PlanStage stage, WarningCollector warningCollector)
     {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
         BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
@@ -1053,10 +1058,35 @@ public class LocalQueryRunner
                 distributedPlanChecker);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(preparedQuery.getWrappedStatement() instanceof Explain, session, optimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector, singleNodePlanChecker);
-
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
-        return logicalPlanner.plan(analysis, stage);
+
+        final PlanVariableAllocator planVariableAllocator = new PlanVariableAllocator();
+        LogicalPlanner logicalPlanner = new LogicalPlanner(
+                session,
+                idAllocator,
+                metadata,
+                planVariableAllocator);
+
+        PlanNode planNode = session.getRuntimeStats().profileNanos(
+                LOGICAL_PLANNER_TIME_NANOS,
+                () -> logicalPlanner.plan(analysis));
+
+        Optimizer optimizer = new Optimizer(
+                session,
+                metadata,
+                optimizers,
+                singleNodePlanChecker,
+                sqlParser,
+                planVariableAllocator,
+                idAllocator,
+                warningCollector,
+                statsCalculator,
+                costCalculator,
+                preparedQuery.getWrappedStatement() instanceof Explain);
+
+        return session.getRuntimeStats().profileNanos(
+                OPTIMIZER_TIME_NANOS,
+                () -> optimizer.validateAndOptimizePlan(planNode, stage));
     }
 
     private static List<Split> getNextBatch(SplitSource splitSource)

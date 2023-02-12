@@ -21,7 +21,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
@@ -93,7 +93,7 @@ public class OptimizerAssert
         checkState(plan == null, "plan has already been set");
 
         //get an initial plan and apply a minimal set of optimizers in preparation foor applying the specific rules to be tested
-        Plan result = queryRunner.inTransaction(session -> queryRunner.createPlan(session, sql, getMinimalOptimizers(), LogicalPlanner.Stage.OPTIMIZED, WarningCollector.NOOP));
+        Plan result = queryRunner.inTransaction(session -> queryRunner.createPlan(session, sql, getMinimalOptimizers(), Optimizer.PlanStage.OPTIMIZED, WarningCollector.NOOP));
         plan = result.getRoot();
         types = result.getTypes();
         return this;

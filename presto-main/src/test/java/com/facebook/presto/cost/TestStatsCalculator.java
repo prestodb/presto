@@ -15,7 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -58,10 +58,10 @@ public class TestStatsCalculator
 
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
+        assertPlan(sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, pattern);
     }
 
-    private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
+    private void assertPlan(String sql, Optimizer.PlanStage stage, PlanMatchPattern pattern)
     {
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage, WarningCollector.NOOP);
