@@ -42,11 +42,12 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -78,6 +79,7 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
+import static com.facebook.presto.sql.TestExpressionInterpreter.AVG_UDAF_CPP;
 import static com.facebook.presto.sql.TestExpressionInterpreter.SQUARE_UDF_CPP;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -138,6 +140,13 @@ public class TestLogicalPlanner
 {
     // TODO: Use com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder#tableScan with required node/stream
     // partitioning to properly test aggregation, window function and join.
+
+    @BeforeClass
+    public void setup()
+    {
+        setupJsonFunctionNamespaceManager(this.getQueryRunner());
+    }
+
     @Test
     public void testAnalyze()
     {
@@ -1669,17 +1678,45 @@ public class TestLogicalPlanner
     @Test
     public void testJsonBasedFunctions()
     {
-        LocalQueryRunner queryRunner = getQueryRunner();
-        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
-        queryRunner.loadFunctionNamespaceManager(JsonFileBasedFunctionNamespaceManagerFactory.NAME, "json",
-                ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP", "json-based-function-manager.path-to-function-definition", ""));
-        queryRunner.getFunctionAndTypeManager().createFunction(SQUARE_UDF_CPP, false);
+        this.getQueryRunner().getFunctionAndTypeManager().createFunction(SQUARE_UDF_CPP, false);
+
         assertPlan(
                 "SELECT json.f3.square(orderkey) from orders",
                 any(
                         project(
                                 ImmutableMap.of("out", expression("json.f3.square(orderkey)")),
                                 tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))));
+    }
+
+    @Test
+    public void testJsonBasedAggregateFunctions()
+    {
+        this.getQueryRunner().getFunctionAndTypeManager().createFunction(AVG_UDAF_CPP, false);
+
+        assertDistributedPlan("SELECT orderstatus, json.f3.avg(totalprice) FROM orders GROUP BY orderstatus",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("final_result", functionCall("avg", ImmutableList.of("partial_result"))),
+                                FINAL,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                aggregation(
+                                                        ImmutableMap.of("partial_result", functionCall("avg", ImmutableList.of("totalprice"))),
+                                                        PARTIAL,
+                                                        anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice")))))))));
+    }
+
+    // Run this method exactly once.
+    private void setupJsonFunctionNamespaceManager(QueryRunner queryRunner)
+    {
+        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
+        queryRunner.loadFunctionNamespaceManager(
+                JsonFileBasedFunctionNamespaceManagerFactory.NAME,
+                "json",
+                ImmutableMap.of(
+                        "supported-function-languages", "CPP",
+                        "function-implementation-type", "CPP",
+                        "json-based-function-manager.path-to-function-definition", ""));
     }
 
     @Test
