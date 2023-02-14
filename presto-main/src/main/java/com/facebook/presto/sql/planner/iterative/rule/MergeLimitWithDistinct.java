@@ -54,6 +54,7 @@ public class MergeLimitWithDistinct
                         parent.getCount(),
                         false,
                         child.getGroupingKeys(),
-                        child.getHashVariable()));
+                        child.getHashVariable(),
+                        0));
     }
 }

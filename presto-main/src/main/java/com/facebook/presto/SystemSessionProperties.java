@@ -252,6 +252,8 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED = "optimize_conditional_aggregation_enabled";
     public static final String ANALYZER_TYPE = "analyzer_type";
     public static final String REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED = "remove_redundant_distinct_aggregation_enabled";
+    public static final String PREFILTER_FOR_GROUPBY_LIMIT = "prefilter_for_groupby_limit";
+    public static final String PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS = "prefilter_for_groupby_limit_timeout_ms";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1432,6 +1434,16 @@ public final class SystemSessionProperties
                         PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD,
                         "Byte reduction ratio threshold at which to disable pushdown of aggregation below inner join",
                         featuresConfig.getPushAggregationBelowJoinByteReductionThreshold(),
+                        false),
+                booleanProperty(
+                        PREFILTER_FOR_GROUPBY_LIMIT,
+                        "Prefilter aggregation source for queries that have aggregations on simple tables with filters",
+                        featuresConfig.isPrefilterForGroupbyLimit(),
+                        false),
+                integerProperty(
+                        PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS,
+                        "Timeout for finding the LIMIT number of keys for group by",
+                        10000,
                         false));
     }
 
@@ -2400,6 +2412,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED, Boolean.class);
     }
 
+    public static boolean isPrefilterForGroupbyLimit(Session session)
+    {
+        return session.getSystemProperty(PREFILTER_FOR_GROUPBY_LIMIT, Boolean.class);
+    }
+
     public static boolean isInPredicatesAsInnerJoinsEnabled(Session session)
     {
         return session.getSystemProperty(IN_PREDICATES_AS_INNER_JOINS_ENABLED, Boolean.class);
@@ -2408,5 +2425,10 @@ public final class SystemSessionProperties
     public static double getPushAggregationBelowJoinByteReductionThreshold(Session session)
     {
         return session.getSystemProperty(PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD, Double.class);
+    }
+
+    public static int getPrefilterForGroupbyLimitTimeoutMS(Session session)
+    {
+        return session.getSystemProperty(PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS, Integer.class);
     }
 }

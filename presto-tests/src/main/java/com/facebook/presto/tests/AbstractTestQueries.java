@@ -57,6 +57,8 @@ import static com.facebook.presto.SystemSessionProperties.LEGACY_UNNEST;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
+import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
+import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
@@ -986,9 +988,9 @@ public abstract class AbstractTestQueries
     public void testDistinctLimitInternal(Session session)
     {
         assertQuery(session,
-                "SELECT DISTINCT orderstatus, custkey " +
+                "select cardinality(map_agg((orderstatus, custkey), true)) from (SELECT DISTINCT orderstatus, custkey " +
                         "FROM (SELECT orderstatus, custkey FROM orders ORDER BY orderkey LIMIT 10) " +
-                        "LIMIT 10");
+                        "LIMIT 10)", "select 10");
         assertQuery(session, "SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
         assertQuery(session, "SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
         assertQuery(session, "SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 10000");
@@ -6362,5 +6364,35 @@ public abstract class AbstractTestQueries
                 "avg(totalprice) over (partition by orderpriority order by orderkey rows between rnk preceding and rnk following) " +
                 "from (select orderkey, orderpriority, totalprice, rank() over(partition by orderpriority order by orderkey) as rnk from orders)";
         assertQuery(sql);
+    }
+
+    @Test
+    public void testGroupByLimit()
+    {
+        Session prefilter = Session.builder(getSession())
+                .setSystemProperty(PREFILTER_FOR_GROUPBY_LIMIT, "true")
+                .build();
+        MaterializedResult result1 = computeActual(prefilter, "select count(shipdate), orderkey from lineitem group by orderkey limit 100000");
+        MaterializedResult result2 = computeActual("select count(shipdate), orderkey from lineitem group by orderkey limit 100000");
+        assertEqualsIgnoreOrder(result1, result2, "Prefilter and without prefilter don't give matching results");
+
+        assertQuery(prefilter, "select count(custkey), orderkey from orders where orderstatus='F' and orderkey < 50 group by orderkey limit 100", "values (1, 3), (1, 6), (1, 37), (1, 33), (1, 5)");
+        assertQuery(prefilter, "select count(1) from (select count(custkey), orderkey from orders where orderstatus='F' and orderkey < 50 group by orderkey limit 4)", "select 4");
+        assertQuery(prefilter, "select count(comment), orderstatus from (select upper(comment) comment, upper(orderstatus) orderstatus from orders where orderkey < 50) group by orderstatus limit 100", "values (5, 'F'), (10, 'O')");
+
+        assertQuery(prefilter, "select count(comment), orderstatus from (select upper(comment) comment, upper(orderstatus) orderstatus from orders where orderkey < 50) group by orderstatus having count(1) > 1 limit 100", "values (5, 'F'), (10, 'O')");
+
+        prefilter = Session.builder(getSession())
+                .setSystemProperty(PREFILTER_FOR_GROUPBY_LIMIT, "true")
+                .setSystemProperty(PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS, "1")
+                .build();
+
+        result1 = computeActual(prefilter, "select count(shipdate), orderkey from lineitem group by orderkey limit 100000");
+        result2 = computeActual("select count(shipdate), orderkey from lineitem group by orderkey limit 100000");
+        assertEqualsIgnoreOrder(result1, result2, "Prefilter and without prefilter don't give matching results");
+
+        assertQuery(prefilter, "select count(1) from (select count(custkey), orderkey from orders group by orderkey limit 100000)", "values 15000");
+        assertQuery(prefilter, "select count(1) from (select count(custkey), orderkey from orders group by orderkey limit 4)", "select 4");
+        assertQuery(prefilter, "select count(1) from (select count(comment), orderstatus from (select upper(comment) comment, upper(orderstatus) orderstatus from orders) group by orderstatus limit 100000)", "values 3");
     }
 }
