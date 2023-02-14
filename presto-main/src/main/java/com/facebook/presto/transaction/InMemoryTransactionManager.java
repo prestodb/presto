@@ -443,7 +443,7 @@ public class InMemoryTransactionManager
                     .map(Optional::get)
                     .forEach(catalog -> catalogNames.put(catalog.getCatalogName(), catalog.getConnectorId()));
 
-            catalogManager.getCatalogs().stream()
+            catalogManager.getCatalogs()
                     .forEach(catalog -> catalogNames.putIfAbsent(catalog.getCatalogName(), catalog.getConnectorId()));
 
             return ImmutableMap.copyOf(catalogNames);
@@ -455,9 +455,7 @@ public class InMemoryTransactionManager
             if (catalog == null) {
                 catalog = catalogManager.getCatalog(catalogName);
                 catalogByName.put(catalogName, catalog);
-                if (catalog.isPresent()) {
-                    registerCatalog(catalog.get());
-                }
+                catalog.ifPresent(this::registerCatalog);
 
                 if (companionCatalogs.containsKey(catalogName)) {
                     Optional<Catalog> companionCatalog = catalogManager.getCatalog(companionCatalogs.get(catalogName));

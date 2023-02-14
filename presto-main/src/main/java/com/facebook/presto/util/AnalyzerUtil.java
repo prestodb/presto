@@ -15,14 +15,20 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AnalyzerContext;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.analyzer.QueryAnalyzer;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.SystemSessionProperties.isLogFormattedQueryEnabled;
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
+import static com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer.getBuiltInAnalyzerContext;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 
@@ -61,5 +67,15 @@ public class AnalyzerUtil
                 .setWarningHandlingLevel(getWarningHandlingLevel(session))
                 .setWarningCollector(warningCollector)
                 .build();
+    }
+
+    public static AnalyzerContext getAnalyzerContext(QueryAnalyzer queryAnalyzer, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Session session)
+    {
+        // TODO: Remove this hack once inbuilt query analyzer is moved to presto-analyzer
+        if (queryAnalyzer instanceof BuiltInQueryAnalyzer) {
+            return getBuiltInAnalyzerContext(idAllocator, variableAllocator, session);
+        }
+
+        return new AnalyzerContext(idAllocator, variableAllocator);
     }
 }

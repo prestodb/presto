@@ -286,6 +286,8 @@ public class DispatchManager
             // prepare query
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, session.getWarningCollector());
             AnalyzerProvider analyzerProvider = analyzerProviderManager.getAnalyzerProvider(getAnalyzerType(session));
+            System.out.println(this + "\tanalyzerProvider is: " + analyzerProvider);
+            System.out.println(this + "\tanalyzerProvider.getQueryAnalyzer() is: " + analyzerProvider.getQueryAnalyzer());
             preparedQuery = analyzerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
             query = preparedQuery.getFormattedQuery().orElse(query);
 
@@ -308,6 +310,7 @@ public class DispatchManager
 
             DispatchQuery dispatchQuery = dispatchQueryFactory.createDispatchQuery(
                     session,
+                    analyzerProvider,
                     query,
                     preparedQuery,
                     slug,

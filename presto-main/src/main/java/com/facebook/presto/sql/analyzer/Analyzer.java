@@ -49,13 +49,20 @@ public class Analyzer
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
+
+    public Session getSession()
+    {
+        return session;
+    }
+
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
     private final List<Expression> parameters;
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
 
-    public Analyzer(Session session,
+    public Analyzer(
+            Session session,
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
@@ -69,8 +76,8 @@ public class Analyzer
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.queryExplainer = requireNonNull(queryExplainer, "query explainer is null");
-        this.parameters = parameters;
-        this.parameterLookup = parameterLookup;
+        this.parameters = requireNonNull(parameters, "parameters is null");
+        this.parameterLookup = requireNonNull(parameterLookup, "parameterLookup is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
@@ -79,6 +86,7 @@ public class Analyzer
         return analyze(statement, false);
     }
 
+    // TODO: Remove this method once all calls are moved to analyzer interface, as this call is overloaded with analyze and columnCheckPermissions
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
         Analysis analysis = analyzeSemantic(statement, isDescribe);

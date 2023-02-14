@@ -74,7 +74,14 @@ public class DropFunctionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(DropFunction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> execute(
+            DropFunction statement,
+            TransactionManager transactionManager,
+            Metadata metadata,
+            AccessControl accessControl,
+            Session session,
+            List<Expression> parameters,
+            WarningCollector warningCollector)
     {
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, warningCollector);

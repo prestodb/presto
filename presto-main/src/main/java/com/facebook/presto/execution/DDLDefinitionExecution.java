@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.tree.Expression;
@@ -31,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class DDLDefinitionExecution<T extends Statement>
@@ -82,14 +85,19 @@ public class DDLDefinitionExecution<T extends Statement>
 
         @Override
         public DDLDefinitionExecution<?> createQueryExecution(
-                BuiltInQueryPreparer.BuiltInPreparedQuery preparedQuery,
+                AnalyzerProvider analyzerProvider,
+                PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
                 Optional<QueryType> queryType)
         {
-            return createDDLDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug, retryCount);
+            //TODO: PreparedQuery should be passed all the way to analyzer
+            checkState(preparedQuery instanceof BuiltInQueryPreparer.BuiltInPreparedQuery, "Unsupported prepared query type: %s", preparedQuery.getClass().getSimpleName());
+            BuiltInQueryPreparer.BuiltInPreparedQuery builtInQueryPreparer = (BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery;
+
+            return createDDLDefinitionExecution(builtInQueryPreparer.getStatement(), builtInQueryPreparer.getParameters(), stateMachine, slug, retryCount);
         }
 
         private <T extends Statement> DDLDefinitionExecution<T> createDDLDefinitionExecution(

@@ -4901,6 +4901,12 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRJ()
+    {
+        assertAccessDenied("SELECT * FROM nation", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+    }
+
+    @Test
     public void testAccessControl()
     {
         assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));

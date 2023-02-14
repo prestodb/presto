@@ -13,11 +13,21 @@
  */
 package com.facebook.presto.spi.analyzer;
 
-public interface AnalyzerProvider
+import com.facebook.presto.common.analyzer.PreparedQuery;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.plan.PlanNode;
+
+import java.util.Set;
+
+public interface QueryAnalyzer
 {
-    String getType();
+    QueryAnalysis analyze(AnalyzerContext analyzerContext, PreparedQuery preparedQuery);
 
-    QueryPreparer getQueryPreparer();
+    void checkAccessPermissions(AnalyzerContext analyzerContext, QueryAnalysis queryAnalysis);
 
-    QueryAnalyzer getQueryAnalyzer();
+    PlanNode plan(AnalyzerContext analyzerContext, QueryAnalysis queryAnalysis);
+
+    boolean isExplainAnalyzeQuery(QueryAnalysis queryAnalysis);
+
+    Set<ConnectorId> extractConnectors(QueryAnalysis queryAnalysis);
 }

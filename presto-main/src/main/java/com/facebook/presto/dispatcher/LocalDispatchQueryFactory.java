@@ -27,9 +27,9 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.tracing.NoopTracerProvider;
 import com.facebook.presto.tracing.QueryStateTracingListener;
 import com.facebook.presto.transaction.TransactionManager;
@@ -43,7 +43,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -118,6 +117,7 @@ public class LocalDispatchQueryFactory
      *  to the {@link ResourceGroupManager}. This is no-op for no disaggregated coordinator setup
      *
      * @param session the session
+     * @param analyzerProvider the analyzer provider
      * @param query the query
      * @param preparedQuery the prepared query
      * @param slug the unique query slug for each {@code Query} object
@@ -131,6 +131,7 @@ public class LocalDispatchQueryFactory
     @Override
     public DispatchQuery createDispatchQuery(
             Session session,
+            AnalyzerProvider analyzerProvider,
             String query,
             PreparedQuery preparedQuery,
             String slug,
@@ -163,9 +164,7 @@ public class LocalDispatchQueryFactory
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatementClass().getSimpleName());
             }
 
-            //TODO: PreparedQuery should be passed all the way to analyzer
-            checkState(preparedQuery instanceof BuiltInQueryPreparer.BuiltInPreparedQuery, "Unsupported prepared query type: %s", preparedQuery.getClass().getSimpleName());
-            return queryExecutionFactory.createQueryExecution((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType);
+            return queryExecutionFactory.createQueryExecution(analyzerProvider, preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType);
         });
 
         return new LocalDispatchQuery(

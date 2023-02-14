@@ -13,11 +13,17 @@
  */
 package com.facebook.presto.spi.analyzer;
 
-public interface AnalyzerProvider
+import com.facebook.presto.spi.function.FunctionKind;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+public interface QueryAnalysis
 {
-    String getType();
+    String getUpdateType();
 
-    QueryPreparer getQueryPreparer();
+    Optional<String> getExpandedQuery();
 
-    QueryAnalyzer getQueryAnalyzer();
+    Map<FunctionKind, Set<String>> getInvokedFunctions();
 }
