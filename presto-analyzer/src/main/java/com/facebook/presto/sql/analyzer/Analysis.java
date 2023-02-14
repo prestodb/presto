@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.security.Identity;
@@ -46,6 +47,7 @@ import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 
@@ -900,9 +902,14 @@ public class Analysis
         return currentQuerySpecification;
     }
 
-    public List<String> getInvokedFunctionNames()
+    public Map<FunctionKind, Set<String>> getInvokedFunctions()
     {
-        return ImmutableList.copyOf(functionHandles.values().stream().map(FunctionHandle::getName).collect(toImmutableSet()));
+        Map<FunctionKind, Set<String>> functionMap = new HashMap<>();
+        for (FunctionHandle functionHandle : functionHandles.values()) {
+            functionMap.putIfAbsent(functionHandle.getKind(), new HashSet<>());
+            functionMap.get(functionHandle.getKind()).add(functionHandle.getName());
+        }
+        return functionMap.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableSet.copyOf(entry.getValue())));
     }
 
     @Immutable

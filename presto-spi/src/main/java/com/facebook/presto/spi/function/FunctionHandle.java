@@ -24,4 +24,6 @@ public interface FunctionHandle
     CatalogSchemaName getCatalogSchemaName();
 
     String getName();
+
+    FunctionKind getKind();
 }

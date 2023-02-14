@@ -161,7 +161,9 @@ public class QueryStateMachine
     private final Set<SqlFunctionId> removedSessionFunctions = Sets.newConcurrentHashSet();
 
     private final WarningCollector warningCollector;
-    private final AtomicReference<List<String>> functionNames = new AtomicReference<>(ImmutableList.of());
+    private final AtomicReference<Set<String>> scalarFunctions = new AtomicReference<>(ImmutableSet.of());
+    private final AtomicReference<Set<String>> aggregateFunctions = new AtomicReference<>(ImmutableSet.of());
+    private final AtomicReference<Set<String>> windowsFunctions = new AtomicReference<>(ImmutableSet.of());
 
     private QueryStateMachine(
             String query,
@@ -484,7 +486,9 @@ public class QueryStateMachine
                 removedSessionFunctions,
                 Optional.ofNullable(planStatsAndCosts.get()).orElseGet(StatsAndCosts::empty),
                 session.getOptimizerInformationCollector().getOptimizationInfo(),
-                functionNames.get(),
+                scalarFunctions.get(),
+                aggregateFunctions.get(),
+                windowsFunctions.get(),
                 Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of));
     }
 
@@ -552,10 +556,22 @@ public class QueryStateMachine
         this.output.set(output);
     }
 
-    public void setFunctionNames(List<String> functionNames)
+    public void setScalarFunctions(Set<String> scalarFunctions)
     {
-        requireNonNull(functionNames, "functionNames is null");
-        this.functionNames.set(ImmutableList.copyOf(functionNames));
+        requireNonNull(scalarFunctions, "scalarFunctions is null");
+        this.scalarFunctions.set(ImmutableSet.copyOf(scalarFunctions));
+    }
+
+    public void setAggregateFunctions(Set<String> aggregateFunctions)
+    {
+        requireNonNull(aggregateFunctions, "aggregateFunctions is null");
+        this.aggregateFunctions.set(ImmutableSet.copyOf(aggregateFunctions));
+    }
+
+    public void setWindowsFunctions(Set<String> windowsFunctions)
+    {
+        requireNonNull(windowsFunctions, "windowsFunctions is null");
+        this.windowsFunctions.set(ImmutableSet.copyOf(windowsFunctions));
     }
 
     private void addSerializedCommitOutputToOutput(ConnectorCommitHandle commitHandle)
@@ -1071,7 +1087,9 @@ public class QueryStateMachine
                 queryInfo.getRemovedSessionFunctions(),
                 StatsAndCosts.empty(),
                 queryInfo.getOptimizerInformation(),
-                queryInfo.getFunctionNames(),
+                queryInfo.getScalarFunctions(),
+                queryInfo.getAggregateFunctions(),
+                queryInfo.getWindowsFunctions(),
                 ImmutableList.of());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }

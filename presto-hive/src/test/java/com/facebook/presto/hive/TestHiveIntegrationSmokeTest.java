@@ -5916,23 +5916,29 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT abs(acctbal), round(acctbal), round(acctbal, 1), repeat(custkey, 2), repeat(name, 3),  repeat(mktsegment, 4) FROM customer";
         resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithScalarFunctions);
         queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
-        assertEqualsNoOrder(queryInfo.getFunctionNames(), ImmutableList.of("presto.default.abs", "presto.default.round", "presto.default.repeat"));
+        assertEqualsNoOrder(queryInfo.getScalarFunctions(), ImmutableList.of("presto.default.abs", "presto.default.round", "presto.default.repeat"));
 
-        @Language("SQL") String queryWithAggregateFunctions = "SELECT nationkey, mktsegment, arbitrary(name), arbitrary(comment), " +
+        @Language("SQL") String queryWithAggregateFunctions = "SELECT abs(nationkey), mktsegment, arbitrary(name), arbitrary(comment), " +
                 "approx_percentile(acctbal, 0.1), approx_percentile(acctbal, 0.3, 0.01) FROM customer GROUP BY nationkey, mktsegment";
         resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithAggregateFunctions);
         queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
-        assertEqualsNoOrder(queryInfo.getFunctionNames(), ImmutableList.of("presto.default.arbitrary", "presto.default.approx_percentile"));
+        assertEqualsNoOrder(queryInfo.getScalarFunctions(), ImmutableList.of("presto.default.abs"));
+        assertEqualsNoOrder(queryInfo.getAggregateFunctions(), ImmutableList.of("presto.default.arbitrary", "presto.default.approx_percentile"));
 
         @Language("SQL") String queryWithWindowFunctions = "SELECT row_number() OVER(PARTITION BY mktsegment), nth_value(name, 5) OVER(PARTITION BY nationkey) FROM customer";
         resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithWindowFunctions);
         queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
-        assertEqualsNoOrder(queryInfo.getFunctionNames(), ImmutableList.of("presto.default.row_number", "presto.default.nth_value"));
+        assertEqualsNoOrder(queryInfo.getWindowsFunctions(), ImmutableList.of("presto.default.row_number", "presto.default.nth_value"));
 
         @Language("SQL") String queryWithNestedFunctions = "SELECT DISTINCT nationkey FROM customer WHERE mktsegment='BUILDING' AND contains(regexp_split( phone, '-' ), '11' )";
         resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithNestedFunctions);
         queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
-        assertEqualsNoOrder(queryInfo.getFunctionNames(), ImmutableList.of("presto.default.contains", "presto.default.regexp_split"));
+        assertEqualsNoOrder(queryInfo.getScalarFunctions(), ImmutableList.of("presto.default.contains", "presto.default.regexp_split"));
+
+        @Language("SQL") String queryWithFunctionsInLambda = "SELECT transform(ARRAY[nationkey, custkey], x -> abs(x)) FROM customer";
+        resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithFunctionsInLambda);
+        queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
+        assertEqualsNoOrder(queryInfo.getScalarFunctions(), ImmutableList.of("presto.default.transform", "presto.default.abs"));
     }
 
     protected String retentionDays(int days)
