@@ -1,4 +1,4 @@
-# Presto [![Build Status](https://travis-ci.com/prestodb/presto.svg?branch=master)](https://travis-ci.com/prestodb/presto)
+# Presto
 
 Presto is a distributed SQL query engine for big data.
 
