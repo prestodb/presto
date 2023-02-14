@@ -1724,4 +1724,86 @@ public class TestLogicalPlanner
     {
         assertPlanSucceeded("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(array[2, 3], ARRAY[2, 3]) AS r(r1, r2)", this.getQueryRunner().getDefaultSession());
     }
+
+    @Test
+    public void testCorrelatedSubqueriesWithOuterJoins()
+    {
+        // Subquery pushed to partsupp and therefore final join order is (part LOJ (partsupp JOIN supplier))
+        assertPlan("SELECT COUNT(*) FROM part p LEFT JOIN partsupp ps ON p.partkey=ps.partkey AND EXISTS (SELECT 1 FROM supplier s WHERE s.suppkey=ps.suppkey)",
+                anyTree(
+                        join(LEFT,
+                                ImmutableList.of(equiJoinClause("partkey", "partkey_0")),
+                                anyTree(
+                                        tableScan("part", ImmutableMap.of("partkey", "partkey"))),
+                                anyTree(
+                                        join(INNER,
+                                                ImmutableList.of(equiJoinClause("suppkey", "suppkey_4")),
+                                                anyTree(
+                                                        tableScan("partsupp", ImmutableMap.of("partkey_0", "partkey", "suppkey", "suppkey"))),
+                                                anyTree(
+                                                        tableScan("supplier", ImmutableMap.of("suppkey_4", "suppkey"))))))));
+
+        // Same query with a right join fails with legacy error
+        String expectedErrorMsg = "Unexpected identifier in logical plan: ";
+        assertPlanFailedWithException("SELECT COUNT(*) FROM part p RIGHT JOIN partsupp ps ON p.partkey=ps.partkey AND EXISTS (SELECT 1 FROM supplier s WHERE s.suppkey=ps.suppkey)",
+                this.getQueryRunner().getDefaultSession(),
+                expectedErrorMsg + "ps");
+
+        // Subquery pushed to part and therefore final join order is ((part JOIN supplier) ROJ partsupp)
+        assertPlan("SELECT COUNT(*) FROM part p RIGHT JOIN partsupp ps ON p.partkey=ps.partkey AND EXISTS (SELECT 1 FROM supplier s WHERE s.suppkey=p.partkey)",
+                anyTree(
+                        join(RIGHT,
+                                ImmutableList.of(equiJoinClause("partkey", "partkey_0")),
+                                join(INNER,
+                                        ImmutableList.of(equiJoinClause("partkey", "suppkey_4")),
+                                        anyTree(
+                                                tableScan("part", ImmutableMap.of("partkey", "partkey"))),
+                                        anyTree(
+                                                tableScan("supplier", ImmutableMap.of("suppkey_4", "suppkey")))),
+                                anyTree(
+                                        tableScan("partsupp", ImmutableMap.of("partkey_0", "partkey"))))));
+
+        // subquery gets pushed to join of partsupp, supplier
+        assertPlan("SELECT COUNT(*) FROM part p LEFT JOIN (SELECT * FROM partsupp ps, supplier s WHERE ps.suppkey=s.suppkey) sq ON sq.partkey=p.partkey AND NOT EXISTS (SELECT 1 FROM lineitem l WHERE sq.supplycost+sq.acctbal = l.extendedprice)",
+                anyTree(
+                        join(LEFT,
+                                ImmutableList.of(equiJoinClause("partkey", "partkey_0")),
+                                anyTree(
+                                        tableScan("part", ImmutableMap.of("partkey", "partkey"))),
+                                anyTree(
+                                        join(LEFT,
+                                                ImmutableList.of(equiJoinClause("add", "extendedprice")),
+                                                anyTree(
+                                                        project(
+                                                                ImmutableMap.of("add", new ExpressionMatcher("supplycost + acctbal")),
+                                                                join(INNER,
+                                                                        ImmutableList.of(equiJoinClause("suppkey", "suppkey_3")),
+                                                                        anyTree(
+                                                                                tableScan("partsupp", ImmutableMap.of("suppkey", "suppkey", "supplycost", "supplycost", "partkey_0", "partkey"))),
+                                                                        anyTree(
+                                                                                tableScan("supplier", ImmutableMap.of("suppkey_3", "suppkey", "acctbal", "acctbal")))))),
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("extendedprice", "extendedprice"))))))));
+
+        // Same query with a right join fails with legacy error
+        assertPlanFailedWithException("SELECT COUNT(*) FROM part p RIGHT JOIN (SELECT * FROM partsupp ps, supplier s WHERE ps.suppkey=s.suppkey) sq ON sq.partkey=p.partkey AND NOT EXISTS (SELECT 1 FROM lineitem l WHERE sq.supplycost+sq.acctbal = l.extendedprice)",
+                this.getQueryRunner().getDefaultSession(),
+                expectedErrorMsg + "sq");
+
+        // Ensure subquery and filter get pushed to partsupp
+        assertPlan("SELECT COUNT(*) FROM part p LEFT JOIN partsupp ps ON p.partkey=ps.partkey AND EXISTS (SELECT 1 FROM supplier s WHERE s.suppkey=ps.suppkey) AND ps.availqty<1000",
+                anyTree(
+                        join(LEFT,
+                                ImmutableList.of(equiJoinClause("partkey", "partkey_0")),
+                                anyTree(
+                                        tableScan("part", ImmutableMap.of("partkey", "partkey"))),
+                                anyTree(
+                                        anyNot(FilterNode.class,
+                                                join(INNER,
+                                                        ImmutableList.of(equiJoinClause("suppkey", "suppkey_4")),
+                                                        anyTree(
+                                                                tableScan("partsupp", ImmutableMap.of("partkey_0", "partkey", "suppkey", "suppkey"))),
+                                                        anyTree(
+                                                                tableScan("supplier", ImmutableMap.of("suppkey_4", "suppkey")))))))));
+    }
 }

@@ -292,6 +292,26 @@ public class TestSubqueries
                 "VALUES BIGINT '18'");
     }
 
+    @Test
+    public void testPushCorrelatedSubqueriesToInnerSideOfOuterJoin()
+    {
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM part p LEFT JOIN partsupp ps ON p.partkey=ps.partkey AND EXISTS (SELECT 1 FROM supplier s where s.suppkey=ps.suppkey)",
+                "VALUES BIGINT '8000'");
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM part p LEFT JOIN partsupp ps ON p.partkey=ps.partkey AND (SELECT COUNT(*) FROM supplier s where s.suppkey=ps.suppkey)>0",
+                "VALUES BIGINT '8000'");
+
+        tpchAssertions.assertFails(
+                "SELECT COUNT(*) FROM part p LEFT JOIN partsupp ps ON p.partkey=ps.partkey AND ps.supplycost > ANY (SELECT AVG(acctbal) FROM supplier s where s.suppkey=ps.suppkey)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+
+        tpchAssertions.assertQuery(
+                "SELECT COUNT(*) FROM part p LEFT JOIN partsupp ps ON p.partkey=ps.partkey AND (SELECT COUNT(*) FROM supplier s where s.suppkey=ps.suppkey)>0 AND EXISTS (SELECT 1 FROM supplier s WHERE s.suppkey=ps.partkey)",
+                "VALUES BIGINT '2300'");
+    }
+
     private void assertExistsRewrittenToAggregationBelowJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
     {
         PlanMatchPattern source = node(ValuesNode.class);
