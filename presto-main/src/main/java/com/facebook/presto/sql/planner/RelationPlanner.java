@@ -119,6 +119,8 @@ import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedEx
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
+import static com.facebook.presto.sql.tree.Join.Type.LEFT;
+import static com.facebook.presto.sql.tree.Join.Type.RIGHT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -387,8 +389,38 @@ class RelationPlanner
                 }
             }
 
-            // subqueries can be applied only to one side of join - left side is selected in arbitrary way
-            leftPlanBuilder = subqueryPlanner.handleUncorrelatedSubqueries(leftPlanBuilder, complexJoinExpressions, node, context);
+            if (node.getType() == LEFT || node.getType() == RIGHT) {
+                RelationType left = analysis.getOutputDescriptor(node.getLeft());
+                RelationType right = analysis.getOutputDescriptor(node.getRight());
+
+                for (Expression complexJoinExpression : complexJoinExpressions) {
+                    Set<QualifiedName> dependencies = VariablesExtractor.extractNames(complexJoinExpression, analysis.getColumnReferences());
+                    // If there are no dependencies, no subqueries, or if the expression references both inputs,
+                    // then treat the expression as an uncorrelated subquery (error checking will happen later)
+                    // IN subqueries are not allowed in (outer) join conditions - so no need to check for them here
+                    boolean noSubqueriesPresent = subqueryPlanner.collectScalarSubqueries(complexJoinExpression, node).isEmpty() &&
+                            subqueryPlanner.collectExistsSubqueries(complexJoinExpression, node).isEmpty() &&
+                            subqueryPlanner.collectQuantifiedComparisonSubqueries(complexJoinExpression, node).isEmpty();
+                    if (noSubqueriesPresent ||
+                            dependencies.isEmpty() ||
+                            (dependencies.stream().anyMatch(left::canResolve) && dependencies.stream().anyMatch(right::canResolve))) {
+                        // Subqueries are applied only to one side of join - left side is selected arbitrarily
+                        // If the subquery references the right input, those variables will remain unresolved and caught in NoIdentifierLeftChecker
+                        leftPlanBuilder = subqueryPlanner.handleUncorrelatedSubqueries(leftPlanBuilder, ImmutableList.of(complexJoinExpression), node, context);
+                    }
+                    else if (node.getType() == LEFT && !dependencies.stream().allMatch(left::canResolve)) {
+                        rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, complexJoinExpression, node, context);
+                    }
+                    else {
+                        leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, complexJoinExpression, node, context);
+                    }
+                }
+            }
+            else {
+                // subqueries are applied only to one side of join - left side is selected arbitrarily
+                // If the subquery references the right input, those variables will remain unresolved and caught in NoIdentifierLeftChecker
+                leftPlanBuilder = subqueryPlanner.handleUncorrelatedSubqueries(leftPlanBuilder, complexJoinExpressions, node, context);
+            }
         }
 
         RelationPlan intermediateRootRelationPlan = new RelationPlan(root, analysis.getScope(node), outputs);
