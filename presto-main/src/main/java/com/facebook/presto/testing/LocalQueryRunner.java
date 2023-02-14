@@ -128,6 +128,7 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.analyzer.QueryAnalysis;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -149,10 +150,9 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.Optimizer;
-import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.sql.analyzer.BuiltInAnalyzerProvider;
+import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -169,7 +169,6 @@ import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
-import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
@@ -259,7 +258,6 @@ import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSched
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
-import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
@@ -476,13 +474,19 @@ public class LocalQueryRunner
                 new TransactionsSystemTable(metadata.getFunctionAndTypeManager(), transactionManager)),
                 ImmutableSet.of());
 
+        // TODO: Pass the query explainer
+        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.empty());
+        // TODO: remove this hack when inbuilt analyzer is moved to presto-analyzer
+        queryAnalyzer.setSession(defaultSession);
+        BuiltInAnalyzerProvider analyzerProvider = new BuiltInAnalyzerProvider(new BuiltInQueryPreparer(sqlParser), queryAnalyzer);
+
         this.pluginManager = new PluginManager(
                 nodeInfo,
                 new PluginManagerConfig(),
                 connectorManager,
                 metadata,
                 new NoOpResourceGroupManager(),
-                new AnalyzerProviderManager(new BuiltInAnalyzerProvider(new BuiltInQueryPreparer(sqlParser))),
+                new AnalyzerProviderManager(analyzerProvider),
                 accessControl,
                 new PasswordAuthenticatorManager(),
                 new EventListenerManager(),
@@ -1041,11 +1045,11 @@ public class LocalQueryRunner
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, Optimizer.PlanStage stage, WarningCollector warningCollector)
     {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
+        // TODO: Can this be fetched from AnalyzerProvider?
         BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
         assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-
         QueryExplainer queryExplainer = new QueryExplainer(
                 optimizers,
                 planFragmenter,
@@ -1056,20 +1060,16 @@ public class LocalQueryRunner
                 costCalculator,
                 dataDefinitionTask,
                 distributedPlanChecker);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector);
 
-        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer));
+        queryAnalyzer.setSession(session);
+        QueryAnalysis queryAnalysis = queryAnalyzer.analyze(preparedQuery);
+        queryAnalyzer.checkAccessPermissions(queryAnalysis);
 
-        final PlanVariableAllocator planVariableAllocator = new PlanVariableAllocator();
-        LogicalPlanner logicalPlanner = new LogicalPlanner(
-                session,
-                idAllocator,
-                metadata,
-                planVariableAllocator);
-
+        final PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
         PlanNode planNode = session.getRuntimeStats().profileNanos(
                 LOGICAL_PLANNER_TIME_NANOS,
-                () -> logicalPlanner.plan(analysis));
+                () -> queryAnalyzer.plan(queryAnalysis, idAllocator, variableAllocator));
 
         Optimizer optimizer = new Optimizer(
                 session,
@@ -1077,7 +1077,7 @@ public class LocalQueryRunner
                 optimizers,
                 singleNodePlanChecker,
                 sqlParser,
-                planVariableAllocator,
+                variableAllocator,
                 idAllocator,
                 warningCollector,
                 statsCalculator,

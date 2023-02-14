@@ -218,6 +218,7 @@ public class InMemoryTransactionManager
     @Override
     public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
     {
+        log.info(this + "\tRohit getOptionalCatalogMetadata: " + catalogName + "\ttransactionId: " + transactionId);
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
         return transactionMetadata.getConnectorId(catalogName)
                 .map(transactionMetadata::getTransactionCatalogMetadata);
@@ -226,6 +227,9 @@ public class InMemoryTransactionManager
     @Override
     public CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId)
     {
+        log.info(this + "\tRohit getCatalogMetadata: ConnectorId: " + connectorId + "\ttransactionId: " + transactionId);
+        TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
+
         return getTransactionMetadata(transactionId).getTransactionCatalogMetadata(connectorId);
     }
 
@@ -451,6 +455,7 @@ public class InMemoryTransactionManager
 
         private synchronized Optional<ConnectorId> getConnectorId(String catalogName)
         {
+            log.info(this + "\tRohit getConnectorId: " + catalogName);
             Optional<Catalog> catalog = catalogByName.get(catalogName);
             if (catalog == null) {
                 catalog = catalogManager.getCatalog(catalogName);
@@ -472,6 +477,7 @@ public class InMemoryTransactionManager
 
         private synchronized void registerCatalog(Catalog catalog)
         {
+            log.info(this + "\tRohit registerCatalog: " + catalog);
             catalogsByConnectorId.put(catalog.getConnectorId(), catalog);
             catalogsByConnectorId.put(catalog.getInformationSchemaId(), catalog);
             catalogsByConnectorId.put(catalog.getSystemTablesId(), catalog);
@@ -484,6 +490,14 @@ public class InMemoryTransactionManager
             CatalogMetadata catalogMetadata = this.catalogMetadata.get(connectorId);
             if (catalogMetadata == null) {
                 Catalog catalog = catalogsByConnectorId.get(connectorId);
+                log.info(this + "\tRohit:  getTransactionCatalogMetadata catalogsByConnectorId:: connectorId=" + connectorId);
+                if (catalog == null) {
+                    log.info(this + "\tRohit: getTransactionCatalogMetadata catalog is null");
+                    log.info(this + "\tRohit: getTransactionCatalogMetadata catalogsByConnectorId:: connectorId=" + connectorId);
+                    log.info(this + "\tRohit: getTransactionCatalogMetadata catalogsByConnectorId size is: " + catalogsByConnectorId.size());
+                    catalogsByConnectorId.forEach((key, value) -> System.out.println(key + ":" + value));
+                }
+
                 verify(catalog != null, "Unknown connectorId: %s", connectorId);
                 Connector connector = catalog.getConnector(connectorId);
 

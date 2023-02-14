@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -113,13 +114,15 @@ public class LogicalPlanner
             Session session,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
-            PlanVariableAllocator variableAllocator)
+            VariableAllocator variableAllocator)
     {
         this.session = requireNonNull(session, "session is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(variableAllocator, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+        requireNonNull(variableAllocator, "variableAllocator is null");
+        checkState(variableAllocator instanceof PlanVariableAllocator, "variableAllocator should be instance of PlanVariableAllocator");
+        this.variableAllocator = (PlanVariableAllocator) variableAllocator;
+        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(this.variableAllocator, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
     }
 
     public PlanNode plan(Analysis analysis)

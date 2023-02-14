@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -52,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 
 public class StatisticsAggregationPlanner
 {
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final FunctionAndTypeResolver functionAndTypeResolver;
 
     public StatisticsAggregationPlanner(PlanVariableAllocator variableAllocator, FunctionAndTypeResolver functionAndTypeResolver)
