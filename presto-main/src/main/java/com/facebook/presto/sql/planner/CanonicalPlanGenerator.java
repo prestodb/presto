@@ -682,7 +682,8 @@ public class CanonicalPlanGenerator
                 node.getLimit(),
                 node.isPartial(),
                 distinctVariables,
-                Optional.empty());
+                Optional.empty(),
+                0);
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
     }

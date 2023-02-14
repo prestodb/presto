@@ -1265,7 +1265,8 @@ public class LocalExecutionPlanner
                     distinctChannels,
                     node.getLimit(),
                     hashChannel,
-                    joinCompiler);
+                    joinCompiler,
+                    node.getTimeoutMillis());
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
@@ -3061,7 +3062,7 @@ public class LocalExecutionPlanner
             List<Integer> valueChannels = new ArrayList<>();
             for (RowExpression argument : aggregation.getArguments()) {
                 if (!(argument instanceof LambdaDefinitionExpression)) {
-                    checkArgument(argument instanceof VariableReferenceExpression, "argument must be variable reference");
+                    checkArgument(argument instanceof VariableReferenceExpression, "argument: " + argument + " must be variable reference");
                     valueChannels.add(source.getLayout().get(argument));
                 }
             }

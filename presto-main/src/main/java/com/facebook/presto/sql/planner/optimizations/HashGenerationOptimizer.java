@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -28,7 +27,6 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
@@ -70,6 +68,9 @@ import java.util.function.Function;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
+import static com.facebook.presto.sql.planner.PlannerUtils.HASH_CODE;
+import static com.facebook.presto.sql.planner.PlannerUtils.INITIAL_HASH_VALUE;
+import static com.facebook.presto.sql.planner.PlannerUtils.orNullHashCode;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -79,7 +80,6 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
-import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -93,9 +93,6 @@ import static java.util.stream.Stream.concat;
 public class HashGenerationOptimizer
         implements PlanOptimizer
 {
-    public static final long INITIAL_HASH_VALUE = 0;
-    private static final String HASH_CODE = OperatorType.HASH_CODE.getFunctionName().getObjectName();
-
     private final FunctionAndTypeManager functionAndTypeManager;
 
     public HashGenerationOptimizer(FunctionAndTypeManager functionAndTypeManager)
@@ -224,7 +221,7 @@ public class HashGenerationOptimizer
             // that's functionally dependent on the distinct field in the set of distinct fields of the new node to be able to propagate it downstream.
             // Currently, such precomputed hashes will be dropped by this operation.
             return new PlanWithProperties(
-                    new DistinctLimitNode(node.getSourceLocation(), node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctVariables(), Optional.of(hashVariable)),
+                    new DistinctLimitNode(node.getSourceLocation(), node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctVariables(), Optional.of(hashVariable), node.getTimeoutMillis()),
                     ImmutableMap.of(hashComputation.get(), hashVariable));
         }
 
@@ -885,27 +882,6 @@ public class HashGenerationOptimizer
             return Optional.empty();
         }
         return Optional.of(new HashComputation(fields, functionAndTypeManager));
-    }
-
-    public static Optional<RowExpression> getHashExpression(FunctionAndTypeManager functionAndTypeManager, List<VariableReferenceExpression> variables)
-    {
-        if (variables.isEmpty()) {
-            return Optional.empty();
-        }
-
-        RowExpression result = constant(INITIAL_HASH_VALUE, BIGINT);
-        for (VariableReferenceExpression variable : variables) {
-            RowExpression hashField = call(functionAndTypeManager, HASH_CODE, BIGINT, variable);
-            hashField = orNullHashCode(hashField);
-            result = call(functionAndTypeManager, "combine_hash", BIGINT, result, hashField);
-        }
-        return Optional.of(result);
-    }
-
-    private static RowExpression orNullHashCode(RowExpression expression)
-    {
-        checkArgument(BIGINT.equals(expression.getType()), "expression should be BIGINT type");
-        return new SpecialFormExpression(expression.getSourceLocation(), SpecialFormExpression.Form.COALESCE, BIGINT, expression, constant(NULL_HASH_CODE, BIGINT));
     }
 
     private static class HashComputation
