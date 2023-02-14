@@ -18,4 +18,6 @@ public interface AnalyzerProvider
     String getType();
 
     QueryPreparer getQueryPreparer();
+
+    QueryAnalyzer getQueryAnalyzer();
 }

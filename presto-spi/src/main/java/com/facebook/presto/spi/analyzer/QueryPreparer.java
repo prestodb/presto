@@ -29,7 +29,7 @@ public interface QueryPreparer
      * @param query query string which needs to be prepared
      * @param preparedStatements existing prepared query statements
      * @param warningCollector Warning collector to collect various warnings
-     * @return preared query object
+     * @return prepared query object
      */
     PreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, String query, Map<String, String> preparedStatements, WarningCollector warningCollector);
 }

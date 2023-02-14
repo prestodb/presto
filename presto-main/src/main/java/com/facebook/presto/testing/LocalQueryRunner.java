@@ -127,7 +127,9 @@ import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AnalyzerContext;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.analyzer.QueryAnalysis;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -149,10 +151,9 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.Optimizer;
-import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.sql.analyzer.BuiltInAnalyzerProvider;
+import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -169,7 +170,6 @@ import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
-import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
@@ -259,7 +259,6 @@ import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSched
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
-import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
@@ -267,6 +266,7 @@ import static com.facebook.presto.testing.TestingSession.createBogusTestingCatal
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
+import static com.facebook.presto.util.AnalyzerUtil.getAnalyzerContext;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -476,13 +476,16 @@ public class LocalQueryRunner
                 new TransactionsSystemTable(metadata.getFunctionAndTypeManager(), transactionManager)),
                 ImmutableSet.of());
 
+        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.empty());
+        BuiltInAnalyzerProvider analyzerProvider = new BuiltInAnalyzerProvider(new BuiltInQueryPreparer(sqlParser), queryAnalyzer);
+
         this.pluginManager = new PluginManager(
                 nodeInfo,
                 new PluginManagerConfig(),
                 connectorManager,
                 metadata,
                 new NoOpResourceGroupManager(),
-                new AnalyzerProviderManager(new BuiltInAnalyzerProvider(new BuiltInQueryPreparer(sqlParser))),
+                new AnalyzerProviderManager(analyzerProvider),
                 accessControl,
                 new PasswordAuthenticatorManager(),
                 new EventListenerManager(),
@@ -1056,20 +1059,17 @@ public class LocalQueryRunner
                 costCalculator,
                 dataDefinitionTask,
                 distributedPlanChecker);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector);
 
-        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer));
 
-        final PlanVariableAllocator planVariableAllocator = new PlanVariableAllocator();
-        LogicalPlanner logicalPlanner = new LogicalPlanner(
-                session,
-                idAllocator,
-                metadata,
-                planVariableAllocator);
+        AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, idAllocator, new PlanVariableAllocator(), session);
+
+        QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
+        queryAnalyzer.checkAccessPermissions(analyzerContext, queryAnalysis);
 
         PlanNode planNode = session.getRuntimeStats().profileNanos(
                 LOGICAL_PLANNER_TIME_NANOS,
-                () -> logicalPlanner.plan(analysis));
+                () -> queryAnalyzer.plan(analyzerContext, queryAnalysis));
 
         Optimizer optimizer = new Optimizer(
                 session,
@@ -1077,7 +1077,7 @@ public class LocalQueryRunner
                 optimizers,
                 singleNodePlanChecker,
                 sqlParser,
-                planVariableAllocator,
+                analyzerContext.getVariableAllocator(),
                 idAllocator,
                 warningCollector,
                 statsCalculator,
