@@ -244,6 +244,7 @@ public class FeaturesConfig
     private boolean isRemoveRedundantDistinctAggregationEnabled = true;
     private boolean inPredicatesAsInnerJoinsEnabled;
     private double pushAggregationBelowJoinByteReductionThreshold = 1;
+    private boolean prefilterForGroupbyLimit;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2326,6 +2327,19 @@ public class FeaturesConfig
     public FeaturesConfig setPushAggregationBelowJoinByteReductionThreshold(double pushAggregationBelowJoinByteReductionThreshold)
     {
         this.pushAggregationBelowJoinByteReductionThreshold = pushAggregationBelowJoinByteReductionThreshold;
+        return this;
+    }
+
+    public boolean isPrefilterForGroupbyLimit()
+    {
+        return prefilterForGroupbyLimit;
+    }
+
+    @Config("optimizer.prefilter-for-groupby-limit")
+    @ConfigDescription("Enable optimizations for groupby limit queries")
+    public FeaturesConfig setPrefilterForGroupbyLimit(boolean prefilterForGroupbyLimit)
+    {
+        this.prefilterForGroupbyLimit = prefilterForGroupbyLimit;
         return this;
     }
 }
