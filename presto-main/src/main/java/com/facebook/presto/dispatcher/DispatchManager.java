@@ -308,6 +308,7 @@ public class DispatchManager
 
             DispatchQuery dispatchQuery = dispatchQueryFactory.createDispatchQuery(
                     session,
+                    analyzerProvider,
                     query,
                     preparedQuery,
                     slug,
