@@ -226,7 +226,7 @@ public class HiveFunctionNamespaceManager
     }
 
     @Override
-    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle, TypeManager typeManager)
     {
         checkArgument(functionHandle instanceof HiveFunctionHandle);
         HiveFunction function = functions.getUnchecked(FunctionKey.from(((HiveFunctionHandle) functionHandle)));

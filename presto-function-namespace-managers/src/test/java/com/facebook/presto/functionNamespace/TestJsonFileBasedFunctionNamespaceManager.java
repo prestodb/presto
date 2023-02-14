@@ -40,7 +40,7 @@ public class TestJsonFileBasedFunctionNamespaceManager
     {
         JsonFileBasedFunctionNamespaceManager jsonFileBasedFunctionNameSpaceManager = createFunctionNamespaceManager();
         Collection<SqlInvokedFunction> functionList = jsonFileBasedFunctionNameSpaceManager.listFunctions(Optional.empty(), Optional.empty());
-        assertEquals(functionList.size(), 7);
+        assertEquals(functionList.size(), 9);
     }
 
     private JsonFileBasedFunctionNamespaceManager createFunctionNamespaceManager() throws IOException

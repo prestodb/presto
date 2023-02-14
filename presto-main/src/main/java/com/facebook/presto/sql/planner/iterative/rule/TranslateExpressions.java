@@ -19,7 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
 import com.facebook.presto.spi.VariableAllocator;
-import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ExistsExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -99,9 +99,9 @@ public class TranslateExpressions
                             .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
                             .map(typeSignature -> (FunctionType) (metadata.getFunctionAndTypeManager().getType(typeSignature)))
                             .collect(toImmutableList());
-                    JavaAggregationFunctionImplementation javaAggregateFunctionImplementation = metadata.getFunctionAndTypeManager().getJavaAggregateFunctionImplementation(callExpression.getFunctionHandle());
-                    if (javaAggregateFunctionImplementation instanceof BuiltInAggregationFunctionImplementation) {
-                        List<Class> lambdaInterfaces = ((BuiltInAggregationFunctionImplementation) javaAggregateFunctionImplementation).getLambdaInterfaces();
+                    AggregationFunctionImplementation aggregateFunctionImplementation = metadata.getFunctionAndTypeManager().getAggregateFunctionImplementation(callExpression.getFunctionHandle());
+                    if (aggregateFunctionImplementation instanceof BuiltInAggregationFunctionImplementation) {
+                        List<Class> lambdaInterfaces = ((BuiltInAggregationFunctionImplementation) aggregateFunctionImplementation).getLambdaInterfaces();
                         verify(lambdaExpressions.size() == functionTypes.size());
                         verify(lambdaExpressions.size() == lambdaInterfaces.size());
                     }

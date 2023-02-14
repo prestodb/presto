@@ -26,11 +26,14 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.AggregationFunctionMetadata;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -127,6 +130,17 @@ public class TestExpressionInterpreter
             "",
             notVersioned());
 
+    public static final SqlInvokedFunction AVG_UDAF_CPP = new SqlInvokedFunction(
+            QualifiedObjectName.valueOf(new CatalogSchemaName("json", "f3"), "avg"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.DOUBLE))),
+            parseTypeSignature(StandardTypes.DOUBLE),
+            "Returns mean of doubles",
+            RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setLanguage(CPP).build(),
+            "",
+            notVersioned(),
+            FunctionKind.AGGREGATE,
+            Optional.of(new AggregationFunctionMetadata(parseTypeSignature("ROW(double, int)"), false)));
+
     private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
     private static final TypeProvider SYMBOL_TYPES = TypeProvider.viewOf(ImmutableMap.<String, Type>builder()
             .put("bound_integer", INTEGER)
@@ -168,6 +182,7 @@ public class TestExpressionInterpreter
     public void setup()
     {
         METADATA.getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
+        setupJsonFunctionNamespaceManager(METADATA.getFunctionAndTypeManager());
     }
 
     @Test
@@ -400,11 +415,25 @@ public class TestExpressionInterpreter
     @Test
     public void testCppFunctionCall()
     {
-        METADATA.getFunctionAndTypeManager().addFunctionNamespaceFactory(new JsonFileBasedFunctionNamespaceManagerFactory());
-        METADATA.getFunctionAndTypeManager().loadFunctionNamespaceManager(JsonFileBasedFunctionNamespaceManagerFactory.NAME, "json",
-                ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP"));
         METADATA.getFunctionAndTypeManager().createFunction(SQUARE_UDF_CPP, false);
         assertOptimizedEquals("json.f3.square(-5)", "json.f3.square(-5)");
+    }
+
+    @Test
+    public void testCppAggregateFunctionCall()
+    {
+        METADATA.getFunctionAndTypeManager().createFunction(AVG_UDAF_CPP, false);
+        assertOptimizedEquals("json.f3.avg(1.0)", "json.f3.avg(1.0)");
+    }
+
+    // Run this method exactly once.
+    private void setupJsonFunctionNamespaceManager(FunctionAndTypeManager functionAndTypeManager)
+    {
+        functionAndTypeManager.addFunctionNamespaceFactory(new JsonFileBasedFunctionNamespaceManagerFactory());
+        functionAndTypeManager.loadFunctionNamespaceManager(
+                JsonFileBasedFunctionNamespaceManagerFactory.NAME,
+                "json",
+                ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP"));
     }
 
     @Test
