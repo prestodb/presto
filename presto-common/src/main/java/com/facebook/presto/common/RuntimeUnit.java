@@ -19,7 +19,7 @@ import com.facebook.drift.annotations.ThriftEnumValue;
 @ThriftEnum
 public enum RuntimeUnit
 {
-    NONE(0), NANO(1), BYTE(2);
+    NONE(0), NANO(1), BYTE(2), TIME(3);
 
     private final int value;
 
