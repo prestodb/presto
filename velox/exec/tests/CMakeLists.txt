@@ -15,11 +15,12 @@ add_subdirectory(utils)
 
 add_executable(
   velox_exec_test
-  AssertQueryBuilderTest.cpp
-  AsyncConnectorTest.cpp
   AggregationTest.cpp
   AggregateFunctionRegistryTest.cpp
+  ArrowStreamTest.cpp
+  AssertQueryBuilderTest.cpp
   AssignUniqueIdTest.cpp
+  AsyncConnectorTest.cpp
   CrossJoinTest.cpp
   CustomJoinTest.cpp
   DriverTest.cpp

@@ -25,6 +25,9 @@
 extern "C" {
 #endif
 
+// Add a definition check here to avoid duplication with the definition
+// included from velox/external/duckdb/duckdb.hpp.
+#ifndef ARROW_FLAG_DICTIONARY_ORDERED
 #define ARROW_FLAG_DICTIONARY_ORDERED 1
 #define ARROW_FLAG_NULLABLE 2
 #define ARROW_FLAG_MAP_KEYS_SORTED 4
@@ -101,6 +104,8 @@ struct ArrowArrayStream {
   // Opaque producer-specific data
   void* private_data;
 };
+
+#endif
 
 #ifdef __cplusplus
 }

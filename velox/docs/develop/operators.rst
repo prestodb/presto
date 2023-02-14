@@ -25,6 +25,7 @@ of plan nodes can be located at the leaves of the plan tree. These are:
 * ValuesNode
 * ExchangeNode
 * MergeExchangeNode
+* ArrowStreamNode
 
 Here is a list of supported plan nodes and corresponding operators.
 
@@ -32,6 +33,7 @@ Here is a list of supported plan nodes and corresponding operators.
 Plan Node                   Operator(s)                                      Leaf Node / Source Operator
 ==========================  ==============================================   ===========================
 TableScanNode               TableScan                                        Y
+ArrowStreamNode             ArrowStream                                      Y
 FilterNode                  FilterProject
 ProjectNode                 FilterProject
 AggregationNode             HashAggregation or StreamingAggregation
@@ -77,6 +79,22 @@ with HiveConnector, table scan reads data from ORC or Parquet files.
      - Connector-specific description of the table. May include a pushed down filter.
    * - assignments
      - Connector-specific mapping from the table schema to output columns.
+
+ArrowStreamNode
+~~~~~~~~~~~~~~~
+
+The Arrow stream operation reads data from an Arrow array stream. The ArrowArrayStream structure is defined in Arrow abi, 
+and provides the required callbacks to interact with a streaming source of Arrow arrays.
+
+.. list-table::
+   :widths: 10 30
+   :align: left
+   :header-rows: 1
+
+   * - Property
+     - Description
+   * - arrowStream
+     - The constructed Arrow array stream. This is a streaming source of data chunks, each with the same schema.
 
 FilterNode
 ~~~~~~~~~~

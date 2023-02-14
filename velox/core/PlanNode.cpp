@@ -251,6 +251,14 @@ void TableScanNode::addDetails(std::stringstream& stream) const {
   stream << tableHandle_->toString();
 }
 
+const std::vector<PlanNodePtr>& ArrowStreamNode::sources() const {
+  return kEmptySources;
+}
+
+void ArrowStreamNode::addDetails(std::stringstream& stream) const {
+  // Nothing to add.
+}
+
 const std::vector<PlanNodePtr>& ExchangeNode::sources() const {
   return kEmptySources;
 }
