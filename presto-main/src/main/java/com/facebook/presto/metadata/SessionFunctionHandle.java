@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
@@ -53,6 +54,12 @@ public class SessionFunctionHandle
     public String getName()
     {
         return sqlFunction.getSignature().getName().toString();
+    }
+
+    @Override
+    public FunctionKind getKind()
+    {
+        return sqlFunction.getSignature().getKind();
     }
 
     public FunctionMetadata getFunctionMetadata()

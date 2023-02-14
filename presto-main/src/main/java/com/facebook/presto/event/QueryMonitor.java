@@ -63,6 +63,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;
@@ -219,7 +220,9 @@ public class QueryMonitor
                 ImmutableList.of(),
                 Optional.empty(),
                 ImmutableList.of(),
-                ImmutableList.of()));
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableSet.of()));
 
         logQueryTimeline(queryInfo);
     }
@@ -253,7 +256,9 @@ public class QueryMonitor
                         historyBasedPlanStatisticsTracker.getQueryStats(queryInfo).values().stream().collect(toImmutableList()),
                         queryInfo.getExpandedQuery(),
                         queryInfo.getOptimizerInformation(),
-                        queryInfo.getFunctionNames()));
+                        queryInfo.getScalarFunctions(),
+                        queryInfo.getAggregateFunctions(),
+                        queryInfo.getWindowsFunctions()));
 
         logQueryTimeline(queryInfo);
     }
