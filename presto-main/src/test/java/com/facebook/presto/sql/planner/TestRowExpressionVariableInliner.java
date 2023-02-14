@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -26,6 +27,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestRowExpressionVariableInliner
@@ -43,6 +45,12 @@ public class TestRowExpressionVariableInliner
         public String getName()
         {
             return "a.b.c";
+        }
+
+        @Override
+        public FunctionKind getKind()
+        {
+            return SCALAR;
         }
     }
 

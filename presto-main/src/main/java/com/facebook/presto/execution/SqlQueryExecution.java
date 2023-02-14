@@ -37,6 +37,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.security.AccessControl;
@@ -231,7 +232,19 @@ public class SqlQueryExecution
             this.partialResultQueryManager = requireNonNull(partialResultQueryManager, "partialResultQueryManager is null");
 
             if (isLogInvokedFunctionNamesEnabled(getSession())) {
-                stateMachine.setFunctionNames(analysis.getInvokedFunctionNames());
+                for (Map.Entry<FunctionKind, Set<String>> entry : analysis.getInvokedFunctions().entrySet()) {
+                    switch (entry.getKey()) {
+                        case SCALAR:
+                            stateMachine.setScalarFunctions(entry.getValue());
+                            break;
+                        case AGGREGATE:
+                            stateMachine.setAggregateFunctions(entry.getValue());
+                            break;
+                        case WINDOW:
+                            stateMachine.setWindowsFunctions(entry.getValue());
+                            break;
+                    }
+                }
             }
         }
     }

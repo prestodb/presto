@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -45,6 +46,12 @@ public class BuiltInFunctionHandle
     public String getName()
     {
         return signature.getName().toString();
+    }
+
+    @Override
+    public FunctionKind getKind()
+    {
+        return signature.getKind();
     }
 
     @Override
