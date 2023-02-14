@@ -22,17 +22,6 @@
 namespace facebook::velox::functions {
 
 namespace {
-void validateInputTypes(const std::vector<VectorPtr>& inputArgs) {
-  VELOX_USER_CHECK_GT(
-      inputArgs.size(), 1, "zip requires at least two parameters");
-
-  for (auto& arg : inputArgs) {
-    VELOX_USER_CHECK_EQ(
-        arg->type()->kind(),
-        TypeKind::ARRAY,
-        "zip requires arguments of type ARRAY");
-  }
-}
 
 class ZipFunction : public exec::VectorFunction {
   static const auto kMinArity = 2;
@@ -67,7 +56,6 @@ class ZipFunction : public exec::VectorFunction {
       const TypePtr& outputType,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
-    validateInputTypes(args);
     const vector_size_t numInputArrays = args.size();
 
     exec::DecodedArgs decodedArgs(rows, args, context);
@@ -253,7 +241,7 @@ class ZipFunction : public exec::VectorFunction {
     }
 
     // Build all signatures from kMinArity to kMaxArity.
-    for (int i = 0; i < kAritySize; i++) {
+    for (int i = 1; i < kAritySize; i++) {
       auto builder = exec::FunctionSignatureBuilder();
       std::vector<std::string> allTypeVars;
       allTypeVars.reserve(i + 1);
