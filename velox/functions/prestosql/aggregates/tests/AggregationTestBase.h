@@ -111,6 +111,16 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& postAggregationProjections,
       const std::vector<RowVectorPtr>& expectedResult);
 
+  /// Ensure the function is working in streaming use case.  Create a first
+  /// aggregation function, add the rawInput1, then extract the accumulator,
+  /// read the accumulator to second function, and continue to add rawInput2 to
+  /// second function.
+  VectorPtr testStreaming(
+      const std::string& functionName,
+      bool testGlobal,
+      const std::vector<VectorPtr>& rawInput1,
+      const std::vector<VectorPtr>& rawInput2);
+
   /// Specifies that aggregate functions used in this test are not sensitive
   /// to the order of inputs.
   void allowInputShuffle() {
@@ -122,7 +132,22 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
     allowInputShuffle_ = false;
   }
 
+  /// Whether testStreaming should be called in testAggregations.
+  bool testStreaming_{true};
+
  private:
+  void validateStreamingInTestAggregations(
+      const std::function<void(exec::test::PlanBuilder&)>& makeSource,
+      const std::vector<std::string>& aggregates);
+
+  VectorPtr testStreaming(
+      const std::string& functionName,
+      bool testGlobal,
+      const std::vector<VectorPtr>& rawInput1,
+      vector_size_t rawInput1Size,
+      const std::vector<VectorPtr>& rawInput2,
+      vector_size_t rawInput2Size);
+
   bool allowInputShuffle_{false};
 };
 

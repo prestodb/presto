@@ -245,5 +245,17 @@ TEST_F(ApproxDistinctTest, globalAggAllNulls) {
   EXPECT_TRUE(readSingleValue(op).isNull());
 }
 
+TEST_F(ApproxDistinctTest, streaming) {
+  auto rawInput1 = makeFlatVector<int64_t>({1, 2, 3});
+  auto rawInput2 = makeFlatVector<int64_t>(1000, folly::identity);
+  auto result =
+      testStreaming("approx_distinct", true, {rawInput1}, {rawInput2});
+  ASSERT_EQ(result->size(), 1);
+  ASSERT_EQ(result->asFlatVector<int64_t>()->valueAt(0), 1008);
+  result = testStreaming("approx_distinct", false, {rawInput1}, {rawInput2});
+  ASSERT_EQ(result->size(), 1);
+  ASSERT_EQ(result->asFlatVector<int64_t>()->valueAt(0), 1008);
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

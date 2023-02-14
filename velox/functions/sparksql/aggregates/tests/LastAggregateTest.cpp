@@ -69,18 +69,16 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
   void testGlobalAggregation() {
     auto vectors = {makeRowVector({
         makeNullableFlatVector<T>({std::nullopt, 1, 2, std::nullopt}),
-        makeConstant<bool>(true, 4),
-        makeConstant<bool>(false, 4),
     })};
 
     // Verify when ignoreNull is true.
     auto expectedTrue = {makeRowVector({makeNullableFlatVector<T>({2})})};
-    testAggregations(vectors, {}, {"last(c0, c1)"}, expectedTrue);
+    testAggregations(vectors, {}, {"last(c0, TRUE)"}, expectedTrue);
 
     // Verify when ignoreNull is false.
     auto expectedFalse = {
         makeRowVector({makeNullableFlatVector<T>({std::nullopt})})};
-    testAggregations(vectors, {}, {"last(c0, c2)"}, expectedFalse);
+    testAggregations(vectors, {}, {"last(c0, FALSE)"}, expectedFalse);
 
     // Verify when ignoreNull is not provided. Defaults to false.
     testAggregations(vectors, {}, {"last(c0)"}, expectedFalse);
@@ -192,19 +190,17 @@ TEST_F(LastAggregateTest, varcharGlobal) {
   auto vectors = {makeRowVector({
       makeNullableFlatVector<std::string>(
           {std::nullopt, "a", "b", std::nullopt}),
-      makeConstant<bool>(true, 4),
-      makeConstant<bool>(false, 4),
   })};
 
   // Verify when ignoreNull is true.
   auto expectedTrue = {
       makeRowVector({makeNullableFlatVector<std::string>({"b"})})};
-  testAggregations(vectors, {}, {"last(c0, c1)"}, expectedTrue);
+  testAggregations(vectors, {}, {"last(c0, TRUE)"}, expectedTrue);
 
   // Verify when ignoreNull is false.
   auto expectedFalse = {
       makeRowVector({makeNullableFlatVector<std::string>({std::nullopt})})};
-  testAggregations(vectors, {}, {"last(c0, c2)"}, expectedFalse);
+  testAggregations(vectors, {}, {"last(c0, FALSE)"}, expectedFalse);
 
   // Verify when ignoreNull is not provided. Defaults to false.
   testAggregations(vectors, {}, {"last(c0)"}, expectedFalse);
@@ -264,8 +260,6 @@ TEST_F(LastAggregateTest, arrayGlobal) {
   auto vectors = {makeRowVector({
       makeNullableArrayVector<int64_t>(
           {std::nullopt, {{1, 2}}, {{3, 4}}, std::nullopt}),
-      makeConstant<bool>(true, 4),
-      makeConstant<bool>(false, 4),
   })};
 
   auto expectedTrue = {makeRowVector({
@@ -273,13 +267,13 @@ TEST_F(LastAggregateTest, arrayGlobal) {
   })};
 
   // Verify when ignoreNull is true.
-  testAggregations(vectors, {}, {"last(c0, c1)"}, expectedTrue);
+  testAggregations(vectors, {}, {"last(c0, TRUE)"}, expectedTrue);
 
   // Verify when ignoreNull is false.
   auto expectedFalse = {makeRowVector({
       makeNullableArrayVector<int64_t>({std::nullopt}),
   })};
-  testAggregations(vectors, {}, {"last(c0, c2)"}, expectedFalse);
+  testAggregations(vectors, {}, {"last(c0, FALSE)"}, expectedFalse);
 
   // Verify when ignoreNull is not provided. Defaults to false.
   testAggregations(vectors, {}, {"last(c0)"}, expectedFalse);
@@ -317,8 +311,6 @@ TEST_F(LastAggregateTest, mapGlobal) {
   auto vectors = {makeRowVector({
       makeNullableMapVector<int64_t, float>(
           {std::nullopt, O({{1, 2.0}}), O({{2, 4.0}}), std::nullopt}),
-      makeConstant<bool>(true, 4),
-      makeConstant<bool>(false, 4),
   })};
 
   auto expectedTrue = {makeRowVector({
@@ -326,13 +318,13 @@ TEST_F(LastAggregateTest, mapGlobal) {
   })};
 
   // Verify when ignoreNull is true.
-  testAggregations(vectors, {}, {"last(c0, c1)"}, expectedTrue);
+  testAggregations(vectors, {}, {"last(c0, TRUE)"}, expectedTrue);
 
   // Verify when ignoreNull is false.
   auto expectedFalse = {makeRowVector({
       makeNullableMapVector<int64_t, float>({std::nullopt}),
   })};
-  testAggregations(vectors, {}, {"last(c0, c2)"}, expectedFalse);
+  testAggregations(vectors, {}, {"last(c0, FALSE)"}, expectedFalse);
 
   // Verify when ignoreFalse is not provided. Defaults to false.
   testAggregations(vectors, {}, {"last(c0)"}, expectedFalse);

@@ -94,7 +94,9 @@ class Aggregate {
     rowSizeOffset_ = rowSizeOffset;
   }
 
-  // Initializes null flags and accumulators for newly encountered groups.
+  // Initializes null flags and accumulators for newly encountered groups.  This
+  // function should be called only once for each group.
+  //
   // @param groups Pointers to the start of the new group rows.
   // @param indices Indices into 'groups' of the new entries.
   virtual void initializeNewGroups(

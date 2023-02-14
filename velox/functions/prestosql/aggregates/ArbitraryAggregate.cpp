@@ -96,6 +96,9 @@ class ArbitraryAggregate : public SimpleNumericAggregate<T, T, T> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*unused*/) override {
+    if (!exec::Aggregate::isNull(group)) {
+      return;
+    }
     DecodedVector decoded(*args[0], rows);
 
     if (decoded.isConstantMapping()) {

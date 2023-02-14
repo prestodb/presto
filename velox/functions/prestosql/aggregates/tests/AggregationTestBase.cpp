@@ -13,12 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
+
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/expression/SignatureBinder.h"
 
 using facebook::velox::exec::test::AssertQueryBuilder;
 using facebook::velox::exec::test::CursorParameters;
@@ -115,6 +118,56 @@ int64_t spilledBytes(const exec::Task& task) {
   return spilledBytes;
 }
 } // namespace
+
+void AggregationTestBase::validateStreamingInTestAggregations(
+    const std::function<void(PlanBuilder&)>& makeSource,
+    const std::vector<std::string>& aggregates) {
+  PlanBuilder builder(pool());
+  makeSource(builder);
+  auto input = AssertQueryBuilder(builder.planNode()).copyResults(pool());
+  if (input->size() < 2) {
+    return;
+  }
+  auto size1 = input->size() / 2;
+  auto size2 = input->size() - size1;
+  builder.singleAggregation({}, aggregates);
+  auto expected = AssertQueryBuilder(builder.planNode()).copyResults(pool());
+  ASSERT_EQ(expected->size(), 1);
+  auto& aggregationNode =
+      static_cast<const core::AggregationNode&>(*builder.planNode());
+  ASSERT_EQ(expected->childrenSize(), aggregationNode.aggregates().size());
+  for (int i = 0; i < aggregationNode.aggregates().size(); ++i) {
+    auto& aggregate = aggregationNode.aggregates()[i];
+    SCOPED_TRACE(aggregate->name());
+    std::vector<VectorPtr> rawInput1, rawInput2;
+    for (auto& arg : aggregate->inputs()) {
+      VectorPtr column;
+      auto channel = exec::exprToChannel(arg.get(), input->type());
+      if (channel == kConstantChannel) {
+        auto constant = dynamic_cast<const core::ConstantTypedExpr*>(arg.get());
+        if (constant->hasValueVector()) {
+          column = BaseVector::wrapInConstant(
+              input->size(), 0, constant->valueVector());
+        } else {
+          column = BaseVector::createConstant(
+              constant->value(), input->size(), pool());
+        }
+      } else {
+        column = input->childAt(channel);
+      }
+      rawInput1.push_back(column->slice(0, size1));
+      rawInput2.push_back(column->slice(size1, size2));
+    }
+    velox::test::assertEqualVectors(
+        expected->childAt(i),
+        testStreaming(
+            aggregate->name(), true, rawInput1, size1, rawInput2, size2));
+    velox::test::assertEqualVectors(
+        expected->childAt(i),
+        testStreaming(
+            aggregate->name(), false, rawInput1, size1, rawInput2, size2));
+  }
+}
 
 void AggregationTestBase::testAggregations(
     std::function<void(PlanBuilder&)> makeSource,
@@ -280,6 +333,116 @@ void AggregationTestBase::testAggregations(
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
     assertResults(queryBuilder.maxDrivers(2));
   }
+
+  if (testStreaming_ && groupingKeys.empty() &&
+      postAggregationProjections.empty()) {
+    SCOPED_TRACE("Streaming");
+    validateStreamingInTestAggregations(makeSource, aggregates);
+  }
+}
+
+namespace {
+std::pair<TypePtr, TypePtr> getResultTypes(
+    const std::string& name,
+    const std::vector<TypePtr>& rawInputTypes) {
+  auto signatures = exec::getAggregateFunctionSignatures(name);
+  if (!signatures.has_value()) {
+    VELOX_FAIL("Aggregate {} not registered", name);
+  }
+  for (auto& signature : signatures.value()) {
+    exec::SignatureBinder binder(*signature, rawInputTypes);
+    if (binder.tryBind()) {
+      auto intermediateType =
+          binder.tryResolveType(signature->intermediateType());
+      VELOX_CHECK(
+          intermediateType, "failed to resolve intermediate type for {}", name);
+      auto finalType = binder.tryResolveType(signature->returnType());
+      VELOX_CHECK(finalType, "failed to resolve final type for {}", name);
+      return {intermediateType, finalType};
+    }
+  }
+  VELOX_FAIL("Could not infer intermediate type for aggregate {}", name);
+}
+} // namespace
+
+VectorPtr AggregationTestBase::testStreaming(
+    const std::string& functionName,
+    bool testGlobal,
+    const std::vector<VectorPtr>& rawInput1,
+    const std::vector<VectorPtr>& rawInput2) {
+  VELOX_CHECK(!rawInput1.empty());
+  VELOX_CHECK(!rawInput2.empty());
+  return testStreaming(
+      functionName,
+      testGlobal,
+      rawInput1,
+      rawInput1[0]->size(),
+      rawInput2,
+      rawInput2[0]->size());
+}
+
+VectorPtr AggregationTestBase::testStreaming(
+    const std::string& functionName,
+    bool testGlobal,
+    const std::vector<VectorPtr>& rawInput1,
+    vector_size_t rawInput1Size,
+    const std::vector<VectorPtr>& rawInput2,
+    vector_size_t rawInput2Size) {
+  constexpr int kRowSizeOffset = 8;
+  constexpr int kOffset = kRowSizeOffset + 8;
+  HashStringAllocator allocator(pool());
+  std::vector<TypePtr> rawInputTypes;
+  for (auto& vec : rawInput1) {
+    rawInputTypes.push_back(vec->type());
+  }
+  auto [intermediateType, finalType] =
+      getResultTypes(functionName, rawInputTypes);
+  auto createFunction = [&, &finalType = finalType] {
+    auto func = exec::Aggregate::create(
+        functionName,
+        core::AggregationNode::Step::kSingle,
+        rawInputTypes,
+        finalType);
+    func->setAllocator(&allocator);
+    func->setOffsets(kOffset, 0, 1, kRowSizeOffset);
+    return func;
+  };
+  auto func = createFunction();
+  int maxRowCount = std::max(rawInput1Size, rawInput2Size);
+  std::vector<char> group(kOffset + func->accumulatorFixedWidthSize());
+  std::vector<char*> groups(maxRowCount, group.data());
+  std::vector<vector_size_t> indices(maxRowCount, 0);
+  func->initializeNewGroups(groups.data(), indices);
+  if (testGlobal) {
+    func->addSingleGroupRawInput(
+        group.data(), SelectivityVector(rawInput1Size), rawInput1, false);
+  } else {
+    func->addRawInput(
+        groups.data(), SelectivityVector(rawInput1Size), rawInput1, false);
+  }
+  auto intermediate = BaseVector::create(intermediateType, 1, pool());
+  func->extractAccumulators(groups.data(), 1, &intermediate);
+  // Create a new function picking up the intermediate result.
+  auto func2 = createFunction();
+  func2->initializeNewGroups(groups.data(), indices);
+  if (testGlobal) {
+    func2->addSingleGroupIntermediateResults(
+        group.data(), SelectivityVector(1), {intermediate}, false);
+  } else {
+    func2->addIntermediateResults(
+        groups.data(), SelectivityVector(1), {intermediate}, false);
+  }
+  // Add more raw input.
+  if (testGlobal) {
+    func2->addSingleGroupRawInput(
+        group.data(), SelectivityVector(rawInput2Size), rawInput2, false);
+  } else {
+    func2->addRawInput(
+        groups.data(), SelectivityVector(rawInput2Size), rawInput2, false);
+  }
+  auto result = BaseVector::create(finalType, 1, pool());
+  func2->extractValues(groups.data(), 1, &result);
+  return result;
 }
 
 } // namespace facebook::velox::aggregate::test

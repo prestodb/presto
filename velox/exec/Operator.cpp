@@ -319,7 +319,8 @@ column_index_t exprToChannel(
   if (dynamic_cast<const core::ConstantTypedExpr*>(expr)) {
     return kConstantChannel;
   }
-  VELOX_CHECK(false, "Expression must be field access or constant");
+  VELOX_FAIL(
+      "Expression must be field access or constant, got: {}", expr->toString());
   return 0; // not reached.
 }
 

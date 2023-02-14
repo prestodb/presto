@@ -209,9 +209,8 @@ class ApproxDistinctAggregate : public exec::Aggregate {
         auto group = groups[row];
         auto tracker = trackRowSize(group);
         auto accumulator = value<HllAccumulator>(group);
-        if (clearNull(group)) {
-          accumulator->setIndexBitLength(indexBitLength_);
-        }
+        clearNull(group);
+        accumulator->setIndexBitLength(indexBitLength_);
 
         auto hash = hashOne(decodedValue_.valueAt<T>(row));
         accumulator->append(hash);
@@ -259,9 +258,8 @@ class ApproxDistinctAggregate : public exec::Aggregate {
         }
 
         auto accumulator = value<HllAccumulator>(group);
-        if (clearNull(group)) {
-          accumulator->setIndexBitLength(indexBitLength_);
-        }
+        clearNull(group);
+        accumulator->setIndexBitLength(indexBitLength_);
 
         auto hash = hashOne(decodedValue_.valueAt<T>(row));
         accumulator->append(hash);
