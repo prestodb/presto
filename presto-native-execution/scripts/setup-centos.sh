@@ -11,11 +11,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
-set -x
+set -ex
 
-export FB_OS_VERSION=v2022.11.14.00
-export nproc=$(getconf _NPROCESSORS_ONLN)
+CPU_TARGET="${CPU_TARGET:-avx}"
+SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
+
+if [ -f "${SCRIPT_DIR}/setup-helper-functions.sh" ]; then
+  source "${SCRIPT_DIR}/setup-helper-functions.sh"
+else
+  source "${SCRIPT_DIR}/../velox/scripts/setup-helper-functions.sh"
+fi
+
+export FB_OS_VERSION="${FB_OS_VERSION:-'v2022.11.14.00'}"
+export nproc=${nproc:-$(getconf _NPROCESSORS_ONLN)}
+export CC="${CC:-'/opt/rh/gcc-toolset-9/root/bin/gcc'}"
+export CXX="${CXX:-'/opt/rh/gcc-toolset-9/root/bin/g++'}"
+export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
 
 dnf install -y maven
 dnf install -y java
@@ -23,25 +34,10 @@ dnf install -y python3
 dnf install -y clang-tools-extra
 dnf install -y jq
 dnf install -y perl-XML-XPath
-
-python3 -m pip install regex pyyaml chevron black six
-
 # Required for Antlr4
 dnf install -y libuuid-devel
 
-export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
-export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
-
-CPU_TARGET="${CPU_TARGET:-avx}"
-SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-if [ -f "${SCRIPT_DIR}/setup-helper-functions.sh" ]
-then
-  source "${SCRIPT_DIR}/setup-helper-functions.sh"
-else
-  source "${SCRIPT_DIR}/../velox/scripts/setup-helper-functions.sh"
-fi
-
-export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
+python3 -m pip install regex pyyaml chevron black six
 
 (
   wget --max-redirect 3 https://download.libsodium.org/libsodium/releases/LATEST.tar.gz &&
