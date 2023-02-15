@@ -15,18 +15,25 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
@@ -36,13 +43,18 @@ import static com.facebook.presto.utils.QueryExecutionClientUtil.runToFirstResul
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToQueued;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.lang.Thread.sleep;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
+@Listeners(StackTraceOnTimeoutListener.class)
 public class TestDistributedQueryResource
 {
+    private final Logger log = Logger.get(TestDistributedQueryResource.class);
+
     private HttpClient client;
     private TestingPrestoServer coordinator1;
     private TestingPrestoServer coordinator2;
@@ -53,7 +65,7 @@ public class TestDistributedQueryResource
             throws Exception
     {
         client = new JettyHttpClient();
-        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s"), 2);
+        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "120s"), 2);
         coordinator1 = runner.getCoordinator(0);
         coordinator2 = runner.getCoordinator(1);
         Optional<TestingPrestoServer> resourceManager = runner.getResourceManager();
@@ -80,7 +92,7 @@ public class TestDistributedQueryResource
         client = null;
     }
 
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testGetQueryInfos()
             throws Exception
     {
@@ -170,20 +182,34 @@ public class TestDistributedQueryResource
             queuedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.QUEUED).count();
             failedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.FAILED).count();
             finishedQueries = queries.stream().filter(queryInfo -> queryInfo.getState() == QueryState.FINISHED).count();
+            if (failedQueries > expectedFailedQueries) {
+                StringBuilder stacks = new StringBuilder();
+                for (BasicQueryInfo queryInfo : queries) {
+                    if (queryInfo.getState() == QueryState.FAILED) {
+                        stacks.append(queryInfo.getQuery()).append("\n");
+                        stacks.append(queryInfo.getFailureInfo().getStack().stream().collect(joining("\n")));
+                    }
+                }
+                log.info(format("Unexpected failed queries.  runningQueries: %s, queuedQueries: %s, failedQueries: %s, finishedQueries: %s\n\nStack traces:\n%s\n\n",
+                        runningQueries,
+                        queuedQueries,
+                        failedQueries,
+                        finishedQueries,
+                        stacks.toString()));
+            }
         }
     }
 
-    // Flaky test.
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testGetAllQueryInfoForLimits()
             throws InterruptedException
     {
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf102.orders");
+        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf102.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf103.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf104.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf105.orders");
 
         waitForGlobalViewInRM(3, 3, 0, 0);
 
@@ -200,11 +226,11 @@ public class TestDistributedQueryResource
             throws InterruptedException
     {
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf100.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToQueued(client, coordinator1, "SELECT * from tpch.sf102.orders");
+        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf102.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf103.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf104.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf105.orders");
 
         waitForGlobalViewInRM(3, 3, 0, 0);
 
