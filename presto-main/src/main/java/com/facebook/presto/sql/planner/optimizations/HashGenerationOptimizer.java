@@ -79,6 +79,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
+import static com.facebook.presto.sql.relational.ProjectNodeUtils.isIdentityAssignments;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -787,6 +788,9 @@ public class HashGenerationOptimizer
                 }
             }
 
+            if (isIdentityAssignments(assignments.build())) {
+                return new PlanWithProperties(planWithProperties.getNode(), outputHashVariables);
+            }
             ProjectNode projectNode = new ProjectNode(planWithProperties.node.getSourceLocation(), idAllocator.getNextId(), planWithProperties.node.getStatsEquivalentPlanNode(), planWithProperties.getNode(), assignments.build(), LOCAL);
             return new PlanWithProperties(projectNode, outputHashVariables);
         }

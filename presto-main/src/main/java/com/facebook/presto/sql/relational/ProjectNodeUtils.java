@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -30,7 +31,12 @@ public class ProjectNodeUtils
 
     public static boolean isIdentity(ProjectNode projectNode)
     {
-        for (Map.Entry<VariableReferenceExpression, RowExpression> entry : projectNode.getAssignments().entrySet()) {
+        return isIdentityAssignments(projectNode.getAssignments());
+    }
+
+    public static boolean isIdentityAssignments(Assignments assignments)
+    {
+        for (Map.Entry<VariableReferenceExpression, RowExpression> entry : assignments.entrySet()) {
             RowExpression value = entry.getValue();
             VariableReferenceExpression variable = entry.getKey();
             // It is used in CostCalculator so currently we need to handle both Expression and RowExpression

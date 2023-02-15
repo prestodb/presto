@@ -103,4 +103,12 @@ public abstract class PlanNode
      * Assigns statsEquivalentPlanNode to the plan node
      */
     public abstract PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode);
+
+    /**
+     * Get the hash variable of the plan node
+     */
+    public Optional<VariableReferenceExpression> getHashVariable()
+    {
+        return Optional.empty();
+    }
 }
