@@ -64,6 +64,8 @@ class MmapAllocator : public MemoryAllocator {
 
   explicit MmapAllocator(const Options& options);
 
+  ~MmapAllocator();
+
   Kind kind() const override {
     return kind_;
   }

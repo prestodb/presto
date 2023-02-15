@@ -41,6 +41,11 @@ MmapAllocator::MmapAllocator(const Options& options)
   }
 }
 
+MmapAllocator::~MmapAllocator() {
+  VELOX_CHECK(
+      (numAllocated_ == 0) && (numExternalMapped_ == 0), "{}", toString());
+}
+
 bool MmapAllocator::allocateNonContiguous(
     MachinePageCount numPages,
     Allocation& out,
@@ -107,7 +112,10 @@ bool MmapAllocator::allocateNonContiguous(
           success = sizeClasses_[mix.sizeIndices[i]]->allocate(
               mix.sizeCounts[i], newMapsNeeded, out);
         });
-    if (success && testingHasInjectedFailure(InjectedFailure::kAllocate)) {
+    if (success && ((i > 0) || (mix.numSizes == 1)) &&
+        testingHasInjectedFailure(InjectedFailure::kAllocate)) {
+      // Trigger memory allocation failure in the middle of the size class
+      // allocation series.
       success = false;
     }
     if (!success) {
@@ -873,9 +881,9 @@ bool MmapAllocator::checkConsistency() const {
 
 std::string MmapAllocator::toString() const {
   std::stringstream out;
-  out << "[Memory capacity " << capacity_ << " free "
-      << static_cast<int64_t>(capacity_ - numAllocated_) << " mapped "
-      << numMapped_ << std::endl;
+  out << "[Memory capacity " << capacity_ << " allocated " << numAllocated_
+      << " mapped " << numMapped_ << " external mapped " << numExternalMapped_
+      << std::endl;
   for (auto& sizeClass : sizeClasses_) {
     out << sizeClass->toString() << std::endl;
   }

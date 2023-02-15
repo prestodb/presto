@@ -305,7 +305,7 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
     return Stats();
   }
 
-  virtual std::string toString() const;
+  virtual std::string toString() const = 0;
 
   /// Invoked to check if 'alignmentBytes' is valid and 'allocateBytes' is
   /// multiple of 'alignmentBytes'.

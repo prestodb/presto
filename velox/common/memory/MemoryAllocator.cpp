@@ -102,6 +102,10 @@ class MallocAllocator : public MemoryAllocator {
  public:
   MallocAllocator();
 
+  ~MallocAllocator() {
+    VELOX_CHECK((numAllocated_ == 0) && (numMapped_ == 0), "{}", toString());
+  }
+
   Kind kind() const override {
     return kind_;
   }
@@ -158,6 +162,8 @@ class MallocAllocator : public MemoryAllocator {
   }
 
   bool checkConsistency() const override;
+
+  std::string toString() const override;
 
  private:
   bool allocateContiguousImpl(
@@ -415,6 +421,11 @@ bool MallocAllocator::checkConsistency() const {
   return true;
 }
 
+std::string MallocAllocator::toString() const {
+  return fmt::format(
+      "[allocated pages {}, mapped pages {}]", numAllocated_, numMapped_);
+}
+
 // static
 MemoryAllocator* MemoryAllocator::getInstance() {
   std::lock_guard<std::mutex> l(initMutex_);
@@ -491,10 +502,6 @@ void* MemoryAllocator::reallocateBytes(
   ::memcpy(newPtr, p, std::min(size, newSize));
   freeBytes(p, size);
   return newPtr;
-}
-
-std::string MemoryAllocator::toString() const {
-  return fmt::format("MemoryAllocator: Allocated pages {}", numAllocated());
 }
 
 Stats Stats::operator-(const Stats& other) const {

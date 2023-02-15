@@ -202,12 +202,6 @@ void* MemoryPoolImpl::reallocate(
   auto alignedSize = sizeAlign(size);
   auto alignedNewSize = sizeAlign(newSize);
   const int64_t difference = alignedNewSize - alignedSize;
-  if (FOLLY_UNLIKELY(difference <= 0)) {
-    // Track and pretend the shrink took place for accounting purposes.
-    release(-difference);
-    return p;
-  }
-
   reserve(difference);
   void* newP =
       allocator_.reallocateBytes(p, alignedSize, alignedNewSize, alignment_);
