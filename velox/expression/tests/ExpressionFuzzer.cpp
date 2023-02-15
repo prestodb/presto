@@ -70,8 +70,6 @@ DEFINE_bool(
     false,
     "Enable testing of function signatures with variadic arguments.");
 
-DEFINE_bool(enable_cast, false, "Enable testing with cast expression.");
-
 DEFINE_string(
     repro_persist_path,
     "",
@@ -679,11 +677,15 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
       chosenFunctionName = templateList[chosenExprIndex];
     }
 
-    expression = generateExpressionFromConcreteSignatures(
-        returnType, chosenFunctionName);
-    if (!expression && FLAGS_velox_fuzzer_enable_complex_types) {
-      expression = generateExpressionFromSignatureTemplate(
+    if (chosenFunctionName == "cast") {
+      expression = generateCastExpression(returnType);
+    } else {
+      expression = generateExpressionFromConcreteSignatures(
           returnType, chosenFunctionName);
+      if (!expression && FLAGS_velox_fuzzer_enable_complex_types) {
+        expression = generateExpressionFromSignatureTemplate(
+            returnType, chosenFunctionName);
+      }
     }
   }
   if (!expression) {

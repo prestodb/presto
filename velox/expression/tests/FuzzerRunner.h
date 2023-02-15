@@ -217,4 +217,17 @@ const std::unordered_map<
                     .returnType("T")
                     .build()},
         },
+        {
+            "cast",
+            std::vector<facebook::velox::exec::FunctionSignaturePtr>{
+                // Signature: cast () -> output:
+                // Special handling is added during expression generation to
+                // choose the appropriate input type param based on the return
+                // type.
+                facebook::velox::exec::FunctionSignatureBuilder()
+                    .typeVariable("T")
+                    .argumentType("T")
+                    .returnType("T")
+                    .build()},
+        },
 };

@@ -38,7 +38,7 @@ DEFINE_string(
     special_forms,
     "and,or",
     "Comma-separated list of special forms to use in generated expression. "
-    "Supported special forms: and, or, coalesce, if.");
+    "Supported special forms: and, or, coalesce, if, switch, cast.");
 
 int main(int argc, char** argv) {
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
