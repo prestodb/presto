@@ -45,6 +45,7 @@ add_library(
   ReaderFactory.cpp
   ScanSpec.cpp
   ColumnLoader.cpp
+  SelectiveByteRleColumnReader.cpp
   SelectiveColumnReader.cpp
   SelectiveRepeatedColumnReader.cpp
   SelectiveStructColumnReader.cpp

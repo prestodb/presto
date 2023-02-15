@@ -16,13 +16,12 @@
 
 #pragma once
 
-#include "velox/dwio/common/SelectiveColumnReaderInternal.h"
-#include "velox/dwio/dwrf/reader/DwrfData.h"
+#include "velox/dwio/common/SelectiveByteRleColumnReader.h"
 
 namespace facebook::velox::dwrf {
 
 class SelectiveByteRleColumnReader
-    : public dwio::common::SelectiveColumnReader {
+    : public dwio::common::SelectiveByteRleColumnReader {
  public:
   using ValueType = int8_t;
 
@@ -32,7 +31,7 @@ class SelectiveByteRleColumnReader
       DwrfParams& params,
       common::ScanSpec& scanSpec,
       bool isBool)
-      : SelectiveColumnReader(
+      : dwio::common::SelectiveByteRleColumnReader(
             std::move(requestedType),
             params,
             scanSpec,
@@ -62,54 +61,23 @@ class SelectiveByteRleColumnReader
     VELOX_CHECK(!positionsProvider.hasNext());
   }
 
-  uint64_t skip(uint64_t numValues) override;
-
-  void read(vector_size_t offset, RowSet rows, const uint64_t* nulls) override;
-
-  void getValues(RowSet rows, VectorPtr* result) override {
-    switch (nodeType_->type->kind()) {
-      case TypeKind::BOOLEAN:
-        getFlatValues<int8_t, bool>(rows, result);
-        break;
-      case TypeKind::TINYINT:
-        getFlatValues<int8_t, int8_t>(rows, result);
-        break;
-      case TypeKind::SMALLINT:
-        getFlatValues<int8_t, int16_t>(rows, result);
-        break;
-      case TypeKind::INTEGER:
-        getFlatValues<int8_t, int32_t>(rows, result);
-        break;
-      case TypeKind::BIGINT:
-        getFlatValues<int8_t, int64_t>(rows, result);
-        break;
-      default:
-        VELOX_FAIL(
-            "Result type not supported in ByteRLE encoding: {}",
-            nodeType_->type->toString());
+  uint64_t skip(uint64_t numValues) override {
+    numValues = formatData_->skipNulls(numValues);
+    if (byteRle_) {
+      byteRle_->skip(numValues);
+    } else {
+      boolRle_->skip(numValues);
     }
+    return numValues;
   }
 
-  bool useBulkPath() const override {
-    return false;
+  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
+      override {
+    readCommon<SelectiveByteRleColumnReader>(offset, rows, incomingNulls);
   }
 
- private:
   template <typename ColumnVisitor>
   void readWithVisitor(RowSet rows, ColumnVisitor visitor);
-
-  template <bool isDense, typename ExtractValues>
-  void processFilter(
-      common::Filter* filter,
-      ExtractValues extractValues,
-      RowSet rows);
-
-  template <bool isDence>
-  void processValueHook(RowSet rows, ValueHook* hook);
-
-  template <typename TFilter, bool isDense, typename ExtractValues>
-  void
-  readHelper(common::Filter* filter, RowSet rows, ExtractValues extractValues);
 
   std::unique_ptr<ByteRleDecoder> byteRle_;
   std::unique_ptr<BooleanRleDecoder> boolRle_;
@@ -136,81 +104,6 @@ void SelectiveByteRleColumnReader::readWithVisitor(
     }
   }
   readOffset_ += numRows;
-}
-
-template <typename TFilter, bool isDense, typename ExtractValues>
-void SelectiveByteRleColumnReader::readHelper(
-    common::Filter* filter,
-    RowSet rows,
-    ExtractValues extractValues) {
-  readWithVisitor(
-      rows,
-      dwio::common::ColumnVisitor<int8_t, TFilter, ExtractValues, isDense>(
-          *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
-}
-
-template <bool isDense, typename ExtractValues>
-void SelectiveByteRleColumnReader::processFilter(
-    common::Filter* filter,
-    ExtractValues extractValues,
-    RowSet rows) {
-  using common::FilterKind;
-  switch (filter ? filter->kind() : FilterKind::kAlwaysTrue) {
-    case FilterKind::kAlwaysTrue:
-      readHelper<common::AlwaysTrue, isDense>(filter, rows, extractValues);
-      break;
-    case FilterKind::kIsNull:
-      filterNulls<int8_t>(
-          rows,
-          true,
-          !std::is_same_v<decltype(extractValues), dwio::common::DropValues>);
-      break;
-    case FilterKind::kIsNotNull:
-      if (std::is_same_v<decltype(extractValues), dwio::common::DropValues>) {
-        filterNulls<int8_t>(rows, false, false);
-      } else {
-        readHelper<common::IsNotNull, isDense>(filter, rows, extractValues);
-      }
-      break;
-    case FilterKind::kBigintRange:
-      readHelper<common::BigintRange, isDense>(filter, rows, extractValues);
-      break;
-    case FilterKind::kNegatedBigintRange:
-      readHelper<common::NegatedBigintRange, isDense>(
-          filter, rows, extractValues);
-      break;
-    case FilterKind::kBigintValuesUsingBitmask:
-      readHelper<common::BigintValuesUsingBitmask, isDense>(
-          filter, rows, extractValues);
-      break;
-    case FilterKind::kNegatedBigintValuesUsingBitmask:
-      readHelper<common::NegatedBigintValuesUsingBitmask, isDense>(
-          filter, rows, extractValues);
-      break;
-    default:
-      readHelper<common::Filter, isDense>(filter, rows, extractValues);
-      break;
-  }
-}
-
-template <bool isDense>
-void SelectiveByteRleColumnReader::processValueHook(
-    RowSet rows,
-    ValueHook* hook) {
-  using namespace facebook::velox::aggregate;
-  switch (hook->kind()) {
-    case aggregate::AggregationHook::kSumBigintToBigint:
-      readHelper<common::AlwaysTrue, isDense>(
-          &dwio::common::alwaysTrue(),
-          rows,
-          dwio::common::ExtractToHook<SumHook<int64_t, int64_t>>(hook));
-      break;
-    default:
-      readHelper<common::AlwaysTrue, isDense>(
-          &dwio::common::alwaysTrue(),
-          rows,
-          dwio::common::ExtractToGenericHook(hook));
-  }
 }
 
 } // namespace facebook::velox::dwrf

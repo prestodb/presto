@@ -20,6 +20,7 @@
 
 #include "velox/dwio/parquet/reader/ParquetColumnReader.h"
 #include "velox/dwio/common/SelectiveColumnReaderInternal.h"
+#include "velox/dwio/parquet/reader/BooleanColumnReader.h"
 #include "velox/dwio/parquet/reader/FloatingPointColumnReader.h"
 #include "velox/dwio/parquet/reader/IntegerColumnReader.h"
 #include "velox/dwio/parquet/reader/RepeatedColumnReader.h"
@@ -70,7 +71,7 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
       return std::make_unique<MapColumnReader>(dataType, params, scanSpec);
 
     case TypeKind::BOOLEAN:
-      VELOX_UNSUPPORTED("Type is not supported: ", dataType->type->kind());
+      return std::make_unique<BooleanColumnReader>(dataType, params, scanSpec);
 
     default:
       VELOX_FAIL(

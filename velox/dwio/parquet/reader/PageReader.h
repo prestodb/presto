@@ -20,6 +20,7 @@
 #include "velox/dwio/common/BitConcatenation.h"
 #include "velox/dwio/common/DirectDecoder.h"
 #include "velox/dwio/common/SelectiveColumnReader.h"
+#include "velox/dwio/parquet/reader/BooleanDecoder.h"
 #include "velox/dwio/parquet/reader/ParquetTypeWithId.h"
 #include "velox/dwio/parquet/reader/RleBpDataDecoder.h"
 #include "velox/dwio/parquet/reader/StringDecoder.h"
@@ -229,7 +230,8 @@ class PageReader {
   template <
       typename Visitor,
       typename std::enable_if<
-          !std::is_same_v<typename Visitor::DataType, folly::StringPiece>,
+          !std::is_same_v<typename Visitor::DataType, folly::StringPiece> &&
+              !std::is_same_v<typename Visitor::DataType, int8_t>,
           int>::type = 0>
   void callDecoder(
       const uint64_t* FOLLY_NULLABLE nulls,
@@ -283,6 +285,24 @@ class PageReader {
       } else {
         stringDecoder_->readWithVisitor<false>(nulls, visitor);
       }
+    }
+  }
+
+  template <
+      typename Visitor,
+      typename std::enable_if<
+          std::is_same_v<typename Visitor::DataType, int8_t>,
+          int>::type = 0>
+  void callDecoder(
+      const uint64_t* FOLLY_NULLABLE nulls,
+      bool& nullsFromFastPath,
+      Visitor visitor) {
+    VELOX_CHECK(!isDictionary(), "BOOLEAN types are never dictionary-encoded")
+    if (nulls) {
+      nullsFromFastPath = false;
+      booleanDecoder_->readWithVisitor<true>(nulls, visitor);
+    } else {
+      booleanDecoder_->readWithVisitor<false>(nulls, visitor);
     }
   }
 
@@ -436,6 +456,7 @@ class PageReader {
   std::unique_ptr<dwio::common::DirectDecoder<true>> directDecoder_;
   std::unique_ptr<RleBpDataDecoder> dictionaryIdDecoder_;
   std::unique_ptr<StringDecoder> stringDecoder_;
+  std::unique_ptr<BooleanDecoder> booleanDecoder_;
   // Add decoders for other encodings here.
 };
 

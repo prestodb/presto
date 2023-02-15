@@ -670,6 +670,10 @@ void PageReader::makeDecoder() {
       break;
     case Encoding::PLAIN:
       switch (parquetType) {
+        case thrift::Type::BOOLEAN:
+          booleanDecoder_ = std::make_unique<BooleanDecoder>(
+              pageData_, pageData_ + encodedDataSize_);
+          break;
         case thrift::Type::BYTE_ARRAY:
           stringDecoder_ = std::make_unique<StringDecoder>(
               pageData_, pageData_ + encodedDataSize_);
@@ -722,6 +726,8 @@ void PageReader::skip(int64_t numRows) {
     directDecoder_->skip(toSkip);
   } else if (stringDecoder_) {
     stringDecoder_->skip(toSkip);
+  } else if (booleanDecoder_) {
+    booleanDecoder_->skip(toSkip);
   } else {
     VELOX_FAIL("No decoder to skip");
   }
