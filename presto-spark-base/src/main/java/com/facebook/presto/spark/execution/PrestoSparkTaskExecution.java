@@ -78,6 +78,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  */
 public class PrestoSparkTaskExecution
 {
+    private static final int MAX_JAVA_DRIVERS_FOR_NATIVE_TASK = 1;
+
     private final TaskId taskId;
     private final TaskStateMachine taskStateMachine;
     private final TaskContext taskContext;
@@ -107,7 +109,8 @@ public class PrestoSparkTaskExecution
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
             Executor notificationExecutor,
-            ScheduledExecutorService memoryUpdateExecutor)
+            ScheduledExecutorService memoryUpdateExecutor,
+            boolean isNativeTask)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.taskId = taskStateMachine.getTaskId();
@@ -142,7 +145,7 @@ public class PrestoSparkTaskExecution
         checkArgument(this.driverRunnerFactoriesWithSplitLifeCycle.keySet().equals(tableScanSources),
                 "Fragment is partitioned, but not all partitioned drivers were found");
 
-        taskHandle = createTaskHandle(taskStateMachine, taskContext, localExecutionPlan, taskExecutor);
+        taskHandle = createTaskHandle(taskStateMachine, taskContext, localExecutionPlan, taskExecutor, isNativeTask);
 
         requireNonNull(memoryUpdateExecutor, "memoryUpdateExecutor is null");
         memoryUpdateExecutor.schedule(taskContext::updatePeakMemory, 1, SECONDS);
@@ -153,14 +156,15 @@ public class PrestoSparkTaskExecution
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
             LocalExecutionPlan localExecutionPlan,
-            TaskExecutor taskExecutor)
+            TaskExecutor taskExecutor,
+            boolean isNativeTask)
     {
         TaskHandle taskHandle = taskExecutor.addTask(
                 taskStateMachine.getTaskId(),
                 () -> 0,
                 getInitialSplitsPerNode(taskContext.getSession()),
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
-                getMaxDriversPerTask(taskContext.getSession()));
+                isNativeTask ? OptionalInt.of(MAX_JAVA_DRIVERS_FOR_NATIVE_TASK) : getMaxDriversPerTask(taskContext.getSession()));
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 taskExecutor.removeTask(taskHandle);
