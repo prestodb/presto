@@ -611,7 +611,8 @@ public class PrestoSparkTaskExecutorFactory
                 taskExecutor,
                 splitMonitor,
                 notificationExecutor,
-                memoryUpdateExecutor);
+                memoryUpdateExecutor,
+                isNativeExecutionEnabled(session) && fragment.getRoot() instanceof NativeExecutionNode);
 
         log.info("Task [%s] received %d splits.",
                 taskId,
