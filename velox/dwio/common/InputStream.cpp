@@ -31,6 +31,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include "velox/common/time/Timer.h"
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook::velox::dwio::common {
@@ -80,6 +81,7 @@ void FileInputStream::read(
 
   // log the metric
   logRead(offset, length, purpose);
+  auto readStartMicros = getCurrentTimeMicro();
 
   auto dest = static_cast<char*>(buf);
   uint64_t totalBytesRead = 0;
@@ -134,6 +136,7 @@ void FileInputStream::read(
 
   if (stats_) {
     stats_->incRawBytesRead(length);
+    stats_->incTotalScanTime((getCurrentTimeMicro() - readStartMicros) * 1000);
   }
 }
 
@@ -153,9 +156,11 @@ void ReadFileInputStream::read(
     throw std::invalid_argument("Buffer is null");
   }
   logRead(offset, length, purpose);
+  auto readStartMicros = getCurrentTimeMicro();
   std::string_view data_read = readFile_->pread(offset, length, buf);
   if (stats_) {
     stats_->incRawBytesRead(length);
+    stats_->incTotalScanTime((getCurrentTimeMicro() - readStartMicros) * 1000);
   }
 
   DWIO_ENSURE_EQ(

@@ -132,6 +132,7 @@ Here is the output for the join query from above.
               skippedSplits             sum: 0, count: 1, min: 0, max: 0
               skippedStrides            sum: 0, count: 1, min: 0, max: 0
               storageReadBytes          sum: 150.25KB, count: 1, min: 150.25KB, max: 150.25KB
+              totalScanTime             sum: 0ns, count: 1, min: 0ns, max: 0ns
         -> Project[expressions: (u_c0:INTEGER, ROW["c0"]), (u_c1:BIGINT, ROW["c1"])]
            Output: 100 rows (1.31KB), Cpu time: 21.50us, Blocked wall time: 0ns, Peak memory: 0B, Threads: 1
           -> Values[100 rows in 1 vectors]
@@ -171,6 +172,7 @@ And this is the output for the aggregation query from above.
             skippedSplits              sum: 0, count: 1, min: 0, max: 0
             skippedStrides             sum: 0, count: 1, min: 0, max: 0
             storageReadBytes           sum: 61.53KB, count: 1, min: 61.53KB, max: 61.53KB
+            totalScanTime              sum: 0ns, count: 1, min: 0ns, max: 0ns
 
 Common operator statistics
 --------------------------
@@ -242,6 +244,7 @@ groups were skipped via stats-based pruning.
            skippedSplits             sum: 0, count: 1, min: 0, max: 0
            skippedStrides            sum: 0, count: 1, min: 0, max: 0
            storageReadBytes          sum: 150.25KB, count: 1, min: 150.25KB, max: 150.25KB
+           totalScanTime             sum: 0ns, count: 1, min: 0ns, max: 0ns
 
 HashBuild operator reports range and number of distinct values for the join keys.
 

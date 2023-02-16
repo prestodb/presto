@@ -550,7 +550,10 @@ std::unordered_map<std::string, RuntimeCounter> HiveDataSource::runtimeStats() {
        {"numRamRead", RuntimeCounter(ioStats_->ramHit().count())},
        {"ramReadBytes",
         RuntimeCounter(
-            ioStats_->ramHit().bytes(), RuntimeCounter::Unit::kBytes)}});
+            ioStats_->ramHit().bytes(), RuntimeCounter::Unit::kBytes)},
+       {"totalScanTime",
+        RuntimeCounter(
+            ioStats_->totalScanTime(), RuntimeCounter::Unit::kNanos)}});
   return res;
 }
 
