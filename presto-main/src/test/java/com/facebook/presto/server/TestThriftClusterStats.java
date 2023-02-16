@@ -40,6 +40,9 @@ public class TestThriftClusterStats
     public static final long QUEUED_QUERIES = 22;
     public static final long ACTIVE_WORKERS = 12;
     public static final long RUNNING_DRIVERS = 13;
+    public static final long QUEUED_DRIVERS = 25;
+    public static final long COMPLETED_DRIVERS = 30;
+    public static final long TOTAL_DRIVERS = 300;
     public static final long RUNNING_TASKS = 101;
     public static final double RESERVED_MEMORY = 1001.5;
     public static final long TOTAL_INPUT_ROWS = 1002;
@@ -105,6 +108,9 @@ public class TestThriftClusterStats
         assertEquals(clusterStats.getQueuedQueries(), QUEUED_QUERIES);
         assertEquals(clusterStats.getActiveWorkers(), ACTIVE_WORKERS);
         assertEquals(clusterStats.getRunningDrivers(), RUNNING_DRIVERS);
+        assertEquals(clusterStats.getQueuedDrivers(), QUEUED_DRIVERS);
+        assertEquals(clusterStats.getCompletedDrivers(), COMPLETED_DRIVERS);
+        assertEquals(clusterStats.getTotalDrivers(), TOTAL_DRIVERS);
         assertEquals(clusterStats.getRunningTasks(), RUNNING_TASKS);
         assertEquals(clusterStats.getReservedMemory(), RESERVED_MEMORY);
         assertEquals(clusterStats.getTotalInputRows(), TOTAL_INPUT_ROWS);
@@ -129,6 +135,9 @@ public class TestThriftClusterStats
                 QUEUED_QUERIES,
                 ACTIVE_WORKERS,
                 RUNNING_DRIVERS,
+                QUEUED_DRIVERS,
+                COMPLETED_DRIVERS,
+                TOTAL_DRIVERS,
                 RUNNING_TASKS,
                 RESERVED_MEMORY,
                 TOTAL_INPUT_ROWS,
