@@ -136,7 +136,8 @@ std::shared_ptr<const core::IExpr> parseConstantExpr(
   }
 
   return std::make_shared<const core::ConstantExpr>(
-      duckValueToVariant(constantExpr.value, options.parseDecimalAsDouble),
+      toVeloxType(value.type()),
+      duckValueToVariant(value, options.parseDecimalAsDouble),
       getAlias(expr));
 }
 
@@ -184,6 +185,7 @@ std::shared_ptr<const core::ConstantExpr> tryParseInterval(
 
   if (functionName == "to_hours") {
     return std::make_shared<core::ConstantExpr>(
+        INTERVAL_DAY_TIME(),
         variant::intervalDayTime(
             IntervalDayTime(value.value() * 60 * 60 * 1'000)),
         alias);
@@ -191,19 +193,23 @@ std::shared_ptr<const core::ConstantExpr> tryParseInterval(
 
   if (functionName == "to_minutes") {
     return std::make_shared<core::ConstantExpr>(
+        INTERVAL_DAY_TIME(),
         variant::intervalDayTime(IntervalDayTime(value.value() * 60 * 1'000)),
         alias);
   }
 
   if (functionName == "to_seconds") {
     return std::make_shared<core::ConstantExpr>(
+        INTERVAL_DAY_TIME(),
         variant::intervalDayTime(IntervalDayTime(value.value() * 1'000)),
         alias);
   }
 
   if (functionName == "to_milliseconds") {
     return std::make_shared<core::ConstantExpr>(
-        variant::intervalDayTime(IntervalDayTime(value.value())), alias);
+        INTERVAL_DAY_TIME(),
+        variant::intervalDayTime(IntervalDayTime(value.value())),
+        alias);
   }
 
   return nullptr;
@@ -323,17 +329,19 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
       std::vector<variant> arrayElements;
       arrayElements.reserve(operExpr.children.size());
 
+      TypePtr valueType = UNKNOWN();
       for (const auto& child : operExpr.children) {
         if (auto constantExpr =
                 dynamic_cast<ConstantExpression*>(child.get())) {
           arrayElements.emplace_back(duckValueToVariant(
               constantExpr->value, options.parseDecimalAsDouble));
+          valueType = toVeloxType(constantExpr->value.type());
         } else {
           VELOX_UNREACHABLE();
         }
       }
       return std::make_shared<const core::ConstantExpr>(
-          variant::array(arrayElements), getAlias(expr));
+          ARRAY(valueType), variant::array(arrayElements), getAlias(expr));
     } else {
       std::vector<std::shared_ptr<const core::IExpr>> params;
       params.reserve(operExpr.children.size());
@@ -352,11 +360,14 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
 
     std::vector<variant> values;
     values.reserve(numValues);
+
+    TypePtr valueType = UNKNOWN();
     for (auto i = 0; i < numValues; i++) {
       if (auto constantExpr = dynamic_cast<ConstantExpression*>(
               operExpr.children[i + 1].get())) {
         values.emplace_back(duckValueToVariant(
             constantExpr->value, options.parseDecimalAsDouble));
+        valueType = toVeloxType(constantExpr->value.type());
       } else {
         VELOX_UNSUPPORTED("IN list values need to be constant");
       }
@@ -365,7 +376,7 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
     std::vector<std::shared_ptr<const core::IExpr>> params;
     params.emplace_back(parseExpr(*operExpr.children[0], options));
     params.emplace_back(std::make_shared<const core::ConstantExpr>(
-        variant::array(values), std::nullopt));
+        ARRAY(valueType), variant::array(values), std::nullopt));
     auto inExpr = callExpr("in", std::move(params), getAlias(expr));
     // Translate COMPARE_NOT_IN into NOT(IN()).
     return (expr.GetExpressionType() == ExpressionType::COMPARE_IN)
@@ -476,11 +487,15 @@ std::shared_ptr<const core::IExpr> parseCastExpr(
           auto& s = value.value<TypeKind::VARCHAR>();
           if (s == "t") {
             return std::make_shared<const core::ConstantExpr>(
-                variant::create<TypeKind::BOOLEAN>(true), getAlias(expr));
+                BOOLEAN(),
+                variant::create<TypeKind::BOOLEAN>(true),
+                getAlias(expr));
           }
           if (s == "f") {
             return std::make_shared<const core::ConstantExpr>(
-                variant::create<TypeKind::BOOLEAN>(false), getAlias(expr));
+                BOOLEAN(),
+                variant::create<TypeKind::BOOLEAN>(false),
+                getAlias(expr));
           }
         }
       }

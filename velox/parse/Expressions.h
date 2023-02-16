@@ -184,14 +184,13 @@ class CallExpr : public core::IExpr {
 
 class ConstantExpr : public IExpr,
                      public std::enable_shared_from_this<ConstantExpr> {
- private:
-  TypePtr type_;
-  const variant value_;
-
  public:
-  explicit ConstantExpr(variant value, std::optional<std::string> alias)
+  explicit ConstantExpr(
+      TypePtr type,
+      variant value,
+      std::optional<std::string> alias)
       : IExpr{std::move(alias)},
-        type_{value.inferType()},
+        type_{std::move(type)},
         value_{std::move(value)} {}
 
   std::string toString() const override {
@@ -211,6 +210,10 @@ class ConstantExpr : public IExpr,
   }
 
   VELOX_DEFINE_CLASS_NAME(ConstantExpr)
+
+ private:
+  const TypePtr type_;
+  const variant value_;
 };
 
 class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {

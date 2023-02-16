@@ -104,6 +104,8 @@ LogicalType fromVeloxType(const TypePtr& type) {
 //! Type mapping for DuckDB -> velox conversions, we support more types here
 TypePtr toVeloxType(LogicalType type) {
   switch (type.id()) {
+    case LogicalTypeId::SQLNULL:
+      return UNKNOWN();
     case LogicalTypeId::BOOLEAN:
       return BOOLEAN();
     case LogicalTypeId::TINYINT:
