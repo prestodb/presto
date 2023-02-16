@@ -79,7 +79,7 @@ class PrestoServer {
  protected:
   virtual std::function<folly::SocketAddress()> discoveryAddressLookup();
 
-  virtual std::shared_ptr<velox::exec::TaskListener> getTaskListiner();
+  virtual std::shared_ptr<velox::exec::TaskListener> getTaskListener();
 
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
 

@@ -258,7 +258,7 @@ void PrestoServer::run() {
   }
 
   if (systemConfig->enableVeloxTaskLogging()) {
-    if (auto listener = getTaskListiner()) {
+    if (auto listener = getTaskListener()) {
       exec::registerTaskListener(listener);
     }
   }
@@ -416,7 +416,7 @@ std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
   }
 }
 
-std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListiner() {
+std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListener() {
   return nullptr;
 }
 
