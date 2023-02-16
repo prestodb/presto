@@ -17,8 +17,11 @@
 #    BUILD TASK DEFINITION
 # /////////////////////////////////
 #============================================================
-ARG BASE_IMAGE=quay.io/centos/centos:stream8
-FROM ${BASE_IMAGE} AS build-stage
+ARG BASE_IMAGE_PKG=quay.io/centos/centos
+ARG BASE_IMAGE_VER=:stream8
+
+ARG TARGETPLATFORM=linux/amd64
+FROM --platform=$TARGETPLATFORM ${BASE_IMAGE_PKG}${BASE_IMAGE_VER} AS build-stage
 
 ARG CPU_TARGET=avx
 ARG PRESTODB_REPOSITORY=https://github.com/prestodb/presto
@@ -45,18 +48,20 @@ ENV PRESTO_ENABLE_HDFS=ON
 ENV PRESTO_ENABLE_TESTING=ON
 ENV CLEANUP_BUILD_ARTIFACTS=1
 
-SHELL ["/bin/bash", "-c"]
+SHELL ["/bin/bash", "-exu", "-c"]
 #-----------------------------------------------------------
 #---( START of PrestoDB and Velox dependency tree build scripts
 #-----------------------------------------------------------
 WORKDIR ${PRESTODB_HOME}
+COPY --chown=root * "${PRESTODB_HOME}/_cicd"
 RUN --mount=type=ssh \
-    set -exu && \
     dnf -y install openssh-clients git wget unzip make && \
     mkdir -p -m 0600 /root/.ssh && \
     ! ssh-keyscan github.com >> /root/.ssh/known_hosts && \
+    [ $(ls "${PRESTODB_HOME}/_cicd" | wc -l) -ge 10 ] && \
+    mv "${PRESTODB_HOME}/_cicd" "${PRESTODB_HOME}/_repo" || ( \
     git clone --progress ${PRESTODB_REPOSITORY} "${PRESTODB_HOME}/_repo" && \
-    git -C "${PRESTODB_HOME}/_repo" checkout "${PRESTODB_CHECKOUT}" && \
+    git -C "${PRESTODB_HOME}/_repo" checkout "${PRESTODB_CHECKOUT}" ) && \
     make --directory="${PRESTODB_HOME}/_repo/presto-native-execution" submodules && \
     mkdir -p "${DEPENDENCY_DIR}/install/bin" \
              "${PRESTODB_HOME}/_repo/presto-native-execution/_build/release" \
@@ -66,7 +71,6 @@ RUN --mount=type=ssh \
 
 WORKDIR ${DEPENDENCY_DIR}
 RUN --mount=type=ssh \
-    set -exu && \
     sed -i 's/\(.*folly.*\)/# \1/g' "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-circleci.sh" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-circleci.sh" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/scripts/setup-centos.sh" && \
@@ -89,7 +93,6 @@ RUN --mount=type=ssh \
 WORKDIR ${PRESTODB_HOME}
 RUN --mount=type=ssh \
     source /opt/rh/gcc-toolset-9/enable && \
-    set -exu && \
     make --directory="${PRESTODB_HOME}/_repo/presto-native-execution" release \
         PRESTO_ENABLE_PARQUET=${PRESTO_ENABLE_PARQUET} \
         PRESTO_ENABLE_S3=${PRESTO_ENABLE_S3} \
@@ -100,8 +103,7 @@ RUN --mount=type=ssh \
 #-----------------------------------------------------------
 #---( START of clean-up artifacts task
 #-----------------------------------------------------------
-RUN set -exu && \
-    [ ${CLEANUP_BUILD_ARTIFACTS} -eq 0 ] || \
+RUN [ ${CLEANUP_BUILD_ARTIFACTS} -eq 0 ] || \
     ( \
       rm -rf $(find "${PRESTODB_HOME}/_repo/presto-native-execution/_build/release" | grep -E '\.o$|\.cpp$|\.tcc$|\.h$|CMakeFiles|\.cmake$|\.cs$|\.rb$|\.cc$|\.R$|\.c$|\.hpp$|\.rb$') && \
       rm -rf $(find "${PRESTODB_HOME}/_repo/presto-native-execution/_build/release" | grep -E '\.ninja_deps|\.ninja_log|\.ninja|CMakeCache|\.tcl') \
@@ -138,7 +140,7 @@ ENV TZ=Europe/Warsaw
 
 WORKDIR /opt/presto/
 
-COPY --chown=${PRESTO_UID} opt/ /opt/
+COPY --chown=${PRESTO_UID} --from=build-stage "${PRESTODB_HOME}/_repo/presto-native-execution/scripts/release-centos-dockerfile/opt/" /opt/
 COPY --chown=${PRESTO_UID} --from=build-stage /opt/presto/ /opt/presto/
 
 RUN set -exu && \
@@ -154,7 +156,7 @@ RUN set -exu && \
 
 USER ${PRESTO_UID}
 
-COPY --chown=${PRESTO_UID} etc/ /opt/presto/etc/
+COPY --chown=${PRESTO_UID} --from=build-stage "${PRESTODB_HOME}/_repo/presto-native-execution/scripts/release-centos-dockerfile/etc/" /opt/presto/etc/
 COPY --chown=${PRESTO_UID} --from=build-stage /usr/local/lib64/lib* /usr/lib64/lib* /usr/local/lib64/
 COPY --chown=${PRESTO_UID} --from=build-stage /usr/local/lib/lib* /usr/local/lib/
 
