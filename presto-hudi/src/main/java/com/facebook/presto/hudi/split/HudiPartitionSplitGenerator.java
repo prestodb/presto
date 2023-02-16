@@ -93,15 +93,13 @@ public class HudiPartitionSplitGenerator
     public void run()
     {
         HoodieTimer timer = new HoodieTimer().startTimer();
-
         while (!concurrentPartitionQueue.isEmpty()) {
             String partitionName = concurrentPartitionQueue.poll();
-
             if (partitionName != null) {
                 generateSplitsFromPartition(partitionName);
             }
         }
-        log.debug("HudiPartitionSplitGenerator %s finishes in %d ms", this, timer.endTimer());
+        log.debug("Partition split generator finished in %d ms", timer.endTimer());
     }
 
     private void generateSplitsFromPartition(String partitionName)
@@ -123,21 +121,21 @@ public class HudiPartitionSplitGenerator
             HudiPartition partition,
             HudiSplitWeightProvider splitWeightProvider)
     {
-        HudiFile hudiFile = slice.getBaseFile().map(f -> new HudiFile(f.getPath(), 0, f.getFileLen())).orElse(null);
-        if (null == hudiFile && table.getTableType() == HudiTableType.COW) {
+        HudiFile baseFile = slice.getBaseFile().map(f -> new HudiFile(f.getPath(), 0, f.getFileLen())).orElse(null);
+        if (null == baseFile && table.getTableType() == HudiTableType.COW) {
             return Optional.empty();
         }
         List<HudiFile> logFiles = slice.getLogFiles()
                 .map(logFile -> new HudiFile(logFile.getPath().toString(), 0, logFile.getFileSize()))
                 .collect(toImmutableList());
-        long sizeInBytes = hudiFile != null ? hudiFile.getLength()
-                : (logFiles.size() > 0 ? logFiles.stream().map(HudiFile::getLength).reduce(0L, Long::sum) : 0L);
+        long logFilesSize = logFiles.size() > 0 ? logFiles.stream().map(HudiFile::getLength).reduce(0L, Long::sum) : 0L;
+        long sizeInBytes = baseFile != null ? baseFile.getLength() + logFilesSize : logFilesSize;
 
         return Optional.of(new HudiSplit(
                 table,
                 timestamp,
                 partition,
-                Optional.ofNullable(hudiFile),
+                Optional.ofNullable(baseFile),
                 logFiles,
                 ImmutableList.of(),
                 NodeSelectionStrategy.NO_PREFERENCE,
