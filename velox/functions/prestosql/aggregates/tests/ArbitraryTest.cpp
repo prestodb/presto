@@ -267,7 +267,7 @@ TEST_F(ArbitraryTest, timestamp) {
 
   auto result = readSingleValue(plan);
   ASSERT_TRUE(!result.isNull());
-  ASSERT_EQ(*result.inferType(), *TIMESTAMP());
+  ASSERT_EQ(result.kind(), TypeKind::TIMESTAMP);
 
   auto timestamp = result.value<Timestamp>();
   ASSERT_EQ(timestamp, Timestamp(100, 1));
@@ -308,7 +308,7 @@ TEST_F(ArbitraryTest, date) {
 
   auto result = readSingleValue(plan);
   ASSERT_TRUE(!result.isNull());
-  ASSERT_EQ(*result.inferType(), *DATE());
+  ASSERT_EQ(result.kind(), TypeKind::DATE);
 
   auto date = result.value<Date>();
   ASSERT_EQ(date, Date(125));
@@ -352,7 +352,7 @@ TEST_F(ArbitraryTest, interval) {
 
   auto result = readSingleValue(plan);
   ASSERT_TRUE(!result.isNull());
-  ASSERT_EQ(*result.inferType(), *INTERVAL_DAY_TIME());
+  ASSERT_EQ(result.kind(), TypeKind::INTERVAL_DAY_TIME);
 
   auto interval = result.value<IntervalDayTime>();
   ASSERT_EQ(interval, IntervalDayTime(125));
