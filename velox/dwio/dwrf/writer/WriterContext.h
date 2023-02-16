@@ -189,6 +189,7 @@ class WriterContext : public CompressionBufferPool {
 
   void nextStripe() {
     fileRowCount += stripeRowCount;
+    rowsPerStripe.push_back(stripeRowCount);
     stripeRowCount = 0;
     indexRowCount = 0;
     fileRawSize += stripeRawSize;
@@ -561,6 +562,7 @@ class WriterContext : public CompressionBufferPool {
   uint64_t fileRowCount = 0;
   uint64_t stripeRowCount = 0;
   uint32_t indexRowCount = 0;
+  std::vector<uint64_t> rowsPerStripe{};
 
   uint64_t fileRawSize = 0;
   uint64_t stripeRawSize = 0;
