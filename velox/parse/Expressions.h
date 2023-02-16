@@ -15,14 +15,9 @@
  */
 #pragma once
 
-#include <functional>
-#include <utility>
-
-#include <folly/Singleton.h>
-
-#include "IExpr.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/Expressions.h"
+#include "velox/parse/IExpr.h"
 #include "velox/type/Variant.h"
 
 namespace facebook::velox::core {
@@ -87,33 +82,7 @@ class InputExpr : public core::IExpr {
     return EMPTY();
   }
 
-  std::shared_ptr<const IExpr> withInputs(
-      std::vector<std::shared_ptr<const IExpr>> /* unused */) const override {
-    return INSTANCE();
-  }
-
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = InputExpr::getClassName();
-    return obj;
-  }
-
-  static std::shared_ptr<const IExpr> create(const folly::dynamic& obj) {
-    VELOX_USER_CHECK_EQ(obj["name"], InputExpr::getClassName());
-
-    return std::make_shared<const InputExpr>();
-  }
-
-  bool equalsNonRecursive(const IExpr& other) const override {
-    return dynamic_cast<const InputExpr*>(&other) != nullptr;
-  }
-
   VELOX_DEFINE_CLASS_NAME(InputExpr)
- private:
-  static const std::shared_ptr<const IExpr> INSTANCE() {
-    static const folly::Singleton<InputExpr> instance_;
-    return instance_.try_get();
-  }
 };
 
 class FieldAccessExpr : public core::IExpr {
@@ -126,12 +95,6 @@ class FieldAccessExpr : public core::IExpr {
               std::make_shared<const InputExpr>()})
       : IExpr{std::move(alias)}, name_{name}, inputs_{std::move(inputs)} {
     CHECK_EQ(inputs_.size(), 1);
-  }
-
-  std::shared_ptr<const IExpr> withInputs(
-      std::vector<std::shared_ptr<const IExpr>> inputs) const override {
-    return std::make_shared<FieldAccessExpr>(
-        std::string{name_}, alias_, std::move(inputs));
   }
 
   const std::string& getFieldName() const {
@@ -154,35 +117,8 @@ class FieldAccessExpr : public core::IExpr {
         isRootColumn() ? toStringForRootColumn() : toStringForMemberAccess());
   }
 
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = FieldAccessExpr::getClassName();
-    obj["inputs"] = ISerializable::serialize(inputs_);
-    obj["fieldName"] = name_;
-    return obj;
-  }
-
   const std::vector<std::shared_ptr<const IExpr>>& getInputs() const override {
     return inputs_;
-  }
-
-  static std::shared_ptr<const IExpr> create(const folly::dynamic& obj) {
-    VELOX_USER_CHECK_EQ(obj["name"], FieldAccessExpr::getClassName());
-    auto fieldName = ISerializable::deserialize<std::string>(obj["fieldName"]);
-    auto inputs = ISerializable::deserialize<std::vector<IExpr>>(obj["inputs"]);
-
-    return std::make_shared<const FieldAccessExpr>(
-        std::move(fieldName), std::nullopt, std::move(inputs));
-  }
-
-  static std::shared_ptr<const FieldAccessExpr> column(std::string columnName) {
-    return std::make_shared<const FieldAccessExpr>(
-        std::move(columnName), std::nullopt);
-  }
-
-  bool equalsNonRecursive(const IExpr& other) const override {
-    auto o = dynamic_cast<const FieldAccessExpr*>(&other);
-    return o && name_ == o->name_;
   }
 
  private:
@@ -205,63 +141,6 @@ class FieldAccessExpr : public core::IExpr {
   VELOX_DEFINE_CLASS_NAME(FieldAccessExpr)
 };
 
-class SortExpr : public core::IExpr {
- public:
-  SortExpr(
-      std::vector<bool>&& orders,
-      std::vector<std::shared_ptr<const IExpr>>&& inputs)
-      : orders_(std::move(orders)), inputs_{std::move(inputs)} {
-    CHECK_EQ(inputs_.size(), orders_.size());
-  }
-
-  std::shared_ptr<const IExpr> withInputs(
-      std::vector<std::shared_ptr<const IExpr>> inputs) const override {
-    return std::make_shared<SortExpr>(
-        std::vector<bool>(this->orders_), std::move(inputs));
-  }
-
-  const std::vector<bool>& getOrders() const {
-    return orders_;
-  }
-
-  std::string toString() const override {
-    std::string buf{"sort("};
-    for (size_t i = 0; i < inputs_.size(); ++i) {
-      if (i != 0) {
-        buf += ",";
-      }
-      buf += inputs_[i]->toString() + " " + (orders_[i] ? "ASC" : "DESC");
-    }
-    buf += ")";
-    return buf;
-  }
-
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = SortExpr::getClassName();
-    obj["orders"] = ISerializable::serialize(orders_);
-    obj["inputs"] = ISerializable::serialize(inputs_);
-    return obj;
-  }
-
-  const std::vector<std::shared_ptr<const IExpr>>& getInputs() const override {
-    return inputs_;
-  }
-
-  static std::shared_ptr<const IExpr> create(const folly::dynamic& obj) {
-    VELOX_USER_CHECK_EQ(obj["name"], SortExpr::getClassName());
-    return std::make_shared<const SortExpr>(
-        ISerializable::deserialize<std::vector<bool>>(obj["orders"]),
-        ISerializable::deserialize<std::vector<IExpr>>(obj["inputs"]));
-  }
-
- private:
-  const std::vector<bool> orders_;
-  const std::vector<std::shared_ptr<const IExpr>> inputs_;
-
-  VELOX_DEFINE_CLASS_NAME(SortExpr)
-};
-
 class CallExpr : public core::IExpr {
  public:
   CallExpr(
@@ -276,12 +155,6 @@ class CallExpr : public core::IExpr {
 
   const std::string& getFunctionName() const {
     return name_;
-  }
-
-  std::shared_ptr<const IExpr> withInputs(
-      std::vector<std::shared_ptr<const IExpr>> inputs) const override {
-    return std::make_shared<CallExpr>(
-        std::string{name_}, std::move(inputs), alias_);
   }
 
   std::string toString() const override {
@@ -300,36 +173,6 @@ class CallExpr : public core::IExpr {
 
   const std::vector<std::shared_ptr<const IExpr>>& getInputs() const override {
     return inputs_;
-  }
-
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = CallExpr::getClassName();
-    obj["inputs"] = ISerializable::serialize(inputs_);
-    obj["functionName"] = name_;
-    return obj;
-  }
-
-  static std::shared_ptr<const IExpr> create(const folly::dynamic& obj) {
-    VELOX_USER_CHECK_EQ(obj["name"], CallExpr::getClassName());
-    auto functionName =
-        ISerializable::deserialize<std::string>(obj["functionName"]);
-    auto inputs = ISerializable::deserialize<std::vector<IExpr>>(obj["inputs"]);
-
-    return std::make_shared<const CallExpr>(
-        std::move(functionName), std::move(inputs), std::nullopt);
-  }
-
-  template <typename... T>
-  static auto createCall(std::string&& funcName, T... args) {
-    std::vector<std::shared_ptr<const IExpr>> argsv{std::move(args)...};
-    return std::make_shared<const CallExpr>(
-        std::move(funcName), std::move(argsv));
-  }
-
-  bool equalsNonRecursive(const IExpr& other) const override {
-    auto o = dynamic_cast<const CallExpr*>(&other);
-    return o && name_ == o->name_;
   }
 
  private:
@@ -367,26 +210,6 @@ class ConstantExpr : public IExpr,
     return EMPTY();
   }
 
-  std::shared_ptr<const IExpr> withInputs(
-      std::vector<std::shared_ptr<const IExpr>> /* unused */) const override {
-    return shared_from_this();
-  }
-
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = ConstantExpr::getClassName();
-    obj["value"] = ISerializable::serialize(value_);
-
-    return obj;
-  }
-
-  static std::shared_ptr<const IExpr> create(const folly::dynamic& obj) {
-    VELOX_USER_CHECK_EQ(obj["name"], ConstantExpr::getClassName());
-    auto v = ISerializable::deserialize<variant>(obj["value"]);
-
-    return std::make_shared<const ConstantExpr>(v, std::nullopt);
-  }
-
   VELOX_DEFINE_CLASS_NAME(ConstantExpr)
 };
 
@@ -416,20 +239,6 @@ class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
 
   const std::vector<std::shared_ptr<const IExpr>>& getInputs() const override {
     return inputs_;
-  }
-
-  std::shared_ptr<const IExpr> withInputs(
-      std::vector<std::shared_ptr<const IExpr>> /* unused */) const override {
-    return std::make_shared<CastExpr>(type_, expr_, nullOnFailure_, alias_);
-  }
-
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["type"] = type_->toString();
-    obj["expr"] = ISerializable::serialize(expr_);
-    obj["nullOnFailure"] = nullOnFailure_;
-
-    return obj;
   }
 
   const TypePtr& type() const {
@@ -489,15 +298,6 @@ class LambdaExpr : public IExpr,
 
   const std::vector<std::shared_ptr<const IExpr>>& getInputs() const override {
     return body_;
-  }
-
-  std::shared_ptr<const IExpr> withInputs(
-      std::vector<std::shared_ptr<const IExpr>> /* unused */) const override {
-    VELOX_NYI();
-  }
-
-  folly::dynamic serialize() const override {
-    VELOX_NYI();
   }
 
  private:

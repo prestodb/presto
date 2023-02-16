@@ -90,18 +90,6 @@ static void addExpressionBindings(
           },
           "Returns a list of expressions that the inputs to this expression")
       .def(
-          "withInputs",
-          [](IExprWrapper& e, std::vector<IExprWrapper>& i) {
-            std::vector<std::shared_ptr<const core::IExpr>> inputs;
-            inputs.reserve(i.size());
-            for (IExprWrapper& w : i) {
-              inputs.push_back(w.expr);
-            }
-            IExprWrapper result = {e.expr->withInputs(inputs)};
-            return result;
-          },
-          "Sets the inputs to the given list of expressions")
-      .def(
           "evaluate",
           [](IExprWrapper& e,
              std::vector<std::string> names,

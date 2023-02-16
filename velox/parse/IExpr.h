@@ -15,10 +15,8 @@
  */
 #pragma once
 
-#include "folly/json.h"
 #include "velox/common/base/ClassName.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/serialization/Serializable.h"
 #include "velox/type/Type.h"
 
 namespace facebook {
@@ -26,7 +24,7 @@ namespace velox {
 namespace core {
 
 /* an implicitly-typed expression, such as function call, literal, etc... */
-class IExpr : public ISerializable {
+class IExpr {
  public:
   explicit IExpr(std::optional<std::string> alias = std::nullopt)
       : alias_{std::move(alias)} {}
@@ -41,14 +39,6 @@ class IExpr : public ISerializable {
   virtual ~IExpr() = default;
 
   virtual std::string toString() const = 0;
-
-  virtual std::shared_ptr<const IExpr> withInputs(
-      std::vector<std::shared_ptr<const IExpr>> inputs) const = 0;
-
-  virtual bool equalsNonRecursive(const IExpr& other) const {
-    // Defaults to false for safety for the general case.
-    return false;
-  }
 
   const std::optional<std::string>& alias() const {
     return alias_;
