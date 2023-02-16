@@ -161,6 +161,22 @@ struct UnscaledLongDecimal {
     return *this;
   }
 
+  static FOLLY_ALWAYS_INLINE void serialize(
+      const UnscaledLongDecimal& longDecimal,
+      char* serializedData) {
+    *reinterpret_cast<uint64_t*>(serializedData) =
+        (uint64_t)longDecimal.unscaledValue();
+    *reinterpret_cast<uint64_t*>(serializedData + sizeof(uint64_t)) =
+        ((uint64_t)(longDecimal.unscaledValue() >> 64));
+  }
+
+  static FOLLY_ALWAYS_INLINE UnscaledLongDecimal
+  deserialize(const char* serializedData) {
+    auto lower = reinterpret_cast<const uint64_t*>(serializedData);
+    auto upper = lower + 1;
+    return UnscaledLongDecimal(buildInt128(*upper, *lower));
+  }
+
  private:
   static constexpr int128_t kMin =
       -(1'000'000'000'000'000'000 * (int128_t)1'000'000'000'000'000'000 *

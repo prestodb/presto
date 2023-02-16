@@ -138,5 +138,26 @@ TEST(DecimalTest, addUnsignedValues) {
   ASSERT_EQ(UPPER(sum), 0x1673df52e37f2410);
   ASSERT_EQ(LOWER(sum), 0x11d0ffffff0bdc0);
 }
+
+TEST(DecimalTest, longDecimalSerDe) {
+  char data[100];
+  UnscaledLongDecimal::serialize(UnscaledLongDecimal::min(), data);
+  auto deserializedData = UnscaledLongDecimal::deserialize(data);
+  ASSERT_EQ(deserializedData, UnscaledLongDecimal::min());
+
+  UnscaledLongDecimal::serialize(UnscaledLongDecimal::max(), data);
+  deserializedData = UnscaledLongDecimal::deserialize(data);
+  ASSERT_EQ(deserializedData, UnscaledLongDecimal::max());
+
+  auto longData = UnscaledLongDecimal(-1);
+  UnscaledLongDecimal::serialize(longData, data);
+  deserializedData = UnscaledLongDecimal::deserialize(data);
+  ASSERT_EQ(deserializedData, longData);
+
+  longData = UnscaledLongDecimal(10);
+  UnscaledLongDecimal::serialize(longData, data);
+  deserializedData = UnscaledLongDecimal::deserialize(data);
+  ASSERT_EQ(deserializedData, longData);
+}
 } // namespace
 } // namespace facebook::velox
