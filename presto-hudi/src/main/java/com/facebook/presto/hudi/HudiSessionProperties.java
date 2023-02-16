@@ -113,12 +113,12 @@ public class HudiSessionProperties
                         false),
                 integerProperty(
                         MAX_OUTSTANDING_SPLITS,
-                        "Maximum outstanding splits in a batch enqueued for processing",
+                        "Maximum outstanding splits per batch for query",
                         hudiConfig.getMaxOutstandingSplits(),
                         false),
                 integerProperty(
                         SPLIT_GENERATOR_PARALLELISM,
-                        "Number of threads to generate splits from partitions",
+                        "Number of threads used to generate splits from partitions",
                         hudiConfig.getSplitGeneratorParallelism(),
                         false));
     }
