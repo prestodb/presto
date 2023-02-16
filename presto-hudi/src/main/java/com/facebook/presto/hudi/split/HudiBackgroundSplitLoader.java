@@ -20,18 +20,18 @@ import com.facebook.presto.hive.util.AsyncQueue;
 import com.facebook.presto.hudi.HudiTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.PrestoException;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
-import org.apache.hudi.exception.HoodieException;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import static com.facebook.presto.hudi.HudiErrorCode.HUDI_CANNOT_GENERATE_SPLIT;
 import static com.facebook.presto.hudi.HudiSessionProperties.getSplitGeneratorParallelism;
 import static java.util.Objects.requireNonNull;
 
@@ -81,7 +81,7 @@ public class HudiBackgroundSplitLoader
         HoodieTimer timer = new HoodieTimer().startTimer();
         List<HudiPartitionSplitGenerator> splitGeneratorList = new ArrayList<>();
         List<Future> splitGeneratorFutures = new ArrayList<>();
-        Queue<String> concurrentPartitionQueue = new ConcurrentLinkedQueue<>(partitions);
+        ConcurrentLinkedQueue<String> concurrentPartitionQueue = new ConcurrentLinkedQueue<>(partitions);
 
         // Start a number of partition split generators to generate the splits in parallel
         for (int i = 0; i < splitGeneratorNumThreads; i++) {
@@ -97,10 +97,10 @@ public class HudiBackgroundSplitLoader
                 future.get();
             }
             catch (InterruptedException | ExecutionException e) {
-                throw new HoodieException("Error generating Hudi split", e);
+                throw new PrestoException(HUDI_CANNOT_GENERATE_SPLIT, "Error generating Hudi split", e);
             }
         }
         asyncQueue.finish();
-        log.debug("Finish getting all splits in %d ms", timer.endTimer());
+        log.debug("Finished getting all splits in %d ms", timer.endTimer());
     }
 }
