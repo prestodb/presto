@@ -49,7 +49,6 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
-import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.AdaptivePhasedExecutionPolicy;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
@@ -181,7 +180,6 @@ public class CoordinatorModule
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
-        binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
         binder.bind(RetryCircuitBreaker.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RetryCircuitBreaker.class).withGeneratedName();
 

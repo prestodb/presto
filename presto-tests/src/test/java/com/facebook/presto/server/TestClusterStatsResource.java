@@ -60,7 +60,7 @@ public class TestClusterStatsResource
         server = runner.getCoordinator();
         server.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
         server.getResourceGroupManager().get()
-                .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
+                .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 
     @AfterClass(alwaysRun = true)
