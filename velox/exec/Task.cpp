@@ -20,6 +20,7 @@
 
 #include "velox/codegen/Codegen.h"
 #include "velox/common/base/SuccinctPrinter.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/CrossJoinBuild.h"
 #include "velox/exec/Exchange.h"
@@ -189,7 +190,22 @@ Task::~Task() {
       }
     }
   } catch (const std::exception& e) {
-    LOG(WARNING) << "Caught exception in ~Task(): " << e.what();
+    LOG(WARNING) << "Caught exception in Task " << taskId()
+                 << " destructor: " << e.what();
+  }
+
+  removeSpillDirectoryIfExists();
+}
+
+void Task::removeSpillDirectoryIfExists() {
+  if (!spillDirectory_.empty()) {
+    try {
+      auto fs = filesystems::getFileSystem(spillDirectory_, nullptr);
+      fs->rmdir(spillDirectory_);
+    } catch (const std::exception& e) {
+      LOG(ERROR) << "Failed to remove spill directory '" << spillDirectory_
+                 << "' for Task " << taskId() << ": " << e.what();
+    }
   }
 }
 

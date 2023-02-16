@@ -186,6 +186,7 @@ class OrderByTest : public OperatorTestBase {
       } else {
         EXPECT_EQ(0, spilledStats(*task).spilledBytes);
       }
+      OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
     }
   }
 };
@@ -448,6 +449,7 @@ TEST_F(OrderByTest, spill) {
   EXPECT_LT(0, stats[0].operatorStats[1].spilledBytes);
   EXPECT_EQ(1, stats[0].operatorStats[1].spilledPartitions);
   EXPECT_EQ(2, stats[0].operatorStats[1].spilledFiles);
+  OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }
 
 TEST_F(OrderByTest, spillWithMemoryLimit) {
@@ -506,5 +508,6 @@ TEST_F(OrderByTest, spillWithMemoryLimit) {
 
     auto stats = task->taskStats().pipelineStats;
     ASSERT_EQ(testData.expectSpill, stats[0].operatorStats[1].spilledBytes > 0);
+    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
   }
 }

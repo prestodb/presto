@@ -45,15 +45,6 @@ void SpillMergeStream::pop() {
   }
 }
 
-SpillFile::~SpillFile() {
-  try {
-    auto fs = filesystems::getFileSystem(path_, nullptr);
-    fs->remove(path_);
-  } catch (const std::exception& e) {
-    LOG(ERROR) << "Error deleting spill file " << path_ << " : " << e.what();
-  }
-}
-
 WriteFile& SpillFile::output() {
   if (!output_) {
     auto fs = filesystems::getFileSystem(path_, nullptr);

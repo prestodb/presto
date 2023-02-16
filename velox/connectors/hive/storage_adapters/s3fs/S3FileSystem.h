@@ -60,6 +60,10 @@ class S3FileSystem : public FileSystem {
     VELOX_UNSUPPORTED("mkdir for S3 not implemented");
   }
 
+  void rmdir(std::string_view path) override {
+    VELOX_UNSUPPORTED("rmdir for S3 not implemented");
+  }
+
  protected:
   class Impl;
   std::shared_ptr<Impl> impl_;

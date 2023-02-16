@@ -152,6 +152,18 @@ class LocalFileSystem : public FileSystem {
         ec.message());
   }
 
+  void rmdir(std::string_view path) override {
+    std::error_code ec;
+    std::filesystem::remove_all(path, ec);
+    VELOX_CHECK_EQ(
+        0,
+        ec.value(),
+        "Rmdir {} failed: {}, message: {}",
+        path,
+        ec,
+        ec.message());
+  }
+
   static std::function<bool(std::string_view)> schemeMatcher() {
     // Note: presto behavior is to prefix local paths with 'file:'.
     // Check for that prefix and prune to absolute regular paths as needed.

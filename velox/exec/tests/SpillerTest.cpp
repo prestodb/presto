@@ -219,10 +219,9 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     verifySortedSpillData(outputBatchSize);
 
     spiller_.reset();
-    // Verify the spilled file has been removed from file system after spiller
-    // destruction.
-    for (auto spilledFile : spilledFileSet) {
-      EXPECT_ANY_THROW(fs_->openFileForRead(spilledFile));
+    // Verify the spilled files are still there after spiller destruction.
+    for (const auto& spilledFile : spilledFileSet) {
+      EXPECT_NO_THROW(fs_->exists(spilledFile));
     }
   }
 

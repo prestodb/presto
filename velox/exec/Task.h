@@ -533,6 +533,10 @@ class Task : public std::enable_shared_from_this<Task> {
   static void testingWaitForAllTasksToBeDeleted(uint64_t maxWaitUs = 3'000'000);
 
  private:
+  // Remove the spill directory, if the Task was creating it for potential
+  // spilling.
+  void removeSpillDirectoryIfExists();
+
   // Creates new instance of MemoryPool for a plan node, stores it in the task
   // to ensure lifetime and returns a raw pointer.
   memory::MemoryPool* FOLLY_NONNULL

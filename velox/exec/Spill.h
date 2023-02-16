@@ -56,6 +56,11 @@ class SpillInput : public ByteStream {
 /// Represents a spill file that is first in write mode and then
 /// turns into a source of spilled RowVectors. Owns a file system file that
 /// contains the spilled data and is live for the duration of 'this'.
+
+/// NOTE: The class will not delete spill file upon destruction, so the user
+/// needs to remove the unused spill files at some point later. For example, a
+/// query Task deletes all the generated spill files in one operation using
+/// rmdir() call.
 class SpillFile {
  public:
   SpillFile(
@@ -76,8 +81,6 @@ class SpillFile {
         sortCompareFlags_.empty() ||
         sortCompareFlags_.size() == numSortingKeys_);
   }
-
-  ~SpillFile();
 
   int32_t numSortingKeys() const {
     return numSortingKeys_;

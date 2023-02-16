@@ -629,6 +629,8 @@ class HashJoinBuilder {
     if (testVerifier_ != nullptr) {
       testVerifier_(task, injectSpill);
     }
+
+    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
   }
 
   VectorFuzzer::Options fuzzerOpts_;

@@ -133,6 +133,10 @@ class OperatorTestBase : public testing::Test,
       RowTypePtr rowType,
       const parse::ParseOptions& options = {});
 
+ public:
+  static void deleteTaskAndCheckSpillDirectory(std::shared_ptr<Task>& task);
+
+ protected:
   DuckDbQueryRunner duckDbQueryRunner_;
 
   // Used as default MappedMemory. Created on first use.

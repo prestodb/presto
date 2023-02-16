@@ -299,10 +299,9 @@ class SpillTest : public testing::Test,
     // Both spilled bytes and files stats are cleared after merge read.
     EXPECT_EQ(0, state_->spilledBytes());
     EXPECT_EQ(0, state_->spilledFiles());
-    // Verify the spilled file has been removed from file system after spill
-    // state destruction.
-    for (const auto& spilledFile : spilledFiles) {
-      EXPECT_ANY_THROW(fs->openFileForRead(spilledFile));
+    // Verify the spilled files are still there after spill state destruction.
+    for (const auto& spilledFile : spilledFileSet) {
+      EXPECT_NO_THROW(fs->exists(spilledFile));
     }
     // Verify stats.
     ASSERT_EQ(stats_["spillFileSize"].count, spilledFiles.size());

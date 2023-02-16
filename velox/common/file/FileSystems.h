@@ -70,6 +70,10 @@ class FileSystem {
   // Create a directory (recursively). Throws velox exception on failure.
   virtual void mkdir(std::string_view path) = 0;
 
+  // Remove a directory (all the files and sub-directories underneath
+  // recursively). Throws velox exception on failure.
+  virtual void rmdir(std::string_view path) = 0;
+
  protected:
   std::shared_ptr<const Config> config_;
 };
