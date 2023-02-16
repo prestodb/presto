@@ -309,7 +309,7 @@ public final class HiveUtil
         }
     }
 
-    private static boolean isHudiRealtimeSplit(Map<String, String> customSplitInfo)
+    public static boolean isHudiRealtimeSplit(Map<String, String> customSplitInfo)
     {
         String customSplitClass = customSplitInfo.get(CUSTOM_FILE_SPLIT_CLASS_KEY);
         return HoodieRealtimeFileSplit.class.getName().equals(customSplitClass);
