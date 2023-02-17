@@ -170,7 +170,7 @@ class TpchBenchmark {
       }
     } catch (const std::exception& e) {
       LOG(ERROR) << "Query terminated with: " << e.what();
-      return {nullptr, {}};
+      return {nullptr, std::vector<RowVectorPtr>()};
     }
   }
 
