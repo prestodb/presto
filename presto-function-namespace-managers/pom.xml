@@ -179,5 +179,11 @@
             <artifactId>drift-transport-netty</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

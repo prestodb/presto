@@ -25,11 +25,15 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedAccessControl
@@ -114,10 +118,19 @@ public class TestFileBasedAccessControl
     private ConnectorAccessControl createAccessControl(String fileName)
             throws IOException
     {
-        String path = this.getClass().getClassLoader().getResource(fileName).getPath();
         FileBasedAccessControlConfig config = new FileBasedAccessControlConfig();
-        config.setConfigFile(path);
+        config.setConfigFile(getResourceFile(fileName).getPath());
         return new FileBasedAccessControl(config);
+    }
+
+    private static File getResourceFile(String resourceName)
+            throws IOException
+    {
+        File resourceFile = newTemporaryFile();
+        resourceFile.deleteOnExit();
+        Files.copy(TestFileBasedAccessControl.class.getClassLoader().getResourceAsStream(resourceName), resourceFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+        return resourceFile;
     }
 
     private static void assertDenied(ThrowingRunnable runnable)

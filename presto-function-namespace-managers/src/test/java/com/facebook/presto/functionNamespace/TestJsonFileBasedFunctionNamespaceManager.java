@@ -22,23 +22,28 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 import java.util.Optional;
 
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.TEST_CATALOG;
+import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertEquals;
 
 public class TestJsonFileBasedFunctionNamespaceManager
 {
     @Test
-    public void testLoadFunctions()
+    public void testLoadFunctions() throws IOException
     {
         JsonFileBasedFunctionNamespaceManager jsonFileBasedFunctionNameSpaceManager = createFunctionNamespaceManager();
         Collection<SqlInvokedFunction> functionList = jsonFileBasedFunctionNameSpaceManager.listFunctions(Optional.empty(), Optional.empty());
         assertEquals(functionList.size(), 7);
     }
 
-    private JsonFileBasedFunctionNamespaceManager createFunctionNamespaceManager()
+    private JsonFileBasedFunctionNamespaceManager createFunctionNamespaceManager() throws IOException
     {
         Bootstrap app = new Bootstrap(
                 new JsonFileBasedFunctionNamespaceManagerModule(TEST_CATALOG),
@@ -46,13 +51,18 @@ public class TestJsonFileBasedFunctionNamespaceManager
 
         Injector injector = app
                 .doNotInitializeLogging()
-                .setRequiredConfigurationProperties(ImmutableMap.of("json-based-function-manager.path-to-function-definition", getPath("json_udf_function_definition.json"), "supported-function-languages", "CPP"))
+                .setRequiredConfigurationProperties(ImmutableMap.of("json-based-function-manager.path-to-function-definition", getResourceFilePath("json_udf_function_definition.json"), "supported-function-languages", "CPP"))
                 .initialize();
         return injector.getInstance(JsonFileBasedFunctionNamespaceManager.class);
     }
 
-    private String getPath(String fileName)
+    private static String getResourceFilePath(String resourceName)
+            throws IOException
     {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
+        File resourceFile = newTemporaryFile();
+        resourceFile.deleteOnExit();
+        Files.copy(TestJsonFileBasedFunctionNamespaceManager.class.getClassLoader().getResourceAsStream(resourceName), resourceFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+        return resourceFile.getPath();
     }
 }
