@@ -20,6 +20,8 @@ set -eufx -o pipefail
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
 export FB_OS_VERSION=v2022.11.14.00
 sudo apt install -y gperf uuid-dev libsodium-dev
+# needed by six and the build tools
+sudo apt install -y python3-pip pkg-config
 
 function install_six {
   pip3 install six
