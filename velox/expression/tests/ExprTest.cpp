@@ -90,15 +90,18 @@ class ExprTest : public testing::Test, public VectorTestBase {
       std::unordered_map<std::string, exec::ExprStats>>
   evaluateMultipleWithStats(
       const std::vector<std::string>& texts,
-      const RowVectorPtr& input) {
+      const RowVectorPtr& input,
+      std::vector<VectorPtr> result_to_reuse = {}) {
     auto exprSet = compileMultiple(texts, asRowType(input->type()));
 
     exec::EvalCtx context(execCtx_.get(), exprSet.get(), input.get());
 
     SelectivityVector rows(input->size());
-    std::vector<VectorPtr> result(texts.size());
-    exprSet->eval(rows, context, result);
-    return {result, exprSet->stats()};
+    if (result_to_reuse.empty()) {
+      result_to_reuse.resize(texts.size());
+    }
+    exprSet->eval(rows, context, result_to_reuse);
+    return {result_to_reuse, exprSet->stats()};
   }
 
   VectorPtr evaluate(const std::string& text, const RowVectorPtr& input) {
@@ -3384,4 +3387,75 @@ TEST_F(ExprTest, cseOverDictionaryOverConstant) {
   expected = makeFlatVector<int64_t>({105, 104, 103, 0, 0});
   assertEqualVectors(expected, result);
   EXPECT_EQ(5, stats.at("plus").numProcessedRows);
+}
+
+TEST_F(ExprTest, cseOverDictionaryAcrossMultipleExpressions) {
+  // This test verifies that CSE across multiple expressions are evaluated
+  // correctly, that is, make sure peeling is done before attempting to re-use
+  // computed results from CSE.
+  auto input = makeRowVector({
+      wrapInDictionary(
+          makeIndices({1, 3}),
+          makeFlatVector<StringView>({"aa1"_sv, "bb2"_sv, "cc3"_sv, "dd4"_sv})),
+  });
+  // Case 1: Peeled and unpeeled set of rows have overlap. This will ensure the
+  // right pre-computed values are used.
+  // upper(c0) is the CSE here having c0 as a distinct field. Initially its
+  // distinct fields is empty as concat (its parent) will have the same
+  // fields. If during compilation distinct field is not set when it is
+  // identified as a CSE then it will be empty and peeling
+  // will not occur the second time CSE is employed. Here the peeled rows are
+  // {0,1,2,3} and unpeeled are {0,1}. If peeling is performed in the first
+  // encounter, rows to compute will be {_ , 1, _, 3} and in the second
+  // instance if peeling is not performed then rows to computed would be {0,
+  // 1} where row 0 will be computed and 1 will be re-used so row 1 would have
+  // wrong result.
+  {
+    // Use an allocated result vector to force copying of values to the result
+    // vector. Otherwise, we might end up with a result vector pointing directly
+    // to the shared values vector from CSE.
+    std::vector<VectorPtr> result_to_reuse = {
+        makeFlatVector<StringView>({"x"_sv, "y"_sv}),
+        makeFlatVector<StringView>({"x"_sv, "y"_sv})};
+    auto [result, stats] = evaluateMultipleWithStats(
+        {"concat('foo_',upper(c0))", "upper(c0)"}, input, result_to_reuse);
+    std::vector<VectorPtr> expected = {
+        makeFlatVector<StringView>({"foo_BB2"_sv, "foo_DD4"_sv}),
+        makeFlatVector<StringView>({"BB2"_sv, "DD4"_sv})};
+    assertEqualVectors(expected[0], result[0]);
+    assertEqualVectors(expected[1], result[1]);
+    EXPECT_EQ(2, stats.at("upper").numProcessedRows);
+  }
+
+  // Case 2: Here a CSE_1 "substr(upper(c0),2)" shared twice has a child
+  // expression which itself is a CSE_2 "upper(c0)" shared thrice. If expression
+  // compilation were not fixed, CSE_1 will have distinct fields set but
+  // the CSE_2 has a parent in one of the other expression trees and therefore
+  // will have its distinct fields set properly. This would result in CSE_1 not
+  // peeling but CSE_2 will. In the first expression tree peeling happens
+  // before CSE so both CSE_1 and CSE_2 are tracking peeled rows. In the second
+  // expression CSE_2 is used again will peeled rows, however in third
+  // expression CSE_1 is not peeled but its child CSE_2 attempts peeling and
+  // runs into an error while creating the peel.
+  {
+    // Use an allocated result vector to force copying of values to the result.
+    std::vector<VectorPtr> result_to_reuse = {
+        makeFlatVector<StringView>({"x"_sv, "y"_sv}),
+        makeFlatVector<StringView>({"x"_sv, "y"_sv}),
+        makeFlatVector<StringView>({"x"_sv, "y"_sv})};
+    auto [result, stats] = evaluateMultipleWithStats(
+        {"concat('foo_',substr(upper(c0),2))",
+         "substr(upper(c0),3)",
+         "substr(upper(c0),2)"},
+        input,
+        result_to_reuse);
+    std::vector<VectorPtr> expected = {
+        makeFlatVector<StringView>({"foo_B2"_sv, "foo_D4"_sv}),
+        makeFlatVector<StringView>({"2"_sv, "4"_sv}),
+        makeFlatVector<StringView>({"B2"_sv, "D4"_sv})};
+    assertEqualVectors(expected[0], result[0]);
+    assertEqualVectors(expected[1], result[1]);
+    assertEqualVectors(expected[2], result[2]);
+    EXPECT_EQ(2, stats.at("upper").numProcessedRows);
+  }
 }

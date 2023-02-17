@@ -361,8 +361,11 @@ ExprPtr compileExpression(
   if (alreadyCompiled) {
     if (!alreadyCompiled->isMultiplyReferenced()) {
       scope->exprSet->addToReset(alreadyCompiled);
+      alreadyCompiled->setMultiplyReferenced();
+      // A property of this expression changed, namely isMultiplyReferenced_,
+      // that affects metadata, so we re-compute it.
+      alreadyCompiled->computeMetadata();
     }
-    alreadyCompiled->setMultiplyReferenced();
     return alreadyCompiled;
   }
 

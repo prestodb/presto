@@ -193,7 +193,11 @@ void Expr::computeMetadata() {
   }
 
   for (auto& input : inputs_) {
-    input->computeMetadata();
+    // Skip computing for inputs already marked as multiply referenced as they
+    // would have it computed already.
+    if (!input->isMultiplyReferenced_) {
+      input->computeMetadata();
+    }
     deterministic_ &= input->deterministic_;
     if (!input->distinctFields_.empty()) {
       propagatesNulls_ &= input->propagatesNulls_;
