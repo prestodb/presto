@@ -37,6 +37,9 @@ using facebook::presto::protocol::TaskInfo;
 
 namespace facebook::presto {
 
+// Unlimited concurrent lifespans is translated to this limit.
+constexpr uint32_t kMaxConcurrentLifespans{16};
+
 namespace {
 
 // If spilling is enabled and the given Task can spill, then this helper
@@ -283,9 +286,10 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
           queryCtx->get<int32_t>(kMaxDriversPerTask.data(), maxDriversPerTask_);
       concurrentLifespans = queryCtx->get<int32_t>(
           kConcurrentLifespansPerTask.data(), concurrentLifespansPerTask_);
-      // Zero concurrent lifespans means 'unlimited'.
+      // Zero concurrent lifespans means 'unlimited', but we still limit the
+      // number to some reasonable one.
       if (concurrentLifespans == 0) {
-        concurrentLifespans = std::numeric_limits<uint32_t>::max();
+        concurrentLifespans = kMaxConcurrentLifespans;
       }
 
       execTask = std::make_shared<exec::Task>(
@@ -318,7 +322,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
     if (execTask->isGroupedExecution()) {
       LOG(INFO) << "Starting task " << taskId << " with " << maxDrivers
                 << " max drivers and " << concurrentLifespans
-                << " concurrent lifespans.";
+                << " concurrent lifespans (grouped execution).";
     } else {
       LOG(INFO) << "Starting task " << taskId << " with " << maxDrivers
                 << " max drivers.";

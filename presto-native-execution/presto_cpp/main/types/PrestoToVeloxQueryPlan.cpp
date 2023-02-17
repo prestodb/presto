@@ -1206,7 +1206,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const bool constantValue =
         joinType.value() == core::JoinType::kLeftSemiFilter;
     projections.emplace_back(
-        std::make_shared<core::ConstantTypedExpr>(constantValue));
+        std::make_shared<core::ConstantTypedExpr>(BOOLEAN(), constantValue));
 
     return std::make_shared<core::ProjectNode>(
         node->id,
@@ -1985,6 +1985,9 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   planFragment.executionStrategy =
       toStrategy(fragment.stageExecutionDescriptor.stageExecutionStrategy);
   planFragment.numSplitGroups = descriptor.totalLifespans;
+  for (const auto& planNodeId : descriptor.groupedExecutionScanNodes) {
+    planFragment.groupedExecutionLeafNodeIds.emplace(planNodeId);
+  }
 
   if (auto output = std::dynamic_pointer_cast<const protocol::OutputNode>(
           fragment.root)) {
