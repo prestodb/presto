@@ -163,6 +163,7 @@ ConstantVectorPtr<VectorMaker::EvalType<T>> VectorMaker::constantVector(
       pool_,
       data.size(),
       nullCount > 0,
+      CppToType<TEvalType>::create(),
       (nullCount > 0) ? TEvalType() : folly::copy(*data.front()),
       stats.asSimpleVectorStats());
 }

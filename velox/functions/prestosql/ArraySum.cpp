@@ -152,7 +152,11 @@ class ArraySumFunction : public exec::VectorFunction {
 
       context.moveOrCopyResult(
           std::make_shared<ConstantVector<TOutput>>(
-              context.pool(), rows.end(), false /*isNull*/, std::move(sum)),
+              context.pool(),
+              rows.end(),
+              false /*isNull*/,
+              outputType,
+              std::move(sum)),
           rows,
           result);
       return;

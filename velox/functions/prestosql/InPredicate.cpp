@@ -227,13 +227,13 @@ class InPredicate : public exec::VectorFunction {
       vector_size_t size,
       exec::EvalCtx& context) {
     return std::make_shared<ConstantVector<bool>>(
-        context.pool(), size, true /*isNull*/, false);
+        context.pool(), size, true /*isNull*/, BOOLEAN(), false);
   }
 
   static VectorPtr
   createBoolConstant(bool value, vector_size_t size, exec::EvalCtx& context) {
     return std::make_shared<ConstantVector<bool>>(
-        context.pool(), size, false /*isNull*/, std::move(value));
+        context.pool(), size, false /*isNull*/, BOOLEAN(), std::move(value));
   }
 
   template <typename T, typename F>

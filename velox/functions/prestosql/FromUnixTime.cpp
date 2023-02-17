@@ -54,7 +54,7 @@ class FromUnixtimeFunction : public exec::VectorFunction {
       int16_t timezoneId = util::getTimeZoneID(
           std::string_view(timezoneName.data(), timezoneName.size()));
       timezones = std::make_shared<ConstantVector<int16_t>>(
-          pool, size, false /*isNull*/, std::move(timezoneId));
+          pool, size, false /*isNull*/, SMALLINT(), std::move(timezoneId));
 
       rows.applyToSelected([&](auto row) {
         rawTimestamps[row] = toMillis(unixtimes->valueAt<double>(row));

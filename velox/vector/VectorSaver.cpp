@@ -333,7 +333,7 @@ void writeConstantVector(const BaseVector& vector, std::ostream& out) {
 
 template <TypeKind kind>
 VectorPtr readConstant(
-    const TypePtr& /* type */,
+    const TypePtr& type,
     vector_size_t size,
     velox::memory::MemoryPool* pool,
     std::istream& in) {
@@ -348,12 +348,16 @@ VectorPtr readConstant(
       in.read(stringBuffer->template asMutable<char>(), stringSize);
 
       return std::make_shared<ConstantVector<T>>(
-          pool, size, false, StringView(stringBuffer->as<char>(), stringSize));
+          pool,
+          size,
+          false,
+          type,
+          StringView(stringBuffer->as<char>(), stringSize));
     }
   }
 
   return std::make_shared<ConstantVector<T>>(
-      pool, size, false, std::move(value));
+      pool, size, false, type, std::move(value));
 }
 
 VectorPtr readConstantVector(

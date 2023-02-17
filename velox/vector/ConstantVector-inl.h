@@ -23,6 +23,7 @@ std::unique_ptr<SimpleVector<uint64_t>> ConstantVector<T>::hashAll() const {
       BaseVector::pool_,
       BaseVector::length_,
       false /* isNull */,
+      BIGINT(),
       this->hashValueAt(0),
       SimpleVectorStats<uint64_t>{}, /* stats */
       sizeof(uint64_t) * BaseVector::length_ /* representedBytes */);

@@ -59,7 +59,7 @@ class SimpleVector : public BaseVector {
  public:
   SimpleVector(
       velox::memory::MemoryPool* pool,
-      std::shared_ptr<const Type> type,
+      TypePtr type,
       VectorEncoding::Simple encoding,
       BufferPtr nulls,
       size_t length,
@@ -82,31 +82,6 @@ class SimpleVector : public BaseVector {
         isSorted_(isSorted),
         elementSize_(sizeof(T)),
         stats_(stats) {}
-
-  // Constructs SimpleVector inferring the type from T.
-  SimpleVector(
-      velox::memory::MemoryPool* pool,
-      VectorEncoding::Simple encoding,
-      BufferPtr nulls,
-      size_t length,
-      const SimpleVectorStats<T>& stats,
-      std::optional<vector_size_t> distinctValueCount,
-      std::optional<vector_size_t> nullCount,
-      std::optional<bool> isSorted,
-      std::optional<ByteCount> representedByteCount,
-      std::optional<ByteCount> storageByteCount = std::nullopt)
-      : SimpleVector(
-            pool,
-            CppToType<T>::create(),
-            encoding,
-            std::move(nulls),
-            length,
-            stats,
-            distinctValueCount,
-            nullCount,
-            isSorted,
-            representedByteCount,
-            storageByteCount) {}
 
   virtual ~SimpleVector() override {}
 

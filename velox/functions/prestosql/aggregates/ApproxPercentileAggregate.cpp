@@ -236,26 +236,19 @@ class ApproxPercentileAggregate : public exec::Aggregate {
           BaseVector::wrapInConstant(numGroups, 0, std::move(array));
       rowResult->childAt(kPercentilesIsArray) =
           std::make_shared<ConstantVector<bool>>(
-              pool, numGroups, false, bool(percentiles_->isArray));
+              pool, numGroups, false, BOOLEAN(), bool(percentiles_->isArray));
     } else {
-      rowResult->childAt(kPercentiles) = BaseVector::wrapInConstant(
-          numGroups,
-          0,
-          std::make_shared<ArrayVector>(
-              pool,
-              ARRAY(DOUBLE()),
-              AlignedBuffer::allocate<bool>(1, pool, bits::kNull),
-              1,
-              AlignedBuffer::allocate<vector_size_t>(1, pool, 0),
-              AlignedBuffer::allocate<vector_size_t>(1, pool, 0),
-              nullptr));
+      rowResult->childAt(kPercentiles) =
+          BaseVector::createNullConstant(ARRAY(DOUBLE()), numGroups, pool);
       rowResult->childAt(kPercentilesIsArray) =
-          std::make_shared<ConstantVector<bool>>(pool, numGroups, true, false);
+          std::make_shared<ConstantVector<bool>>(
+              pool, numGroups, true, BOOLEAN(), false);
     }
     rowResult->childAt(kAccuracy) = std::make_shared<ConstantVector<double>>(
         pool,
         numGroups,
         accuracy_ == kMissingNormalizedValue,
+        DOUBLE(),
         double(accuracy_));
     auto k = rowResult->childAt(kK)->asFlatVector<int32_t>();
     auto n = rowResult->childAt(kN)->asFlatVector<int64_t>();

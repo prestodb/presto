@@ -46,6 +46,7 @@ BiasVector<T>::BiasVector(
     std::optional<ByteCount> storageByteCount)
     : SimpleVector<T>(
           pool,
+          CppToType<T>::create(),
           VectorEncoding::Simple::BIASED,
           nulls,
           length,

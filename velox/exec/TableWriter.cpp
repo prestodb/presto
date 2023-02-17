@@ -106,7 +106,7 @@ RowVectorPtr TableWriter::getOutput() {
         nullptr,
         1,
         std::vector<VectorPtr>{std::make_shared<ConstantVector<int64_t>>(
-            pool, 1, false /*isNull*/, numWrittenRows_)});
+            pool, 1, false /*isNull*/, BIGINT(), numWrittenRows_)});
   }
 
   std::vector<std::string> fragments = dataSink_->finish();

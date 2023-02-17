@@ -643,7 +643,7 @@ void HashProbe::prepareOutput(vector_size_t size) {
 namespace {
 VectorPtr createConstantFalse(vector_size_t size, memory::MemoryPool* pool) {
   return std::make_shared<ConstantVector<bool>>(
-      pool, size, false /*isNull*/, false /*value*/);
+      pool, size, false /*isNull*/, BOOLEAN(), false /*value*/);
 }
 } // namespace
 
