@@ -215,7 +215,6 @@ class DecimalUtil {
     }
   }
 
- private:
   static constexpr __uint128_t kOverflowMultiplier = ((__uint128_t)1 << 127);
 }; // DecimalUtil
 } // namespace facebook::velox

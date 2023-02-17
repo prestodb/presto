@@ -67,7 +67,7 @@ struct LongDecimalWithOverflowState {
   int64_t overflow{0};
 };
 
-template <typename TUnscaledType>
+template <typename TResultType, typename TInputType = TResultType>
 class DecimalAggregate : public exec::Aggregate {
  public:
   explicit DecimalAggregate(TypePtr resultType) : exec::Aggregate(resultType) {}
@@ -97,25 +97,28 @@ class DecimalAggregate : public exec::Aggregate {
     decodedRaw_.decode(*args[0], rows);
     if (decodedRaw_.isConstantMapping()) {
       if (!decodedRaw_.isNullAt(0)) {
-        auto value = decodedRaw_.valueAt<TUnscaledType>(0);
-        rows.applyToSelected(
-            [&](vector_size_t i) { updateNonNullValue(groups[i], value); });
+        auto value = decodedRaw_.valueAt<TInputType>(0);
+        rows.applyToSelected([&](vector_size_t i) {
+          updateNonNullValue(groups[i], TResultType(value));
+        });
       }
     } else if (decodedRaw_.mayHaveNulls()) {
       rows.applyToSelected([&](vector_size_t i) {
         if (decodedRaw_.isNullAt(i)) {
           return;
         }
-        updateNonNullValue(groups[i], decodedRaw_.valueAt<TUnscaledType>(i));
+        updateNonNullValue(
+            groups[i], TResultType(decodedRaw_.valueAt<TInputType>(i)));
       });
     } else if (!exec::Aggregate::numNulls_ && decodedRaw_.isIdentityMapping()) {
-      auto data = decodedRaw_.data<TUnscaledType>();
+      auto data = decodedRaw_.data<TInputType>();
       rows.applyToSelected([&](vector_size_t i) {
-        updateNonNullValue<false>(groups[i], data[i]);
+        updateNonNullValue<false>(groups[i], TResultType(data[i]));
       });
     } else {
       rows.applyToSelected([&](vector_size_t i) {
-        updateNonNullValue(groups[i], decodedRaw_.valueAt<TUnscaledType>(i));
+        updateNonNullValue(
+            groups[i], TResultType(decodedRaw_.valueAt<TInputType>(i)));
       });
     }
   }
@@ -131,18 +134,20 @@ class DecimalAggregate : public exec::Aggregate {
         const auto numRows = rows.countSelected();
         int64_t overflow = 0;
         int128_t totalSum{0};
-        auto value = decodedRaw_.valueAt<TUnscaledType>(0);
-        rows.template applyToSelected(
-            [&](vector_size_t i) { updateNonNullValue(group, value); });
+        auto value = decodedRaw_.valueAt<TInputType>(0);
+        rows.template applyToSelected([&](vector_size_t i) {
+          updateNonNullValue(group, TResultType(value));
+        });
       }
     } else if (decodedRaw_.mayHaveNulls()) {
       rows.applyToSelected([&](vector_size_t i) {
         if (!decodedRaw_.isNullAt(i)) {
-          updateNonNullValue(group, decodedRaw_.valueAt<TUnscaledType>(i));
+          updateNonNullValue(
+              group, TResultType(decodedRaw_.valueAt<TInputType>(i)));
         }
       });
     } else if (!exec::Aggregate::numNulls_ && decodedRaw_.isIdentityMapping()) {
-      const TUnscaledType* data = decodedRaw_.data<TUnscaledType>();
+      const TInputType* data = decodedRaw_.data<TInputType>();
       LongDecimalWithOverflowState accumulator;
       rows.applyToSelected([&](vector_size_t i) {
         accumulator.overflow += DecimalUtil::addWithOverflow(
@@ -159,7 +164,7 @@ class DecimalAggregate : public exec::Aggregate {
       rows.applyToSelected([&](vector_size_t i) {
         accumulator.overflow += DecimalUtil::addWithOverflow(
             accumulator.sum,
-            decodedRaw_.valueAt<TUnscaledType>(i).unscaledValue(),
+            decodedRaw_.valueAt<TInputType>(i).unscaledValue(),
             accumulator.sum);
       });
       accumulator.count = rows.countSelected();
@@ -272,17 +277,17 @@ class DecimalAggregate : public exec::Aggregate {
     }
   }
 
-  virtual TUnscaledType computeFinalValue(
+  virtual TResultType computeFinalValue(
       LongDecimalWithOverflowState* accumulator) = 0;
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
-    auto vector = (*result)->as<FlatVector<TUnscaledType>>();
+    auto vector = (*result)->as<FlatVector<TResultType>>();
     VELOX_CHECK(vector);
     vector->resize(numGroups);
     uint64_t* rawNulls = getRawNulls(vector);
 
-    TUnscaledType* rawValues = vector->mutableRawValues();
+    TResultType* rawValues = vector->mutableRawValues();
     for (int32_t i = 0; i < numGroups; ++i) {
       char* group = groups[i];
       if (isNull(group)) {
@@ -305,7 +310,7 @@ class DecimalAggregate : public exec::Aggregate {
   }
 
   template <bool tableHasNulls = true>
-  void updateNonNullValue(char* group, TUnscaledType value) {
+  void updateNonNullValue(char* group, TResultType value) {
     if constexpr (tableHasNulls) {
       exec::Aggregate::clearNull(group);
     }

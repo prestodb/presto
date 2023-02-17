@@ -17,6 +17,7 @@
 
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/CheckedArithmeticImpl.h"
+#include "velox/functions/prestosql/aggregates/DecimalAggregate.h"
 #include "velox/functions/prestosql/aggregates/SimpleNumericAggregate.h"
 
 namespace facebook::velox::aggregate::prestosql {
@@ -167,48 +168,30 @@ class SumAggregate
   }
 };
 
-/// Override 'initializeNewGroups' for decimal values to call set method to
-/// initialize the decimal value properly.
-template <>
-inline void
-SumAggregate<UnscaledShortDecimal, UnscaledLongDecimal, UnscaledLongDecimal>::
-    initializeNewGroups(
-        char** groups,
-        folly::Range<const vector_size_t*> indices) {
-  exec::Aggregate::setAllNulls(groups, indices);
-  for (auto i : indices) {
-    exec::Aggregate::value<UnscaledLongDecimal>(groups[i])->setUnscaledValue(0);
+template <typename TInputType>
+class DecimalSumAggregate
+    : public DecimalAggregate<UnscaledLongDecimal, TInputType> {
+ public:
+  explicit DecimalSumAggregate(TypePtr resultType)
+      : DecimalAggregate<UnscaledLongDecimal, TInputType>(resultType) {}
+
+  virtual UnscaledLongDecimal computeFinalValue(
+      LongDecimalWithOverflowState* accumulator) final {
+    // Value is valid if the conditions below are true.
+    int128_t sum = accumulator->sum;
+    if ((accumulator->overflow == 1 && accumulator->sum < 0) ||
+        (accumulator->overflow == -1 && accumulator->sum > 0)) {
+      sum = static_cast<int128_t>(
+          DecimalUtil::kOverflowMultiplier * accumulator->overflow +
+          accumulator->sum);
+    } else {
+      VELOX_CHECK(accumulator->overflow == 0, "Decimal overflow");
+    }
+
+    VELOX_CHECK(UnscaledLongDecimal::valueInRange(sum), "Decimal overflow");
+    return UnscaledLongDecimal(sum);
   }
-}
-
-template <>
-inline void
-SumAggregate<UnscaledLongDecimal, UnscaledLongDecimal, UnscaledLongDecimal>::
-    initializeNewGroups(
-        char** groups,
-        folly::Range<const vector_size_t*> indices) {
-  exec::Aggregate::setAllNulls(groups, indices);
-  for (auto i : indices) {
-    exec::Aggregate::value<UnscaledLongDecimal>(groups[i])->setUnscaledValue(0);
-  }
-}
-
-/// Override 'accumulatorAlignmentSize' for UnscaledLongDecimal values as it
-/// uses int128_t type. Some CPUs don't support misaligned access to int128_t
-/// type.
-template <>
-inline int32_t
-SumAggregate<UnscaledShortDecimal, UnscaledLongDecimal, UnscaledLongDecimal>::
-    accumulatorAlignmentSize() const {
-  return static_cast<int32_t>(sizeof(UnscaledLongDecimal));
-}
-
-template <>
-inline int32_t
-SumAggregate<UnscaledLongDecimal, UnscaledLongDecimal, UnscaledLongDecimal>::
-    accumulatorAlignmentSize() const {
-  return static_cast<int32_t>(sizeof(UnscaledLongDecimal));
-}
+};
 
 template <template <typename U, typename V, typename W> class T>
 bool registerSumAggregate(const std::string& name) {
@@ -227,7 +210,7 @@ bool registerSumAggregate(const std::string& name) {
           .integerVariable("a_precision")
           .integerVariable("a_scale")
           .argumentType("DECIMAL(a_precision, a_scale)")
-          .intermediateType("DECIMAL(38, a_scale)")
+          .intermediateType("VARBINARY")
           .returnType("DECIMAL(38, a_scale)")
           .build(),
   };
@@ -269,15 +252,16 @@ bool registerSumAggregate(const std::string& name) {
             }
             return std::make_unique<T<double, double, double>>(DOUBLE());
           case TypeKind::SHORT_DECIMAL:
-            return std::make_unique<
-                T<UnscaledShortDecimal,
-                  UnscaledLongDecimal,
-                  UnscaledLongDecimal>>(resultType);
+            return std::make_unique<DecimalSumAggregate<UnscaledShortDecimal>>(
+                resultType);
+          case TypeKind::VARBINARY:
+          // Always use UnscaledLongDecimal template for Varbinary as the result
+          // type is either UnscaledLongDecimal or
+          // UnscaledLongDecimalWithOverflowState.
           case TypeKind::LONG_DECIMAL:
-            return std::make_unique<
-                T<UnscaledLongDecimal,
-                  UnscaledLongDecimal,
-                  UnscaledLongDecimal>>(resultType);
+            return std::make_unique<DecimalSumAggregate<UnscaledLongDecimal>>(
+                resultType);
+
           default:
             VELOX_CHECK(
                 false,
