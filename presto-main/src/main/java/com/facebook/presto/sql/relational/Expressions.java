@@ -223,4 +223,9 @@ public final class Expressions
     {
         return new VariableReferenceExpression(sourceLocation, name, type);
     }
+
+    public static RowExpression ifthenelse(FunctionAndTypeManager functionAndTypeManager, RowExpression... arguments)
+    {
+        return specialForm(Form.IF, arguments[1].getType(), arguments);
+    }
 }

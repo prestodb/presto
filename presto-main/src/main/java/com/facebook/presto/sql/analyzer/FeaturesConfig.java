@@ -245,6 +245,7 @@ public class FeaturesConfig
     private boolean inPredicatesAsInnerJoinsEnabled;
     private double pushAggregationBelowJoinByteReductionThreshold = 1;
     private boolean prefilterForGroupbyLimit;
+    private boolean mergeAggsWithAndWithoutFilter;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2341,5 +2342,18 @@ public class FeaturesConfig
     {
         this.prefilterForGroupbyLimit = prefilterForGroupbyLimit;
         return this;
+    }
+
+    @Config("optimizer.merge-aggs-with-and-without-filter")
+    @ConfigDescription("Enable optimization that merges the same agg with and without group by for efficienc,y")
+    public FeaturesConfig setMergeAggsWithAndWithoutFilter(boolean mergeAggsWithAndWithoutFilter)
+    {
+        this.mergeAggsWithAndWithoutFilter = mergeAggsWithAndWithoutFilter;
+        return this;
+    }
+
+    public boolean isMergeAggsWithAndWithoutFilter()
+    {
+        return this.mergeAggsWithAndWithoutFilter;
     }
 }
