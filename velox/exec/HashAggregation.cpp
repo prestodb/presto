@@ -95,7 +95,7 @@ HashAggregation::HashAggregation(
               BaseVector::wrapInConstant(1, 0, constant->valueVector()));
         } else {
           constants.push_back(BaseVector::createConstant(
-              constant->value(), 1, operatorCtx_->pool()));
+              constant->type(), constant->value(), 1, operatorCtx_->pool()));
         }
       } else {
         constants.push_back(nullptr);

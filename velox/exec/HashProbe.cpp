@@ -640,13 +640,20 @@ void HashProbe::prepareOutput(vector_size_t size) {
   }
 }
 
+namespace {
+VectorPtr createConstantFalse(vector_size_t size, memory::MemoryPool* pool) {
+  return std::make_shared<ConstantVector<bool>>(
+      pool, size, false /*isNull*/, false /*value*/);
+}
+} // namespace
+
 void HashProbe::fillLeftSemiProjectMatchColumn(vector_size_t size) {
   if (emptyBuildSide()) {
     // Build side is empty or all rows have null join keys.
     if (nullAware_ && buildSideHasNullKeys_) {
       matchColumn() = BaseVector::createNullConstant(BOOLEAN(), size, pool());
     } else {
-      matchColumn() = BaseVector::createConstant(false, size, pool());
+      matchColumn() = createConstantFalse(size, pool());
     }
   } else {
     auto flatMatch = matchColumn()->as<FlatVector<bool>>();
@@ -756,7 +763,7 @@ RowVectorPtr HashProbe::getBuildSideOutput() {
     if (noInput_) {
       // Probe side is empty. All rows should return 'match = false', even ones
       // with a null join key.
-      matchColumn() = BaseVector::createConstant(false, numOut, pool());
+      matchColumn() = createConstantFalse(numOut, pool());
     } else {
       table_->rows()->extractProbedFlags(
           outputTableRows_.data(),

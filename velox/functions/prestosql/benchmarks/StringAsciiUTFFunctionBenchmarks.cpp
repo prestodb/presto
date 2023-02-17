@@ -72,8 +72,8 @@ class StringAsciiUTFFunctionBenchmark
     VectorFuzzer fuzzer(opts, execCtx_.pool());
     auto vector = fuzzer.fuzzFlat(VARCHAR());
 
-    auto positionVector =
-        BaseVector::createConstant(25, opts.vectorSize, execCtx_.pool());
+    auto positionVector = BaseVector::createConstant(
+        INTEGER(), 25, opts.vectorSize, execCtx_.pool());
 
     auto rowVector = vectorMaker_.rowVector({vector, positionVector});
 
@@ -101,8 +101,8 @@ class StringAsciiUTFFunctionBenchmark
     auto stringVector = fuzzer.fuzzFlat(VARCHAR());
     auto padStringVector = fuzzer.fuzzFlat(VARCHAR());
 
-    auto sizeVector =
-        BaseVector::createConstant(55, opts.vectorSize, execCtx_.pool());
+    auto sizeVector = BaseVector::createConstant(
+        INTEGER(), 55, opts.vectorSize, execCtx_.pool());
 
     auto rowVector =
         vectorMaker_.rowVector({stringVector, sizeVector, padStringVector});

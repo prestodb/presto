@@ -31,7 +31,7 @@ class JsonFunctionsTest : public functions::test::FunctionBaseTest {
     return makeNullableFlatVector<StringView>({s}, JSON());
   }
 
-  std::optional<bool> jsJsonScalar(std::optional<std::string> json) {
+  std::optional<bool> isJsonScalar(std::optional<std::string> json) {
     return evaluateOnce<bool>(
         "is_json_scalar(c0)", makeRowVector({makeJsonVector(json)}));
   }
@@ -218,19 +218,19 @@ TEST_F(JsonFunctionsTest, jsonSizeSignatures) {
 
 TEST_F(JsonFunctionsTest, isJsonScalar) {
   // Scalars.
-  EXPECT_EQ(jsJsonScalar(R"(1)"), true);
-  EXPECT_EQ(jsJsonScalar(R"(123456)"), true);
-  EXPECT_EQ(jsJsonScalar(R"("hello")"), true);
-  EXPECT_EQ(jsJsonScalar(R"("thefoxjumpedoverthefence")"), true);
-  EXPECT_EQ(jsJsonScalar(R"(1.1)"), true);
-  EXPECT_EQ(jsJsonScalar(R"("")"), true);
-  EXPECT_EQ(jsJsonScalar(R"(true)"), true);
+  EXPECT_EQ(isJsonScalar(R"(1)"), true);
+  EXPECT_EQ(isJsonScalar(R"(123456)"), true);
+  EXPECT_EQ(isJsonScalar(R"("hello")"), true);
+  EXPECT_EQ(isJsonScalar(R"("thefoxjumpedoverthefence")"), true);
+  EXPECT_EQ(isJsonScalar(R"(1.1)"), true);
+  EXPECT_EQ(isJsonScalar(R"("")"), true);
+  EXPECT_EQ(isJsonScalar(R"(true)"), true);
 
   // Lists and maps
-  EXPECT_EQ(jsJsonScalar(R"([1,2])"), false);
-  EXPECT_EQ(jsJsonScalar(R"({"k1":"v1"})"), false);
-  EXPECT_EQ(jsJsonScalar(R"({"k1":[0,1,2]})"), false);
-  EXPECT_EQ(jsJsonScalar(R"({"k1":""})"), false);
+  EXPECT_EQ(isJsonScalar(R"([1,2])"), false);
+  EXPECT_EQ(isJsonScalar(R"({"k1":"v1"})"), false);
+  EXPECT_EQ(isJsonScalar(R"({"k1":[0,1,2]})"), false);
+  EXPECT_EQ(isJsonScalar(R"({"k1":""})"), false);
 }
 
 TEST_F(JsonFunctionsTest, jsonArrayLength) {
@@ -435,13 +435,13 @@ TEST_F(JsonFunctionsTest, jsonSize) {
 }
 
 TEST_F(JsonFunctionsTest, invalidPath) {
-  EXPECT_THROW(jsonSize(R"([0,1,2])", ""), VeloxUserError);
-  EXPECT_THROW(jsonSize(R"([0,1,2])", "$[]"), VeloxUserError);
-  EXPECT_THROW(jsonSize(R"([0,1,2])", "$[-1]"), VeloxUserError);
-  EXPECT_THROW(jsonSize(R"({"k1":"v1"})", "$k1"), VeloxUserError);
-  EXPECT_THROW(jsonSize(R"({"k1":"v1"})", "$.k1."), VeloxUserError);
-  EXPECT_THROW(jsonSize(R"({"k1":"v1"})", "$.k1]"), VeloxUserError);
-  EXPECT_THROW(jsonSize(R"({"k1":"v1)", "$.k1]"), VeloxUserError);
+  VELOX_ASSERT_THROW(jsonSize(R"([0,1,2])", ""), "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonSize(R"([0,1,2])", "$[]"), "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonSize(R"([0,1,2])", "$[-1]"), "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$k1"), "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$.k1."), "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1"})", "$.k1]"), "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonSize(R"({"k1":"v1)", "$.k1]"), "Invalid JSON path");
 }
 
 } // namespace

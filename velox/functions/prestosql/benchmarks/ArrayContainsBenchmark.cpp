@@ -84,7 +84,8 @@ class ArrayContainsBenchmark : public functions::test::FunctionBenchmarkBase {
         [](auto row) { return row % 5; },
         [](auto row) { return row % 23; });
 
-    auto elementVector = BaseVector::createConstant(7, size, execCtx_.pool());
+    auto elementVector =
+        BaseVector::createConstant(INTEGER(), 7, size, execCtx_.pool());
 
     auto rowVector = vectorMaker_.rowVector({arrayVector, elementVector});
     auto exprSet = compileExpression(
@@ -113,8 +114,8 @@ class ArrayContainsBenchmark : public functions::test::FunctionBenchmarkBase {
         [](auto row) { return row % 5; },
         [&](auto row) { return StringView(colors[row % colors.size()]); });
 
-    auto elementVector =
-        BaseVector::createConstant("crimson red", size, execCtx_.pool());
+    auto elementVector = BaseVector::createConstant(
+        VARCHAR(), "crimson red", size, execCtx_.pool());
 
     auto rowVector = vectorMaker_.rowVector({arrayVector, elementVector});
     auto exprSet = compileExpression(

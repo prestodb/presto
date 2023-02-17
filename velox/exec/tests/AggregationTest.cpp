@@ -459,17 +459,12 @@ TEST_F(AggregationTest, multiKeyDistinct) {
 }
 
 TEST_F(AggregationTest, aggregateOfNulls) {
-  auto rowType = ROW({"c0", "c1"}, {BIGINT(), SMALLINT()});
-
-  auto children = {
+  auto rowVector = makeRowVector({
       BatchMaker::createVector<TypeKind::BIGINT>(
           rowType_->childAt(0), 100, *pool_),
-      BaseVector::createConstant(
-          facebook::velox::variant(TypeKind::SMALLINT), 100, pool_.get()),
-  };
+      makeNullConstant(TypeKind::SMALLINT, 100),
+  });
 
-  auto rowVector = std::make_shared<RowVector>(
-      pool_.get(), rowType, BufferPtr(nullptr), 100, children);
   auto vectors = {rowVector};
   createDuckDbTable(vectors);
 

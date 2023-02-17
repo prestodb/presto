@@ -601,7 +601,7 @@ class VectorTestBase {
   }
 
   VectorPtr makeConstant(const variant& value, vector_size_t size) {
-    return BaseVector::createConstant(value, size, pool());
+    return BaseVector::createConstant(value.inferType(), value, size, pool());
   }
 
   template <typename T>
@@ -644,7 +644,8 @@ class VectorTestBase {
   }
 
   VectorPtr makeNullConstant(TypeKind typeKind, vector_size_t size) {
-    return BaseVector::createConstant(variant(typeKind), size, pool());
+    return BaseVector::createNullConstant(
+        createType(typeKind, {}), size, pool());
   }
 
   BufferPtr makeIndices(

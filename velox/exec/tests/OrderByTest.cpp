@@ -331,10 +331,10 @@ TEST_F(OrderByTest, varfields) {
 
 TEST_F(OrderByTest, unknown) {
   vector_size_t size = 1'000;
-  auto vector = makeRowVector(
-      {makeFlatVector<int64_t>(size, [](auto row) { return row % 7; }),
-       BaseVector::createConstant(
-           variant(TypeKind::UNKNOWN), size, pool_.get())});
+  auto vector = makeRowVector({
+      makeFlatVector<int64_t>(size, [](auto row) { return row % 7; }),
+      BaseVector::createNullConstant(UNKNOWN(), size, pool()),
+  });
 
   // Exclude "UNKNOWN" column as DuckDB doesn't understand UNKNOWN type
   createDuckDbTable(

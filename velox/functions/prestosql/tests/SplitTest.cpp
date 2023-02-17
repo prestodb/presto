@@ -78,8 +78,7 @@ class SplitTest : public FunctionBaseTest {
           numRows,
           std::make_unique<SimpleVectorLoader>(funcCreateFlatStrings));
     } else if (isDictionary(encodingStrings)) {
-      strings = BaseVector::wrapInDictionary(
-          BufferPtr(nullptr),
+      strings = wrapInDictionary(
           makeIndices(numRows, funcReverseIndices),
           numRows,
           funcCreateFlatStrings({}));
@@ -89,8 +88,7 @@ class SplitTest : public FunctionBaseTest {
     if (isFlat(encodingDelims)) {
       delims = funcCreateFlatDelims({});
     } else if (isConstant(encodingDelims)) {
-      delims =
-          BaseVector::createConstant(delim.c_str(), numRows, execCtx_.pool());
+      delims = makeConstant(delim.c_str(), numRows);
     } else if (isLazy(encodingDelims)) {
       delims = std::make_shared<LazyVector>(
           execCtx_.pool(),
@@ -98,8 +96,7 @@ class SplitTest : public FunctionBaseTest {
           numRows,
           std::make_unique<SimpleVectorLoader>(funcCreateFlatDelims));
     } else if (isDictionary(encodingDelims)) {
-      delims = BaseVector::wrapInDictionary(
-          BufferPtr(nullptr),
+      delims = wrapInDictionary(
           makeIndices(numRows, funcReverseIndices),
           numRows,
           funcCreateFlatDelims({}));
@@ -109,7 +106,7 @@ class SplitTest : public FunctionBaseTest {
     if (isFlat(encodingLimit)) {
       limits = funcCreateFlatLimits({});
     } else if (isConstant(encodingLimit)) {
-      limits = BaseVector::createConstant(limit, numRows, execCtx_.pool());
+      limits = makeConstant(limit, numRows);
     } else if (isLazy(encodingLimit)) {
       limits = std::make_shared<LazyVector>(
           execCtx_.pool(),
@@ -117,8 +114,7 @@ class SplitTest : public FunctionBaseTest {
           numRows,
           std::make_unique<SimpleVectorLoader>(funcCreateFlatLimits));
     } else if (isDictionary(encodingLimit)) {
-      limits = BaseVector::wrapInDictionary(
-          BufferPtr(nullptr),
+      limits = wrapInDictionary(
           makeIndices(numRows, funcReverseIndices),
           numRows,
           funcCreateFlatLimits({}));
@@ -154,8 +150,7 @@ class SplitTest : public FunctionBaseTest {
         return arrayVector->size() - 1 - row;
       };
 
-      auto dictVector = BaseVector::wrapInDictionary(
-          BufferPtr(nullptr),
+      auto dictVector = wrapInDictionary(
           makeIndices(arrayVector->size(), funcReverseIndices),
           arrayVector->size(),
           arrayVector);

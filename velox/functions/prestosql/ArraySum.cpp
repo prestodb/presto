@@ -151,7 +151,8 @@ class ArraySumFunction : public exec::VectorFunction {
       }
 
       context.moveOrCopyResult(
-          BaseVector::createConstant(sum, rows.end(), context.pool()),
+          std::make_shared<ConstantVector<TOutput>>(
+              context.pool(), rows.end(), false /*isNull*/, std::move(sum)),
           rows,
           result);
       return;

@@ -105,8 +105,8 @@ RowVectorPtr TableWriter::getOutput() {
         outputType_,
         nullptr,
         1,
-        std::vector<VectorPtr>{
-            BaseVector::createConstant((int64_t)numWrittenRows_, 1, pool)});
+        std::vector<VectorPtr>{std::make_shared<ConstantVector<int64_t>>(
+            pool, 1, false /*isNull*/, numWrittenRows_)});
   }
 
   std::vector<std::string> fragments = dataSink_->finish();
@@ -139,8 +139,13 @@ RowVectorPtr TableWriter::getOutput() {
            ("pageSinkCommitStrategy", commitStrategyToString(commitStrategy_))
            ("lastPage", true));
   // clang-format on
-  VectorPtr commitContextVector = BaseVector::createConstant(
-      variant::binary(commitContextJson), numOutputRows, pool);
+
+  auto commitContextVector = std::make_shared<ConstantVector<StringView>>(
+      pool,
+      numOutputRows,
+      false /*isNull*/,
+      VARBINARY(),
+      StringView(commitContextJson));
 
   std::vector<VectorPtr> columns = {
       writtenRowsVector, fragmentsVector, commitContextVector};

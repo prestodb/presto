@@ -339,11 +339,14 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
     if (keyIt != split_->partitionKeys.end()) {
       setPartitionValue(scanChildSpec, fieldName, keyIt->second);
     } else if (fieldName == kPath) {
-      setConstantValue(scanChildSpec, velox::variant(split_->filePath));
+      setConstantValue(
+          scanChildSpec, VARCHAR(), velox::variant(split_->filePath));
     } else if (fieldName == kBucket) {
       if (split_->tableBucketNumber.has_value()) {
         setConstantValue(
-            scanChildSpec, velox::variant(split_->tableBucketNumber.value()));
+            scanChildSpec,
+            INTEGER(),
+            velox::variant(split_->tableBucketNumber.value()));
       }
     } else if (!fileType->containsChild(fieldName)) {
       // Column is missing. Most likely due to schema evolution.
@@ -364,13 +367,15 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
 
   auto pathSpec = scanSpec_->childByName(kPath);
   if (pathSpec) {
-    setConstantValue(pathSpec, velox::variant(split_->filePath));
+    setConstantValue(pathSpec, VARCHAR(), velox::variant(split_->filePath));
   }
 
   auto bucketSpec = scanSpec_->childByName(kBucket);
   if (bucketSpec && split_->tableBucketNumber.has_value()) {
     setConstantValue(
-        bucketSpec, velox::variant(split_->tableBucketNumber.value()));
+        bucketSpec,
+        INTEGER(),
+        velox::variant(split_->tableBucketNumber.value()));
   }
 
   std::vector<std::string> columnNames;
@@ -509,8 +514,9 @@ vector_size_t HiveDataSource::evaluateRemainingFilter(RowVectorPtr& rowVector) {
 
 void HiveDataSource::setConstantValue(
     common::ScanSpec* spec,
+    const TypePtr& type,
     const velox::variant& value) const {
-  spec->setConstantValue(BaseVector::createConstant(value, 1, pool_));
+  spec->setConstantValue(BaseVector::createConstant(type, value, 1, pool_));
 }
 
 void HiveDataSource::setNullConstantValue(
@@ -530,7 +536,7 @@ void HiveDataSource::setPartitionValue(
       partitionKey);
   auto constValue = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       convertFromString, it->second->dataType()->kind(), value);
-  setConstantValue(spec, constValue);
+  setConstantValue(spec, it->second->dataType(), constValue);
 }
 
 std::unordered_map<std::string, RuntimeCounter> HiveDataSource::runtimeStats() {

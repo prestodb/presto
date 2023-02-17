@@ -150,7 +150,7 @@ void AggregationTestBase::validateStreamingInTestAggregations(
               input->size(), 0, constant->valueVector());
         } else {
           column = BaseVector::createConstant(
-              constant->value(), input->size(), pool());
+              constant->type(), constant->value(), input->size(), pool());
         }
       } else {
         column = input->childAt(channel);

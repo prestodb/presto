@@ -20,16 +20,6 @@
 namespace facebook::velox::exec {
 class ConstantExpr : public SpecialForm {
  public:
-  ConstantExpr(TypePtr type, variant value)
-      : SpecialForm(
-            std::move(type),
-            std::vector<ExprPtr>(),
-            "literal",
-            !value.isNull() /* supportsFlatNoNullsFastPath */,
-            false /* trackCpuUsage */),
-        value_(std::move(value)),
-        needToSetIsAscii_{type->isVarchar()} {}
-
   explicit ConstantExpr(VectorPtr value)
       : SpecialForm(
             value->type(),
@@ -65,7 +55,6 @@ class ConstantExpr : public SpecialForm {
       std::vector<VectorPtr>* complexConstants = nullptr) const override;
 
  private:
-  const variant value_;
   bool needToSetIsAscii_;
 };
 } // namespace facebook::velox::exec

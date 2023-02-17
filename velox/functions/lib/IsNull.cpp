@@ -38,7 +38,7 @@ class IsNullFunction : public exec::VectorFunction {
     if (arg->isConstantEncoding()) {
       bool isNull = arg->isNullAt(rows.begin());
       auto localResult = BaseVector::createConstant(
-          IsNotNULL ? !isNull : isNull, rows.size(), pool);
+          BOOLEAN(), IsNotNULL ? !isNull : isNull, rows.size(), pool);
       context.moveOrCopyResult(localResult, rows, result);
       return;
     }
@@ -46,7 +46,7 @@ class IsNullFunction : public exec::VectorFunction {
     if (!arg->mayHaveNulls()) {
       // No nulls.
       auto localResult = BaseVector::createConstant(
-          IsNotNULL ? true : false, rows.size(), pool);
+          BOOLEAN(), IsNotNULL ? true : false, rows.size(), pool);
       context.moveOrCopyResult(localResult, rows, result);
       return;
     }

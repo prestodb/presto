@@ -610,67 +610,52 @@ void BaseVector::ensureWritable(
 
 template <TypeKind kind>
 VectorPtr newConstant(
+    const TypePtr& type,
     variant& value,
     vector_size_t size,
     velox::memory::MemoryPool* pool) {
   using T = typename KindToFlatVector<kind>::WrapperType;
-  T copy = T();
-  TypePtr type;
+
+  if (value.isNull()) {
+    return std::make_shared<ConstantVector<T>>(pool, size, true, type, T());
+  }
+
+  T copy;
   if constexpr (std::is_same_v<T, StringView>) {
-    type = Type::create<kind>();
-    if (!value.isNull()) {
-      copy = StringView(value.value<kind>());
-    }
+    copy = StringView(value.value<kind>());
   } else if constexpr (
       std::is_same_v<T, UnscaledShortDecimal> ||
       std::is_same_v<T, UnscaledLongDecimal>) {
-    const auto& decimal = value.value<kind>();
-    type = DECIMAL(decimal.precision, decimal.scale);
-    if (!value.isNull()) {
-      copy = decimal.value();
-    }
+    copy = value.value<kind>().value();
   } else {
-    type = Type::create<kind>();
-    if (!value.isNull()) {
-      copy = value.value<T>();
-    }
+    copy = value.value<T>();
   }
 
   return std::make_shared<ConstantVector<T>>(
-      pool,
-      size,
-      value.isNull(),
-      type,
-      std::move(copy),
-      SimpleVectorStats<T>{},
-      sizeof(T) /*representedByteCount*/);
+      pool, size, false, type, std::move(copy));
 }
 
 template <>
 VectorPtr newConstant<TypeKind::OPAQUE>(
+    const TypePtr& type,
     variant& value,
     vector_size_t size,
     velox::memory::MemoryPool* pool) {
-  VELOX_CHECK(!value.isNull(), "Can't infer type from null opaque object");
   const auto& capsule = value.value<TypeKind::OPAQUE>();
 
   return std::make_shared<ConstantVector<std::shared_ptr<void>>>(
-      pool,
-      size,
-      value.isNull(),
-      capsule.type,
-      std::shared_ptr<void>(capsule.obj),
-      SimpleVectorStats<std::shared_ptr<void>>{},
-      sizeof(std::shared_ptr<void>) /*representedByteCount*/);
+      pool, size, value.isNull(), type, std::shared_ptr<void>(capsule.obj));
 }
 
 // static
 VectorPtr BaseVector::createConstant(
+    const TypePtr& type,
     variant value,
     vector_size_t size,
     velox::memory::MemoryPool* pool) {
+  VELOX_CHECK_EQ(type->kind(), value.kind());
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
-      newConstant, value.kind(), value, size, pool);
+      newConstant, value.kind(), type, value, size, pool);
 }
 
 namespace {

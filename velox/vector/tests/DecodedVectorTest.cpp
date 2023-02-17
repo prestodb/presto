@@ -124,7 +124,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
 
   template <typename T>
   void testConstant(const T& value) {
-    auto constantVector = BaseVector::createConstant(value, 100, pool_.get());
+    auto constantVector = BaseVector::createConstant(
+        variant(value).inferType(), value, 100, pool_.get());
     auto check = [&](auto& decoded) {
       EXPECT_TRUE(decoded.isConstantMapping());
       EXPECT_TRUE(!decoded.isIdentityMapping());
@@ -190,8 +191,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
   template <typename T>
   void testConstantOpaque(const std::shared_ptr<T>& value) {
     int uses = value.use_count();
-    auto constantVector =
-        BaseVector::createConstant(variant::opaque(value), 100, pool_.get());
+    auto constantVector = BaseVector::createConstant(
+        OpaqueType::create<T>(), variant::opaque(value), 100, pool_.get());
 
     auto check = [&](auto& decoded) {
       EXPECT_TRUE(decoded.isConstantMapping());
@@ -304,7 +305,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
   template <typename T>
   void testDictionaryOverConstant(const T& value) {
     constexpr vector_size_t size = 1000;
-    auto constantVector = BaseVector::createConstant(value, size, pool_.get());
+    auto constantVector = BaseVector::createConstant(
+        variant(value).inferType(), value, size, pool_.get());
 
     // Add nulls via dictionary. Make every 2-nd element a null.
     BufferPtr nulls = evenNulls(size);
@@ -346,7 +348,7 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
   void testDictionaryOverNullConstant() {
     constexpr vector_size_t size = 1000;
     auto constantNullVector = BaseVector::createConstant(
-        variant(TypeKind::BIGINT), size, pool_.get());
+        BIGINT(), variant(TypeKind::BIGINT), size, pool_.get());
 
     // Add more nulls via dictionary. Make every 2-nd element a null.
     BufferPtr nulls = evenNulls(size);
@@ -421,8 +423,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
 template <>
 void DecodedVectorTest::testConstant<StringView>(const StringView& value) {
   auto val = value.getString();
-  auto constantVector =
-      BaseVector::createConstant(folly::StringPiece{val}, 100, pool_.get());
+  auto constantVector = BaseVector::createConstant(
+      VARCHAR(), folly::StringPiece{val}, 100, pool_.get());
 
   auto check = [&](auto& decoded) {
     EXPECT_TRUE(decoded.isConstantMapping());
@@ -760,7 +762,7 @@ TEST_F(DecodedVectorTest, dictionaryWrapOnConstantVector) {
   // vector.
   constexpr vector_size_t size = 100;
   auto constantVector =
-      BaseVector::createConstant(variant("abc"), size, pool_.get());
+      BaseVector::createConstant(VARCHAR(), variant("abc"), size, pool_.get());
   // int Vector
   auto intVector = makeFlatVector<int32_t>(size, [](auto row) { return row; });
   // Row (int, const)
@@ -1057,7 +1059,7 @@ TEST_F(DecodedVectorTest, emptyRowsDictOverConstWithNulls) {
   auto nulls = makeNulls(3, [](auto /* row */) { return true; });
   auto indices = makeIndices(3, [](auto /* row */) { return 2; });
   auto dict = BaseVector::wrapInDictionary(
-      nulls, indices, 3, BaseVector::createConstant(1, 3, pool()));
+      nulls, indices, 3, BaseVector::createConstant(INTEGER(), 1, 3, pool()));
 
   {
     SelectivityVector rows(3, false);

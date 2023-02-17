@@ -434,6 +434,7 @@ class BaseVector {
       std::shared_ptr<BaseVector>&& source);
 
   static std::shared_ptr<BaseVector> createConstant(
+      const TypePtr& type,
       variant value,
       vector_size_t size,
       velox::memory::MemoryPool* pool);

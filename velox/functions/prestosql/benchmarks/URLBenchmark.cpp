@@ -201,7 +201,8 @@ class UrlBenchmark : public functions::test::FunctionBenchmarkBase {
               row % 3));
         },
         nullptr);
-    auto constVector = BaseVector::createConstant("k1", size, pool());
+    auto constVector =
+        BaseVector::createConstant(VARCHAR(), "k1", size, pool());
     auto rowVector = isParameter
         ? vectorMaker_.rowVector({vectorUrls, constVector})
         : vectorMaker_.rowVector({vectorUrls});

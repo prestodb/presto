@@ -227,7 +227,10 @@ int main(int argc, char** argv) {
 
   // Create vector #2. Just a constant to the shared_ptr we created above.
   auto vector2 = BaseVector::createConstant(
-      variant::opaque(opaqueObj), vectorSize, execCtx.pool());
+      OPAQUE<UserDefinedMap>(),
+      variant::opaque(opaqueObj),
+      vectorSize,
+      execCtx.pool());
 
   // Create vector #3. The monotinically increasing flatVector<bigint>.
   auto vector3 = BaseVector::create<FlatVector<int64_t>>(

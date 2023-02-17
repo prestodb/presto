@@ -22,7 +22,6 @@
 
 #include "velox/expression/Expr.h"
 
-#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/ConjunctExpr.h"
@@ -32,7 +31,6 @@
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
-#include "velox/type/IntervalDayTime.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -1287,8 +1285,8 @@ class StatefulVectorFunction : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), numInputs_);
-    auto numInputs =
-        BaseVector::createConstant(numInputs_, rows.size(), context.pool());
+    auto numInputs = BaseVector::createConstant(
+        INTEGER(), numInputs_, rows.size(), context.pool());
     if (!result) {
       result = numInputs;
     } else {
@@ -1987,7 +1985,7 @@ TEST_F(ExprTest, memoNulls) {
   result = evaluate(
       exprSet.get(), makeRowVector({wrapInDictionary(last5Indices, 5, base)}));
   // Expecting 5 trues.
-  expectedResult = BaseVector::createConstant(true, 5, execCtx_->pool());
+  expectedResult = makeConstant(true, 5);
   assertEqualVectors(expectedResult, result);
 }
 
@@ -2193,9 +2191,10 @@ TEST_F(ExprTest, peeledConstant) {
   auto indices = makeIndices(kSubsetSize, [](auto row) { return row * 2; });
   auto numbers =
       makeFlatVector<int32_t>(kBaseSize, [](auto row) { return row; });
-  auto row = makeRowVector(
-      {BaseVector::wrapInDictionary(nullptr, indices, kSubsetSize, numbers),
-       BaseVector::createConstant("Hans Pfaal", kBaseSize, execCtx_->pool())});
+  auto row = makeRowVector({
+      wrapInDictionary(indices, kSubsetSize, numbers),
+      makeConstant("Hans Pfaal", kBaseSize),
+  });
   auto result = std::dynamic_pointer_cast<SimpleVector<StringView>>(
       evaluate("if (c0 % 4 = 0, c1, cast (null as VARCHAR))", row));
   EXPECT_EQ(kSubsetSize, result->size());

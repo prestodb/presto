@@ -412,7 +412,7 @@ TEST_F(EnsureWritableVectorTest, constant) {
   {
     const vector_size_t size = 100;
     auto constant = BaseVector::createConstant(
-        variant::create<TypeKind::BIGINT>(123), size, pool_.get());
+        BIGINT(), variant::create<TypeKind::BIGINT>(123), size, pool_.get());
     BaseVector::ensureWritable(
         SelectivityVector::empty(), BIGINT(), pool_.get(), constant);
     EXPECT_EQ(VectorEncoding::Simple::FLAT, constant->encoding());
@@ -424,7 +424,7 @@ TEST_F(EnsureWritableVectorTest, constant) {
   {
     const vector_size_t selectivityVectorSize = 100;
     auto constant = BaseVector::createConstant(
-        variant::create<TypeKind::BIGINT>(123), 1, pool_.get());
+        BIGINT(), variant::create<TypeKind::BIGINT>(123), 1, pool_.get());
     BaseVector::ensureWritable(
         SelectivityVector::empty(selectivityVectorSize),
         BIGINT(),
@@ -440,6 +440,7 @@ TEST_F(EnsureWritableVectorTest, constant) {
     const vector_size_t selectivityVectorSize = 100;
     const vector_size_t constantVectorSize = 200;
     auto constant = BaseVector::createConstant(
+        BIGINT(),
         variant::create<TypeKind::BIGINT>(123),
         constantVectorSize,
         pool_.get());

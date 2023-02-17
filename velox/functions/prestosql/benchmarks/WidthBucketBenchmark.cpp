@@ -78,7 +78,7 @@ class WidthBucketBenchmark : public functions::test::FunctionBenchmarkBase {
     auto bound2Vector =
         vectorMaker_.flatVector<double>(size, [](auto row) { return row + 4; });
     auto bucketCountVector =
-        BaseVector::createConstant(3, size, execCtx_.pool());
+        BaseVector::createConstant(INTEGER(), 3, size, execCtx_.pool());
 
     auto rowVector = vectorMaker_.rowVector(
         {operandVector, bound1Vector, bound2Vector, bucketCountVector});

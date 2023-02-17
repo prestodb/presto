@@ -17,6 +17,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -214,4 +215,13 @@ TEST_F(ExprCompilerTest, constantFromFlatVector) {
   auto exprSet = compile(expression);
   ASSERT_EQ("137:BIGINT", compile(expression)->toString());
 }
+
+TEST_F(ExprCompilerTest, customTypeConstant) {
+  auto expression =
+      std::make_shared<core::ConstantTypedExpr>(JSON(), "[1, 2, 3]");
+
+  auto exprSet = compile(expression);
+  ASSERT_EQ("[1, 2, 3]:JSON", compile(expression)->toString());
+}
+
 } // namespace facebook::velox::exec::test

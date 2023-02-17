@@ -474,8 +474,8 @@ ExprPtr compileExpression(
         result = std::make_shared<ConstantExpr>(
             BaseVector::createNullConstant(constant->type(), 1, pool));
       } else {
-        result = std::make_shared<ConstantExpr>(
-            BaseVector::createConstant(constant->value(), 1, pool));
+        result = std::make_shared<ConstantExpr>(BaseVector::createConstant(
+            constant->type(), constant->value(), 1, pool));
       }
     }
   } else if (

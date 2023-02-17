@@ -219,7 +219,8 @@ class CreateConstantAndThrow : public exec::VectorFunction {
       const TypePtr& /* outputType */,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
-    result = BaseVector::createConstant((int64_t)1, rows.end(), context.pool());
+    result = BaseVector::createConstant(
+        BIGINT(), (int64_t)1, rows.end(), context.pool());
 
     rows.applyToSelected([&](int row) {
       context.setError(

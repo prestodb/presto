@@ -38,10 +38,6 @@ class TableWriteTest : public HiveConnectorTestBase {
     HiveConnectorTestBase::SetUp();
   }
 
-  VectorPtr createConstant(variant value, vector_size_t size) const {
-    return BaseVector::createConstant(value, size, pool_.get());
-  }
-
   std::vector<std::shared_ptr<connector::ConnectorSplit>>
   makeHiveConnectorSplits(
       const std::shared_ptr<TempDirectoryPath>& directoryPath) {
@@ -290,19 +286,19 @@ TEST_F(TableWriteTest, constantVectors) {
   // Make constant vectors of various types with null and non-null values.
   std::string somewhatLongString = "Somewhat long string";
   auto vector = makeRowVector({
-      createConstant((int64_t)123'456, size),
-      createConstant(variant(TypeKind::BIGINT), size),
-      createConstant((int32_t)12'345, size),
-      createConstant(variant(TypeKind::INTEGER), size),
-      createConstant((int16_t)1'234, size),
-      createConstant(variant(TypeKind::SMALLINT), size),
-      createConstant((int8_t)123, size),
-      createConstant(variant(TypeKind::TINYINT), size),
-      createConstant(true, size),
-      createConstant(false, size),
-      createConstant(variant(TypeKind::BOOLEAN), size),
-      createConstant(somewhatLongString.c_str(), size),
-      createConstant(variant(TypeKind::VARCHAR), size),
+      makeConstant((int64_t)123'456, size),
+      makeConstant(variant(TypeKind::BIGINT), size),
+      makeConstant((int32_t)12'345, size),
+      makeConstant(variant(TypeKind::INTEGER), size),
+      makeConstant((int16_t)1'234, size),
+      makeConstant(variant(TypeKind::SMALLINT), size),
+      makeConstant((int8_t)123, size),
+      makeConstant(variant(TypeKind::TINYINT), size),
+      makeConstant(true, size),
+      makeConstant(false, size),
+      makeConstant(variant(TypeKind::BOOLEAN), size),
+      makeConstant(somewhatLongString.c_str(), size),
+      makeConstant(variant(TypeKind::VARCHAR), size),
   });
   auto rowType = std::dynamic_pointer_cast<const RowType>(vector->type());
 
@@ -494,7 +490,7 @@ TEST_F(TableWriteTest, singlePartition) {
         {makeFlatVector<StringView>(
              1'000,
              [&](auto row) { return StringView(fmt::format("str_{}", row)); }),
-         createConstant((int64_t)365, 1'000)});
+         makeConstant((int64_t)365, 1'000)});
   });
   createDuckDbTable(vectors);
 

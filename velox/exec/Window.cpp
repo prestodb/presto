@@ -50,7 +50,8 @@ VectorPtr const toConstantVector(
   if (constantExpr->value().isNull()) {
     return BaseVector::createNullConstant(constantExpr->type(), 1, pool);
   }
-  return BaseVector::createConstant(constantExpr->value(), 1, pool);
+  return BaseVector::createConstant(
+      constantExpr->type(), constantExpr->value(), 1, pool);
 }
 
 }; // namespace

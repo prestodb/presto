@@ -1075,8 +1075,8 @@ TEST_F(VectorTest, map) {
 
 TEST_F(VectorTest, unknown) {
   // Creates a const UNKNOWN vector.
-  auto constUnknownVector =
-      BaseVector::createConstant(variant(TypeKind::UNKNOWN), 123, pool_.get());
+  auto constUnknownVector = BaseVector::createConstant(
+      UNKNOWN(), variant(TypeKind::UNKNOWN), 123, pool_.get());
   ASSERT_FALSE(constUnknownVector->isScalar());
   ASSERT_EQ(TypeKind::UNKNOWN, constUnknownVector->typeKind());
   ASSERT_EQ(123, constUnknownVector->size());
@@ -1273,7 +1273,10 @@ TEST_F(VectorTest, wrapConstantInDictionary) {
   // Wrap Constant in Dictionary with no extra nulls. Expect Constant.
   auto indices = makeIndices(10, [](auto row) { return row % 2; });
   auto vector = BaseVector::wrapInDictionary(
-      nullptr, indices, 10, BaseVector::createConstant(7, 100, pool_.get()));
+      nullptr,
+      indices,
+      10,
+      BaseVector::createConstant(INTEGER(), 7, 100, pool_.get()));
   ASSERT_EQ(vector->encoding(), VectorEncoding::Simple::CONSTANT);
   auto constantVector =
       std::dynamic_pointer_cast<ConstantVector<int32_t>>(vector);
@@ -1285,7 +1288,10 @@ TEST_F(VectorTest, wrapConstantInDictionary) {
   // Wrap Constant in Dictionary with extra nulls. Expect Dictionary.
   auto nulls = makeNulls(10, [](auto row) { return row % 3 == 0; });
   vector = BaseVector::wrapInDictionary(
-      nulls, indices, 10, BaseVector::createConstant(11, 100, pool_.get()));
+      nulls,
+      indices,
+      10,
+      BaseVector::createConstant(INTEGER(), 11, 100, pool_.get()));
   ASSERT_EQ(vector->encoding(), VectorEncoding::Simple::DICTIONARY);
   auto dictVector = std::dynamic_pointer_cast<SimpleVector<int32_t>>(vector);
   for (auto i = 0; i < 10; ++i) {
@@ -1477,7 +1483,7 @@ class VectorCreateConstantTest : public VectorTest {
       var = variant::create<KIND>(val);
     }
 
-    auto baseVector = BaseVector::createConstant(var, size_, pool_.get());
+    auto baseVector = BaseVector::createConstant(type, var, size_, pool_.get());
     auto simpleVector = baseVector->template as<SimpleVector<TCpp>>();
     ASSERT_TRUE(simpleVector != nullptr);
 

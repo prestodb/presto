@@ -661,7 +661,7 @@ TEST_F(ArrowBridgeArrayExportTest, unsupported) {
   EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 
   // Constant encoding.
-  vector = BaseVector::createConstant(variant(10), 10, pool_.get());
+  vector = BaseVector::createConstant(INTEGER(), variant(10), 10, pool_.get());
   EXPECT_THROW(exportToArrow(vector, arrowArray, pool_.get()), VeloxException);
 }
 

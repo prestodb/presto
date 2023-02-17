@@ -253,27 +253,16 @@ TEST_F(FilterProjectTest, dereference) {
 }
 
 TEST_F(FilterProjectTest, allFailedOrPassed) {
-  auto rowType = ROW({"c0", "c1"}, {INTEGER(), INTEGER()});
   std::vector<RowVectorPtr> vectors;
   for (int32_t i = 0; i < 10; ++i) {
     // We alternate between a batch where all pass and a batch where
     // no row passes. c0 is flat vector. c1 is constant vector.
-    int32_t value = i % 2 == 0 ? 0 : 1;
+    const int32_t value = i % 2 == 0 ? 0 : 1;
 
-    auto c0 =
-        BaseVector::create<FlatVector<int32_t>>(INTEGER(), 100, pool_.get());
-    for (auto row = 0; row < c0->size(); ++row) {
-      c0->set(row, value);
-    }
-
-    auto c1 = BaseVector::createConstant(value, 100, pool_.get());
-
-    vectors.push_back(std::make_shared<RowVector>(
-        pool_.get(),
-        rowType,
-        BufferPtr(nullptr),
-        2,
-        std::vector<VectorPtr>{c0, c1}));
+    vectors.push_back(makeRowVector({
+        makeFlatVector<int32_t>(100, [&](auto row) { return value; }),
+        makeConstant(value, 100),
+    }));
   }
   createDuckDbTable(vectors);
 

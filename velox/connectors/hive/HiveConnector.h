@@ -150,6 +150,7 @@ class HiveDataSource : public DataSource {
 
   void setConstantValue(
       common::ScanSpec* FOLLY_NONNULL spec,
+      const TypePtr& type,
       const velox::variant& value) const;
 
   void setNullConstantValue(

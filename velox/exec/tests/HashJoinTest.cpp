@@ -1025,12 +1025,12 @@ TEST_P(MultiThreadedHashJoinTest, arrayBasedLookup) {
       }),
       // Join key vector is constant. There is a match in the build side.
       makeRowVector({
-          BaseVector::createConstant(4, 2'000, pool_.get()),
+          makeConstant(4, 2'000),
           makeFlatVector<int64_t>(2'000, [](auto row) { return row; }),
       }),
       // Join key vector is constant. There is no match.
       makeRowVector({
-          BaseVector::createConstant(5, 2'000, pool_.get()),
+          makeConstant(5, 2'000),
           makeFlatVector<int64_t>(2'000, [](auto row) { return row; }),
       }),
       // Join key vector is a dictionary.

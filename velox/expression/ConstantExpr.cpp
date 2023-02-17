@@ -21,11 +21,6 @@ void ConstantExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,
     VectorPtr& result) {
-  if (!sharedSubexprValues_) {
-    sharedSubexprValues_ =
-        BaseVector::createConstant(value_, 1, context.execCtx()->pool());
-  }
-
   if (needToSetIsAscii_) {
     auto* vector =
         sharedSubexprValues_->asUnchecked<SimpleVector<StringView>>();
@@ -61,20 +56,12 @@ void ConstantExpr::evalSpecialFormSimplified(
   // pre-allocated.
   VELOX_CHECK_NULL(result);
 
-  if (sharedSubexprValues_ == nullptr) {
-    result = BaseVector::createConstant(value_, rows.end(), context.pool());
-  } else {
-    result = BaseVector::wrapInConstant(rows.end(), 0, sharedSubexprValues_);
-  }
+  result = BaseVector::wrapInConstant(rows.end(), 0, sharedSubexprValues_);
 }
 
 std::string ConstantExpr::toString(bool /*recursive*/) const {
-  if (sharedSubexprValues_ == nullptr) {
-    return fmt::format("{}:{}", value_.toJson(), type()->toString());
-  } else {
-    return fmt::format(
-        "{}:{}", sharedSubexprValues_->toString(0), type()->toString());
-  }
+  return fmt::format(
+      "{}:{}", sharedSubexprValues_->toString(0), type()->toString());
 }
 
 namespace {

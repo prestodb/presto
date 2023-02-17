@@ -226,13 +226,14 @@ class InPredicate : public exec::VectorFunction {
   static VectorPtr createBoolConstantNull(
       vector_size_t size,
       exec::EvalCtx& context) {
-    return BaseVector::createConstant(
-        variant(TypeKind::BOOLEAN), size, context.pool());
+    return std::make_shared<ConstantVector<bool>>(
+        context.pool(), size, true /*isNull*/, false);
   }
 
   static VectorPtr
   createBoolConstant(bool value, vector_size_t size, exec::EvalCtx& context) {
-    return BaseVector::createConstant(value, size, context.pool());
+    return std::make_shared<ConstantVector<bool>>(
+        context.pool(), size, false /*isNull*/, std::move(value));
   }
 
   template <typename T, typename F>
@@ -243,8 +244,7 @@ class InPredicate : public exec::VectorFunction {
       VectorPtr& result,
       F&& testFunction) const {
     if (alwaysNull_) {
-      auto localResult = BaseVector::createNullConstant(
-          BOOLEAN(), rows.size(), context.pool());
+      auto localResult = createBoolConstantNull(rows.size(), context);
       context.moveOrCopyResult(localResult, rows, result);
       return;
     }
