@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "velox/common/memory/Memory.h"
@@ -405,9 +406,13 @@ TEST_F(VectorFuzzerTest, row) {
 
   // Composable API.
   vector = fuzzer.fuzzRow(
-      {fuzzer.fuzzFlat(REAL(), 100), fuzzer.fuzzFlat(BIGINT(), 100)}, 100);
+      {fuzzer.fuzzFlat(REAL(), 100), fuzzer.fuzzFlat(BIGINT(), 100)},
+      {"c0", "c1"},
+      100);
   ASSERT_TRUE(vector->type()->kindEquals(ROW({REAL(), BIGINT()})));
   ASSERT_TRUE(vector->mayHaveNulls());
+  EXPECT_THAT(
+      vector->type()->asRow().names(), ::testing::ElementsAre("c0", "c1"));
 }
 
 TEST_F(VectorFuzzerTest, assorted) {

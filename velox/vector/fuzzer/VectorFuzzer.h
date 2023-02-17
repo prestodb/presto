@@ -215,6 +215,13 @@ class VectorFuzzer {
 
   // Returns a RowVector based on the provided vectors, fuzzing its top-level
   // null buffer.
+  RowVectorPtr fuzzRow(
+      std::vector<VectorPtr>&& children,
+      std::vector<std::string> childrenNames,
+      vector_size_t size);
+
+  // Returns a RowVector based on the provided vectors, fuzzing its top-level
+  // null buffer.
   RowVectorPtr fuzzRow(std::vector<VectorPtr>&& children, vector_size_t size);
 
   // Same as the function above, but never return nulls for the top-level row

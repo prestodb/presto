@@ -490,7 +490,8 @@ VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
     for (const auto& childType : rowType.children()) {
       childrenVectors.emplace_back(fuzzFlat(childType, size));
     }
-    return fuzzRow(std::move(childrenVectors), size);
+
+    return fuzzRow(std::move(childrenVectors), rowType.names(), size);
   } else {
     VELOX_UNREACHABLE();
   }
@@ -691,6 +692,25 @@ RowVectorPtr VectorFuzzer::fuzzInputRow(const RowTypePtr& rowType) {
   ScopedOptions restorer(this);
   opts_.containerHasNulls = false;
   return fuzzRow(rowType, opts_.vectorSize);
+}
+
+RowVectorPtr VectorFuzzer::fuzzRow(
+    std::vector<VectorPtr>&& children,
+    std::vector<std::string> childrenNames,
+    vector_size_t size) {
+  std::vector<TypePtr> types;
+  types.reserve(children.size());
+
+  for (const auto& child : children) {
+    types.emplace_back(child->type());
+  }
+
+  return std::make_shared<RowVector>(
+      pool_,
+      ROW(std::move(childrenNames), std::move(types)),
+      opts_.containerHasNulls ? fuzzNulls(size) : nullptr,
+      size,
+      std::move(children));
 }
 
 RowVectorPtr VectorFuzzer::fuzzRow(
