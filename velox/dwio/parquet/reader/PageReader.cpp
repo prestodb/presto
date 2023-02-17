@@ -764,8 +764,9 @@ void PageReader::skipNullsOnly(int64_t numRows) {
     seekToPage(firstUnvisited_ + numRows);
     firstUnvisited_ += numRows;
     toSkip = firstUnvisited_ - rowOfPage_;
+  } else {
+    firstUnvisited_ += numRows;
   }
-  firstUnvisited_ += numRows;
 
   // Skip nulls
   skipNulls(toSkip);
