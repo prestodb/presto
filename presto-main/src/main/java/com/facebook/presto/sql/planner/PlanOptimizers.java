@@ -242,6 +242,12 @@ public class PlanOptimizers
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                new TranslateExpressions(metadata, sqlParser).rules()));
+
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
                 new MergeFilters());
 
