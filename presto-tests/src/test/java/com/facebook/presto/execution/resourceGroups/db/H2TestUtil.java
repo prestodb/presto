@@ -170,7 +170,7 @@ class H2TestUtil
             queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
             for (int coordinator = 0; coordinator < coordinatorCount; coordinator++) {
                 queryRunner.getCoordinator(coordinator).getResourceGroupManager().get()
-                        .setConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl, "node.environment", environment));
+                        .forceSetConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl, "node.environment", environment));
             }
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");

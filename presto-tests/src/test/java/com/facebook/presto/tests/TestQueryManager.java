@@ -62,7 +62,7 @@ public class TestQueryManager
         TestingPrestoServer server = queryRunner.getCoordinator();
         server.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
         server.getResourceGroupManager().get()
-                .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
+                .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 
     @AfterClass(alwaysRun = true)
@@ -86,11 +86,11 @@ public class TestQueryManager
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         QueryId queryId = dispatchManager.createQueryId();
         dispatchManager.createQuery(
-                queryId,
-                "slug",
-                0,
-                new TestingSessionContext(TEST_SESSION),
-                "SELECT * FROM lineitem")
+                        queryId,
+                        "slug",
+                        0,
+                        new TestingSessionContext(TEST_SESSION),
+                        "SELECT * FROM lineitem")
                 .get();
 
         // wait until query starts running
@@ -126,11 +126,11 @@ public class TestQueryManager
         createQueries(dispatchManager, 3);
         QueryId queryId = dispatchManager.createQueryId();
         dispatchManager.createQuery(
-                queryId,
-                "slug",
-                0,
-                new TestingSessionContext(TEST_SESSION),
-                "SELECT * FROM lineitem")
+                        queryId,
+                        "slug",
+                        0,
+                        new TestingSessionContext(TEST_SESSION),
+                        "SELECT * FROM lineitem")
                 .get();
 
         assertNotEquals(dispatchManager.getStats().getQueuedQueries(), 0L, "Expected 0 queued queries, found: " + dispatchManager.getStats().getQueuedQueries());
@@ -160,11 +160,11 @@ public class TestQueryManager
     {
         for (int i = 0; i < queryCount; i++) {
             dispatchManager.createQuery(
-                    dispatchManager.createQueryId(),
-                    "slug",
-                    0,
-                    new TestingSessionContext(TEST_SESSION),
-                    "SELECT * FROM lineitem")
+                            dispatchManager.createQueryId(),
+                            "slug",
+                            0,
+                            new TestingSessionContext(TEST_SESSION),
+                            "SELECT * FROM lineitem")
                     .get();
         }
     }

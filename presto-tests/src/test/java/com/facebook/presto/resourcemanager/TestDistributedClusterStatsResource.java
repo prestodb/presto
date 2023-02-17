@@ -89,7 +89,7 @@ public class TestDistributedClusterStatsResource
         runner.getCoordinators().stream().forEach(coordinator -> {
             coordinator.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
             coordinator.getResourceGroupManager().get()
-                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath(RESOURCE_GROUPS_CONFIG_FILE)));
+                    .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath(RESOURCE_GROUPS_CONFIG_FILE)));
         });
     }
 
@@ -206,7 +206,8 @@ public class TestDistributedClusterStatsResource
     }
 
     @Test(timeOut = 120_000)
-    public void testClusterStatsLocalInfoReturn() throws Exception
+    public void testClusterStatsLocalInfoReturn()
+            throws Exception
     {
         waitUntilCoordinatorsDiscoveredHealthyInRM(SECONDS.toMillis(15));
         runToFirstResult(client, coordinator2, "SELECT * from tpch.sf100.orders");
