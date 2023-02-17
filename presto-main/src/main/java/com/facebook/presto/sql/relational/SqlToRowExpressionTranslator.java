@@ -133,6 +133,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.relational.Expressions.field;
+import static com.facebook.presto.sql.relational.Expressions.inSubquery;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
@@ -679,6 +680,12 @@ public final class SqlToRowExpressionTranslator
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
             RowExpression value = process(node.getValue(), context);
+            if (!(node.getValueList() instanceof InListExpression)) {
+                RowExpression subquery = process(node.getValueList(), context);
+                checkArgument(value instanceof VariableReferenceExpression, "Unexpected expression: %s", value);
+                checkArgument(subquery instanceof VariableReferenceExpression, "Unexpected expression: %s", subquery);
+                return inSubquery((VariableReferenceExpression) value, (VariableReferenceExpression) subquery);
+            }
             InListExpression values = (InListExpression) node.getValueList();
 
             if (values.getValues().size() == 1) {

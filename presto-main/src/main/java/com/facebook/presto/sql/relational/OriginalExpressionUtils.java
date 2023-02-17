@@ -22,6 +22,7 @@ import com.facebook.presto.sql.analyzer.ExpressionTreeUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -100,6 +101,12 @@ public final class OriginalExpressionUtils
         public Type getType()
         {
             throw new UnsupportedOperationException("OriginalExpression does not have a type");
+        }
+
+        @Override
+        public List<RowExpression> getChildren()
+        {
+            throw new UnsupportedOperationException("Children of OriginalExpression cannot be derived");
         }
 
         @Override

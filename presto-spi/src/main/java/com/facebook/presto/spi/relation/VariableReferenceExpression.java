@@ -20,9 +20,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -55,6 +57,12 @@ public final class VariableReferenceExpression
     public Type getType()
     {
         return type;
+    }
+
+    @Override
+    public List<RowExpression> getChildren()
+    {
+        return emptyList();
     }
 
     @Override
