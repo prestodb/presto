@@ -257,7 +257,8 @@ TypedExprPtr Expressions::inferTypes(
       // ConstantVector<ComplexType>.
       VELOX_CHECK_NOT_NULL(
           pool, "parsing array literals requires a memory pool");
-      auto arrayVector = variantArrayToVector(constant->value().array(), pool);
+      auto arrayVector = variantArrayToVector(
+          constant->type(), constant->value().array(), pool);
       auto constantVector =
           std::make_shared<ConstantVector<velox::ComplexType>>(
               pool, 1, 0, arrayVector);

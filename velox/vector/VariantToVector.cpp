@@ -15,15 +15,14 @@
  */
 
 #include "velox/vector/VariantToVector.h"
-#include "velox/buffer/StringViewBufferHolder.h"
-#include "velox/type/Variant.h"
-#include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
+
 namespace facebook::velox::core {
 namespace {
 
 template <TypeKind KIND>
 ArrayVectorPtr variantArrayToVectorImpl(
+    const TypePtr& arrayType,
     const std::vector<variant>& variantArray,
     velox::memory::MemoryPool* pool) {
   using T = typename TypeTraits<KIND>::NativeType;
@@ -31,66 +30,51 @@ ArrayVectorPtr variantArrayToVectorImpl(
   // First generate internal arrayVector elements.
   const size_t variantArraySize = variantArray.size();
 
-  // Allocate buffer and set all values to null by default.
-  BufferPtr arrayElementsBuffer =
-      AlignedBuffer::allocate<T>(variantArraySize, pool);
-  BufferPtr nulls =
-      AlignedBuffer::allocate<bool>(variantArraySize, pool, bits::kNullByte);
-
-  // Create array elements internal flat vector.
-  auto arrayElements = std::make_shared<FlatVector<T>>(
-      pool,
-      Type::create<KIND>(),
-      nulls,
-      variantArraySize,
-      std::move(arrayElementsBuffer),
-      std::vector<BufferPtr>());
+  // Create array elements flat vector.
+  auto arrayElements = BaseVector::create<FlatVector<T>>(
+      arrayType->childAt(0), variantArraySize, pool);
 
   // Populate internal array elements (flat vector).
   for (vector_size_t i = 0; i < variantArraySize; i++) {
-    if (!variantArray[i].isNull()) {
+    const auto& value = variantArray[i];
+    if (!value.isNull()) {
       // `getOwnedValue` copies the content to its internal buffers (in case of
       // string/StringView); no-op for other primitive types.
-      arrayElements->set(i, T(variantArray[i].value<KIND>()));
+      arrayElements->set(i, T(value.value<KIND>()));
+    } else {
+      arrayElements->setNull(i, true);
     }
   }
 
   // Create ArrayVector around the FlatVector containing array elements.
-  BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(1, pool, 0);
-  BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(1, pool, 0);
+  BufferPtr offsets = allocateOffsets(1, pool);
+  BufferPtr sizes = allocateSizes(1, pool);
 
   auto rawSizes = sizes->asMutable<vector_size_t>();
   rawSizes[0] = variantArraySize;
 
   return std::make_shared<ArrayVector>(
-      pool,
-      ARRAY(Type::create<KIND>()),
-      BufferPtr(nullptr),
-      1,
-      offsets,
-      sizes,
-      arrayElements,
-      0);
+      pool, arrayType, nullptr, 1, offsets, sizes, arrayElements);
 }
 } // namespace
 
 ArrayVectorPtr variantArrayToVector(
+    const TypePtr& arrayType,
     const std::vector<variant>& variantArray,
     velox::memory::MemoryPool* pool) {
-  std::optional<int32_t> nonNullIndex;
-  for (auto i = 0; i < variantArray.size(); ++i) {
-    if (!variantArray.at(i).isNull()) {
-      nonNullIndex = i;
-      break;
-    }
-  }
-  if (variantArray.empty() || !nonNullIndex.has_value()) {
-    return variantArrayToVectorImpl<TypeKind::UNKNOWN>(variantArray, pool);
+  VELOX_CHECK_EQ(TypeKind::ARRAY, arrayType->kind());
+
+  if (arrayType->childAt(0)->isUnKnown()) {
+    return variantArrayToVectorImpl<TypeKind::UNKNOWN>(
+        arrayType, variantArray, pool);
   }
 
-  const auto elementType = variantArray.at(nonNullIndex.value()).inferType();
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      variantArrayToVectorImpl, elementType->kind(), variantArray, pool);
+      variantArrayToVectorImpl,
+      arrayType->childAt(0)->kind(),
+      arrayType,
+      variantArray,
+      pool);
 }
 
 } // namespace facebook::velox::core

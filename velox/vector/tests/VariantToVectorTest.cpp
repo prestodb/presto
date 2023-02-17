@@ -23,18 +23,20 @@
 #include "velox/vector/VariantToVector.h"
 
 using namespace facebook::velox;
-using facebook::velox::core::variantArrayToVector;
 
 class VariantToVectorTest : public testing::Test {
   std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
 
  public:
   template <TypeKind KIND>
-  void testCreateVector(const std::vector<variant>& inputArray) {
+  void testCreateVector(
+      const TypePtr& type,
+      const std::vector<variant>& inputArray) {
     using TCpp = typename TypeTraits<KIND>::NativeType;
 
     auto varArray = variant::array(inputArray);
-    auto arrayVector = variantArrayToVector(varArray.array(), pool_.get());
+    auto arrayVector =
+        core::variantArrayToVector(type, varArray.array(), pool_.get());
     ASSERT_TRUE(arrayVector != nullptr);
     ASSERT_EQ(1, arrayVector->size());
 
@@ -58,77 +60,95 @@ class VariantToVectorTest : public testing::Test {
 };
 
 TEST_F(VariantToVectorTest, bigint) {
-  testCreateVector<TypeKind::BIGINT>({
-      variant::create<TypeKind::BIGINT>(4432),
-      variant::null(TypeKind::BIGINT),
-      variant::create<TypeKind::BIGINT>(-123456789),
-  });
+  testCreateVector<TypeKind::BIGINT>(
+      ARRAY(BIGINT()),
+      {
+          variant::create<TypeKind::BIGINT>(4432),
+          variant::null(TypeKind::BIGINT),
+          variant::create<TypeKind::BIGINT>(-123456789),
+      });
 }
 
 TEST_F(VariantToVectorTest, integer) {
-  testCreateVector<TypeKind::INTEGER>({
-      variant::create<TypeKind::INTEGER>(122133),
-      variant::create<TypeKind::INTEGER>(35121),
-  });
+  testCreateVector<TypeKind::INTEGER>(
+      ARRAY(INTEGER()),
+      {
+          variant::create<TypeKind::INTEGER>(122133),
+          variant::create<TypeKind::INTEGER>(35121),
+      });
 }
 
 TEST_F(VariantToVectorTest, smallint) {
-  testCreateVector<TypeKind::SMALLINT>({
-      variant::create<TypeKind::SMALLINT>(123),
-      variant::create<TypeKind::SMALLINT>(-63),
-      variant::null(TypeKind::SMALLINT),
-  });
+  testCreateVector<TypeKind::SMALLINT>(
+      ARRAY(SMALLINT()),
+      {
+          variant::create<TypeKind::SMALLINT>(123),
+          variant::create<TypeKind::SMALLINT>(-63),
+          variant::null(TypeKind::SMALLINT),
+      });
 }
 
 TEST_F(VariantToVectorTest, tinyint) {
-  testCreateVector<TypeKind::TINYINT>({
-      variant::create<TypeKind::TINYINT>(-12),
-      variant::create<TypeKind::TINYINT>(51),
-  });
+  testCreateVector<TypeKind::TINYINT>(
+      ARRAY(TINYINT()),
+      {
+          variant::create<TypeKind::TINYINT>(-12),
+          variant::create<TypeKind::TINYINT>(51),
+      });
 }
 
 TEST_F(VariantToVectorTest, boolean) {
-  testCreateVector<TypeKind::BOOLEAN>({
-      variant::null(TypeKind::BOOLEAN),
-      variant::create<TypeKind::BOOLEAN>(false),
-      variant::create<TypeKind::BOOLEAN>(true),
-  });
+  testCreateVector<TypeKind::BOOLEAN>(
+      ARRAY(BOOLEAN()),
+      {
+          variant::null(TypeKind::BOOLEAN),
+          variant::create<TypeKind::BOOLEAN>(false),
+          variant::create<TypeKind::BOOLEAN>(true),
+      });
 }
 
 TEST_F(VariantToVectorTest, real) {
-  testCreateVector<TypeKind::REAL>({
-      variant::create<TypeKind::REAL>(-4.78),
-      variant::create<TypeKind::REAL>(123.45),
-  });
+  testCreateVector<TypeKind::REAL>(
+      ARRAY(REAL()),
+      {
+          variant::create<TypeKind::REAL>(-4.78),
+          variant::create<TypeKind::REAL>(123.45),
+      });
 }
 
 TEST_F(VariantToVectorTest, double) {
-  testCreateVector<TypeKind::DOUBLE>({
-      variant::create<TypeKind::DOUBLE>(-99.948),
-      variant::create<TypeKind::DOUBLE>(-123.456),
-      variant::create<TypeKind::DOUBLE>(78.91),
-      variant::null(TypeKind::DOUBLE),
-  });
+  testCreateVector<TypeKind::DOUBLE>(
+      ARRAY(DOUBLE()),
+      {
+          variant::create<TypeKind::DOUBLE>(-99.948),
+          variant::create<TypeKind::DOUBLE>(-123.456),
+          variant::create<TypeKind::DOUBLE>(78.91),
+          variant::null(TypeKind::DOUBLE),
+      });
 }
 
 TEST_F(VariantToVectorTest, varchar) {
-  testCreateVector<TypeKind::VARCHAR>({
-      variant::create<TypeKind::VARCHAR>("hello"),
-      variant::create<TypeKind::VARCHAR>("world"),
-      variant::create<TypeKind::VARCHAR>(
-          "Some longer string that doesn't get inlined..."),
-  });
+  testCreateVector<TypeKind::VARCHAR>(
+      ARRAY(VARCHAR()),
+      {
+          variant::create<TypeKind::VARCHAR>("hello"),
+          variant::create<TypeKind::VARCHAR>("world"),
+          variant::create<TypeKind::VARCHAR>(
+              "Some longer string that doesn't get inlined..."),
+      });
 }
 
 TEST_F(VariantToVectorTest, varbinary) {
-  testCreateVector<TypeKind::VARBINARY>({
-      variant::create<TypeKind::VARBINARY>("hello"),
-      variant::create<TypeKind::VARBINARY>("world"),
-      variant::create<TypeKind::VARBINARY>(
-          "Some longer string that doesn't get inlined..."),
-  });
+  testCreateVector<TypeKind::VARBINARY>(
+      ARRAY(VARBINARY()),
+      {
+          variant::create<TypeKind::VARBINARY>("hello"),
+          variant::create<TypeKind::VARBINARY>("world"),
+          variant::create<TypeKind::VARBINARY>(
+              "Some longer string that doesn't get inlined..."),
+      });
 }
 
 TEST_F(VariantToVectorTest, empty) {
-  testCreateVector<TypeKind::BIGINT>({});
+  testCreateVector<TypeKind::BIGINT>(ARRAY(BIGINT()), {});
 }

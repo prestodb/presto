@@ -23,6 +23,7 @@ namespace facebook::velox::core {
 // output ArrayVector contains one single row, which contains the elements
 // extracted from the input variant vector.
 ArrayVectorPtr variantArrayToVector(
+    const TypePtr& arrayType,
     const std::vector<variant>& variantArray,
     velox::memory::MemoryPool* pool);
 
