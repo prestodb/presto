@@ -70,13 +70,15 @@ class InputTypedExpr : public ITypedExpr {
 
 class ConstantTypedExpr : public ITypedExpr {
  public:
+// TODO Remove this constructor after Prestissimo is updated.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   // Creates constant expression of scalar type.
   explicit ConstantTypedExpr(variant value)
       : ITypedExpr{value.inferType()}, value_{std::move(value)} {}
+#endif
 
-  // Creates constant expression for cases when type cannot be properly inferred
-  // from the variant, like variant::null(). For complex types, only
-  // variant::null() is supported.
+  // Creates constant expression. For complex types, only
+  // variant::null() value is supported.
   ConstantTypedExpr(std::shared_ptr<const Type> type, variant value)
       : ITypedExpr{std::move(type)}, value_{std::move(value)} {}
 

@@ -167,7 +167,7 @@ TypePtr toVeloxType(LogicalType type) {
   }
 }
 
-variant duckValueToVariant(const Value& val, bool parseDecimalAsDouble) {
+variant duckValueToVariant(const Value& val) {
   switch (val.type().id()) {
     case LogicalTypeId::SQLNULL:
       return variant(TypeKind::UNKNOWN);
@@ -186,11 +186,7 @@ variant duckValueToVariant(const Value& val, bool parseDecimalAsDouble) {
     case LogicalTypeId::DOUBLE:
       return variant(val.GetValue<double>());
     case LogicalTypeId::DECIMAL:
-      if (parseDecimalAsDouble) {
-        return variant(val.GetValue<double>());
-      } else {
-        return decimalVariant(val);
-      }
+      return decimalVariant(val);
     case LogicalTypeId::VARCHAR:
       return variant(val.GetValue<std::string>());
     case LogicalTypeId::BLOB:

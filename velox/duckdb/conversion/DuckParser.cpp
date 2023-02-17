@@ -135,10 +135,13 @@ std::shared_ptr<const core::IExpr> parseConstantExpr(
     value = Value::BIGINT(value.GetValue<int32_t>());
   }
 
+  if (options.parseDecimalAsDouble &&
+      value.type().id() == duckdb::LogicalTypeId::DECIMAL) {
+    value = Value::DOUBLE(value.GetValue<double>());
+  }
+
   return std::make_shared<const core::ConstantExpr>(
-      toVeloxType(value.type()),
-      duckValueToVariant(value, options.parseDecimalAsDouble),
-      getAlias(expr));
+      toVeloxType(value.type()), duckValueToVariant(value), getAlias(expr));
 }
 
 // Parse a column reference (col1, "col2", tbl.col, etc).
@@ -333,9 +336,15 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
       for (const auto& child : operExpr.children) {
         if (auto constantExpr =
                 dynamic_cast<ConstantExpression*>(child.get())) {
-          arrayElements.emplace_back(duckValueToVariant(
-              constantExpr->value, options.parseDecimalAsDouble));
-          valueType = toVeloxType(constantExpr->value.type());
+          auto& value = constantExpr->value;
+          if (options.parseDecimalAsDouble &&
+              value.type().id() == duckdb::LogicalTypeId::DECIMAL) {
+            value = Value::DOUBLE(value.GetValue<double>());
+          }
+          arrayElements.emplace_back(duckValueToVariant(value));
+          if (!value.IsNull()) {
+            valueType = toVeloxType(value.type());
+          }
         } else {
           VELOX_UNREACHABLE();
         }
@@ -365,9 +374,15 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
     for (auto i = 0; i < numValues; i++) {
       if (auto constantExpr = dynamic_cast<ConstantExpression*>(
               operExpr.children[i + 1].get())) {
-        values.emplace_back(duckValueToVariant(
-            constantExpr->value, options.parseDecimalAsDouble));
-        valueType = toVeloxType(constantExpr->value.type());
+        auto& value = constantExpr->value;
+        if (options.parseDecimalAsDouble &&
+            value.type().id() == duckdb::LogicalTypeId::DECIMAL) {
+          value = Value::DOUBLE(value.GetValue<double>());
+        }
+        values.emplace_back(duckValueToVariant(value));
+        if (!value.IsNull()) {
+          valueType = toVeloxType(value.type());
+        }
       } else {
         VELOX_UNSUPPORTED("IN list values need to be constant");
       }

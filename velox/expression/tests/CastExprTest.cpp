@@ -58,7 +58,8 @@ class CastExprTest : public functions::test::CastBaseTest {
   }
 
   std::shared_ptr<core::ConstantTypedExpr> makeConstantNullExpr(TypeKind kind) {
-    return std::make_shared<core::ConstantTypedExpr>(variant(kind));
+    return std::make_shared<core::ConstantTypedExpr>(
+        createType(kind, {}), variant(kind));
   }
 
   std::shared_ptr<core::CastTypedExpr> makeCastExpr(

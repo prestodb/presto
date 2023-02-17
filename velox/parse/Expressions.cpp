@@ -263,7 +263,8 @@ TypedExprPtr Expressions::inferTypes(
               pool, 1, 0, arrayVector);
       return std::make_shared<const ConstantTypedExpr>(constantVector);
     }
-    return std::make_shared<const ConstantTypedExpr>(constant->value());
+    return std::make_shared<const ConstantTypedExpr>(
+        constant->type(), constant->value());
   }
   if (auto cast = std::dynamic_pointer_cast<const CastExpr>(expr)) {
     return std::make_shared<const CastTypedExpr>(

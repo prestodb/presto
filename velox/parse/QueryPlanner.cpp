@@ -193,8 +193,7 @@ TypedExprPtr toVeloxExpression(
           dynamic_cast<::duckdb::BoundConstantExpression*>(&expression);
       return std::make_shared<ConstantTypedExpr>(
           duckdb::toVeloxType(constant->return_type),
-          duckdb::duckValueToVariant(
-              constant->value, true /*parseDecimalAsDouble*/));
+          duckdb::duckValueToVariant(constant->value));
     }
     case ::duckdb::ExpressionType::COMPARE_EQUAL:
       return toVeloxComparisonExpression("eq", expression, inputType);

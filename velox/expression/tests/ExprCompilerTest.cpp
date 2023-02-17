@@ -62,11 +62,11 @@ class ExprCompilerTest : public testing::Test,
   }
 
   core::TypedExprPtr bigint(int64_t value) {
-    return std::make_shared<core::ConstantTypedExpr>(value);
+    return std::make_shared<core::ConstantTypedExpr>(BIGINT(), value);
   }
 
   core::TypedExprPtr varchar(const std::string& value) {
-    return std::make_shared<core::ConstantTypedExpr>(variant(value));
+    return std::make_shared<core::ConstantTypedExpr>(VARCHAR(), variant(value));
   }
 
   std::function<core::TypedExprPtr(const std::string& name)> makeField(

@@ -146,7 +146,8 @@ class ExprTest : public testing::Test, public VectorTestBase {
 
   /// Create constant expression from a variant of primitive type.
   std::shared_ptr<core::ConstantTypedExpr> makeConstantExpr(variant value) {
-    return std::make_shared<core::ConstantTypedExpr>(std::move(value));
+    auto type = value.inferType();
+    return std::make_shared<core::ConstantTypedExpr>(type, std::move(value));
   }
 
   // Create LazyVector that produces a flat vector and asserts that is is being
@@ -398,7 +399,7 @@ TEST_F(ExprTest, constantNull) {
   auto inputExpr =
       std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0");
   auto nullConstant = std::make_shared<core::ConstantTypedExpr>(
-      variant::null(TypeKind::INTEGER));
+      INTEGER(), variant::null(TypeKind::INTEGER));
 
   // Builds the following expression: "plus(c0, plus(c0, null))"
   auto expression = std::make_shared<core::CallTypedExpr>(
@@ -2375,7 +2376,7 @@ TEST_F(ExprTest, constantToString) {
       makeNullableArrayVector<float>({{1.2, 3.4, std::nullopt, 5.6}});
 
   exec::ExprSet exprSet(
-      {std::make_shared<core::ConstantTypedExpr>(23),
+      {std::make_shared<core::ConstantTypedExpr>(INTEGER(), 23),
        std::make_shared<core::ConstantTypedExpr>(
            DOUBLE(), variant::null(TypeKind::DOUBLE)),
        makeConstantExpr(arrayVector, 0)},

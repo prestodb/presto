@@ -201,7 +201,8 @@ TEST_F(PlanFragmentTest, hashJoin) {
       std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c0")};
   const std::vector<FieldAccessTypedExprPtr> probeKeys{
       std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "u0")};
-  TypedExprPtr filter{std::make_shared<core::ConstantTypedExpr>(true)};
+  TypedExprPtr filter{
+      std::make_shared<core::ConstantTypedExpr>(BOOLEAN(), true)};
 
   struct {
     JoinType joinType;
