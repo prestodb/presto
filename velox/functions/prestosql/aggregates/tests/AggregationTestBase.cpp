@@ -145,13 +145,7 @@ void AggregationTestBase::validateStreamingInTestAggregations(
       auto channel = exec::exprToChannel(arg.get(), input->type());
       if (channel == kConstantChannel) {
         auto constant = dynamic_cast<const core::ConstantTypedExpr*>(arg.get());
-        if (constant->hasValueVector()) {
-          column = BaseVector::wrapInConstant(
-              input->size(), 0, constant->valueVector());
-        } else {
-          column = BaseVector::createConstant(
-              constant->type(), constant->value(), input->size(), pool());
-        }
+        column = constant->toConstantVector(pool());
       } else {
         column = input->childAt(channel);
       }

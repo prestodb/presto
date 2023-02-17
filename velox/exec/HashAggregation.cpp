@@ -90,13 +90,7 @@ HashAggregation::HashAggregation(
       channels.push_back(exprToChannel(arg.get(), inputType));
       if (channels.back() == kConstantChannel) {
         auto constant = dynamic_cast<const core::ConstantTypedExpr*>(arg.get());
-        if (constant->hasValueVector()) {
-          constants.push_back(
-              BaseVector::wrapInConstant(1, 0, constant->valueVector()));
-        } else {
-          constants.push_back(BaseVector::createConstant(
-              constant->type(), constant->value(), 1, operatorCtx_->pool()));
-        }
+        constants.push_back(constant->toConstantVector(pool()));
       } else {
         constants.push_back(nullptr);
       }

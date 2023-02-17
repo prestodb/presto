@@ -470,17 +470,7 @@ ExprPtr compileExpression(
   } else if (
       auto constant =
           dynamic_cast<const core::ConstantTypedExpr*>(expr.get())) {
-    if (constant->hasValueVector()) {
-      result = std::make_shared<ConstantExpr>(constant->valueVector());
-    } else {
-      if (constant->value().isNull()) {
-        result = std::make_shared<ConstantExpr>(
-            BaseVector::createNullConstant(constant->type(), 1, pool));
-      } else {
-        result = std::make_shared<ConstantExpr>(BaseVector::createConstant(
-            constant->type(), constant->value(), 1, pool));
-      }
-    }
+    result = std::make_shared<ConstantExpr>(constant->toConstantVector(pool));
   } else if (
       auto lambda = dynamic_cast<const core::LambdaTypedExpr*>(expr.get())) {
     result = compileLambda(

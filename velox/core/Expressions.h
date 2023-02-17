@@ -121,6 +121,16 @@ class ConstantTypedExpr : public ITypedExpr {
     return valueVector_;
   }
 
+  VectorPtr toConstantVector(memory::MemoryPool* pool) const {
+    if (valueVector_) {
+      return valueVector_;
+    }
+    if (value_.isNull()) {
+      return BaseVector::createNullConstant(type(), 1, pool);
+    }
+    return BaseVector::createConstant(type(), value_, 1, pool);
+  }
+
   const std::vector<TypedExprPtr>& inputs() const {
     static const std::vector<TypedExprPtr> kEmpty{};
     return kEmpty;

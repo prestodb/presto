@@ -40,20 +40,6 @@ void initKeyInfo(
     }
   }
 }
-
-VectorPtr const toConstantVector(
-    const std::shared_ptr<const core::ConstantTypedExpr>& constantExpr,
-    velox::memory::MemoryPool* pool) {
-  if (constantExpr->hasValueVector()) {
-    return BaseVector::wrapInConstant(1, 0, constantExpr->valueVector());
-  }
-  if (constantExpr->value().isNull()) {
-    return BaseVector::createNullConstant(constantExpr->type(), 1, pool);
-  }
-  return BaseVector::createConstant(
-      constantExpr->type(), constantExpr->value(), 1, pool);
-}
-
 }; // namespace
 
 Window::Window(
@@ -143,12 +129,10 @@ void Window::createWindowFunctions(
     for (auto& arg : windowNodeFunction.functionCall->inputs()) {
       auto channel = exprToChannel(arg.get(), inputType);
       if (channel == kConstantChannel) {
+        auto constantArg =
+            std::dynamic_pointer_cast<const core::ConstantTypedExpr>(arg);
         functionArgs.push_back(
-            {arg->type(),
-             toConstantVector(
-                 std::dynamic_pointer_cast<const core::ConstantTypedExpr>(arg),
-                 pool()),
-             std::nullopt});
+            {arg->type(), constantArg->toConstantVector(pool()), std::nullopt});
       } else {
         functionArgs.push_back({arg->type(), nullptr, channel});
       }
