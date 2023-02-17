@@ -115,6 +115,7 @@ std::optional<T> getVal(
 template <typename T>
 VectorGeneratedData<T> genTestData(
     int32_t cardinality,
+    const TypePtr type = CppToType<T>::create(),
     bool includeNulls = false,
     bool sorted = false,
     bool useFullTypeRange = false,
@@ -137,7 +138,8 @@ VectorGeneratedData<T> genTestData(
         useFullTypeRange,
         rng,
         testData.stringViewBufferHolder(),
-        fixedWidthStringSize));
+        fixedWidthStringSize,
+        type));
   }
 
   if (includeNulls) {
@@ -164,6 +166,7 @@ VectorGeneratedData<T> genTestDataWithSequences(
   const bool useSequences = sequenceCount > 0 && sequenceLength > 1;
   auto testData = genTestData<T>(
       cardinality,
+      CppToType<T>::create(),
       includeNulls,
       isSorted,
       useFullTypeRange,

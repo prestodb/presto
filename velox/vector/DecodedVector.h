@@ -437,4 +437,11 @@ inline bool DecodedVector::valueAt(vector_size_t idx) const {
   return bits::isBitSet(reinterpret_cast<const uint64_t*>(data_), index(idx));
 }
 
+template <>
+inline UnscaledLongDecimal DecodedVector::valueAt(vector_size_t idx) const {
+  auto valuePosition = reinterpret_cast<const char*>(data_) +
+      sizeof(UnscaledLongDecimal) * index(idx);
+  return UnscaledLongDecimal::deserialize(valuePosition);
+}
+
 } // namespace facebook::velox
