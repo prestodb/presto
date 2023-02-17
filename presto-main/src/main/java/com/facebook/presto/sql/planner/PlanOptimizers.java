@@ -413,6 +413,14 @@ public class PlanOptimizers
                                 new TransformCorrelatedScalarSubquery(), // must be run after TransformCorrelatedScalarAggregationToJoin
                                 new TransformCorrelatedLateralJoinToJoin(),
                                 new ImplementFilteredAggregations())),
+                // TODO: move this before optimization if possible!!
+                // Replace all expressions with row expressions
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        new TranslateExpressions(metadata, sqlParser).rules()),
+                // After this point, all planNodes should not contain OriginalExpression
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -428,16 +436,6 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new PullConstantsAboveGroupBy())));
-
-        // TODO: move this before optimization if possible!!
-        // Replace all expressions with row expressions
-        builder.add(
-                new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                new TranslateExpressions(metadata, sqlParser).rules()));
-        // After this point, all planNodes should not contain OriginalExpression
 
         builder.add(new IterativeOptimizer(
                 ruleStats,

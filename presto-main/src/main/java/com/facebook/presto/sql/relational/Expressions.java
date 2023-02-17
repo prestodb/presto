@@ -19,6 +19,7 @@ import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.InSubqueryRowExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -29,13 +30,13 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Arrays.asList;
 
 public final class Expressions
 {
@@ -79,12 +80,12 @@ public final class Expressions
 
     public static CallExpression call(String displayName, FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
     {
-        return call(displayName, functionHandle, returnType, Arrays.asList(arguments));
+        return call(displayName, functionHandle, returnType, asList(arguments));
     }
 
     public static CallExpression call(Optional<SourceLocation> sourceLocation, String displayName, FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
     {
-        return new CallExpression(displayName, functionHandle, returnType, Arrays.asList(arguments));
+        return new CallExpression(displayName, functionHandle, returnType, asList(arguments));
     }
 
     public static CallExpression call(String displayName, FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
@@ -141,6 +142,11 @@ public final class Expressions
     public static SpecialFormExpression specialForm(Optional<SourceLocation> sourceLocation, Form form, Type returnType, List<RowExpression> arguments)
     {
         return new SpecialFormExpression(sourceLocation, form, returnType, arguments);
+    }
+
+    public static InSubqueryRowExpression inSubquery(VariableReferenceExpression value, VariableReferenceExpression subquery)
+    {
+        return new InSubqueryRowExpression(getFirstSourceLocation(asList(value, subquery)), value, subquery);
     }
 
     public static Set<RowExpression> uniqueSubExpressions(RowExpression expression)
