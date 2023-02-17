@@ -15,6 +15,7 @@
  */
 #pragma once
 #include <memory>
+#include <unordered_set>
 #include <vector>
 #include "velox/core/PlanNode.h"
 
@@ -42,8 +43,21 @@ struct PlanFragment {
   ExecutionStrategy executionStrategy{ExecutionStrategy::kUngrouped};
   int numSplitGroups{0};
 
+  /// Contains leaf plan nodes that need to be executed in the grouped mode.
+  std::unordered_set<PlanNodeId> groupedExecutionLeafNodeIds;
+
+  /// Returns true if the fragment uses grouped execution strategy meaning that
+  /// at least one pipeline has a leaf node that should run grouped execution.
+  /// Note that it does not mean that all pipelines run grouped execution -
+  /// some leaf nodes might still run ungrouped execution.
   inline bool isGroupedExecution() const {
     return executionStrategy == ExecutionStrategy::kGrouped;
+  }
+
+  /// Returns true for leaf nodes that use grouped execution, false otherwise.
+  inline bool leafNodeRunsGroupedExecution(const PlanNodeId& planNodeId) const {
+    return groupedExecutionLeafNodeIds.find(planNodeId) !=
+        groupedExecutionLeafNodeIds.end();
   }
 
   PlanFragment() = default;
