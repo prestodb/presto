@@ -55,6 +55,11 @@ class StringTest : public SparkFunctionBaseTest {
         "md5(c0)", {arg}, {VARBINARY()});
   }
 
+  std::optional<std::string> sha1(std::optional<std::string> arg) {
+    return evaluateOnce<std::string, std::string>(
+        "sha1(c0)", {arg}, {VARBINARY()});
+  }
+
   bool compareFunction(
       const std::string& function,
       const std::optional<std::string>& str,
@@ -139,6 +144,15 @@ TEST_F(StringTest, MD5) {
   EXPECT_EQ(md5(std::nullopt), std::nullopt);
   EXPECT_EQ(md5(""), "d41d8cd98f00b204e9800998ecf8427e");
   EXPECT_EQ(md5("Infinity"), "eb2ac5b04180d8d6011a016aeb8f75b3");
+}
+
+TEST_F(StringTest, sha1) {
+  EXPECT_EQ(sha1(std::nullopt), std::nullopt);
+  EXPECT_EQ(sha1(""), "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+  EXPECT_EQ(sha1("Spark"), "85f5955f4b27a9a4c2aab6ffe5d7189fc298b92c");
+  EXPECT_EQ(
+      sha1("0123456789abcdefghijklmnopqrstuvwxyz"),
+      "a26704c04fc5f10db5aab58468035531cc542485");
 }
 
 TEST_F(StringTest, startsWith) {

@@ -70,6 +70,30 @@ std::shared_ptr<exec::VectorFunction> makeLength(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs);
 
+/// Expands each char of the digest data to two chars,
+/// representing the hex value of each digest char, in order.
+/// Note: digestSize must be one-half of outputSize.
+void encodeDigestToBase16(uint8_t* output, int digestSize);
+
+/// sha1 function
+/// sha1(varbinary) -> string
+/// Calculate SHA-1 digest and convert the result to a hex string.
+/// Returns SHA-1 digest as a 40-character hex string.
+template <typename T>
+struct Sha1HexStringFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<Varchar>& result, const arg_type<Varbinary>& input) {
+    static const int kSha1Length = 20;
+    result.resize(kSha1Length * 2);
+    folly::ssl::OpenSSLHash::sha1(
+        folly::MutableByteRange((uint8_t*)result.data(), kSha1Length),
+        folly::ByteRange((const uint8_t*)input.data(), input.size()));
+    encodeDigestToBase16((uint8_t*)result.data(), kSha1Length);
+  }
+};
+
 /// contains function
 /// contains(string, string) -> bool
 /// Searches the second argument in the first one.
