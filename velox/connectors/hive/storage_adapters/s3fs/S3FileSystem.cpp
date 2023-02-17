@@ -222,6 +222,31 @@ class S3Config {
         "hive.s3.iam-role-session-name", std::string("velox-session"));
   }
 
+  Aws::Utils::Logging::LogLevel getLogLevel() const {
+    auto level = config_->get("hive.s3.log-level", std::string("FATAL"));
+    // Convert to upper case.
+    std::transform(
+        level.begin(), level.end(), level.begin(), [](unsigned char c) {
+          return std::toupper(c);
+        });
+    if (level == "FATAL") {
+      return Aws::Utils::Logging::LogLevel::Fatal;
+    } else if (level == "TRACE") {
+      return Aws::Utils::Logging::LogLevel::Trace;
+    } else if (level == "OFF") {
+      return Aws::Utils::Logging::LogLevel::Off;
+    } else if (level == "ERROR") {
+      return Aws::Utils::Logging::LogLevel::Error;
+    } else if (level == "WARN") {
+      return Aws::Utils::Logging::LogLevel::Warn;
+    } else if (level == "INFO") {
+      return Aws::Utils::Logging::LogLevel::Info;
+    } else if (level == "DEBUG") {
+      return Aws::Utils::Logging::LogLevel::Debug;
+    }
+    return Aws::Utils::Logging::LogLevel::Fatal;
+  }
+
  private:
   const Config* FOLLY_NONNULL config_;
 };
@@ -232,7 +257,7 @@ class S3FileSystem::Impl {
     const size_t origCount = initCounter_++;
     if (origCount == 0) {
       Aws::SDKOptions awsOptions;
-      awsOptions.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Fatal;
+      awsOptions.loggingOptions.logLevel = s3Config_.getLogLevel();
       // In some situations, curl triggers a SIGPIPE signal causing the entire
       // process to be terminated without any notification.
       // This behavior is seen via Prestissimo on AmazonLinux2 on AWS EC2.
@@ -249,7 +274,7 @@ class S3FileSystem::Impl {
     const size_t newCount = --initCounter_;
     if (newCount == 0) {
       Aws::SDKOptions awsOptions;
-      awsOptions.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Fatal;
+      awsOptions.loggingOptions.logLevel = s3Config_.getLogLevel();
       Aws::ShutdownAPI(awsOptions);
     }
   }
@@ -345,6 +370,10 @@ class S3FileSystem::Impl {
     return client_.get();
   }
 
+  std::string getLogLevelName() const {
+    return GetLogLevelName(s3Config_.getLogLevel());
+  }
+
  private:
   const S3Config s3Config_;
   std::shared_ptr<Aws::S3::S3Client> client_;
@@ -361,6 +390,10 @@ S3FileSystem::S3FileSystem(std::shared_ptr<const Config> config)
 
 void S3FileSystem::initializeClient() {
   impl_->initializeClient();
+}
+
+std::string S3FileSystem::getLogLevelName() const {
+  return impl_->getLogLevelName();
 }
 
 std::unique_ptr<ReadFile> S3FileSystem::openFileForRead(std::string_view path) {

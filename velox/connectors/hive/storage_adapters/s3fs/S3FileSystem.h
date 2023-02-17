@@ -64,6 +64,8 @@ class S3FileSystem : public FileSystem {
     VELOX_UNSUPPORTED("rmdir for S3 not implemented");
   }
 
+  std::string getLogLevelName() const;
+
  protected:
   class Impl;
   std::shared_ptr<Impl> impl_;

@@ -317,3 +317,29 @@ TEST_F(S3FileSystemTest, noBackendServer) {
             "Failed to get metadata for S3 object due to: 'Network connection'. Path:'s3://dummy/foo.txt', SDK Error Type:99, HTTP Status Code:-1, S3 Service:'Unknown', Message:'curlCode: 7, Couldn't connect to server'"));
   }
 }
+
+TEST_F(S3FileSystemTest, logLevel) {
+  std::unordered_map<std::string, std::string> config;
+  auto checkLogLevelName = [&config](std::string_view expected) {
+    auto s3Config = std::make_shared<const core::MemConfig>(config);
+    filesystems::S3FileSystem s3fs(s3Config);
+    EXPECT_EQ(s3fs.getLogLevelName(), expected);
+  };
+  // Default is Fatal.
+  checkLogLevelName("FATAL");
+
+  config["hive.s3.log-level"] = "Trace";
+  checkLogLevelName("TRACE");
+
+  config["hive.s3.log-level"] = "error";
+  checkLogLevelName("ERROR");
+
+  config["hive.s3.log-level"] = "WARN";
+  checkLogLevelName("WARN");
+
+  config["hive.s3.log-level"] = "DeBUG";
+  checkLogLevelName("DEBUG");
+
+  config["hive.s3.log-level"] = "FATAl";
+  checkLogLevelName("FATAL");
+}
