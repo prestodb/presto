@@ -25,17 +25,6 @@
 namespace facebook {
 namespace velox {
 
-namespace details {
-template <typename To, typename From>
-std::unique_ptr<To> checked_unique_ptr_cast(std::unique_ptr<From> input) {
-  VELOX_USER_CHECK_NOT_NULL(input.get());
-  auto* released = input.release();
-  auto* casted = dynamic_cast<To*>(released);
-  VELOX_USER_CHECK_NOT_NULL(casted);
-  return std::unique_ptr<To>(casted);
-}
-} // namespace details
-
 inline const folly::json::serialization_opts getSerializationOptions() {
   folly::json::serialization_opts opts;
   opts.allow_nan_inf = true;
@@ -57,9 +46,6 @@ struct is_any_of<T, T, args...> : std::true_type {};
 
 template <class, class = void>
 struct has_static_obj_create_type : std::false_type {};
-
-template <typename T>
-using objCreateType = T(const folly::dynamic&);
 
 template <class T>
 struct has_static_obj_create_type<
