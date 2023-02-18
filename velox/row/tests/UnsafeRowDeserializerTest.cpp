@@ -765,7 +765,6 @@ TYPED_TEST(UnsafeRowVectorDeserializerTest, NestedMap) {
       ROW({"f0"}, {MAP(SMALLINT(), MAP(SMALLINT(), SMALLINT()))}),
       this->pool_.get());
   VectorPtr val0 = val->as<RowVector>()->childAt(0);
-  /* DO NOT SUBMIT */ LOG(ERROR) << __FUNCTION__ << ": val=" << val->toString();
 
   /*
    * Map<Short, Map<Short, Short>>

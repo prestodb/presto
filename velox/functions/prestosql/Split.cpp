@@ -18,10 +18,7 @@
 #include "velox/expression/Expr.h"
 #include "velox/expression/StringWriter.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/lib/ArrayBuilder.h"
-#include "velox/functions/lib/StringEncodingUtils.h"
-#include "velox/functions/lib/string/StringImpl.h"
-#include "velox/vector/FlatVector.h"
+#include "velox/expression/VectorWriters.h"
 
 namespace facebook::velox::functions {
 
@@ -105,9 +102,9 @@ class SplitFunction : public exec::VectorFunction {
     DecodedVector* delims = decodedArgs.at(1);
     DecodedVector* limits = noLimit ? nullptr : decodedArgs.at(2);
 
-    // Build the result vector (arrays of strings) using Array Builder.
-    ArrayBuilder<Varchar> builder(
-        rows.end(), 3 * rows.countSelected(), context.pool());
+    BaseVector::ensureWritable(rows, ARRAY(VARCHAR()), context.pool(), result);
+    exec::VectorWriter<Array<Varchar>> resultWriter;
+    resultWriter.init(*result->as<ArrayVector>());
 
     // Optimization for the (flat, const, const) case.
     if (strings->isIdentityMapping() and delims->isConstantMapping() and
@@ -118,14 +115,16 @@ class SplitFunction : public exec::VectorFunction {
       if (noLimit) {
         const I limit = std::numeric_limits<I>::max();
         rows.applyToSelected([&](vector_size_t row) {
-          applyInner<false, I>(rawStrings[row], delim, limit, row, builder);
+          applyInner<false, I>(
+              rawStrings[row], delim, limit, row, resultWriter);
         });
       } else {
         const I limit = limits->valueAt<I>(0);
         // Limit must be positive.
         if (limit > 0) {
           rows.applyToSelected([&](vector_size_t row) {
-            applyInner<true, I>(rawStrings[row], delim, limit, row, builder);
+            applyInner<true, I>(
+                rawStrings[row], delim, limit, row, resultWriter);
           });
         } else {
           auto pex = std::make_exception_ptr(
@@ -133,24 +132,20 @@ class SplitFunction : public exec::VectorFunction {
           context.setErrors(rows, pex);
         }
       }
-
-      // Ensure that our result elements vector uses the same string buffer as
-      // the input vector of strings.
-      builder.setStringBuffers(
-          strings->base()->as<FlatVector<StringView>>()->stringBuffers());
     } else {
       // The rest of the cases are handled through this general path and no
       // direct access.
-      applyDecoded<I>(rows, context, strings, delims, limits, builder);
-
-      // Ensure that our result elements vector uses the same string buffer as
-      // the input vector of strings.
-      builder.setStringBuffers(strings->base());
+      applyDecoded<I>(rows, context, strings, delims, limits, resultWriter);
     }
 
-    std::shared_ptr<ArrayVector> arrayVector =
-        std::move(builder).finish(context.pool());
-    context.moveOrCopyResult(arrayVector, rows, result);
+    resultWriter.finish();
+
+    // Ensure that our result elements vector uses the same string buffer as
+    // the input vector of strings.
+    result->as<ArrayVector>()
+        ->elements()
+        ->as<FlatVector<StringView>>()
+        ->acquireSharedStringBuffers(strings->base());
   }
 
   template <typename I>
@@ -160,7 +155,7 @@ class SplitFunction : public exec::VectorFunction {
       DecodedVector* strings,
       DecodedVector* delims,
       DecodedVector* limits,
-      ArrayBuilder<Varchar>& builder) const {
+      exec::VectorWriter<Array<Varchar>>& resultWriter) const {
     if (limits == nullptr) {
       auto limit = std::numeric_limits<I>::max();
       rows.applyToSelected([&](vector_size_t row) {
@@ -169,7 +164,7 @@ class SplitFunction : public exec::VectorFunction {
             delims->valueAt<StringView>(row),
             limit,
             row,
-            builder);
+            resultWriter);
       });
     } else {
       rows.applyToSelected([&](vector_size_t row) {
@@ -180,7 +175,7 @@ class SplitFunction : public exec::VectorFunction {
               delims->valueAt<StringView>(row),
               limit,
               row,
-              builder);
+              resultWriter);
         } else {
           auto pex = std::make_exception_ptr(
               std::invalid_argument("Limit must be positive"));
@@ -199,13 +194,15 @@ class SplitFunction : public exec::VectorFunction {
       const StringView delim,
       I limit,
       vector_size_t row,
-      ArrayBuilder<Varchar>& builder) const {
+      exec::VectorWriter<Array<Varchar>>& resultWriter) const {
     // Add new array (for the new row) to our array vector.
-    auto arrayRef = builder.startArray(row);
+    resultWriter.setOffset(row);
+    auto& arrayWriter = resultWriter.current();
 
     // Trivial case of converting string to array with 1 element.
     if (hasLimit and limit == 1) {
-      arrayRef.emplace_back(input);
+      arrayWriter.add_item().setNoCopy(input);
+      resultWriter.commit();
       return;
     }
 
@@ -231,7 +228,7 @@ class SplitFunction : public exec::VectorFunction {
       }
 
       // Add the new element, we've split
-      arrayRef.emplace_back(StringView(sinput.data(), byteIndex));
+      arrayWriter.add_item().setNoCopy(StringView(sinput.data(), byteIndex));
 
       // Advance input by the size of the element + delimiter.
       // Note: should we add 'advance' method?
@@ -250,7 +247,8 @@ class SplitFunction : public exec::VectorFunction {
 
     // Add the rest of the string and we are done.
     // Note, that the rest of the string can be empty - we still add it.
-    arrayRef.emplace_back(StringView(sinput.data(), sinput.size()));
+    arrayWriter.add_item().setNoCopy(StringView(sinput.data(), sinput.size()));
+    resultWriter.commit();
   }
 };
 

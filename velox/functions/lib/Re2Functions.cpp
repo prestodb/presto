@@ -19,11 +19,7 @@
 #include <optional>
 #include <string>
 
-#include "velox/expression/EvalCtx.h"
-#include "velox/expression/Expr.h"
-#include "velox/functions/lib/ArrayBuilder.h"
-#include "velox/type/StringView.h"
-#include "velox/vector/FlatVector.h"
+#include "velox/expression/VectorWriters.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -539,13 +535,16 @@ class LikeWithRe2 final : public VectorFunction {
 };
 
 void re2ExtractAll(
-    ArrayBuilder<Varchar>& builder,
+    exec::VectorWriter<Array<Varchar>>& resultWriter,
     const RE2& re,
     const exec::LocalDecodedVector& inputStrs,
     const int row,
     std::vector<re2::StringPiece>& groups,
     int32_t groupId) {
-  ArrayBuilder<Varchar>::Ref array = builder.startArray(row);
+  resultWriter.setOffset(row);
+
+  auto& arrayWriter = resultWriter.current();
+
   const StringView str = inputStrs->valueAt<StringView>(row);
   const re2::StringPiece input = toStringPiece(str);
   size_t pos = 0;
@@ -557,12 +556,15 @@ void re2ExtractAll(
     const re2::StringPiece fullMatch = groups[0];
     const re2::StringPiece subMatch = groups[groupId];
 
-    array.emplace_back(subMatch.data(), subMatch.size());
+    arrayWriter.add_item().setNoCopy(
+        StringView(subMatch.data(), subMatch.size()));
     pos = fullMatch.data() + fullMatch.size() - input.data();
     if (UNLIKELY(fullMatch.size() == 0)) {
       ++pos;
     }
   }
+
+  resultWriter.commit();
 }
 
 template <typename T>
@@ -585,8 +587,11 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
       return;
     }
 
-    ArrayBuilder<Varchar> builder(
-        rows.size(), rows.countSelected() * 3, context.pool());
+    BaseVector::ensureWritable(
+        rows, ARRAY(VARCHAR()), context.pool(), resultRef);
+    exec::VectorWriter<Array<Varchar>> resultWriter;
+    resultWriter.init(*resultRef->as<ArrayVector>());
+
     exec::LocalDecodedVector inputStrs(context, *args[0], rows);
     FOLLY_DECLARE_REUSED(groups, std::vector<re2::StringPiece>);
 
@@ -595,7 +600,7 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
       //
       groups.resize(1);
       context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
-        re2ExtractAll(builder, re_, inputStrs, row, groups, 0);
+        re2ExtractAll(resultWriter, re_, inputStrs, row, groups, 0);
       });
     } else if (const auto _groupId = getIfConstant<T>(*args[2])) {
       // Case 2: Constant groupId
@@ -609,7 +614,7 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
 
       groups.resize(*_groupId + 1);
       context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
-        re2ExtractAll(builder, re_, inputStrs, row, groups, *_groupId);
+        re2ExtractAll(resultWriter, re_, inputStrs, row, groups, *_groupId);
       });
     } else {
       // Case 3: Variable groupId, so resize the groups vector to accommodate
@@ -620,16 +625,16 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
       context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         const T groupId = groupIds->valueAt<T>(row);
         checkForBadGroupId(groupId, re_);
-        re2ExtractAll(builder, re_, inputStrs, row, groups, groupId);
+        re2ExtractAll(resultWriter, re_, inputStrs, row, groups, groupId);
       });
     }
 
-    if (const auto fv = inputStrs->base()->asFlatVector<StringView>()) {
-      builder.setStringBuffers(fv->stringBuffers());
-    }
-    std::shared_ptr<ArrayVector> arrayVector =
-        std::move(builder).finish(context.pool());
-    context.moveOrCopyResult(arrayVector, rows, resultRef);
+    resultWriter.finish();
+
+    resultRef->as<ArrayVector>()
+        ->elements()
+        ->asFlatVector<StringView>()
+        ->acquireSharedStringBuffers(inputStrs->base());
   }
 
  private:
@@ -654,8 +659,11 @@ class Re2ExtractAll final : public VectorFunction {
       return;
     }
 
-    ArrayBuilder<Varchar> builder(
-        rows.size(), rows.countSelected() * 3, context.pool());
+    BaseVector::ensureWritable(
+        rows, ARRAY(VARCHAR()), context.pool(), resultRef);
+    exec::VectorWriter<Array<Varchar>> resultWriter;
+    resultWriter.init(*resultRef->as<ArrayVector>());
+
     exec::LocalDecodedVector inputStrs(context, *args[0], rows);
     exec::LocalDecodedVector pattern(context, *args[1], rows);
     FOLLY_DECLARE_REUSED(groups, std::vector<re2::StringPiece>);
@@ -667,7 +675,7 @@ class Re2ExtractAll final : public VectorFunction {
       context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         RE2 re(toStringPiece(pattern->valueAt<StringView>(row)), RE2::Quiet);
         checkForBadPattern(re);
-        re2ExtractAll(builder, re, inputStrs, row, groups, 0);
+        re2ExtractAll(resultWriter, re, inputStrs, row, groups, 0);
       });
     } else {
       // Case 2: Has groupId
@@ -679,16 +687,15 @@ class Re2ExtractAll final : public VectorFunction {
         checkForBadPattern(re);
         checkForBadGroupId(groupId, re);
         groups.resize(groupId + 1);
-        re2ExtractAll(builder, re, inputStrs, row, groups, groupId);
+        re2ExtractAll(resultWriter, re, inputStrs, row, groups, groupId);
       });
     }
 
-    if (const auto fv = inputStrs->base()->asFlatVector<StringView>()) {
-      builder.setStringBuffers(fv->stringBuffers());
-    }
-    std::shared_ptr<ArrayVector> arrayVector =
-        std::move(builder).finish(context.pool());
-    context.moveOrCopyResult(arrayVector, rows, resultRef);
+    resultWriter.finish();
+    resultRef->as<ArrayVector>()
+        ->elements()
+        ->asFlatVector<StringView>()
+        ->acquireSharedStringBuffers(inputStrs->base());
   }
 };
 

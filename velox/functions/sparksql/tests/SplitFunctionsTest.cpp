@@ -71,7 +71,7 @@ void SplitTest::testSplitCharacter(
   assertEqualVectors(expectedResult, result);
 }
 
-TEST_F(SplitTest, TestReallocationAndCornerCases) {
+TEST_F(SplitTest, reallocationAndCornerCases) {
   testSplitCharacter(
       {"boo:and:foo", "abcfd", "abcfd:", "", ":ab::cfd::::"},
       ':',
@@ -82,7 +82,7 @@ TEST_F(SplitTest, TestReallocationAndCornerCases) {
        {{"", "ab", "", "cfd", "", "", "", ""}}});
 }
 
-TEST_F(SplitTest, Nulls) {
+TEST_F(SplitTest, nulls) {
   testSplitCharacter(
       {std::nullopt, "abcfd", "abcfd:", std::nullopt, ":ab::cfd::::"},
       ':',
@@ -93,12 +93,12 @@ TEST_F(SplitTest, Nulls) {
        {{"", "ab", "", "cfd", "", "", "", ""}}});
 }
 
-TEST_F(SplitTest, DefaultArguments) {
+TEST_F(SplitTest, defaultArguments) {
   testSplitCharacter(
       {"boo:and:foo", "abcfd"}, ':', {{{"boo", "and", "foo"}}, {{"abcfd"}}});
 }
 
-TEST_F(SplitTest, LongStrings) {
+TEST_F(SplitTest, longStrings) {
   testSplitCharacter(
       {"abcdefghijklkmnopqrstuvwxyz"},
       ',',

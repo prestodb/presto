@@ -16,9 +16,8 @@
 
 #include <utility>
 
-#include "velox/expression/Expr.h"
+#include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/lib/ArrayBuilder.h"
 #include "velox/functions/sparksql/Comparisons.h"
 
 namespace facebook::velox::functions::sparksql {

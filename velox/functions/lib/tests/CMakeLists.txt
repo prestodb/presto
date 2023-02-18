@@ -14,7 +14,6 @@
 add_executable(
   velox_functions_lib_test
   ApproxMostFrequentStreamSummaryTest.cpp
-  ArrayBuilderTest.cpp
   DateTimeFormatterTest.cpp
   IsNullTest.cpp
   IsNotNullTest.cpp

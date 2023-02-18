@@ -15,9 +15,7 @@
  */
 
 #include "velox/row/UnsafeRow24Deserializer.h"
-#include "velox/functions/lib/DynamicFlatVector.h"
-
-#include <vector>
+#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::row {
 namespace {

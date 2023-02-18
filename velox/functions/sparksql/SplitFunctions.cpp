@@ -17,7 +17,7 @@
 #include <utility>
 
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/lib/ArrayBuilder.h"
+#include "velox/expression/VectorWriters.h"
 
 namespace facebook::velox::functions::sparksql {
 namespace {
@@ -41,29 +41,34 @@ class SplitCharacter final : public exec::VectorFunction {
       VectorPtr& result) const override {
     exec::LocalDecodedVector input(context, *args[0], rows);
 
-    ArrayBuilder<Varchar> builder(
-        /*numArrays=*/rows.size(),
-        /*estimatedNumElements=*/rows.countSelected() * 3,
-        context.pool());
+    BaseVector::ensureWritable(rows, ARRAY(VARCHAR()), context.pool(), result);
+    exec::VectorWriter<Array<Varchar>> resultWriter;
+    resultWriter.init(*result->as<ArrayVector>());
 
     rows.applyToSelected([&](vector_size_t row) {
-      ArrayBuilder<Varchar>::Ref array = builder.startArray(row);
+      resultWriter.setOffset(row);
+      auto& arrayWriter = resultWriter.current();
+
       const StringView& current = input->valueAt<StringView>(row);
       const char* pos = current.begin();
       const char* end = pos + current.size();
       const char* delim;
       do {
         delim = std::find(pos, end, pattern_);
-        array.emplace_back(pos, delim - pos);
+        arrayWriter.add_item().setNoCopy(StringView(pos, delim - pos));
         pos = delim + 1; // Skip past delim.
       } while (delim != end);
+
+      resultWriter.commit();
     });
+
+    resultWriter.finish();
+
     // Reference the input StringBuffers since we did not deep copy above.
-    builder.setStringBuffers(
-        args[0]->asFlatVector<StringView>()->stringBuffers());
-    std::shared_ptr<ArrayVector> arrayVector =
-        std::move(builder).finish(context.pool());
-    context.moveOrCopyResult(arrayVector, rows, result);
+    result->as<ArrayVector>()
+        ->elements()
+        ->as<FlatVector<StringView>>()
+        ->acquireSharedStringBuffers(args[0].get());
   }
 
  private:
