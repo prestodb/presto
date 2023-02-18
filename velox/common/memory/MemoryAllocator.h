@@ -158,7 +158,7 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// Defines the memory allocator kinds.
   enum class Kind {
     /// The default memory allocator kind which is implemented by
-    /// MemoryAllocatorImpl. It delegates the memory allocations to std::malloc.
+    /// MallocAllocator. It delegates the memory allocations to std::malloc.
     kMalloc,
     /// The memory allocator kind which is implemented by MmapAllocator. It
     /// manages the large chunk of memory allocations on its own by leveraging
