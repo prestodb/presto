@@ -28,7 +28,6 @@
 #include "velox/vector/SimpleVector.h"
 #include "velox/vector/TypeAliases.h"
 #include "velox/vector/VectorTypeUtils.h"
-#include "velox/vector/tests/utils/VectorMaker.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -1149,14 +1148,9 @@ TEST_F(VectorTest, unknown) {
 
 TEST_F(VectorTest, copyBoolAllNullFlatVector) {
   const vector_size_t size = 1'000;
-  BufferPtr nulls =
-      AlignedBuffer::allocate<bool>(size, pool_.get(), bits::kNull);
-  auto allNulls = std::make_shared<FlatVector<bool>>(
-      pool_.get(), nulls, size, BufferPtr(nullptr), std::vector<BufferPtr>{});
+  auto allNulls = makeAllNullFlatVector<bool>(size);
 
-  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
-  auto copy = vectorMaker->flatVector<bool>(
-      size, [](auto row) { return row % 2 == 0; });
+  auto copy = makeFlatVector<bool>(size, [](auto row) { return row % 2 == 0; });
 
   // Copy first 10 rows from allNulls.
   SelectivityVector rows(10);
@@ -1174,17 +1168,9 @@ TEST_F(VectorTest, copyBoolAllNullFlatVector) {
 TEST_F(VectorTest, copyToAllNullsFlatVector) {
   // Create all-nulls flat vector with values buffer unset.
   const vector_size_t size = 1'000;
-  BufferPtr nulls =
-      AlignedBuffer::allocate<bool>(size, pool_.get(), bits::kNull);
-  auto allNulls = std::make_shared<FlatVector<int32_t>>(
-      pool_.get(),
-      nulls,
-      size,
-      nullptr /* values buffer */,
-      std::vector<BufferPtr>{});
+  auto allNulls = makeAllNullFlatVector<int32_t>(size);
 
-  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
-  auto source = vectorMaker->flatVector<int32_t>({0, 1, 2, 3, 4});
+  auto source = makeFlatVector<int32_t>({0, 1, 2, 3, 4});
 
   allNulls->copy(source.get(), 0, 0, 3);
 
@@ -1196,12 +1182,7 @@ TEST_F(VectorTest, copyToAllNullsFlatVector) {
   }
 
   // Reset allNulls vector back to all nulls.
-  allNulls = std::make_shared<FlatVector<int32_t>>(
-      pool_.get(),
-      nulls,
-      size,
-      nullptr /* values buffer */,
-      std::vector<BufferPtr>{});
+  allNulls = makeAllNullFlatVector<int32_t>(size);
 
   SelectivityVector rows(4);
   allNulls->copy(source.get(), rows, nullptr);
@@ -1215,12 +1196,10 @@ TEST_F(VectorTest, copyToAllNullsFlatVector) {
 }
 
 TEST_F(VectorTest, wrapInConstant) {
-  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
-
   // wrap flat vector
   const vector_size_t size = 1'000;
-  auto flatVector = vectorMaker->flatVector<int32_t>(
-      size, [](auto row) { return row; }, test::VectorMaker::nullEvery(7));
+  auto flatVector = makeFlatVector<int32_t>(
+      size, [](auto row) { return row; }, nullEvery(7));
 
   auto constVector = std::dynamic_pointer_cast<ConstantVector<int32_t>>(
       BaseVector::wrapInConstant(size, 5, flatVector));
@@ -1335,10 +1314,9 @@ TEST_F(VectorTest, setFlatVectorStringView) {
 }
 
 TEST_F(VectorTest, resizeAtConstruction) {
-  using T = int64_t;
   const size_t realSize = 10;
 
-  vector_size_t oldByteSize = BaseVector::byteSize<T>(realSize);
+  vector_size_t oldByteSize = BaseVector::byteSize<int64_t>(realSize);
   BufferPtr values = AlignedBuffer::allocate<char>(oldByteSize, pool_.get());
 
   EXPECT_EQ(oldByteSize, values->size());
@@ -1354,8 +1332,9 @@ TEST_F(VectorTest, resizeAtConstruction) {
   EXPECT_EQ(curCapacity, values->capacity());
 
   // Now create a FlatVector with the resized buffer.
-  auto flat = std::make_shared<FlatVector<T>>(
+  auto flat = std::make_shared<FlatVector<int64_t>>(
       pool_.get(),
+      BIGINT(),
       BufferPtr(nullptr),
       realSize,
       std::move(values),
@@ -1366,9 +1345,8 @@ TEST_F(VectorTest, resizeAtConstruction) {
 }
 
 TEST_F(VectorTest, resizeStringAsciiness) {
-  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
   std::vector<std::string> stringInput = {"hellow", "how", "are"};
-  auto flatVector = vectorMaker->flatVector(stringInput);
+  auto flatVector = makeFlatVector(stringInput);
   auto stringVector = flatVector->as<SimpleVector<StringView>>();
   SelectivityVector rows(stringInput.size());
   stringVector->computeAndSetIsAscii(rows);
@@ -1378,16 +1356,15 @@ TEST_F(VectorTest, resizeStringAsciiness) {
 }
 
 TEST_F(VectorTest, copyNoRows) {
-  auto maker = std::make_unique<test::VectorMaker>(pool_.get());
   {
-    auto source = maker->flatVectorNullable<int32_t>({1, 2, 3});
+    auto source = makeFlatVector<int32_t>({1, 2, 3});
     auto target = BaseVector::create(INTEGER(), 10, pool_.get());
     SelectivityVector rows(3, false);
     target->copy(source.get(), rows, nullptr);
   }
 
   {
-    auto source = maker->flatVectorNullable<StringView>({"a", "b", "c"});
+    auto source = makeFlatVector<StringView>({"a", "b", "c"});
     auto target = BaseVector::create(VARCHAR(), 10, pool_.get());
     SelectivityVector rows(3, false);
     target->copy(source.get(), rows, nullptr);
@@ -1395,13 +1372,12 @@ TEST_F(VectorTest, copyNoRows) {
 }
 
 TEST_F(VectorTest, copyAscii) {
-  auto maker = std::make_unique<test::VectorMaker>(pool_.get());
   std::vector<std::string> stringData = {"a", "b", "c"};
-  auto source = maker->flatVector(stringData);
+  auto source = makeFlatVector(stringData);
   SelectivityVector all(stringData.size());
   source->setAllIsAscii(true);
 
-  auto other = maker->flatVector(stringData);
+  auto other = makeFlatVector(stringData);
   other->copy(source.get(), all, nullptr);
   auto ascii = other->isAscii(all);
   ASSERT_TRUE(ascii.has_value());
@@ -1424,8 +1400,7 @@ TEST_F(VectorTest, copyAscii) {
   ascii = other->isAscii(all);
   ASSERT_FALSE(ascii.has_value());
 
-  std::vector<std::string> moreData = {"a", "b", "c", "d"};
-  auto largerSource = maker->flatVector(moreData);
+  auto largerSource = makeFlatVector<std::string>({"a", "b", "c", "d"});
   vector_size_t sourceMappings[] = {3, 2, 1, 0};
   some.setAll();
   some.setValid(0, false);
@@ -1440,14 +1415,12 @@ TEST_F(VectorTest, copyAscii) {
 }
 
 TEST_F(VectorTest, compareNan) {
-  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
-
   // Double input.
   {
     std::vector<double> doubleInput = {1.1, std::nan("nan"), 0.9};
 
-    auto flatVector1 = vectorMaker->flatVector(doubleInput);
-    auto flatVector2 = vectorMaker->flatVector(doubleInput);
+    auto flatVector1 = makeFlatVector(doubleInput);
+    auto flatVector2 = makeFlatVector(doubleInput);
 
     for (size_t i = 0; i < doubleInput.size(); ++i) {
       EXPECT_TRUE(flatVector1->equalValueAt(flatVector2.get(), i, i));
@@ -1458,8 +1431,8 @@ TEST_F(VectorTest, compareNan) {
   {
     std::vector<float> floatInput = {1.1, std::nanf("nan"), 0.9};
 
-    auto flatVector1 = vectorMaker->flatVector(floatInput);
-    auto flatVector2 = vectorMaker->flatVector(floatInput);
+    auto flatVector1 = makeFlatVector(floatInput);
+    auto flatVector2 = makeFlatVector(floatInput);
 
     for (size_t i = 0; i < floatInput.size(); ++i) {
       EXPECT_TRUE(flatVector1->equalValueAt(flatVector2.get(), i, i));
@@ -1590,33 +1563,22 @@ TEST_F(VectorCreateConstantTest, scalar) {
 }
 
 TEST_F(VectorCreateConstantTest, complex) {
-  {
-    auto type = ARRAY(INTEGER());
-    test::VectorMaker maker{pool_.get()};
-    testComplexConstant<TypeKind::ARRAY>(
-        type,
-        maker.arrayVector<int32_t>(
-            1, [](auto) { return 10; }, [](auto i) { return i; }));
-  }
-  {
-    auto type = MAP(INTEGER(), REAL());
-    test::VectorMaker maker{pool_.get()};
-    testComplexConstant<TypeKind::MAP>(
-        type,
-        maker.mapVector<int32_t, float>(
-            1,
-            [](auto) { return 10; },
-            [](auto i) { return i; },
-            [](auto i) { return i; }));
-  }
-  {
-    auto type = ROW({{"c0", INTEGER()}});
-    test::VectorMaker maker{pool_.get()};
-    testComplexConstant<TypeKind::ROW>(
-        type, maker.rowVector({maker.flatVector<int32_t>(1, [](auto i) {
-          return i;
-        })}));
-  }
+  testComplexConstant<TypeKind::ARRAY>(
+      ARRAY(INTEGER()),
+      makeArrayVector<int32_t>(
+          1, [](auto) { return 10; }, [](auto i) { return i; }));
+
+  testComplexConstant<TypeKind::MAP>(
+      MAP(INTEGER(), REAL()),
+      makeMapVector<int32_t, float>(
+          1,
+          [](auto) { return 10; },
+          [](auto i) { return i; },
+          [](auto i) { return i; }));
+
+  testComplexConstant<TypeKind::ROW>(
+      ROW({{"c0", INTEGER()}}),
+      makeRowVector({makeFlatVector<int32_t>(1, [](auto i) { return i; })}));
 }
 
 TEST_F(VectorCreateConstantTest, null) {
@@ -1755,8 +1717,7 @@ TEST_F(VectorTest, clearNulls) {
 
 TEST_F(VectorTest, setStringToNull) {
   constexpr int32_t kSize = 100;
-  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
-  auto target = vectorMaker->flatVector<StringView>(
+  auto target = makeFlatVector<StringView>(
       kSize, [](auto /*row*/) { return StringView("Non-inlined string"); });
   target->setNull(kSize - 1, true);
   auto unknownNull = std::make_shared<ConstantVector<UnknownValue>>(
@@ -1776,7 +1737,12 @@ TEST_F(VectorTest, setStringToNull) {
   auto nulls = AlignedBuffer::allocate<uint64_t>(
       bits::nwords(kSize), pool_.get(), bits::kNull64);
   auto flatNulls = std::make_shared<FlatVector<UnknownValue>>(
-      pool_.get(), nulls, kSize, BufferPtr(nullptr), std::vector<BufferPtr>());
+      pool_.get(),
+      UNKNOWN(),
+      nulls,
+      kSize,
+      BufferPtr(nullptr),
+      std::vector<BufferPtr>());
   rows.setValid(6, true);
   rows.updateBounds();
   target->copy(flatNulls.get(), rows, nullptr);
@@ -1800,24 +1766,22 @@ TEST_F(VectorTest, clearAllNulls) {
 }
 
 TEST_F(VectorTest, constantSetNull) {
-  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
-  auto vector = vectorMaker->constantVector<int64_t>({{0}});
+  auto vector = makeConstant<int64_t>(123, 10);
 
-  EXPECT_THROW(vector->setNull(0, true), VeloxRuntimeError);
+  VELOX_ASSERT_THROW(
+      vector->setNull(0, true), "setNull not supported on ConstantVector");
 }
 
 /// Test lazy vector wrapped in multiple layers of dictionaries.
 TEST_F(VectorTest, multipleDictionariesOverLazy) {
-  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
-
   vector_size_t size = 10;
   auto indices = makeIndices(size, [&](auto row) { return size - row - 1; });
   auto lazy = std::make_shared<LazyVector>(
       pool_.get(),
       INTEGER(),
       size,
-      std::make_unique<TestingLoader>(vectorMaker->flatVector<int32_t>(
-          size, [](auto row) { return row; })));
+      std::make_unique<TestingLoader>(
+          makeFlatVector<int32_t>(size, [](auto row) { return row; })));
 
   auto dict = BaseVector::wrapInDictionary(
       nullptr,
@@ -1832,13 +1796,10 @@ TEST_F(VectorTest, multipleDictionariesOverLazy) {
 
 /// Test lazy loading of nested dictionary vector
 TEST_F(VectorTest, selectiveLoadingOfLazyDictionaryNested) {
-  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
-
   vector_size_t size = 10;
   auto indices =
       makeIndices(size, [&](auto row) { return (row % 2 == 0) ? row : 0; });
-  auto data =
-      vectorMaker->flatVector<int32_t>(size, [](auto row) { return row; });
+  auto data = makeFlatVector<int32_t>(size, [](auto row) { return row; });
 
   auto loader = std::make_unique<TestingLoader>(data);
   auto loaderPtr = loader.get();
@@ -1900,7 +1861,6 @@ TEST_F(VectorTest, nestedLazy) {
 }
 
 TEST_F(VectorTest, dictionaryResize) {
-  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
   vector_size_t size = 10;
   std::vector<int64_t> elements{0, 1, 2, 3, 4};
   auto makeIndicesFn = [&]() {

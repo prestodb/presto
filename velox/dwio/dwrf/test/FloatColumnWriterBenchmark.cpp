@@ -65,6 +65,7 @@ void runBenchmark(int nullEvery) {
 
   vector = std::make_shared<FlatVector<float>>(
       pool.get(),
+      REAL(),
       nullCount == 0 ? nullptr : nulls,
       kVectorSize,
       values,

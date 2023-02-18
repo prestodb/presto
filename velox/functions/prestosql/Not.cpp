@@ -52,6 +52,7 @@ class NotFunction : public exec::VectorFunction {
 
     auto localResult = std::make_shared<FlatVector<bool>>(
         context.pool(),
+        BOOLEAN(),
         nullptr,
         rows.size(),
         negated,

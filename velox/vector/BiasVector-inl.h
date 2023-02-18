@@ -85,6 +85,7 @@ std::unique_ptr<SimpleVector<uint64_t>> BiasVector<T>::hashAll() const {
   }
   return std::make_unique<FlatVector<uint64_t>>(
       BaseVector::pool_,
+      BIGINT(),
       BufferPtr(nullptr),
       BaseVector::length_,
       hashes,

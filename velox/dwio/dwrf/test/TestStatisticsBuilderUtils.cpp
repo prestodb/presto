@@ -36,7 +36,12 @@ std::shared_ptr<FlatVector<T>> makeFlatVector(
     size_t length,
     BufferPtr values) {
   return std::make_shared<FlatVector<T>>(
-      pool, nulls, length, values, std::vector<BufferPtr>{});
+      pool,
+      CppToType<T>::create(),
+      nulls,
+      length,
+      values,
+      std::vector<BufferPtr>{});
 }
 
 template <typename T>
@@ -45,15 +50,6 @@ std::shared_ptr<FlatVector<T>> makeFlatVectorNoNulls(
     size_t length,
     BufferPtr values) {
   return makeFlatVector<T>(pool, BufferPtr(nullptr), 0, length, values);
-}
-
-BufferPtr allocateNulls(
-    size_t length,
-    facebook::velox::memory::MemoryPool* pool,
-    bool defaultValue = false) {
-  auto numBytes = bits::nbytes(length);
-  return AlignedBuffer::allocate<char>(
-      numBytes, pool, defaultValue ? bits::kNullByte : bits::kNotNullByte);
 }
 
 TEST(TestStatisticsBuilderUtils, addIntegerValues) {

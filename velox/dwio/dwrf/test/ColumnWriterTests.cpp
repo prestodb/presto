@@ -197,8 +197,7 @@ VectorPtr populateBatch(
   BufferPtr values = AlignedBuffer::allocate<T>(data.size(), pool);
   auto valuesPtr = values->asMutableRange<T>();
 
-  BufferPtr nulls =
-      AlignedBuffer::allocate<char>(bits::nbytes(data.size()), pool);
+  BufferPtr nulls = allocateNulls(data.size(), pool);
   auto* nullsPtr = nulls->asMutable<uint64_t>();
   size_t index = 0;
   size_t nullCount = 0;
@@ -214,7 +213,12 @@ VectorPtr populateBatch(
   }
 
   auto batch = std::make_shared<FlatVector<T>>(
-      pool, nulls, data.size(), values, std::vector<BufferPtr>{});
+      pool,
+      CppToType<T>::create(),
+      nulls,
+      data.size(),
+      values,
+      std::vector<BufferPtr>{});
   batch->setNullCount(nullCount);
   return batch;
 }
@@ -1926,8 +1930,7 @@ struct IntegerColumnWriterTypedTestCase {
     auto pool = getDefaultMemoryPool();
 
     // Prepare input
-    BufferPtr nulls =
-        AlignedBuffer::allocate<char>(bits::nbytes(size), pool.get());
+    BufferPtr nulls = allocateNulls(size, pool.get());
     auto* nullsPtr = nulls->asMutable<uint64_t>();
     size_t nullCount = 0;
 
@@ -1963,7 +1966,12 @@ struct IntegerColumnWriterTypedTestCase {
     }
 
     auto batch = std::make_shared<FlatVector<Integer>>(
-        pool.get(), nulls, size, values, std::vector<BufferPtr>());
+        pool.get(),
+        CppToType<Integer>::create(),
+        nulls,
+        size,
+        values,
+        std::vector<BufferPtr>());
     batch->setNullCount(nullCount);
 
     // Set up writer.
@@ -3139,7 +3147,7 @@ struct StringColumnWriterTestCase {
   FlatVectorPtr<StringView> generateStringSlice(
       size_t strideIndex,
       MemoryPool* pool) const {
-    auto nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), pool);
+    auto nulls = allocateNulls(size, pool);
     auto* nullsPtr = nulls->asMutable<uint64_t>();
 
     auto values = AlignedBuffer::allocate<StringView>(size, pool);
@@ -3175,7 +3183,7 @@ struct StringColumnWriterTestCase {
     }
 
     auto stringVector = std::make_shared<FlatVector<StringView>>(
-        pool, nulls, size, values, std::move(dataChunks));
+        pool, VARCHAR(), nulls, size, values, std::move(dataChunks));
     stringVector->setNullCount(nullCount);
     return stringVector;
   }

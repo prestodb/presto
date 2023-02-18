@@ -92,7 +92,12 @@ VectorPtr prepBatchImpl(
   }
 
   auto batch = std::make_shared<FlatVector<T>>(
-      pool, nulls, size, values, std::vector<BufferPtr>());
+      pool,
+      CppToType<T>::create(),
+      nulls,
+      size,
+      values,
+      std::vector<BufferPtr>());
   batch->setNullCount(nullCount);
   return batch;
 }
@@ -102,7 +107,7 @@ VectorPtr prepStringBatchImpl(
     MemoryPool* pool,
     std::function<std::string(size_t, size_t)> genData,
     std::function<bool(size_t, size_t)> genNulls) {
-  BufferPtr nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), pool);
+  BufferPtr nulls = allocateNulls(size, pool);
   auto* nullsPtr = nulls->asMutable<uint64_t>();
   size_t nullCount = 0;
 
@@ -138,7 +143,7 @@ VectorPtr prepStringBatchImpl(
   }
 
   auto batch = std::make_shared<FlatVector<StringView>>(
-      pool, nulls, size, values, std::move(dataChunks));
+      pool, VARCHAR(), nulls, size, values, std::move(dataChunks));
   batch->setNullCount(nullCount);
   return batch;
 }
@@ -564,7 +569,7 @@ class BinaryColumnWriterEncodingIndexTest
 
  protected:
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
-    BufferPtr nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), pool);
+    BufferPtr nulls = allocateNulls(size, pool);
     auto* nullsPtr = nulls->asMutable<uint64_t>();
     size_t nullCount = 0;
 
@@ -589,7 +594,7 @@ class BinaryColumnWriterEncodingIndexTest
     }
 
     auto batch = std::make_shared<FlatVector<StringView>>(
-        pool, nulls, size, values, std::vector<BufferPtr>{data});
+        pool, VARCHAR(), nulls, size, values, std::vector<BufferPtr>{data});
     batch->setNullCount(nullCount);
     return batch;
   }
@@ -1152,14 +1157,14 @@ class ListColumnWriterEncodingIndexTest
 
  protected:
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
-    auto nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), pool);
+    auto nulls = allocateNulls(size, pool);
     auto* nullsPtr = nulls->asMutable<uint64_t>();
     size_t nullCount = 0;
 
-    auto offsets = AlignedBuffer::allocate<vector_size_t>(size, pool);
+    auto offsets = allocateOffsets(size, pool);
     auto* offsetsPtr = offsets->asMutable<vector_size_t>();
 
-    auto lengths = AlignedBuffer::allocate<vector_size_t>(size, pool);
+    auto lengths = allocateSizes(size, pool);
     auto* lengthsPtr = lengths->asMutable<vector_size_t>();
 
     size_t value = 0;
@@ -1218,14 +1223,14 @@ class MapColumnWriterEncodingIndexTest
 
  protected:
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
-    auto nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), pool);
+    auto nulls = allocateNulls(size, pool);
     auto* nullsPtr = nulls->asMutable<uint64_t>();
     size_t nullCount = 0;
 
-    auto offsets = AlignedBuffer::allocate<vector_size_t>(size, pool);
+    auto offsets = allocateOffsets(size, pool);
     auto* offsetsPtr = offsets->asMutable<vector_size_t>();
 
-    auto lengths = AlignedBuffer::allocate<vector_size_t>(size, pool);
+    auto lengths = allocateSizes(size, pool);
     auto* lengthsPtr = lengths->asMutable<vector_size_t>();
 
     size_t value = 0;
@@ -1289,12 +1294,12 @@ class FlatMapColumnWriterEncodingIndexTest
 
  protected:
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
-    auto offsets = AlignedBuffer::allocate<vector_size_t>(size, pool);
+    auto offsets = allocateOffsets(size, pool);
     auto* offsetsPtr = offsets->asMutable<vector_size_t>();
     auto offsets2 = AlignedBuffer::allocate<vector_size_t>(size, pool);
     auto* offsets2Ptr = offsets2->asMutable<vector_size_t>();
 
-    auto lengths = AlignedBuffer::allocate<vector_size_t>(size, pool);
+    auto lengths = allocateSizes(size, pool);
     auto* lengthsPtr = lengths->asMutable<vector_size_t>();
     auto lengths2 = AlignedBuffer::allocate<vector_size_t>(size, pool);
     auto* lengths2Ptr = lengths2->asMutable<vector_size_t>();
@@ -1384,7 +1389,7 @@ class StructColumnWriterEncodingIndexTest
   }
 
   VectorPtr prepBatch(size_t size, MemoryPool* pool, bool isRoot) override {
-    auto nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), pool);
+    auto nulls = allocateNulls(size, pool);
     auto* nullsPtr = nulls->asMutable<uint64_t>();
     size_t nullCount = 0;
 

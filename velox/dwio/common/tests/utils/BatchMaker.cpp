@@ -453,7 +453,12 @@ VectorPtr createScalarMapKeys(
   }
 
   return std::make_shared<FlatVector<T>>(
-      &pool, BufferPtr(nullptr), totalKeys, values, std::vector<BufferPtr>{});
+      &pool,
+      CppToType<T>::create(),
+      BufferPtr(nullptr),
+      totalKeys,
+      values,
+      std::vector<BufferPtr>{});
 }
 
 VectorPtr createBinaryMapKeys(

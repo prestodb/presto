@@ -30,7 +30,7 @@ class IsNullFunction : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      const TypePtr& /* outputType */,
+      const TypePtr& /*outputType*/,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     auto* arg = args[0].get();
@@ -78,7 +78,12 @@ class IsNullFunction : public exec::VectorFunction {
     }
 
     auto localResult = std::make_shared<FlatVector<bool>>(
-        pool, nullptr, rows.size(), isNull, std::vector<BufferPtr>{});
+        pool,
+        BOOLEAN(),
+        nullptr,
+        rows.size(),
+        isNull,
+        std::vector<BufferPtr>{});
     context.moveOrCopyResult(localResult, rows, result);
   }
 

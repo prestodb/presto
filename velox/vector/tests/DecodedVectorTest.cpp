@@ -1059,11 +1059,11 @@ TEST_F(DecodedVectorTest, noValues) {
   // Tests decoding a flat vector that consists of all nulls and has
   // no values() buffer.
   constexpr vector_size_t kSize = 100;
-  auto nulls = AlignedBuffer::allocate<uint64_t>(
-      bits::nwords(kSize), pool_.get(), bits::kNull64);
+
   auto vector = std::make_shared<FlatVector<int32_t>>(
       pool_.get(),
-      std::move(nulls),
+      INTEGER(),
+      allocateNulls(kSize, pool(), bits::kNull),
       kSize,
       BufferPtr(nullptr),
       std::vector<BufferPtr>{});

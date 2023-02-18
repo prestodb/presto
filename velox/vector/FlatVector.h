@@ -26,8 +26,7 @@
 #include "velox/vector/SimpleVector.h"
 #include "velox/vector/TypeAliases.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 // FlatVector is marked final to allow for inlining on virtual methods called
 // on a pointer that has the static type FlatVector<T>; this can be a
@@ -54,33 +53,7 @@ class FlatVector final : public SimpleVector<T> {
 
   FlatVector(
       velox::memory::MemoryPool* pool,
-      BufferPtr nulls,
-      size_t length,
-      BufferPtr values,
-      std::vector<BufferPtr>&& stringBuffers,
-      const SimpleVectorStats<T>& stats = {},
-      std::optional<vector_size_t> distinctValueCount = std::nullopt,
-      std::optional<vector_size_t> nullCount = std::nullopt,
-      std::optional<bool> isSorted = std::nullopt,
-      std::optional<ByteCount> representedBytes = std::nullopt,
-      std::optional<ByteCount> storageByteCount = std::nullopt)
-      : FlatVector<T>(
-            pool,
-            CppToType<T>::create(),
-            std::move(nulls),
-            length,
-            values,
-            std::move(stringBuffers),
-            stats,
-            distinctValueCount,
-            nullCount,
-            isSorted,
-            representedBytes,
-            storageByteCount) {}
-
-  FlatVector(
-      velox::memory::MemoryPool* pool,
-      const std::shared_ptr<const Type>& type,
+      const TypePtr& type,
       BufferPtr nulls,
       size_t length,
       BufferPtr values,
@@ -536,7 +509,6 @@ void FlatVector<StringView>::prepareForReuse();
 template <typename T>
 using FlatVectorPtr = std::shared_ptr<FlatVector<T>>;
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox
 
 #include "velox/vector/FlatVector-inl.h"

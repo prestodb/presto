@@ -234,7 +234,12 @@ VectorPtr makeFlatVector(
     size_t length,
     BufferPtr values) {
   auto flatVector = std::make_shared<FlatVector<T>>(
-      pool, nulls, length, values, std::vector<BufferPtr>());
+      pool,
+      CppToType<T>::create(),
+      nulls,
+      length,
+      values,
+      std::vector<BufferPtr>());
   flatVector->setNullCount(nullCount);
   return flatVector;
 }
@@ -1344,6 +1349,7 @@ void StringDictionaryColumnReader::readFlatVector(
   } else {
     result = std::make_shared<FlatVector<StringView>>(
         &memoryPool_,
+        VARCHAR(),
         nulls,
         numValues,
         data,

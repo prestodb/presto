@@ -29,8 +29,7 @@ class MapBuilder {
   using rows = std::vector<std::optional<row>>;
 
   static VectorPtr create(memory::MemoryPool& pool, rows rows) {
-    const std::shared_ptr<const Type> type =
-        CppToType<Map<TKEY, TVALUE>>::create();
+    const auto type = CppToType<Map<TKEY, TVALUE>>::create();
     auto items = 0;
     for (auto& row : rows) {
       if (row.has_value()) {
@@ -38,17 +37,14 @@ class MapBuilder {
       }
     }
 
-    BufferPtr nulls =
-        AlignedBuffer::allocate<char>(bits::nbytes(rows.size()), &pool);
+    BufferPtr nulls = allocateNulls(rows.size(), &pool);
     auto* nullsPtr = nulls->asMutable<uint64_t>();
     size_t nullCount = 0;
 
-    BufferPtr offsets =
-        AlignedBuffer::allocate<vector_size_t>(rows.size(), &pool);
+    BufferPtr offsets = allocateOffsets(rows.size(), &pool);
     auto* offsetsPtr = offsets->asMutable<vector_size_t>();
 
-    BufferPtr lengths =
-        AlignedBuffer::allocate<vector_size_t>(rows.size(), &pool);
+    BufferPtr lengths = allocateSizes(rows.size(), &pool);
     auto* lengthsPtr = lengths->asMutable<vector_size_t>();
 
     BufferPtr keys = AlignedBuffer::allocate<TKEY>(items, &pool);
@@ -57,8 +53,7 @@ class MapBuilder {
     BufferPtr values = AlignedBuffer::allocate<TVALUE>(items, &pool);
     auto* valuesPtr = values->asMutable<TVALUE>();
 
-    BufferPtr valueNulls =
-        AlignedBuffer::allocate<char>(bits::nbytes(items), &pool);
+    BufferPtr valueNulls = allocateNulls(items, &pool);
     auto* valueNullsPtr = valueNulls->asMutable<uint64_t>();
     size_t valueNullCount = 0;
 
@@ -103,12 +98,14 @@ class MapBuilder {
         lengths,
         std::make_shared<FlatVector<TKEY>>(
             &pool,
+            type->childAt(0),
             BufferPtr(nullptr),
             items /*length*/,
             keys,
             std::vector<BufferPtr>()),
         std::make_shared<FlatVector<TVALUE>>(
             &pool,
+            type->childAt(1),
             valueNulls,
             items /*length*/,
             values,

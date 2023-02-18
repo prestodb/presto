@@ -67,6 +67,7 @@ void initializeFlatVector(
   if (!vector) {
     vector = std::make_shared<FlatVector<T>>(
         &pool,
+        CppToType<T>::create(),
         hasNulls ? AlignedBuffer::allocate<bool>(size, &pool) : nullptr,
         0 /*length*/,
         AlignedBuffer::allocate<T>(size, &pool),

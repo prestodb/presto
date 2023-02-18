@@ -733,8 +733,7 @@ TEST(E2EWriterTests, mapStatsMultiStrides) {
 }
 
 TEST(E2EWriterTests, PartialStride) {
-  HiveTypeParser parser;
-  auto type = parser.parse("struct<bool_val:int>");
+  auto type = ROW({"bool_val"}, {INTEGER()});
 
   auto pool = memory::getDefaultMemoryPool();
   size_t size = 1'000;
@@ -748,7 +747,7 @@ TEST(E2EWriterTests, PartialStride) {
   options.schema = type;
   Writer writer{options, std::move(sink), *pool};
 
-  auto nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), pool.get());
+  auto nulls = allocateNulls(size, pool.get());
   auto* nullsPtr = nulls->asMutable<uint64_t>();
   size_t nullCount = 0;
 
@@ -770,7 +769,12 @@ TEST(E2EWriterTests, PartialStride) {
       type,
       size,
       std::make_shared<FlatVector<int32_t>>(
-          pool.get(), nulls, size, values, std::vector<BufferPtr>()));
+          pool.get(),
+          type->childAt(0),
+          nulls,
+          size,
+          values,
+          std::vector<BufferPtr>()));
 
   writer.write(batch);
   writer.close();
@@ -1224,6 +1228,7 @@ VectorPtr createKeysImpl(
 
   auto vector = std::make_shared<FlatVector<TCpp>>(
       &pool,
+      CppToType<TCpp>::create(),
       nullptr,
       size,
       AlignedBuffer::allocate<TCpp>(size, &pool),

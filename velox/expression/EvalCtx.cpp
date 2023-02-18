@@ -127,6 +127,7 @@ void EvalCtx::ensureErrorsVectorSize(ErrorVectorPtr& vector, vector_size_t size)
   if (!vector) {
     vector = std::make_shared<ErrorVector>(
         pool(),
+        OpaqueType::create<void>(),
         AlignedBuffer::allocate<bool>(size, pool(), true) /*nulls*/,
         size /*length*/,
         AlignedBuffer::allocate<ErrorVector::value_type>(

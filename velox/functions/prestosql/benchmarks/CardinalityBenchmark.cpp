@@ -43,7 +43,12 @@ VectorPtr fastCardinality(const VectorPtr& vector) {
   }
 
   return std::make_shared<FlatVector<int64_t>>(
-      vector->pool(), nullptr, numRows, values, std::vector<BufferPtr>{});
+      vector->pool(),
+      BIGINT(),
+      nullptr,
+      numRows,
+      values,
+      std::vector<BufferPtr>{});
 }
 
 class CardinalityVectorFunction : public exec::VectorFunction {
