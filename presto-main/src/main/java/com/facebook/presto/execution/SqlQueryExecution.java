@@ -36,10 +36,9 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
-import com.facebook.presto.spi.analyzer.QueryAnalysis;
-import com.facebook.presto.spi.analyzer.QueryAnalyzer;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -48,10 +47,13 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.Optimizer;
-import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
+import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InputExtractor;
+import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.OutputExtractor;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Plan;
@@ -64,6 +66,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.facebook.presto.sql.tree.Explain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -95,6 +98,7 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEm
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
+import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -138,7 +142,7 @@ public class SqlQueryExecution
     private final PartialResultQueryManager partialResultQueryManager;
     private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
-    private final QueryAnalysis queryAnalysis;
+    private final Analysis analysis;
 
     private SqlQueryExecution(
             AnalyzerProvider analyzerProvider,
@@ -194,27 +198,30 @@ public class SqlQueryExecution
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
+            BuiltInQueryPreparer.BuiltInPreparedQuery builtInPreparedQuery = (BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery;
 
             stateMachine.beginSemanticAnalyzing();
-            QueryAnalyzer queryAnalyzer = analyzerProvider.getQueryAnalyzer();
+            Analyzer analyzer = new Analyzer(
+                    stateMachine.getSession(),
+                    metadata,
+                    sqlParser,
+                    accessControl,
+                    Optional.of(queryExplainer),
+                    builtInPreparedQuery.getParameters(),
+                    parameterExtractor(builtInPreparedQuery.getStatement(), builtInPreparedQuery.getParameters()),
+                    warningCollector);
 
-            // TODO: Remove this hack once presto inbuilt analyzer is moved to presto-analyzer
-            if (queryAnalyzer instanceof BuiltInQueryAnalyzer) {
-                ((BuiltInQueryAnalyzer) queryAnalyzer).setSession(stateMachine.getSession());
-            }
-
-            // TODO: Describe needs to be passed?
             try (TimeoutThread unused = new TimeoutThread(
                     Thread.currentThread(),
                     timeoutThreadExecutor,
                     getQueryAnalyzerTimeout(getSession()))) {
-                this.queryAnalysis = queryAnalyzer.analyze(preparedQuery);
+                this.analysis = analyzer.analyzeSemantic(builtInPreparedQuery.getStatement(), false);
             }
-            stateMachine.setUpdateType(queryAnalysis.getUpdateType());
-            stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
+            stateMachine.setUpdateType(analysis.getUpdateType());
+            stateMachine.setExpandedQuery(analysis.getExpandedQuery());
 
             stateMachine.beginColumnAccessPermissionChecking();
-            queryAnalyzer.checkAccessPermissions(queryAnalysis);
+            analyzer.checkColumnAccessPermissions(this.analysis);
             stateMachine.endColumnAccessPermissionChecking();
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
@@ -235,7 +242,7 @@ public class SqlQueryExecution
             this.partialResultQueryManager = requireNonNull(partialResultQueryManager, "partialResultQueryManager is null");
 
             if (isLogInvokedFunctionNamesEnabled(getSession())) {
-                for (Map.Entry<FunctionKind, Set<String>> entry : queryAnalysis.getInvokedFunctions().entrySet()) {
+                for (Map.Entry<FunctionKind, Set<String>> entry : analysis.getInvokedFunctions().entrySet()) {
                     switch (entry.getKey()) {
                         case SCALAR:
                             stateMachine.setScalarFunctions(entry.getValue());
@@ -453,7 +460,7 @@ public class SqlQueryExecution
                         timeoutThreadExecutor,
                         getQueryAnalyzerTimeout(getSession()))) {
                     // create logical plan for the query
-                    plan = createLogicalPlanAndOptimize();
+                    plan = createLogicalPlan();
                 }
 
                 metadata.beginQuery(getSession(), plan.getConnectors());
@@ -519,18 +526,23 @@ public class SqlQueryExecution
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
     }
 
-    private PlanRoot createLogicalPlanAndOptimize()
+    private PlanRoot createLogicalPlan()
     {
         try {
             // time analysis phase
             stateMachine.beginAnalysis();
 
+            // plan query
             final PlanVariableAllocator planVariableAllocator = new PlanVariableAllocator();
-            QueryAnalyzer queryAnalyzer = analyzerProvider.getQueryAnalyzer();
+            LogicalPlanner logicalPlanner = new LogicalPlanner(
+                    stateMachine.getSession(),
+                    idAllocator,
+                    metadata,
+                    planVariableAllocator);
 
-            PlanNode planNode = stateMachine.getSession().getRuntimeStats().profileNanos(
+            PlanNode planNode = getSession().getRuntimeStats().profileNanos(
                     LOGICAL_PLANNER_TIME_NANOS,
-                    () -> queryAnalyzer.plan(queryAnalysis, idAllocator, planVariableAllocator));
+                    () -> logicalPlanner.plan(analysis));
 
             Optimizer optimizer = new Optimizer(
                     stateMachine.getSession(),
@@ -571,12 +583,28 @@ public class SqlQueryExecution
             // record analysis time
             stateMachine.endAnalysis();
 
-            boolean explainAnalyze = queryAnalyzer.isExplainAnalyzeQuery(queryAnalysis);
-            return new PlanRoot(fragmentedPlan, !explainAnalyze, queryAnalyzer.extractConnectors(queryAnalysis));
+            boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
+            return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
         }
         catch (StackOverflowError e) {
             throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
         }
+    }
+
+    private static Set<ConnectorId> extractConnectors(Analysis analysis)
+    {
+        ImmutableSet.Builder<ConnectorId> connectors = ImmutableSet.builder();
+
+        for (TableHandle tableHandle : analysis.getTables()) {
+            connectors.add(tableHandle.getConnectorId());
+        }
+
+        if (analysis.getInsert().isPresent()) {
+            TableHandle target = analysis.getInsert().get().getTarget();
+            connectors.add(target.getConnectorId());
+        }
+
+        return connectors.build();
     }
 
     private void planDistribution(PlanRoot plan)
