@@ -26,6 +26,7 @@ namespace facebook::velox::parse {
 struct ParseOptions {
   // Retain legacy behavior by default.
   bool parseDecimalAsDouble = true;
+  bool parseIntegerAsBigint = true;
 };
 
 std::shared_ptr<const core::IExpr> parseExpr(

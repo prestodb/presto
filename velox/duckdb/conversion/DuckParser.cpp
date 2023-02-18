@@ -131,7 +131,8 @@ std::shared_ptr<const core::IExpr> parseConstantExpr(
   // This is a hack to make DuckDB more compatible with the old Koski-based
   // parser. By default literal integer constants in DuckDB parser are INTEGER,
   // while in Koski parser they were BIGINT.
-  if (value.type().id() == LogicalTypeId::INTEGER) {
+  if (value.type().id() == LogicalTypeId::INTEGER &&
+      options.parseIntegerAsBigint) {
     value = Value::BIGINT(value.GetValue<int32_t>());
   }
 

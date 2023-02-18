@@ -529,6 +529,18 @@ TEST(DuckParserTest, parseDecimalConstant) {
   }
 }
 
+TEST(DuckParserTest, parseInteger) {
+  ParseOptions options;
+  options.parseIntegerAsBigint = false;
+  auto expr = parseExpr("1234", options);
+  if (auto constant =
+          std::dynamic_pointer_cast<const core::ConstantExpr>(expr)) {
+    ASSERT_EQ(*constant->type(), *INTEGER());
+  } else {
+    FAIL() << expr->toString() << " is not a constant";
+  }
+}
+
 TEST(DuckParserTest, lambda) {
   // There is a bug in DuckDB in parsing lambda expressions that use
   // comparisons. This doesn't work: filter(a, x -> x = 10). This does:
