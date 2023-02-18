@@ -51,3 +51,17 @@ target_link_libraries(
   ${gflags_LIBRARIES}
   ${FOLLY_WITH_DEPENDENCIES}
   pthread)
+
+add_executable(velox_concurrent_allocation_benchmark
+               ConcurrentAllocationBenchmark.cpp)
+
+target_link_libraries(
+  velox_concurrent_allocation_benchmark
+  velox_memory
+  glog::glog
+  gtest
+  gtest_main
+  ${gflags_LIBRARIES}
+  ${FOLLY_WITH_DEPENDENCIES}
+  fmt::fmt
+  pthread)
