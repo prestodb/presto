@@ -57,12 +57,18 @@ COPY --chown=root * "${PRESTODB_HOME}/_cicd"
 RUN --mount=type=ssh \
     dnf -y install openssh-clients git wget unzip make && \
     mkdir -p -m 0600 /root/.ssh && \
-    ! ssh-keyscan github.com >> /root/.ssh/known_hosts && \
-    [ $(ls "${PRESTODB_HOME}/_cicd" | wc -l) -ge 10 ] && \
-    mv "${PRESTODB_HOME}/_cicd" "${PRESTODB_HOME}/_repo" || ( \
-    git clone --progress ${PRESTODB_REPOSITORY} "${PRESTODB_HOME}/_repo" && \
-    git -C "${PRESTODB_HOME}/_repo" checkout "${PRESTODB_CHECKOUT}" ) && \
-    make --directory="${PRESTODB_HOME}/_repo/presto-native-execution" submodules && \
+    ! ssh-keyscan github.com >> /root/.ssh/known_hosts
+# Two test cases - one for CiCd and one for user all-in-one container.
+# Begin CiCd copy from docker context
+RUN [ $(ls "${PRESTODB_HOME}/_cicd" | wc -l) -ge 10 ] && \
+    mv "${PRESTODB_HOME}/_cicd" "${PRESTODB_HOME}/_repo"
+# END CiCd copy from docker context
+# BEGIN make runtime container call from user 
+RUN [ $(ls "${PRESTODB_HOME}/_cicd" | wc -l) -ge 10 ] || \
+    ( git clone --progress ${PRESTODB_REPOSITORY} "${PRESTODB_HOME}/_repo" && \
+    git -C "${PRESTODB_HOME}/_repo" checkout "${PRESTODB_CHECKOUT}" )
+# END make runtime container call from user 
+RUN make --directory="${PRESTODB_HOME}/_repo/presto-native-execution" submodules && \
     mkdir -p "${DEPENDENCY_DIR}/install/bin" \
              "${PRESTODB_HOME}/_repo/presto-native-execution/_build/release" \
              "${PRESTODB_HOME}/catalog" \
