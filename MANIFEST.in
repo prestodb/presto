@@ -1,0 +1,8 @@
+inculde *.txt
+include *.cmake
+graft CMake
+graft third_party
+graft velox
+graft pyvelox
+graft scripts
+prune velox/docs

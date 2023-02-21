@@ -21,6 +21,7 @@ set -efx -o pipefail
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
 CPU_TARGET="${CPU_TARGET:-avx}"
+CONDA=${1:-true}
 export CFLAGS=$(get_cxx_flags $CPU_TARGET)
 export CXXFLAGS=$CFLAGS  # Used by boost.
 
@@ -45,11 +46,12 @@ yum -y install bzip2-devel \
   wget \
   zlib-devel
 
-#Install conda
-rpm --import https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc
+if [ "$CONDA" = true ]; then
+  #Install conda
+  rpm --import https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc
 
-# Add the Anaconda repository
-cat <<EOF > /etc/yum.repos.d/conda.repo
+  # Add the Anaconda repository
+  cat <<EOF > /etc/yum.repos.d/conda.repo
 [conda]
 name=Conda
 baseurl=https://repo.anaconda.com/pkgs/misc/rpmrepo/conda
@@ -58,7 +60,8 @@ gpgcheck=1
 gpgkey=https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc
 EOF
 
-yum -y install conda
+  yum -y install conda
+fi
 
 function cmake_install {
   cmake -B "$1-build" -GNinja -DCMAKE_CXX_STANDARD=17 \

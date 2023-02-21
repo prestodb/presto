@@ -1,0 +1,178 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Build Pyvelox Wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'pyvelox version'
+        required: false
+      ref:
+        description: 'git ref to build'
+        required: false
+      publish:
+        description: 'publish to PyPI'
+        required: false
+        type: boolean
+        default: false
+  # schedule:
+  #   - cron: '15 0 * * *'
+  pull_request:
+    paths:
+      - 'velox/**'
+      - '!velox/docs/**'
+      - 'third_party/**'
+      - 'pyvelox/**'
+      - '.github/workflows/build_pyvelox.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-11]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: "Determine Version"
+        if: ${{ !inputs.version && github.event_name != 'pull_request' }}
+        id: version
+        run: |
+          # count number of commits since last tag matching a regex
+          # and use that to determine the version number
+          # e.g. if the last tag is 0.0.1, and there have been 5 commits since then
+          # the version will be 0.0.1a5
+          git fetch --tags
+          INITIAL_COMMIT=5d4db2569b7c249644bf36a543ba1bd8f12bf77c
+          # Can't use PCRE for portability
+          BASE_VERSION=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' version.txt)
+
+          LAST_TAG=$(git describe --tags --match "pyvelox-v[0-9]*" --abbrev=0 || echo $INITIAL_COMMIT)
+          COMMITS_SINCE_TAG=$(git rev-list --count ${LAST_TAG}..HEAD)
+
+          if [ "$LAST_TAG" = "$INITIAL_COMMIT" ]; then
+            VERSION=$BASE_VERSION
+          else
+            VERSION=$(echo $LAST_TAG | sed '/pyvelox-v//')
+          fi
+          # NEXT_VERSION=$(echo $VERSION | awk -F. -v OFS=. '{$NF++ ; print}')
+          echo "build_version=${VERSION}a${COMMITS_SINCE_TAG}" >> $GITHUB_OUTPUT
+
+      - run: mkdir -p .ccache
+      - name: "Restore ccache"
+        uses: actions/cache/restore@v3
+        id: restore-cache
+        with:
+          path: ".ccache"
+          key: ccache-wheels-${{ matrix.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-wheels-${{ matrix.os }}-
+
+      - if: matrix.os == 'macos-11'
+        run: |
+          echo "OPENSSL_ROOT_DIR=/usr/local/opt/openssl@1.1/" >> $GITHUB_ENV
+
+      - name: "Create sdist"
+        if: matrix.os == 'ubuntu-22.04'
+        env:
+          BUILD_VERSION: "${{ inputs.version || steps.version.outputs.build_version }}"
+        run: |
+          python setup.py sdist --dist-dir wheelhouse
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.12.0
+        env:
+          # required for preadv/pwritev
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+          CIBW_ARCHS: "x86_64"
+          # On PRs only build for Python 3.7
+          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp37-*' || 'cp3*' }}
+          CIBW_SKIP: "*musllinux* cp36-*"
+          CIBW_MANYLINUX_X86_64_IMAGE: "ghcr.io/facebookincubator/velox-dev:torcharrow-avx"
+          CIBW_BEFORE_ALL_MACOS: >
+            bash {package}/scripts/setup-macos.sh &&
+            bash {package}/scripts/setup-macos.sh install_folly
+          CIBW_BEFORE_ALL_LINUX: >
+            mkdir -p /output &&
+            cp -R /host${{ github.workspace }}/.ccache /output/.ccache &&
+            ccache -s
+          CIBW_ENVIRONMENT_PASS_LINUX: CCACHE_DIR BUILD_VERSION
+          CIBW_TEST_COMMAND: "cd {project}/pyvelox && python -m unittest -v"
+          CIBW_TEST_SKIP: "*macos*"
+          CCACHE_DIR: "${{ matrix.os != 'macos-11' && '/output' || github.workspace }}/.ccache"
+          BUILD_VERSION: "${{ inputs.version || steps.version.outputs.build_version }}"
+        with:
+          output-dir: wheelhouse
+
+      - name: "Move .ccache to workspace"
+        if: matrix.os != 'macos-11'
+        run: |
+          mkdir -p .ccache
+          cp -R ./wheelhouse/.ccache/* .ccache
+
+      - name: "Save ccache"
+        uses: actions/cache/save@v3
+        id: cache
+        with:
+          path: ".ccache"
+          key: ccache-wheels-${{ matrix.os }}-${{ github.sha }}
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: |
+            ./wheelhouse/*.whl
+            ./wheelhouse/*.tar.gz
+
+  publish_wheels:
+    name: Publish Wheels to PyPI
+    if: ${{ github.event_name == 'schedule' || inputs.publish }}
+    needs: build_wheels
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheels
+          path: ./wheelhouse
+
+      - run: ls wheelhouse
+
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
+
+      - name: Publish a Python distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.6.4
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages_dir: wheelhouse
