@@ -30,40 +30,50 @@ pipeline {
                 }
             }
 
-            steps {
-                sh 'apt update && apt install -y awscli git tree'
-                sh 'unset MAVEN_CONFIG && ./mvnw versions:set -DremoveSnapshot'
-                sh 'git config --global --add safe.directory ${WORKSPACE}'
-
-                script {
-                    env.PRESTO_VERSION = sh(
-                        script: 'unset MAVEN_CONFIG && ./mvnw org.apache.maven.plugins:maven-help-plugin:3.2.0:evaluate -Dexpression=project.version -q -DforceStdout',
-                        returnStdout: true).trim()
-                    env.PRESTO_PKG = "presto-server-${PRESTO_VERSION}.tar.gz"
-                    env.PRESTO_CLI_JAR = "presto-cli-${PRESTO_VERSION}-executable.jar"
-                    env.PRESTO_BUILD_VERSION = env.PRESTO_VERSION + '-' +
-                                            sh(script: 'TZ=UTC date +%Y%m%dT%H%M%S', returnStdout: true).trim() + '-' +
-                                            sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
-                    env.DOCKER_IMAGE = env.AWS_ECR + "/oss-presto/presto:${PRESTO_BUILD_VERSION}"
+            stages {
+                stage('Setup') {
+                    steps {
+                        sh 'apt update && apt install -y awscli git tree'
+                        sh 'git config --global --add safe.directory ${WORKSPACE}'
+                    }
                 }
-                sh 'printenv | sort'
 
-                echo "build prestodb source code with build version ${PRESTO_BUILD_VERSION}"
-                sh '''
-                    unset MAVEN_CONFIG && ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-docs' --fail-at-end
-                    tree /root/.m2/repository/com/facebook/presto/
-                '''
+                stage('Maven') {
+                    steps {
+                        sh 'unset MAVEN_CONFIG && ./mvnw versions:set -DremoveSnapshot'
+                        script {
+                            env.PRESTO_VERSION = sh(
+                                script: 'unset MAVEN_CONFIG && ./mvnw org.apache.maven.plugins:maven-help-plugin:3.2.0:evaluate -Dexpression=project.version -q -DforceStdout',
+                                returnStdout: true).trim()
+                            env.PRESTO_PKG = "presto-server-${PRESTO_VERSION}.tar.gz"
+                            env.PRESTO_CLI_JAR = "presto-cli-${PRESTO_VERSION}-executable.jar"
+                            env.PRESTO_BUILD_VERSION = env.PRESTO_VERSION + '-' +
+                                sh(script: "git show -s --format=%cd --date=format:'%Y%m%d%H%M%S'", returnStdout: true).trim() + "-" +
+                                env.GIT_COMMIT.substring(0, 7)
+                            env.DOCKER_IMAGE = env.AWS_ECR + "/oss-presto/presto:${PRESTO_BUILD_VERSION}"
+                            env.DOCKER_NATIVE_IMAGE = env.AWS_ECR + "/oss-presto/presto-native:${PRESTO_BUILD_VERSION}"
 
-                echo 'Publish Maven tarball'
-                withCredentials([[
-                        $class:            'AmazonWebServicesCredentialsBinding',
-                        credentialsId:     "${AWS_CREDENTIAL_ID}",
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        aws s3 cp presto-server/target/${PRESTO_PKG}  ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
-                        aws s3 cp presto-cli/target/${PRESTO_CLI_JAR} ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
-                    '''
+                        }
+                        sh 'printenv | sort'
+
+                        echo "build prestodb source code with build version ${PRESTO_BUILD_VERSION}"
+                        sh '''
+                            unset MAVEN_CONFIG && ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-docs'
+                            tree /root/.m2/repository/com/facebook/presto/
+                        '''
+
+                        echo 'Publish Maven tarball'
+                        withCredentials([[
+                                $class:            'AmazonWebServicesCredentialsBinding',
+                                credentialsId:     "${AWS_CREDENTIAL_ID}",
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''
+                                aws s3 cp presto-server/target/${PRESTO_PKG}  ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
+                                aws s3 cp presto-cli/target/${PRESTO_CLI_JAR} ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
+                            '''
+                        }
+                    }
                 }
             }
             post {
