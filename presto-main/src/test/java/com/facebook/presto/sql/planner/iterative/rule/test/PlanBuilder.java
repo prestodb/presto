@@ -291,7 +291,8 @@ public class PlanBuilder
                 count,
                 false,
                 distinctSymbols,
-                Optional.empty());
+                Optional.empty(),
+                0);
     }
 
     public SampleNode sample(double sampleRatio, SampleNode.Type type, PlanNode source)
@@ -343,13 +344,13 @@ public class PlanBuilder
 
     public CallExpression binaryOperation(OperatorType operatorType, RowExpression left, RowExpression right)
     {
-        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager()).arithmeticFunction(operatorType, left.getType(), right.getType());
+        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()).arithmeticFunction(operatorType, left.getType(), right.getType());
         return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
     }
 
     public CallExpression comparison(OperatorType operatorType, RowExpression left, RowExpression right)
     {
-        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager()).comparisonFunction(operatorType, left.getType(), right.getType());
+        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()).comparisonFunction(operatorType, left.getType(), right.getType());
         return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
     }
 
@@ -1005,7 +1006,7 @@ public class PlanBuilder
                 expression,
                 expressionTypes,
                 ImmutableMap.of(),
-                metadata.getFunctionAndTypeManager(),
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                 session);
     }
 
@@ -1024,7 +1025,7 @@ public class PlanBuilder
                 expression,
                 expressionTypes,
                 ImmutableMap.of(),
-                metadata.getFunctionAndTypeManager(),
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                 session);
     }
 

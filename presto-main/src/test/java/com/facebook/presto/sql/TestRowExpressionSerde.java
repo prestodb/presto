@@ -268,7 +268,7 @@ public class TestRowExpressionSerde
 
     private RowExpression translate(Expression expression, boolean optimize)
     {
-        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionAndTypeManager(), TEST_SESSION);
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), TEST_SESSION);
         if (optimize) {
             RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
             return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
@@ -279,7 +279,7 @@ public class TestRowExpressionSerde
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                 TEST_SESSION,
                 TypeProvider.empty(),
                 emptyMap(),

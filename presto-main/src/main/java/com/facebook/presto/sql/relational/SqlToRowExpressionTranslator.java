@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
@@ -25,7 +26,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -33,6 +33,7 @@ import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
@@ -83,7 +84,6 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
@@ -157,14 +157,14 @@ public final class SqlToRowExpressionTranslator
             Expression expression,
             Map<NodeRef<Expression>, Type> types,
             Map<VariableReferenceExpression, Integer> layout,
-            FunctionAndTypeManager functionAndTypeManager,
+            FunctionAndTypeResolver functionAndTypeResolver,
             Session session)
     {
         return translate(
                 expression,
                 types,
                 layout,
-                functionAndTypeManager,
+                functionAndTypeResolver,
                 Optional.of(session.getUser()),
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
@@ -175,7 +175,7 @@ public final class SqlToRowExpressionTranslator
             Expression expression,
             Map<NodeRef<Expression>, Type> types,
             Map<VariableReferenceExpression, Integer> layout,
-            FunctionAndTypeManager functionAndTypeManager,
+            FunctionAndTypeResolver functionAndTypeResolver,
             Optional<String> user,
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
@@ -184,7 +184,7 @@ public final class SqlToRowExpressionTranslator
         Visitor visitor = new Visitor(
                 types,
                 layout,
-                functionAndTypeManager,
+                functionAndTypeResolver,
                 user,
                 transactionId,
                 sqlFunctionProperties,
@@ -199,7 +199,7 @@ public final class SqlToRowExpressionTranslator
     {
         private final Map<NodeRef<Expression>, Type> types;
         private final Map<VariableReferenceExpression, Integer> layout;
-        private final FunctionAndTypeManager functionAndTypeManager;
+        private final FunctionAndTypeResolver functionAndTypeResolver;
         private final Optional<String> user;
         private final Optional<TransactionId> transactionId;
         private final SqlFunctionProperties sqlFunctionProperties;
@@ -209,7 +209,7 @@ public final class SqlToRowExpressionTranslator
         private Visitor(
                 Map<NodeRef<Expression>, Type> types,
                 Map<VariableReferenceExpression, Integer> layout,
-                FunctionAndTypeManager functionAndTypeManager,
+                FunctionAndTypeResolver functionAndTypeResolver,
                 Optional<String> user,
                 Optional<TransactionId> transactionId,
                 SqlFunctionProperties sqlFunctionProperties,
@@ -217,11 +217,11 @@ public final class SqlToRowExpressionTranslator
         {
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
-            this.functionAndTypeManager = functionAndTypeManager;
+            this.functionAndTypeResolver = functionAndTypeResolver;
             this.user = user;
             this.transactionId = transactionId;
             this.sqlFunctionProperties = sqlFunctionProperties;
-            this.functionResolution = new FunctionResolution(functionAndTypeManager);
+            this.functionResolution = new FunctionResolution(functionAndTypeResolver);
             this.sessionFunctions = sessionFunctions;
         }
 
@@ -312,7 +312,7 @@ public final class SqlToRowExpressionTranslator
         {
             Type type;
             try {
-                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
@@ -326,7 +326,7 @@ public final class SqlToRowExpressionTranslator
         {
             Type type;
             try {
-                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
@@ -351,7 +351,7 @@ public final class SqlToRowExpressionTranslator
                 return call(
                         getSourceLocation(node),
                         "json_parse",
-                        functionAndTypeManager.lookupFunction("json_parse", fromTypes(VARCHAR)),
+                        functionAndTypeResolver.lookupFunction("json_parse", fromTypes(VARCHAR)),
                         getType(node),
                         constant(utf8Slice(node.getValue()), VARCHAR));
             }
@@ -359,7 +359,7 @@ public final class SqlToRowExpressionTranslator
             return call(
                     getSourceLocation(node),
                     CAST.name(),
-                    functionAndTypeManager.lookupCast(CAST, VARCHAR, getType(node)),
+                    functionAndTypeResolver.lookupCast("CAST", VARCHAR, getType(node)),
                     getType(node),
                     constant(utf8Slice(node.getValue()), VARCHAR));
         }
@@ -438,7 +438,7 @@ public final class SqlToRowExpressionTranslator
                     .collect(toImmutableList());
 
             return call(node.getName().toString(),
-                    functionAndTypeManager.resolveFunction(
+                    functionAndTypeResolver.resolveFunction(
                             Optional.of(sessionFunctions),
                             transactionId,
                             qualifyObjectName(node.getName()),
@@ -518,7 +518,7 @@ public final class SqlToRowExpressionTranslator
                     return call(
                             getSourceLocation(node),
                             NEGATION.name(),
-                            functionAndTypeManager.resolveOperator(NEGATION, fromTypes(expression.getType())),
+                            functionAndTypeResolver.resolveOperator(NEGATION, fromTypes(expression.getType())),
                             getType(node),
                             expression);
             }
@@ -549,10 +549,10 @@ public final class SqlToRowExpressionTranslator
             RowExpression value = process(node.getExpression(), context);
 
             if (node.isSafe()) {
-                return call(getSourceLocation(node), TRY_CAST.name(), functionAndTypeManager.lookupCast(TRY_CAST, value.getType(), getType(node)), getType(node), value);
+                return call(getSourceLocation(node), TRY_CAST.name(), functionAndTypeResolver.lookupCast("TRY_CAST", value.getType(), getType(node)), getType(node), value);
             }
 
-            return call(getSourceLocation(node), CAST.name(), functionAndTypeManager.lookupCast(CAST, value.getType(), getType(node)), getType(node), value);
+            return call(getSourceLocation(node), CAST.name(), functionAndTypeResolver.lookupCast("CAST", value.getType(), getType(node)), getType(node), value);
         }
 
         @Override
@@ -739,7 +739,7 @@ public final class SqlToRowExpressionTranslator
             return call(
                     getSourceLocation(node),
                     BETWEEN.name(),
-                    functionAndTypeManager.resolveOperator(BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
+                    functionAndTypeResolver.resolveOperator(BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
                     BOOLEAN,
                     value,
                     min,
@@ -757,7 +757,7 @@ public final class SqlToRowExpressionTranslator
                 return likeFunctionCall(value, call(getSourceLocation(node), "LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
-            return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeManager.lookupCast(CAST, VARCHAR, LIKE_PATTERN), LIKE_PATTERN, pattern));
+            return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeResolver.lookupCast("CAST", VARCHAR, LIKE_PATTERN), LIKE_PATTERN, pattern));
         }
 
         private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
@@ -792,7 +792,7 @@ public final class SqlToRowExpressionTranslator
             return call(
                     getSourceLocation(node),
                     SUBSCRIPT.name(),
-                    functionAndTypeManager.resolveOperator(SUBSCRIPT, fromTypes(base.getType(), index.getType())),
+                    functionAndTypeResolver.resolveOperator(SUBSCRIPT, fromTypes(base.getType(), index.getType())),
                     getType(node),
                     base,
                     index);

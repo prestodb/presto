@@ -351,7 +351,7 @@ public class TaskExecutor
         checkArgument(!maxDriversPerTask.isPresent() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
                 "maxDriversPerTask cannot be greater than the configured value");
 
-        log.debug("Task scheduled " + taskId);
+        log.debug("Task scheduled %s", taskId);
 
         TaskHandle taskHandle = new TaskHandle(
                 taskId,
@@ -398,7 +398,7 @@ public class TaskExecutor
         long threadUsageNanos = taskHandle.getScheduledNanos();
         completedTasksPerLevel.incrementAndGet(computeLevel(threadUsageNanos));
 
-        log.debug("Task finished or failed " + taskHandle.getTaskId());
+        log.debug("Task finished or failed %s", taskHandle.getTaskId());
     }
 
     public List<ListenableFuture<?>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
@@ -416,23 +416,27 @@ public class TaskExecutor
                         blockedQuantaWallTime,
                         unblockedQuantaWallTime);
 
-                if (taskHandle.isDestroyed()) {
-                    // If the handle is destroyed, we destroy the task splits to complete the future
-                    splitsToDestroy.add(prioritizedSplitRunner);
-                }
-                else if (intermediate) {
-                    // Note: we do not record queued time for intermediate splits
-                    startIntermediateSplit(prioritizedSplitRunner);
+                if (intermediate) {
                     // add the runner to the handle so it can be destroyed if the task is canceled
-                    taskHandle.recordIntermediateSplit(prioritizedSplitRunner);
+                    if (taskHandle.recordIntermediateSplit(prioritizedSplitRunner)) {
+                        // Note: we do not record queued time for intermediate splits
+                        startIntermediateSplit(prioritizedSplitRunner);
+                    }
+                    else {
+                        splitsToDestroy.add(prioritizedSplitRunner);
+                    }
                 }
                 else {
                     // add this to the work queue for the task
-                    taskHandle.enqueueSplit(prioritizedSplitRunner);
-                    // if task is under the limit for guaranteed splits, start one
-                    scheduleTaskIfNecessary(taskHandle);
-                    // if globally we have more resources, start more
-                    addNewEntrants();
+                    if (taskHandle.enqueueSplit(prioritizedSplitRunner)) {
+                        // if task is under the limit for guaranteed splits, start one
+                        scheduleTaskIfNecessary(taskHandle);
+                        // if globally we have more resources, start more
+                        addNewEntrants();
+                    }
+                    else {
+                        splitsToDestroy.add(prioritizedSplitRunner);
+                    }
                 }
 
                 finishedFutures.add(prioritizedSplitRunner.getFinishedFuture());
@@ -604,7 +608,10 @@ public class TaskExecutor
                         }
 
                         if (split.isFinished()) {
-                            log.debug("%s is finished", split.getInfo());
+                            // Avoid calling split.getInfo() when debug logging is not enabled
+                            if (log.isDebugEnabled()) {
+                                log.debug("%s is finished", split.getInfo());
+                            }
                             splitFinished(split);
                         }
                         else {
@@ -634,6 +641,17 @@ public class TaskExecutor
                             }
                         }
                         splitFinished(split);
+                    }
+                    finally {
+                        // Clear the interrupted flag on the current thread, driver cancellation may have triggered an interrupt
+                        // without TaskExecutor being shut down
+                        if (Thread.interrupted()) {
+                            if (closed) {
+                                // reset interrupted flag if TaskExecutor was closed, since that interrupt may have been the
+                                // shutdown signal to this TaskRunner thread
+                                Thread.currentThread().interrupt();
+                            }
+                        }
                     }
                 }
             }

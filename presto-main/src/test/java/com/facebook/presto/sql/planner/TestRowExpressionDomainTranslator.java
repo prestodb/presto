@@ -1239,7 +1239,7 @@ public class TestRowExpressionDomainTranslator
 
     private RowExpression not(RowExpression expression)
     {
-        return call("not", new FunctionResolution(metadata.getFunctionAndTypeManager()).notFunction(), expression.getType(), expression);
+        return call("not", new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()).notFunction(), expression.getType(), expression);
     }
 
     private RowExpression in(RowExpression value, List<RowExpression> inList)

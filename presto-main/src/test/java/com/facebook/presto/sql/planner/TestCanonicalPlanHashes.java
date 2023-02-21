@@ -20,6 +20,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -32,6 +33,8 @@ import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOV
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.graph.Traverser.forTree;
+import static com.google.common.hash.Hashing.sha256;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
@@ -165,6 +168,67 @@ public class TestCanonicalPlanHashes
     }
 
     @Test
+    public void testWindow()
+            throws Exception
+    {
+        String query1 = "SELECT orderkey, SUM(custkey) OVER (PARTITION BY orderstatus ORDER BY totalprice) FROM orders where orderkey < 1000";
+        String query2 = "SELECT orderkey, SUM(custkey) OVER (PARTITION BY orderstatus ORDER BY totalprice) FROM orders where orderkey < 2000";
+
+        assertSamePlanHash(query1 + " UNION ALL " + query2, query2 + " UNION ALL " + query1, CONNECTOR);
+
+        assertDifferentPlanHash(query1,
+                "SELECT orderkey, SUM(custkey) OVER (PARTITION BY totalprice ORDER BY totalprice) FROM orders where orderkey < 1000",
+                CONNECTOR);
+    }
+
+    @Test
+    public void testValues()
+            throws Exception
+    {
+        String query1 = "SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c')) AS t(id, name)";
+        String query2 = "SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c')) AS t(idd, name)";
+        String query3 = "SELECT * FROM ( VALUES (1, 'a'), (3, 'b'), (2, 'c')) AS t(id, name)";
+
+        assertSamePlanHash(query1, query2, CONNECTOR);
+        assertDifferentPlanHash(query1, query3, CONNECTOR);
+    }
+
+    @Test
+    public void testSort()
+            throws Exception
+    {
+        String query1 = "SELECT * FROM nation where substr(name, 1, 1) = 'A' ORDER BY regionkey";
+        String query2 = "SELECT * FROM nation where substr(name, 1, 1) = 'A' ORDER BY nationkey";
+
+        assertSamePlanHash(query1, query1, CONNECTOR);
+        assertDifferentPlanHash(query1, query2, CONNECTOR);
+    }
+
+    @Test
+    public void testMarkDistinct()
+            throws Exception
+    {
+        String query = "SELECT count(*), count(distinct orderstatus) FROM (SELECT * FROM orders WHERE orderstatus = 'F')";
+        assertSamePlanHash(query, query, CONNECTOR);
+    }
+
+    @Test
+    public void testAssignUniqueId()
+            throws Exception
+    {
+        String query = "SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation";
+        assertSamePlanHash(query, query, CONNECTOR);
+    }
+
+    @Test
+    public void testEnforceSingleRow()
+            throws Exception
+    {
+        String query = "SELECT (SELECT regionkey FROM nation WHERE name = 'nosuchvalue') AS sub";
+        assertSamePlanHash(query, query, CONNECTOR);
+    }
+
+    @Test
     public void testJoin()
             throws Exception
     {
@@ -200,6 +264,25 @@ public class TestCanonicalPlanHashes
     }
 
     @Test
+    public void testSemiJoin()
+            throws Exception
+    {
+        String query = "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 2))";
+        assertSamePlanHash(query, query, CONNECTOR);
+        assertDifferentPlanHash(query, "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 1))", CONNECTOR);
+    }
+
+    @Test
+    public void testRowNumber()
+            throws Exception
+    {
+        String query1 = "SELECT nationkey, ROW_NUMBER() OVER (PARTITION BY regionkey) from nation";
+        String query2 = "SELECT nationkey, ROW_NUMBER() OVER (PARTITION BY name) from nation";
+        assertSamePlanHash(query1, query1, CONNECTOR);
+        assertDifferentPlanHash(query1, query2, CONNECTOR);
+    }
+
+    @Test
     public void testLimit()
             throws Exception
     {
@@ -207,6 +290,35 @@ public class TestCanonicalPlanHashes
         assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation", CONNECTOR);
         assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", CONNECTOR);
         assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", REMOVE_SAFE_CONSTANTS);
+    }
+
+    @Test
+    public void testTopN()
+            throws Exception
+    {
+        String query = "SELECT orderkey FROM orders GROUP BY 1 ORDER BY 1 DESC LIMIT 1";
+        assertSamePlanHash(query, query, CONNECTOR);
+        assertDifferentPlanHash(query, "SELECT orderkey FROM orders GROUP BY 1 ORDER BY 1 DESC LIMIT 2", CONNECTOR);
+    }
+
+    @Test
+    public void testTopNRowNumber()
+            throws Exception
+    {
+        String query1 = "SELECT orderstatus FROM (SELECT orderstatus, row_number() OVER (PARTITION BY orderstatus ORDER BY custkey) n FROM orders) WHERE n = 1";
+        String query2 = "SELECT orderstatus FROM (SELECT orderstatus, row_number() OVER (PARTITION BY orderstatus ORDER BY custkey) n FROM orders) WHERE n <= 2";
+        assertSamePlanHash(query1, query1, CONNECTOR);
+        assertDifferentPlanHash(query1, query2, CONNECTOR);
+    }
+
+    @Test
+    public void testDistinctLimit()
+            throws Exception
+    {
+        String query1 = "SELECT distinct regionkey from nation limit 2";
+        String query2 = "SELECT distinct regionkey from nation limit 3";
+        assertSamePlanHash(query1, query1, CONNECTOR);
+        assertDifferentPlanHash(query1, query2, CONNECTOR);
     }
 
     @Test
@@ -231,23 +343,23 @@ public class TestCanonicalPlanHashes
     private void assertSamePlanHash(String sql1, String sql2, PlanCanonicalizationStrategy strategy)
             throws Exception
     {
-        String hashes1 = getPlanHash(sql1, strategy);
-        String hashes2 = getPlanHash(sql2, strategy);
+        String hashes1 = sha256().hashString(getPlanHash(sql1, strategy), UTF_8).toString();
+        String hashes2 = sha256().hashString(getPlanHash(sql2, strategy), UTF_8).toString();
         assertEquals(hashes1, hashes2);
     }
 
     private void assertDifferentPlanHash(String sql1, String sql2, PlanCanonicalizationStrategy strategy)
             throws Exception
     {
-        String hashes1 = getPlanHash(sql1, strategy);
-        String hashes2 = getPlanHash(sql2, strategy);
+        String hashes1 = sha256().hashString(getPlanHash(sql1, strategy), UTF_8).toString();
+        String hashes2 = sha256().hashString(getPlanHash(sql2, strategy), UTF_8).toString();
         assertNotEquals(hashes1, hashes2);
     }
 
     private List<PlanNode> getStatsEquivalentPlanHashes(String sql)
     {
         Session session = createSession();
-        PlanNode root = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
+        PlanNode root = plan(sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, session).getRoot();
         assertTrue(root.getStatsEquivalentPlanNode().isPresent());
 
         ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
@@ -261,7 +373,7 @@ public class TestCanonicalPlanHashes
             throws Exception
     {
         Session session = createSession();
-        PlanNode plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
+        PlanNode plan = plan(sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, session).getRoot();
         assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
         return getObjectMapper().writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy, getObjectMapper()).get());
     }

@@ -16,9 +16,9 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
@@ -51,7 +51,7 @@ public class GrantTask
     public ListenableFuture<?> execute(Grant statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }

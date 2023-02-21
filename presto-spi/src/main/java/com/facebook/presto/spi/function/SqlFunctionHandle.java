@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static java.util.Objects.requireNonNull;
 
 @Experimental
@@ -54,6 +55,18 @@ public class SqlFunctionHandle
     public CatalogSchemaName getCatalogSchemaName()
     {
         return functionId.getFunctionName().getCatalogSchemaName();
+    }
+
+    @Override
+    public String getName()
+    {
+        return functionId.getFunctionName().toString();
+    }
+
+    @Override
+    public FunctionKind getKind()
+    {
+        return SCALAR;
     }
 
     @Override

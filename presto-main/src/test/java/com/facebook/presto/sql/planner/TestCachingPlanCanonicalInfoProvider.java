@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsCalculator;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
 
@@ -35,7 +36,7 @@ public class TestCachingPlanCanonicalInfoProvider
     {
         Session session = createSession();
         String sql = "SELECT O.totalprice, C.name FROM orders O, customer C WHERE C.custkey = O.custkey LIMIT 10";
-        PlanNode root = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
+        PlanNode root = plan(sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, session).getRoot();
         assertTrue(root.getStatsEquivalentPlanNode().isPresent());
 
         CachingPlanCanonicalInfoProvider planCanonicalInfoProvider = (CachingPlanCanonicalInfoProvider) ((HistoryBasedPlanStatisticsCalculator) getQueryRunner().getStatsCalculator()).getPlanCanonicalInfoProvider();
@@ -50,6 +51,8 @@ public class TestCachingPlanCanonicalInfoProvider
         });
         // Assert that size of cache remains same, meaning all needed hashes were already cached.
         assertEquals(planCanonicalInfoProvider.getCacheSize(), 5L * historyBasedPlanCanonicalizationStrategyList().size());
+        planCanonicalInfoProvider.getHistoryBasedStatisticsCacheManager().invalidate(session.getQueryId());
+        assertEquals(planCanonicalInfoProvider.getCacheSize(), 0);
     }
 
     private Session createSession()

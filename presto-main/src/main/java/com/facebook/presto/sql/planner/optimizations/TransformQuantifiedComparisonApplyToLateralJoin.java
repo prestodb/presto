@@ -85,7 +85,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
     public TransformQuantifiedComparisonApplyToLateralJoin(FunctionAndTypeManager functionAndTypeManager)
     {
         requireNonNull(functionAndTypeManager, "functionManager is null");
-        this.functionResolution = new FunctionResolution(functionAndTypeManager);
+        this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
     }
 
     @Override

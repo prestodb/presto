@@ -20,6 +20,7 @@ import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -43,6 +44,9 @@ public class QueryCompletedEvent
     private final Instant endTime;
     private final Optional<String> expandedQuery;
     private final List<PlanOptimizerInformation> optimizerInformation;
+    private final Set<String> scalarFunctions;
+    private final Set<String> aggregateFunctions;
+    private final Set<String> windowsFunctions;
 
     public QueryCompletedEvent(
             QueryMetadata metadata,
@@ -61,7 +65,10 @@ public class QueryCompletedEvent
             List<PlanStatisticsWithSourceInfo> planStatisticsRead,
             List<PlanStatisticsWithSourceInfo> planStatisticsWritten,
             Optional<String> expandedQuery,
-            List<PlanOptimizerInformation> optimizerInformation)
+            List<PlanOptimizerInformation> optimizerInformation,
+            Set<String> scalarFunctions,
+            Set<String> aggregateFunctions,
+            Set<String> windowsFunctions)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statistics = requireNonNull(statistics, "statistics is null");
@@ -80,6 +87,9 @@ public class QueryCompletedEvent
         this.planStatisticsWritten = requireNonNull(planStatisticsWritten, "planStatisticsWritten is null");
         this.expandedQuery = requireNonNull(expandedQuery, "expandedQuery is null");
         this.optimizerInformation = requireNonNull(optimizerInformation, "optimizerInformation is null");
+        this.scalarFunctions = requireNonNull(scalarFunctions, "scalarFunctions is null");
+        this.aggregateFunctions = requireNonNull(aggregateFunctions, "aggregateFunctions is null");
+        this.windowsFunctions = requireNonNull(windowsFunctions, "windowsFunctions is null");
     }
 
     public QueryMetadata getMetadata()
@@ -165,5 +175,20 @@ public class QueryCompletedEvent
     public List<PlanOptimizerInformation> getOptimizerInformation()
     {
         return optimizerInformation;
+    }
+
+    public Set<String> getScalarFunctions()
+    {
+        return scalarFunctions;
+    }
+
+    public Set<String> getAggregateFunctions()
+    {
+        return aggregateFunctions;
+    }
+
+    public Set<String> getWindowsFunctions()
+    {
+        return windowsFunctions;
     }
 }

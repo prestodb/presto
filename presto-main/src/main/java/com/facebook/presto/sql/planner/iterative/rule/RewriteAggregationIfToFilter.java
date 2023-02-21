@@ -101,7 +101,7 @@ public class RewriteAggregationIfToFilter
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.rowExpressionDeterminismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
-        this.standardFunctionResolution = new FunctionResolution(functionAndTypeManager);
+        this.standardFunctionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
     }
 
     @Override

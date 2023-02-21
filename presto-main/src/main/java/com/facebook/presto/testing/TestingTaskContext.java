@@ -134,6 +134,12 @@ public final class TestingTaskContext
             return this;
         }
 
+        public Builder setMaxRevocableMemory(DataSize maxRevocableMemory)
+        {
+            this.maxRevocableMemory = maxRevocableMemory;
+            return this;
+        }
+
         public Builder setMemoryPoolSize(DataSize memoryPoolSize)
         {
             this.memoryPoolSize = memoryPoolSize;

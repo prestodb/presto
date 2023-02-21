@@ -5,6 +5,8 @@ metadata:
     labels:
         containers: dind
 spec:
+    nodeSelector:
+      eks.amazonaws.com/nodegroup: eks-oss-presto-dynamic-managed-ng
     serviceAccountName: oss-agent
     containers:
     - name: dind

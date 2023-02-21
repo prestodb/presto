@@ -123,7 +123,7 @@ public class PushdownSubfields
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
+            this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
             this.expressionOptimizer = new RowExpressionOptimizer(metadata);
             this.subfieldExtractor = new SubfieldExtractor(functionResolution, expressionOptimizer, session.toConnectorSession());
         }

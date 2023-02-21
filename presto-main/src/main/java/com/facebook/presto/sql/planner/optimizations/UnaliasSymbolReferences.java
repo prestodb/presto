@@ -259,8 +259,10 @@ public class UnaliasSymbolReferences
                     frame.getType(),
                     frame.getStartType(),
                     canonicalize(frame.getStartValue()),
+                    canonicalize(frame.getSortKeyCoercedForFrameStartComparison()),
                     frame.getEndType(),
                     canonicalize(frame.getEndValue()),
+                    canonicalize(frame.getSortKeyCoercedForFrameEndComparison()),
                     frame.getOriginalStartValue(),
                     frame.getOriginalEndValue());
         }
@@ -383,7 +385,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
         {
-            return new DistinctLimitNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctVariables()), canonicalize(node.getHashVariable()));
+            return new DistinctLimitNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctVariables()), canonicalize(node.getHashVariable()), node.getTimeoutMillis());
         }
 
         @Override

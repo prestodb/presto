@@ -36,6 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.testing.TestngUtils.toDataProvider;
@@ -121,7 +122,7 @@ public abstract class AbstractCostBasedPlanTest
         String sql = query.replaceAll("\\s+;\\s+$", "")
                 .replace("${database}.${schema}.", "")
                 .replace("\"${database}\".\"${schema}\".\"${prefix}", "\"");
-        Plan plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false);
+        Plan plan = plan(sql, OPTIMIZED_AND_VALIDATED, false);
 
         JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter();
         plan.getRoot().accept(joinOrderPrinter, 0);

@@ -38,7 +38,7 @@ public class TestResourceGroupIntegration
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            getResourceGroupManager(queryRunner).setConfigurationManager("file", ImmutableMap.of(
+            getResourceGroupManager(queryRunner).forceSetConfigurationManager("file", ImmutableMap.of(
                     "resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json")));
 
             queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
@@ -53,7 +53,7 @@ public class TestResourceGroupIntegration
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             InternalResourceGroupManager<?> manager = getResourceGroupManager(queryRunner);
-            manager.setConfigurationManager("file", ImmutableMap.of(
+            manager.forceSetConfigurationManager("file", ImmutableMap.of(
                     "resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
             queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").setSource("dashboard-foo").build(), "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");

@@ -28,6 +28,8 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY;
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_WITH_SUBFIELDS;
+import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
+import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -38,6 +40,46 @@ import static org.testng.Assert.assertEquals;
 public class TestColumnAndSubfieldAnalyzer
         extends AbstractAnalyzerTest
 {
+    @Test
+    public void testCardinality()
+    {
+        assertTableColumns(
+                "SELECT cardinality(a) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of()));
+
+        assertTableColumns(
+                "SELECT transform(b.x, yo -> cardinality(yo)) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of()));
+    }
+
+    @Test
+    public void testTransform()
+    {
+        assertTableColumns(
+                "SELECT transform(a, yo -> yo.x + yo.y) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of("a.x", "a.y")));
+        assertTableColumns(
+                "SELECT transform(a, yo -> yo) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of("a")));
+        assertTableColumns(
+                "SELECT transform(c.x, yo -> yo.x) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of("c.x.x")));
+        assertTableColumns(
+                "SELECT transform(c.x, yo -> yo[1]) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of("c.x.x")));
+        assertTableColumns(
+                "SELECT transform(b.x, yo -> transform(yo, yoo -> yoo.y)) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of("b.x.y")));
+        assertTableColumns(
+                "SELECT transform(tbl.b.x, yo -> transform(yo, yoo -> yoo.y)) FROM tpch.s1.t11 tbl",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of("b.x.y")));
+
+        // We only parse lambda in transform, when first expression is simple
+        assertTableColumns(
+                "SELECT transform(reverse(a), yo -> yo.x + yo.y) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of("a")));
+    }
+
     @Test
     public void testSelect()
     {
@@ -156,7 +198,8 @@ public class TestColumnAndSubfieldAnalyzer
                     Statement statement = SQL_PARSER.createStatement(query);
                     Analysis analysis = analyzer.analyze(statement);
                     assertEquals(
-                            analysis.getTableColumnAndSubfieldReferencesForAccessControl(session).values().stream().findFirst().get().entrySet().stream()
+                            analysis.getTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session))
+                                    .values().stream().findFirst().get().entrySet().stream()
                                     .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().stream().map(Subfield::toString).collect(toImmutableSet()))),
                             expected);
                 });

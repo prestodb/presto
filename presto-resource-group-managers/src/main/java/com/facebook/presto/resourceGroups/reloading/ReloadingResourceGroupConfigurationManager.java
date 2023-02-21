@@ -57,6 +57,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -270,13 +271,16 @@ public class ReloadingResourceGroupConfigurationManager
 
     private ResourceGroup getRootGroup(ResourceGroupId groupId)
     {
-        Optional<ResourceGroupId> parent = groupId.getParent();
+        ResourceGroupId current = groupId;
+        Optional<ResourceGroupId> parent = current.getParent();
         while (parent.isPresent()) {
-            groupId = parent.get();
-            parent = groupId.getParent();
+            current = parent.get();
+            parent = current.getParent();
         }
-        // GroupId is guaranteed to be in groups: it is added before the first call to this method in configure()
-        return groups.get(groupId);
+
+        ResourceGroup rootResourceGroup = groups.get(current);
+        checkState(rootResourceGroup != null, "%s is missing in the groups map for groupId %s", current, groupId);
+        return rootResourceGroup;
     }
 
     private void checkMaxRefreshInterval()

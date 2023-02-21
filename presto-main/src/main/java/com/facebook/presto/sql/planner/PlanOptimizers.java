@@ -145,6 +145,7 @@ import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
 import com.facebook.presto.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
+import com.facebook.presto.sql.planner.optimizations.PrefilterForLimitingAggregation;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.PushdownSubfields;
 import com.facebook.presto.sql.planner.optimizations.RandomizeNullKeyInOuterJoin;
@@ -303,6 +304,7 @@ public class PlanOptimizers
                 new RewriteCaseExpressionPredicate(metadata.getFunctionAndTypeManager()).rules());
 
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser));
+        PlanOptimizer prefilterForLimitingAggregation = new StatsRecordingPlanOptimizer(optimizerStats, new PrefilterForLimitingAggregation(metadata));
 
         builder.add(
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
@@ -424,11 +426,13 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new PullConstantsAboveGroupBy())));
+                        ImmutableSet.of(
+                                new PullConstantsAboveGroupBy())));
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
-        builder.add(new IterativeOptimizer(
+        builder.add(
+                new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
                 costCalculator,
@@ -473,7 +477,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        Optional.of(new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager()))),
+                        Optional.of(new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()))),
                         ImmutableSet.of(
                                 new RemoveRedundantDistinct(),
                                 new RemoveRedundantTopN(),
@@ -496,6 +500,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new SimplifyCountOverConstant(metadata.getFunctionAndTypeManager()))),
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
+                prefilterForLimitingAggregation,
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -607,7 +612,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                Optional.of(new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager()))),
+                Optional.of(new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()))),
                 ImmutableSet.of(
                         new TransformDistinctInnerJoinToLeftEarlyOutJoin(),
                         new TransformDistinctInnerJoinToRightEarlyOutJoin(),

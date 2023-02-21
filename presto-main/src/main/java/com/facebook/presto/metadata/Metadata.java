@@ -28,12 +28,12 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
-import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -70,11 +70,6 @@ public interface Metadata
     void registerBuiltInFunctions(List<? extends SqlFunction> functions);
 
     List<String> listSchemaNames(Session session, String catalogName);
-
-    /**
-     * Returns a table handle for the specified table name.
-     */
-    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName);
 
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
@@ -367,11 +362,6 @@ public interface Metadata
     void dropMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
-     * Get Materialized view status
-     */
-    MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain);
-
-    /**
      * Begin refresh materialized view
      */
     InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle);
@@ -466,6 +456,7 @@ public interface Metadata
 
     MetadataUpdates getMetadataUpdateResults(Session session, QueryManager queryManager, MetadataUpdates metadataUpdates, QueryId queryId);
 
+    // TODO: metadata should not provide FunctionAndTypeManager
     FunctionAndTypeManager getFunctionAndTypeManager();
 
     ProcedureRegistry getProcedureRegistry();

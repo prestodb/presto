@@ -22,6 +22,13 @@
 namespace facebook::presto::operators {
 
 /// LocalShuffleInfo can be used for both READ and WRITE.
+/// This struct is a 1:1 strict API mapping to
+/// presto-spark-base/src/main/java/com/facebook/presto/spark/execution/PrestoSparkLocalShuffleWriteInfo.java
+/// and
+/// presto-spark-base/src/main/java/com/facebook/presto/spark/execution/PrestoSparkLocalShuffleReadInfo.java.
+/// Please refrain changes to this API class. If any changes have to be made to
+/// this struct, one should make sure to make corresponding changes in the above
+/// Java classes and its corresponding serde functionalities.
 struct LocalShuffleInfo {
   std::string rootPath;
   uint32_t numPartitions;

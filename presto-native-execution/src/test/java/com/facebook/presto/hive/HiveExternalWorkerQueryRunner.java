@@ -84,8 +84,7 @@ public class HiveExternalWorkerQueryRunner
                         ImmutableMap.of(
                                 "parse-decimal-literals-as-double", "true",
                                 "regex-library", "RE2J",
-                                "offset-clause-enabled", "true",
-                                "deprecated.legacy-date-timestamp-to-varchar-coercion", "true"),
+                                "offset-clause-enabled", "true"),
                         "sql-standard",
                         ImmutableMap.of(
                                 "hive.storage-format", "DWRF",

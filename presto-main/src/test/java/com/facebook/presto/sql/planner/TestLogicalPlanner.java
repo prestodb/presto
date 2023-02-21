@@ -77,9 +77,9 @@ import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.TestExpressionInterpreter.SQUARE_UDF_CPP;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
-import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -1680,5 +1680,11 @@ public class TestLogicalPlanner
                         project(
                                 ImmutableMap.of("out", expression("json.f3.square(orderkey)")),
                                 tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))));
+    }
+
+    @Test
+    public void testDuplicateUnnestItem()
+    {
+        assertPlanSucceeded("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(array[2, 3], ARRAY[2, 3]) AS r(r1, r2)", this.getQueryRunner().getDefaultSession());
     }
 }

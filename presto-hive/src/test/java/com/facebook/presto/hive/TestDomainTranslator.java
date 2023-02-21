@@ -109,7 +109,7 @@ public class TestDomainTranslator
         metadata = createTestMetadataManager();
         domainTranslator = new RowExpressionDomainTranslator(metadata);
         columnExtractor = new SubfieldExtractor(
-                new FunctionResolution(metadata.getFunctionAndTypeManager()),
+                new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
                 TEST_EXPRESSION_OPTIMIZER,
                 new TestingConnectorSession(
                         new HiveSessionProperties(
@@ -173,7 +173,7 @@ public class TestDomainTranslator
 
     private RowExpression not(RowExpression expression)
     {
-        return call("not", new FunctionResolution(metadata.getFunctionAndTypeManager()).notFunction(), BOOLEAN, expression);
+        return call("not", new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()).notFunction(), BOOLEAN, expression);
     }
 
     private RowExpression arraySubscript(RowExpression arrayExpression, int index)

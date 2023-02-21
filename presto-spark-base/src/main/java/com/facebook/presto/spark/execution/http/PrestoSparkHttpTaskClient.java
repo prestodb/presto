@@ -31,6 +31,7 @@ import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.RpcShuffleClient;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.spark.execution.BatchTaskUpdateRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -53,6 +54,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -71,7 +73,7 @@ public class PrestoSparkHttpTaskClient
     private final TaskId taskId;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<PlanFragment> planFragmentCodec;
-    private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration infoRefreshMaxWait;
 
     public PrestoSparkHttpTaskClient(
@@ -80,7 +82,7 @@ public class PrestoSparkHttpTaskClient
             URI location,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
-            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec,
             Duration infoRefreshMaxWait)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -171,6 +173,7 @@ public class PrestoSparkHttpTaskClient
             List<TaskSource> sources,
             PlanFragment planFragment,
             TableWriteInfo tableWriteInfo,
+            Optional<String> shuffleWriteInfo,
             Session session,
             OutputBuffers outputBuffers)
     {
@@ -183,11 +186,16 @@ public class PrestoSparkHttpTaskClient
                 sources,
                 outputBuffers,
                 writeInfo);
+        BatchTaskUpdateRequest batchTaskUpdateRequest = new BatchTaskUpdateRequest(updateRequest, shuffleWriteInfo);
 
+        URI batchTaskUri = uriBuilderFrom(taskUri)
+                .appendPath("batch")
+                .build();
+        log.info(format("BatchTaskUpdate: \n %s", taskUpdateRequestCodec.toJson(batchTaskUpdateRequest)));
         return httpClient.executeAsync(
                 setContentTypeHeaders(false, preparePost())
-                        .setUri(taskUri)
-                        .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestCodec.toBytes(updateRequest)))
+                        .setUri(batchTaskUri)
+                        .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestCodec.toBytes(batchTaskUpdateRequest)))
                         .build(),
                 createAdaptingJsonResponseHandler(taskInfoCodec));
     }

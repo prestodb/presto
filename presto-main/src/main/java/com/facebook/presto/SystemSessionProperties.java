@@ -131,6 +131,7 @@ public final class SystemSessionProperties
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
     public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
+    public static final String TOPN_SPILL_ENABLED = "topn_spill_enabled";
     public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
     public static final String DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED = "dedup_based_distinct_aggregation_spill_enabled";
     public static final String DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED = "distinct_aggregation_large_block_spill_enabled";
@@ -139,6 +140,7 @@ public final class SystemSessionProperties
     public static final String WINDOW_SPILL_ENABLED = "window_spill_enabled";
     public static final String ORDER_BY_SPILL_ENABLED = "order_by_spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
+    public static final String TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT = "topn_operator_unspill_memory_limit";
     public static final String QUERY_MAX_REVOCABLE_MEMORY_PER_NODE = "query_max_revocable_memory_per_node";
     public static final String TEMP_STORAGE_SPILLER_BUFFER_SIZE = "temp_storage_spiller_buffer_size";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
@@ -212,6 +214,7 @@ public final class SystemSessionProperties
     public static final String SPOOLING_OUTPUT_BUFFER_ENABLED = "spooling_output_buffer_enabled";
     public static final String SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED = "spark_assign_bucket_to_partition_for_partitioned_table_write_enabled";
     public static final String LOG_FORMATTED_QUERY_ENABLED = "log_formatted_query_enabled";
+    public static final String LOG_INVOKED_FUNCTION_NAMES_ENABLED = "log_invoked_function_names_enabled";
     public static final String QUERY_RETRY_LIMIT = "query_retry_limit";
     public static final String QUERY_RETRY_MAX_EXECUTION_TIME = "query_retry_max_execution_time";
     public static final String PARTIAL_RESULTS_ENABLED = "partial_results_enabled";
@@ -249,6 +252,8 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED = "optimize_conditional_aggregation_enabled";
     public static final String ANALYZER_TYPE = "analyzer_type";
     public static final String REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED = "remove_redundant_distinct_aggregation_enabled";
+    public static final String PREFILTER_FOR_GROUPBY_LIMIT = "prefilter_for_groupby_limit";
+    public static final String PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS = "prefilter_for_groupby_limit_timeout_ms";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -690,6 +695,11 @@ public final class SystemSessionProperties
                         featuresConfig.isAggregationSpillEnabled(),
                         false),
                 booleanProperty(
+                        TOPN_SPILL_ENABLED,
+                        "Enable topN spilling if spill_enabled",
+                        featuresConfig.isTopNSpillEnabled(),
+                        false),
+                booleanProperty(
                         DISTINCT_AGGREGATION_SPILL_ENABLED,
                         "Enable spill for distinct aggregations if spill_enabled and aggregation_spill_enabled",
                         featuresConfig.isDistinctAggregationSpillEnabled(),
@@ -734,6 +744,15 @@ public final class SystemSessionProperties
                         VARCHAR,
                         DataSize.class,
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
+                        false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                new PropertyMetadata<>(
+                        TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT,
+                        "How much memory can should be allocated per topN operator in unspilling process",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getTopNOperatorUnspillMemoryLimit(),
                         false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
@@ -1170,6 +1189,11 @@ public final class SystemSessionProperties
                         "Log formatted prepared query instead of raw query when enabled",
                         featuresConfig.isLogFormattedQueryEnabled(),
                         false),
+                booleanProperty(
+                        LOG_INVOKED_FUNCTION_NAMES_ENABLED,
+                        "Log the names of the functions invoked by the query when enabled.",
+                        featuresConfig.isLogInvokedFunctionNamesEnabled(),
+                        false),
                 new PropertyMetadata<>(
                         QUERY_RETRY_LIMIT,
                         "Query retry limit due to communication failures",
@@ -1410,6 +1434,16 @@ public final class SystemSessionProperties
                         PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD,
                         "Byte reduction ratio threshold at which to disable pushdown of aggregation below inner join",
                         featuresConfig.getPushAggregationBelowJoinByteReductionThreshold(),
+                        false),
+                booleanProperty(
+                        PREFILTER_FOR_GROUPBY_LIMIT,
+                        "Prefilter aggregation source for queries that have aggregations on simple tables with filters",
+                        featuresConfig.isPrefilterForGroupbyLimit(),
+                        false),
+                integerProperty(
+                        PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS,
+                        "Timeout for finding the LIMIT number of keys for group by",
+                        10000,
                         false));
     }
 
@@ -1762,6 +1796,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(AGGREGATION_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
+    public static boolean isTopNSpillEnabled(Session session)
+    {
+        return session.getSystemProperty(TOPN_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
+    }
+
     public static boolean isDistinctAggregationSpillEnabled(Session session)
     {
         return session.getSystemProperty(DISTINCT_AGGREGATION_SPILL_ENABLED, Boolean.class) && isAggregationSpillEnabled(session);
@@ -1802,6 +1841,13 @@ public final class SystemSessionProperties
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
         checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return memoryLimitForMerge;
+    }
+
+    public static DataSize getTopNOperatorUnspillMemoryLimit(Session session)
+    {
+        DataSize unspillMemoryLimit = session.getSystemProperty(TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
+        checkArgument(unspillMemoryLimit.toBytes() >= 0, "%s must be positive", TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT);
+        return unspillMemoryLimit;
     }
 
     public static DataSize getQueryMaxRevocableMemoryPerNode(Session session)
@@ -2196,6 +2242,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(LOG_FORMATTED_QUERY_ENABLED, Boolean.class);
     }
 
+    public static boolean isLogInvokedFunctionNamesEnabled(Session session)
+    {
+        return session.getSystemProperty(LOG_INVOKED_FUNCTION_NAMES_ENABLED, Boolean.class);
+    }
+
     public static int getQueryRetryLimit(Session session)
     {
         return session.getSystemProperty(QUERY_RETRY_LIMIT, Integer.class);
@@ -2361,6 +2412,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED, Boolean.class);
     }
 
+    public static boolean isPrefilterForGroupbyLimit(Session session)
+    {
+        return session.getSystemProperty(PREFILTER_FOR_GROUPBY_LIMIT, Boolean.class);
+    }
+
     public static boolean isInPredicatesAsInnerJoinsEnabled(Session session)
     {
         return session.getSystemProperty(IN_PREDICATES_AS_INNER_JOINS_ENABLED, Boolean.class);
@@ -2369,5 +2425,10 @@ public final class SystemSessionProperties
     public static double getPushAggregationBelowJoinByteReductionThreshold(Session session)
     {
         return session.getSystemProperty(PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD, Double.class);
+    }
+
+    public static int getPrefilterForGroupbyLimitTimeoutMS(Session session)
+    {
+        return session.getSystemProperty(PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS, Integer.class);
     }
 }

@@ -55,7 +55,9 @@ public class TestPruneUnreferencedOutputs
                 RANGE,
                 UNBOUNDED_PRECEDING,
                 Optional.empty(),
+                Optional.empty(),
                 UNBOUNDED_FOLLOWING,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

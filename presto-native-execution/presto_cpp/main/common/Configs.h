@@ -76,6 +76,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPrestoVersion{"presto.version"};
   static constexpr std::string_view kHttpServerHttpPort{
       "http-server.http.port"};
+  // This option allows a port closed in TIME_WAIT state to be reused
+  // immediately upon worker startup. This property is mainly used by batch
+  // processing. For interactive query, the worker uses a dynamic port upon
+  // startup.
+  static constexpr std::string_view kHttpServerReusePort{
+      "http-server.reuse-port"};
   static constexpr std::string_view kDiscoveryUri{"discovery.uri"};
   static constexpr std::string_view kMaxDriversPerTask{
       "task.max-drivers-per-task"};
@@ -95,6 +101,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kUseMmapArena{"use-mmap-arena"};
   static constexpr std::string_view kMmapArenaCapacityRatio{
       "mmap-arena-capacity-ratio"};
+  static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
   static constexpr std::string_view kEnableVeloxTaskLogging{
       "enable_velox_task_logging"};
   static constexpr std::string_view kEnableVeloxExprSetLogging{
@@ -106,6 +113,7 @@ class SystemConfig : public ConfigBase {
   // Setting the default maximum drivers per task to this value will
   // provide a better off-shelf experience.
   static constexpr int32_t kMaxDriversPerTaskDefault = 16;
+  static constexpr bool kHttpServerReusePortDefault = false;
   static constexpr int32_t kConcurrentLifespansPerTaskDefault = 1;
   static constexpr int32_t kHttpExecThreadsDefault = 8;
   static constexpr int32_t kNumIoThreadsDefault = 30;
@@ -121,10 +129,13 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kEnableVeloxTaskLoggingDefault = false;
   static constexpr bool kEnableVeloxExprSetLoggingDefault = false;
   static constexpr bool kUseMmapArenaDefault = false;
+  static constexpr bool kUseMmapAllocatorDefault{true};
 
   static SystemConfig* instance();
 
   int httpServerHttpPort() const;
+
+  bool httpServerReusePort() const;
 
   std::string prestoVersion() const;
 
@@ -163,6 +174,8 @@ class SystemConfig : public ConfigBase {
   bool useMmapArena() const;
 
   int32_t mmapArenaCapacityRatio() const;
+
+  bool useMmapAllocator() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

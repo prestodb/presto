@@ -422,6 +422,12 @@ public class PruneUnreferencedOutputs
                 if (frame.getEndValue().isPresent()) {
                     expectedInputs.add(frame.getEndValue().get());
                 }
+                if (frame.getSortKeyCoercedForFrameStartComparison().isPresent()) {
+                    expectedInputs.add(frame.getSortKeyCoercedForFrameStartComparison().get());
+                }
+                if (frame.getSortKeyCoercedForFrameEndComparison().isPresent()) {
+                    expectedInputs.add(frame.getSortKeyCoercedForFrameEndComparison().get());
+                }
             }
 
             if (node.getHashVariable().isPresent()) {
@@ -621,7 +627,7 @@ public class PruneUnreferencedOutputs
                 expectedInputs = ImmutableSet.copyOf(node.getDistinctVariables());
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
-            return new DistinctLimitNode(node.getSourceLocation(), node.getId(), source, node.getLimit(), node.isPartial(), node.getDistinctVariables(), node.getHashVariable());
+            return new DistinctLimitNode(node.getSourceLocation(), node.getId(), source, node.getLimit(), node.isPartial(), node.getDistinctVariables(), node.getHashVariable(), node.getTimeoutMillis());
         }
 
         @Override

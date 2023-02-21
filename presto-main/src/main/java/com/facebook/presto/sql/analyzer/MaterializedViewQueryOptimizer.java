@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
@@ -30,6 +29,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.MaterializedViewUtils;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -143,7 +143,7 @@ public class MaterializedViewQueryOptimizer
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
-                new FunctionResolution(functionAndTypeManager),
+                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
                 functionAndTypeManager);
     }
 
@@ -497,7 +497,7 @@ public class MaterializedViewQueryOptimizer
                 RowExpression rewriteLogicExpression = and(baseQueryWhereCondition,
                         call(baseQueryWhereCondition.getSourceLocation(),
                                 "not",
-                                new FunctionResolution(metadata.getFunctionAndTypeManager()).notFunction(),
+                                new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()).notFunction(),
                                 materializedViewWhereCondition.getType(),
                                 materializedViewWhereCondition));
                 RowExpression disjunctiveNormalForm = logicalRowExpressions.convertToDisjunctiveNormalForm(rewriteLogicExpression);
@@ -758,7 +758,7 @@ public class MaterializedViewQueryOptimizer
                     coercedMaybe,
                     coercedExpressionAnalysis.getExpressionTypes(),
                     ImmutableMap.of(),
-                    metadata.getFunctionAndTypeManager(),
+                    metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                     session);
         }
 
@@ -816,7 +816,7 @@ public class MaterializedViewQueryOptimizer
         {
             QualifiedObjectName baseTableName = createQualifiedObjectName(session, table, table.getName());
 
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, baseTableName);
+            Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(baseTableName);
             if (!tableHandle.isPresent()) {
                 throw new SemanticException(MISSING_TABLE, node, "Table does not exist");
             }
@@ -859,7 +859,7 @@ public class MaterializedViewQueryOptimizer
                 baseQueryDomain = MaterializedViewUtils.getDomainFromFilter(session, domainTranslator, rowExpression);
             }
 
-            return metadata.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
+            return metadataResolver.getMaterializedViewStatus(materializedViewName, baseQueryDomain);
         }
     }
 }

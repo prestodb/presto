@@ -58,7 +58,6 @@ import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.executor.MultilevelSplitQueue;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
-import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
@@ -107,17 +106,22 @@ import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.facebook.presto.spark.execution.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.ForNativeExecutionTask;
 import com.facebook.presto.spark.execution.NativeExecutionProcessFactory;
 import com.facebook.presto.spark.execution.NativeExecutionTaskFactory;
 import com.facebook.presto.spark.execution.PrestoSparkBroadcastTableCacheManager;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
+import com.facebook.presto.spark.execution.PrestoSparkLocalShuffleReadInfo;
+import com.facebook.presto.spark.execution.PrestoSparkLocalShuffleWriteInfo;
 import com.facebook.presto.spark.execution.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
+import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleInfoTranslator;
+import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTranslator;
 import com.facebook.presto.spark.node.PrestoSparkInternalNodeManager;
 import com.facebook.presto.spark.node.PrestoSparkNodePartitioningManager;
 import com.facebook.presto.spark.node.PrestoSparkQueryManager;
@@ -276,6 +280,9 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindListJsonCodec(TaskMemoryReservationSummary.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(ServerInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(PrestoSparkLocalShuffleReadInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(PrestoSparkLocalShuffleWriteInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(BatchTaskUpdateRequest.class);
 
         // smile codecs
         smileCodecBinder(binder).bindSmileCodec(TaskSource.class);
@@ -477,7 +484,6 @@ public class PrestoSparkModule
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
         binder.bind(new TypeLiteral<ResourceGroupManager<?>>() {}).to(new TypeLiteral<InternalResourceGroupManager<?>>() {});
-        binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
         binder.bind(ClusterMemoryPoolManager.class).toInstance(((poolId, listener) -> {}));
         binder.bind(QueryPrerequisitesManager.class).in(Scopes.SINGLETON);
         binder.bind(ResourceGroupService.class).to(NoopResourceGroupService.class).in(Scopes.SINGLETON);
@@ -499,6 +505,8 @@ public class PrestoSparkModule
         binder.bind(NativeExecutionProcessFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?>>() {}).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
+        binder.bind(PrestoSparkLocalShuffleInfoTranslator.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, new TypeLiteral<PrestoSparkShuffleInfoTranslator>() {}).setDefault().to(PrestoSparkLocalShuffleInfoTranslator.class).in(Scopes.SINGLETON);
         binder.bind(NativeExecutionTaskFactory.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("nativeExecution", ForNativeExecutionTask.class)
                 .withConfigDefaults(config -> {

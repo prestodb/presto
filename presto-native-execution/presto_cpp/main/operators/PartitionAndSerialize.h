@@ -44,7 +44,6 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
         velox::ROW(
             {"partition", "data"}, {velox::INTEGER(), velox::VARBINARY()})
             ->equivalent(*outputType_));
-    VELOX_USER_CHECK(!keys_.empty(), "Empty partition keys");
     VELOX_USER_CHECK_NOT_NULL(
         partitionFunctionFactory_,
         "Partition function factory cannot be null.");

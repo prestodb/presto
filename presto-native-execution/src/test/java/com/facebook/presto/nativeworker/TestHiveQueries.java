@@ -154,6 +154,9 @@ abstract class TestHiveQueries
         // Double and float inequality filter
         assertQuery("SELECT SUM(discount) FROM lineitem WHERE discount != 0.04");
         assertQuery("SELECT SUM(discount_as_real) FROM lineitem WHERE discount_as_real != cast(0.1 as REAL)");
+
+        // When else clause is a null constant with Map type.
+        assertQuery("SELECT if(orderkey % 2 = 0, quantity_by_linenumber) FROM orders_ex");
     }
 
     @Test
@@ -222,6 +225,12 @@ abstract class TestHiveQueries
         assertQuery("SELECT try_cast(linenumber as TINYINT), try_cast(linenumber AS SMALLINT), "
                 + "try_cast(linenumber AS INTEGER), try_cast(linenumber AS BIGINT), try_cast(quantity AS REAL), "
                 + "try_cast(orderkey AS DOUBLE), try_cast(orderkey AS VARCHAR) FROM lineitem");
+
+        // Casts to varbinary.
+        assertQuery("SELECT cast(null as varbinary)");
+        assertQuery("SELECT cast('' as varbinary)");
+        assertQuery("SELECT cast('string_longer_than_12_characters' as varbinary)");
+        assertQuery("SELECT cast(comment as varbinary) from orders");
 
         // Some values are too large and would trigger "Out of range for tinyint" for a regular cast.
         assertQuery("SELECT try_cast(orderkey as TINYINT) FROM lineitem");
@@ -505,6 +514,39 @@ abstract class TestHiveQueries
     }
 
     @Test
+    public void testBinaryFunctions()
+    {
+        // crc32.
+        assertQuery("SELECT crc32(cast(comment as varbinary)) FROM orders");
+
+        // from_base64, to_base64.
+        assertQuery("SELECT from_base64(to_base64(cast(comment as varbinary))) FROM orders");
+
+        // from_hex, to_hex.
+        assertQuery("SELECT from_hex(to_hex(cast(comment as varbinary))) FROM orders");
+
+        // hmac_sha1, hmac_sha256, hmac_sha512.
+        assertQuery("SELECT hmac_sha1(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
+        assertQuery("SELECT hmac_sha256(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
+        assertQuery("SELECT hmac_sha512(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
+
+        // md5.
+        assertQuery("SELECT md5(cast(comment as varbinary)) FROM orders");
+
+        // sha1, sha256, sha512.
+        assertQuery("SELECT sha1(cast(comment as varbinary)) FROM orders");
+        assertQuery("SELECT sha256(cast(comment as varbinary)) FROM orders");
+        assertQuery("SELECT sha512(cast(comment as varbinary)) FROM orders");
+
+        // spooky_hash_v2_32, spooky_hash_v2_64.
+        assertQuery("SELECT spooky_hash_v2_32(cast(comment as varbinary)) FROM orders");
+        assertQuery("SELECT spooky_hash_v2_64(cast(comment as varbinary)) FROM orders");
+
+        // xxhash64.
+        assertQuery("SELECT xxhash64(cast(comment as varbinary)) FROM orders");
+    }
+
+    @Test
     public void testArrayAndMapFunctions()
     {
         assertQuery("SELECT array[orderkey, partkey] FROM lineitem");
@@ -537,8 +579,8 @@ abstract class TestHiveQueries
     @Test
     public void testWidthBucket()
     {
-        assertQuery("SELECT width_bucket(to_unixtime(ds), array[1609487900, 1619740800, 1622419200]) FROM customer_bucketed");
-        assertQuery("SELECT width_bucket(to_unixtime(ds), array[1609487900.1, 1619740800.2, 1622419200.3]) FROM customer_bucketed");
+        assertQuery("SELECT width_bucket(to_unixtime(cast(ds as timestamp)), array[1609487900, 1619740800, 1622419200]) FROM customer_bucketed");
+        assertQuery("SELECT width_bucket(to_unixtime(cast(ds as timestamp)), array[1609487900.1, 1619740800.2, 1622419200.3]) FROM customer_bucketed");
     }
 
     @Test

@@ -41,6 +41,7 @@ public class TestProperties
                 .setEnableSerializedPageChecksum(true)
                 .setEnableVeloxExpressionLogging(false)
                 .setEnableVeloxTaskLogging(true)
+                .setHttpServerReusePort(true)
                 .setHttpServerPort(7777)
                 .setHttpExecThreads(32)
                 .setNumIoThreads(30)
@@ -49,7 +50,8 @@ public class TestProperties
                 .setConcurrentLifespansPerTask(5)
                 .setMaxDriversPerTask(15)
                 .setPrestoVersion("dummy.presto.version")
-                .setDiscoveryUri("http://127.0.0.1"));
+                .setDiscoveryUri("http://127.0.0.1")
+                .setShuffleName("local"));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionSystemConfig expected = new NativeExecutionSystemConfig()
@@ -57,6 +59,7 @@ public class TestProperties
                 .setEnableSerializedPageChecksum(false)
                 .setEnableVeloxExpressionLogging(true)
                 .setEnableVeloxTaskLogging(false)
+                .setHttpServerReusePort(false)
                 .setHttpServerPort(8080)
                 .setHttpExecThreads(256)
                 .setNumIoThreads(50)
@@ -64,7 +67,8 @@ public class TestProperties
                 .setShutdownOnsetSec(30)
                 .setSystemMemoryGb(40)
                 .setMaxDriversPerTask(30)
-                .setDiscoveryUri("http://127.0.8.1");
+                .setDiscoveryUri("http://127.0.8.1")
+                .setShuffleName("custom");
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);
     }

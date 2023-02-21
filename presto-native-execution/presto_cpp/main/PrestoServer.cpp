@@ -31,7 +31,6 @@
 #include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
-#include "presto_cpp/presto_protocol/WriteProtocol.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/SsdCache.h"
@@ -150,10 +149,9 @@ void PrestoServer::run() {
   registerFileSystems();
   registerOptionalHiveStorageAdapters();
   registerShuffleInterfaceFactories();
+  registerCustomOperators();
   protocol::registerHiveConnectors();
   protocol::registerTpchConnector();
-  protocol::HiveNoCommitWriteProtocol::registerProtocol();
-  protocol::HiveTaskCommitWriteProtocol::registerProtocol();
 
   auto executor = std::make_shared<folly::IOThreadPoolExecutor>(
       systemConfig->numIoThreads(),
@@ -237,9 +235,7 @@ void PrestoServer::run() {
   velox::functions::prestosql::registerAllScalarFunctions();
   velox::aggregate::prestosql::registerAllAggregateFunctions();
   velox::window::prestosql::registerAllWindowFunctions();
-  if (!velox::isRegisteredVectorSerde()) {
-    velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
-  }
+  registerVectorSerdes();
 
   facebook::velox::exec::ExchangeSource::registerFactory(
       PrestoExchangeSource::createExchangeSource);
@@ -248,7 +244,8 @@ void PrestoServer::run() {
 
   velox::dwrf::registerDwrfReaderFactory();
 #ifdef PRESTO_ENABLE_PARQUET
-  velox::parquet::registerParquetReaderFactory();
+  velox::parquet::registerParquetReaderFactory(
+      velox::parquet::ParquetReaderType::NATIVE);
 #endif
 
   taskManager_ = std::make_unique<TaskManager>(
@@ -261,7 +258,7 @@ void PrestoServer::run() {
   }
 
   if (systemConfig->enableVeloxTaskLogging()) {
-    if (auto listener = getTaskListiner()) {
+    if (auto listener = getTaskListener()) {
       exec::registerTaskListener(listener);
     }
   }
@@ -340,7 +337,7 @@ void PrestoServer::initializeAsyncCache() {
       [&]() { return systemConfig->systemMemoryGb(); });
   LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
   std::unique_ptr<cache::SsdCache> ssd;
-  auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
+  const auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
   if (asyncCacheSsdGb) {
     constexpr int32_t kNumSsdShards = 16;
     cacheExecutor_ =
@@ -351,17 +348,21 @@ void PrestoServer::initializeAsyncCache() {
         kNumSsdShards,
         cacheExecutor_.get());
   }
-  auto memoryBytes = memoryGb << 30;
+  const auto memoryBytes = memoryGb << 30;
 
-  memory::MmapAllocator::Options options;
-  options.capacity = memoryBytes;
-  options.useMmapArena = systemConfig->useMmapArena();
-  options.mmapArenaCapacityRatio = systemConfig->mmapArenaCapacityRatio();
-
-  auto allocator = std::make_shared<memory::MmapAllocator>(options);
-  allocator_ = std::make_shared<cache::AsyncDataCache>(
+  std::shared_ptr<memory::MemoryAllocator> allocator;
+  if (systemConfig->useMmapAllocator()) {
+    memory::MmapAllocator::Options options;
+    options.capacity = memoryBytes;
+    options.useMmapArena = systemConfig->useMmapArena();
+    options.mmapArenaCapacityRatio = systemConfig->mmapArenaCapacityRatio();
+    allocator = std::make_shared<memory::MmapAllocator>(options);
+  } else {
+    allocator = memory::MemoryAllocator::createDefaultInstance();
+  }
+  cache_ = std::make_shared<cache::AsyncDataCache>(
       allocator, memoryBytes, std::move(ssd));
-  memory::MemoryAllocator::setDefaultInstance(allocator_.get());
+  memory::MemoryAllocator::setDefaultInstance(cache_.get());
 }
 
 void PrestoServer::stop() {
@@ -415,7 +416,7 @@ std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
   }
 }
 
-std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListiner() {
+std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListener() {
   return nullptr;
 }
 
@@ -479,6 +480,12 @@ void PrestoServer::registerShuffleInterfaceFactories() {
       std::make_unique<operators::LocalPersistentShuffleFactory>());
 }
 
+void PrestoServer::registerVectorSerdes() {
+  if (!velox::isRegisteredVectorSerde()) {
+    velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  }
+}
+
 void PrestoServer::registerFileSystems() {
   velox::filesystems::registerLocalFileSystem();
 }
@@ -487,7 +494,7 @@ std::shared_ptr<velox::connector::Connector> PrestoServer::connectorWithCache(
     const std::string& connectorName,
     const std::string& catalogName,
     std::shared_ptr<const velox::Config> properties) {
-  VELOX_CHECK_NOT_NULL(dynamic_cast<cache::AsyncDataCache*>(allocator_.get()));
+  VELOX_CHECK_NOT_NULL(cache_.get());
   LOG(INFO) << "STARTUP: Using AsyncDataCache";
   return facebook::velox::connector::getConnectorFactory(connectorName)
       ->newConnector(

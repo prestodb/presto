@@ -7,8 +7,8 @@ select
 from
 	orders as o
 where
-	o.orderdate >= date '1993-07-01'
-	and o.orderdate < date '1993-07-01' + interval '3' month
+	o.orderdate >= '1993-07-01'
+	and cast(o.orderdate as date) < date '1993-07-01' + interval '3' month
 	and exists (
 		select
 			*

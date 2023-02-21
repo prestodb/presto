@@ -12,6 +12,8 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/TaskManager.h"
+#include <folly/executors/ThreadedExecutor.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
@@ -34,6 +36,7 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Type.h"
 
+using namespace ::testing;
 using namespace facebook::velox;
 using namespace facebook::presto;
 
@@ -535,6 +538,16 @@ class TaskManagerTest : public testing::Test {
     return spillDirectory;
   }
 
+  std::shared_ptr<exec::Task> createDummyExecTask(
+      const std::string& taskId,
+      const core::PlanFragment& planFragment) {
+    auto queryCtx =
+        taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
+            taskId, {}, {});
+    return std::make_shared<exec::Task>(
+        taskId, planFragment, 0, std::move(queryCtx));
+  }
+
   std::shared_ptr<memory::MemoryPool> pool_;
   RowTypePtr rowType_;
   exec::test::DuckDbQueryRunner duckDbQueryRunner_;
@@ -663,7 +676,10 @@ TEST_F(TaskManagerTest, emptyFile) {
     if (not taskStatus->failures.empty()) {
       EXPECT_EQ(1, taskStatus->failures.size());
       const auto& failure = taskStatus->failures.front();
-      EXPECT_EQ("fileLength_ > 0 ORC file is empty", failure.message);
+      EXPECT_THAT(
+          failure.message,
+          testing::ContainsRegex(
+              "fileLength_ > 0 ORC file is empty Split \\[.*\\] Task scan\\.0\\.0\\.1"));
       EXPECT_EQ("VeloxException", failure.type);
       break;
     }
@@ -841,6 +857,70 @@ TEST_F(TaskManagerTest, buildTaskSpillDirectoryPath) {
   EXPECT_EQ(
       "fsx::/root/1970-01-01/presto_native/Q100/Task22/",
       TaskManager::buildTaskSpillDirectoryPath("fsx::/root", "Q100", "Task22"));
+}
+
+TEST_F(TaskManagerTest, getDataOnAbortedTask) {
+  // Simulate scenario where Driver encountered a VeloxException and terminated
+  // a task, which removes the entry in BufferManager. The main taskmanager
+  // tries to process the resultRequest and calls getData() which must return
+  // false. The resultRequest must be marked incomplete.
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 0")
+                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .planFragment();
+
+  int token = 123;
+  auto scanTaskId = "scan.0.0.1";
+  bool promiseFulfilled = false;
+  auto prestoTask = std::make_shared<PrestoTask>(scanTaskId);
+  auto [promise, f] = folly::makePromiseContract<std::unique_ptr<Result>>();
+  folly::ThreadedExecutor executor;
+  folly::Future<std::unique_ptr<Result>> semiFuture =
+      std::move(f).via(&executor);
+  // Future is invoked when a value is set on the promise.
+  auto future =
+      move(semiFuture)
+          .thenValue([&promiseFulfilled,
+                      token](std::unique_ptr<Result> result) {
+            ASSERT_EQ(result->complete, false);
+            ASSERT_EQ(
+                result->data->capacity(), folly::IOBuf::create(0)->capacity());
+            ASSERT_EQ(result->sequence, token);
+            promiseFulfilled = true;
+          });
+  auto promiseHolder = std::make_shared<PromiseHolder<std::unique_ptr<Result>>>(
+      std::move(promise));
+  auto request = std::make_unique<ResultRequest>();
+  request->promise = folly::to_weak_ptr(promiseHolder);
+  request->taskId = scanTaskId;
+  request->bufferId = 0;
+  request->token = token;
+  request->maxSize = protocol::DataSize("32MB");
+  prestoTask->resultRequests.insert({0, std::move(request)});
+  prestoTask->task = createDummyExecTask(scanTaskId, planFragment);
+  taskManager_->getDataForResultRequests(prestoTask->resultRequests);
+  std::move(future).get();
+  ASSERT_TRUE(promiseFulfilled);
+}
+
+TEST_F(TaskManagerTest, getResultsErrorPropagation) {
+  const protocol::TaskId taskId = "error-task.0.0.0";
+  std::exception e;
+  taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e));
+
+  // We expect the exception type VeloxException to be reserved still.
+  EXPECT_THROW(
+      taskManager_
+          ->getResults(
+              taskId,
+              0,
+              0,
+              protocol::DataSize("32MB"),
+              protocol::Duration("300s"),
+              http::CallbackRequestHandlerState::create())
+          .get(),
+      VeloxException);
 }
 
 // TODO: add disk spilling test for order by and hash join later.

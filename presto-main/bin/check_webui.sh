@@ -8,6 +8,9 @@
 
 set -euo pipefail
 
+# https://stackoverflow.com/questions/69692842/error-message-error0308010cdigital-envelope-routinesunsupported
+export NODE_OPTIONS=--openssl-legacy-provider
+
 WEBUI_ROOT="$(pwd)/${BASH_SOURCE%/*}/../src/main/resources/webapp"
 
 # Fail if running the command to generate the `dist` folder again produces different results.

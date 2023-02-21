@@ -169,7 +169,7 @@ public class PlanPrinter
         this.functionAndTypeManager = functionAndTypeManager;
         this.logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
-                new FunctionResolution(functionAndTypeManager),
+                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
                 functionAndTypeManager);
 
         Optional<Duration> totalCpuTime = stats.map(s -> new Duration(s.values().stream()

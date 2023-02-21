@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.279-SNAPSHOT</version>
+        <version>0.280-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-benchto-benchmarks</artifactId>
@@ -44,6 +44,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 

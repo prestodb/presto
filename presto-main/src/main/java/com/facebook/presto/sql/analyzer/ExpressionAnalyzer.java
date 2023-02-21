@@ -14,12 +14,15 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.FunctionType;
@@ -31,11 +34,8 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.security.DenyAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -44,6 +44,8 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.spi.security.DenyAllAccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -68,6 +70,7 @@ import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.GroupingOperation;
@@ -88,6 +91,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
@@ -104,12 +108,15 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
-import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import io.airlift.slice.SliceUtf8;
 
 import javax.annotation.Nullable;
@@ -124,9 +131,9 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.common.Subfield.NestedField;
-import static com.facebook.presto.common.Subfield.PathElement;
+import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -145,18 +152,24 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
+import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isNonNullConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteralType;
+import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.getResolvedLambdaArguments;
+import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.isTopMostReference;
+import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.isUnusedArgumentForAccessControl;
+import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.resolveSubfield;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDER_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ORDER_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
@@ -165,6 +178,12 @@ import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttribu
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
+import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
+import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.ROWS;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -179,7 +198,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
-import static java.util.Collections.reverse;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -189,7 +207,7 @@ public class ExpressionAnalyzer
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT = 63;
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
 
-    private final FunctionAndTypeManager functionAndTypeManager;
+    private final FunctionAndTypeResolver functionAndTypeResolver;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
     private final TypeProvider symbolTypes;
     private final boolean isDescribe;
@@ -199,6 +217,17 @@ public class ExpressionAnalyzer
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
+
+    // Coercions needed for window function frame of type RANGE.
+    // These are coercions for the sort key, needed for frame bound calculation, identified by frame range offset expression.
+    // Frame definition might contain two different offset expressions (for start and end), each requiring different coercion of the sort key.
+    private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = new LinkedHashMap<>();
+    // Coercions needed for window function frame of type RANGE.
+    // These are coercions for the sort key, needed for comparison of the sort key with precomputed frame bound, identified by frame range offset expression.
+    private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = new LinkedHashMap<>();
+    // Functions for calculating frame bounds for frame of type RANGE, identified by frame range offset expression.
+    private final Map<NodeRef<Expression>, FunctionHandle> frameBoundCalculations = new LinkedHashMap<>();
+
     private final Set<NodeRef<InPredicate>> subqueryInPredicates = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
@@ -207,6 +236,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
     private final Multimap<QualifiedObjectName, Subfield> tableColumnAndSubfieldReferences = HashMultimap.create();
+    private final Multimap<QualifiedObjectName, Subfield> tableColumnAndSubfieldReferencesForAccessControl = HashMultimap.create();
 
     private final Optional<TransactionId> transactionId;
     private final Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions;
@@ -215,7 +245,7 @@ public class ExpressionAnalyzer
     private final WarningCollector warningCollector;
 
     private ExpressionAnalyzer(
-            FunctionAndTypeManager functionAndTypeManager,
+            FunctionAndTypeResolver functionAndTypeResolver,
             Function<Node, StatementAnalyzer> statementAnalyzerFactory,
             Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
             Optional<TransactionId> transactionId,
@@ -225,7 +255,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             boolean isDescribe)
     {
-        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
+        this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
@@ -273,6 +303,21 @@ public class ExpressionAnalyzer
     public Set<NodeRef<Expression>> getTypeOnlyCoercions()
     {
         return unmodifiableSet(typeOnlyCoercions);
+    }
+
+    public Map<NodeRef<Expression>, Type> getSortKeyCoercionsForFrameBoundCalculation()
+    {
+        return unmodifiableMap(sortKeyCoercionsForFrameBoundCalculation);
+    }
+
+    public Map<NodeRef<Expression>, Type> getSortKeyCoercionsForFrameBoundComparison()
+    {
+        return unmodifiableMap(sortKeyCoercionsForFrameBoundComparison);
+    }
+
+    public Map<NodeRef<Expression>, FunctionHandle> getFrameBoundCalculations()
+    {
+        return unmodifiableMap(frameBoundCalculations);
     }
 
     public Set<NodeRef<InPredicate>> getSubqueryInPredicates()
@@ -325,6 +370,11 @@ public class ExpressionAnalyzer
     public Multimap<QualifiedObjectName, Subfield> getTableColumnAndSubfieldReferences()
     {
         return tableColumnAndSubfieldReferences;
+    }
+
+    public Multimap<QualifiedObjectName, Subfield> getTableColumnAndSubfieldReferencesForAccessControl()
+    {
+        return tableColumnAndSubfieldReferencesForAccessControl;
     }
 
     private class Visitor
@@ -427,13 +477,27 @@ public class ExpressionAnalyzer
                 if (lambdaArgumentDeclaration != null) {
                     // Lambda argument reference is not a column reference
                     lambdaArgumentReferences.put(NodeRef.of((Identifier) node), lambdaArgumentDeclaration);
-                    return setExpressionType(node, field.getType());
+                    if (!context.getContext().getResolvedLambdaArguments().containsKey(node)) {
+                        return setExpressionType(node, field.getType());
+                    }
                 }
             }
 
             // If we found a direct column reference, and we will put it in tableColumnReferencesWithSubFields
-            if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent() && isTopMostReference(node, context)) {
-                tableColumnAndSubfieldReferences.put(field.getOriginTable().get(), new Subfield(field.getOriginColumnName().get(), ImmutableList.of()));
+            if (isTopMostReference(node, context)) {
+                Optional<QualifiedObjectName> tableName = field.getOriginTable();
+                Optional<Subfield> subfield = field.getOriginColumnName().map(column -> new Subfield(column, ImmutableList.of()));
+                ResolvedSubfield resolvedSubfield = context.getContext().getResolvedLambdaArguments().get(node);
+                if (resolvedSubfield != null) {
+                    tableName = resolvedSubfield.getResolvedField().getField().getOriginTable();
+                    subfield = Optional.of(resolvedSubfield.getSubfield());
+                }
+                if (tableName.isPresent() && subfield.isPresent()) {
+                    tableColumnAndSubfieldReferences.put(tableName.get(), subfield.get());
+                    if (!context.getContext().getUnusedExpressionsForAccessControl().contains(NodeRef.of(node))) {
+                        tableColumnAndSubfieldReferencesForAccessControl.put(tableName.get(), subfield.get());
+                    }
+                }
             }
 
             FieldId previous = columnReferences.put(NodeRef.of(node), fieldId);
@@ -456,7 +520,7 @@ public class ExpressionAnalyzer
                 }
                 // otherwise, try to match it to an enum literal (eg Mood.HAPPY)
                 if (!scope.isColumnReference(qualifiedName)) {
-                    Optional<TypeWithName> enumType = tryResolveEnumLiteralType(qualifiedName, functionAndTypeManager);
+                    Optional<TypeWithName> enumType = tryResolveEnumLiteralType(qualifiedName, functionAndTypeResolver);
                     if (enumType.isPresent()) {
                         setExpressionType(node.getBase(), enumType.get());
                         return setExpressionType(node, enumType.get());
@@ -549,7 +613,7 @@ public class ExpressionAnalyzer
             Type firstType = process(node.getFirst(), context);
             Type secondType = process(node.getSecond(), context);
 
-            if (!functionAndTypeManager.getCommonSuperType(firstType, secondType).isPresent()) {
+            if (!functionAndTypeResolver.getCommonSuperType(firstType, secondType).isPresent()) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
             }
 
@@ -728,7 +792,7 @@ public class ExpressionAnalyzer
         protected Type visitArrayConstructor(ArrayConstructor node, StackableAstVisitorContext<Context> context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements must be the same type: %s", node.getValues());
-            Type arrayType = functionAndTypeManager.getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.of(type.getTypeSignature())));
+            Type arrayType = functionAndTypeResolver.getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.of(type.getTypeSignature())));
             return setExpressionType(node, arrayType);
         }
 
@@ -786,7 +850,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
@@ -794,7 +858,7 @@ public class ExpressionAnalyzer
 
             if (!JSON.equals(type)) {
                 try {
-                    functionAndTypeManager.lookupCast(CAST, VARCHAR, type);
+                    functionAndTypeResolver.lookupCast("CAST", VARCHAR, type);
                 }
                 catch (IllegalArgumentException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
@@ -809,7 +873,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
@@ -880,7 +944,8 @@ public class ExpressionAnalyzer
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
             if (node.getWindow().isPresent()) {
-                for (Expression expression : node.getWindow().get().getPartitionBy()) {
+                Window window = node.getWindow().get();
+                for (Expression expression : window.getPartitionBy()) {
                     process(expression, context);
                     Type type = getExpressionType(expression);
                     if (!type.isComparable()) {
@@ -888,7 +953,7 @@ public class ExpressionAnalyzer
                     }
                 }
 
-                for (SortItem sortItem : getSortItemsFromOrderBy(node.getWindow().get().getOrderBy())) {
+                for (SortItem sortItem : getSortItemsFromOrderBy(window.getOrderBy())) {
                     process(sortItem.getSortKey(), context);
                     Type type = getExpressionType(sortItem.getSortKey());
                     if (!type.isOrderable()) {
@@ -896,21 +961,37 @@ public class ExpressionAnalyzer
                     }
                 }
 
-                if (node.getWindow().get().getFrame().isPresent()) {
-                    WindowFrame frame = node.getWindow().get().getFrame().get();
+                if (window.getFrame().isPresent()) {
+                    WindowFrame frame = window.getFrame().get();
 
-                    if (frame.getStart().getValue().isPresent()) {
-                        Type type = process(frame.getStart().getValue().get(), context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame start value type must be INTEGER or BIGINT(actual %s)", type);
+                    if (frame.getType() == ROWS) {
+                        if (frame.getStart().getValue().isPresent()) {
+                            Expression startValue = frame.getStart().getValue().get();
+                            Type type = process(startValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw new SemanticException(TYPE_MISMATCH, node, "Window frame ROWS start value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
+                        }
+                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
+                            Expression endValue = frame.getEnd().get().getValue().get();
+                            Type type = process(endValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw new SemanticException(TYPE_MISMATCH, node, "Window frame ROWS end value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
                         }
                     }
-
-                    if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
-                        Type type = process(frame.getEnd().get().getValue().get(), context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
+                    else if (frame.getType() == RANGE) {
+                        if (frame.getStart().getValue().isPresent()) {
+                            Expression startValue = frame.getStart().getValue().get();
+                            analyzeFrameRangeOffset(startValue, frame.getStart().getType(), context, window);
                         }
+                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
+                            Expression endValue = frame.getEnd().get().getValue().get();
+                            analyzeFrameRangeOffset(endValue, frame.getEnd().get().getType(), context, window);
+                        }
+                    }
+                    else {
+                        throw new SemanticException(NOT_SUPPORTED, frame, "Unsupported frame type: " + frame.getType());
                     }
                 }
 
@@ -923,12 +1004,13 @@ public class ExpressionAnalyzer
             }
 
             ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
-            for (Expression expression : node.getArguments()) {
+            for (int index = 0; index < node.getArguments().size(); ++index) {
+                Expression expression = node.getArguments().get(index);
                 if (expression instanceof LambdaExpression || expression instanceof BindExpression) {
                     argumentTypesBuilder.add(new TypeSignatureProvider(
                             types -> {
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
-                                        functionAndTypeManager,
+                                        functionAndTypeResolver,
                                         statementAnalyzerFactory,
                                         sessionFunctions,
                                         transactionId,
@@ -942,22 +1024,30 @@ public class ExpressionAnalyzer
                                         innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
                                     }
                                 }
-                                Type type = innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types));
+                                Type type = innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types, ImmutableMap.of()));
                                 if (expression instanceof LambdaExpression) {
-                                    verifyNoAggregateWindowOrGroupingFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionAndTypeManager, ((LambdaExpression) expression).getBody(), "Lambda expression");
-                                    verifyNoExternalFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionAndTypeManager, ((LambdaExpression) expression).getBody(), "Lambda expression");
+                                    verifyNoAggregateWindowOrGroupingFunctions(
+                                            innerExpressionAnalyzer.getResolvedFunctions(),
+                                            functionAndTypeResolver,
+                                            ((LambdaExpression) expression).getBody(),
+                                            "Lambda expression");
+                                    verifyNoExternalFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionAndTypeResolver, ((LambdaExpression) expression).getBody(), "Lambda expression");
                                 }
                                 return type.getTypeSignature();
                             }));
                 }
                 else {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(process(expression, context).getTypeSignature()));
+                    Context newContext = context.getContext();
+                    if (isUnusedArgumentForAccessControl(node, index, context.getContext())) {
+                        newContext = newContext.withUnusedExpressionsForAccessControl(ImmutableSet.of(NodeRef.of(expression)));
+                    }
+                    argumentTypesBuilder.add(new TypeSignatureProvider(process(expression, new StackableAstVisitorContext<>(newContext)).getTypeSignature()));
                 }
             }
 
             ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
-            FunctionHandle function = resolveFunction(sessionFunctions, transactionId, node, argumentTypes, functionAndTypeManager);
-            FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(function);
+            FunctionHandle function = resolveFunction(sessionFunctions, transactionId, node, argumentTypes, functionAndTypeResolver);
+            FunctionMetadata functionMetadata = functionAndTypeResolver.getFunctionMetadata(function);
 
             if (node.getOrderBy().isPresent()) {
                 for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
@@ -968,19 +1058,21 @@ public class ExpressionAnalyzer
                 }
             }
 
+            Map<Identifier, ResolvedSubfield> resolvedLambdaArguments = getResolvedLambdaArguments(node, context, expressionTypes);
+
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
-                Type expectedType = functionAndTypeManager.getType(functionMetadata.getArgumentTypes().get(i));
+                Type expectedType = functionAndTypeResolver.getType(functionMetadata.getArgumentTypes().get(i));
                 requireNonNull(expectedType, format("Type %s not found", functionMetadata.getArgumentTypes().get(i)));
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }
                 if (argumentTypes.get(i).hasDependency()) {
                     FunctionType expectedFunctionType = (FunctionType) expectedType;
-                    process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes())));
+                    process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes(), resolvedLambdaArguments)));
                 }
                 else {
-                    Type actualType = functionAndTypeManager.getType(argumentTypes.get(i).getTypeSignature());
+                    Type actualType = functionAndTypeResolver.getType(argumentTypes.get(i).getTypeSignature());
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
@@ -995,7 +1087,7 @@ public class ExpressionAnalyzer
                 }
             }
 
-            Type type = functionAndTypeManager.getType(functionMetadata.getReturnType());
+            Type type = functionAndTypeResolver.getType(functionMetadata.getReturnType());
 
             if (type instanceof MapType) {
                 Type keyType = ((MapType) type).getKeyType();
@@ -1016,6 +1108,80 @@ public class ExpressionAnalyzer
             else {
                 return format("%s Expression:%s", message, node);
             }
+        }
+
+        private void analyzeFrameRangeOffset(Expression offsetValue, FrameBound.Type boundType, StackableAstVisitorContext<Context> context, Window window)
+        {
+            if (!window.getOrderBy().isPresent()) {
+                throw new SemanticException(MISSING_ORDER_BY, window, "Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
+            }
+            OrderBy orderBy = window.getOrderBy().get();
+            if (orderBy.getSortItems().size() != 1) {
+                throw new SemanticException(INVALID_ORDER_BY, orderBy, "Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: %s)", orderBy.getSortItems().size());
+            }
+            Expression sortKey = Iterables.getOnlyElement(orderBy.getSortItems()).getSortKey();
+            Type sortKeyType = getExpressionType(sortKey);
+            if (!isNumericType(sortKeyType) && !isDateTimeType(sortKeyType)) {
+                throw new SemanticException(TYPE_MISMATCH, sortKey, "Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: %s)", sortKeyType);
+            }
+
+            Type offsetValueType = process(offsetValue, context);
+
+            if (isNumericType(sortKeyType)) {
+                if (!isNumericType(offsetValueType)) {
+                    throw new SemanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
+                }
+            }
+            else { // isDateTimeType(sortKeyType)
+                if (offsetValueType != INTERVAL_DAY_TIME && offsetValueType != INTERVAL_YEAR_MONTH) {
+                    throw new SemanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
+                }
+            }
+
+            // resolve function to calculate frame boundary value (add / subtract offset from sortKey)
+            SortItem.Ordering ordering = Iterables.getOnlyElement(orderBy.getSortItems()).getOrdering();
+            OperatorType operatorType;
+            FunctionHandle function;
+            if ((boundType == PRECEDING && ordering == ASCENDING) || (boundType == FOLLOWING && ordering == DESCENDING)) {
+                operatorType = SUBTRACT;
+            }
+            else {
+                operatorType = ADD;
+            }
+            try {
+                function = functionAndTypeResolver.resolveOperator(operatorType, TypeSignatureProvider.fromTypes(sortKeyType, offsetValueType));
+            }
+            catch (PrestoException e) {
+                ErrorCode errorCode = e.getErrorCode();
+                if (errorCode.equals(OPERATOR_NOT_FOUND.toErrorCode())) {
+                    throw new SemanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
+                }
+                throw e;
+            }
+
+            FunctionMetadata functionMetadata = functionAndTypeResolver.getFunctionMetadata(function);
+            Type expectedSortKeyType = functionAndTypeResolver.getType(functionMetadata.getArgumentTypes().get(0));
+
+            if (!expectedSortKeyType.equals(sortKeyType)) {
+                if (!functionAndTypeResolver.canCoerce(sortKeyType, expectedSortKeyType)) {
+                    throw new SemanticException(TYPE_MISMATCH, sortKey, "Sort key must evaluate to a %s (actual: %s)", expectedSortKeyType, sortKeyType);
+                }
+                sortKeyCoercionsForFrameBoundCalculation.put(NodeRef.of(offsetValue), expectedSortKeyType);
+            }
+
+            Type expectedOffsetValueType = functionAndTypeResolver.getType(functionMetadata.getArgumentTypes().get(1));
+            if (!expectedOffsetValueType.equals(offsetValueType)) {
+                coerceType(offsetValue, offsetValueType, expectedOffsetValueType, format("Function %s argument 1", function));
+            }
+            Type expectedFunctionResultType = functionAndTypeResolver.getType(functionMetadata.getReturnType());
+            if (!expectedFunctionResultType.equals(sortKeyType)) {
+                if (!functionAndTypeResolver.canCoerce(sortKeyType, expectedFunctionResultType)) {
+                    throw new SemanticException(TYPE_MISMATCH, sortKey, "Sort key must evaluate to a %s (actual: %s)", expectedFunctionResultType, sortKeyType);
+                }
+                sortKeyCoercionsForFrameBoundComparison.put(NodeRef.of(offsetValue), expectedFunctionResultType);
+            }
+
+            frameBoundCalculations.put(NodeRef.of(offsetValue), function);
         }
 
         @Override
@@ -1104,7 +1270,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
@@ -1117,7 +1283,7 @@ public class ExpressionAnalyzer
             Type value = process(node.getExpression(), context);
             if (!value.equals(UNKNOWN) && !node.isTypeOnly()) {
                 try {
-                    functionAndTypeManager.lookupCast(CAST, value, type);
+                    functionAndTypeResolver.lookupCast("CAST", value, type);
                 }
                 catch (OperatorNotFoundException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
@@ -1283,7 +1449,7 @@ public class ExpressionAnalyzer
                 fieldToLambdaArgumentDeclaration.put(FieldId.from(resolvedField), lambdaArgument);
             }
 
-            Type returnType = process(node.getBody(), new StackableAstVisitorContext<>(Context.inLambda(lambdaScope, fieldToLambdaArgumentDeclaration.build())));
+            Type returnType = process(node.getBody(), new StackableAstVisitorContext<>(context.getContext().inLambda(lambdaScope, fieldToLambdaArgumentDeclaration.build())));
             FunctionType functionType = new FunctionType(types, returnType);
             return setExpressionType(node, functionType);
         }
@@ -1301,7 +1467,7 @@ public class ExpressionAnalyzer
             functionInputTypesBuilder.addAll(context.getContext().getFunctionInputTypes());
             List<Type> functionInputTypes = functionInputTypesBuilder.build();
 
-            FunctionType functionType = (FunctionType) process(node.getFunction(), new StackableAstVisitorContext<>(context.getContext().expectingLambda(functionInputTypes)));
+            FunctionType functionType = (FunctionType) process(node.getFunction(), new StackableAstVisitorContext<>(context.getContext().expectingLambda(functionInputTypes, ImmutableMap.of())));
 
             List<Type> argumentTypes = functionType.getArgumentTypes();
             int numCapturedValues = node.getValues().size();
@@ -1345,74 +1511,20 @@ public class ExpressionAnalyzer
             }
         }
 
-        private boolean isDereferenceOrSubscript(Expression node)
-        {
-            return node instanceof DereferenceExpression || node instanceof SubscriptExpression;
-        }
-
-        private boolean isTopMostReference(Expression node, StackableAstVisitorContext<Context> context)
-        {
-            if (!context.getPreviousNode().isPresent()) {
-                return true;
-            }
-            return !isDereferenceOrSubscript((Expression) context.getPreviousNode().get());
-        }
-
         private void addColumnSubfieldReferences(Expression node, StackableAstVisitorContext<Context> context)
         {
-            // If expression is nested with multiple dereferences and subscripts, we only look at the topmost one.
-            if (!isTopMostReference(node, context)) {
+            Optional<ResolvedSubfield> resolvedSubfield = resolveSubfield(node, context, expressionTypes);
+            if (!resolvedSubfield.isPresent()) {
                 return;
             }
-            Scope scope = context.getContext().getScope();
-            Expression childNode = node;
-            List<PathElement> columnDereferences = new ArrayList<>();
-            while (true) {
-                if (childNode instanceof SubscriptExpression) {
-                    SubscriptExpression subscriptExpression = (SubscriptExpression) childNode;
-                    childNode = subscriptExpression.getBase();
-                    Type baseType = expressionTypes.get(NodeRef.of(childNode));
-                    if (baseType == null || !(baseType instanceof RowType)) {
-                        continue;
-                    }
-                    int index = toIntExact(((LongLiteral) subscriptExpression.getIndex()).getValue());
-                    RowType baseRowType = (RowType) baseType;
-                    Optional<String> dereference = baseRowType.getFields().get(index - 1).getName();
-                    if (!dereference.isPresent()) {
-                        break;
-                    }
-                    columnDereferences.add(new NestedField(dereference.get()));
-                    continue;
-                }
+            tableColumnAndSubfieldReferences.put(
+                    resolvedSubfield.get().getResolvedField().getField().getOriginTable().get(),
+                    resolvedSubfield.get().getSubfield());
 
-                QualifiedName childQualifiedName;
-                if (childNode instanceof DereferenceExpression) {
-                    childQualifiedName = DereferenceExpression.getQualifiedName((DereferenceExpression) childNode);
-                }
-                else if (childNode instanceof Identifier) {
-                    childQualifiedName = QualifiedName.of(((Identifier) childNode).getValue());
-                }
-                else {
-                    break;
-                }
-                if (childQualifiedName != null) {
-                    Optional<ResolvedField> resolvedField = scope.tryResolveField(childNode, childQualifiedName);
-                    if (resolvedField.isPresent() &&
-                            resolvedField.get().getField().getOriginColumnName().isPresent() &&
-                            resolvedField.get().getField().getOriginTable().isPresent()) {
-                        reverse(columnDereferences);
-                        tableColumnAndSubfieldReferences.put(
-                                resolvedField.get().getField().getOriginTable().get(),
-                                new Subfield(resolvedField.get().getField().getOriginColumnName().get(), columnDereferences));
-                        break;
-                    }
-                }
-                if (childNode instanceof DereferenceExpression) {
-                    columnDereferences.add(new NestedField(((DereferenceExpression) childNode).getField().getValue()));
-                    childNode = ((DereferenceExpression) childNode).getBase();
-                    continue;
-                }
-                break;
+            if (!context.getContext().getUnusedExpressionsForAccessControl().contains(NodeRef.of(node))) {
+                tableColumnAndSubfieldReferencesForAccessControl.put(
+                        resolvedSubfield.get().getResolvedField().getField().getOriginTable().get(),
+                        resolvedSubfield.get().getSubfield());
             }
         }
 
@@ -1425,7 +1537,7 @@ public class ExpressionAnalyzer
 
             FunctionMetadata operatorMetadata;
             try {
-                operatorMetadata = functionAndTypeManager.getFunctionMetadata(functionAndTypeManager.resolveOperator(operatorType, fromTypes(argumentTypes.build())));
+                operatorMetadata = functionAndTypeResolver.getFunctionMetadata(functionAndTypeResolver.resolveOperator(operatorType, fromTypes(argumentTypes.build())));
             }
             catch (OperatorNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "%s", e.getMessage());
@@ -1439,18 +1551,18 @@ public class ExpressionAnalyzer
 
             for (int i = 0; i < arguments.length; i++) {
                 Expression expression = arguments[i];
-                Type type = functionAndTypeManager.getType(operatorMetadata.getArgumentTypes().get(i));
+                Type type = functionAndTypeResolver.getType(operatorMetadata.getArgumentTypes().get(i));
                 coerceType(context, expression, type, format("Operator %s argument %d", operatorMetadata, i));
             }
 
-            Type type = functionAndTypeManager.getType(operatorMetadata.getReturnType());
+            Type type = functionAndTypeResolver.getType(operatorMetadata.getReturnType());
             return setExpressionType(node, type);
         }
 
         private void coerceType(Expression expression, Type actualType, Type expectedType, String message)
         {
             if (!actualType.equals(expectedType)) {
-                if (!functionAndTypeManager.canCoerce(actualType, expectedType)) {
+                if (!functionAndTypeResolver.canCoerce(actualType, expectedType)) {
                     throw new SemanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, actualType);
                 }
                 addOrReplaceExpressionCoercion(expression, actualType, expectedType);
@@ -1475,10 +1587,10 @@ public class ExpressionAnalyzer
             }
 
             // coerce types if possible
-            Optional<Type> superTypeOptional = functionAndTypeManager.getCommonSuperType(firstType, secondType);
+            Optional<Type> superTypeOptional = functionAndTypeResolver.getCommonSuperType(firstType, secondType);
             if (superTypeOptional.isPresent()
-                    && functionAndTypeManager.canCoerce(firstType, superTypeOptional.get())
-                    && functionAndTypeManager.canCoerce(secondType, superTypeOptional.get())) {
+                    && functionAndTypeResolver.canCoerce(firstType, superTypeOptional.get())
+                    && functionAndTypeResolver.canCoerce(secondType, superTypeOptional.get())) {
                 Type superType = superTypeOptional.get();
                 if (!firstType.equals(superType)) {
                     addOrReplaceExpressionCoercion(first, firstType, superType);
@@ -1497,7 +1609,7 @@ public class ExpressionAnalyzer
             // determine super type
             Type superType = UNKNOWN;
             for (Expression expression : expressions) {
-                Optional<Type> newSuperType = functionAndTypeManager.getCommonSuperType(superType, process(expression, context));
+                Optional<Type> newSuperType = functionAndTypeResolver.getCommonSuperType(superType, process(expression, context));
                 if (!newSuperType.isPresent()) {
                     throw new SemanticException(TYPE_MISMATCH, expression, message, superType.getDisplayName());
                 }
@@ -1508,7 +1620,7 @@ public class ExpressionAnalyzer
             for (Expression expression : expressions) {
                 Type type = process(expression, context);
                 if (!type.equals(superType)) {
-                    if (!functionAndTypeManager.canCoerce(type, superType)) {
+                    if (!functionAndTypeResolver.canCoerce(type, superType)) {
                         throw new SemanticException(TYPE_MISMATCH, expression, message, superType.getDisplayName());
                     }
                     addOrReplaceExpressionCoercion(expression, type, superType);
@@ -1527,7 +1639,7 @@ public class ExpressionAnalyzer
             }
             NodeRef<Expression> ref = NodeRef.of(expression);
             expressionCoercions.put(ref, superType);
-            if (functionAndTypeManager.isTypeOnlyCoercion(type, superType)) {
+            if (functionAndTypeResolver.isTypeOnlyCoercion(type, superType)) {
                 typeOnlyCoercions.add(ref);
             }
             else if (typeOnlyCoercions.contains(ref)) {
@@ -1536,7 +1648,7 @@ public class ExpressionAnalyzer
         }
     }
 
-    private static class Context
+    public static class Context
     {
         private final Scope scope;
 
@@ -1548,35 +1660,61 @@ public class ExpressionAnalyzer
         // The mapping from names to corresponding lambda argument declarations when inside a lambda; null otherwise.
         // Empty map means that the all lambda expressions surrounding the current node has no arguments.
         private final Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration;
+        private final Map<Identifier, ResolvedSubfield> resolvedLambdaArguments;
+        private final Set<NodeRef<Expression>> unusedExpressionsForAccessControl;
 
         private Context(
                 Scope scope,
                 List<Type> functionInputTypes,
-                Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
+                Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration,
+                Map<Identifier, ResolvedSubfield> resolvedLambdaArguments,
+                Set<NodeRef<Expression>> unusedExpressionsForAccessControl)
         {
             this.scope = requireNonNull(scope, "scope is null");
             this.functionInputTypes = functionInputTypes;
             this.fieldToLambdaArgumentDeclaration = fieldToLambdaArgumentDeclaration;
+            this.resolvedLambdaArguments = requireNonNull(resolvedLambdaArguments, "resolvedLambdaArguments is null");
+            this.unusedExpressionsForAccessControl = requireNonNull(unusedExpressionsForAccessControl, "unusedExpressionsForAccessControl is null");
         }
 
         public static Context notInLambda(Scope scope)
         {
-            return new Context(scope, null, null);
+            return new Context(scope, null, null, ImmutableMap.of(), ImmutableSet.of());
         }
 
-        public static Context inLambda(Scope scope, Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
+        public Context inLambda(Scope scope, Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
         {
-            return new Context(scope, null, requireNonNull(fieldToLambdaArgumentDeclaration, "fieldToLambdaArgumentDeclaration is null"));
+            return new Context(
+                    scope,
+                    null,
+                    requireNonNull(fieldToLambdaArgumentDeclaration, "fieldToLambdaArgumentDeclaration is null"),
+                    resolvedLambdaArguments,
+                    unusedExpressionsForAccessControl);
         }
 
-        public Context expectingLambda(List<Type> functionInputTypes)
+        public Context expectingLambda(List<Type> functionInputTypes, Map<Identifier, ResolvedSubfield> resolvedLambdaArguments)
         {
-            return new Context(scope, requireNonNull(functionInputTypes, "functionInputTypes is null"), this.fieldToLambdaArgumentDeclaration);
+            return new Context(
+                    scope,
+                    requireNonNull(functionInputTypes, "functionInputTypes is null"),
+                    this.fieldToLambdaArgumentDeclaration,
+                    resolvedLambdaArguments,
+                    unusedExpressionsForAccessControl);
         }
 
         public Context notExpectingLambda()
         {
-            return new Context(scope, null, this.fieldToLambdaArgumentDeclaration);
+            return new Context(scope, null, this.fieldToLambdaArgumentDeclaration, ImmutableMap.of(), unusedExpressionsForAccessControl);
+        }
+
+        public Context withUnusedExpressionsForAccessControl(Set<NodeRef<Expression>> unusedExpressionsForAccessControl)
+        {
+            return new Context(
+                    scope,
+                    functionInputTypes,
+                    fieldToLambdaArgumentDeclaration,
+                    resolvedLambdaArguments,
+                    Sets.union(unusedExpressionsForAccessControl, this.unusedExpressionsForAccessControl));
         }
 
         Scope getScope()
@@ -1605,6 +1743,16 @@ public class ExpressionAnalyzer
             checkState(isExpectingLambda());
             return functionInputTypes;
         }
+
+        public Map<Identifier, ResolvedSubfield> getResolvedLambdaArguments()
+        {
+            return resolvedLambdaArguments;
+        }
+
+        public Set<NodeRef<Expression>> getUnusedExpressionsForAccessControl()
+        {
+            return unusedExpressionsForAccessControl;
+        }
     }
 
     public static FunctionHandle resolveFunction(
@@ -1612,10 +1760,10 @@ public class ExpressionAnalyzer
             Optional<TransactionId> transactionId,
             FunctionCall node,
             List<TypeSignatureProvider> argumentTypes,
-            FunctionAndTypeManager functionAndTypeManager)
+            FunctionAndTypeResolver functionAndTypeResolver)
     {
         try {
-            return functionAndTypeManager.resolveFunction(sessionFunctions, transactionId, qualifyObjectName(node.getName()), argumentTypes);
+            return functionAndTypeResolver.resolveFunction(sessionFunctions, transactionId, qualifyObjectName(node.getName()), argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -1713,14 +1861,18 @@ public class ExpressionAnalyzer
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
         Map<NodeRef<Expression>, Type> expressionCoercions = analyzer.getExpressionCoercions();
         Set<NodeRef<Expression>> typeOnlyCoercions = analyzer.getTypeOnlyCoercions();
+        Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = analyzer.getSortKeyCoercionsForFrameBoundCalculation();
+        Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = analyzer.getSortKeyCoercionsForFrameBoundComparison();
+        Map<NodeRef<Expression>, FunctionHandle> frameBoundCalculations = analyzer.getFrameBoundCalculations();
         Map<NodeRef<FunctionCall>, FunctionHandle> resolvedFunctions = analyzer.getResolvedFunctions();
 
         analysis.addTypes(expressionTypes);
-        analysis.addCoercions(expressionCoercions, typeOnlyCoercions);
+        analysis.addCoercions(expressionCoercions, typeOnlyCoercions, sortKeyCoercionsForFrameBoundCalculation, sortKeyCoercionsForFrameBoundComparison);
+        analysis.addFrameBoundCalculations(frameBoundCalculations);
         analysis.addFunctionHandles(resolvedFunctions);
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
-        analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), analyzer.getTableColumnAndSubfieldReferences());
+        analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), analyzer.getTableColumnAndSubfieldReferences(), analyzer.getTableColumnAndSubfieldReferencesForAccessControl());
 
         return new ExpressionAnalysis(
                 expressionTypes,
@@ -1736,13 +1888,13 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalysis analyzeSqlFunctionExpression(
-            Metadata metadata,
+            FunctionAndTypeResolver functionAndTypeResolver,
             SqlFunctionProperties sqlFunctionProperties,
             Expression expression,
             Map<String, Type> argumentTypes)
     {
         ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
+                functionAndTypeResolver,
                 Optional.empty(), // SQL function expression cannot contain session functions
                 Optional.empty(),
                 sqlFunctionProperties,
@@ -1783,7 +1935,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector)
     {
         return new ExpressionAnalyzer(
-                metadata.getFunctionAndTypeManager(),
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                 node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
                 Optional.of(session.getSessionFunctions()),
                 session.getTransactionId(),
@@ -1794,10 +1946,10 @@ public class ExpressionAnalyzer
                 analysis.isDescribe());
     }
 
-    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
+    public static ExpressionAnalyzer createConstantAnalyzer(FunctionAndTypeResolver functionAndTypeResolver, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
     {
         return createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
+                functionAndTypeResolver,
                 session,
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
@@ -1809,7 +1961,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector, boolean isDescribe)
     {
         return createWithoutSubqueries(
-                metadata.getFunctionAndTypeManager(),
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
                 session,
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
@@ -1819,7 +1971,7 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalyzer createWithoutSubqueries(
-            FunctionAndTypeManager functionAndTypeManager,
+            FunctionAndTypeResolver functionAndTypeResolver,
             Session session,
             Map<NodeRef<Parameter>, Expression> parameters,
             SemanticErrorCode errorCode,
@@ -1828,7 +1980,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         return createWithoutSubqueries(
-                functionAndTypeManager,
+                functionAndTypeResolver,
                 session,
                 TypeProvider.empty(),
                 parameters,
@@ -1838,7 +1990,7 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalyzer createWithoutSubqueries(
-            FunctionAndTypeManager functionAndTypeManager,
+            FunctionAndTypeResolver functionAndTypeResolver,
             Session session,
             TypeProvider symbolTypes,
             Map<NodeRef<Parameter>, Expression> parameters,
@@ -1847,7 +1999,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         return createWithoutSubqueries(
-                functionAndTypeManager,
+                functionAndTypeResolver,
                 Optional.of(session.getSessionFunctions()),
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
@@ -1859,7 +2011,7 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalyzer createWithoutSubqueries(
-            FunctionAndTypeManager functionAndTypeManager,
+            FunctionAndTypeResolver functionAndTypeResolver,
             Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
@@ -1870,7 +2022,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         return new ExpressionAnalyzer(
-                functionAndTypeManager,
+                functionAndTypeResolver,
                 node -> {
                     throw statementAnalyzerRejection.apply(node);
                 },
@@ -1881,5 +2033,16 @@ public class ExpressionAnalyzer
                 parameters,
                 warningCollector,
                 isDescribe);
+    }
+
+    public static boolean isNumericType(Type type)
+    {
+        return type.equals(BIGINT) ||
+                type.equals(INTEGER) ||
+                type.equals(SMALLINT) ||
+                type.equals(TINYINT) ||
+                type.equals(DOUBLE) ||
+                type.equals(REAL) ||
+                type instanceof DecimalType;
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.279-SNAPSHOT</version>
+        <version>0.280-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive-hadoop2</artifactId>
@@ -102,8 +102,20 @@
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
+            <artifactId>concurrent</artifactId>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>stats</artifactId>
+            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -138,6 +150,12 @@
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-cache</artifactId>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <profiles>
@@ -155,7 +173,8 @@
                             <excludes>
                                 <exclude>**/TestHiveClient.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
-                                <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
+                                <exclude>**/TestHiveFileSystemS3SelectCsvPushdown.java</exclude>
+                                <exclude>**/TestHiveFileSystemS3SelectJsonPushdown.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -212,7 +231,33 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHiveFileSystemS3.java</include>
-                                <include>**/TestHiveFileSystemS3SelectPushdown.java</include>
+                                <include>**/TestHiveFileSystemS3SelectCsvPushdown.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.basepom.maven</groupId>
+                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                        <configuration>
+                            <ignoredResourcePatterns>
+                                <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
+                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                            </ignoredResourcePatterns>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-hadoop2-s3-select-json</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveFileSystemS3SelectJsonPushdown.java</include>
                             </includes>
                         </configuration>
                     </plugin>

@@ -31,17 +31,20 @@ import com.facebook.presto.execution.scheduler.SqlQuerySchedulerInterface;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
@@ -82,14 +85,17 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.getExecutionPolicy;
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
+import static com.facebook.presto.SystemSessionProperties.isLogInvokedFunctionNamesEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseLegacyScheduler;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -228,6 +234,22 @@ public class SqlQueryExecution
 
             this.remoteTaskFactory = new TrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
             this.partialResultQueryManager = requireNonNull(partialResultQueryManager, "partialResultQueryManager is null");
+
+            if (isLogInvokedFunctionNamesEnabled(getSession())) {
+                for (Map.Entry<FunctionKind, Set<String>> entry : analysis.getInvokedFunctions().entrySet()) {
+                    switch (entry.getKey()) {
+                        case SCALAR:
+                            stateMachine.setScalarFunctions(entry.getValue());
+                            break;
+                        case AGGREGATE:
+                            stateMachine.setAggregateFunctions(entry.getValue());
+                            break;
+                        case WINDOW:
+                            stateMachine.setWindowsFunctions(entry.getValue());
+                            break;
+                    }
+                }
+            }
         }
     }
 
@@ -505,10 +527,34 @@ public class SqlQueryExecution
             stateMachine.beginAnalysis();
 
             // plan query
-            LogicalPlanner logicalPlanner = new LogicalPlanner(false, stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector(), planChecker);
-            Plan plan = getSession().getRuntimeStats().profileNanos(
+            final PlanVariableAllocator planVariableAllocator = new PlanVariableAllocator();
+            LogicalPlanner logicalPlanner = new LogicalPlanner(
+                    stateMachine.getSession(),
+                    idAllocator,
+                    metadata,
+                    planVariableAllocator);
+
+            PlanNode planNode = getSession().getRuntimeStats().profileNanos(
                     LOGICAL_PLANNER_TIME_NANOS,
                     () -> logicalPlanner.plan(analysis));
+
+            Optimizer optimizer = new Optimizer(
+                    stateMachine.getSession(),
+                    metadata,
+                    planOptimizers,
+                    planChecker,
+                    sqlParser,
+                    planVariableAllocator,
+                    idAllocator,
+                    stateMachine.getWarningCollector(),
+                    statsCalculator,
+                    costCalculator,
+                    false);
+
+            Plan plan = getSession().getRuntimeStats().profileNanos(
+                    OPTIMIZER_TIME_NANOS,
+                    () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
+
             queryPlan.set(plan);
             stateMachine.setPlanStatsAndCosts(plan.getStatsAndCosts());
             stateMachine.setPlanCanonicalInfo(getCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
@@ -905,7 +951,7 @@ public class SqlQueryExecution
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
             checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
 
-            SqlQueryExecution execution = new SqlQueryExecution(
+            return new SqlQueryExecution(
                     preparedQuery,
                     stateMachine,
                     slug,
@@ -932,8 +978,6 @@ public class SqlQueryExecution
                     planChecker,
                     partialResultQueryManager,
                     historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider());
-
-            return execution;
         }
     }
 }

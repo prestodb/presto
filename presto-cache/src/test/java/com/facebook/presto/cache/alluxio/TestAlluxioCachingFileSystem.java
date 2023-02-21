@@ -419,7 +419,7 @@ public class TestAlluxioCachingFileSystem
 
         Configuration configuration = new Configuration();
         configuration.set("alluxio.user.local.cache.enabled", "true");
-        configuration.set("alluxio.user.client.cache.dir", cacheDirectory.getPath());
+        configuration.set("alluxio.user.client.cache.dirs", cacheDirectory.getPath());
         configuration.set("alluxio.user.client.cache.page.size", Integer.toString(pageSize));
         configuration.set("alluxio.user.client.cache.size", Integer.toString(maxCacheSize));
         configuration.set("sink.jmx.class", jmxClass);
@@ -428,7 +428,7 @@ public class TestAlluxioCachingFileSystem
         AlluxioCachingFileSystem fileSystem = cachingFileSystem(configuration);
         Configuration conf = fileSystem.getConf();
         assertTrue(conf.getBoolean("alluxio.user.local.cache.enabled", false));
-        assertEquals(cacheDirectory.getPath(), conf.get("alluxio.user.client.cache.dir", "bad result"));
+        assertEquals(cacheDirectory.getPath(), conf.get("alluxio.user.client.cache.dirs", "bad result"));
         assertEquals(pageSize, conf.getInt("alluxio.user.client.cache.page.size", 0));
         assertEquals(maxCacheSize, conf.getInt("alluxio.user.client.cache.size", 0));
         assertEquals(jmxClass, conf.get("sink.jmx.class", "bad result"));

@@ -75,9 +75,11 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
@@ -103,12 +105,14 @@ import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFac
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveSelectivePageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultS3HiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
 import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_METASTORE_CACHE_STATS;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -249,7 +253,17 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveWriterStats(),
                 getDefaultOrcFileWriterFactory(config, metastoreClientConfig),
                 columnConverterProvider);
-        pageSourceProvider = new HivePageSourceProvider(config, hdfsEnvironment, getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
+        Set<HiveRecordCursorProvider> recordCursorProviderSet = s3SelectPushdownEnabled ?
+                                                                    getDefaultS3HiveRecordCursorProvider(config, metastoreClientConfig) :
+                                                                    getDefaultHiveRecordCursorProvider(config, metastoreClientConfig);
+        pageSourceProvider = new HivePageSourceProvider(
+                config,
+                hdfsEnvironment,
+                recordCursorProviderSet,
+                getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig),
+                getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig),
+                FUNCTION_AND_TYPE_MANAGER,
+                ROW_EXPRESSION_SERVICE);
     }
 
     protected ConnectorSession newSession()
@@ -266,6 +280,12 @@ public abstract class AbstractTestHiveFileSystem
             throws IOException
     {
         return HiveFileSystemTestUtils.readTable(tableName, transactionManager, config, metadataFactory, pageSourceProvider, splitManager);
+    }
+
+    protected MaterializedResult filterTable(SchemaTableName tableName, List<ColumnHandle> projectedColumns)
+            throws IOException
+    {
+        return HiveFileSystemTestUtils.filterTable(tableName, projectedColumns, transactionManager, config, metadataFactory, pageSourceProvider, splitManager);
     }
 
     @Test
@@ -366,18 +386,18 @@ public abstract class AbstractTestHiveFileSystem
     public void testTableCreation()
             throws Exception
     {
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            if (storageFormat == HiveStorageFormat.CSV) {
-                // CSV supports only unbounded VARCHAR type
-                continue;
-            }
-            if (storageFormat == HiveStorageFormat.ALPHA) {
-                // Alpha read/write is not supported yet
-                continue;
-            }
+        for (HiveStorageFormat storageFormat : getSupportedHiveStorageFormats()) {
             createTable(METASTORE_CONTEXT, temporaryCreateTable, storageFormat);
             dropTable(temporaryCreateTable);
         }
+    }
+
+    protected List<HiveStorageFormat> getSupportedHiveStorageFormats()
+    {
+        // CSV supports only unbounded VARCHAR type, and Alpha does not support DML yet
+        return Arrays.stream(HiveStorageFormat.values())
+                .filter(format -> format != HiveStorageFormat.CSV && format != HiveStorageFormat.ALPHA)
+                .collect(toImmutableList());
     }
 
     private void createTable(MetastoreContext metastoreContext, SchemaTableName tableName, HiveStorageFormat storageFormat)
@@ -459,7 +479,7 @@ public abstract class AbstractTestHiveFileSystem
         }
     }
 
-    private static class TestingHiveMetastore
+    public static class TestingHiveMetastore
             extends CachingHiveMetastore
     {
         private final Path basePath;

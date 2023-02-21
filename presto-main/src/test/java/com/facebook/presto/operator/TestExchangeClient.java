@@ -396,7 +396,7 @@ public class TestExchangeClient
 
             do {
                 // there is no thread coordination here, so sleep is the best we can do
-                assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+                assertLessThan(Duration.nanosSince(start), new Duration(10, TimeUnit.SECONDS));
                 sleepUninterruptibly(100, MILLISECONDS);
             }
             while (processor.getRequestMaxSizes().size() < 64);

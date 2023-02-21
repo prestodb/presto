@@ -46,7 +46,7 @@ public class PruneCountAggregationOverScalar
     public PruneCountAggregationOverScalar(FunctionAndTypeManager functionAndTypeManager)
     {
         requireNonNull(functionAndTypeManager, "functionManager is null");
-        this.functionResolution = new FunctionResolution(functionAndTypeManager);
+        this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
     }
 
     @Override

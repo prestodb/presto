@@ -49,7 +49,7 @@ public class TestPushProjectionThroughUnion
     @Test
     public void test()
     {
-        FunctionResolution functionResolution = new FunctionResolution(tester().getMetadata().getFunctionAndTypeManager());
+        FunctionResolution functionResolution = new FunctionResolution(tester().getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver());
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");

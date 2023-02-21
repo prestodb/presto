@@ -30,5 +30,6 @@ target_link_libraries(
   velox_aggregates
   velox_hive_partition_function
   ${RE2}
+  gmock
   gtest
   gtest_main)

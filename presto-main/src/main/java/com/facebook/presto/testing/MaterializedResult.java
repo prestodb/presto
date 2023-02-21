@@ -81,6 +81,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -366,37 +367,45 @@ public class MaterializedResult
         List<Object> convertedValues = new ArrayList<>();
         for (int field = 0; field < prestoRow.getFieldCount(); field++) {
             Object prestoValue = prestoRow.getField(field);
-            Object convertedValue;
-            if (prestoValue instanceof SqlDate) {
-                convertedValue = LocalDate.ofEpochDay(((SqlDate) prestoValue).getDays());
-            }
-            else if (prestoValue instanceof SqlTime) {
-                convertedValue = DateTimeFormatter.ISO_LOCAL_TIME.parse(prestoValue.toString(), LocalTime::from);
-            }
-            else if (prestoValue instanceof SqlTimeWithTimeZone) {
-                // Political timezone cannot be represented in OffsetTime and there isn't any better representation.
-                long millisUtc = ((SqlTimeWithTimeZone) prestoValue).getMillisUtc();
-                ZoneOffset zone = toZoneOffset(((SqlTimeWithTimeZone) prestoValue).getTimeZoneKey());
-                convertedValue = OffsetTime.of(
-                        LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(millisUtc) + SECONDS.toNanos(zone.getTotalSeconds())),
-                        zone);
-            }
-            else if (prestoValue instanceof SqlTimestamp) {
-                convertedValue = SqlTimestamp.JSON_MILLIS_FORMATTER.parse(prestoValue.toString(), LocalDateTime::from);
-            }
-            else if (prestoValue instanceof SqlTimestampWithTimeZone) {
-                convertedValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())
-                        .atZone(ZoneId.of(((SqlTimestampWithTimeZone) prestoValue).getTimeZoneKey().getId()));
-            }
-            else if (prestoValue instanceof SqlDecimal) {
-                convertedValue = ((SqlDecimal) prestoValue).toBigDecimal();
-            }
-            else {
-                convertedValue = prestoValue;
-            }
-            convertedValues.add(convertedValue);
+            convertedValues.add(convertPrestoValueToTestType(prestoValue));
         }
         return new MaterializedRow(prestoRow.getPrecision(), convertedValues);
+    }
+
+    private static Object convertPrestoValueToTestType(Object prestoValue)
+    {
+        Object convertedValue;
+        if (prestoValue instanceof SqlDate) {
+            convertedValue = LocalDate.ofEpochDay(((SqlDate) prestoValue).getDays());
+        }
+        else if (prestoValue instanceof SqlTime) {
+            convertedValue = DateTimeFormatter.ISO_LOCAL_TIME.parse(prestoValue.toString(), LocalTime::from);
+        }
+        else if (prestoValue instanceof SqlTimeWithTimeZone) {
+            // Political timezone cannot be represented in OffsetTime and there isn't any better representation.
+            long millisUtc = ((SqlTimeWithTimeZone) prestoValue).getMillisUtc();
+            ZoneOffset zone = toZoneOffset(((SqlTimeWithTimeZone) prestoValue).getTimeZoneKey());
+            convertedValue = OffsetTime.of(
+                    LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(millisUtc) + SECONDS.toNanos(zone.getTotalSeconds())),
+                    zone);
+        }
+        else if (prestoValue instanceof SqlTimestamp) {
+            convertedValue = SqlTimestamp.JSON_MILLIS_FORMATTER.parse(prestoValue.toString(), LocalDateTime::from);
+        }
+        else if (prestoValue instanceof SqlTimestampWithTimeZone) {
+            convertedValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())
+                    .atZone(ZoneId.of(((SqlTimestampWithTimeZone) prestoValue).getTimeZoneKey().getId()));
+        }
+        else if (prestoValue instanceof SqlDecimal) {
+            convertedValue = ((SqlDecimal) prestoValue).toBigDecimal();
+        }
+        else if (prestoValue instanceof ArrayList) {
+            convertedValue = newArrayList(((ArrayList) prestoValue).stream().map(x -> convertPrestoValueToTestType(x)).toArray());
+        }
+        else {
+            convertedValue = prestoValue;
+        }
+        return convertedValue;
     }
 
     private static ZoneOffset toZoneOffset(TimeZoneKey timeZoneKey)

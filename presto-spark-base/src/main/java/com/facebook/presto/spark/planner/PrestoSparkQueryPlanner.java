@@ -21,12 +21,14 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.Output;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spark.PhysicalResourceSettings;
 import com.facebook.presto.spark.PrestoSparkPhysicalResourceCalculator;
 import com.facebook.presto.spark.PrestoSparkSourceStatsCollector;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
@@ -39,6 +41,7 @@ import com.facebook.presto.sql.planner.OutputExtractor;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
@@ -50,9 +53,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
+import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.analyzer.utils.StatementUtils.getQueryType;
-import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
 import static java.util.Objects.requireNonNull;
 
@@ -105,20 +110,36 @@ public class PrestoSparkQueryPlanner
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
                 warningCollector);
 
+        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+
+        final PlanVariableAllocator planVariableAllocator = new PlanVariableAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(
-                false,
                 session,
-                optimizers.getPlanningTimeOptimizers(),
                 idAllocator,
                 metadata,
+                planVariableAllocator);
+
+        PlanNode planNode = session.getRuntimeStats().profileNanos(
+                LOGICAL_PLANNER_TIME_NANOS,
+                () -> logicalPlanner.plan(analysis));
+
+        Optimizer optimizer = new Optimizer(
+                session,
+                metadata,
+                optimizers.getPlanningTimeOptimizers(),
+                planChecker,
                 sqlParser,
+                planVariableAllocator,
+                idAllocator,
+                warningCollector,
                 statsCalculator,
                 costCalculator,
-                warningCollector,
-                planChecker);
+                false);
 
-        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
-        Plan plan = logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED);
+        Plan plan = session.getRuntimeStats().profileNanos(
+                OPTIMIZER_TIME_NANOS,
+                () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
+
         List<Input> inputs = new InputExtractor(metadata, session).extractInputs(plan.getRoot());
         Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
         Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass());

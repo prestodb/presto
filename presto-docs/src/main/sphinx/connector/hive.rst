@@ -617,7 +617,7 @@ Column Type   Collectible Statistics
 ============= ====================================================================
 
 Automatic column level statistics collection on write is controlled by
-the ``collect-column-statistics-on-write`` catalog session property.
+the ``collect_column_statistics_on_write`` catalog session property.
 
 .. _hive_analyze:
 

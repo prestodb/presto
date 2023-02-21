@@ -105,7 +105,9 @@ public class TestFeaturesConfig
                 .setOrderByAggregationSpillEnabled(true)
                 .setWindowSpillEnabled(true)
                 .setOrderBySpillEnabled(true)
+                .setTopNSpillEnabled(true)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("4MB"))
+                .setTopNOperatorUnspillMemoryLimit(DataSize.valueOf("4MB"))
                 .setSpillerSpillPaths("")
                 .setSpillerThreads(4)
                 .setSpillMaxUsedSpaceThreshold(0.9)
@@ -182,6 +184,7 @@ public class TestFeaturesConfig
                 .setEnforceFixedDistributionForOutputOperator(false)
                 .setEmptyJoinOptimization(false)
                 .setLogFormattedQueryEnabled(false)
+                .setLogInvokedFunctionNamesEnabled(false)
                 .setSpoolingOutputBufferEnabled(false)
                 .setSpoolingOutputBufferThreshold(new DataSize(8, MEGABYTE))
                 .setSpoolingOutputBufferTempStorage("local")
@@ -211,7 +214,8 @@ public class TestFeaturesConfig
                 .setOptimizeConditionalAggregationEnabled(false)
                 .setRemoveRedundantDistinctAggregationEnabled(true)
                 .setInPredicatesAsInnerJoinsEnabled(false)
-                .setPushAggregationBelowJoinByteReductionThreshold(1));
+                .setPushAggregationBelowJoinByteReductionThreshold(1)
+                .setPrefilterForGroupbyLimit(false));
     }
 
     @Test
@@ -286,7 +290,9 @@ public class TestFeaturesConfig
                 .put("experimental.order-by-aggregation-spill-enabled", "false")
                 .put("experimental.window-spill-enabled", "false")
                 .put("experimental.order-by-spill-enabled", "false")
+                .put("experimental.topn-spill-enabled", "false")
                 .put("experimental.aggregation-operator-unspill-memory-limit", "100MB")
+                .put("experimental.topn-operator-unspill-memory-limit", "100MB")
                 .put("experimental.spiller-spill-path", "/tmp/custom/spill/path1,/tmp/custom/spill/path2")
                 .put("experimental.spiller-threads", "42")
                 .put("experimental.spiller-max-used-space-threshold", "0.8")
@@ -344,6 +350,7 @@ public class TestFeaturesConfig
                 .put("enforce-fixed-distribution-for-output-operator", "true")
                 .put("optimizer.optimize-joins-with-empty-sources", "true")
                 .put("log-formatted-query-enabled", "true")
+                .put("log-invoked-function-names-enabled", "true")
                 .put("spooling-output-buffer-enabled", "true")
                 .put("spooling-output-buffer-threshold", "16MB")
                 .put("spooling-output-buffer-temp-storage", "tempfs")
@@ -374,6 +381,7 @@ public class TestFeaturesConfig
                 .put("optimizer.remove-redundant-distinct-aggregation-enabled", "false")
                 .put("optimizer.in-predicates-as-inner-joins-enabled", "true")
                 .put("optimizer.push-aggregation-below-join-byte-reduction-threshold", "0.9")
+                .put("optimizer.prefilter-for-groupby-limit", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -440,7 +448,9 @@ public class TestFeaturesConfig
                 .setOrderByAggregationSpillEnabled(false)
                 .setWindowSpillEnabled(false)
                 .setOrderBySpillEnabled(false)
+                .setTopNSpillEnabled(false)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("100MB"))
+                .setTopNOperatorUnspillMemoryLimit(DataSize.valueOf("100MB"))
                 .setSpillerSpillPaths("/tmp/custom/spill/path1,/tmp/custom/spill/path2")
                 .setSpillerThreads(42)
                 .setSpillMaxUsedSpaceThreshold(0.8)
@@ -504,6 +514,7 @@ public class TestFeaturesConfig
                 .setEnforceFixedDistributionForOutputOperator(true)
                 .setEmptyJoinOptimization(true)
                 .setLogFormattedQueryEnabled(true)
+                .setLogInvokedFunctionNamesEnabled(true)
                 .setSpoolingOutputBufferEnabled(true)
                 .setSpoolingOutputBufferThreshold(new DataSize(16, MEGABYTE))
                 .setSpoolingOutputBufferTempStorage("tempfs")
@@ -533,7 +544,8 @@ public class TestFeaturesConfig
                 .setOptimizeConditionalAggregationEnabled(true)
                 .setRemoveRedundantDistinctAggregationEnabled(false)
                 .setInPredicatesAsInnerJoinsEnabled(true)
-                .setPushAggregationBelowJoinByteReductionThreshold(0.9);
+                .setPushAggregationBelowJoinByteReductionThreshold(0.9)
+                .setPrefilterForGroupbyLimit(true);
         assertFullMapping(properties, expected);
     }
 

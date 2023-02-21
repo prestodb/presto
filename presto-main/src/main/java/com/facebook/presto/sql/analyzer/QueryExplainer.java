@@ -18,15 +18,18 @@ import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter;
@@ -43,7 +46,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.textIOPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizDistributedPlan;
@@ -194,19 +200,34 @@ public class QueryExplainer
     {
         // analyze statement
         Analysis analysis = analyze(session, statement, parameters, warningCollector);
-        // plan statement
+
+        final PlanVariableAllocator planVariableAllocator = new PlanVariableAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(
-                true,
                 session,
-                planOptimizers,
                 idAllocator,
                 metadata,
+                planVariableAllocator);
+
+        PlanNode planNode = session.getRuntimeStats().profileNanos(
+                LOGICAL_PLANNER_TIME_NANOS,
+                () -> logicalPlanner.plan(analysis));
+
+        Optimizer optimizer = new Optimizer(
+                session,
+                metadata,
+                planOptimizers,
+                planChecker,
                 sqlParser,
+                planVariableAllocator,
+                idAllocator,
+                warningCollector,
                 statsCalculator,
                 costCalculator,
-                warningCollector,
-                planChecker);
-        return logicalPlanner.plan(analysis);
+                true);
+
+        return session.getRuntimeStats().profileNanos(
+                OPTIMIZER_TIME_NANOS,
+                () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
     }
 
     public SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)

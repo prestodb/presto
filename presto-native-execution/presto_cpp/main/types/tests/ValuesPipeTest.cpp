@@ -34,7 +34,9 @@ namespace {
 std::string getDataPath(const std::string& fileName) {
   std::string currentPath = fs::current_path().c_str();
   if (boost::algorithm::ends_with(currentPath, "fbcode")) {
-    return currentPath + "/presto_cpp/main/types/tests/data/" + fileName;
+    return currentPath +
+        "/github/presto-trunk/presto-native-execution/presto_cpp/main/types/tests/data/" +
+        fileName;
   }
   if (boost::algorithm::ends_with(currentPath, "fbsource")) {
     return currentPath + "/third-party/presto_cpp/main/types/tests/data/" +
@@ -63,7 +65,7 @@ TEST_F(TestValues, valuesRowVector) {
   testJsonRoundtrip(j, p);
 
   auto pool = memory::getDefaultMemoryPool();
-  VeloxQueryPlanConverter converter(pool.get());
+  VeloxInteractiveQueryPlanConverter converter(pool.get());
   auto values = std::dynamic_pointer_cast<const core::ValuesNode>(
       converter.toVeloxQueryPlan(
           std::dynamic_pointer_cast<protocol::PlanNode>(p),
@@ -102,7 +104,7 @@ TEST_F(TestValues, valuesPlan) {
   testJsonRoundtrip(j, p);
 
   auto pool = memory::getDefaultMemoryPool();
-  VeloxQueryPlanConverter converter(pool.get());
+  VeloxInteractiveQueryPlanConverter converter(pool.get());
   auto values = converter.toVeloxQueryPlan(
       std::dynamic_pointer_cast<protocol::OutputNode>(p->root)->source,
       nullptr,

@@ -16,17 +16,14 @@ package com.facebook.presto.operator;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -89,12 +86,11 @@ public class TopNOperator
     }
 
     private final OperatorContext operatorContext;
-    private final LocalMemoryContext localUserMemoryContext;
 
     private GroupedTopNBuilder topNBuilder;
     private boolean finishing;
 
-    private Iterator<Page> outputIterator;
+    private WorkProcessor<Page> outputPages;
 
     public TopNOperator(
             OperatorContext operatorContext,
@@ -104,19 +100,20 @@ public class TopNOperator
             List<SortOrder> sortOrders)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         checkArgument(n >= 0, "n must be positive");
-
         if (n == 0) {
             finishing = true;
-            outputIterator = emptyIterator();
+            // We create an empty WorkProcessor and finish it
+            outputPages = WorkProcessor.of();
+            outputPages.process();
         }
         else {
-            topNBuilder = new GroupedTopNBuilder(
+            topNBuilder = new InMemoryGroupedTopNBuilder(
                     types,
                     new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
                     n,
                     false,
+                    operatorContext.localUserMemoryContext(),
                     new NoChannelGroupByHash());
         }
     }
@@ -152,7 +149,7 @@ public class TopNOperator
         boolean done = topNBuilder.processPage(requireNonNull(page, "page is null")).process();
         // there is no grouping so work will always be done
         verify(done);
-        updateMemoryReservation();
+        topNBuilder.updateMemoryReservations();
     }
 
     @Override
@@ -162,29 +159,28 @@ public class TopNOperator
             return null;
         }
 
-        if (outputIterator == null) {
+        if (outputPages == null) {
             // start flushing
-            outputIterator = topNBuilder.buildResult();
+            outputPages = topNBuilder.buildResult();
         }
 
-        Page output = null;
-        if (outputIterator.hasNext()) {
-            output = outputIterator.next();
+        if (!outputPages.process()) {
+            return null;
         }
-        else {
-            outputIterator = emptyIterator();
-        }
-        updateMemoryReservation();
-        return output;
-    }
 
-    private void updateMemoryReservation()
-    {
-        localUserMemoryContext.setBytes(topNBuilder.getEstimatedSizeInBytes());
+        if (outputPages.isFinished()) {
+            topNBuilder.close();
+            return null;
+        }
+
+        Page outputPage = outputPages.getResult();
+        topNBuilder.updateMemoryReservations();
+
+        return outputPage;
     }
 
     private boolean noMoreOutput()
     {
-        return outputIterator != null && !outputIterator.hasNext();
+        return outputPages != null && outputPages.isFinished();
     }
 }

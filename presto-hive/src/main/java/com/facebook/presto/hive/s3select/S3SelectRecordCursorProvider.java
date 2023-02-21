@@ -28,7 +28,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -49,7 +48,6 @@ import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 public class S3SelectRecordCursorProvider
         implements HiveRecordCursorProvider
 {
-    private static final Set<String> CSV_SERDES = ImmutableSet.of(LazySimpleSerDe.class.getName());
     private final HdfsEnvironment hdfsEnvironment;
     private final HiveClientConfig clientConfig;
     private final PrestoS3ClientFactory s3ClientFactory;
@@ -95,11 +93,17 @@ public class S3SelectRecordCursorProvider
         }
 
         String serdeName = getDeserializerClassName(schema);
-        if (CSV_SERDES.contains(serdeName)) {
-            IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
+        Optional<S3SelectDataType> s3SelectDataTypeOptional = S3SelectSerDeDataTypeMapper.getDataType(serdeName);
+
+        if (s3SelectDataTypeOptional.isPresent()) {
+            S3SelectDataType s3SelectDataType = s3SelectDataTypeOptional.get();
+
+            IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, s3SelectDataType);
             String ionSqlQuery = queryBuilder.buildSql(columns, effectivePredicate);
-            S3SelectLineRecordReader recordReader = new S3SelectCsvRecordReader(configuration, clientConfig, path, fileSplit.getStart(), fileSplit.getLength(), schema, ionSqlQuery, s3ClientFactory);
-            return Optional.of(new S3SelectRecordCursor(configuration, path, recordReader, fileSplit.getLength(), schema, columns, hiveStorageTimeZone, typeManager));
+            Optional<S3SelectLineRecordReader> recordReader = S3SelectLineRecordReaderProvider.get(configuration, clientConfig, path, fileSplit.getStart(), fileSplit.getLength(), schema, ionSqlQuery, s3ClientFactory, s3SelectDataType);
+
+            // If S3 Select data type is not mapped to a S3SelectLineRecordReader it will return Optional.empty()
+            return recordReader.map(s3SelectLineRecordReader -> new S3SelectRecordCursor<>(configuration, path, s3SelectLineRecordReader, fileSplit.getLength(), schema, columns, hiveStorageTimeZone, typeManager));
         }
 
         // unsupported serdes

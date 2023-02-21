@@ -86,7 +86,7 @@ import static java.util.stream.Collectors.toMap;
 public class TestPinotQueryBase
 {
     protected static final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeManager);
+    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
 
     protected static ConnectorId pinotConnectorId = new ConnectorId("id");
     protected static PinotTableHandle realtimeOnlyTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "realtimeOnly");
@@ -235,7 +235,7 @@ public class TestPinotQueryBase
                 expression,
                 ImmutableMap.of(),
                 WarningCollector.NOOP);
-        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionAndTypeManager, session);
+        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionAndTypeManager.getFunctionAndTypeResolver(), session);
     }
 
     protected LimitNode limit(PlanBuilder pb, long count, PlanNode source)
@@ -245,7 +245,7 @@ public class TestPinotQueryBase
 
     protected DistinctLimitNode distinctLimit(PlanBuilder pb, List<VariableReferenceExpression> distinctVariables, long count, PlanNode source)
     {
-        return new DistinctLimitNode(source.getSourceLocation(), pb.getIdAllocator().getNextId(), source, count, false, distinctVariables, Optional.empty());
+        return new DistinctLimitNode(source.getSourceLocation(), pb.getIdAllocator().getNextId(), source, count, false, distinctVariables, Optional.empty(), 0);
     }
 
     protected TopNNode topN(PlanBuilder pb, long count, List<String> orderingColumns, List<Boolean> ascending, PlanNode source)

@@ -51,6 +51,7 @@ public class DistinctLimitOperator
         private final Optional<Integer> hashChannel;
         private boolean closed;
         private final JoinCompiler joinCompiler;
+        private final int timeoutMillis;
 
         public DistinctLimitOperatorFactory(
                 int operatorId,
@@ -61,6 +62,19 @@ public class DistinctLimitOperator
                 Optional<Integer> hashChannel,
                 JoinCompiler joinCompiler)
         {
+            this(operatorId, planNodeId, sourceTypes, distinctChannels, limit, hashChannel, joinCompiler, 0);
+        }
+
+        public DistinctLimitOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                List<? extends Type> sourceTypes,
+                List<Integer> distinctChannels,
+                long limit,
+                Optional<Integer> hashChannel,
+                JoinCompiler joinCompiler,
+                int timeoutMillis)
+        {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(requireNonNull(sourceTypes, "sourceTypes is null"));
@@ -70,6 +84,7 @@ public class DistinctLimitOperator
             this.limit = limit;
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+            this.timeoutMillis = timeoutMillis;
         }
 
         @Override
@@ -80,7 +95,7 @@ public class DistinctLimitOperator
             List<Type> distinctTypes = distinctChannels.stream()
                     .map(sourceTypes::get)
                     .collect(toImmutableList());
-            return new DistinctLimitOperator(operatorContext, distinctChannels, distinctTypes, limit, hashChannel, joinCompiler);
+            return new DistinctLimitOperator(operatorContext, distinctChannels, distinctTypes, limit, hashChannel, joinCompiler, timeoutMillis);
         }
 
         @Override
@@ -92,7 +107,7 @@ public class DistinctLimitOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new DistinctLimitOperatorFactory(operatorId, planNodeId, sourceTypes, distinctChannels, limit, hashChannel, joinCompiler);
+            return new DistinctLimitOperatorFactory(operatorId, planNodeId, sourceTypes, distinctChannels, limit, hashChannel, joinCompiler, timeoutMillis);
         }
     }
 
@@ -111,8 +126,9 @@ public class DistinctLimitOperator
     // for yield when memory is not available
     private GroupByIdBlock groupByIds;
     private Work<GroupByIdBlock> unfinishedWork;
+    private final long timeoutMillis;
 
-    public DistinctLimitOperator(OperatorContext operatorContext, List<Integer> distinctChannels, List<Type> distinctTypes, long limit, Optional<Integer> hashChannel, JoinCompiler joinCompiler)
+    public DistinctLimitOperator(OperatorContext operatorContext, List<Integer> distinctChannels, List<Type> distinctTypes, long limit, Optional<Integer> hashChannel, JoinCompiler joinCompiler, int timeout)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
@@ -137,6 +153,22 @@ public class DistinctLimitOperator
                 joinCompiler,
                 this::updateMemoryReservation);
         remainingLimit = limit;
+        if (timeout > 0) {
+            this.timeoutMillis = System.currentTimeMillis() + timeout;
+        }
+        else {
+            this.timeoutMillis = 0;
+        }
+    }
+
+    private boolean finishIfTimedOut()
+    {
+        if (timeoutMillis > 0 && System.currentTimeMillis() >= timeoutMillis) {
+            finish();
+            return true;
+        }
+
+        return false;
     }
 
     @Override
@@ -154,18 +186,22 @@ public class DistinctLimitOperator
     @Override
     public boolean isFinished()
     {
-        return !hasUnfinishedInput() && (finishing || remainingLimit == 0);
+        return finishIfTimedOut() || (!hasUnfinishedInput() && (finishing || remainingLimit == 0));
     }
 
     @Override
     public boolean needsInput()
     {
-        return !finishing && remainingLimit > 0 && !hasUnfinishedInput();
+        return !finishIfTimedOut() && !finishing && remainingLimit > 0 && !hasUnfinishedInput();
     }
 
     @Override
     public void addInput(Page page)
     {
+        if (finishIfTimedOut()) {
+            return;
+        }
+
         checkState(needsInput());
 
         inputPage = page;
@@ -178,6 +214,7 @@ public class DistinctLimitOperator
     public Page getOutput()
     {
         if (unfinishedWork != null && !processUnfinishedWork()) {
+            finishIfTimedOut();
             return null;
         }
 
@@ -213,7 +250,7 @@ public class DistinctLimitOperator
     private boolean processUnfinishedWork()
     {
         verify(unfinishedWork != null);
-        if (!unfinishedWork.process()) {
+        if (finishIfTimedOut() || !unfinishedWork.process()) {
             return false;
         }
         groupByIds = unfinishedWork.getResult();
@@ -223,7 +260,7 @@ public class DistinctLimitOperator
 
     private boolean hasUnfinishedInput()
     {
-        return inputPage != null || unfinishedWork != null;
+        return !finishIfTimedOut() && inputPage != null || unfinishedWork != null;
     }
 
     /**

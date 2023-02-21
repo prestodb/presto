@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.RowType;
@@ -372,6 +373,10 @@ public class H2QueryRunner
             return Arrays.stream(values)
                     .map(v -> v == null ? null : ((Timestamp) v).toLocalDateTime())
                     .toArray();
+        }
+
+        if (elementType instanceof DateType) {
+            return Arrays.stream(values).map(v -> v == null ? null : ((Date) v).toLocalDate()).toArray();
         }
 
         return values;

@@ -64,6 +64,16 @@ class TaskManager {
           std::unordered_map<std::string, std::string>>&&
           connectorConfigStrings);
 
+  // Iterates through a map of resultRequests and fetches data from
+  // buffer manager. This method uses the getData() global call to fetch
+  // data for each resultRequest bufferManager. If the output buffer for task
+  // is not found, prepares the Result object with completed flags set to false
+  // and notifies the future.
+  // Note: This method is made public for unit testing purpose only.
+  void getDataForResultRequests(
+      const std::unordered_map<int64_t, std::shared_ptr<ResultRequest>>&
+          resultRequests);
+
   std::unique_ptr<protocol::TaskInfo> deleteTask(
       const protocol::TaskId& taskId,
       bool abort);

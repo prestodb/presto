@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * This config class corresponds to config.properties for native execution process. Properties inside will be used in Configs::SystemConfig in Configs.h/cpp
  */
@@ -28,6 +30,7 @@ public class NativeExecutionSystemConfig
     private static final String ENABLE_VELOX_EXPRESSION_LOGGING = "enable_velox_expression_logging";
     private static final String ENABLE_VELOX_TASK_LOGGING = "enable_velox_task_logging";
     private static final String HTTP_SERVER_HTTP_PORT = "http-server.http.port";
+    private static final String HTTP_SERVER_REUSE_PORT = "http-server.reuse-port";
     private static final String HTTP_EXEC_THREADS = "http_exec_threads";
     private static final String NUM_IO_THREADS = "num-io-threads";
     private static final String PRESTO_VERSION = "presto.version";
@@ -35,10 +38,12 @@ public class NativeExecutionSystemConfig
     private static final String SYSTEM_MEMORY_GB = "system-memory-gb";
     private static final String TASK_MAX_DRIVERS_PER_TASK = "task.max-drivers-per-task";
     private static final String DISCOVERY_URI = "discovery.uri";
+    private static final String SHUFFLE_NAME = "shuffle.name";
 
     private boolean enableSerializedPageChecksum = true;
     private boolean enableVeloxExpressionLogging;
     private boolean enableVeloxTaskLogging = true;
+    private boolean httpServerReusePort = true;
     private int httpServerPort = 7777;
     private int httpExecThreads = 32;
     private int numIoThreads = 30;
@@ -48,6 +53,7 @@ public class NativeExecutionSystemConfig
     private int maxDriversPerTask = 15;
     private String prestoVersion = "dummy.presto.version";
     private String discoveryUri = "http://127.0.0.1";
+    private String shuffleName = "local";
 
     public Map<String, String> getAllProperties()
     {
@@ -57,6 +63,7 @@ public class NativeExecutionSystemConfig
                 .put(ENABLE_VELOX_EXPRESSION_LOGGING, String.valueOf(isEnableVeloxExpressionLogging()))
                 .put(ENABLE_VELOX_TASK_LOGGING, String.valueOf(isEnableVeloxTaskLogging()))
                 .put(HTTP_SERVER_HTTP_PORT, String.valueOf(getHttpServerPort()))
+                .put(HTTP_SERVER_REUSE_PORT, String.valueOf(isHttpServerReusePort()))
                 .put(HTTP_EXEC_THREADS, String.valueOf(getHttpExecThreads()))
                 .put(NUM_IO_THREADS, String.valueOf(getNumIoThreads()))
                 .put(PRESTO_VERSION, getPrestoVersion())
@@ -64,7 +71,20 @@ public class NativeExecutionSystemConfig
                 .put(SYSTEM_MEMORY_GB, String.valueOf(getSystemMemoryGb()))
                 .put(TASK_MAX_DRIVERS_PER_TASK, String.valueOf(getMaxDriversPerTask()))
                 .put(DISCOVERY_URI, getDiscoveryUri())
+                .put(SHUFFLE_NAME, getShuffleName())
                 .build();
+    }
+
+    @Config(SHUFFLE_NAME)
+    public NativeExecutionSystemConfig setShuffleName(String shuffleName)
+    {
+        this.shuffleName = requireNonNull(shuffleName);
+        return this;
+    }
+
+    public String getShuffleName()
+    {
+        return shuffleName;
     }
 
     @Config(ENABLE_SERIALIZED_PAGE_CHECKSUM)
@@ -113,6 +133,18 @@ public class NativeExecutionSystemConfig
     public int getHttpServerPort()
     {
         return httpServerPort;
+    }
+
+    @Config(HTTP_SERVER_REUSE_PORT)
+    public NativeExecutionSystemConfig setHttpServerReusePort(boolean httpServerReusePort)
+    {
+        this.httpServerReusePort = httpServerReusePort;
+        return this;
+    }
+
+    public boolean isHttpServerReusePort()
+    {
+        return httpServerReusePort;
     }
 
     @Config(HTTP_EXEC_THREADS)

@@ -41,7 +41,7 @@ public class AggregationNodeUtils
     {
         return new AggregationNode.Aggregation(
                 new CallExpression("count",
-                        new FunctionResolution(functionAndTypeManager).countFunction(),
+                        new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()).countFunction(),
                         BIGINT,
                         ImmutableList.of()),
                 Optional.empty(),

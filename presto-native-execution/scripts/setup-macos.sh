@@ -17,7 +17,7 @@ set -eufx -o pipefail
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
 
 MACOS_DEPS="${MACOS_DEPS} bison gperf libsodium"
-export FB_OS_VERSION=v2022.07.11.00
+export FB_OS_VERSION=v2022.11.14.00
 
 function install_six {
   pip3 install six

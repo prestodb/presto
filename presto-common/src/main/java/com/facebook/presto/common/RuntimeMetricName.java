@@ -40,6 +40,7 @@ public class RuntimeMetricName
     public static final String GET_COLUMN_METADATA_TIME_NANOS = "getColumnMetadataTimeNanos";
     public static final String GET_SPLITS_TIME_NANOS = "getSplitsTimeNanos";
     public static final String LOGICAL_PLANNER_TIME_NANOS = "logicalPlannerTimeNanos";
+    public static final String OPTIMIZER_TIME_NANOS = "optimizerTimeNanos";
     public static final String FRAGMENT_PLAN_TIME_NANOS = "fragmentPlanTimeNanos";
     public static final String GET_LAYOUT_TIME_NANOS = "getLayoutTimeNanos";
     public static final String REWRITE_AGGREGATION_IF_TO_FILTER_APPLIED = "rewriteAggregationIfToFilterApplied";

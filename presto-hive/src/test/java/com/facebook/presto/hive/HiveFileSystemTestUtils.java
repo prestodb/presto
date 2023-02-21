@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.cache.CacheConfig;
-import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.AbstractTestHiveClient.HiveTransaction;
 import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
@@ -28,7 +27,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -47,6 +45,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
 import static com.facebook.presto.hive.AbstractTestHiveFileSystem.SPLIT_SCHEDULING_CONTEXT;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -96,11 +95,69 @@ public class HiveFileSystemTestUtils
                         split,
                         tableHandle.getLayout().get(),
                         columnHandles,
-                        new SplitContext(false, TupleDomain.none()))) {
+                        NON_CACHEABLE)) {
                     MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
                     for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
                         Object[] dataValues = IntStream.range(0, row.getFieldCount())
                                 .filter(channel -> !((HiveColumnHandle) columnHandles.get(channel)).isHidden())
+                                .mapToObj(row::getField)
+                                .toArray();
+                        result.row(dataValues);
+                    }
+                }
+            }
+            return result.build();
+        }
+        finally {
+            cleanUpQuery(metadata, session);
+            closeQuietly(splitSource);
+        }
+    }
+
+    public static MaterializedResult filterTable(SchemaTableName tableName,
+            List<ColumnHandle> projectedColumns,
+            HiveTransactionManager transactionManager,
+            HiveClientConfig config,
+            HiveMetadataFactory metadataFactory,
+            ConnectorPageSourceProvider pageSourceProvider,
+            ConnectorSplitManager splitManager)
+            throws IOException
+    {
+        ConnectorMetadata metadata = null;
+        ConnectorSession session = null;
+        ConnectorSplitSource splitSource = null;
+
+        try (Transaction transaction = newTransaction(transactionManager, metadataFactory.get())) {
+            metadata = transaction.getMetadata();
+            session = newSession(config);
+
+            ConnectorTableHandle table = getTableHandle(metadata, tableName, session);
+            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+            TableHandle tableHandle = new TableHandle(new ConnectorId(tableName.getSchemaName()), table, transaction.getTransactionHandle(), Optional.of(layoutHandle));
+
+            metadata.beginQuery(session);
+            splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle.getLayout().get(), SPLIT_SCHEDULING_CONTEXT);
+
+            List<Type> allTypes = getTypes(projectedColumns);
+            List<Type> dataTypes = getTypes(projectedColumns.stream()
+                    .filter(columnHandle -> !((HiveColumnHandle) columnHandle).isHidden())
+                    .collect(toImmutableList()));
+            MaterializedResult.Builder result = MaterializedResult.resultBuilder(session, dataTypes);
+
+            List<ConnectorSplit> splits = getAllSplits(splitSource);
+            for (ConnectorSplit split : splits) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                        transaction.getTransactionHandle(),
+                        session,
+                        split,
+                        tableHandle.getLayout().get(),
+                        projectedColumns,
+                        NON_CACHEABLE)) {
+                    MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
+                    for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
+                        Object[] dataValues = IntStream.range(0, row.getFieldCount())
+                                .filter(channel -> !((HiveColumnHandle) projectedColumns.get(channel)).isHidden())
                                 .mapToObj(row::getField)
                                 .toArray();
                         result.row(dataValues);

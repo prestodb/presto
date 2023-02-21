@@ -102,7 +102,9 @@ import com.facebook.presto.operator.scalar.ArrayElementAtFunction;
 import com.facebook.presto.operator.scalar.ArrayEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayExceptFunction;
 import com.facebook.presto.operator.scalar.ArrayFilterFunction;
-import com.facebook.presto.operator.scalar.ArrayFindFirstFirstFunction;
+import com.facebook.presto.operator.scalar.ArrayFindFirstFunction;
+import com.facebook.presto.operator.scalar.ArrayFindFirstIndexFunction;
+import com.facebook.presto.operator.scalar.ArrayFindFirstIndexWithOffsetFunction;
 import com.facebook.presto.operator.scalar.ArrayFindFirstWithOffsetFunction;
 import com.facebook.presto.operator.scalar.ArrayFunctions;
 import com.facebook.presto.operator.scalar.ArrayGreaterThanOperator;
@@ -121,7 +123,6 @@ import com.facebook.presto.operator.scalar.ArrayNotEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayPositionFunction;
 import com.facebook.presto.operator.scalar.ArrayPositionWithIndexFunction;
 import com.facebook.presto.operator.scalar.ArrayRemoveFunction;
-import com.facebook.presto.operator.scalar.ArrayRemoveNullsFunction;
 import com.facebook.presto.operator.scalar.ArrayReverseFunction;
 import com.facebook.presto.operator.scalar.ArrayShuffleFunction;
 import com.facebook.presto.operator.scalar.ArraySliceFunction;
@@ -783,7 +784,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayLessThanOperator.class)
                 .scalar(ArrayLessThanOrEqualOperator.class)
                 .scalar(ArrayRemoveFunction.class)
-                .scalar(ArrayRemoveNullsFunction.class)
                 .scalar(ArrayGreaterThanOperator.class)
                 .scalar(ArrayGreaterThanOrEqualOperator.class)
                 .scalar(ArrayElementAtFunction.class)
@@ -810,8 +810,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayNgramsFunction.class)
                 .scalar(ArrayAllMatchFunction.class)
                 .scalar(ArrayAnyMatchFunction.class)
-                .scalar(ArrayFindFirstFirstFunction.class)
+                .scalar(ArrayFindFirstFunction.class)
                 .scalar(ArrayFindFirstWithOffsetFunction.class)
+                .scalar(ArrayFindFirstIndexFunction.class)
+                .scalar(ArrayFindFirstIndexWithOffsetFunction.class)
                 .scalar(ArrayNoneMatchFunction.class)
                 .scalar(ArrayNormalizeFunction.class)
                 .scalar(MapDistinctFromOperator.class)
