@@ -157,11 +157,14 @@ public class PlannerUtils
         return Optional.of(result);
     }
 
-    public static PlanNode projectExpressions(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, List<? extends RowExpression> expressions)
+    public static PlanNode projectExpressions(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, List<? extends RowExpression> expressions, List<VariableReferenceExpression> variableMap)
     {
         Assignments.Builder assignments = Assignments.builder();
+        checkArgument(variableMap.isEmpty() || variableMap.size() == expressions.size());
+        int i = 0;
         for (RowExpression expression : expressions) {
-            assignments.put(variableAllocator.newVariable("expr", expression.getType()), expression);
+            VariableReferenceExpression variable = variableMap.isEmpty() ? variableAllocator.newVariable(expression) : variableMap.get(i++);
+            assignments.put(variable, expression);
         }
 
         return new ProjectNode(
@@ -217,13 +220,13 @@ public class PlannerUtils
                     Optional.empty()),
                 planNodeIdAllocator,
                 variableAllocator,
-                ImmutableList.of(resultVariable));
+                ImmutableList.of(resultVariable),
+                ImmutableList.of());
     }
 
     private static PlanNode cloneFilterNode(FilterNode filterNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> variablesToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)
     {
         PlanNode newSource = clonePlanNode(filterNode.getSource(), session, metadata, planNodeIdAllocator, variablesToKeep, varMap);
-
         return new FilterNode(
                 filterNode.getSourceLocation(),
                 idAllocator.getNextId(),
@@ -234,7 +237,6 @@ public class PlannerUtils
     private static PlanNode cloneProjectNode(ProjectNode projectNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)
     {
         PlanNode newSource = clonePlanNode(projectNode.getSource(), session, metadata, planNodeIdAllocator, fieldsToKeep, varMap);
-
         return new ProjectNode(
                 idAllocator.getNextId(),
                 newSource,
@@ -244,9 +246,7 @@ public class PlannerUtils
     private static TableScanNode cloneTableScan(TableScanNode scanNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
     {
         Map<VariableReferenceExpression, ColumnHandle> assignments = scanNode.getAssignments();
-
         TableLayout scanLayout = metadata.getLayout(session, scanNode.getTable());
-
         return new TableScanNode(
                 scanNode.getSourceLocation(),
                 planNodeIdAllocator.getNextId(),
@@ -323,5 +323,20 @@ public class PlannerUtils
         checkArgument(expression instanceof SymbolReference, "Unexpected expression: " + expression);
         String name = ((SymbolReference) expression).getName();
         return variableAllocator.getVariableReferenceExpression(getSourceLocation(expression), name);
+    }
+
+    public static Optional<TableScanNode> getTableScanNodeWithOnlyFilterAndProject(PlanNode source)
+    {
+        if (source instanceof FilterNode) {
+            return getTableScanNodeWithOnlyFilterAndProject(((FilterNode) source).getSource());
+        }
+        if (source instanceof ProjectNode) {
+            return getTableScanNodeWithOnlyFilterAndProject(((ProjectNode) source).getSource());
+        }
+        if (source instanceof TableScanNode) {
+            return Optional.of((TableScanNode) source);
+        }
+
+        return Optional.empty();
     }
 }

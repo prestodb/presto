@@ -6395,4 +6395,17 @@ public abstract class AbstractTestQueries
         assertQuery(prefilter, "select count(1) from (select count(custkey), orderkey from orders group by orderkey limit 4)", "select 4");
         assertQuery(prefilter, "select count(1) from (select count(comment), orderstatus from (select upper(comment) comment, upper(orderstatus) orderstatus from orders) group by orderstatus limit 100000)", "values 3");
     }
+
+    @Test
+    public void testPrefilterGroupByLimitNotFiredForLowCardinalityKeys()
+    {
+        Session prefilter = Session.builder(getSession())
+                .setSystemProperty("prefilter_for_groupby_limit", "true")
+                .build();
+
+        MaterializedResult plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderstatus from orders group by orderstatus limit 1000");
+        assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") == -1);
+        plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderkey from orders group by orderkey limit 100000");
+        assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") == -1);
+    }
 }
