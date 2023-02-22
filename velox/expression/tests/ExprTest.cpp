@@ -91,17 +91,17 @@ class ExprTest : public testing::Test, public VectorTestBase {
   evaluateMultipleWithStats(
       const std::vector<std::string>& texts,
       const RowVectorPtr& input,
-      std::vector<VectorPtr> result_to_reuse = {}) {
+      std::vector<VectorPtr> resultToReuse = {}) {
     auto exprSet = compileMultiple(texts, asRowType(input->type()));
 
     exec::EvalCtx context(execCtx_.get(), exprSet.get(), input.get());
 
     SelectivityVector rows(input->size());
-    if (result_to_reuse.empty()) {
-      result_to_reuse.resize(texts.size());
+    if (resultToReuse.empty()) {
+      resultToReuse.resize(texts.size());
     }
-    exprSet->eval(rows, context, result_to_reuse);
-    return {result_to_reuse, exprSet->stats()};
+    exprSet->eval(rows, context, resultToReuse);
+    return {resultToReuse, exprSet->stats()};
   }
 
   VectorPtr evaluate(const std::string& text, const RowVectorPtr& input) {
@@ -3415,11 +3415,11 @@ TEST_F(ExprTest, cseOverDictionaryAcrossMultipleExpressions) {
     // Use an allocated result vector to force copying of values to the result
     // vector. Otherwise, we might end up with a result vector pointing directly
     // to the shared values vector from CSE.
-    std::vector<VectorPtr> result_to_reuse = {
+    std::vector<VectorPtr> resultToReuse = {
         makeFlatVector<StringView>({"x"_sv, "y"_sv}),
         makeFlatVector<StringView>({"x"_sv, "y"_sv})};
     auto [result, stats] = evaluateMultipleWithStats(
-        {"concat('foo_',upper(c0))", "upper(c0)"}, input, result_to_reuse);
+        {"concat('foo_',upper(c0))", "upper(c0)"}, input, resultToReuse);
     std::vector<VectorPtr> expected = {
         makeFlatVector<StringView>({"foo_BB2"_sv, "foo_DD4"_sv}),
         makeFlatVector<StringView>({"BB2"_sv, "DD4"_sv})};
@@ -3440,7 +3440,7 @@ TEST_F(ExprTest, cseOverDictionaryAcrossMultipleExpressions) {
   // runs into an error while creating the peel.
   {
     // Use an allocated result vector to force copying of values to the result.
-    std::vector<VectorPtr> result_to_reuse = {
+    std::vector<VectorPtr> resultToReuse = {
         makeFlatVector<StringView>({"x"_sv, "y"_sv}),
         makeFlatVector<StringView>({"x"_sv, "y"_sv}),
         makeFlatVector<StringView>({"x"_sv, "y"_sv})};
@@ -3449,7 +3449,7 @@ TEST_F(ExprTest, cseOverDictionaryAcrossMultipleExpressions) {
          "substr(upper(c0),3)",
          "substr(upper(c0),2)"},
         input,
-        result_to_reuse);
+        resultToReuse);
     std::vector<VectorPtr> expected = {
         makeFlatVector<StringView>({"foo_B2"_sv, "foo_D4"_sv}),
         makeFlatVector<StringView>({"2"_sv, "4"_sv}),
