@@ -9,6 +9,6 @@ Velox Documentation
     functions
     spark_functions
     configs
+    bindings
     develop
     monthly-updates
-

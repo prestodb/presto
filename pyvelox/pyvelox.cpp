@@ -122,9 +122,15 @@ static void addExpressionBindings(
 #ifdef CREATE_PYVELOX_MODULE
 PYBIND11_MODULE(pyvelox, m) {
   m.doc() = R"pbdoc(
-        PyVelox native code module
-        -----------------------
-       )pbdoc";
+      PyVelox native code module
+      --------------------------
+
+      .. currentmodule:: pyvelox.pyvelox
+
+      .. autosummary::
+         :toctree: _generate
+
+  )pbdoc";
 
   addVeloxBindings(m);
 
