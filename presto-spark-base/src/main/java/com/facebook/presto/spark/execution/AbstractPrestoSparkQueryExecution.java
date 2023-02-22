@@ -913,7 +913,9 @@ public abstract class AbstractPrestoSparkQueryExecution
 
         // For PoS, we don't expect more than 1 shuffle dependency.
         verify(shuffleDependencies.size() <= 1, "More than 1 shuffle dependency found");
-        if (!shuffleDependencies.isEmpty()) {
+        if (!shuffleDependencies.isEmpty()
+                // We can only execute map stage on RDD with more than 0 partition(Non-Empty tables)
+                && shuffleDependencies.get(0).rdd().partitions().length > 0) {
             ShuffleDependency shuffleDependency = shuffleDependencies.get(0);
             mapOutputStatisticsFutureAction = sparkContext.sc().submitMapStage(shuffleDependency);
         }
