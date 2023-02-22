@@ -13,31 +13,32 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
+import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Verify.verify;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Implements filtered aggregations by transforming plans of the following shape:
@@ -60,22 +61,12 @@ import static java.util.Objects.requireNonNull;
  *         - X
  * </pre>
  */
-public class ImplementFilteredAggregations
+@Deprecated
+public class ImplementFilteredAggregationsUsingExpressions
         implements Rule<AggregationNode>
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation()
-            .matching(ImplementFilteredAggregations::hasFilters);
-
-    private LogicalRowExpressions logicalRowExpressions;
-
-    public ImplementFilteredAggregations(FunctionAndTypeManager functionAndTypeManager)
-    {
-        requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
-        logicalRowExpressions = new LogicalRowExpressions(
-                new RowExpressionDeterminismEvaluator(functionAndTypeManager),
-                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
-                functionAndTypeManager);
-    }
+            .matching(ImplementFilteredAggregationsUsingExpressions::hasFilters);
 
     private static boolean hasFilters(AggregationNode aggregation)
     {
@@ -96,7 +87,7 @@ public class ImplementFilteredAggregations
     {
         Assignments.Builder newAssignments = Assignments.builder();
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
-        ImmutableList.Builder<RowExpression> maskSymbols = ImmutableList.builder();
+        ImmutableList.Builder<Expression> maskSymbols = ImmutableList.builder();
         boolean aggregateWithoutFilterPresent = false;
 
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregation.getAggregations().entrySet()) {
@@ -106,13 +97,14 @@ public class ImplementFilteredAggregations
             Optional<VariableReferenceExpression> mask = entry.getValue().getMask();
 
             if (entry.getValue().getFilter().isPresent()) {
-                RowExpression filter = entry.getValue().getFilter().get();
-                VariableReferenceExpression variable = context.getVariableAllocator().newVariable(filter);
+                // TODO remove cast once assignment can be RowExpression
+                Expression filter = OriginalExpressionUtils.castToExpression(entry.getValue().getFilter().get());
+                VariableReferenceExpression variable = newVariable(context.getVariableAllocator(), filter, BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
-                newAssignments.put(variable, filter);
+                newAssignments.put(variable, castToRowExpression(filter));
                 mask = Optional.of(variable);
 
-                maskSymbols.add(variable);
+                maskSymbols.add(createSymbolReference(variable));
             }
             else {
                 aggregateWithoutFilterPresent = true;
@@ -126,13 +118,13 @@ public class ImplementFilteredAggregations
                     mask));
         }
 
-        RowExpression predicate = TRUE_CONSTANT;
+        Expression predicate = TRUE_LITERAL;
         if (!aggregation.hasNonEmptyGroupingSet() && !aggregateWithoutFilterPresent) {
-            predicate = logicalRowExpressions.combineDisjunctsWithDefault(maskSymbols.build(), TRUE_CONSTANT);
+            predicate = combineDisjunctsWithDefault(maskSymbols.build(), TRUE_LITERAL);
         }
 
         // identity projection for all existing inputs
-        newAssignments.putAll(identityAssignments(aggregation.getSource().getOutputVariables()));
+        newAssignments.putAll(identitiesAsSymbolReferences(aggregation.getSource().getOutputVariables()));
 
         return Result.ofPlanNode(
                 new AggregationNode(
@@ -145,7 +137,7 @@ public class ImplementFilteredAggregations
                                         context.getIdAllocator().getNextId(),
                                         aggregation.getSource(),
                                         newAssignments.build()),
-                                predicate),
+                                castToRowExpression(predicate)),
                         aggregations.build(),
                         aggregation.getGroupingSets(),
                         ImmutableList.of(),

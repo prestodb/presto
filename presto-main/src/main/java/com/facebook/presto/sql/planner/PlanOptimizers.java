@@ -29,6 +29,8 @@ import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregation
 import com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
+import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregationsUsingExpressions;
+import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedLateralJoinToJoinUsingExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarAtTimeZone;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentUser;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarLambdaExpression;
@@ -353,7 +355,7 @@ public class PlanOptimizers
                                         new PushLimitThroughSemiJoin(),
                                         new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
-                                        new ImplementFilteredAggregations(),
+                                        new ImplementFilteredAggregationsUsingExpressions(),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
                                         new ImplementBernoulliSampleAsFilter(),
@@ -402,17 +404,7 @@ public class PlanOptimizers
                                 new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionAndTypeManager()),
-                                new TransformCorrelatedLateralJoinToJoin())),
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.of(
-                                new RemoveUnreferencedScalarApplyNodes(),
-                                new TransformCorrelatedInPredicateToJoin(metadata.getFunctionAndTypeManager()), // must be run after PruneUnreferencedOutputs
-                                new TransformCorrelatedScalarSubquery(), // must be run after TransformCorrelatedScalarAggregationToJoin
-                                new TransformCorrelatedLateralJoinToJoin(),
-                                new ImplementFilteredAggregations())),
+                                new TransformCorrelatedLateralJoinToJoinUsingExpressions())),
                 // TODO: move this before optimization if possible!!
                 // Replace all expressions with row expressions
                 new IterativeOptimizer(
@@ -421,6 +413,16 @@ public class PlanOptimizers
                         costCalculator,
                         new TranslateExpressions(metadata, sqlParser).rules()),
                 // After this point, all planNodes should not contain OriginalExpression
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(
+                                new RemoveUnreferencedScalarApplyNodes(),
+                                new TransformCorrelatedInPredicateToJoin(metadata.getFunctionAndTypeManager()), // must be run after PruneUnreferencedOutputs
+                                new TransformCorrelatedScalarSubquery(metadata.getFunctionAndTypeManager()), // must be run after TransformCorrelatedScalarAggregationToJoin
+                                new TransformCorrelatedLateralJoinToJoin(metadata.getFunctionAndTypeManager()),
+                                new ImplementFilteredAggregations(metadata.getFunctionAndTypeManager()))),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
