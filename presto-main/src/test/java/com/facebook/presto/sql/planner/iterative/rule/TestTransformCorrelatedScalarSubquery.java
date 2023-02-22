@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -54,7 +55,14 @@ public class TestTransformCorrelatedScalarSubquery
     private static final ImmutableList<List<RowExpression>> ONE_ROW = ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)));
     private static final ImmutableList<List<RowExpression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)), ImmutableList.of(constant(2L, BIGINT)));
 
-    private Rule rule = new TransformCorrelatedScalarSubquery();
+    private Rule rule;
+
+    @BeforeClass
+    public void setUp()
+    {
+        super.setUp();
+        this.rule = new TransformCorrelatedScalarSubquery(getFunctionManager());
+    }
 
     @Test
     public void doesNotFireOnPlanWithoutLateralNode()

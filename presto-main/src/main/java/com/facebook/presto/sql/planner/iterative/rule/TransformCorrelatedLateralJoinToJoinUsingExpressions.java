@@ -13,18 +13,15 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelatorUsingRowExpressions;
-import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelatorUsingRowExpressions.DecorrelatedNode;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -33,28 +30,17 @@ import java.util.Optional;
 import static com.facebook.presto.matching.Pattern.nonEmpty;
 import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Tries to decorrelate subquery and rewrite it using normal join.
  * Decorrelated predicates are part of join condition.
  */
-public class TransformCorrelatedLateralJoinToJoin
+@Deprecated
+public class TransformCorrelatedLateralJoinToJoinUsingExpressions
         implements Rule<LateralJoinNode>
 {
     private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
             .with(nonEmpty(correlation()));
-
-    private final LogicalRowExpressions logicalRowExpressions;
-
-    public TransformCorrelatedLateralJoinToJoin(FunctionAndTypeManager functionAndTypeManager)
-    {
-        requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
-        logicalRowExpressions = new LogicalRowExpressions(
-                new RowExpressionDeterminismEvaluator(functionAndTypeManager),
-                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
-                functionAndTypeManager);
-    }
 
     @Override
     public Pattern<LateralJoinNode> getPattern()
@@ -67,8 +53,8 @@ public class TransformCorrelatedLateralJoinToJoin
     {
         PlanNode subquery = lateralJoinNode.getSubquery();
 
-        PlanNodeDecorrelatorUsingRowExpressions planNodeDecorrelatorUsingRowExpressions = new PlanNodeDecorrelatorUsingRowExpressions(context.getIdAllocator(), context.getVariableAllocator(), context.getLookup(), logicalRowExpressions);
-        Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelatorUsingRowExpressions.decorrelateFilters(subquery, lateralJoinNode.getCorrelation());
+        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getVariableAllocator(), context.getLookup());
+        Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, lateralJoinNode.getCorrelation());
 
         return decorrelatedNodeOptional.map(decorrelatedNode ->
                 Result.ofPlanNode(new JoinNode(
@@ -79,7 +65,7 @@ public class TransformCorrelatedLateralJoinToJoin
                         decorrelatedNode.getNode(),
                         ImmutableList.of(),
                         lateralJoinNode.getOutputVariables(),
-                        decorrelatedNode.getCorrelatedPredicates(),
+                        decorrelatedNode.getCorrelatedPredicates().map(OriginalExpressionUtils::castToRowExpression),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),

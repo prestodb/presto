@@ -44,13 +44,11 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -83,8 +81,8 @@ public class ScalarAggregationToJoinRewriter
 
         VariableReferenceExpression nonNull = variableAllocator.newVariable("non_null", BooleanType.BOOLEAN);
         Assignments scalarAggregationSourceAssignments = Assignments.builder()
-                .putAll(identitiesAsSymbolReferences(source.get().getNode().getOutputVariables()))
-                .put(nonNull, castToRowExpression(TRUE_LITERAL))
+                .putAll(identityAssignments(source.get().getNode().getOutputVariables()))
+                .put(nonNull, TRUE_CONSTANT)
                 .build();
         ProjectNode scalarAggregationSourceWithNonNullableVariable = new ProjectNode(
                 idAllocator.getNextId(),
@@ -147,7 +145,7 @@ public class ScalarAggregationToJoinRewriter
 
         if (subqueryProjection.isPresent()) {
             Assignments assignments = Assignments.builder()
-                    .putAll(identitiesAsSymbolReferences(aggregationOutputVariables))
+                    .putAll(identityAssignments(aggregationOutputVariables))
                     .putAll(subqueryProjection.get().getAssignments())
                     .build();
 
@@ -188,7 +186,7 @@ public class ScalarAggregationToJoinRewriter
                                 "count",
                                 functionResolution.countFunction(scalarAggregationSourceType),
                                 BIGINT,
-                                ImmutableList.of(castToRowExpression(asSymbolReference(nonNull)))),
+                                ImmutableList.of(nonNull)),
                         Optional.empty(),
                         Optional.empty(),
                         false,
