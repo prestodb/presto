@@ -41,6 +41,7 @@ import com.facebook.presto.sql.planner.BasePlanFragmenter;
 import com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -183,8 +184,9 @@ public class IterativePlanFragmenter
 
         // apply fragment rewrites like grouped execution tagging
         // and rewriting the partition handle
+        PartitioningHandle partitioningHandle = properties.getPartitioningHandle();
         subPlans = subPlans.stream()
-                .map(subPlan -> finalizeSubPlan(subPlan, queryManagerConfig, metadata, nodePartitioningManager, session, forceSingleNode, warningCollector))
+                .map(subPlan -> finalizeSubPlan(subPlan, queryManagerConfig, metadata, nodePartitioningManager, session, forceSingleNode, warningCollector, partitioningHandle))
                 .collect(toImmutableList());
 
         return new PlanAndFragments(remainingPlan, subPlans);
