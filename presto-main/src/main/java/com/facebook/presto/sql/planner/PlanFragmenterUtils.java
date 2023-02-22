@@ -77,9 +77,10 @@ public class PlanFragmenterUtils
             NodePartitioningManager nodePartitioningManager,
             Session session,
             boolean forceSingleNode,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PartitioningHandle partitioningHandle)
     {
-        subPlan = reassignPartitioningHandleIfNecessary(metadata, session, subPlan);
+        subPlan = reassignPartitioningHandleIfNecessary(metadata, session, subPlan, partitioningHandle);
         if (!forceSingleNode) {
             // grouped execution is not supported for SINGLE_DISTRIBUTION
             subPlan = analyzeGroupedExecution(session, subPlan, false, metadata, nodePartitioningManager);
@@ -181,9 +182,9 @@ public class PlanFragmenterUtils
         return root instanceof OutputNode && getOnlyElement(root.getSources()) instanceof TableFinishNode;
     }
 
-    private static SubPlan reassignPartitioningHandleIfNecessary(Metadata metadata, Session session, SubPlan subPlan)
+    private static SubPlan reassignPartitioningHandleIfNecessary(Metadata metadata, Session session, SubPlan subPlan, PartitioningHandle partitioningHandle)
     {
-        return reassignPartitioningHandleIfNecessaryHelper(metadata, session, subPlan, subPlan.getFragment().getPartitioning());
+        return reassignPartitioningHandleIfNecessaryHelper(metadata, session, subPlan, partitioningHandle);
     }
 
     private static SubPlan reassignPartitioningHandleIfNecessaryHelper(Metadata metadata, Session session, SubPlan subPlan, PartitioningHandle newOutputPartitioningHandle)
