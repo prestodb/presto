@@ -122,7 +122,7 @@ public class TestPrestoSparkQueryExecution
     }
 
     @Test
-    public void testQroupByAdaptiveExecution()
+    public void testGroupByAdaptiveExecution()
     {
         String sqlText = "SELECT custkey, orderstatus FROM orders ORDER BY orderkey DESC LIMIT 10";
         Session session = Session.builder(getSession())
@@ -249,23 +249,24 @@ public class TestPrestoSparkQueryExecution
         rootFragmentedPlan.getChildren().stream()
                 .map(SubPlan::getChildren)
                 .flatMap(Collection::stream)
-                .forEach(subPlan -> excecuteSubPlanWithUncheckedException(execution, subPlan, tableWriteInfo));
+                .forEach(subPlan -> excecuteSubPlanWithUncheckedException(execution, subPlan, tableWriteInfo, Optional.empty()));
 
         // Level 1
         rootFragmentedPlan.getChildren().stream()
-                .forEach(subPlan -> excecuteSubPlanWithUncheckedException(execution, subPlan, tableWriteInfo));
+                .forEach(subPlan -> excecuteSubPlanWithUncheckedException(execution, subPlan, tableWriteInfo, Optional.empty()));
 
         // Level 0 - Root
-        return excecuteSubPlanWithUncheckedException(execution, rootFragmentedPlan, tableWriteInfo);
+        return excecuteSubPlanWithUncheckedException(execution, rootFragmentedPlan, tableWriteInfo, Optional.empty());
     }
 
     // This exists as forEach can't handle methods with checked exception
     private FragmentExecutionResult excecuteSubPlanWithUncheckedException(PrestoSparkStaticQueryExecution execution,
             SubPlan subPlan,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            Optional<Class<?>> outputType)
     {
         try {
-            return execution.executeFragment(subPlan, tableWriteInfo);
+            return execution.executeFragment(subPlan, tableWriteInfo, outputType);
         }
         catch (Exception e) {
             throwIfUnchecked(e);
