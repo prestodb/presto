@@ -42,6 +42,16 @@ public class InSubqueryRowExpression
         this.subquery = requireNonNull(subquery, "subquery is null");
     }
 
+    public VariableReferenceExpression getValue()
+    {
+        return value;
+    }
+
+    public VariableReferenceExpression getSubquery()
+    {
+        return subquery;
+    }
+
     @Override
     public Type getType()
     {

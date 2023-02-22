@@ -34,12 +34,30 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Arrays.asList;
 
 public final class Expressions
 {
+    private static final List<String> COMPARISON_FUNCTIONS = ImmutableList.of(
+            EQUAL.getFunctionName().toString(),
+            NOT_EQUAL.getFunctionName().toString(),
+            LESS_THAN.getFunctionName().toString(),
+            LESS_THAN_OR_EQUAL.getFunctionName().toString(),
+            GREATER_THAN.getFunctionName().toString(),
+            GREATER_THAN_OR_EQUAL.getFunctionName().toString(),
+            IS_DISTINCT_FROM.getFunctionName().toString());
+
     private Expressions()
     {
     }
@@ -78,6 +96,11 @@ public final class Expressions
         return expression instanceof ConstantExpression && ((ConstantExpression) expression).isNull();
     }
 
+    public static boolean isComparison(CallExpression callExpression)
+    {
+        return COMPARISON_FUNCTIONS.contains(callExpression.getFunctionHandle().getName());
+    }
+
     public static CallExpression call(String displayName, FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
     {
         return call(displayName, functionHandle, returnType, asList(arguments));
@@ -112,6 +135,25 @@ public final class Expressions
     {
         FunctionHandle functionHandle = functionAndTypeManager.lookupFunction(name, fromTypes(arguments.stream().map(RowExpression::getType).collect(toImmutableList())));
         return call(name, functionHandle, returnType, arguments);
+    }
+
+    public static RowExpression searchedCaseExpression(List<RowExpression> whenClauses, Optional<RowExpression> defaultValue)
+    {
+        // We rewrite this as - CASE true WHEN p1 THEN v1 WHEN p2 THEN v2 .. ELSE v END
+        return buildSwitch(new ConstantExpression(true, BOOLEAN), whenClauses, defaultValue, BOOLEAN);
+    }
+
+    public static RowExpression buildSwitch(RowExpression operand, List<RowExpression> whenClauses, Optional<RowExpression> defaultValue, Type returnType)
+    {
+        ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
+
+        arguments.add(operand);
+        arguments.addAll(whenClauses);
+
+        arguments.add(defaultValue
+                .orElse(constantNull(operand.getSourceLocation(), returnType)));
+
+        return specialForm(SWITCH, returnType, arguments.build());
     }
 
     public static InputReferenceExpression field(Optional<SourceLocation> sourceLocation, int field, Type type)
