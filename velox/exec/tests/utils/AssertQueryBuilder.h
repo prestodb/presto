@@ -114,6 +114,12 @@ class AssertQueryBuilder {
   std::shared_ptr<Task> assertResults(
       const std::vector<RowVectorPtr>& expected);
 
+  /// Run the query and ensure it returns batches of `expectedType`, and exactly
+  /// `numRows`.
+  std::shared_ptr<Task> assertTypeAndNumRows(
+      const TypePtr& expectedType,
+      vector_size_t expectedNumRows);
+
   /// Run the query and collect all results into a single vector. Throws if
   /// query returns empty result.
   RowVectorPtr copyResults(memory::MemoryPool* FOLLY_NONNULL pool);
@@ -132,4 +138,5 @@ class AssertQueryBuilder {
       connectorConfigs_;
   std::unordered_map<core::PlanNodeId, std::vector<Split>> splits_;
 };
+
 } // namespace facebook::velox::exec::test

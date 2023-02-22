@@ -202,6 +202,12 @@ bool assertEqualResults(
     const MaterializedRowMultiset& expected,
     const std::vector<RowVectorPtr>& actual);
 
+/// Ensure both datasets have the same type and number of rows.
+void assertEqualTypeAndNumRows(
+    const TypePtr& expectedType,
+    vector_size_t expectedNumRows,
+    const std::vector<RowVectorPtr>& actual);
+
 void printResults(const RowVectorPtr& result, std::ostream& out);
 
 } // namespace facebook::velox::exec::test

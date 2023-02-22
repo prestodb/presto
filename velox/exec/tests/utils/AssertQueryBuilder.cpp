@@ -164,6 +164,15 @@ std::shared_ptr<Task> AssertQueryBuilder::assertResults(
   return cursor->task();
 }
 
+std::shared_ptr<Task> AssertQueryBuilder::assertTypeAndNumRows(
+    const TypePtr& expectedType,
+    vector_size_t expectedNumRows) {
+  auto [cursor, results] = readCursor();
+
+  assertEqualTypeAndNumRows(expectedType, expectedNumRows, results);
+  return cursor->task();
+}
+
 RowVectorPtr AssertQueryBuilder::copyResults(memory::MemoryPool* pool) {
   auto [cursor, results] = readCursor();
 

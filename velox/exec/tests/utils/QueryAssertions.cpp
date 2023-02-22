@@ -977,6 +977,18 @@ bool assertEqualResults(
   return assertEqualResults(expectedRows, actual);
 }
 
+void assertEqualTypeAndNumRows(
+    const TypePtr& expectedType,
+    vector_size_t expectedNumRows,
+    const std::vector<RowVectorPtr>& actual) {
+  size_t actualNumRows = 0;
+  for (const auto& result : actual) {
+    EXPECT_EQ(*expectedType, *result->type());
+    actualNumRows += result->size();
+  }
+  EXPECT_EQ(expectedNumRows, actualNumRows);
+}
+
 /// Returns the number of floating-point columns and a list of columns indices
 /// with floating-point columns placed at the end.
 std::tuple<uint32_t, std::vector<velox::column_index_t>>

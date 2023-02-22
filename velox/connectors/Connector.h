@@ -27,12 +27,15 @@
 namespace facebook::velox::common {
 class Filter;
 }
+
 namespace facebook::velox::core {
 class ITypedExpr;
 } // namespace facebook::velox::core
+
 namespace facebook::velox::exec {
 class ExprSet;
 }
+
 namespace facebook::velox::connector {
 
 class DataSource;

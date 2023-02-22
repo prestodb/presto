@@ -46,14 +46,12 @@ enum UTF8CharList {
 /// The `fuzz(type)` method provides the highest degree of entropy. It randomly
 /// generates different types of (possibly nested) encodings given the input
 /// type, including constants, dictionaries, sliced vectors, and more. It
-/// accepts any primitive, complex, or nested types. Additionally,
-/// 'opt.allowLazyVector' can be set to true to enable a chance of generating a
-/// lazy vector:
+/// accepts any primitive, complex, or nested types:
 ///
-///   auto vector1 = fuzzer.fuzz(INTEGER(), true);
+///   auto vector1 = fuzzer.fuzz(INTEGER());
 ///   auto vector2 =
-///       fuzzer.fuzz(MAP(ARRAY(INTEGER()), ROW({REAL(), BIGINT()})), false);
-///   auto vector3 = fuzzer.fuzz(ROW({SMALLINT(), DOUBLE()}), true);
+///       fuzzer.fuzz(MAP(ARRAY(INTEGER()), ROW({REAL(), BIGINT()})));
+///   auto vector3 = fuzzer.fuzz(ROW({SMALLINT(), DOUBLE()}));
 ///
 /// #2.
 ///
@@ -212,6 +210,7 @@ class VectorFuzzer {
 
   // Returns a "fuzzed" row vector with randomized data and nulls.
   RowVectorPtr fuzzRow(const RowTypePtr& rowType);
+  RowVectorPtr fuzzRow(const RowTypePtr& rowType, vector_size_t size);
 
   // Returns a RowVector based on the provided vectors, fuzzing its top-level
   // null buffer.
@@ -294,8 +293,6 @@ class VectorFuzzer {
   // flat encodings if flatEncoding is set to false, otherwise they will all be
   // flat.
   VectorPtr fuzzComplex(const TypePtr& type, vector_size_t size);
-
-  RowVectorPtr fuzzRow(const RowTypePtr& rowType, vector_size_t size);
 
   // Generate a random null buffer.
   BufferPtr fuzzNulls(vector_size_t size);
