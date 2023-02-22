@@ -45,15 +45,22 @@ import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner.PlanAndMore;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import org.apache.spark.MapOutputStatistics;
 import org.apache.spark.SimpleFutureAction;
@@ -67,7 +74,9 @@ import scala.concurrent.impl.ExecutionContextImpl;
 import scala.runtime.AbstractFunction1;
 import scala.util.Try;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -75,9 +84,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spark.execution.RuntimeStatistics.createRuntimeStats;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
+import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Verify.verify;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -205,18 +218,19 @@ public class PrestoSparkAdaptiveQueryExecution
         ExecutionContextExecutorService executorService = !planAndFragments.hasRemainingPlan() ? null :
                 (ExecutionContextExecutorService) ExecutionContextImpl.fromExecutorService(ThreadUtils.newDaemonCachedThreadPool("AdaptiveExecution", 16, 60), null);
 
-        TableWriteInfo tableWriteInfo = null;
+        TableWriteInfo tableWriteInfo = getTableWriteInfo(session, this.planAndMore.getPlan().getRoot());
 
         while (planAndFragments.hasRemainingPlan()) {
             List<SubPlan> readyFragments = planAndFragments.getReadyFragments();
-
+            Set<PlanFragmentId> rootChildren = getRootChildNodeFragmentIDs(planAndFragments.getRemainingPlan().get());
             for (SubPlan fragment : readyFragments) {
+                Optional<Class<?>> outputType = Optional.empty();
+                if (isCoordinatorOnly(this.planAndMore.getPlan()) && rootChildren.contains(fragment.getFragment().getId())) {
+                    outputType = Optional.of(PrestoSparkSerializedPage.class);
+                }
+
                 SubPlan currentFragment = configureOutputPartitioning(session, fragment, planAndMore.getPhysicalResourceSettings().getHashPartitionCount());
-
-                // Initialize tableWriteInfo only the first time it's used (given these are not the final fragments, it is not really being used).
-                tableWriteInfo = (tableWriteInfo != null) ? tableWriteInfo : getTableWriteInfo(session, currentFragment);
-
-                FragmentExecutionResult fragmentExecutionResult = executeFragment(currentFragment, tableWriteInfo);
+                FragmentExecutionResult fragmentExecutionResult = executeFragment(currentFragment, tableWriteInfo, outputType);
 
                 // Create the corresponding event when the fragment finishes execution (successfully or not) and place it in the event queue.
                 // Note that these are Scala futures that we manipulate here in Java.
@@ -282,7 +296,29 @@ public class PrestoSparkAdaptiveQueryExecution
 
         setFinalFragmentedPlan(finalFragment);
 
-        return executeFinalFragment(finalFragment);
+        return executeFinalFragment(session, finalFragment, tableWriteInfo);
+    }
+
+    private static Set<PlanFragmentId> getRootChildNodeFragmentIDs(PlanNode rootPlanNode)
+    {
+        return PlanNodeSearcher.searchFrom(rootPlanNode)
+                .recurseOnlyWhen(node -> !(node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == ExchangeNode.Scope.REMOTE_STREAMING))
+                .where(node1 -> node1 instanceof RemoteSourceNode)
+                .findAll()
+                .stream()
+                .map(n -> ((RemoteSourceNode) n).getSourceFragmentIds())
+                .flatMap(l -> l.stream())
+                .collect(Collectors.toSet());
+    }
+
+    private boolean isCoordinatorOnly(Plan plan)
+    {
+        if (!(plan.getRoot() instanceof OutputNode)) {
+            return false;
+        }
+
+        PlanNode outputSourceNode = ((OutputNode) plan.getRoot()).getSource();
+        return isCoordinatorOnlyDistribution(outputSourceNode);
     }
 
     private void publishFragmentCompletionEvent(FragmentCompletionEvent fragmentCompletionEvent)
@@ -298,12 +334,20 @@ public class PrestoSparkAdaptiveQueryExecution
     /**
      * Execute the final fragment of the plan and collect the result.
      */
-    private List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> executeFinalFragment(SubPlan finalFragment)
-            throws SparkException, TimeoutException
+    private List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> executeFinalFragment(Session session,
+            SubPlan finalFragment,
+            TableWriteInfo tableWriteInfo
+    ) throws SparkException, TimeoutException
     {
-        TableWriteInfo tableWriteInfo = getTableWriteInfo(session, finalFragment);
-        RddAndMore rddAndMore = createRddForSubPlan(finalFragment, tableWriteInfo);
+        if (finalFragment.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION)) {
+            Map<PlanFragmentId, RddAndMore<PrestoSparkSerializedPage>> inputRdds = new HashMap<>();
+            for (SubPlan child : finalFragment.getChildren()) {
+                inputRdds.put(child.getFragment().getId(), getRdd(child.getFragment().getId()).get());
+            }
+            return collectPages(tableWriteInfo, finalFragment.getFragment(), inputRdds);
+        }
 
+        RddAndMore rddAndMore = createRddForSubPlan(finalFragment, tableWriteInfo, Optional.of(PrestoSparkSerializedPage.class));
         return rddAndMore.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics);
     }
 
