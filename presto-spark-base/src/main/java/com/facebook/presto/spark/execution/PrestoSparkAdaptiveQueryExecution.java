@@ -277,8 +277,9 @@ public class PrestoSparkAdaptiveQueryExecution
             }
             if (fragmentEvent instanceof FragmentCompletionFailureEvent) {
                 FragmentCompletionFailureEvent failureEvent = (FragmentCompletionFailureEvent) fragmentEvent;
-                // TODO Consider what is the right retry logic for the whole job in case of failure.
-                throw executionExceptionFactory.toPrestoSparkExecutionException(failureEvent.getExecutionError());
+                propagateIfPossible(failureEvent.getExecutionError(), SparkException.class);
+                propagateIfPossible(failureEvent.getExecutionError(), RuntimeException.class);
+                throw new UncheckedExecutionException(failureEvent.getExecutionError());
             }
 
             verify(fragmentEvent instanceof FragmentCompletionSuccessEvent, String.format("Unexpected FragmentCompletionEvent type: %s", fragmentEvent.getClass().getSimpleName()));
