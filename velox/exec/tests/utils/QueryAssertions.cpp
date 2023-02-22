@@ -479,6 +479,12 @@ velox::variant rowVariantAt(const VectorPtr& vector, vector_size_t row) {
 variant variantAt(const VectorPtr& vector, vector_size_t row) {
   auto typeKind = vector->typeKind();
   if (vector->isNullAt(row)) {
+    if (typeKind == TypeKind::SHORT_DECIMAL) {
+      return variant::shortDecimal(std::nullopt, vector->type());
+    }
+    if (typeKind == TypeKind::LONG_DECIMAL) {
+      return variant::longDecimal(std::nullopt, vector->type());
+    }
     return variant(typeKind);
   }
 

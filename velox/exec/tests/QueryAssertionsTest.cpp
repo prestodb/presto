@@ -343,4 +343,18 @@ TEST_F(QueryAssertionsTest, multiFloatColumnWithNonUniqueKeys) {
       "971 extra rows, 971 missing rows");
 }
 
+TEST_F(QueryAssertionsTest, nullDecimalValue) {
+  auto shortDecimal = makeRowVector({makeNullableShortDecimalFlatVector(
+      {std::nullopt}, SHORT_DECIMAL(5, 2))});
+  EXPECT_TRUE(assertEqualResults({shortDecimal}, {shortDecimal}));
+
+  auto longDecimal = makeRowVector(
+      {makeNullableLongDecimalFlatVector({std::nullopt}, LONG_DECIMAL(20, 2))});
+  EXPECT_TRUE(assertEqualResults({longDecimal}, {longDecimal}));
+
+  EXPECT_NONFATAL_FAILURE(
+      assertEqualResults({shortDecimal}, {longDecimal}),
+      "Types of expected and actual results do not match");
+}
+
 } // namespace facebook::velox::test
