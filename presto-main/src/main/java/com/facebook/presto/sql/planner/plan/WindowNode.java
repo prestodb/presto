@@ -375,7 +375,7 @@ public class WindowNode
 
         public enum WindowType
         {
-            RANGE, ROWS
+            RANGE, ROWS, GROUPS
         }
 
         public enum BoundType
