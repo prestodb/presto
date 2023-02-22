@@ -76,12 +76,6 @@ pipeline {
                     }
                 }
             }
-            post {
-                always {
-                    archiveArtifacts artifacts: '**/target/dependency-check-report.html',
-                                     allowEmptyArchive: true
-                }
-            }
         }
 
         stage('Docker Build') {
@@ -97,13 +91,17 @@ pipeline {
                     steps {
                         echo 'build docker image'
                         sh 'apk update && apk add aws-cli bash git'
-                        sh 'git config --global --add safe.directory ${WORKSPACE}'
                         withCredentials([[
                                 $class:            'AmazonWebServicesCredentialsBinding',
                                 credentialsId:     "${AWS_CREDENTIAL_ID}",
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''#!/bin/bash -ex
+                                for dir in /home/jenkins/agent/workspace/*/; do
+                                    echo "${dir}"
+                                    git config --global --add safe.directory "${dir:0:-1}"
+                                done
+
                                 cd docker/
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_PKG}     . --no-progress
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_CLI_JAR} . --no-progress
