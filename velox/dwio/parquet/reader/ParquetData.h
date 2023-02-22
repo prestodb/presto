@@ -155,8 +155,8 @@ class ParquetData : public dwio::common::FormatData {
     reader_->readWithVisitor(visitor);
   }
 
-  const VectorPtr& dictionaryValues() {
-    return reader_->dictionaryValues();
+  const VectorPtr& dictionaryValues(const TypePtr& type) {
+    return reader_->dictionaryValues(type);
   }
 
   void clearDictionary() {

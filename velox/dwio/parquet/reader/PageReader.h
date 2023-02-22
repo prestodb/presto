@@ -92,7 +92,7 @@ class PageReader {
   void readNullsOnly(int64_t numValues, BufferPtr& buffer);
 
   // Returns the current string dictionary as a FlatVector<StringView>.
-  const VectorPtr& dictionaryValues();
+  const VectorPtr& dictionaryValues(const TypePtr& type);
 
   // True if the current page holds dictionary indices.
   bool isDictionary() const {

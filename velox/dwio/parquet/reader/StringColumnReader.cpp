@@ -127,7 +127,8 @@ void StringColumnReader::read(
 
 void StringColumnReader::getValues(RowSet rows, VectorPtr* result) {
   if (scanState_.dictionary.values) {
-    auto dictionaryValues = formatData_->as<ParquetData>().dictionaryValues();
+    auto dictionaryValues =
+        formatData_->as<ParquetData>().dictionaryValues(type_);
     compactScalarValues<int32_t, int32_t>(rows, false);
 
     *result = std::make_shared<DictionaryVector<StringView>>(
@@ -149,7 +150,7 @@ void StringColumnReader::getValues(RowSet rows, VectorPtr* result) {
 void StringColumnReader::dedictionarize() {
   if (scanSpec_->keepValues()) {
     auto dict = formatData_->as<ParquetData>()
-                    .dictionaryValues()
+                    .dictionaryValues(type_)
                     ->as<FlatVector<StringView>>();
     auto valuesCapacity = values_->capacity();
     auto indices = values_->as<vector_size_t>();

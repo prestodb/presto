@@ -450,6 +450,9 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
       case TypeKind::VARCHAR:
         stats = makeStats<TypeKind::VARCHAR>(vector->type(), rowType_);
         break;
+      case TypeKind::VARBINARY:
+        stats = makeStats<TypeKind::VARBINARY>(vector->type(), rowType_);
+        break;
       case TypeKind::REAL:
         stats = makeStats<TypeKind::REAL>(vector->type(), rowType_);
         break;

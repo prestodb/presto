@@ -926,11 +926,11 @@ bool PageReader::rowsForPage(
   return true;
 }
 
-const VectorPtr& PageReader::dictionaryValues() {
+const VectorPtr& PageReader::dictionaryValues(const TypePtr& type) {
   if (!dictionaryValues_) {
     dictionaryValues_ = std::make_shared<FlatVector<StringView>>(
         &pool_,
-        VARCHAR(),
+        type,
         nullptr,
         dictionary_.numValues,
         dictionary_.values,
