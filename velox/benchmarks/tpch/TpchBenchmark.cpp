@@ -77,7 +77,20 @@ void printResults(const std::vector<RowVectorPtr>& results) {
 }
 } // namespace
 
-DEFINE_string(data_path, "", "Root path of TPC-H data");
+DEFINE_string(
+    data_path,
+    "",
+    "Root path of TPC-H data. Data layout must follow Hive-style partitioning. "
+    "Example layout for '-data_path=/data/tpch10'\n"
+    "       /data/tpch10/customer\n"
+    "       /data/tpch10/lineitem\n"
+    "       /data/tpch10/nation\n"
+    "       /data/tpch10/orders\n"
+    "       /data/tpch10/part\n"
+    "       /data/tpch10/partsupp\n"
+    "       /data/tpch10/region\n"
+    "       /data/tpch10/supplier\n");
+
 DEFINE_int32(
     run_query_verbose,
     -1,
@@ -277,6 +290,9 @@ BENCHMARK(q22) {
 }
 
 int main(int argc, char** argv) {
+  std::string usage(
+      "This program benchmarks TPC-H queries. Run 'velox_tpch_benchmark -helpon=Tpchbenchmark' for available options.\n");
+  gflags::SetUsageMessage(usage);
   folly::init(&argc, &argv, false);
   benchmark.initialize();
   queryBuilder =
