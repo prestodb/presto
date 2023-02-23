@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
@@ -53,6 +54,8 @@ import static java.util.Objects.requireNonNull;
 public class LookupJoinOperator
         implements Operator
 {
+    private static final Logger log = Logger.get(LookupJoinOperator.class);
+
     private final OperatorContext operatorContext;
     private final List<Type> probeTypes;
     private final JoinProbeFactory joinProbeFactory;
@@ -179,6 +182,27 @@ public class LookupJoinOperator
         }
 
         return lookupSourceProviderFuture;
+    }
+
+    @Override
+    public boolean exitEarly()
+    {
+        boolean exit = false;
+        // We can skip probe for empty build input only when probeOnOuterSide is false
+        if (!probeOnOuterSide) {
+            if (tryFetchLookupSourceProvider()) {
+                exit = lookupSourceProvider.withLease(lookupSourceLease -> {
+                    // Do not have spill, build side is empty and probe side does not output for non match, skip and finish the operator
+                    if (!lookupSourceLease.hasSpilled() && lookupSourceLease.getLookupSource().isEmpty()) {
+                        log.info("lookup join exit early" + this);
+                        finish();
+                        return true;
+                    }
+                    return false;
+                });
+            }
+        }
+        return exit;
     }
 
     @Override

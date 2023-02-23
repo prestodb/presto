@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.isEnableSkipNewSource;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_RESULT_CACHE_HIT;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_RESULT_CACHE_MISS;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -384,13 +385,15 @@ public class Driver
         handleMemoryRevoke();
 
         try {
-            processNewSources();
+            if (!driverContext.getPipelineContext().exitEarly() || (!isEnableSkipNewSource(driverContext.getSession()))) {
+                processNewSources();
+            }
 
             // If there is only one operator, finish it
             // Some operators (LookupJoinOperator and HashBuildOperator) are broken and requires finish to be called continuously
             // TODO remove the second part of the if statement, when these operators are fixed
             // Note: finish should not be called on the natural source of the pipeline as this could cause the task to finish early
-            if (!activeOperators.isEmpty() && activeOperators.size() != allOperators.size()) {
+            if ((!activeOperators.isEmpty() && activeOperators.size() != allOperators.size()) || driverContext.getPipelineContext().exitEarly()) {
                 Operator rootOperator = activeOperators.get(0);
                 rootOperator.finish();
                 rootOperator.getOperatorContext().recordFinish(operationTimer);
@@ -414,6 +417,10 @@ public class Driver
                 for (int i = 0; i < activeOperators.size() - 1 && !driverContext.isDone(); i++) {
                     Operator current = activeOperators.get(i);
                     Operator next = activeOperators.get(i + 1);
+
+                    if (current.exitEarly()) {
+                        driverContext.setExitEarly();
+                    }
 
                     // skip blocked operator
                     if (getBlockedFuture(current).isPresent()) {
