@@ -46,8 +46,7 @@ void onFinalFailure(
     std::shared_ptr<exec::ExchangeQueue> queue) {
   VLOG(1) << errorMessage;
 
-  std::lock_guard<std::mutex> l(queue->mutex());
-  queue->setErrorLocked(errorMessage);
+  queue->setError(errorMessage);
 }
 } // namespace
 
@@ -82,8 +81,7 @@ void PrestoExchangeSource::request() {
 
 void PrestoExchangeSource::doRequest() {
   if (closed_.load()) {
-    std::lock_guard<std::mutex> l(queue_->mutex());
-    queue_->setErrorLocked("PrestoExchangeSource closed");
+    queue_->setError("PrestoExchangeSource closed");
     return;
   }
   auto path = fmt::format("{}/{}", basePath_, sequence_);
@@ -169,23 +167,29 @@ void PrestoExchangeSource::processDataResponse(
   }
 
   {
-    std::lock_guard<std::mutex> l(queue_->mutex());
-    if (page) {
-      VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_ << ": "
-              << page->size() << " bytes";
-      queue_->enqueue(std::move(page));
-    }
-    if (complete) {
-      VLOG(1) << "Enqueuing empty page for " << basePath_ << "/" << sequence_;
-      atEnd_ = true;
-      queue_->enqueue(nullptr);
-    }
+    std::vector<ContinuePromise> promises;
+    {
+      std::lock_guard<std::mutex> l(queue_->mutex());
+      if (page) {
+        VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_
+                << ": " << page->size() << " bytes";
+        queue_->enqueueLocked(std::move(page), promises);
+      }
+      if (complete) {
+        VLOG(1) << "Enqueuing empty page for " << basePath_ << "/" << sequence_;
+        atEnd_ = true;
+        queue_->enqueueLocked(nullptr, promises);
+      }
 
-    sequence_ = ackSequence;
+      sequence_ = ackSequence;
 
-    // Reset requestPending_ if the response is complete or have pages.
-    if (complete || !empty) {
-      requestPending_ = false;
+      // Reset requestPending_ if the response is complete or have pages.
+      if (complete || !empty) {
+        requestPending_ = false;
+      }
+    }
+    for (auto& promise : promises) {
+      promise.setValue();
     }
   }
 
