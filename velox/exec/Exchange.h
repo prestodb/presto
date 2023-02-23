@@ -121,7 +121,7 @@ class ExchangeQueue {
 
   // If data is permanently not available, e.g. the source cannot be
   // contacted, this registers an error message and causes the reading
-  // Exchanges to throw with the message
+  // Exchanges to throw with the message.
   void setError(const std::string& error) {
     std::vector<ContinuePromise> promises;
     {
@@ -131,6 +131,9 @@ class ExchangeQueue {
       }
       error_ = error;
       atEnd_ = true;
+      // NOTE: clear the serialized page queue as we won't consume from an
+      // errored queue.
+      queue_.clear();
       promises = clearAllPromisesLocked();
     }
     clearPromises(promises);

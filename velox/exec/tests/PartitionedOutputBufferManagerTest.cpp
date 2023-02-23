@@ -378,6 +378,36 @@ TEST_F(PartitionedOutputBufferManagerTest, errorInQueue) {
       auto page = queue->dequeueLocked(&atEnd, &future), std::runtime_error);
 }
 
+TEST_F(PartitionedOutputBufferManagerTest, setQueueErrorWithPendingPages) {
+  const uint64_t kBufferSize = 128;
+  auto iobuf = folly::IOBuf::create(kBufferSize);
+  const std::string payload("setQueueErrorWithPendingPages");
+  size_t payloadSize = payload.size();
+  std::memcpy(iobuf->writableData(), payload.data(), payloadSize);
+  iobuf->append(payloadSize);
+
+  auto pool = memory::getDefaultMemoryPool();
+  auto page = std::make_unique<SerializedPage>(std::move(iobuf), pool.get());
+  ASSERT_EQ(payloadSize, pool->getCurrentBytes());
+
+  auto queue = std::make_shared<ExchangeQueue>(1 << 20);
+  std::vector<ContinuePromise> promises;
+  {
+    std::lock_guard<std::mutex> l(queue->mutex());
+    queue->enqueueLocked(std::move(page), promises);
+  }
+
+  queue->setError("error");
+
+  pool.reset();
+
+  // Expect a throw on dequeue after the queue has been set error.
+  ContinueFuture future;
+  bool atEnd = false;
+  ASSERT_THROW(
+      auto page = queue->dequeueLocked(&atEnd, &future), std::runtime_error);
+}
+
 TEST_F(PartitionedOutputBufferManagerTest, serializedPage) {
   const uint64_t kBufferSize = 128;
   // IOBuf managed memory case
