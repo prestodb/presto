@@ -346,7 +346,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
   for (const auto& source : sources) {
     // Add all splits from the source to the task.
     LOG(INFO) << "Adding " << source.splits.size() << " splits to " << taskId
-              << " for " << source.planNodeId;
+              << " for node " << source.planNodeId;
     // Keep track of the max sequence for this batch of splits.
     long maxSplitSequenceId{-1};
     for (const auto& protocolSplit : source.splits) {
@@ -363,12 +363,15 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
     for (const auto& lifespan : source.noMoreSplitsForLifespan) {
       if (lifespan.isgroup) {
+        LOG(INFO) << "No more splits for group " << lifespan.groupid << " for "
+                  << taskId << " for node " << source.planNodeId;
         execTask->noMoreSplitsForGroup(source.planNodeId, lifespan.groupid);
       }
     }
 
     if (source.noMoreSplits) {
-      LOG(INFO) << "No more splits for " << taskId;
+      LOG(INFO) << "No more splits for " << taskId << " for node "
+                << source.planNodeId;
       execTask->noMoreSplits(source.planNodeId);
     }
   }
