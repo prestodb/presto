@@ -32,8 +32,8 @@ public class HudiConfig
     private DataSize standardSplitWeightSize = new DataSize(128, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
     private int maxOutstandingSplits = 1000;
-    private int splitLoaderParallelism = 2;
-    private int splitGeneratorParallelism = 8;
+    private int splitLoaderParallelism = 4;
+    private int splitGeneratorParallelism = 4;
 
     public boolean isMetadataTableEnabled()
     {
