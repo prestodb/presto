@@ -161,7 +161,7 @@ class CastExprTest : public functions::test::CastBaseTest {
       EXPECT_THROW(
           evaluate(
               fmt::format("{}(c0 as {})", castFunction, typeString), rowVector),
-          VeloxException);
+          VeloxUserError);
       return;
     }
     // run try cast and get the result vector
