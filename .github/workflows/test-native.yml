@@ -17,7 +17,7 @@ on:
 env:
   MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true -Dsun.jnu.encoding=UTF-8 -Dfile.encoding=UTF-8"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
   MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
 
 jobs:
@@ -98,10 +98,7 @@ jobs:
 
       - name: Maven Install
         run: |
-          printenv | sort
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          export LANG=C.UTF-8
-          export LC_ALL=C.UTF-8          
           ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm,!presto-test-coverage'
 
       - name: Run e2e tests

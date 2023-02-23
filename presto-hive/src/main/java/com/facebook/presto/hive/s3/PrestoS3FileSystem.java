@@ -55,6 +55,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractSequentialIterator;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
 import com.google.common.net.MediaType;
@@ -94,11 +95,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
+import static com.amazonaws.services.s3.model.StorageClass.DeepArchive;
 import static com.amazonaws.services.s3.model.StorageClass.Glacier;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
@@ -168,6 +171,7 @@ public class PrestoS3FileSystem
     private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
     private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
+    private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
 
     private URI uri;
     private Path workingDirectory;
@@ -622,7 +626,7 @@ public class PrestoS3FileSystem
 
     private boolean isGlacierObject(S3ObjectSummary object)
     {
-        return Glacier.toString().equals(object.getStorageClass());
+        return GLACIER_STORAGE_CLASSES.contains(object.getStorageClass());
     }
 
     private boolean isHadoopFolderMarker(S3ObjectSummary object)
