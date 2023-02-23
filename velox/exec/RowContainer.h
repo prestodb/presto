@@ -1089,6 +1089,13 @@ class RowContainer {
 };
 
 template <>
+inline UnscaledLongDecimal RowContainer::valueAt<UnscaledLongDecimal>(
+    const char* FOLLY_NONNULL group,
+    int32_t offset) {
+  return UnscaledLongDecimal::deserialize(group + offset);
+}
+
+template <>
 inline void RowContainer::storeWithNulls<TypeKind::ROW>(
     const DecodedVector& decoded,
     vector_size_t index,
@@ -1146,6 +1153,31 @@ inline void RowContainer::storeNoNulls<TypeKind::MAP>(
     char* FOLLY_NONNULL row,
     int32_t offset) {
   storeComplexType(decoded, index, row, offset);
+}
+
+template <>
+inline void RowContainer::storeWithNulls<TypeKind::LONG_DECIMAL>(
+    const DecodedVector& decoded,
+    vector_size_t index,
+    char* FOLLY_NONNULL row,
+    int32_t offset,
+    int32_t nullByte,
+    uint8_t nullMask) {
+  UnscaledLongDecimal::serialize(
+      decoded.valueAt<UnscaledLongDecimal>(index), row + offset);
+  if (decoded.isNullAt(index)) {
+    row[nullByte] |= nullMask;
+  }
+}
+
+template <>
+inline void RowContainer::storeNoNulls<TypeKind::LONG_DECIMAL>(
+    const DecodedVector& decoded,
+    vector_size_t index,
+    char* FOLLY_NONNULL row,
+    int32_t offset) {
+  UnscaledLongDecimal::serialize(
+      decoded.valueAt<UnscaledLongDecimal>(index), row + offset);
 }
 
 template <>

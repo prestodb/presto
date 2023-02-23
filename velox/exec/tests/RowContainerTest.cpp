@@ -463,10 +463,12 @@ TEST_F(RowContainerTest, types) {
       ROW(
           {{"bool_val", BOOLEAN()},
            {"tiny_val", TINYINT()},
+           {"long_decimal_val", LONG_DECIMAL(20, 3)},
            {"small_val", SMALLINT()},
            {"int_val", INTEGER()},
            {"long_val", BIGINT()},
            {"float_val", REAL()},
+           {"short_decimal_val", SHORT_DECIMAL(10, 2)},
            {"double_val", DOUBLE()},
            {"string_val", VARCHAR()},
            {"array_val", ARRAY(VARCHAR())},
@@ -479,6 +481,8 @@ TEST_F(RowContainerTest, types) {
 
            {"bool_val2", BOOLEAN()},
            {"tiny_val2", TINYINT()},
+           {"long_decimal_val2", LONG_DECIMAL(20, 0)},
+           {"short_decimal_val2", SHORT_DECIMAL(3, 3)},
            {"small_val2", SMALLINT()},
            {"int_val2", INTEGER()},
            {"long_val2", BIGINT()},
