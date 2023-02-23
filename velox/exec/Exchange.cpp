@@ -60,7 +60,7 @@ std::shared_ptr<ExchangeSource> ExchangeSource::create(
     const std::string& taskId,
     int destination,
     std::shared_ptr<ExchangeQueue> queue,
-    memory::MemoryPool* FOLLY_NONNULL pool) {
+    memory::MemoryPool* pool) {
   for (auto& factory : factories()) {
     auto result = factory(taskId, destination, queue, pool);
     if (result) {
@@ -83,7 +83,7 @@ class LocalExchangeSource : public ExchangeSource {
       const std::string& taskId,
       int destination,
       std::shared_ptr<ExchangeQueue> queue,
-      memory::MemoryPool* FOLLY_NONNULL pool)
+      memory::MemoryPool* pool)
       : ExchangeSource(taskId, destination, queue, pool) {}
 
   bool shouldRequestLocked() override {
@@ -133,16 +133,22 @@ class LocalExchangeSource : public ExchangeSource {
           }
           int64_t ackSequence;
           {
-            std::lock_guard<std::mutex> l(queue_->mutex());
-            requestPending_ = false;
-            for (auto& page : pages) {
-              queue_->enqueue(std::move(page));
+            std::vector<ContinuePromise> promises;
+            {
+              std::lock_guard<std::mutex> l(queue_->mutex());
+              requestPending_ = false;
+              for (auto& page : pages) {
+                queue_->enqueueLocked(std::move(page), promises);
+              }
+              if (atEnd) {
+                queue_->enqueueLocked(nullptr, promises);
+                atEnd_ = true;
+              }
+              ackSequence = sequence_ = sequence + pages.size();
             }
-            if (atEnd) {
-              queue_->enqueue(nullptr);
-              atEnd_ = true;
+            for (auto& promise : promises) {
+              promise.setValue();
             }
-            ackSequence = sequence_ = sequence + pages.size();
           }
           // Outside of queue mutex.
           if (atEnd_) {
@@ -166,7 +172,7 @@ std::unique_ptr<ExchangeSource> createLocalExchangeSource(
     const std::string& taskId,
     int destination,
     std::shared_ptr<ExchangeQueue> queue,
-    memory::MemoryPool* FOLLY_NONNULL pool) {
+    memory::MemoryPool* pool) {
   if (strncmp(taskId.c_str(), "local://", 8) == 0) {
     return std::make_unique<LocalExchangeSource>(
         taskId, destination, std::move(queue), pool);
@@ -194,7 +200,7 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
       toClose = std::move(source);
     } else {
       sources_.push_back(source);
-      queue_->addSource();
+      queue_->addSourceLocked();
       if (source->shouldRequestLocked()) {
         toRequest = source;
       }
@@ -210,7 +216,6 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
 }
 
 void ExchangeClient::noMoreRemoteTasks() {
-  std::lock_guard<std::mutex> l(queue_->mutex());
   queue_->noMoreSources();
 }
 
@@ -229,10 +234,7 @@ void ExchangeClient::close() {
   for (auto& source : sources) {
     source->close();
   }
-  {
-    std::lock_guard<std::mutex> l(queue_->mutex());
-    queue_->closeLocked();
-  }
+  queue_->close();
 }
 
 std::unique_ptr<SerializedPage> ExchangeClient::next(
@@ -243,7 +245,7 @@ std::unique_ptr<SerializedPage> ExchangeClient::next(
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     *atEnd = false;
-    page = queue_->dequeue(atEnd, future);
+    page = queue_->dequeueLocked(atEnd, future);
     if (*atEnd) {
       return page;
     }
@@ -278,7 +280,7 @@ std::string ExchangeClient::toString() {
   return out.str();
 }
 
-bool Exchange::getSplits(ContinueFuture* FOLLY_NONNULL future) {
+bool Exchange::getSplits(ContinueFuture* future) {
   if (operatorCtx_->driverCtx()->driverId != 0) {
     // When there are multiple pipelines, a single operator, the one from
     // pipeline 0, is responsible for feeding splits into shared ExchangeClient.
@@ -313,7 +315,7 @@ bool Exchange::getSplits(ContinueFuture* FOLLY_NONNULL future) {
   }
 }
 
-BlockingReason Exchange::isBlocked(ContinueFuture* FOLLY_NONNULL future) {
+BlockingReason Exchange::isBlocked(ContinueFuture* future) {
   if (currentPage_ || atEnd_) {
     return BlockingReason::kNotBlocked;
   }

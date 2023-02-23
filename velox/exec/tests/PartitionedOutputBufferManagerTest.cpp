@@ -367,13 +367,15 @@ TEST_F(PartitionedOutputBufferManagerTest, outOfOrderAcks) {
 TEST_F(PartitionedOutputBufferManagerTest, errorInQueue) {
   auto queue = std::make_shared<ExchangeQueue>(1 << 20);
   auto page = std::make_unique<SerializedPage>(folly::IOBuf::copyBuffer("", 0));
-  {
-    std::lock_guard<std::mutex> l(queue->mutex());
-    queue->setErrorLocked("error");
+  std::vector<ContinuePromise> promises;
+  { queue->setError("error"); }
+  for (auto& promise : promises) {
+    promise.setValue();
   }
   ContinueFuture future;
   bool atEnd = false;
-  EXPECT_THROW(auto page = queue->dequeue(&atEnd, &future), std::runtime_error);
+  EXPECT_THROW(
+      auto page = queue->dequeueLocked(&atEnd, &future), std::runtime_error);
 }
 
 TEST_F(PartitionedOutputBufferManagerTest, serializedPage) {
