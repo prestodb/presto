@@ -41,6 +41,7 @@
  */
 
 #include "velox/type/TimestampConversion.h"
+#include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::util {
@@ -178,13 +179,13 @@ bool tryParseDateString(
   }
   // First parse the year.
   for (; pos < len && characterIsDigit(buf[pos]); pos++) {
-    year = (buf[pos] - '0') + year * 10;
+    year = checkedPlus((buf[pos] - '0'), checkedMultiply(year, 10));
     if (year > kMaxYear) {
       break;
     }
   }
   if (yearneg) {
-    year = -year;
+    year = checkedNegate(year);
     if (year < kMinYear) {
       return false;
     }

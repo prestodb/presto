@@ -182,6 +182,12 @@ TEST(DateTimeUtilTest, fromTimestampStrInvalid) {
   EXPECT_THROW(fromTimestampString("1970-01-01 00:00:00-asd"), VeloxUserError);
   EXPECT_THROW(
       fromTimestampString("1970-01-01 00:00:00+00:00:00"), VeloxUserError);
+
+  // Integer overflow during timestamp parsing.
+  EXPECT_THROW(
+      fromTimestampString("2773581570-01-01 00:00:00-asd"), VeloxUserError);
+  EXPECT_THROW(
+      fromTimestampString("-2147483648-01-01 00:00:00-asd"), VeloxUserError);
 }
 
 TEST(DateTimeUtilTest, toGMT) {
