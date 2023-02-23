@@ -509,6 +509,34 @@ TEST_F(CastExprTest, mapCast) {
 
     testComplexCast("c0", inputWithNullValues, expectedMap);
   }
+
+  // Nulls in result keys are not allowed.
+  {
+    VELOX_ASSERT_THROW(
+        testComplexCast(
+            "c0",
+            inputMap,
+            makeMapVector<Timestamp, int64_t>(
+                kVectorSize,
+                sizeAt,
+                [](auto /*row*/) { return Timestamp(); },
+                valueAt,
+                nullEvery(3),
+                nullEvery(7)),
+            false),
+        "Failed to cast from BIGINT to TIMESTAMP: 0. Conversion of BIGINT to Timestamp is not supported");
+
+    testComplexCast(
+        "c0",
+        inputMap,
+        makeMapVector<Timestamp, int64_t>(
+            kVectorSize,
+            sizeAt,
+            [](auto /*row*/) { return Timestamp(); },
+            valueAt,
+            [](auto row) { return row % 3 == 0 || row % 5 != 0; }),
+        true);
+  }
 }
 
 TEST_F(CastExprTest, arrayCast) {
