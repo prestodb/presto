@@ -78,7 +78,7 @@ class BufferedInput {
       // data. TODO: figure out how we can use the data cache for
       // this access.
       ret = std::make_unique<SeekableFileInputStream>(
-          input_, offset, length, pool_, logType);
+          input_, offset, length, pool_, logType, input_->getNaturalReadSize());
     }
     return ret;
   }
