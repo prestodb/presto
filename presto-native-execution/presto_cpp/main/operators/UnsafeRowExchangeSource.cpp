@@ -20,24 +20,30 @@
 namespace facebook::presto::operators {
 
 void UnsafeRowExchangeSource::request() {
-  std::lock_guard<std::mutex> l(queue_->mutex());
+  std::vector<velox::ContinuePromise> promises;
+  {
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    if (!shuffle_->hasNext()) {
+      atEnd_ = true;
+      queue_->enqueueLocked(nullptr, promises);
+    } else {
+      auto buffer = shuffle_->next(true);
 
-  if (!shuffle_->hasNext()) {
-    atEnd_ = true;
-    queue_->enqueue(nullptr);
-    return;
+      auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
+      // NOTE: SerializedPage's onDestructionCb_ captures one reference on
+      // 'buffer' to keep its alive until SerializedPage destruction. Also note
+      // that 'buffer' should have been allocated from memory pool. Hence, we
+      // don't need to update the memory usage counting for the associated
+      // 'ioBuf' attached to SerializedPage on destruction.
+      queue_->enqueueLocked(
+          std::make_unique<velox::exec::SerializedPage>(
+              std::move(ioBuf), pool_, [buffer](auto&) {}),
+          promises);
+    }
   }
-
-  auto buffer = shuffle_->next(true);
-
-  auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
-  // NOTE: SerializedPage's onDestructionCb_ captures one reference on 'buffer'
-  // to keep its alive until SerializedPage destruction. Also note that 'buffer'
-  // should have been allocated from memory pool. Hence, we don't need to update
-  // the memory usage counting for the associated 'ioBuf' attached to
-  // SerializedPage on destruction.
-  queue_->enqueue(std::make_unique<velox::exec::SerializedPage>(
-      std::move(ioBuf), pool_, [buffer](auto&) {}));
+  for (auto& promise : promises) {
+    promise.setValue();
+  }
 }
 
 namespace {
