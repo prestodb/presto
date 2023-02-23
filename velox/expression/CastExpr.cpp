@@ -378,7 +378,7 @@ VectorPtr CastExpr::applyMap(
       context.pool(),
       MAP(toType.keyType(), toType.valueType()),
       input->nulls(),
-      rows.size(),
+      rows.end(),
       input->offsets(),
       input->sizes(),
       newMapKeys,
@@ -423,7 +423,7 @@ VectorPtr CastExpr::applyArray(
       context.pool(),
       ARRAY(toType.elementType()),
       input->nulls(),
-      rows.size(),
+      rows.end(),
       input->offsets(),
       input->sizes(),
       newElements);
@@ -507,7 +507,7 @@ VectorPtr CastExpr::applyRow(
       context.pool(),
       toType,
       input->nulls(),
-      rows.size(),
+      rows.end(),
       std::move(newChildren));
 }
 

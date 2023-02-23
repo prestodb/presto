@@ -28,6 +28,11 @@ namespace facebook::velox::test {
 /// Returns indices buffer with sequential values going from size - 1 to 0.
 BufferPtr makeIndicesInReverse(vector_size_t size, memory::MemoryPool* pool);
 
+BufferPtr makeIndices(
+    vector_size_t size,
+    std::function<vector_size_t(vector_size_t)> indexAt,
+    memory::MemoryPool* pool);
+
 // TODO: enable ASSERT_EQ for vectors.
 void assertEqualVectors(const VectorPtr& expected, const VectorPtr& actual);
 

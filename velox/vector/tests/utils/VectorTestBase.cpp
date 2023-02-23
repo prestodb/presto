@@ -29,6 +29,20 @@ BufferPtr makeIndicesInReverse(vector_size_t size, memory::MemoryPool* pool) {
   return indices;
 }
 
+BufferPtr makeIndices(
+    vector_size_t size,
+    std::function<vector_size_t(vector_size_t)> indexAt,
+    memory::MemoryPool* pool) {
+  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool);
+  auto rawIndices = indices->asMutable<vector_size_t>();
+
+  for (vector_size_t i = 0; i < size; i++) {
+    rawIndices[i] = indexAt(i);
+  }
+
+  return indices;
+}
+
 VectorTestBase::~VectorTestBase() {
   // Wait for all the tasks to be deleted.
   exec::Task::testingWaitForAllTasksToBeDeleted();
@@ -64,14 +78,7 @@ BufferPtr VectorTestBase::makeEvenIndices(vector_size_t size) {
 BufferPtr VectorTestBase::makeIndices(
     vector_size_t size,
     std::function<vector_size_t(vector_size_t)> indexAt) const {
-  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool());
-  auto rawIndices = indices->asMutable<vector_size_t>();
-
-  for (vector_size_t i = 0; i < size; i++) {
-    rawIndices[i] = indexAt(i);
-  }
-
-  return indices;
+  return test::makeIndices(size, indexAt, pool());
 }
 
 BufferPtr VectorTestBase::makeIndices(

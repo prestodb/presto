@@ -970,3 +970,74 @@ TEST_F(CastExprTest, dictionaryOverConst) {
   auto expected = makeNullableFlatVector<int16_t>({1, 1, 1, 1, 1});
   assertEqualVectors(expected, result);
 }
+
+namespace {
+// Wrap input in a dictionary that point to subset of rows of the inner vector.
+class TestingDictionaryToFewerRowsFunction : public exec::VectorFunction {
+ public:
+  TestingDictionaryToFewerRowsFunction() {}
+
+  bool isDefaultNullBehavior() const override {
+    return false;
+  }
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& /*outputType*/,
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    const auto size = rows.size();
+    auto indices = makeIndices(
+        size, [](auto /*row*/) { return 0; }, context.pool());
+
+    result = BaseVector::wrapInDictionary(nullptr, indices, size, args[0]);
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    // T -> T
+    return {exec::FunctionSignatureBuilder()
+                .typeVariable("T")
+                .returnType("T")
+                .argumentType("T")
+                .build()};
+  }
+};
+
+} // namespace
+
+TEST_F(CastExprTest, dictionaryEncodedNestedInput) {
+  // Cast ARRAY<ROW<BIGINT>> to ARRAY<ROW<VARCHAR>> where the outermost ARRAY
+  // layer and innermost BIGINT layer are dictionary-encoded. This test case
+  // ensures that when casting the ROW<BIGINT> vector, the result ROW vector
+  // would not be longer than the result VARCHAR vector. In the test below, the
+  // ARRAY vector has 2 rows, each containing 3 elements. The ARRAY vector is
+  // wrapped in a dictionary layer that only references its first row, hence
+  // only the first 3 out of 6 rows are evaluated for the ROW and BIGINT vector.
+  // The BIGINT vector is also dictionary-encoded, so CastExpr produces a result
+  // VARCHAR vector of length 3. If the casting of the ROW vector produces a
+  // result ROW<VARCHAR> vector of the length of all rows, i.e., 6, the
+  // subsequent call to Expr::addNull() would throw due to the attempt of
+  // accessing the element VARCHAR vector at indices corresonding to the
+  // non-existent ROW at indices 3--5.
+  exec::registerVectorFunction(
+      "add_dict",
+      TestingDictionaryToFewerRowsFunction::signatures(),
+      std::make_unique<TestingDictionaryToFewerRowsFunction>());
+
+  auto elements = makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6});
+  auto elementsInDict = BaseVector::wrapInDictionary(
+      nullptr, makeIndices(6, [](auto row) { return row; }), 6, elements);
+  auto row = makeRowVector({elementsInDict}, [](auto row) { return row == 2; });
+  auto array = makeArrayVector({0, 3}, row);
+
+  auto result = evaluate(
+      "cast(add_dict(c0) as STRUCT(i varchar)[])", makeRowVector({array}));
+
+  auto expectedElements = makeNullableFlatVector<StringView>(
+      {"1"_sv, "2"_sv, "n"_sv, "1"_sv, "2"_sv, "n"_sv});
+  auto expectedRow =
+      makeRowVector({expectedElements}, [](auto row) { return row % 3 == 2; });
+  auto expectedArray = makeArrayVector({0, 3}, expectedRow);
+  assertEqualVectors(expectedArray, result);
+}
