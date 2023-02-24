@@ -18,7 +18,7 @@
 #include "velox/exec/Task.h"
 #include "velox/expression/Expr.h"
 
-DEFINE_int32(split_preload_per_driver, 0, "Prefetch split metadata");
+DEFINE_int32(split_preload_per_driver, 2, "Prefetch split metadata");
 
 namespace facebook::velox::exec {
 

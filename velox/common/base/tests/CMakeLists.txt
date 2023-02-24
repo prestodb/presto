@@ -22,6 +22,7 @@ add_executable(
   FsTest.cpp
   RangeTest.cpp
   RawVectorTest.cpp
+  ScopedLockTest.cpp
   SemaphoreTest.cpp
   SimdUtilTest.cpp
   StatsReporterTest.cpp
