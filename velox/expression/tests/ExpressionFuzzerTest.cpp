@@ -36,7 +36,7 @@ DEFINE_string(
 
 DEFINE_string(
     special_forms,
-    "and,or",
+    "and,or,cast",
     "Comma-separated list of special forms to use in generated expression. "
     "Supported special forms: and, or, coalesce, if, switch, cast.");
 
