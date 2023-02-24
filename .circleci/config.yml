@@ -501,7 +501,7 @@ jobs:
             conda create -y --name docgenenv python=3.7
             conda activate docgenenv
             pip install sphinx sphinx-tabs breathe sphinx_rtd_theme 
-            ./scripts/gen-docs.sh pyveloxenv-docs
+            ./scripts/gen-docs.sh docgenenv
             git checkout gh-pages
             cp -R velox/docs/_build/html/* docs
             git add docs
