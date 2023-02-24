@@ -3460,3 +3460,58 @@ TEST_F(ExprTest, cseOverDictionaryAcrossMultipleExpressions) {
     EXPECT_EQ(2, stats.at("upper").numProcessedRows);
   }
 }
+
+TEST_F(ExprTest, smallerWrappedBaseVector) {
+  // This test verifies that in the case that wrapping the
+  // result of a peeledResult (i.e result which is computed after
+  // peeling input) results in a smaller result than baseVector,
+  // then we don't fault if the rows to be copied are more than the
+  // size of the wrapped result.
+  // Typically, this happens when the results have a lot of trailing nulls.
+
+  auto baseMap = createMapOfArraysVector<int64_t, int64_t>(
+      {{{1, std::nullopt}},
+       {{2, {{4, 5, std::nullopt}}}},
+       {{2, {{7, 8, 9}}}},
+       {{2, std::nullopt}},
+       {{2, std::nullopt}},
+       {{2, std::nullopt}}});
+  auto indices = makeIndices(10, [](auto row) { return row % 6; });
+  auto nulls = makeNulls(10, [](auto row) { return row > 5; });
+  auto wrappedMap = BaseVector::wrapInDictionary(nulls, indices, 10, baseMap);
+  auto input = makeRowVector({wrappedMap});
+
+  auto exprSet = compileMultiple(
+      {"element_at(element_at(c0, 2::bigint), 1::bigint)"},
+      asRowType(input->type()));
+
+  exec::EvalCtx context(execCtx_.get(), exprSet.get(), input.get());
+
+  // We set finalSelection to false so that
+  // we force copy of results into the flatvector.
+  *context.mutableIsFinalSelection() = false;
+  auto finalRows = SelectivityVector(10);
+  *context.mutableFinalSelection() = &finalRows;
+
+  // We need a different SelectivityVector for rows
+  // otherwise the copy will not kick in.
+  SelectivityVector rows(input->size());
+  std::vector<VectorPtr> result(1);
+  auto flatResult = makeFlatVector<int64_t>(input->size(), BIGINT());
+  result[0] = flatResult;
+  exprSet->eval(rows, context, result);
+
+  assertEqualVectors(
+      makeNullableFlatVector<int64_t>(
+          {std::nullopt,
+           4,
+           7,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt}),
+      result[0]);
+}
