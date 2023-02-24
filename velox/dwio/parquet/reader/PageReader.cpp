@@ -411,7 +411,14 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
           ? sizeof(float)
           : sizeof(double);
       auto numBytes = dictionary_.numValues * typeSize;
-      dictionary_.values = AlignedBuffer::allocate<char>(numBytes, &pool_);
+      if (type_->type->isShortDecimal() && parquetType == thrift::Type::INT32) {
+        auto veloxTypeLength = type_->type->cppSizeInBytes();
+        auto numVeloxBytes = dictionary_.numValues * veloxTypeLength;
+        dictionary_.values =
+            AlignedBuffer::allocate<char>(numVeloxBytes, &pool_);
+      } else {
+        dictionary_.values = AlignedBuffer::allocate<char>(numBytes, &pool_);
+      }
       if (pageData_) {
         memcpy(dictionary_.values->asMutable<char>(), pageData_, numBytes);
       } else {
@@ -421,6 +428,15 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
             dictionary_.values->asMutable<char>(),
             bufferStart_,
             bufferEnd_);
+      }
+      if (type_->type->isShortDecimal() && parquetType == thrift::Type::INT32) {
+        auto values = dictionary_.values->asMutable<int64_t>();
+        auto parquetValues = dictionary_.values->asMutable<int32_t>();
+        for (auto i = dictionary_.numValues - 1; i >= 0; --i) {
+          // Expand the Parquet type length values to Velox type length.
+          // We start from the end to allow in-place expansion.
+          values[i] = parquetValues[i];
+        }
       }
       break;
     }

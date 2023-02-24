@@ -148,3 +148,48 @@ TEST_F(ParquetReaderTest, projectNoColumns) {
   EXPECT_EQ(result->size(), 10);
   ASSERT_FALSE(rowReader->next(kBatchSize, result));
 }
+
+TEST_F(ParquetReaderTest, parseIntDecimal) {
+  // decimal_dict.parquet two columns (a: DECIMAL(7,2), b: DECIMAL(14,2)) and
+  // 6 rows.
+  // The physical type of the decimal columns:
+  //   a: int32
+  //   b: int64
+  // Data is in dictionary encoding:
+  //   a: [11.11, 11.11, 22.22, 22.22, 33.33, 33.33]
+  //   b: [11.11, 11.11, 22.22, 22.22, 33.33, 33.33]
+  auto rowType = ROW({"a", "b"}, {DECIMAL(7, 2), DECIMAL(14, 2)});
+  ReaderOptions readerOpts{defaultPool.get()};
+  const std::string decimal_dict(getExampleFilePath("decimal_dict.parquet"));
+
+  ParquetReader reader = createReader(decimal_dict, readerOpts);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(makeScanSpec(rowType));
+  auto rowReader = reader.createRowReader(rowReaderOpts);
+
+  EXPECT_EQ(reader.numberOfRows(), 6ULL);
+
+  auto type = reader.typeWithId();
+  EXPECT_EQ(type->size(), 2ULL);
+  auto col0 = type->childAt(0);
+  auto col1 = type->childAt(1);
+  EXPECT_EQ(col0->type->kind(), TypeKind::SHORT_DECIMAL);
+  EXPECT_EQ(col1->type->kind(), TypeKind::SHORT_DECIMAL);
+
+  int64_t expectValues[3] = {1111, 2222, 3333};
+  auto result = BaseVector::create(rowType, 1, pool_.get());
+  rowReader->next(6, result);
+  EXPECT_EQ(result->size(), 6ULL);
+  auto decimals = result->as<RowVector>();
+  auto a =
+      decimals->childAt(0)->asFlatVector<UnscaledShortDecimal>()->rawValues();
+  auto b =
+      decimals->childAt(1)->asFlatVector<UnscaledShortDecimal>()->rawValues();
+  for (int i = 0; i < 3; i++) {
+    int index = 2 * i;
+    EXPECT_EQ(a[index].unscaledValue(), expectValues[i]);
+    EXPECT_EQ(a[index + 1].unscaledValue(), expectValues[i]);
+    EXPECT_EQ(b[index].unscaledValue(), expectValues[i]);
+    EXPECT_EQ(b[index + 1].unscaledValue(), expectValues[i]);
+  }
+}
