@@ -423,7 +423,9 @@ class IOBufOutputStream : public OutputStream {
 
   void seekp(std::streampos pos) override;
 
-  std::unique_ptr<folly::IOBuf> getIOBuf();
+  /// 'releaseFn' is executed on iobuf destruction if not null.
+  std::unique_ptr<folly::IOBuf> getIOBuf(
+      const std::function<void()>& releaseFn = nullptr);
 
  private:
   std::shared_ptr<StreamArena> arena_;

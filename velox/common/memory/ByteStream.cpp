@@ -90,13 +90,33 @@ void ByteStream::extend(int32_t bytes) {
 }
 
 namespace {
+// The user data structure passed to folly iobuf for buffer ownership handling.
+struct FreeData {
+  std::shared_ptr<StreamArena> arena;
+  std::function<void()> releaseFn;
+};
+
+FreeData* newFreeData(
+    const std::shared_ptr<StreamArena>& arena,
+    const std::function<void()>& releaseFn) {
+  auto freeData = new FreeData();
+  freeData->arena = arena;
+  freeData->releaseFn = releaseFn;
+  return freeData;
+}
+
 void freeFunc(void* /*data*/, void* userData) {
-  auto ptr = reinterpret_cast<std::shared_ptr<StreamArena>*>(userData);
-  delete ptr;
+  auto* freeData = reinterpret_cast<FreeData*>(userData);
+  freeData->arena.reset();
+  if (freeData->releaseFn != nullptr) {
+    freeData->releaseFn();
+  }
+  delete freeData;
 }
 } // namespace
 
-std::unique_ptr<folly::IOBuf> IOBufOutputStream::getIOBuf() {
+std::unique_ptr<folly::IOBuf> IOBufOutputStream::getIOBuf(
+    const std::function<void()>& releaseFn) {
   // Make an IOBuf for each range. The IOBufs keep shared ownership of
   // 'arena_'.
   std::unique_ptr<folly::IOBuf> iobuf;
@@ -104,7 +124,7 @@ std::unique_ptr<folly::IOBuf> IOBufOutputStream::getIOBuf() {
   for (auto& range : ranges) {
     auto numValues =
         &range == &ranges.back() ? out_->lastRangeEnd() : range.size;
-    auto userData = new std::shared_ptr<StreamArena>(arena_);
+    auto userData = newFreeData(arena_, releaseFn);
     auto newBuf = folly::IOBuf::takeOwnership(
         reinterpret_cast<char*>(range.buffer), numValues, freeFunc, userData);
     if (iobuf) {

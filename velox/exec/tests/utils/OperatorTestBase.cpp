@@ -170,17 +170,9 @@ core::TypedExprPtr OperatorTestBase::parseExpr(
     return;
   }
 
-  // The task might still be referenced elsewhere, so we might need to wait
-  // here a bit to ensure we trigger the task destructor.
-  // Wait no longer than for 60 seconds.
-  for (size_t i = 0; i < 60; ++i) {
-    if (task.use_count() == 1) {
-      task.reset();
-      break;
-    }
-    /* sleep override */
-    usleep(1'000'000); // 1 second.
-  }
+  // Wait for the task to go.
+  task.reset();
+  Task::testingWaitForAllTasksToBeDeleted();
 
   // If a spilling directory was set, ensure it was removed after the task is
   // gone.

@@ -51,11 +51,14 @@ class Destination {
       const std::vector<vector_size_t>& sizes,
       const RowVectorPtr& output,
       PartitionedOutputBufferManager& bufferManager,
+      const std::function<void()>& bufferReleaseFn,
       bool* FOLLY_NONNULL atEnd,
       ContinueFuture* FOLLY_NONNULL future);
 
   BlockingReason flush(
       PartitionedOutputBufferManager& bufferManager,
+
+      const std::function<void()>& bufferReleaseFn,
       ContinueFuture* FOLLY_NULLABLE future);
 
   bool isFinished() const {
@@ -177,6 +180,10 @@ class PartitionedOutput : public Operator {
   std::unique_ptr<core::PartitionFunction> partitionFunction_;
   // Empty if column order in the output is exactly the same as in input.
   const std::vector<column_index_t> outputChannels_;
+  const std::weak_ptr<exec::PartitionedOutputBufferManager> bufferManager_;
+  const std::function<void()> bufferReleaseFn_;
+  const int64_t maxBufferedBytes_;
+
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   ContinueFuture future_;
   bool finished_{false};
@@ -188,8 +195,6 @@ class PartitionedOutput : public Operator {
   std::vector<vector_size_t> rowSize_;
   std::vector<std::unique_ptr<Destination>> destinations_;
   bool replicatedAny_{false};
-  std::weak_ptr<exec::PartitionedOutputBufferManager> bufferManager_;
-  const int64_t maxBufferedBytes_;
   RowVectorPtr output_;
 
   // Reusable memory.

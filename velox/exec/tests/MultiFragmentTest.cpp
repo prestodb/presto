@@ -21,6 +21,7 @@
 #include "velox/dwio/common/DataSink.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Exchange.h"
+#include "velox/exec/PartitionedOutput.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -348,7 +349,7 @@ TEST_F(MultiFragmentTest, mergeExchange) {
   }
 }
 
-// Test reordering and dropping columns in PartitionedOutput operator
+// Test reordering and dropping columns in PartitionedOutput operator.
 TEST_F(MultiFragmentTest, partitionedOutput) {
   setupSources(10, 1000);
 
@@ -1201,4 +1202,70 @@ DEBUG_ONLY_TEST_F(
   // Unblock task terminate execution after no more split call finishes.
   blockTerminate.notify();
   ASSERT_TRUE(waitForTaskFailure(rootTask.get(), 1'000'000'000));
+}
+
+TEST_F(MultiFragmentTest, taskTerminateWithPendingOutputBuffers) {
+  setupSources(8, 1000);
+  auto taskId = makeTaskId("task", 0);
+  core::PlanNodePtr leafPlan;
+  leafPlan =
+      PlanBuilder().tableScan(rowType_).partitionedOutput({}, 1).planNode();
+
+  auto task = makeTask(taskId, leafPlan, 0);
+  Task::start(task, 1);
+  addHiveSplits(task, filePaths_);
+
+  auto bufferManager = PartitionedOutputBufferManager::getInstance().lock();
+  const uint64_t maxBytes = std::numeric_limits<uint64_t>::max();
+  const int destination = 0;
+  std::vector<std::unique_ptr<folly::IOBuf>> receivedIobufs;
+  int64_t sequence = 0;
+  for (;;) {
+    auto dataPromise = ContinuePromise("WaitForOutput");
+    bool complete{false};
+    ASSERT_TRUE(bufferManager->getData(
+        taskId,
+        destination,
+        maxBytes,
+        sequence,
+        [&](std::vector<std::unique_ptr<folly::IOBuf>> iobufs,
+            int64_t inSequence) {
+          for (auto& iobuf : iobufs) {
+            if (iobuf != nullptr) {
+              ++inSequence;
+              receivedIobufs.push_back(std::move(iobuf));
+            } else {
+              complete = true;
+            }
+          }
+          sequence = inSequence;
+          dataPromise.setValue();
+        }));
+    dataPromise.getSemiFuture().wait();
+    if (complete) {
+      break;
+    }
+  }
+
+  // Abort the task to terminate after get buffers from the partitioned output
+  // buffer manager.
+  task->requestAbort();
+  ASSERT_TRUE(waitForTaskAborted(task.get(), 5'000'000));
+
+  // Wait for 1 second to let async driver activities to finish and
+  // 'receivedIobufs' should be the last ones to hold the reference on the task.
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  int expectedTaskRefCounts{0};
+  for (const auto& iobuf : receivedIobufs) {
+    auto nextIoBuf = iobuf->next();
+    while (nextIoBuf != iobuf.get()) {
+      ++expectedTaskRefCounts;
+      nextIoBuf = nextIoBuf->next();
+    }
+    ++expectedTaskRefCounts;
+  }
+  ASSERT_EQ(task.use_count(), 1 + expectedTaskRefCounts);
+  receivedIobufs.clear();
+  ASSERT_EQ(task.use_count(), 1);
+  task.reset();
 }

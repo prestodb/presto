@@ -24,6 +24,7 @@ BlockingReason Destination::advance(
     const std::vector<vector_size_t>& sizes,
     const RowVectorPtr& output,
     PartitionedOutputBufferManager& bufferManager,
+    const std::function<void()>& bufferReleaseFn,
     bool* atEnd,
     ContinueFuture* future) {
   if (row_ >= rows_.size()) {
@@ -34,12 +35,12 @@ BlockingReason Destination::advance(
       PartitionedOutput::kMinDestinationSize,
       (maxBytes * targetSizePct_) / 100);
   if (bytesInCurrent_ >= adjustedMaxBytes) {
-    return flush(bufferManager, future);
+    return flush(bufferManager, bufferReleaseFn, future);
   }
   auto firstRow = row_;
   for (; row_ < rows_.size(); ++row_) {
-    // TODO Add support for serializing partial ranges if
-    //  the full range is too big
+    // TODO: add support for serializing partial ranges if the full range is too
+    // big.
     for (vector_size_t i = 0; i < rows_[row_].size; i++) {
       bytesInCurrent_ += sizes[rows_[row_].begin + i];
     }
@@ -50,7 +51,7 @@ BlockingReason Destination::advance(
         *atEnd = true;
       }
       ++row_;
-      return flush(bufferManager, future);
+      return flush(bufferManager, bufferReleaseFn, future);
     }
   }
   serialize(output, firstRow, row_);
@@ -76,6 +77,7 @@ void Destination::serialize(
 
 BlockingReason Destination::flush(
     PartitionedOutputBufferManager& bufferManager,
+    const std::function<void()>& bufferReleaseFn,
     ContinueFuture* future) {
   if (!current_) {
     return BlockingReason::kNotBlocked;
@@ -95,7 +97,7 @@ BlockingReason Destination::flush(
   return bufferManager.enqueue(
       taskId_,
       destination_,
-      std::make_unique<SerializedPage>(stream.getIOBuf()),
+      std::make_unique<SerializedPage>(stream.getIOBuf(bufferReleaseFn)),
       future);
 }
 
@@ -121,6 +123,11 @@ PartitionedOutput::PartitionedOutput(
           planNode->outputType(),
           planNode->outputType())),
       bufferManager_(PartitionedOutputBufferManager::getInstance()),
+      // NOTE: 'bufferReleaseFn_' holds a reference on the associated task to
+      // prevent it from deleting while there are output buffers being accessed
+      // out of the partitioned output buffer manager such as in Prestissimo,
+      // the http server holds the buffers while sending the data response.
+      bufferReleaseFn_([task = operatorCtx_->task()]() {}),
       maxBufferedBytes_(ctx->task->queryCtx()
                             ->queryConfig()
                             .maxPartitionedOutputBufferSize()) {
@@ -286,6 +293,7 @@ RowVectorPtr PartitionedOutput::getOutput() {
           rowSize_,
           output_,
           *bufferManager,
+          bufferReleaseFn_,
           &atEnd,
           &future_);
       if (blockingReason_ != BlockingReason::kNotBlocked) {
@@ -311,7 +319,7 @@ RowVectorPtr PartitionedOutput::getOutput() {
           destination->serializedBytes() < kMinDestinationSize) {
         continue;
       }
-      destination->flush(*bufferManager, nullptr);
+      destination->flush(*bufferManager, bufferReleaseFn_, nullptr);
     }
     return nullptr;
   }
@@ -323,7 +331,7 @@ RowVectorPtr PartitionedOutput::getOutput() {
       if (destination->isFinished()) {
         continue;
       }
-      destination->flush(*bufferManager, nullptr);
+      destination->flush(*bufferManager, bufferReleaseFn_, nullptr);
       destination->setFinished();
     }
 
