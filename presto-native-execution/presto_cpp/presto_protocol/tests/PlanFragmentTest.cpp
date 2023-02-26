@@ -32,11 +32,6 @@ std::string getDataPath(const std::string& fileName) {
         fileName;
   }
 
-  if (boost::algorithm::ends_with(currentPath, "fbsource")) {
-    return currentPath + "/third-party/presto_cpp/presto_protocol/tests/data/" +
-        fileName;
-  }
-
   // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
   // directory. Hard-coded json files are not copied there and test fails with
   // file not found. Fixing the path so that we can trigger these tests from
