@@ -36,6 +36,8 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Type.h"
 
+DECLARE_int32(old_task_ms);
+
 using namespace ::testing;
 using namespace facebook::velox;
 using namespace facebook::presto;
@@ -581,6 +583,60 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
       taskId, planFragment, {source}, {}, {}, {});
 
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
+}
+
+TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
+  // Trigger old task cleanup immediately.
+  FLAGS_old_task_ms = 0;
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 1'000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i]->path, vectors[i]);
+  }
+
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 0")
+                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .planFragment();
+
+  long splitSequenceId{0};
+  auto source = makeSource("0", filePaths, true, splitSequenceId);
+
+  const protocol::TaskId taskId = "scan.0.0.1";
+  const auto taskInfo = taskManager_->createOrUpdateTask(
+      taskId, planFragment, {source}, {}, {}, {});
+
+  const protocol::Duration longWait("300s");
+  const auto maxSize = protocol::DataSize("32MB");
+  auto resultRequestState = http::CallbackRequestHandlerState::create();
+  auto results =
+      taskManager_
+          ->getResults(taskId, 0, 0, maxSize, longWait, resultRequestState)
+          .getVia(folly::EventBaseManager::get()->getEventBase());
+
+  std::exception e;
+  taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e));
+  taskManager_->deleteTask(taskId, true);
+  for (int i = 0; i < 10; ++i) {
+    // 'results' holds a reference on the presto task which prevents the old
+    // task cleanup.
+    const auto numCleanupTasks = taskManager_->cleanOldTasks();
+    ASSERT_EQ(numCleanupTasks, 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  }
+  // Clear the results which releases the reference on the presto tasks.
+  results.reset();
+  // Wait until the task gets cleanup.
+  for (;;) {
+    // 'results' holds a reference on the presto task which prevents the old
+    // task cleanup.
+    const auto numCleanupTasks = taskManager_->cleanOldTasks();
+    if (numCleanupTasks == 1) {
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
 }
 
 // Runs "select * from t where c0 % 5 = 1" query.
