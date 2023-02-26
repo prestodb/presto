@@ -35,9 +35,7 @@ public final class ConstantExpression
     private final Object value;
     private final Type type;
 
-    public ConstantExpression(
-            Optional<SourceLocation> sourceLocation,
-            Object value, Type type)
+    public ConstantExpression(Optional<SourceLocation> sourceLocation, Object value, Type type)
     {
         super(sourceLocation);
         requireNonNull(type, "type is null");
