@@ -15,21 +15,19 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.InSubqueryRowExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.InPredicate;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
 
 import static com.facebook.presto.matching.Pattern.empty;
-import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
@@ -74,12 +72,12 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
             return Result.empty();
         }
 
-        Expression expression = castToExpression(getOnlyElement(applyNode.getSubqueryAssignments().getExpressions()));
-        if (!(expression instanceof InPredicate)) {
+        RowExpression expression = getOnlyElement(applyNode.getSubqueryAssignments().getExpressions());
+        if (!(expression instanceof InSubqueryRowExpression)) {
             return Result.empty();
         }
+        InSubqueryRowExpression inPredicate = (InSubqueryRowExpression) expression;
 
-        InPredicate inPredicate = (InPredicate) expression;
         VariableReferenceExpression semiJoinVariable = getOnlyElement(applyNode.getSubqueryAssignments().getVariables());
 
         SemiJoinNode replacement = new SemiJoinNode(
@@ -87,8 +85,8 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                 context.getIdAllocator().getNextId(),
                 applyNode.getInput(),
                 applyNode.getSubquery(),
-                toVariableReference(context.getVariableAllocator(), inPredicate.getValue()),
-                toVariableReference(context.getVariableAllocator(), inPredicate.getValueList()),
+                inPredicate.getValue(),
+                inPredicate.getSubquery(),
                 semiJoinVariable,
                 Optional.empty(),
                 Optional.empty(),

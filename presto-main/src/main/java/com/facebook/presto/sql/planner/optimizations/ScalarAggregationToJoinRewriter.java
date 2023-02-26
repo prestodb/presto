@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -24,16 +25,16 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelatorUsingRowExpressions.DecorrelatedNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
-import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -48,7 +49,6 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -59,7 +59,7 @@ public class ScalarAggregationToJoinRewriter
     private final VariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Lookup lookup;
-    private final PlanNodeDecorrelator planNodeDecorrelator;
+    private final PlanNodeDecorrelatorUsingRowExpressions planNodeDecorrelatorUsingRowExpressions;
 
     public ScalarAggregationToJoinRewriter(FunctionAndTypeManager functionAndTypeManager, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
@@ -68,13 +68,17 @@ public class ScalarAggregationToJoinRewriter
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
-        this.planNodeDecorrelator = new PlanNodeDecorrelator(idAllocator, variableAllocator, lookup);
+        LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
+                new RowExpressionDeterminismEvaluator(functionAndTypeManager),
+                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
+                functionAndTypeManager);
+        this.planNodeDecorrelatorUsingRowExpressions = new PlanNodeDecorrelatorUsingRowExpressions(idAllocator, variableAllocator, lookup, logicalRowExpressions);
     }
 
     public PlanNode rewriteScalarAggregation(LateralJoinNode lateralJoinNode, AggregationNode aggregation)
     {
         List<VariableReferenceExpression> correlation = lateralJoinNode.getCorrelation();
-        Optional<DecorrelatedNode> source = planNodeDecorrelator.decorrelateFilters(lookup.resolve(aggregation.getSource()), correlation);
+        Optional<DecorrelatedNode> source = planNodeDecorrelatorUsingRowExpressions.decorrelateFilters(lookup.resolve(aggregation.getSource()), correlation);
         if (!source.isPresent()) {
             return lateralJoinNode;
         }
@@ -101,7 +105,7 @@ public class ScalarAggregationToJoinRewriter
             LateralJoinNode lateralJoinNode,
             AggregationNode scalarAggregation,
             PlanNode scalarAggregationSource,
-            Optional<Expression> joinExpression,
+            Optional<RowExpression> joinExpression,
             VariableReferenceExpression nonNull)
     {
         AssignUniqueId inputWithUniqueColumns = new AssignUniqueId(
@@ -121,7 +125,7 @@ public class ScalarAggregationToJoinRewriter
                         .addAll(inputWithUniqueColumns.getOutputVariables())
                         .addAll(scalarAggregationSource.getOutputVariables())
                         .build(),
-                joinExpression.map(OriginalExpressionUtils::castToRowExpression),
+                joinExpression,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -158,7 +162,7 @@ public class ScalarAggregationToJoinRewriter
             return new ProjectNode(
                     idAllocator.getNextId(),
                     aggregationNode.get(),
-                    identityAssignmentsAsSymbolReferences(aggregationOutputVariables));
+                    identityAssignments(aggregationOutputVariables));
         }
     }
 
