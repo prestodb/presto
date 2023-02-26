@@ -29,8 +29,6 @@ import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregation
 import com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
-import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregationsUsingExpressions;
-import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedLateralJoinToJoinUsingExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarAtTimeZone;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentUser;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarLambdaExpression;
@@ -46,6 +44,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins;
 import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
+import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregationsUsingExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementOffset;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
@@ -121,6 +120,7 @@ import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedLateralJoinToJoin;
+import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedLateralJoinToJoinUsingExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
@@ -394,6 +394,14 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new TransformExistsApplyToLateralNode(metadata.getFunctionAndTypeManager()))),
                 new TransformQuantifiedComparisonApplyToLateralJoin(metadata.getFunctionAndTypeManager()),
+                // TODO: move this before optimization if possible!!
+                // Replace all expressions with row expressions
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        new TranslateExpressions(metadata, sqlParser).rules()),
+                // After this point, all planNodes should not contain OriginalExpression
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -405,14 +413,6 @@ public class PlanOptimizers
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionAndTypeManager()),
                                 new TransformCorrelatedLateralJoinToJoinUsingExpressions())),
-                // TODO: move this before optimization if possible!!
-                // Replace all expressions with row expressions
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        costCalculator,
-                        new TranslateExpressions(metadata, sqlParser).rules()),
-                // After this point, all planNodes should not contain OriginalExpression
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,

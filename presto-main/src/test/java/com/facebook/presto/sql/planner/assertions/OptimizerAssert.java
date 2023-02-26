@@ -23,10 +23,12 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.Optimizer;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin;
@@ -138,6 +140,12 @@ public class OptimizerAssert
 
     private List<PlanOptimizer> getMinimalOptimizers()
     {
+        ImmutableSet.Builder<Rule<?>> rulesBuilder = ImmutableSet.builder();
+        rulesBuilder.addAll(new TranslateExpressions(queryRunner.getMetadata(), new SqlParser()).rules());
+        rulesBuilder.add(new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin());
+        rulesBuilder.add(new TransformUncorrelatedInPredicateSubqueryToSemiJoin());
+        rulesBuilder.add(new RemoveRedundantIdentityProjections());
+        ImmutableSet<Rule<?>> rules = rulesBuilder.build();
         return ImmutableList.of(
                 new UnaliasSymbolReferences(queryRunner.getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
@@ -145,7 +153,7 @@ public class OptimizerAssert
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
-                        ImmutableSet.of(new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin(), new TransformUncorrelatedInPredicateSubqueryToSemiJoin(), new RemoveRedundantIdentityProjections())),
+                        rules),
                 getExpressionTranslator(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
