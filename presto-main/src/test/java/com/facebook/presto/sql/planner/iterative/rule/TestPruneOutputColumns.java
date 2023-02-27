@@ -30,7 +30,7 @@ public class TestPruneOutputColumns
     @Test
     public void testNotAllOutputsReferenced()
     {
-        tester().assertThat(new PruneOutputColumns())
+        tester().assertThat(new PruneOutputColumns(false))
                 .on(p ->
                 {
                     VariableReferenceExpression a = p.variable("a");
@@ -51,7 +51,7 @@ public class TestPruneOutputColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneOutputColumns())
+        tester().assertThat(new PruneOutputColumns(false))
                 .on(p ->
                 {
                     VariableReferenceExpression a = p.variable("a");

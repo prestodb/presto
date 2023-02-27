@@ -33,19 +33,22 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 public class PruneFilterColumns
         extends ProjectOffPushDownRule<FilterNode>
 {
-    public PruneFilterColumns()
+    private final boolean useRowExpressions;
+
+    public PruneFilterColumns(boolean useRowExpressions)
     {
         super(filter());
+        this.useRowExpressions = useRowExpressions;
     }
 
     @Override
     protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, FilterNode filterNode, Set<VariableReferenceExpression> referencedOutputs)
     {
-        Set<VariableReferenceExpression> prunedFilterInputs = Streams.concat(
-                referencedOutputs.stream(),
-                VariablesExtractor.extractUnique(castToExpression(filterNode.getPredicate()), TypeProvider.viewOf(variableAllocator.getVariables())).stream())
-                .collect(toImmutableSet());
+        Set<VariableReferenceExpression> unique = useRowExpressions ?
+                VariablesExtractor.extractUnique(filterNode.getPredicate()) :
+                VariablesExtractor.extractUnique(castToExpression(filterNode.getPredicate()), TypeProvider.viewOf(variableAllocator.getVariables()));
 
-        return restrictChildOutputs(idAllocator, filterNode, prunedFilterInputs);
+        Set<VariableReferenceExpression> prunedFilterInputs = Streams.concat(referencedOutputs.stream(), unique.stream()).collect(toImmutableSet());
+        return restrictChildOutputs(idAllocator, filterNode, useRowExpressions, prunedFilterInputs);
     }
 }

@@ -37,7 +37,7 @@ public class TestPruneLimitColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneLimitColumns())
+        tester().assertThat(new PruneLimitColumns(false))
                 .on(p -> buildProjectedLimit(p, variable -> variable.getName().equals("b")))
                 .matches(
                         strictProject(
@@ -52,7 +52,7 @@ public class TestPruneLimitColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneLimitColumns())
+        tester().assertThat(new PruneLimitColumns(false))
                 .on(p -> buildProjectedLimit(p, alwaysTrue()))
                 .doesNotFire();
     }

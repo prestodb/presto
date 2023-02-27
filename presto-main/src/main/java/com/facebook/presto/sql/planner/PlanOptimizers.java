@@ -248,23 +248,42 @@ public class PlanOptimizers
                 new MergeFilters());
 
         // TODO: Once we've migrated handling all the plan node types, replace uses of PruneUnreferencedOutputs with an IterativeOptimizer containing these rules.
+        Set<Rule<?>> columnPruningRulesUsingExpressions = ImmutableSet.of(
+                new PruneAggregationColumns(),
+                new PruneAggregationSourceColumns(false),
+                new PruneCrossJoinColumns(false),
+                new PruneFilterColumns(false),
+                new PruneIndexSourceColumns(),
+                new PruneJoinChildrenColumns(false),
+                new PruneJoinColumns(),
+                new PruneMarkDistinctColumns(false),
+                new PruneOutputColumns(false),
+                new PruneProjectColumns(),
+                new PruneSemiJoinColumns(false),
+                new PruneSemiJoinFilteringSourceColumns(false),
+                new PruneTopNColumns(false),
+                new PruneValuesColumns(),
+                new PruneWindowColumns(false),
+                new PruneLimitColumns(false),
+                new PruneTableScanColumns());
+
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(
                 new PruneAggregationColumns(),
-                new PruneAggregationSourceColumns(),
-                new PruneCrossJoinColumns(),
-                new PruneFilterColumns(),
+                new PruneAggregationSourceColumns(true),
+                new PruneCrossJoinColumns(true),
+                new PruneFilterColumns(true),
                 new PruneIndexSourceColumns(),
-                new PruneJoinChildrenColumns(),
+                new PruneJoinChildrenColumns(true),
                 new PruneJoinColumns(),
-                new PruneMarkDistinctColumns(),
-                new PruneOutputColumns(),
+                new PruneMarkDistinctColumns(true),
+                new PruneOutputColumns(true),
                 new PruneProjectColumns(),
-                new PruneSemiJoinColumns(),
-                new PruneSemiJoinFilteringSourceColumns(),
-                new PruneTopNColumns(),
+                new PruneSemiJoinColumns(true),
+                new PruneSemiJoinFilteringSourceColumns(true),
+                new PruneTopNColumns(true),
                 new PruneValuesColumns(),
-                new PruneWindowColumns(),
-                new PruneLimitColumns(),
+                new PruneWindowColumns(true),
+                new PruneLimitColumns(true),
                 new PruneTableScanColumns());
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
@@ -338,7 +357,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(predicatePushDownRules)
-                                .addAll(columnPruningRules)
+                                .addAll(columnPruningRulesUsingExpressions)
                                 .addAll(ImmutableSet.of(
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
@@ -379,14 +398,6 @@ public class PlanOptimizers
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new SetFlatteningOptimizer(),
                 new ImplementIntersectAndExceptAsUnion(metadata.getFunctionAndTypeManager()),
-                new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
-                new PruneUnreferencedOutputs(),
-                inlineProjections,
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        columnPruningRules),
                 // TODO: move this before optimization if possible!!
                 // Replace all expressions with row expressions
                 new IterativeOptimizer(
@@ -395,6 +406,14 @@ public class PlanOptimizers
                         costCalculator,
                         new TranslateExpressions(metadata, sqlParser).rules()),
                 // After this point, all planNodes should not contain OriginalExpression
+                new PruneUnreferencedOutputs(),
+                inlineProjections,
+                new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        columnPruningRules),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
