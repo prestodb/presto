@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.CharType;
@@ -30,6 +31,7 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.QuantifiedComparisonRowExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -74,6 +76,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
@@ -134,6 +137,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.sql.relational.Expressions.inSubquery;
+import static com.facebook.presto.sql.relational.Expressions.quantifiedComparison;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
@@ -673,6 +677,16 @@ public final class SqlToRowExpressionTranslator
                     BOOLEAN,
                     lhs,
                     rhs);
+        }
+
+        @Override
+        protected RowExpression visitQuantifiedComparisonExpression(QuantifiedComparisonExpression expression, Void context)
+        {
+            return quantifiedComparison(
+                    OperatorType.valueOf(expression.getOperator().name()),
+                    QuantifiedComparisonRowExpression.Quantifier.valueOf(expression.getQuantifier().name()),
+                    process(expression.getValue(), context),
+                    process(expression.getSubquery(), context));
         }
 
         @Override
