@@ -66,7 +66,7 @@ public class ImplementFilteredAggregations
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(ImplementFilteredAggregations::hasFilters);
 
-    private LogicalRowExpressions logicalRowExpressions;
+    private final LogicalRowExpressions logicalRowExpressions;
 
     public ImplementFilteredAggregations(FunctionAndTypeManager functionAndTypeManager)
     {

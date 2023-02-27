@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.SourceLocation;
 
@@ -27,27 +28,48 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 /**
- * RowExpression equivalent of InPredicate with subqueries.
+ * RowExpression equivalent of QuantifiedComparisonExpression.
  */
-public class InSubqueryRowExpression
-        extends IntermediateFormRowExpression
+public final class QuantifiedComparisonExpression
+        extends IntermediateFormExpression
 {
-    private final VariableReferenceExpression value;
-    private final VariableReferenceExpression subquery;
+    public enum Quantifier
+    {
+        ALL,
+        ANY,
+        SOME,
+    }
 
-    public InSubqueryRowExpression(Optional<SourceLocation> sourceLocation, VariableReferenceExpression value, VariableReferenceExpression subquery)
+    private final OperatorType operator;
+    private final Quantifier quantifier;
+    private final RowExpression value;
+    private final RowExpression subquery;
+
+    public QuantifiedComparisonExpression(Optional<SourceLocation> sourceLocation, OperatorType operator, Quantifier quantifier, RowExpression value, RowExpression subquery)
     {
         super(sourceLocation);
+        this.operator = requireNonNull(operator, "operator is null");
+        this.quantifier = requireNonNull(quantifier, "quantifier is null");
         this.value = requireNonNull(value, "value is null");
         this.subquery = requireNonNull(subquery, "subquery is null");
     }
 
-    public VariableReferenceExpression getValue()
+    public OperatorType getOperator()
+    {
+        return operator;
+    }
+
+    public Quantifier getQuantifier()
+    {
+        return quantifier;
+    }
+
+    public RowExpression getValue()
     {
         return value;
     }
 
-    public VariableReferenceExpression getSubquery()
+    public RowExpression getSubquery()
     {
         return subquery;
     }
@@ -65,40 +87,43 @@ public class InSubqueryRowExpression
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if (obj == null || getClass() != obj.getClass()) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        InSubqueryRowExpression other = (InSubqueryRowExpression) obj;
-        return Objects.equals(this.value, other.value) &&
-                Objects.equals(this.subquery, other.subquery);
+
+        QuantifiedComparisonExpression that = (QuantifiedComparisonExpression) o;
+        return operator == that.operator &&
+                quantifier == that.quantifier &&
+                Objects.equals(value, that.value) &&
+                Objects.equals(subquery, that.subquery);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, subquery);
+        return Objects.hash(operator, quantifier, value, subquery);
     }
 
     @Override
     public String toString()
     {
-        return format("%s IN %s", value, subquery);
+        return format("%s %s %s (%s)", value, operator, quantifier, subquery);
     }
 
     @Override
     public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
-        return visitor.visitIntermediateFormRowExpression(this, context);
+        return visitor.visitIntermediateFormExpression(this, context);
     }
 
     @Override
     public RowExpression canonicalize()
     {
-        return getSourceLocation().isPresent() ? new InSubqueryRowExpression(Optional.empty(), value, subquery) : this;
+        return this;
     }
 }

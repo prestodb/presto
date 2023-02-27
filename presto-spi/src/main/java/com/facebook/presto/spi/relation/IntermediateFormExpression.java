@@ -24,11 +24,11 @@ import java.util.Optional;
  * These RowExpressions are compiled to other forms of RowExpression during Optimizer
  * and never reach a worker.
  */
-public abstract class IntermediateFormRowExpression
+public abstract class IntermediateFormExpression
         extends RowExpression
 {
     @JsonCreator
-    public IntermediateFormRowExpression(@JsonProperty("sourceLocation") Optional<SourceLocation> sourceLocation)
+    public IntermediateFormExpression(@JsonProperty("sourceLocation") Optional<SourceLocation> sourceLocation)
     {
         super(sourceLocation);
     }

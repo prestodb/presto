@@ -25,7 +25,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.InSubqueryRowExpression;
+import com.facebook.presto.spi.relation.InSubqueryExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -120,10 +120,10 @@ public class TransformCorrelatedInPredicateToJoin
             return Result.empty();
         }
         RowExpression assignmentExpression = getOnlyElement(subqueryAssignments.getExpressions());
-        if (!(assignmentExpression instanceof InSubqueryRowExpression)) {
+        if (!(assignmentExpression instanceof InSubqueryExpression)) {
             return Result.empty();
         }
-        InSubqueryRowExpression inPredicate = (InSubqueryRowExpression) assignmentExpression;
+        InSubqueryExpression inPredicate = (InSubqueryExpression) assignmentExpression;
         VariableReferenceExpression inPredicateOutputVariable = getOnlyElement(subqueryAssignments.getVariables());
 
         return apply(apply, inPredicate, inPredicateOutputVariable, context.getLookup(), context.getIdAllocator(), context.getVariableAllocator());
@@ -131,7 +131,7 @@ public class TransformCorrelatedInPredicateToJoin
 
     private Result apply(
             ApplyNode apply,
-            InSubqueryRowExpression inPredicate,
+            InSubqueryExpression inPredicate,
             VariableReferenceExpression inPredicateOutputVariable,
             Lookup lookup,
             PlanNodeIdAllocator idAllocator,
@@ -157,7 +157,7 @@ public class TransformCorrelatedInPredicateToJoin
 
     private PlanNode buildInPredicateEquivalent(
             ApplyNode apply,
-            InSubqueryRowExpression inPredicate,
+            InSubqueryExpression inPredicate,
             VariableReferenceExpression inPredicateOutputVariable,
             Decorrelated decorrelated,
             PlanNodeIdAllocator idAllocator,
