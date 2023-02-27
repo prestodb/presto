@@ -9,5 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+message(STATUS "Using Protobuf header files in: ${protobuf_SOURCE_DIR}/src")
+include_directories(${protobuf_SOURCE_DIR}/src)
 add_subdirectory(main)
 add_subdirectory(presto_protocol)

@@ -109,6 +109,11 @@ export PATH=$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH
 * Clone the whole Presto repository.
 * Run `presto/presto-native-execution/scripts/setup-centos.sh`
 
+### Basic setup on Linux (Ubuntu 20.04 or 22.04)
+
+The reset of this page is mainly about the development environment setup on MacOS.
+For Ubuntu users, instructions can be found in [BUILD_ON_UBUNTU.md](BUILD_ON_UBUNTU.md).
+
 ### Setting up local Presto environment on MacOS (with optional IntelliJ and CLion)
 Clone the whole Presto repository.
 
