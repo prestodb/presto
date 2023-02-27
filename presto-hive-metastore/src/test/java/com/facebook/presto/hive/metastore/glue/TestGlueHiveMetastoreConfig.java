@@ -36,7 +36,7 @@ public class TestGlueHiveMetastoreConfig
                 .setDefaultWarehouseDir(null)
                 .setCatalogId(null)
                 .setPartitionSegments(5)
-                .setGetPartitionThreads(20)
+                .setGetPartitionThreads(50)
                 .setIamRole(null)
                 .setAwsAccessKey(null)
                 .setAwsSecretKey(null));
