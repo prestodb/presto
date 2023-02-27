@@ -500,7 +500,8 @@ jobs:
             source ~/.bashrc
             conda create -y --name docgenenv python=3.7
             conda activate docgenenv
-            pip install sphinx sphinx-tabs breathe sphinx_rtd_theme 
+            pip install sphinx sphinx-tabs breathe sphinx_rtd_theme chardet
+            source /opt/rh/gcc-toolset-9/enable
             ./scripts/gen-docs.sh docgenenv
             git checkout gh-pages
             cp -R velox/docs/_build/html/* docs
