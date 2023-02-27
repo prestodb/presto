@@ -40,6 +40,7 @@ public interface ResourceGroupsDao
             "  max_queued INT NOT NULL,\n" +
             "  soft_concurrency_limit INT NULL,\n" +
             "  hard_concurrency_limit INT NOT NULL,\n" +
+            "  workers_per_query_limit INT NULL,\n" +
             "  scheduling_policy VARCHAR(128) NULL,\n" +
             "  scheduling_weight INT NULL,\n" +
             "  jmx_export BOOLEAN NULL,\n" +
@@ -56,7 +57,7 @@ public interface ResourceGroupsDao
     void createResourceGroupsTable();
 
     @SqlQuery("SELECT resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, " +
-            "  hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, " +
+            "  hard_concurrency_limit, workers_per_query_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, " +
             "  hard_cpu_limit, per_query_execution_time_limit, per_query_total_memory_limit, per_query_cpu_time_limit, parent\n" +
             "FROM resource_groups\n" +
             "WHERE environment = :environment\n")

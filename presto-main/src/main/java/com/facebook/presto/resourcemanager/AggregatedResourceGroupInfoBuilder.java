@@ -51,6 +51,7 @@ public class AggregatedResourceGroupInfoBuilder
     private long memoryUsageBytes;
     private int numQueuedQueries;
     private int numRunningQueries;
+    private int workersPerQueryLimit;
 
     private void init(ResourceGroupInfo resourceGroupInfo)
     {
@@ -65,6 +66,7 @@ public class AggregatedResourceGroupInfoBuilder
         this.memoryUsageBytes = resourceGroupInfo.getMemoryUsage().toBytes();
         this.numQueuedQueries = resourceGroupInfo.getNumQueuedQueries();
         this.numRunningQueries = resourceGroupInfo.getNumRunningQueries();
+        this.workersPerQueryLimit = resourceGroupInfo.getWorkersPerQueryLimit();
         this.subGroupsMap = new HashMap<>();
         this.runningQueriesBuilder = ImmutableList.builder();
         addRunningQueries(resourceGroupInfo.getRunningQueries());
@@ -130,6 +132,7 @@ public class AggregatedResourceGroupInfoBuilder
                 numRunningQueries,
                 0,
                 subGroupsMap.values().stream().map(AggregatedResourceGroupInfoBuilder::build).collect(toImmutableList()),
-                runningQueries);
+                runningQueries,
+                workersPerQueryLimit);
     }
 }

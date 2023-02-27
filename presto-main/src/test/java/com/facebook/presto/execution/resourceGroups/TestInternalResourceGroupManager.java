@@ -17,6 +17,7 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.execution.MockManagedQueryExecution;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -32,7 +33,7 @@ public class TestInternalResourceGroupManager
     public void testQueryFailsWithInitializingConfigurationManager()
     {
         InternalResourceGroupManager<ImmutableMap<Object, Object>> internalResourceGroupManager = new InternalResourceGroupManager<>((poolId, listener) -> {},
-                new QueryManagerConfig(), new NodeInfo("test"), new MBeanExporter(new TestingMBeanServer()), () -> null, new ServerConfig());
+                new QueryManagerConfig(), new NodeInfo("test"), new MBeanExporter(new TestingMBeanServer()), () -> null, new ServerConfig(), new InMemoryNodeManager());
         internalResourceGroupManager.submit(new MockManagedQueryExecution(0), new SelectionContext<>(new ResourceGroupId("global"), ImmutableMap.of()), command -> {});
     }
 
@@ -41,7 +42,7 @@ public class TestInternalResourceGroupManager
             throws Exception
     {
         InternalResourceGroupManager<ImmutableMap<Object, Object>> internalResourceGroupManager = new InternalResourceGroupManager<>((poolId, listener) -> {},
-                new QueryManagerConfig(), new NodeInfo("test"), new MBeanExporter(new TestingMBeanServer()), () -> null, new ServerConfig());
+                new QueryManagerConfig(), new NodeInfo("test"), new MBeanExporter(new TestingMBeanServer()), () -> null, new ServerConfig(), new InMemoryNodeManager());
         internalResourceGroupManager.loadConfigurationManager();
         internalResourceGroupManager.submit(new MockManagedQueryExecution(0), new SelectionContext<>(new ResourceGroupId("global"), ImmutableMap.of()), command -> {});
     }
