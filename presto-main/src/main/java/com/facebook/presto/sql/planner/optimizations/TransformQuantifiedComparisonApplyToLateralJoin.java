@@ -15,8 +15,8 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.BigintType;
-import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -28,24 +28,16 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.QuantifiedComparisonRowExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
-import com.facebook.presto.sql.tree.SearchedCaseExpression;
-import com.facebook.presto.sql.tree.SimpleCaseExpression;
-import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -54,24 +46,25 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.plan.AggregationNode.globalAggregation;
-import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.spi.relation.QuantifiedComparisonRowExpression.Quantifier.ALL;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
-import static com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier.ALL;
+import static com.facebook.presto.sql.relational.Expressions.buildSwitch;
+import static com.facebook.presto.sql.relational.Expressions.comparisonExpression;
+import static com.facebook.presto.sql.relational.Expressions.searchedCaseExpression;
+import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Collections.emptyList;
@@ -81,17 +74,22 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         implements PlanOptimizer
 {
     private final StandardFunctionResolution functionResolution;
+    private final LogicalRowExpressions logicalRowExpressions;
 
     public TransformQuantifiedComparisonApplyToLateralJoin(FunctionAndTypeManager functionAndTypeManager)
     {
         requireNonNull(functionAndTypeManager, "functionManager is null");
         this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+        this.logicalRowExpressions = new LogicalRowExpressions(
+                new RowExpressionDeterminismEvaluator(functionAndTypeManager),
+                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
+                functionAndTypeManager);
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return rewriteWith(new Rewriter(functionResolution, idAllocator, variableAllocator), plan, null);
+        return rewriteWith(new Rewriter(functionResolution, idAllocator, variableAllocator, logicalRowExpressions), plan, null);
     }
 
     private static class Rewriter
@@ -100,12 +98,14 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         private final StandardFunctionResolution functionResolution;
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
+        private final LogicalRowExpressions logicalRowExpressions;
 
-        public Rewriter(StandardFunctionResolution functionResolution, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
+        public Rewriter(StandardFunctionResolution functionResolution, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, LogicalRowExpressions logicalRowExpressions)
         {
             this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+            this.logicalRowExpressions = requireNonNull(logicalRowExpressions, "logicalRowExpressions is null");
         }
 
         @Override
@@ -115,17 +115,17 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                 return context.defaultRewrite(node);
             }
 
-            Expression expression = castToExpression(getOnlyElement(node.getSubqueryAssignments().getExpressions()));
-            if (!(expression instanceof QuantifiedComparisonExpression)) {
+            RowExpression expression = getOnlyElement(node.getSubqueryAssignments().getExpressions());
+            if (!(expression instanceof QuantifiedComparisonRowExpression)) {
                 return context.defaultRewrite(node);
             }
 
-            QuantifiedComparisonExpression quantifiedComparison = (QuantifiedComparisonExpression) expression;
+            QuantifiedComparisonRowExpression quantifiedComparison = (QuantifiedComparisonRowExpression) expression;
 
             return rewriteQuantifiedApplyNode(node, quantifiedComparison, context);
         }
 
-        private PlanNode rewriteQuantifiedApplyNode(ApplyNode node, QuantifiedComparisonExpression quantifiedComparison, RewriteContext<PlanNode> context)
+        private PlanNode rewriteQuantifiedApplyNode(ApplyNode node, QuantifiedComparisonRowExpression quantifiedComparison, RewriteContext<PlanNode> context)
         {
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
 
@@ -138,7 +138,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             VariableReferenceExpression countAllValue = variableAllocator.newVariable(outputColumn.getSourceLocation(), "count_all", BigintType.BIGINT);
             VariableReferenceExpression countNonNullValue = variableAllocator.newVariable(outputColumn.getSourceLocation(), "count_non_null", BigintType.BIGINT);
 
-            List<RowExpression> outputColumnReferences = ImmutableList.of(castToRowExpression(createSymbolReference(outputColumn)));
+            List<RowExpression> outputColumnReferences = ImmutableList.of(outputColumn);
 
             subqueryPlan = new AggregationNode(
                     node.getSourceLocation(),
@@ -147,7 +147,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     ImmutableMap.of(
                             minValue, new Aggregation(
                                     new CallExpression(
-                                            getSourceLocation(quantifiedComparison),
+                                            quantifiedComparison.getSourceLocation(),
                                             "min",
                                             functionResolution.minFunction(outputColumnType),
                                             outputColumnType,
@@ -158,7 +158,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                                     Optional.empty()),
                             maxValue, new Aggregation(
                                     new CallExpression(
-                                            getSourceLocation(quantifiedComparison),
+                                            quantifiedComparison.getSourceLocation(),
                                             "max",
                                             functionResolution.maxFunction(outputColumnType),
                                             outputColumnType,
@@ -169,7 +169,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                                     Optional.empty()),
                             countAllValue, new Aggregation(
                                     new CallExpression(
-                                            getSourceLocation(quantifiedComparison),
+                                            quantifiedComparison.getSourceLocation(),
                                             "count",
                                             functionResolution.countFunction(),
                                             BIGINT,
@@ -180,7 +180,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
                                     new CallExpression(
-                                            getSourceLocation(quantifiedComparison),
+                                            quantifiedComparison.getSourceLocation(),
                                             "count",
                                             functionResolution.countFunction(outputColumnType),
                                             BIGINT,
@@ -204,7 +204,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     LateralJoinNode.Type.INNER,
                     node.getOriginSubqueryError());
 
-            Expression valueComparedToSubquery = rewriteUsingBounds(
+            RowExpression valueComparedToSubquery = rewriteUsingBounds(
                     quantifiedComparison,
                     minValue,
                     maxValue,
@@ -213,43 +213,45 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 
             VariableReferenceExpression quantifiedComparisonVariable = getOnlyElement(node.getSubqueryAssignments().getVariables());
 
-            return projectExpressions(lateralJoinNode, Assignments.of(quantifiedComparisonVariable, castToRowExpression(valueComparedToSubquery)));
+            return projectExpressions(lateralJoinNode, Assignments.of(quantifiedComparisonVariable, valueComparedToSubquery));
         }
 
-        public Expression rewriteUsingBounds(
-                QuantifiedComparisonExpression quantifiedComparison,
+        public RowExpression rewriteUsingBounds(
+                QuantifiedComparisonRowExpression quantifiedComparison,
                 VariableReferenceExpression minValue,
                 VariableReferenceExpression maxValue,
                 VariableReferenceExpression countAllValue,
                 VariableReferenceExpression countNonNullValue)
         {
-            BooleanLiteral emptySetResult = quantifiedComparison.getQuantifier().equals(ALL) ? TRUE_LITERAL : FALSE_LITERAL;
-            Function<List<Expression>, Expression> quantifier = quantifiedComparison.getQuantifier().equals(ALL) ?
-                    ExpressionUtils::combineConjuncts : ExpressionUtils::combineDisjuncts;
-            Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
+            ConstantExpression emptySetResult = quantifiedComparison.getQuantifier().equals(ALL) ? TRUE_CONSTANT : FALSE_CONSTANT;
+            Function<List<RowExpression>, RowExpression> quantifier = quantifiedComparison.getQuantifier().equals(ALL) ?
+                    logicalRowExpressions::combineConjuncts : logicalRowExpressions::combineDisjuncts;
+            RowExpression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
 
-            return new SimpleCaseExpression(
-                    createSymbolReference(countAllValue),
-                    ImmutableList.of(new WhenClause(
-                            new GenericLiteral("bigint", "0"),
-                            emptySetResult)),
+            RowExpression whenClause = specialForm(
+                    WHEN,
+                    BOOLEAN,
+                    comparisonExpression(functionResolution, NOT_EQUAL, countAllValue, countNonNullValue),
+                    new ConstantExpression(null, BOOLEAN));
+
+            return buildSwitch(
+                    countAllValue,
+                    ImmutableList.of(specialForm(WHEN, BOOLEAN, new ConstantExpression(0L, BIGINT), emptySetResult)),
                     Optional.of(quantifier.apply(ImmutableList.of(
                             comparisonWithExtremeValue,
-                            new SearchedCaseExpression(
-                                    ImmutableList.of(
-                                            new WhenClause(
-                                                    new ComparisonExpression(NOT_EQUAL, createSymbolReference(countAllValue), createSymbolReference(countNonNullValue)),
-                                                    new Cast(new NullLiteral(), BooleanType.BOOLEAN.toString()))),
-                                    Optional.of(emptySetResult))))));
+                            searchedCaseExpression(
+                                    ImmutableList.of(whenClause),
+                                    Optional.of(emptySetResult))))),
+                    BOOLEAN);
         }
 
-        private Expression getBoundComparisons(QuantifiedComparisonExpression quantifiedComparison, VariableReferenceExpression minValue, VariableReferenceExpression maxValue)
+        private RowExpression getBoundComparisons(QuantifiedComparisonRowExpression quantifiedComparison, VariableReferenceExpression minValue, VariableReferenceExpression maxValue)
         {
             if (quantifiedComparison.getOperator() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
                 // A = ALL B <=> min B = max B && A = min B
-                return combineConjuncts(
-                        new ComparisonExpression(EQUAL, createSymbolReference(minValue), createSymbolReference(maxValue)),
-                        new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), createSymbolReference(maxValue)));
+                return logicalRowExpressions.combineConjuncts(
+                        comparisonExpression(functionResolution, EQUAL, minValue, maxValue),
+                        comparisonExpression(functionResolution, EQUAL, quantifiedComparison.getValue(), maxValue));
             }
 
             if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getOperator())) {
@@ -258,12 +260,12 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                 // A < ANY B <=> A < max B
                 // A > ANY B <=> A > min B
                 VariableReferenceExpression boundValue = shouldCompareValueWithLowerBound(quantifiedComparison) ? minValue : maxValue;
-                return new ComparisonExpression(quantifiedComparison.getOperator(), quantifiedComparison.getValue(), createSymbolReference(boundValue));
+                return comparisonExpression(functionResolution, quantifiedComparison.getOperator(), quantifiedComparison.getValue(), boundValue);
             }
             throw new IllegalArgumentException("Unsupported quantified comparison: " + quantifiedComparison);
         }
 
-        private static boolean shouldCompareValueWithLowerBound(QuantifiedComparisonExpression quantifiedComparison)
+        private static boolean shouldCompareValueWithLowerBound(QuantifiedComparisonRowExpression quantifiedComparison)
         {
             switch (quantifiedComparison.getQuantifier()) {
                 case ALL:
@@ -294,7 +296,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         private ProjectNode projectExpressions(PlanNode input, Assignments subqueryAssignments)
         {
             Assignments assignments = Assignments.builder()
-                    .putAll(identitiesAsSymbolReferences(input.getOutputVariables()))
+                    .putAll(identityAssignments(input.getOutputVariables()))
                     .putAll(subqueryAssignments)
                     .build();
             return new ProjectNode(
