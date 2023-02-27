@@ -38,7 +38,7 @@ public class TestPruneSemiJoinColumns
     @Test
     public void testSemiJoinNotNeeded()
     {
-        tester().assertThat(new PruneSemiJoinColumns())
+        tester().assertThat(new PruneSemiJoinColumns(false))
                 .on(p -> buildProjectedSemiJoin(p, variable -> variable.getName().equals("leftValue")))
                 .matches(
                         strictProject(
@@ -49,7 +49,7 @@ public class TestPruneSemiJoinColumns
     @Test
     public void testAllColumnsNeeded()
     {
-        tester().assertThat(new PruneSemiJoinColumns())
+        tester().assertThat(new PruneSemiJoinColumns(false))
                 .on(p -> buildProjectedSemiJoin(p, variable -> true))
                 .doesNotFire();
     }
@@ -57,7 +57,7 @@ public class TestPruneSemiJoinColumns
     @Test
     public void testKeysNotNeeded()
     {
-        tester().assertThat(new PruneSemiJoinColumns())
+        tester().assertThat(new PruneSemiJoinColumns(false))
                 .on(p -> buildProjectedSemiJoin(p, variable -> (variable.getName().equals("leftValue") || variable.getName().equals("match"))))
                 .doesNotFire();
     }
@@ -65,7 +65,7 @@ public class TestPruneSemiJoinColumns
     @Test
     public void testValueNotNeeded()
     {
-        tester().assertThat(new PruneSemiJoinColumns())
+        tester().assertThat(new PruneSemiJoinColumns(false))
                 .on(p -> buildProjectedSemiJoin(p, variable -> variable.getName().equals("match")))
                 .matches(
                         strictProject(

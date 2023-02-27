@@ -34,6 +34,13 @@ public class PruneAggregationSourceColumns
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation();
 
+    private final boolean useRowExpressions;
+
+    public PruneAggregationSourceColumns(boolean useRowExpressions)
+    {
+        this.useRowExpressions = useRowExpressions;
+    }
+
     @Override
     public Pattern<AggregationNode> getPattern()
     {
@@ -50,7 +57,7 @@ public class PruneAggregationSourceColumns
                         .flatMap(aggregation -> getAggregationInputs(aggregation, TypeProvider.viewOf(context.getVariableAllocator().getVariables()))))
                 .collect(toImmutableSet());
 
-        return restrictChildOutputs(context.getIdAllocator(), aggregationNode, requiredInputs)
+        return restrictChildOutputs(context.getIdAllocator(), aggregationNode, useRowExpressions, requiredInputs)
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }

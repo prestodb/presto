@@ -27,6 +27,13 @@ public class PruneOutputColumns
 {
     private static final Pattern<OutputNode> PATTERN = output();
 
+    private final boolean useRowExpressions;
+
+    public PruneOutputColumns(boolean useRowExpressions)
+    {
+        this.useRowExpressions = useRowExpressions;
+    }
+
     @Override
     public Pattern<OutputNode> getPattern()
     {
@@ -39,6 +46,7 @@ public class PruneOutputColumns
         return restrictChildOutputs(
                 context.getIdAllocator(),
                 outputNode,
+                useRowExpressions,
                 ImmutableSet.copyOf(outputNode.getOutputVariables()))
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());

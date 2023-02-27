@@ -33,7 +33,7 @@ public class TestPruneMarkDistinctColumns
     @Test
     public void testMarkerSymbolNotReferenced()
     {
-        tester().assertThat(new PruneMarkDistinctColumns())
+        tester().assertThat(new PruneMarkDistinctColumns(false))
                 .on(p ->
                 {
                     VariableReferenceExpression key = p.variable("key");
@@ -53,7 +53,7 @@ public class TestPruneMarkDistinctColumns
     @Test
     public void testSourceSymbolNotReferenced()
     {
-        tester().assertThat(new PruneMarkDistinctColumns())
+        tester().assertThat(new PruneMarkDistinctColumns(false))
                 .on(p ->
                 {
                     VariableReferenceExpression key = p.variable("key");
@@ -82,7 +82,7 @@ public class TestPruneMarkDistinctColumns
     @Test
     public void testKeySymbolNotReferenced()
     {
-        tester().assertThat(new PruneMarkDistinctColumns())
+        tester().assertThat(new PruneMarkDistinctColumns(false))
                 .on(p ->
                 {
                     VariableReferenceExpression key = p.variable("key");
@@ -97,7 +97,7 @@ public class TestPruneMarkDistinctColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneMarkDistinctColumns())
+        tester().assertThat(new PruneMarkDistinctColumns(false))
                 .on(p ->
                 {
                     VariableReferenceExpression key = p.variable("key");

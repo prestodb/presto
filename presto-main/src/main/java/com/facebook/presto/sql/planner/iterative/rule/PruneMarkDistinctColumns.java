@@ -31,9 +31,12 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 public class PruneMarkDistinctColumns
         extends ProjectOffPushDownRule<MarkDistinctNode>
 {
-    public PruneMarkDistinctColumns()
+    private final boolean useRowExpressions;
+
+    public PruneMarkDistinctColumns(boolean useRowExpressions)
     {
         super(markDistinct());
+        this.useRowExpressions = useRowExpressions;
     }
 
     @Override
@@ -50,6 +53,6 @@ public class PruneMarkDistinctColumns
                 markDistinctNode.getHashVariable().map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
-        return restrictChildOutputs(idAllocator, markDistinctNode, requiredInputs);
+        return restrictChildOutputs(idAllocator, markDistinctNode, useRowExpressions, requiredInputs);
     }
 }

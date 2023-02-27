@@ -33,9 +33,12 @@ import static com.facebook.presto.sql.planner.plan.Patterns.window;
 public class PruneWindowColumns
         extends ProjectOffPushDownRule<WindowNode>
 {
-    public PruneWindowColumns()
+    private final boolean useRowExpressions;
+
+    public PruneWindowColumns(boolean useRowExpressions)
     {
         super(window());
+        this.useRowExpressions = useRowExpressions;
     }
 
     @Override
@@ -70,7 +73,7 @@ public class PruneWindowColumns
         PlanNode prunedWindowNode = new WindowNode(
                 windowNode.getSourceLocation(),
                 windowNode.getId(),
-                restrictOutputs(idAllocator, windowNode.getSource(), referencedInputs.build(), false)
+                restrictOutputs(idAllocator, windowNode.getSource(), referencedInputs.build(), useRowExpressions)
                         .orElse(windowNode.getSource()),
                 windowNode.getSpecification(),
                 referencedFunctions,
