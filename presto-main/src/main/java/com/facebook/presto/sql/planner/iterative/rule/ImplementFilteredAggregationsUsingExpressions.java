@@ -60,6 +60,7 @@ import static com.google.common.base.Verify.verify;
  *            $1 = C2(...)
  *         - X
  * </pre>
+ * TODO: Remove this deprecated class in favor of ImplementFilteredAggregations
  */
 @Deprecated
 public class ImplementFilteredAggregationsUsingExpressions

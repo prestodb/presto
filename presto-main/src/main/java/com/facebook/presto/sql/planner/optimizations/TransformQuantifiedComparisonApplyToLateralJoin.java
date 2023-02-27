@@ -29,7 +29,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.QuantifiedComparisonRowExpression;
+import com.facebook.presto.spi.relation.QuantifiedComparisonExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -57,7 +57,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.plan.AggregationNode.globalAggregation;
-import static com.facebook.presto.spi.relation.QuantifiedComparisonRowExpression.Quantifier.ALL;
+import static com.facebook.presto.spi.relation.QuantifiedComparisonExpression.Quantifier.ALL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
@@ -116,16 +116,16 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             }
 
             RowExpression expression = getOnlyElement(node.getSubqueryAssignments().getExpressions());
-            if (!(expression instanceof QuantifiedComparisonRowExpression)) {
+            if (!(expression instanceof QuantifiedComparisonExpression)) {
                 return context.defaultRewrite(node);
             }
 
-            QuantifiedComparisonRowExpression quantifiedComparison = (QuantifiedComparisonRowExpression) expression;
+            QuantifiedComparisonExpression quantifiedComparison = (QuantifiedComparisonExpression) expression;
 
             return rewriteQuantifiedApplyNode(node, quantifiedComparison, context);
         }
 
-        private PlanNode rewriteQuantifiedApplyNode(ApplyNode node, QuantifiedComparisonRowExpression quantifiedComparison, RewriteContext<PlanNode> context)
+        private PlanNode rewriteQuantifiedApplyNode(ApplyNode node, QuantifiedComparisonExpression quantifiedComparison, RewriteContext<PlanNode> context)
         {
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
 
@@ -217,7 +217,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         }
 
         public RowExpression rewriteUsingBounds(
-                QuantifiedComparisonRowExpression quantifiedComparison,
+                QuantifiedComparisonExpression quantifiedComparison,
                 VariableReferenceExpression minValue,
                 VariableReferenceExpression maxValue,
                 VariableReferenceExpression countAllValue,
@@ -245,7 +245,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     BOOLEAN);
         }
 
-        private RowExpression getBoundComparisons(QuantifiedComparisonRowExpression quantifiedComparison, VariableReferenceExpression minValue, VariableReferenceExpression maxValue)
+        private RowExpression getBoundComparisons(QuantifiedComparisonExpression quantifiedComparison, VariableReferenceExpression minValue, VariableReferenceExpression maxValue)
         {
             if (quantifiedComparison.getOperator() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
                 // A = ALL B <=> min B = max B && A = min B
@@ -265,7 +265,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             throw new IllegalArgumentException("Unsupported quantified comparison: " + quantifiedComparison);
         }
 
-        private static boolean shouldCompareValueWithLowerBound(QuantifiedComparisonRowExpression quantifiedComparison)
+        private static boolean shouldCompareValueWithLowerBound(QuantifiedComparisonExpression quantifiedComparison)
         {
             switch (quantifiedComparison.getQuantifier()) {
                 case ALL:

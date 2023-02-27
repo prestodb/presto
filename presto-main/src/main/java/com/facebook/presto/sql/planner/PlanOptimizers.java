@@ -387,11 +387,6 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         columnPruningRules),
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new TransformExistsApplyToLateralNode(metadata.getFunctionAndTypeManager()))),
                 // TODO: move this before optimization if possible!!
                 // Replace all expressions with row expressions
                 new IterativeOptimizer(
@@ -400,6 +395,11 @@ public class PlanOptimizers
                         costCalculator,
                         new TranslateExpressions(metadata, sqlParser).rules()),
                 // After this point, all planNodes should not contain OriginalExpression
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new TransformExistsApplyToLateralNode(metadata.getFunctionAndTypeManager()))),
                 new TransformQuantifiedComparisonApplyToLateralJoin(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(
                         ruleStats,

@@ -305,6 +305,7 @@ class SubqueryPlanner
 
         VariableReferenceExpression exists = variableAllocator.newVariable(getSourceLocation(existsPredicate), "exists", BOOLEAN);
         subPlan.getTranslations().put(existsPredicate, exists);
+        // TODO: Convert directly into a RowExpression once we remove OriginalExpression
         ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(BooleanLiteral.TRUE_LITERAL);
         return appendApplyNode(
                 subPlan,
