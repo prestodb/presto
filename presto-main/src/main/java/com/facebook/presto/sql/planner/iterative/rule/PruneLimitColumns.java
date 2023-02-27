@@ -28,14 +28,17 @@ import static com.facebook.presto.sql.planner.plan.Patterns.limit;
 public class PruneLimitColumns
         extends ProjectOffPushDownRule<LimitNode>
 {
-    public PruneLimitColumns()
+    private final boolean useRowExpressions;
+
+    public PruneLimitColumns(boolean useRowExpressions)
     {
         super(limit());
+        this.useRowExpressions = useRowExpressions;
     }
 
     @Override
     protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, LimitNode limitNode, Set<VariableReferenceExpression> referencedOutputs)
     {
-        return restrictChildOutputs(idAllocator, limitNode, referencedOutputs);
+        return restrictChildOutputs(idAllocator, limitNode, useRowExpressions, referencedOutputs);
     }
 }

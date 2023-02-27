@@ -41,7 +41,7 @@ public class TestPruneJoinChildrenColumns
     @Test
     public void testNotAllInputsRereferenced()
     {
-        tester().assertThat(new PruneJoinChildrenColumns())
+        tester().assertThat(new PruneJoinChildrenColumns(false))
                 .on(p -> buildJoin(p, variable -> variable.getName().equals("leftValue")))
                 .matches(
                         join(
@@ -59,7 +59,7 @@ public class TestPruneJoinChildrenColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneJoinChildrenColumns())
+        tester().assertThat(new PruneJoinChildrenColumns(false))
                 .on(p -> buildJoin(p, Predicates.alwaysTrue()))
                 .doesNotFire();
     }

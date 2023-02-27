@@ -40,7 +40,7 @@ public class TestPruneCrossJoinColumns
     @Test
     public void testLeftInputNotReferenced()
     {
-        tester().assertThat(new PruneCrossJoinColumns())
+        tester().assertThat(new PruneCrossJoinColumns(false))
                 .on(p -> buildProjectedCrossJoin(p, variable -> variable.getName().equals("rightValue")))
                 .matches(
                         strictProject(
@@ -59,7 +59,7 @@ public class TestPruneCrossJoinColumns
     @Test
     public void testRightInputNotReferenced()
     {
-        tester().assertThat(new PruneCrossJoinColumns())
+        tester().assertThat(new PruneCrossJoinColumns(false))
                 .on(p -> buildProjectedCrossJoin(p, variable -> variable.getName().equals("leftValue")))
                 .matches(
                         strictProject(
@@ -78,7 +78,7 @@ public class TestPruneCrossJoinColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneCrossJoinColumns())
+        tester().assertThat(new PruneCrossJoinColumns(false))
                 .on(p -> buildProjectedCrossJoin(p, Predicates.alwaysTrue()))
                 .doesNotFire();
     }
