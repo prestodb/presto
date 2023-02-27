@@ -32,7 +32,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> defaultWarehouseDir = Optional.empty();
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
-    private int getPartitionThreads = 20;
+    private int getPartitionThreads = 50;
     private Optional<String> iamRole = Optional.empty();
     private Optional<String> awsAccessKey = Optional.empty();
     private Optional<String> awsSecretKey = Optional.empty();
@@ -146,6 +146,7 @@ public class GlueHiveMetastoreConfig
     }
 
     @Min(1)
+    @Max(1000)
     public int getGetPartitionThreads()
     {
         return getPartitionThreads;
