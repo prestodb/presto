@@ -13,15 +13,18 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InSubqueryRowExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.QuantifiedComparisonRowExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
@@ -156,6 +159,20 @@ public final class Expressions
         return specialForm(SWITCH, returnType, arguments.build());
     }
 
+    public static RowExpression comparisonExpression(
+            StandardFunctionResolution functionResolution,
+            OperatorType operatorType,
+            RowExpression left,
+            RowExpression right)
+    {
+        return call(
+                operatorType.name(),
+                functionResolution.comparisonFunction(operatorType, left.getType(), right.getType()),
+                BOOLEAN,
+                left,
+                right);
+    }
+
     public static InputReferenceExpression field(Optional<SourceLocation> sourceLocation, int field, Type type)
     {
         return new InputReferenceExpression(sourceLocation, field, type);
@@ -189,6 +206,20 @@ public final class Expressions
     public static InSubqueryRowExpression inSubquery(VariableReferenceExpression value, VariableReferenceExpression subquery)
     {
         return new InSubqueryRowExpression(getFirstSourceLocation(asList(value, subquery)), value, subquery);
+    }
+
+    public static QuantifiedComparisonRowExpression quantifiedComparison(
+            OperatorType operator,
+            QuantifiedComparisonRowExpression.Quantifier quantifier,
+            RowExpression value,
+            RowExpression subquery)
+    {
+        return new QuantifiedComparisonRowExpression(
+                getFirstSourceLocation(asList(value, subquery)),
+                operator,
+                quantifier,
+                value,
+                subquery);
     }
 
     public static Set<RowExpression> uniqueSubExpressions(RowExpression expression)

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.relation.InSubqueryRowExpression;
+import com.facebook.presto.spi.relation.QuantifiedComparisonRowExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
@@ -41,7 +42,7 @@ public final class ApplyNodeUtil
         if (isExpression(expression)) {
             return isSupportedSubqueryExpression(castToExpression(expression));
         }
-        return expression instanceof InSubqueryRowExpression;
+        return expression instanceof InSubqueryRowExpression || expression instanceof QuantifiedComparisonRowExpression;
     }
 
     private static boolean isSupportedSubqueryExpression(Expression expression)
