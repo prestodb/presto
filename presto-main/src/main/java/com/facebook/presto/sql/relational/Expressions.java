@@ -21,10 +21,10 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.InSubqueryRowExpression;
+import com.facebook.presto.spi.relation.InSubqueryExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
-import com.facebook.presto.spi.relation.QuantifiedComparisonRowExpression;
+import com.facebook.presto.spi.relation.QuantifiedComparisonExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
@@ -33,17 +33,11 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.common.function.OperatorType.EQUAL;
-import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -52,14 +46,10 @@ import static java.util.Arrays.asList;
 
 public final class Expressions
 {
-    private static final List<String> COMPARISON_FUNCTIONS = ImmutableList.of(
-            EQUAL.getFunctionName().toString(),
-            NOT_EQUAL.getFunctionName().toString(),
-            LESS_THAN.getFunctionName().toString(),
-            LESS_THAN_OR_EQUAL.getFunctionName().toString(),
-            GREATER_THAN.getFunctionName().toString(),
-            GREATER_THAN_OR_EQUAL.getFunctionName().toString(),
-            IS_DISTINCT_FROM.getFunctionName().toString());
+    private static final List<String> COMPARISON_FUNCTIONS = Arrays.stream(OperatorType.values())
+            .filter(OperatorType::isComparisonOperator)
+            .map(operator -> operator.getFunctionName().toString())
+            .collect(toImmutableList());
 
     private Expressions()
     {
@@ -203,18 +193,18 @@ public final class Expressions
         return new SpecialFormExpression(sourceLocation, form, returnType, arguments);
     }
 
-    public static InSubqueryRowExpression inSubquery(VariableReferenceExpression value, VariableReferenceExpression subquery)
+    public static InSubqueryExpression inSubquery(VariableReferenceExpression value, VariableReferenceExpression subquery)
     {
-        return new InSubqueryRowExpression(getFirstSourceLocation(asList(value, subquery)), value, subquery);
+        return new InSubqueryExpression(getFirstSourceLocation(asList(value, subquery)), value, subquery);
     }
 
-    public static QuantifiedComparisonRowExpression quantifiedComparison(
+    public static QuantifiedComparisonExpression quantifiedComparison(
             OperatorType operator,
-            QuantifiedComparisonRowExpression.Quantifier quantifier,
+            QuantifiedComparisonExpression.Quantifier quantifier,
             RowExpression value,
             RowExpression subquery)
     {
-        return new QuantifiedComparisonRowExpression(
+        return new QuantifiedComparisonExpression(
                 getFirstSourceLocation(asList(value, subquery)),
                 operator,
                 quantifier,

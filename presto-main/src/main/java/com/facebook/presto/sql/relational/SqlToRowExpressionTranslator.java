@@ -30,8 +30,9 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.ExistsExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
-import com.facebook.presto.spi.relation.QuantifiedComparisonRowExpression;
+import com.facebook.presto.spi.relation.QuantifiedComparisonExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -56,6 +57,7 @@ import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.EnumLiteral;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -76,7 +78,6 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
@@ -680,11 +681,18 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitQuantifiedComparisonExpression(QuantifiedComparisonExpression expression, Void context)
+        protected RowExpression visitExists(ExistsPredicate existsPredicate, Void context)
+        {
+            RowExpression subquery = process(existsPredicate.getSubquery(), context);
+            return new ExistsExpression(subquery.getSourceLocation(), subquery);
+        }
+
+        @Override
+        protected RowExpression visitQuantifiedComparisonExpression(com.facebook.presto.sql.tree.QuantifiedComparisonExpression expression, Void context)
         {
             return quantifiedComparison(
                     OperatorType.valueOf(expression.getOperator().name()),
-                    QuantifiedComparisonRowExpression.Quantifier.valueOf(expression.getQuantifier().name()),
+                    QuantifiedComparisonExpression.Quantifier.valueOf(expression.getQuantifier().name()),
                     process(expression.getValue(), context),
                     process(expression.getSubquery(), context));
         }

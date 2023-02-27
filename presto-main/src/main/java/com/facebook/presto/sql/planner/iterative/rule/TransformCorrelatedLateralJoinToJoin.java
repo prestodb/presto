@@ -19,8 +19,8 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelatorUsingRowExpressions;
-import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelatorUsingRowExpressions.DecorrelatedNode;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -67,8 +67,8 @@ public class TransformCorrelatedLateralJoinToJoin
     {
         PlanNode subquery = lateralJoinNode.getSubquery();
 
-        PlanNodeDecorrelatorUsingRowExpressions planNodeDecorrelatorUsingRowExpressions = new PlanNodeDecorrelatorUsingRowExpressions(context.getIdAllocator(), context.getVariableAllocator(), context.getLookup(), logicalRowExpressions);
-        Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelatorUsingRowExpressions.decorrelateFilters(subquery, lateralJoinNode.getCorrelation());
+        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getVariableAllocator(), context.getLookup(), logicalRowExpressions);
+        Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, lateralJoinNode.getCorrelation());
 
         return decorrelatedNodeOptional.map(decorrelatedNode ->
                 Result.ofPlanNode(new JoinNode(

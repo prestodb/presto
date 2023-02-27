@@ -18,7 +18,7 @@ import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.relation.IntermediateFormRowExpression;
+import com.facebook.presto.spi.relation.IntermediateFormExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionExtractor;
@@ -29,7 +29,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
-public final class VerifyNoIntermediateFormRowExpression
+public final class VerifyNoIntermediateFormExpression
         implements PlanChecker.Checker
 {
     @Override
@@ -43,9 +43,9 @@ public final class VerifyNoIntermediateFormRowExpression
                     new DefaultRowExpressionTraversalVisitor<Void>()
                     {
                         @Override
-                        public Void visitIntermediateFormRowExpression(IntermediateFormRowExpression node, Void context)
+                        public Void visitIntermediateFormExpression(IntermediateFormExpression node, Void context)
                         {
-                            throw new IllegalStateException(format("Unexpected subquery expression in logical plan: %s", node));
+                            throw new IllegalStateException(format("Unexpected IntermediateFormExpression in logical plan: %s", node));
                         }
                     },
                     null);

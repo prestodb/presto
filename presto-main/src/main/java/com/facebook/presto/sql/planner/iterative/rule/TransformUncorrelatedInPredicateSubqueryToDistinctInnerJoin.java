@@ -20,7 +20,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.relation.InSubqueryRowExpression;
+import com.facebook.presto.spi.relation.InSubqueryExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -102,10 +102,10 @@ public class TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
         }
 
         RowExpression expression = getOnlyElement(subqueryAssignments.getExpressions());
-        if (!(expression instanceof InSubqueryRowExpression)) {
+        if (!(expression instanceof InSubqueryExpression)) {
             return Result.empty();
         }
-        InSubqueryRowExpression inPredicate = (InSubqueryRowExpression) expression;
+        InSubqueryExpression inPredicate = (InSubqueryExpression) expression;
 
         VariableReferenceExpression inPredicateOutputVariable = getOnlyElement(subqueryAssignments.getVariables());
 

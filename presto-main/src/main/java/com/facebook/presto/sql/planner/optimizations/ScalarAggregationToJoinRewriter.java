@@ -28,7 +28,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelatorUsingRowExpressions.DecorrelatedNode;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -59,7 +59,7 @@ public class ScalarAggregationToJoinRewriter
     private final VariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Lookup lookup;
-    private final PlanNodeDecorrelatorUsingRowExpressions planNodeDecorrelatorUsingRowExpressions;
+    private final PlanNodeDecorrelator planNodeDecorrelator;
 
     public ScalarAggregationToJoinRewriter(FunctionAndTypeManager functionAndTypeManager, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
@@ -72,13 +72,13 @@ public class ScalarAggregationToJoinRewriter
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
                 new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
                 functionAndTypeManager);
-        this.planNodeDecorrelatorUsingRowExpressions = new PlanNodeDecorrelatorUsingRowExpressions(idAllocator, variableAllocator, lookup, logicalRowExpressions);
+        this.planNodeDecorrelator = new PlanNodeDecorrelator(idAllocator, variableAllocator, lookup, logicalRowExpressions);
     }
 
     public PlanNode rewriteScalarAggregation(LateralJoinNode lateralJoinNode, AggregationNode aggregation)
     {
         List<VariableReferenceExpression> correlation = lateralJoinNode.getCorrelation();
-        Optional<DecorrelatedNode> source = planNodeDecorrelatorUsingRowExpressions.decorrelateFilters(lookup.resolve(aggregation.getSource()), correlation);
+        Optional<DecorrelatedNode> source = planNodeDecorrelator.decorrelateFilters(lookup.resolve(aggregation.getSource()), correlation);
         if (!source.isPresent()) {
             return lateralJoinNode;
         }
