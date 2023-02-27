@@ -32,9 +32,12 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 public class PruneSemiJoinColumns
         extends ProjectOffPushDownRule<SemiJoinNode>
 {
-    public PruneSemiJoinColumns()
+    private final boolean useRowExpressions;
+
+    public PruneSemiJoinColumns(boolean useRowExpressions)
     {
         super(semiJoin());
+        this.useRowExpressions = useRowExpressions;
     }
 
     @Override
@@ -51,7 +54,7 @@ public class PruneSemiJoinColumns
                 semiJoinNode.getSourceHashVariable().map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
-        return restrictOutputs(idAllocator, semiJoinNode.getSource(), requiredSourceInputs, false)
+        return restrictOutputs(idAllocator, semiJoinNode.getSource(), requiredSourceInputs, useRowExpressions)
                 .map(newSource ->
                         semiJoinNode.replaceChildren(ImmutableList.of(
                                 newSource, semiJoinNode.getFilteringSource())));

@@ -19,7 +19,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
@@ -27,6 +26,8 @@ import java.util.Set;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Predicates.not;
 
 /**
@@ -37,6 +38,13 @@ public class PruneJoinChildrenColumns
 {
     private static final Pattern<JoinNode> PATTERN = join()
             .matching(not(JoinNode::isCrossJoin));
+
+    private final boolean useRowExpressions;
+
+    public PruneJoinChildrenColumns(boolean useRowExpressions)
+    {
+        this.useRowExpressions = useRowExpressions;
+    }
 
     @Override
     public Pattern<JoinNode> getPattern()
@@ -51,8 +59,9 @@ public class PruneJoinChildrenColumns
                 .addAll(joinNode.getOutputVariables())
                 .addAll(
                         joinNode.getFilter()
-                                .map(OriginalExpressionUtils::castToExpression)
-                                .map(expression -> extractUnique(expression, TypeProvider.viewOf(context.getVariableAllocator().getVariables())))
+                                .map(expression -> isExpression(expression) ?
+                                        extractUnique(castToExpression(expression), TypeProvider.viewOf(context.getVariableAllocator().getVariables())) :
+                                        extractUnique(expression))
                                 .orElse(ImmutableSet.of()))
                 .build();
 
@@ -74,7 +83,7 @@ public class PruneJoinChildrenColumns
                 .addAll(joinNode.getRightHashVariable().map(ImmutableSet::of).orElse(ImmutableSet.of()))
                 .build();
 
-        return restrictChildOutputs(context.getIdAllocator(), joinNode, leftUsableInputs, rightUsableInputs)
+        return restrictChildOutputs(context.getIdAllocator(), joinNode, useRowExpressions, leftUsableInputs, rightUsableInputs)
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }

@@ -114,7 +114,7 @@ class Util
      * Returns a present Optional iff at least one child was rewritten.
      */
     @SafeVarargs
-    public static Optional<PlanNode> restrictChildOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<VariableReferenceExpression>... permittedChildOutputsArgs)
+    public static Optional<PlanNode> restrictChildOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, boolean useRowExpressions, Set<VariableReferenceExpression>... permittedChildOutputsArgs)
     {
         List<Set<VariableReferenceExpression>> permittedChildOutputs = ImmutableList.copyOf(permittedChildOutputsArgs);
 
@@ -129,7 +129,7 @@ class Util
 
         for (int i = 0; i < node.getSources().size(); ++i) {
             PlanNode oldChild = node.getSources().get(i);
-            Optional<PlanNode> newChild = restrictOutputs(idAllocator, oldChild, permittedChildOutputs.get(i), false);
+            Optional<PlanNode> newChild = restrictOutputs(idAllocator, oldChild, permittedChildOutputs.get(i), useRowExpressions);
             rewroteChildren |= newChild.isPresent();
             newChildrenBuilder.add(newChild.orElse(oldChild));
         }
@@ -138,5 +138,10 @@ class Util
             return Optional.empty();
         }
         return Optional.of(node.replaceChildren(newChildrenBuilder.build()));
+    }
+
+    public static Optional<PlanNode> restrictChildOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<VariableReferenceExpression>... permittedChildOutputsArgs)
+    {
+        return restrictChildOutputs(idAllocator, node, false, permittedChildOutputsArgs);
     }
 }

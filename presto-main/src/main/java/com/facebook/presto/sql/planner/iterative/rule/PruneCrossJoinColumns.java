@@ -32,9 +32,12 @@ import static com.facebook.presto.sql.planner.plan.Patterns.join;
 public class PruneCrossJoinColumns
         extends ProjectOffPushDownRule<JoinNode>
 {
-    public PruneCrossJoinColumns()
+    private final boolean useRowExpressions;
+
+    public PruneCrossJoinColumns(boolean useRowExpressions)
     {
         super(join().matching(JoinNode::isCrossJoin));
+        this.useRowExpressions = useRowExpressions;
     }
 
     @Override
