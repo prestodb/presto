@@ -21,25 +21,30 @@ import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplem
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ExistsExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.WarningCollector.NOOP;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -167,15 +172,25 @@ public class TranslateExpressions
                 return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), session);
             }
 
-            private RowExpression removeOriginalExpression(RowExpression expression, Rule.Context context)
+            private RowExpression removeOriginalExpression(RowExpression rowExpression, Rule.Context context)
             {
-                if (isExpression(expression)) {
+                if (isExpression(rowExpression)) {
+                    Expression expression = castToExpression(rowExpression);
+                    // Special treatment of Exists(true) predicate. This predicate isn't a valid expression,
+                    // but is produced by SubqueryPlanner in some cases. Trying to call analyzer on this
+                    // expression will fail(which is the right thing!).
+                    if (expression instanceof ExistsPredicate) {
+                        Expression subquery = ((ExistsPredicate) expression).getSubquery();
+                        if (subquery instanceof Literal) {
+                            return new ExistsExpression(Optional.empty(), removeOriginalExpression(castToRowExpression(subquery), context));
+                        }
+                    }
                     return toRowExpression(
-                            castToExpression(expression),
+                            castToExpression(rowExpression),
                             context.getSession(),
-                            analyze(castToExpression(expression), context.getSession(), TypeProvider.viewOf(context.getVariableAllocator().getVariables())));
+                            analyze(castToExpression(rowExpression), context.getSession(), TypeProvider.viewOf(context.getVariableAllocator().getVariables())));
                 }
-                return expression;
+                return rowExpression;
             }
 
             private RowExpression removeOriginalExpression(RowExpression rowExpression, Session session, Map<NodeRef<Expression>, Type> types)

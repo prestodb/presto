@@ -58,7 +58,7 @@ public final class PlanChecker
                         new NoIdentifierLeftChecker(),
                         new VerifyNoFilteredAggregations(),
                         new VerifyNoOriginalExpression(),
-                        new VerifyNoIntermediateFormRowExpression(),
+                        new VerifyNoIntermediateFormExpression(),
                         new ValidateStreamingJoins())
                 .putAll(
                         Stage.FINAL,
@@ -73,7 +73,7 @@ public final class PlanChecker
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
                         new ValidateStreamingAggregations(),
                         new VerifyNoOriginalExpression(),
-                        new VerifyNoIntermediateFormRowExpression(),
+                        new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),
                         new WarnOnScanWithoutPartitionPredicate(featuresConfig))

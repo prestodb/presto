@@ -16,7 +16,7 @@ package com.facebook.presto.expressions;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
-import com.facebook.presto.spi.relation.IntermediateFormRowExpression;
+import com.facebook.presto.spi.relation.IntermediateFormExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
@@ -68,7 +68,7 @@ public class DefaultRowExpressionTraversalVisitor<C>
     }
 
     @Override
-    public Void visitIntermediateFormRowExpression(IntermediateFormRowExpression expression, C context)
+    public Void visitIntermediateFormExpression(IntermediateFormExpression expression, C context)
     {
         expression.getChildren().forEach(argument -> argument.accept(this, context));
         return null;
