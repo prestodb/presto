@@ -102,6 +102,12 @@ public abstract class AbstractMinMaxBy
         return generateAggregation(valueType, keyType, functionAndTypeManager);
     }
 
+    @Override
+    public boolean isCalledOnNullInput()
+    {
+        return true;
+    }
+
     private BuiltInAggregationFunctionImplementation generateAggregation(Type valueType, Type keyType, FunctionAndTypeManager functionAndTypeManager)
     {
         Class<?> stateClazz = getStateClass(keyType.getJavaType(), valueType.getJavaType());

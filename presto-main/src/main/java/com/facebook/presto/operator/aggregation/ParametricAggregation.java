@@ -144,6 +144,12 @@ public class ParametricAggregation
         return details.getDescription().orElse("");
     }
 
+    @Override
+    public boolean isCalledOnNullInput()
+    {
+        return details.isCalledOnNullInput();
+    }
+
     private AggregationImplementation findMatchingImplementation(Signature boundSignature, BoundVariables variables, FunctionAndTypeManager functionAndTypeManager)
     {
         Optional<AggregationImplementation> foundImplementation = Optional.empty();

@@ -38,4 +38,6 @@ public @interface AggregationFunction
     SqlFunctionVisibility visibility() default PUBLIC;
 
     String[] alias() default {};
+
+    boolean isCalledOnNullInput() default false;
 }
