@@ -437,8 +437,8 @@ public final class HiveUtil
 
     public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)
     {
-        if (inputFormat.getClass().getSimpleName().equals("OrcInputFormat") ||
-                inputFormat.getClass().getSimpleName().equals("RCFileInputFormat")) {
+        if ("OrcInputFormat".equals(inputFormat.getClass().getSimpleName()) ||
+                "RCFileInputFormat".equals(inputFormat.getClass().getSimpleName())) {
             return true;
         }
 
@@ -463,6 +463,22 @@ public final class HiveUtil
         catch (InvocationTargetException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static boolean isSelectSplittable(InputFormat<?, ?> inputFormat, Path path, boolean s3SelectPushdownEnabled)
+    {
+        // S3 Select supports splitting for uncompressed CSV & JSON files
+        // Previous checks for supported input formats, SerDes, column types and S3 path
+        // are reflected by the value of s3SelectPushdownEnabled.
+        return !s3SelectPushdownEnabled || isUncompressed(inputFormat, path);
+    }
+
+    private static boolean isUncompressed(InputFormat<?, ?> inputFormat, Path path)
+    {
+        if (inputFormat instanceof TextInputFormat) {
+            return !getCompressionCodec((TextInputFormat) inputFormat, path).isPresent();
+        }
+        return false;
     }
 
     public static StructObjectInspector getTableObjectInspector(Deserializer deserializer)

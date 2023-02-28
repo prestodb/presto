@@ -38,6 +38,37 @@ exec_in_hadoop_master_container /opt/hive/bin/hive -e "
     ROW FORMAT SERDE 'org.apache.hive.hcatalog.data.JsonSerDe'
     LOCATION '${table_path}'"
 
+table_path="s3a://${S3_BUCKET}/presto_test_json_scan_range_select_pushdown/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /tmp/files/test_table_json_scan_range_select_pushdown_{1,2,3}.json "${table_path}"
+exec_in_hadoop_master_container /opt/hive/bin/hive -e "
+    CREATE EXTERNAL TABLE presto_test_json_scan_range_select_pushdown(col_1 bigint, col_2 string, col_3 string,
+    col_4 string, col_5 string, col_6 string, col_7 string, col_8 string, col_9 string, col_10 string, col_11 string,
+    col_12 string, col_13 string, col_14 string)
+        ROW FORMAT SERDE 'org.apache.hive.hcatalog.data.JsonSerDe'
+        LOCATION '${table_path}'"
+
+table_path="s3a://${S3_BUCKET}/presto_test_mixed_json_scan_range_select_pushdown/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /tmp/files/test_table_json_scan_range_select_pushdown_1.json "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /tmp/files/test_table_json_scan_range_compressed_select_pushdown_{2,3}.json.gz "${table_path}"
+exec_in_hadoop_master_container /opt/hive/bin/hive -e "
+    CREATE EXTERNAL TABLE presto_test_mixed_json_scan_range_select_pushdown(col_1 bigint, col_2 string, col_3 string,
+    col_4 string, col_5 string, col_6 string, col_7 string, col_8 string, col_9 string, col_10 string, col_11 string,
+    col_12 string, col_13 string, col_14 string)
+        ROW FORMAT SERDE 'org.apache.hive.hcatalog.data.JsonSerDe'
+        LOCATION '${table_path}'"
+
+table_path="s3a://${S3_BUCKET}/presto_test_compressed_json_scan_range_select_pushdown/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /tmp/files/test_table_json_scan_range_compressed_select_pushdown_{1,2,3}.json.gz "${table_path}"
+exec_in_hadoop_master_container /opt/hive/bin/hive -e "
+    CREATE EXTERNAL TABLE presto_test_compressed_json_scan_range_select_pushdown(col_1 bigint, col_2 string, col_3 string,
+    col_4 string, col_5 string, col_6 string, col_7 string, col_8 string, col_9 string, col_10 string, col_11 string,
+    col_12 string, col_13 string, col_14 string)
+        ROW FORMAT SERDE 'org.apache.hive.hcatalog.data.JsonSerDe'
+        LOCATION '${table_path}'"
+
 stop_unnecessary_hadoop_services
 
 # restart hive-metastore to apply S3 changes in core-site.xml
