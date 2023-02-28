@@ -44,6 +44,7 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToFirstResult;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToQueued;
+import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
@@ -104,11 +105,6 @@ public class TestDistributedClusterStatsResource
         coordinator2 = null;
         resourceManager = null;
         client = null;
-    }
-
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
     @Test(timeOut = 60_000, enabled = false)

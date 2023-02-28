@@ -36,6 +36,7 @@ import java.util.UUID;
 
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
+import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static org.testng.Assert.assertTrue;
 
 public class TestRaftServer
@@ -97,11 +98,6 @@ public class TestRaftServer
         resourceManager1 = null;
         resourceManager2 = null;
         client = null;
-    }
-
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
     @Test(timeOut = 120_000)
