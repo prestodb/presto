@@ -37,7 +37,7 @@ import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.util.Failures.internalError;
 
-@AggregationFunction("approx_distinct")
+@AggregationFunction(value = "approx_distinct", isCalledOnNullInput = true)
 public final class ApproximateCountDistinctAggregation
 {
     private ApproximateCountDistinctAggregation() {}

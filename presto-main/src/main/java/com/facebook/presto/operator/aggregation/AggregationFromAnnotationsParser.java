@@ -136,7 +136,8 @@ public class AggregationFromAnnotationsParser
                 parseDescription(aggregationDefinition),
                 aggregationAnnotation.decomposable(),
                 aggregationAnnotation.isOrderSensitive(),
-                aggregationAnnotation.visibility());
+                aggregationAnnotation.visibility(),
+                aggregationAnnotation.isCalledOnNullInput());
     }
 
     private static List<AggregationHeader> parseHeaders(AnnotatedElement aggregationDefinition, AnnotatedElement toParse)
@@ -150,7 +151,8 @@ public class AggregationFromAnnotationsParser
                                 parseDescription(aggregationDefinition, toParse),
                                 aggregationAnnotation.decomposable(),
                                 aggregationAnnotation.isOrderSensitive(),
-                                aggregationAnnotation.visibility()))
+                                aggregationAnnotation.visibility(),
+                                aggregationAnnotation.isCalledOnNullInput()))
                 .collect(toImmutableList());
     }
 
