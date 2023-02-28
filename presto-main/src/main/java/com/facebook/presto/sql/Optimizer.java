@@ -99,13 +99,13 @@ public class Optimizer
 
     public Plan validateAndOptimizePlan(PlanNode root, PlanStage stage)
     {
-        planChecker.validateIntermediatePlan(root, session, metadata, sqlParser, variableAllocator.getTypes(), warningCollector);
+        planChecker.validateIntermediatePlan(root, session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
 
         boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
                 long start = System.nanoTime();
-                root = optimizer.optimize(root, session, variableAllocator.getTypes(), variableAllocator, idAllocator, warningCollector);
+                root = optimizer.optimize(root, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
                 if (enableVerboseRuntimeStats) {
                     session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", optimizer.getClass().getSimpleName()), NANO, System.nanoTime() - start);
@@ -115,10 +115,10 @@ public class Optimizer
 
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            planChecker.validateFinalPlan(root, session, metadata, sqlParser, variableAllocator.getTypes(), warningCollector);
+            planChecker.validateFinalPlan(root, session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
         }
 
-        TypeProvider types = variableAllocator.getTypes();
+        TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
         return new Plan(root, types, computeStats(root, types));
     }
 

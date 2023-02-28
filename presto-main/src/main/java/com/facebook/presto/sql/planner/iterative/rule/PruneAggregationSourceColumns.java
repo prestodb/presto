@@ -47,7 +47,7 @@ public class PruneAggregationSourceColumns
                 aggregationNode.getGroupingKeys().stream(),
                 aggregationNode.getHashVariable().map(Stream::of).orElse(Stream.empty()),
                 aggregationNode.getAggregations().values().stream()
-                        .flatMap(aggregation -> getAggregationInputs(aggregation, context.getVariableAllocator().getTypes())))
+                        .flatMap(aggregation -> getAggregationInputs(aggregation, TypeProvider.viewOf(context.getVariableAllocator().getVariables()))))
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), aggregationNode, requiredInputs)

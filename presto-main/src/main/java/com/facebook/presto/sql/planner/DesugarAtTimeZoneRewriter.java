@@ -53,7 +53,7 @@ public class DesugarAtTimeZoneRewriter
         if (expression instanceof SymbolReference) {
             return expression;
         }
-        return new AnalyzedExpressionRewriter(session, metadata, sqlParser, variableAllocator.getTypes()).rewriteWith(Visitor::new, expression);
+        return new AnalyzedExpressionRewriter(session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables())).rewriteWith(Visitor::new, expression);
     }
 
     private static class Visitor

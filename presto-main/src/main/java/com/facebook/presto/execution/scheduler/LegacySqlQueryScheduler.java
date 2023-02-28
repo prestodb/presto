@@ -44,6 +44,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
@@ -578,7 +579,7 @@ public class LegacySqlQueryScheduler
                 .forEach(currentSubPlan -> {
                     Optional<PlanFragment> newPlanFragment = performRuntimeOptimizations(currentSubPlan);
                     if (newPlanFragment.isPresent()) {
-                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, variableAllocator.getTypes(), warningCollector);
+                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
                         oldToNewFragment.put(currentSubPlan.getFragment(), newPlanFragment.get());
                     }
                 });
@@ -607,7 +608,7 @@ public class LegacySqlQueryScheduler
         PlanFragment fragment = subPlan.getFragment();
         PlanNode newRoot = fragment.getRoot();
         for (PlanOptimizer optimizer : runtimePlanOptimizers) {
-            newRoot = optimizer.optimize(newRoot, session, variableAllocator.getTypes(), variableAllocator, idAllocator, warningCollector);
+            newRoot = optimizer.optimize(newRoot, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
         }
         if (newRoot != fragment.getRoot()) {
             StatsAndCosts estimatedStatsAndCosts = fragment.getStatsAndCosts();

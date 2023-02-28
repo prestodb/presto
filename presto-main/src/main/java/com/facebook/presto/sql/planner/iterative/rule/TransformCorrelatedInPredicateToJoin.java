@@ -145,7 +145,7 @@ public class TransformCorrelatedInPredicateToJoin
             PlanNodeIdAllocator idAllocator,
             PlanVariableAllocator variableAllocator)
     {
-        Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation(), variableAllocator.getTypes())
+        Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation(), TypeProvider.viewOf(variableAllocator.getVariables()))
                 .decorrelate(apply.getSubquery());
 
         if (!decorrelated.isPresent()) {

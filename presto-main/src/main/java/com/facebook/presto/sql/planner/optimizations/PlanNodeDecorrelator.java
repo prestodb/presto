@@ -24,6 +24,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -131,7 +132,7 @@ public class PlanNodeDecorrelator
                     childDecorrelationResult.node,
                     castToRowExpression(ExpressionUtils.combineConjuncts(uncorrelatedPredicates)));
 
-            Set<VariableReferenceExpression> variablesToPropagate = Sets.difference(VariablesExtractor.extractUnique(correlatedPredicates, variableAllocator.getTypes()), ImmutableSet.copyOf(correlation));
+            Set<VariableReferenceExpression> variablesToPropagate = Sets.difference(VariablesExtractor.extractUnique(correlatedPredicates, TypeProvider.viewOf(variableAllocator.getVariables())), ImmutableSet.copyOf(correlation));
             return Optional.of(new DecorrelationResult(
                     newFilterNode,
                     Sets.union(childDecorrelationResult.variablesToPropagate, variablesToPropagate),
@@ -309,12 +310,12 @@ public class PlanNodeDecorrelator
 
         private List<VariableReferenceExpression> extractUniqueExpression(Expression expression)
         {
-            return VariablesExtractor.extractUnique(expression, variableAllocator.getTypes()).stream().collect(toImmutableList());
+            return VariablesExtractor.extractUnique(expression, TypeProvider.viewOf(variableAllocator.getVariables())).stream().collect(toImmutableList());
         }
 
         private boolean isCorrelated(Expression expression)
         {
-            return correlation.stream().anyMatch(VariablesExtractor.extractUnique(expression, variableAllocator.getTypes())::contains);
+            return correlation.stream().anyMatch(VariablesExtractor.extractUnique(expression, TypeProvider.viewOf(variableAllocator.getVariables()))::contains);
         }
     }
 
@@ -374,7 +375,7 @@ public class PlanNodeDecorrelator
 
     private boolean containsCorrelation(PlanNode node, List<VariableReferenceExpression> correlation)
     {
-        return Sets.union(VariablesExtractor.extractUnique(node, lookup, variableAllocator.getTypes()), VariablesExtractor.extractOutputVariables(node, lookup)).stream().anyMatch(correlation::contains);
+        return Sets.union(VariablesExtractor.extractUnique(node, lookup, TypeProvider.viewOf(variableAllocator.getVariables())), VariablesExtractor.extractOutputVariables(node, lookup)).stream().anyMatch(correlation::contains);
     }
 
     public static class DecorrelatedNode

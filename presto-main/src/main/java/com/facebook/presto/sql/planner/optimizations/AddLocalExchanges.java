@@ -135,7 +135,7 @@ public class AddLocalExchanges
         public Rewriter(PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Session session)
         {
             this.variableAllocator = variableAllocator;
-            this.types = variableAllocator.getTypes();
+            this.types = TypeProvider.viewOf(variableAllocator.getVariables());
             this.idAllocator = idAllocator;
             this.session = session;
         }

@@ -195,7 +195,7 @@ public class AddExchanges
         {
             this.idAllocator = idAllocator;
             this.variableAllocator = variableAllocator;
-            this.types = variableAllocator.getTypes();
+            this.types = TypeProvider.viewOf(variableAllocator.getVariables());
             this.session = session;
             this.distributedIndexJoins = isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = isRedistributeWrites(session);

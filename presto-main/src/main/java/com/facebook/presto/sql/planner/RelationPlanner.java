@@ -115,6 +115,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLoca
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
+import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -219,7 +220,7 @@ class RelationPlanner
             for (int i = 0; i < subPlan.getDescriptor().getAllFieldCount(); i++) {
                 Field field = subPlan.getDescriptor().getFieldByIndex(i);
                 if (!field.isHidden()) {
-                    VariableReferenceExpression aliasedColumn = variableAllocator.newVariable(mappings.get(i).getSourceLocation(), field);
+                    VariableReferenceExpression aliasedColumn = newVariable(variableAllocator, mappings.get(i).getSourceLocation(), field);
                     assignments.put(aliasedColumn, castToRowExpression(asSymbolReference(subPlan.getFieldMappings().get(i))));
                     newMappings.add(aliasedColumn);
                 }
@@ -513,7 +514,7 @@ class RelationPlanner
             Type type = analysis.getType(identifier);
 
             // compute the coercion for the field on the left to the common supertype of left & right
-            VariableReferenceExpression leftOutput = variableAllocator.newVariable(identifier, type);
+            VariableReferenceExpression leftOutput = newVariable(variableAllocator, identifier, type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
             leftCoercions.put(leftOutput, castToRowExpression(new Cast(
                     identifier.getLocation(),
@@ -524,7 +525,7 @@ class RelationPlanner
             leftJoinColumns.put(identifier, leftOutput);
 
             // compute the coercion for the field on the right to the common supertype of left & right
-            VariableReferenceExpression rightOutput = variableAllocator.newVariable(identifier, type);
+            VariableReferenceExpression rightOutput = newVariable(variableAllocator, identifier, type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
             rightCoercions.put(rightOutput, castToRowExpression(new Cast(
                     identifier.getLocation(),
@@ -563,7 +564,7 @@ class RelationPlanner
 
         ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.builder();
         for (Identifier column : joinColumns) {
-            VariableReferenceExpression output = variableAllocator.newVariable(column, analysis.getType(column));
+            VariableReferenceExpression output = newVariable(variableAllocator, column, analysis.getType(column));
             outputs.add(output);
             assignments.put(output, castToRowExpression(new CoalesceExpression(
                     column.getLocation(),
@@ -632,7 +633,7 @@ class RelationPlanner
         // Create variables for the result of unnesting
         ImmutableList.Builder<VariableReferenceExpression> unnestedVariablesBuilder = ImmutableList.builder();
         for (Field field : unnestOutputDescriptor.getVisibleFields()) {
-            VariableReferenceExpression variable = variableAllocator.newVariable(field);
+            VariableReferenceExpression variable = newVariable(variableAllocator, field);
             unnestedVariablesBuilder.add(variable);
         }
         ImmutableList<VariableReferenceExpression> unnestedVariables = unnestedVariablesBuilder.build();
@@ -752,7 +753,7 @@ class RelationPlanner
         Scope scope = analysis.getScope(node);
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         for (Field field : scope.getRelationType().getVisibleFields()) {
-            outputVariablesBuilder.add(variableAllocator.newVariable(field));
+            outputVariablesBuilder.add(newVariable(variableAllocator, field));
         }
 
         ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
@@ -801,7 +802,7 @@ class RelationPlanner
         Scope scope = analysis.getScope(node);
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         for (Field field : scope.getRelationType().getVisibleFields()) {
-            VariableReferenceExpression variable = variableAllocator.newVariable(field);
+            VariableReferenceExpression variable = newVariable(variableAllocator, field);
             outputVariablesBuilder.add(variable);
         }
         List<VariableReferenceExpression> unnestedVariables = outputVariablesBuilder.build();
@@ -816,7 +817,7 @@ class RelationPlanner
             Expression rewritten = Coercer.addCoercions(expression, analysis);
             rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), rewritten);
             values.add(castToRowExpression(rewritten));
-            VariableReferenceExpression input = variableAllocator.newVariable(rewritten, type);
+            VariableReferenceExpression input = newVariable(variableAllocator, rewritten, type);
             argumentVariables.add(new VariableReferenceExpression(getSourceLocation(rewritten), input.getName(), type));
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
@@ -882,13 +883,13 @@ class RelationPlanner
             Type outputType = targetColumnTypes[i];
             if (!outputType.equals(inputVariable.getType())) {
                 Expression cast = new Cast(createSymbolReference(inputVariable), outputType.getTypeSignature().toString());
-                VariableReferenceExpression outputVariable = variableAllocator.newVariable(cast, outputType);
+                VariableReferenceExpression outputVariable = newVariable(variableAllocator, cast, outputType);
                 assignments.put(outputVariable, castToRowExpression(cast));
                 newVariables.add(outputVariable);
             }
             else {
                 SymbolReference symbolReference = new SymbolReference(oldField.getNodeLocation(), inputVariable.getName());
-                VariableReferenceExpression outputVariable = variableAllocator.newVariable(symbolReference, outputType);
+                VariableReferenceExpression outputVariable = newVariable(variableAllocator, symbolReference, outputType);
                 assignments.put(outputVariable, castToRowExpression(symbolReference));
                 newVariables.add(outputVariable);
             }

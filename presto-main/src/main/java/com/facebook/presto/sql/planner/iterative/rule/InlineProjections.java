@@ -105,7 +105,7 @@ public class InlineProjections
                 .entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        entry -> inlineReferences(entry.getValue(), assignments, context.getVariableAllocator().getTypes())));
+                        entry -> inlineReferences(entry.getValue(), assignments, TypeProvider.viewOf(context.getVariableAllocator().getVariables()))));
 
         // Synthesize identity assignments for the inputs of expressions that were inlined
         // to place in the child projection.
@@ -115,7 +115,7 @@ public class InlineProjections
                 .entrySet().stream()
                 .filter(entry -> targets.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
-                .flatMap(expression -> extractInputs(expression, context.getVariableAllocator().getTypes()).stream())
+                .flatMap(expression -> extractInputs(expression, TypeProvider.viewOf(context.getVariableAllocator().getVariables())).stream())
                 .collect(toSet());
 
         Builder childAssignments = Assignments.builder();
@@ -178,12 +178,12 @@ public class InlineProjections
         // which come from the child, as opposed to an enclosing scope.
 
         Set<VariableReferenceExpression> childOutputSet = ImmutableSet.copyOf(child.getOutputVariables());
-        TypeProvider types = context.getVariableAllocator().getTypes();
+        TypeProvider types = TypeProvider.viewOf(context.getVariableAllocator().getVariables());
 
         Map<VariableReferenceExpression, Long> dependencies = parent.getAssignments()
                 .getExpressions()
                 .stream()
-                .flatMap(expression -> extractInputs(expression, context.getVariableAllocator().getTypes()).stream())
+                .flatMap(expression -> extractInputs(expression, TypeProvider.viewOf(context.getVariableAllocator().getVariables())).stream())
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 

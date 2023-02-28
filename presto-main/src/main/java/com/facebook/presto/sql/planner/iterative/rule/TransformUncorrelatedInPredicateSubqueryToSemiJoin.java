@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Optional;
 
 import static com.facebook.presto.matching.Pattern.empty;
+import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -86,8 +87,8 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                 context.getIdAllocator().getNextId(),
                 applyNode.getInput(),
                 applyNode.getSubquery(),
-                context.getVariableAllocator().toVariableReference(inPredicate.getValue()),
-                context.getVariableAllocator().toVariableReference(inPredicate.getValueList()),
+                toVariableReference(context.getVariableAllocator(), inPredicate.getValue()),
+                toVariableReference(context.getVariableAllocator(), inPredicate.getValueList()),
                 semiJoinVariable,
                 Optional.empty(),
                 Optional.empty(),

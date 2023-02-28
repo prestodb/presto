@@ -96,7 +96,7 @@ public class IterativeOptimizer
         // only disable new rules if we have legacy rules to fall back to
         if (!SystemSessionProperties.isNewOptimizerEnabled(session) && !legacyRules.isEmpty()) {
             for (PlanOptimizer optimizer : legacyRules) {
-                plan = optimizer.optimize(plan, session, variableAllocator.getTypes(), variableAllocator, idAllocator, warningCollector);
+                plan = optimizer.optimize(plan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
             }
 
             return plan;
@@ -119,7 +119,7 @@ public class IterativeOptimizer
                 Optional.of(memo),
                 lookup,
                 session,
-                variableAllocator.getTypes());
+                TypeProvider.viewOf(variableAllocator.getVariables()));
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
         Context context = new Context(memo, lookup, idAllocator, variableAllocator, System.nanoTime(), timeout.toMillis(), session, warningCollector, costProvider, statsProvider);
         boolean planChanged = exploreGroup(memo.getRootGroup(), context, matcher);
