@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
@@ -37,8 +38,12 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -273,5 +278,50 @@ public class PlannerUtils
     public static String getPlanString(PlanNode planNode, Session session, TypeProvider types, Metadata metadata)
     {
         return PlanPrinter.textLogicalPlan(planNode, types, StatsAndCosts.empty(), metadata.getFunctionAndTypeManager(), session, 0);
+    }
+
+    private static String getNameHint(Expression expression)
+    {
+        String nameHint = "expr";
+        if (expression instanceof Identifier) {
+            nameHint = ((Identifier) expression).getValue();
+        }
+        else if (expression instanceof FunctionCall) {
+            nameHint = ((FunctionCall) expression).getName().getSuffix();
+        }
+        else if (expression instanceof SymbolReference) {
+            nameHint = ((SymbolReference) expression).getName();
+        }
+        else if (expression instanceof GroupingOperation) {
+            nameHint = "grouping";
+        }
+        return nameHint;
+    }
+
+    public static VariableReferenceExpression newVariable(VariableAllocator variableAllocator, Expression expression, Type type, String suffix)
+    {
+        return variableAllocator.newVariable(getSourceLocation(expression), getNameHint(expression), type, suffix);
+    }
+
+    public static VariableReferenceExpression newVariable(VariableAllocator variableAllocator, Expression expression, Type type)
+    {
+        return variableAllocator.newVariable(getSourceLocation(expression), getNameHint(expression), type, null);
+    }
+
+    public static VariableReferenceExpression newVariable(VariableAllocator variableAllocator, Field field)
+    {
+        return variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), field.getName().orElse("field"), field.getType(), null);
+    }
+
+    public static VariableReferenceExpression newVariable(VariableAllocator variableAllocator, Optional<SourceLocation> sourceLocation, Field field)
+    {
+        return variableAllocator.newVariable(sourceLocation, field.getName().orElse("field"), field.getType(), null);
+    }
+
+    public static VariableReferenceExpression toVariableReference(VariableAllocator variableAllocator, Expression expression)
+    {
+        checkArgument(expression instanceof SymbolReference, "Unexpected expression: " + expression);
+        String name = ((SymbolReference) expression).getName();
+        return variableAllocator.getVariableReferenceExpression(getSourceLocation(expression), name);
     }
 }

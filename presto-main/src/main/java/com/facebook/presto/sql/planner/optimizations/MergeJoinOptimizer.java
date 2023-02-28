@@ -74,7 +74,7 @@ public class MergeJoinOptimizer
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
-            this.types = variableAllocator.getTypes();
+            this.types = TypeProvider.viewOf(variableAllocator.getVariables());
         }
 
         @Override
