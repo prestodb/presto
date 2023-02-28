@@ -16,22 +16,23 @@
 
 #include <optional>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 
 namespace facebook::velox::functions::sparksql::test {
 namespace {
 
-class SubscriptTest : public SparkFunctionBaseTest {
+class ElementAtTest : public SparkFunctionBaseTest {
  protected:
   template <typename T = int64_t>
-  std::optional<T> subscriptSimple(
+  std::optional<T> elementAtSimple(
       const std::string& expression,
       const std::vector<VectorPtr>& parameters) {
     auto result =
         evaluate<SimpleVector<T>>(expression, makeRowVector(parameters));
     if (result->size() != 1) {
       throw std::invalid_argument(
-          "subscriptSimple expects a single output row.");
+          "elementAtSimple expects a single output row.");
     }
     if (result->isNullAt(0)) {
       return std::nullopt;
@@ -42,11 +43,12 @@ class SubscriptTest : public SparkFunctionBaseTest {
 
 } // namespace
 
-// Spark's subscript ("a[1]") behavior:
-// #1 - start indices at 0.
+// Spark's element_at ("a[1]") behavior:
+// This behavior is only when spark.sql.ansi.enabled = false.
+// #1 - start indices at 1. If Index is 0 will throw an error.
 // #2 - allow out of bounds access for arrays (return null).
-// #3 - do not allow negative indices (return null).
-TEST_F(SubscriptTest, allFlavors2) {
+// #3 - allow negative indices (return elements from the last to the first).
+TEST_F(ElementAtTest, allFlavors2) {
   auto arrayVector = makeArrayVector<int64_t>({{10, 11, 12}});
 
   // Create a simple vector containing a single map ([10=>10, 11=>11, 12=>12]).
@@ -57,26 +59,21 @@ TEST_F(SubscriptTest, allFlavors2) {
       makeMapVector<int64_t, int64_t>(1, sizeAt, keyAt, mapValueAt);
 
   // #1
-  EXPECT_EQ(subscriptSimple("getarrayitem(C0, 0)", {arrayVector}), 10);
-  EXPECT_EQ(subscriptSimple("getarrayitem(C0, 1)", {arrayVector}), 11);
-  EXPECT_EQ(subscriptSimple("getarrayitem(C0, 2)", {arrayVector}), 12);
-
+  EXPECT_EQ(elementAtSimple("element_at(C0, 1)", {arrayVector}), 10);
+  EXPECT_EQ(elementAtSimple("element_at(C0, 2)", {arrayVector}), 11);
+  EXPECT_EQ(elementAtSimple("element_at(C0, 3)", {arrayVector}), 12);
+  VELOX_ASSERT_THROW(
+      elementAtSimple("element_at(C0, 0)", {arrayVector}),
+      "SQL array indices start at 1");
   // #2
-  EXPECT_EQ(
-      subscriptSimple("getarrayitem(C0, 3)", {arrayVector}), std::nullopt);
-  EXPECT_EQ(
-      subscriptSimple("getarrayitem(C0, 4)", {arrayVector}), std::nullopt);
-  EXPECT_EQ(
-      subscriptSimple("getmapvalue(C0, 1001)", {mapVector}), std::nullopt);
+  EXPECT_EQ(elementAtSimple("element_at(C0, 4)", {arrayVector}), std::nullopt);
+  EXPECT_EQ(elementAtSimple("element_at(C0, 5)", {arrayVector}), std::nullopt);
+  EXPECT_EQ(elementAtSimple("element_at(C0, 1001)", {mapVector}), std::nullopt);
 
   // #3
-  EXPECT_EQ(
-      subscriptSimple("getarrayitem(C0, -1)", {arrayVector}), std::nullopt);
-  EXPECT_EQ(
-      subscriptSimple("getarrayitem(C0, -2)", {arrayVector}), std::nullopt);
-  EXPECT_EQ(
-      subscriptSimple("getarrayitem(C0, -3)", {arrayVector}), std::nullopt);
-  EXPECT_EQ(
-      subscriptSimple("getarrayitem(C0, -4)", {arrayVector}), std::nullopt);
+  EXPECT_EQ(elementAtSimple("element_at(C0, -1)", {arrayVector}), 12);
+  EXPECT_EQ(elementAtSimple("element_at(C0, -2)", {arrayVector}), 11);
+  EXPECT_EQ(elementAtSimple("element_at(C0, -3)", {arrayVector}), 10);
+  EXPECT_EQ(elementAtSimple("element_at(C0, -4)", {arrayVector}), std::nullopt);
 }
 } // namespace facebook::velox::functions::sparksql::test
