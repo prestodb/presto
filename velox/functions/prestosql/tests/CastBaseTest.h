@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
@@ -186,13 +187,14 @@ class CastBaseTest : public FunctionBaseTest {
   void testThrow(
       const TypePtr& fromType,
       const TypePtr& toType,
-      std::vector<std::optional<TFrom>> input) {
-    EXPECT_THROW(
+      const std::vector<std::optional<TFrom>>& input,
+      const std::string& expectedErrorMessage) {
+    VELOX_ASSERT_THROW(
         evaluateCast<TTo>(
             fromType,
             toType,
             makeRowVector({makeNullableFlatVector<TFrom>(input, fromType)})),
-        VeloxException);
+        expectedErrorMessage);
   }
 };
 

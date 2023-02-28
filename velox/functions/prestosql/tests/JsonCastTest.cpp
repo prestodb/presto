@@ -14,14 +14,8 @@
  * limitations under the License.
  */
 
-#include <cstdint>
-
-#include "velox/common/base/BitUtil.h"
-#include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/tests/CastBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
-#include "velox/type/Type.h"
-#include "velox/vector/ComplexVector.h"
 
 using namespace facebook::velox;
 
@@ -97,13 +91,10 @@ class JsonCastTest : public functions::test::CastBaseTest {
     auto rawOffsets = offsets->asMutable<vector_size_t>();
     auto rawSizes = sizes->asMutable<vector_size_t>();
 
-    int i = 0;
-    while (i < numOfElements) {
+    for (auto i = 0; i < numOfElements; i += offsetEvery) {
       rawOffsets[i / offsetEvery] = i;
       rawSizes[i / offsetEvery] =
           i + offsetEvery > numOfElements ? numOfElements - i : offsetEvery;
-
-      i += offsetEvery;
     }
   }
 
@@ -123,12 +114,8 @@ class JsonCastTest : public functions::test::CastBaseTest {
 
     auto reversedIndices = makeIndicesInReverse(data.size());
 
-    auto nulls = AlignedBuffer::allocate<bool>(data.size(), pool());
-    auto rawNulls = nulls->template asMutable<uint64_t>();
-    bits::fillBits(rawNulls, 0, data.size(), true);
-    bits::setBit(rawNulls, 0, false);
-
     if (!isKey) {
+      auto nulls = makeNulls(data.size(), [](auto row) { return row == 0; });
       return BaseVector::wrapInDictionary(
           nulls, reversedIndices, data.size(), vector);
     } else {
@@ -149,21 +136,12 @@ class JsonCastTest : public functions::test::CastBaseTest {
     int numOfArray = (size + arraySize - 1) / arraySize;
     auto dictElements = makeDictionaryVector(elements, type->childAt(0));
 
-    BufferPtr offsets =
-        AlignedBuffer::allocate<vector_size_t>(numOfArray, pool());
-    BufferPtr sizes =
-        AlignedBuffer::allocate<vector_size_t>(numOfArray, pool());
+    BufferPtr offsets = allocateOffsets(numOfArray, pool());
+    BufferPtr sizes = allocateSizes(numOfArray, pool());
     makeOffsetsAndSizes(size, arraySize, offsets, sizes);
 
     return std::make_shared<ArrayVector>(
-        pool(),
-        type,
-        BufferPtr(nullptr),
-        numOfArray,
-        offsets,
-        sizes,
-        dictElements,
-        0);
+        pool(), type, nullptr, numOfArray, offsets, sizes, dictElements);
   }
 
   // Makes a map vector whose keys and values vectors are wrapped in a
@@ -187,21 +165,12 @@ class JsonCastTest : public functions::test::CastBaseTest {
     auto dictKeys = makeDictionaryVector(keys, type->childAt(0), true);
     auto dictValues = makeDictionaryVector(values, type->childAt(1));
 
-    BufferPtr offsets =
-        AlignedBuffer::allocate<vector_size_t>(numOfMap, pool());
-    BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(numOfMap, pool());
+    BufferPtr offsets = allocateOffsets(numOfMap, pool());
+    BufferPtr sizes = allocateSizes(numOfMap, pool());
     makeOffsetsAndSizes(size, mapSize, offsets, sizes);
 
     return std::make_shared<MapVector>(
-        pool(),
-        type,
-        BufferPtr(nullptr),
-        numOfMap,
-        offsets,
-        sizes,
-        dictKeys,
-        dictValues,
-        0);
+        pool(), type, nullptr, numOfMap, offsets, sizes, dictKeys, dictValues);
   }
 
   // Makes a row vector whose children vectors are wrapped in a dictionary
@@ -226,12 +195,12 @@ class JsonCastTest : public functions::test::CastBaseTest {
     }
 
     return std::make_shared<RowVector>(
-        pool(), rowType, BufferPtr(nullptr), size, dictChildren);
+        pool(), rowType, nullptr, size, dictChildren);
   }
 
   VectorPtr makeFlatUnknownVector(int size) {
-    auto vector = std::dynamic_pointer_cast<FlatVector<UnknownValue>>(
-        BaseVector::create(UNKNOWN(), size, pool()));
+    auto vector =
+        BaseVector::create<FlatVector<UnknownValue>>(UNKNOWN(), size, pool());
     for (int i = 0; i < size; ++i) {
       vector->setNull(i, true);
     }
@@ -583,9 +552,7 @@ TEST_F(JsonCastTest, fromRow) {
 
   // Tests row vector with nulls at all rows.
   auto allNullChild = makeAllNullFlatVector<int64_t>(5);
-  auto nulls = AlignedBuffer::allocate<bool>(5, pool());
-  auto rawNulls = nulls->asMutable<uint64_t>();
-  bits::fillBits(rawNulls, 0, 5, false);
+  auto nulls = makeNulls(5, [](auto /*row*/) { return true; });
 
   auto allNullRow = std::make_shared<RowVector>(
       pool(), ROW({BIGINT()}), nulls, 5, std::vector<VectorPtr>{allNullChild});
@@ -609,15 +576,11 @@ TEST_F(JsonCastTest, fromNested) {
        {9, std::nullopt},
        {11, 12}});
 
-  auto offsets = AlignedBuffer::allocate<vector_size_t>(3, pool());
-  auto sizes = AlignedBuffer::allocate<vector_size_t>(3, pool());
+  auto offsets = allocateOffsets(3, pool());
+  auto sizes = allocateSizes(3, pool());
   makeOffsetsAndSizes(6, 2, offsets, sizes);
 
-  auto nulls = AlignedBuffer::allocate<bool>(3, pool());
-  auto rawNulls = nulls->asMutable<uint64_t>();
-  bits::setNull(rawNulls, 0, false);
-  bits::setNull(rawNulls, 1, true);
-  bits::setNull(rawNulls, 2, false);
+  auto nulls = makeNulls({false, true, false});
 
   auto mapVector = std::make_shared<MapVector>(
       pool(),
@@ -627,8 +590,7 @@ TEST_F(JsonCastTest, fromNested) {
       offsets,
       sizes,
       keyVector,
-      valueVector,
-      0);
+      valueVector);
 
   // Create array of map vector
   std::vector<Pair<StringView, int64_t>> a{{"blue"_sv, 1}, {"red"_sv, 2}};
@@ -659,60 +621,58 @@ TEST_F(JsonCastTest, fromNested) {
 TEST_F(JsonCastTest, unsupportedTypes) {
   // Map keys cannot be timestamp.
   auto timestampKeyMap = makeMapVector<Timestamp, int64_t>({{}});
-  EXPECT_THROW(
+  VELOX_ASSERT_THROW(
       evaluateCast<JsonNativeType>(
           MAP(TIMESTAMP(), BIGINT()), JSON(), makeRowVector({timestampKeyMap})),
-      VeloxException);
+      "Cannot cast MAP<TIMESTAMP,BIGINT> to JSON");
 
   // All children of row must be of supported types.
   auto invalidTypeRow = makeRowVector({timestampKeyMap});
-  EXPECT_THROW(
+  VELOX_ASSERT_THROW(
       evaluateCast<JsonNativeType>(
           ROW({MAP(TIMESTAMP(), BIGINT())}),
           JSON(),
           makeRowVector({invalidTypeRow})),
-      VeloxException);
+      "Cannot cast ROW<\"\":MAP<TIMESTAMP,BIGINT>> to JSON");
 
   // Map keys cannot be null.
   auto nullKeyVector =
       makeNullableFlatVector<StringView>({"red"_sv, std::nullopt});
   auto valueVector = makeNullableFlatVector<int64_t>({1, 2});
 
-  auto offsets = AlignedBuffer::allocate<vector_size_t>(1, pool());
-  auto sizes = AlignedBuffer::allocate<vector_size_t>(1, pool());
+  auto offsets = allocateOffsets(1, pool());
+  auto sizes = allocateSizes(1, pool());
   makeOffsetsAndSizes(2, 2, offsets, sizes);
 
   auto nullKeyMap = std::make_shared<MapVector>(
       pool(),
       MAP(VARCHAR(), BIGINT()),
-      BufferPtr(nullptr),
+      nullptr,
       1,
       offsets,
       sizes,
       nullKeyVector,
-      valueVector,
-      0);
-  EXPECT_THROW(
+      valueVector);
+  VELOX_ASSERT_THROW(
       evaluateCast<JsonNativeType>(
           MAP(VARCHAR(), BIGINT()), JSON(), makeRowVector({nullKeyMap})),
-      VeloxException);
+      "Cannot cast map with null keys to JSON");
 
   // Map keys cannot be complex type.
   auto arrayKeyVector = makeNullableArrayVector<int64_t>({{1}, {2}});
   auto arrayKeyMap = std::make_shared<MapVector>(
       pool(),
       MAP(ARRAY(BIGINT()), BIGINT()),
-      BufferPtr(nullptr),
+      nullptr,
       1,
       offsets,
       sizes,
       arrayKeyVector,
-      valueVector,
-      0);
-  EXPECT_THROW(
+      valueVector);
+  VELOX_ASSERT_THROW(
       evaluateCast<JsonNativeType>(
           MAP(ARRAY(BIGINT()), BIGINT()), JSON(), makeRowVector({arrayKeyMap})),
-      VeloxException);
+      "Cannot cast MAP<ARRAY<BIGINT>,BIGINT> to JSON");
 
   // Map keys of json type must not be null.
   auto jsonKeyVector =
@@ -720,26 +680,25 @@ TEST_F(JsonCastTest, unsupportedTypes) {
   auto invalidJsonKeyMap = std::make_shared<MapVector>(
       pool(),
       MAP(JSON(), BIGINT()),
-      BufferPtr(nullptr),
+      nullptr,
       1,
       offsets,
       sizes,
       jsonKeyVector,
-      valueVector,
-      0);
-  EXPECT_THROW(
+      valueVector);
+  VELOX_ASSERT_THROW(
       evaluateCast<JsonNativeType>(
           MAP(JSON(), BIGINT()), JSON(), makeRowVector({invalidJsonKeyMap})),
-      VeloxException);
+      "Cannot cast map with null keys to JSON");
 
   // Not allowing to cast from json to itself.
-  EXPECT_THROW(
+  VELOX_ASSERT_THROW(
       evaluateCast<JsonNativeType>(
           JSON(),
           JSON(),
           makeRowVector({makeNullableFlatVector<JsonNativeType>(
               {"123"_sv, R"("abc")"_sv, ""_sv, std::nullopt}, JSON())})),
-      VeloxException);
+      "(JSON vs. JSON) Attempting to cast from JSON to itself");
 }
 
 TEST_F(JsonCastTest, toVarchar) {
@@ -800,12 +759,33 @@ TEST_F(JsonCastTest, toInteger) {
       {"null"_sv, std::nullopt},
       {std::nullopt, std::nullopt});
 
-  testThrow<JsonNativeType, int8_t>(JSON(), TINYINT(), {"128"_sv});
-  testThrow<JsonNativeType, int8_t>(JSON(), TINYINT(), {"128.01"_sv});
-  testThrow<JsonNativeType, int8_t>(JSON(), TINYINT(), {"-1223456"_sv});
-  testThrow<JsonNativeType, int8_t>(JSON(), TINYINT(), {"Infinity"_sv});
-  testThrow<JsonNativeType, int8_t>(JSON(), TINYINT(), {"NaN"_sv});
-  testThrow<JsonNativeType, int8_t>(JSON(), TINYINT(), {""_sv});
+  testThrow<JsonNativeType, int8_t>(
+      JSON(),
+      TINYINT(),
+      {"128"_sv},
+      "Cannot cast from Json value 128 to TINYINT: Overflow during arithmetic conversion: (signed char) 128");
+  testThrow<JsonNativeType, int8_t>(
+      JSON(),
+      TINYINT(),
+      {"128.01"_sv},
+      "Cannot cast from Json value 128.01 to TINYINT: value is outside the range of TINYINT: [-128, 127].");
+  testThrow<JsonNativeType, int8_t>(
+      JSON(),
+      TINYINT(),
+      {"-1223456"_sv},
+      "Cannot cast from Json value -1223456 to TINYINT: Negative overflow during arithmetic conversion: (signed char) -1223456");
+  testThrow<JsonNativeType, int8_t>(
+      JSON(),
+      TINYINT(),
+      {"Infinity"_sv},
+      "Cannot cast from Json value Infinity to TINYINT: value is outside the range of TINYINT: [-128, 127]");
+  testThrow<JsonNativeType, int8_t>(
+      JSON(),
+      TINYINT(),
+      {"NaN"_sv},
+      "Cannot cast from Json value NaN to TINYINT: value is outside the range of TINYINT: [-128, 127]");
+  testThrow<JsonNativeType, int8_t>(
+      JSON(), TINYINT(), {""_sv}, "Not a JSON input");
 }
 
 TEST_F(JsonCastTest, toDouble) {
@@ -827,9 +807,17 @@ TEST_F(JsonCastTest, toDouble) {
       {"null"_sv, std::nullopt},
       {std::nullopt, std::nullopt});
 
-  testThrow<JsonNativeType, float>(JSON(), REAL(), {"-1.7E+307"_sv});
-  testThrow<JsonNativeType, float>(JSON(), REAL(), {"1.7E+307"_sv});
-  testThrow<JsonNativeType, float>(JSON(), REAL(), {""_sv});
+  testThrow<JsonNativeType, float>(
+      JSON(),
+      REAL(),
+      {"-1.7E+307"_sv},
+      "Cannot cast from Json value -1.7E+307 to REAL: Negative overflow during arithmetic conversion: (float) -1.7E307");
+  testThrow<JsonNativeType, float>(
+      JSON(),
+      REAL(),
+      {"1.7E+307"_sv},
+      "Cannot cast from Json value 1.7E+307 to REAL: Overflow during arithmetic conversion: (float) 1.7E307");
+  testThrow<JsonNativeType, float>(JSON(), REAL(), {""_sv}, "Not a JSON input");
 }
 
 TEST_F(JsonCastTest, toBoolean) {
@@ -864,9 +852,18 @@ TEST_F(JsonCastTest, toBoolean) {
       {"null"_sv, std::nullopt},
       {std::nullopt, std::nullopt});
 
-  testThrow<JsonNativeType, bool>(JSON(), BOOLEAN(), {R"("123")"_sv});
-  testThrow<JsonNativeType, bool>(JSON(), BOOLEAN(), {R"("abc")"_sv});
-  testThrow<JsonNativeType, bool>(JSON(), BOOLEAN(), {""_sv});
+  testThrow<JsonNativeType, bool>(
+      JSON(),
+      BOOLEAN(),
+      {R"("123")"_sv},
+      "Cannot cast from Json value \"123\" to BOOLEAN: Integer overflow when parsing bool (must be 0 or 1): \"123\"");
+  testThrow<JsonNativeType, bool>(
+      JSON(),
+      BOOLEAN(),
+      {R"("abc")"_sv},
+      "Cannot cast from Json value \"abc\" to BOOLEAN: Invalid value for bool: \"abc\"");
+  testThrow<JsonNativeType, bool>(
+      JSON(), BOOLEAN(), {""_sv}, "Not a JSON input");
 }
 
 TEST_F(JsonCastTest, toArray) {
@@ -1006,8 +1003,8 @@ TEST_F(JsonCastTest, toNested) {
   auto innerArray = makeNullableArrayVector<double>(
       {{{1.1, 1.2}}, {{2.0, 2.1}}, std::nullopt, {{4.1, 4.2}}});
 
-  auto offsets = AlignedBuffer::allocate<vector_size_t>(2, pool());
-  auto sizes = AlignedBuffer::allocate<vector_size_t>(2, pool());
+  auto offsets = allocateOffsets(2, pool());
+  auto sizes = allocateSizes(2, pool());
   makeOffsetsAndSizes(4, 2, offsets, sizes);
 
   auto mapExpected = std::make_shared<MapVector>(
@@ -1018,8 +1015,7 @@ TEST_F(JsonCastTest, toNested) {
       offsets,
       sizes,
       keys,
-      innerArray,
-      0);
+      innerArray);
   testCast<ComplexType>(
       JSON(), MAP(VARCHAR(), ARRAY(DOUBLE())), map, mapExpected);
 }
@@ -1053,36 +1049,51 @@ TEST_F(JsonCastTest, toArrayAndMapOfJson) {
 
   // The type of map keys is not allowed to be JSON.
   testThrow<JsonNativeType, ComplexType>(
-      JSON(), MAP(JSON(), BIGINT()), {R"({"k1":1})"_sv});
+      JSON(),
+      MAP(JSON(), BIGINT()),
+      {R"({"k1":1})"_sv},
+      "Cannot cast JSON to MAP<JSON,BIGINT>");
 }
 
 TEST_F(JsonCastTest, toInvalid) {
-  testThrow<JsonNativeType, Timestamp>(JSON(), TIMESTAMP(), {"null"_sv});
-  testThrow<JsonNativeType, Date>(JSON(), DATE(), {"null"_sv});
+  testThrow<JsonNativeType, Timestamp>(
+      JSON(), TIMESTAMP(), {"null"_sv}, "Cannot cast JSON to TIMESTAMP");
+  testThrow<JsonNativeType, Date>(
+      JSON(), DATE(), {"null"_sv}, "Cannot cast JSON to DATE");
 
-  // Map keys cannot be NULL.
+  // TODO Fix this test case. The input JSON is invalid as it is not possible to
+  // use NULL key. Map keys cannot be NULL.
   testThrow<JsonNativeType, ComplexType>(
       JSON(),
       MAP(VARCHAR(), DOUBLE()),
-      {R"({"red":1.1,"blue":2.2})"_sv, R"({null:3.3,"yellow":4.4})"_sv});
+      {R"({"red":1.1,"blue":2.2})"_sv, R"({null:3.3,"yellow":4.4})"_sv},
+      "Not a JSON input");
 
   // Casting JSON arrays to ROW type with different number of fields or
   // unmatched field order is not allowed.
   testThrow<JsonNativeType, ComplexType>(
       JSON(),
       ROW({VARCHAR(), DOUBLE(), BIGINT()}),
-      {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv});
+      {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv},
+      "Cannot cast a JSON array of size 2 to ROW with 3 fields");
   testThrow<JsonNativeType, ComplexType>(
-      JSON(), ROW({VARCHAR()}), {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv});
+      JSON(),
+      ROW({VARCHAR()}),
+      {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv},
+      "Cannot cast a JSON array of size 2 to ROW with 1 fields");
   testThrow<JsonNativeType, ComplexType>(
       JSON(),
       ROW({DOUBLE(), VARCHAR()}),
-      {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv});
+      {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv},
+      "Unable to convert string to floating point value: \"red\"");
 
   // Casting to ROW type from JSON text other than arrays or objects are not
   // supported.
   testThrow<JsonNativeType, ComplexType>(
-      JSON(), ROW({BIGINT()}), {R"(123)"_sv, R"(456)"_sv});
+      JSON(),
+      ROW({BIGINT()}),
+      {R"(123)"_sv, R"(456)"_sv},
+      "Only casting from JSON array or object to ROW is supported");
 }
 
 TEST_F(JsonCastTest, castInTry) {
@@ -1132,8 +1143,7 @@ TEST_F(JsonCastTest, castInTry) {
       mapOffsets,
       mapSizes,
       keyVector,
-      valueVector,
-      0);
+      valueVector);
   auto rowVector = makeRowVector({mapVector});
 
   jsonExpected = makeNullableFlatVector<JsonNativeType>(
@@ -1155,8 +1165,7 @@ TEST_F(JsonCastTest, castInTry) {
       mapOffsets,
       mapSizes,
       constantKey,
-      constantValue,
-      0);
+      constantValue);
 
   jsonExpected = makeNullableFlatVector<JsonNativeType>(
       {std::nullopt, std::nullopt, std::nullopt}, JSON());
