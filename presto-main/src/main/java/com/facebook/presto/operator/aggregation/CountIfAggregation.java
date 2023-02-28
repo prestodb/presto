@@ -25,7 +25,7 @@ import com.facebook.presto.spi.function.SqlType;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 
-@AggregationFunction("count_if")
+@AggregationFunction(value = "count_if", isCalledOnNullInput = true)
 public final class CountIfAggregation
 {
     private CountIfAggregation() {}
