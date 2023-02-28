@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -85,7 +86,7 @@ import static java.util.Objects.requireNonNull;
 class SubqueryPlanner
 {
     private final Analysis analysis;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap;
     private final Metadata metadata;
@@ -93,7 +94,7 @@ class SubqueryPlanner
 
     SubqueryPlanner(
             Analysis analysis,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,

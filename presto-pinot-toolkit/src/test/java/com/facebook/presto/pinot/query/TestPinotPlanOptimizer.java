@@ -26,12 +26,12 @@ import com.facebook.presto.pinot.PinotTableHandle;
 import com.facebook.presto.pinot.TestPinotQueryBase;
 import com.facebook.presto.pinot.TestPinotSplitManager;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
@@ -302,7 +302,7 @@ public class TestPinotPlanOptimizer
     {
         PinotQueryGenerator pinotQueryGenerator = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution);
         PinotPlanOptimizer optimizer = new PinotPlanOptimizer(pinotQueryGenerator, functionAndTypeManager, functionAndTypeManager, logicalRowExpressions, standardFunctionResolution);
-        return optimizer.optimize(originalPlan, new SessionHolder(pinotConfig).getConnectorSession(), new PlanVariableAllocator(), planBuilder.getIdAllocator());
+        return optimizer.optimize(originalPlan, new SessionHolder(pinotConfig).getConnectorSession(), new VariableAllocator(), planBuilder.getIdAllocator());
     }
 
     @Test

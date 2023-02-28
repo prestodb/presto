@@ -24,13 +24,13 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -89,7 +89,7 @@ public class TestStatisticsWriterNode
     private static StatisticAggregationsDescriptor<VariableReferenceExpression> createTestDescriptor()
     {
         StatisticAggregationsDescriptor.Builder<VariableReferenceExpression> builder = StatisticAggregationsDescriptor.builder();
-        PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
         for (String column : COLUMNS) {
             for (ColumnStatisticType type : ColumnStatisticType.values()) {
                 builder.addColumnStatistic(new ColumnStatisticMetadata(column, type), testVariable(variableAllocator));
@@ -100,14 +100,14 @@ public class TestStatisticsWriterNode
         return builder.build();
     }
 
-    private static VariableReferenceExpression testVariable(PlanVariableAllocator allocator)
+    private static VariableReferenceExpression testVariable(VariableAllocator allocator)
     {
         return allocator.newVariable("test", BIGINT);
     }
 
     private StatisticsWriterNode createStatisticsWriterNode(boolean withSourceLocation)
     {
-        PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
 
         return new StatisticsWriterNode(
                 withSourceLocation ? Optional.of(new SourceLocation(1, 2)) : Optional.empty(),

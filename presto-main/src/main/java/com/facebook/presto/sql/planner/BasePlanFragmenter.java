@@ -34,6 +34,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -117,7 +118,7 @@ public abstract class BasePlanFragmenter
     private final Session session;
     private final Metadata metadata;
     private final PlanNodeIdAllocator idAllocator;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final StatsAndCosts statsAndCosts;
     private final PlanChecker planChecker;
     private final WarningCollector warningCollector;
@@ -133,7 +134,7 @@ public abstract class BasePlanFragmenter
             WarningCollector warningCollector,
             SqlParser sqlParser,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             Set<PlanNodeId> outputTableWriterNodeIds)
     {
         this.session = requireNonNull(session, "session is null");

@@ -36,6 +36,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerContext;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
@@ -58,7 +59,6 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -135,7 +135,7 @@ public class SqlQueryExecution
     private final CostCalculator costCalculator;
     private final PlanChecker planChecker;
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-    private final AtomicReference<PlanVariableAllocator> variableAllocator = new AtomicReference<>();
+    private final AtomicReference<VariableAllocator> variableAllocator = new AtomicReference<>();
     private final PartialResultQueryManager partialResultQueryManager;
     private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
@@ -193,7 +193,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
             this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planCanonicalInfoProvider is null");
-            this.analyzerContext = getAnalyzerContext(queryAnalyzer, idAllocator, new PlanVariableAllocator(), stateMachine.getSession());
+            this.analyzerContext = getAnalyzerContext(queryAnalyzer, idAllocator, new VariableAllocator(), stateMachine.getSession());
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
@@ -557,7 +557,7 @@ public class SqlQueryExecution
 
             // fragment the plan
             // the variableAllocator is finally passed to SqlQueryScheduler for runtime cost-based optimizations
-            variableAllocator.set(new PlanVariableAllocator(plan.getTypes().allVariables()));
+            variableAllocator.set(new VariableAllocator(plan.getTypes().allVariables()));
             SubPlan fragmentedPlan = getSession().getRuntimeStats().profileNanos(
                     FRAGMENT_PLAN_TIME_NANOS,
                     () -> planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, variableAllocator.get(), stateMachine.getWarningCollector()));

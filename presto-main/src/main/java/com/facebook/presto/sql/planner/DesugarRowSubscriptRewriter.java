@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -60,7 +61,7 @@ public class DesugarRowSubscriptRewriter
         return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes), expression, null);
     }
 
-    public static Expression rewrite(Expression expression, Session session, Metadata metadata, SqlParser sqlParser, PlanVariableAllocator variableAllocator)
+    public static Expression rewrite(Expression expression, Session session, Metadata metadata, SqlParser sqlParser, VariableAllocator variableAllocator)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");

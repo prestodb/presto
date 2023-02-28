@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
@@ -25,7 +26,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -143,7 +143,7 @@ public class TransformCorrelatedInPredicateToJoin
             VariableReferenceExpression inPredicateOutputVariable,
             Lookup lookup,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator)
+            VariableAllocator variableAllocator)
     {
         Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation(), TypeProvider.viewOf(variableAllocator.getVariables()))
                 .decorrelate(apply.getSubquery());
@@ -169,7 +169,7 @@ public class TransformCorrelatedInPredicateToJoin
             VariableReferenceExpression inPredicateOutputVariable,
             Decorrelated decorrelated,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator)
+            VariableAllocator variableAllocator)
     {
         Expression correlationCondition = and(decorrelated.getCorrelatedPredicates());
         PlanNode decorrelatedBuildSource = decorrelated.getDecorrelatedNode();

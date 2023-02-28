@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.ExternalCallExpressionChecker;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
@@ -98,7 +98,7 @@ public class PlanRemoteProjections
     }
 
     @VisibleForTesting
-    public List<ProjectionContext> planRemoteAssignments(Assignments assignments, PlanVariableAllocator variableAllocator)
+    public List<ProjectionContext> planRemoteAssignments(Assignments assignments, VariableAllocator variableAllocator)
     {
         ImmutableList.Builder<List<ProjectionContext>> assignmentProjections = ImmutableList.builder();
         for (Map.Entry<VariableReferenceExpression, RowExpression> entry : assignments.getMap().entrySet()) {
@@ -235,9 +235,9 @@ public class PlanRemoteProjections
             implements RowExpressionVisitor<List<ProjectionContext>, Void>
     {
         private final FunctionAndTypeManager functionAndTypeManager;
-        private final PlanVariableAllocator variableAllocator;
+        private final VariableAllocator variableAllocator;
 
-        public Visitor(FunctionAndTypeManager functionAndTypeManager, PlanVariableAllocator variableAllocator)
+        public Visitor(FunctionAndTypeManager functionAndTypeManager, VariableAllocator variableAllocator)
         {
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");

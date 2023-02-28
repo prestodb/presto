@@ -20,6 +20,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.Ordering;
@@ -32,7 +33,6 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -231,7 +231,7 @@ public class PushAggregationThroughOuterJoin
     // of an aggregation over a single null row is one or zero rather than null. In order to ensure correct results,
     // we add a coalesce function with the output of the new outer join and the aggregation performed over a single
     // null row.
-    private Optional<PlanNode> coalesceWithNullAggregation(AggregationNode aggregationNode, PlanNode outerJoin, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    private Optional<PlanNode> coalesceWithNullAggregation(AggregationNode aggregationNode, PlanNode outerJoin, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         // Create an aggregation node over a row of nulls.
         Optional<MappedAggregationInfo> aggregationOverNullInfoResultNode = createAggregationOverNull(
@@ -285,7 +285,7 @@ public class PushAggregationThroughOuterJoin
         return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, expressions.get(0).getType(), expressions);
     }
 
-    private Optional<MappedAggregationInfo> createAggregationOverNull(AggregationNode referenceAggregation, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    private Optional<MappedAggregationInfo> createAggregationOverNull(AggregationNode referenceAggregation, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         // Create a values node that consists of a single row of nulls.
         // Map the output symbols from the referenceAggregation's source

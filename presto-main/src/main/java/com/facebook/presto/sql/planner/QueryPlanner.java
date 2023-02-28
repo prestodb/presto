@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -137,7 +138,7 @@ import static java.util.Objects.requireNonNull;
 class QueryPlanner
 {
     private final Analysis analysis;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap;
     private final Metadata metadata;
@@ -147,7 +148,7 @@ class QueryPlanner
 
     QueryPlanner(
             Analysis analysis,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,
@@ -401,7 +402,7 @@ class QueryPlanner
      *
      * @return the new subplan and a mapping of each expression to the symbol representing the coercion or an existing symbol if a coercion wasn't needed
      */
-    public static PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, Metadata metadata)
+    public static PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Metadata metadata)
     {
         Assignments.Builder assignments = Assignments.builder();
         assignments.putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), x -> castToRowExpression(asSymbolReference(x)))));
@@ -558,7 +559,7 @@ class QueryPlanner
 
         for (Expression expression : groupByExpressions) {
             VariableReferenceExpression input = subPlan.translate(expression);
-            VariableReferenceExpression output = PlannerUtils.newVariable(variableAllocator, expression, analysis.getTypeWithCoercions(expression), "gid");
+            VariableReferenceExpression output = newVariable(variableAllocator, expression, analysis.getTypeWithCoercions(expression), "gid");
             groupingTranslations.put(expression, output);
             groupingSetMappings.put(output, input);
         }

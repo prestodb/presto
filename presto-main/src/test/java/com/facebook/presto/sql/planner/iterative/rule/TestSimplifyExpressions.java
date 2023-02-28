@@ -16,12 +16,12 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.tree.Cast;
@@ -184,7 +184,7 @@ public class TestSimplifyExpressions
     {
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
         Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
-        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new PlanVariableAllocator(booleanVariablesFor(actualExpression)), METADATA, LITERAL_ENCODER, SQL_PARSER);
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new VariableAllocator(booleanVariablesFor(actualExpression)), METADATA, LITERAL_ENCODER, SQL_PARSER);
         assertEquals(
                 normalize(rewritten),
                 normalize(expectedExpression));

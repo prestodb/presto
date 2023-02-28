@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -97,7 +97,7 @@ public class RewriteIfOverAggregation
     public PlanNode optimize(PlanNode plan,
             Session session,
             TypeProvider types,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector)
     {
@@ -112,11 +112,11 @@ public class RewriteIfOverAggregation
     private static class Rewriter
             extends SimplePlanRewriter<Map<VariableReferenceExpression, RowExpression>>
     {
-        private final PlanVariableAllocator planVariableAllocator;
+        private final VariableAllocator planVariableAllocator;
         private final PlanNodeIdAllocator planNodeIdAllocator;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
 
-        private Rewriter(PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, RowExpressionDeterminismEvaluator determinismEvaluator)
+        private Rewriter(VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, RowExpressionDeterminismEvaluator determinismEvaluator)
         {
             this.planVariableAllocator = variableAllocator;
             this.planNodeIdAllocator = idAllocator;

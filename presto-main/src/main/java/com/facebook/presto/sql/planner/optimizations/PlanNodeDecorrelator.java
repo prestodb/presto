@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -56,10 +56,10 @@ import static java.util.Objects.requireNonNull;
 public class PlanNodeDecorrelator
 {
     private final PlanNodeIdAllocator idAllocator;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final Lookup lookup;
 
-    public PlanNodeDecorrelator(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, Lookup lookup)
+    public PlanNodeDecorrelator(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Lookup lookup)
     {
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
