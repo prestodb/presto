@@ -175,6 +175,8 @@
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectCsvPushdown.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectJsonPushdown.java</exclude>
+                                <exclude>**/TestHiveFileSystemS3SelectCsvPushdownWithSplits.java</exclude>
+                                <exclude>**/TestHiveFileSystemS3SelectJsonPushdownWithSplits.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -232,6 +234,7 @@
                             <includes>
                                 <include>**/TestHiveFileSystemS3.java</include>
                                 <include>**/TestHiveFileSystemS3SelectCsvPushdown.java</include>
+                                <include>**/TestHiveFileSystemS3SelectCsvPushdownWithSplits.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -258,6 +261,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHiveFileSystemS3SelectJsonPushdown.java</include>
+                                <include>**/TestHiveFileSystemS3SelectJsonPushdownWithSplits.java</include>
                             </includes>
                         </configuration>
                     </plugin>

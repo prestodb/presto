@@ -46,11 +46,12 @@ public class S3SelectCsvRecordReader
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             String ionSqlQuery,
             PrestoS3ClientFactory s3ClientFactory)
     {
-        super(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory);
+        super(configuration, clientConfig, path, start, length, fileSize, schema, ionSqlQuery, s3ClientFactory);
     }
 
     @Override
@@ -62,7 +63,7 @@ public class S3SelectCsvRecordReader
         String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
         CSVInput selectObjectCSVInputSerialization = new CSVInput();
-        selectObjectCSVInputSerialization.setRecordDelimiter(lineDelimiter);
+        selectObjectCSVInputSerialization.setRecordDelimiter(getLineDelimiter());
         selectObjectCSVInputSerialization.setFieldDelimiter(fieldDelimiter);
         selectObjectCSVInputSerialization.setComments(COMMENTS_CHAR_STR);
         selectObjectCSVInputSerialization.setQuoteCharacter(quoteChar);
@@ -84,7 +85,7 @@ public class S3SelectCsvRecordReader
 
         OutputSerialization selectObjectOutputSerialization = new OutputSerialization();
         CSVOutput selectObjectCSVOutputSerialization = new CSVOutput();
-        selectObjectCSVOutputSerialization.setRecordDelimiter(lineDelimiter);
+        selectObjectCSVOutputSerialization.setRecordDelimiter(getLineDelimiter());
         selectObjectCSVOutputSerialization.setFieldDelimiter(fieldDelimiter);
         selectObjectCSVOutputSerialization.setQuoteCharacter(quoteChar);
         selectObjectCSVOutputSerialization.setQuoteEscapeCharacter(escapeChar);
