@@ -180,3 +180,22 @@ TEST_F(PlanConverterTest, batchPlanConversion) {
       std::dynamic_pointer_cast<const operators::ShuffleReadNode>(curNode);
   ASSERT_NE(shuffleReadNode, nullptr);
 }
+
+TEST_F(PlanConverterTest, markDistinctProtocolToCoreTest) {
+  auto plan = assertToVeloxQueryPlan("MarkDistinct.json");
+
+  auto node = plan->sources()[0];
+  node = node->sources()[0];
+
+  auto markDistinctNode =
+      std::dynamic_pointer_cast<const core::MarkDistinctNode>(node);
+  ASSERT_NE(markDistinctNode, nullptr);
+  ASSERT_EQ(markDistinctNode->getMarkerVariable()->name(), "c3$distinct");
+  ASSERT_EQ(markDistinctNode->getDistinctVariables().size(), 2);
+  ASSERT_EQ(markDistinctNode->getDistinctVariables()[0]->name(), "field");
+  ASSERT_EQ(markDistinctNode->getDistinctVariables()[1]->name(), "c3");
+
+  ASSERT_TRUE(markDistinctNode->getHashVariable().has_value());
+  ASSERT_EQ(
+      markDistinctNode->getHashVariable().value()->name(), "$hashvalue_42");
+}

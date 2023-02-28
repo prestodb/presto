@@ -1,0 +1,363 @@
+{
+  "id" : "2",
+  "root" : {
+    "@type" : ".AggregationNode",
+    "id" : "379",
+    "source" : {
+      "@type" : ".MarkDistinctNode",
+      "id" : "82",
+      "source" : {
+        "@type" : "com.facebook.presto.sql.planner.plan.ExchangeNode",
+        "id" : "355",
+        "type" : "REPARTITION",
+        "scope" : "LOCAL",
+        "partitioningScheme" : {
+          "partitioning" : {
+            "handle" : {
+              "connectorHandle" : {
+                "@type" : "$remote",
+                "partitioning" : "FIXED",
+                "function" : "HASH"
+              }
+            },
+            "arguments" : [ {
+              "@type" : "variable",
+              "name" : "field",
+              "type" : "integer"
+            }, {
+              "@type" : "variable",
+              "name" : "c3",
+              "type" : "bigint"
+            } ]
+          },
+          "outputLayout" : [ {
+            "@type" : "variable",
+            "name" : "field",
+            "type" : "integer"
+          }, {
+            "@type" : "variable",
+            "name" : "c2",
+            "type" : "bigint"
+          }, {
+            "@type" : "variable",
+            "name" : "c3",
+            "type" : "bigint"
+          }, {
+            "@type" : "variable",
+            "name" : "c2$distinct",
+            "type" : "boolean"
+          }, {
+            "@type" : "variable",
+            "name" : "$hashvalue_41",
+            "type" : "bigint"
+          }, {
+            "@type" : "variable",
+            "name" : "$hashvalue_42",
+            "type" : "bigint"
+          } ],
+          "hashColumn" : {
+            "@type" : "variable",
+            "name" : "$hashvalue_42",
+            "type" : "bigint"
+          },
+          "replicateNullsAndAny" : false
+        },
+        "sources" : [ {
+          "@type" : "com.facebook.presto.sql.planner.plan.RemoteSourceNode",
+          "id" : "296",
+          "sourceFragmentIds" : [ "3" ],
+          "outputVariables" : [ {
+            "@type" : "variable",
+            "name" : "field",
+            "type" : "integer"
+          }, {
+            "@type" : "variable",
+            "name" : "c2",
+            "type" : "bigint"
+          }, {
+            "@type" : "variable",
+            "name" : "c3",
+            "type" : "bigint"
+          }, {
+            "@type" : "variable",
+            "name" : "c2$distinct",
+            "type" : "boolean"
+          }, {
+            "@type" : "variable",
+            "name" : "$hashvalue_43",
+            "type" : "bigint"
+          }, {
+            "@type" : "variable",
+            "name" : "$hashvalue_44",
+            "type" : "bigint"
+          } ],
+          "ensureSourceOrdering" : false,
+          "exchangeType" : "REPARTITION"
+        } ],
+        "inputs" : [ [ {
+          "@type" : "variable",
+          "name" : "field",
+          "type" : "integer"
+        }, {
+          "@type" : "variable",
+          "name" : "c2",
+          "type" : "bigint"
+        }, {
+          "@type" : "variable",
+          "name" : "c3",
+          "type" : "bigint"
+        }, {
+          "@type" : "variable",
+          "name" : "c2$distinct",
+          "type" : "boolean"
+        }, {
+          "@type" : "variable",
+          "name" : "$hashvalue_43",
+          "type" : "bigint"
+        }, {
+          "@type" : "variable",
+          "name" : "$hashvalue_44",
+          "type" : "bigint"
+        } ] ],
+        "ensureSourceOrdering" : false
+      },
+      "markerVariable" : {
+        "@type" : "variable",
+        "name" : "c3$distinct",
+        "type" : "boolean"
+      },
+      "distinctVariables" : [ {
+        "@type" : "variable",
+        "name" : "field",
+        "type" : "integer"
+      }, {
+        "@type" : "variable",
+        "name" : "c3",
+        "type" : "bigint"
+      } ],
+      "hashVariable" : {
+        "@type" : "variable",
+        "name" : "$hashvalue_42",
+        "type" : "bigint"
+      }
+    },
+    "aggregations" : {
+      "sum_39\u003Cbigint\u003E" : {
+        "call" : {
+          "@type" : "call",
+          "displayName" : "sum",
+          "functionHandle" : {
+            "@type" : "$static",
+            "signature" : {
+              "name" : "presto.default.sum",
+              "kind" : "AGGREGATE",
+              "typeVariableConstraints" : [ ],
+              "longVariableConstraints" : [ ],
+              "returnType" : "bigint",
+              "argumentTypes" : [ "bigint" ],
+              "variableArity" : false
+            }
+          },
+          "returnType" : "bigint",
+          "arguments" : [ {
+            "@type" : "variable",
+            "name" : "c3",
+            "type" : "bigint"
+          } ]
+        },
+        "distinct" : false,
+        "mask" : {
+          "@type" : "variable",
+          "name" : "c3$distinct",
+          "type" : "boolean"
+        },
+        "arguments" : [ {
+          "@type" : "variable",
+          "name" : "c3",
+          "type" : "bigint"
+        } ],
+        "functionHandle" : {
+          "@type" : "$static",
+          "signature" : {
+            "name" : "presto.default.sum",
+            "kind" : "AGGREGATE",
+            "typeVariableConstraints" : [ ],
+            "longVariableConstraints" : [ ],
+            "returnType" : "bigint",
+            "argumentTypes" : [ "bigint" ],
+            "variableArity" : false
+          }
+        }
+      },
+      "sum_38\u003Cbigint\u003E" : {
+        "call" : {
+          "@type" : "call",
+          "displayName" : "sum",
+          "functionHandle" : {
+            "@type" : "$static",
+            "signature" : {
+              "name" : "presto.default.sum",
+              "kind" : "AGGREGATE",
+              "typeVariableConstraints" : [ ],
+              "longVariableConstraints" : [ ],
+              "returnType" : "bigint",
+              "argumentTypes" : [ "bigint" ],
+              "variableArity" : false
+            }
+          },
+          "returnType" : "bigint",
+          "arguments" : [ {
+            "@type" : "variable",
+            "name" : "c2",
+            "type" : "bigint"
+          } ]
+        },
+        "distinct" : false,
+        "mask" : {
+          "@type" : "variable",
+          "name" : "c2$distinct",
+          "type" : "boolean"
+        },
+        "arguments" : [ {
+          "@type" : "variable",
+          "name" : "c2",
+          "type" : "bigint"
+        } ],
+        "functionHandle" : {
+          "@type" : "$static",
+          "signature" : {
+            "name" : "presto.default.sum",
+            "kind" : "AGGREGATE",
+            "typeVariableConstraints" : [ ],
+            "longVariableConstraints" : [ ],
+            "returnType" : "bigint",
+            "argumentTypes" : [ "bigint" ],
+            "variableArity" : false
+          }
+        }
+      }
+    },
+    "groupingSets" : {
+      "groupingKeys" : [ {
+        "@type" : "variable",
+        "name" : "field",
+        "type" : "integer"
+      } ],
+      "groupingSetCount" : 1,
+      "globalGroupingSets" : [ ]
+    },
+    "preGroupedVariables" : [ ],
+    "step" : "PARTIAL",
+    "hashVariable" : {
+      "@type" : "variable",
+      "name" : "$hashvalue_41",
+      "type" : "bigint"
+    }
+  },
+  "variables" : [ {
+    "@type" : "variable",
+    "name" : "field",
+    "type" : "integer"
+  }, {
+    "@type" : "variable",
+    "name" : "$hashvalue_41",
+    "type" : "bigint"
+  }, {
+    "@type" : "variable",
+    "name" : "sum_39",
+    "type" : "bigint"
+  }, {
+    "@type" : "variable",
+    "name" : "sum_38",
+    "type" : "bigint"
+  }, {
+    "@type" : "variable",
+    "name" : "c2",
+    "type" : "bigint"
+  }, {
+    "@type" : "variable",
+    "name" : "c3",
+    "type" : "bigint"
+  }, {
+    "@type" : "variable",
+    "name" : "c2$distinct",
+    "type" : "boolean"
+  }, {
+    "@type" : "variable",
+    "name" : "$hashvalue_42",
+    "type" : "bigint"
+  }, {
+    "@type" : "variable",
+    "name" : "c3$distinct",
+    "type" : "boolean"
+  }, {
+    "@type" : "variable",
+    "name" : "$hashvalue_43",
+    "type" : "bigint"
+  }, {
+    "@type" : "variable",
+    "name" : "$hashvalue_44",
+    "type" : "bigint"
+  } ],
+  "partitioning" : {
+    "connectorHandle" : {
+      "@type" : "$remote",
+      "partitioning" : "FIXED",
+      "function" : "HASH"
+    }
+  },
+  "tableScanSchedulingOrder" : [ ],
+  "partitioningScheme" : {
+    "partitioning" : {
+      "handle" : {
+        "connectorHandle" : {
+          "@type" : "$remote",
+          "partitioning" : "FIXED",
+          "function" : "HASH"
+        }
+      },
+      "arguments" : [ {
+        "@type" : "variable",
+        "name" : "field",
+        "type" : "integer"
+      } ]
+    },
+    "bucketToPartition":[
+      0
+    ],
+    "outputLayout" : [ {
+      "@type" : "variable",
+      "name" : "field",
+      "type" : "integer"
+    }, {
+      "@type" : "variable",
+      "name" : "sum_39",
+      "type" : "bigint"
+    }, {
+      "@type" : "variable",
+      "name" : "sum_38",
+      "type" : "bigint"
+    }, {
+      "@type" : "variable",
+      "name" : "$hashvalue_41",
+      "type" : "bigint"
+    } ],
+    "hashColumn" : {
+      "@type" : "variable",
+      "name" : "$hashvalue_41",
+      "type" : "bigint"
+    },
+    "replicateNullsAndAny" : false
+  },
+  "stageExecutionDescriptor" : {
+    "stageExecutionStrategy" : "UNGROUPED_EXECUTION",
+    "groupedExecutionScanNodes" : [ ],
+    "totalLifespans" : 1
+  },
+  "outputTableWriterFragment" : false,
+  "statsAndCosts" : {
+    "stats" : { },
+    "costs" : { }
+  },
+  "jsonRepresentation" : "{\n  \"id\" : \"379\",\n  \"name\" : \"Aggregate(PARTIAL)[field][$hashvalue_41]\",\n  \"identifier\" : \"\",\n  \"details\" : \"sum_39 := \\\"presto.default.sum\\\"((c3)) (mask = c3$distinct)\\nsum_38 := \\\"presto.default.sum\\\"((c2)) (mask = c2$distinct)\\n\",\n  \"children\" : [ {\n    \"id\" : \"82\",\n    \"name\" : \"MarkDistinct\",\n    \"identifier\" : \"[distinct=field:integer, c3:bigint marker=c3$distinct][$hashvalue_42]\",\n    \"details\" : \"\",\n    \"children\" : [ {\n      \"id\" : \"355\",\n      \"name\" : \"LocalExchange\",\n      \"identifier\" : \"[HASH][$hashvalue_42] (field, c3)\",\n      \"details\" : \"\",\n      \"children\" : [ {\n        \"id\" : \"296\",\n        \"name\" : \"RemoteSource\",\n        \"identifier\" : \"[3]\",\n        \"details\" : \"\",\n        \"children\" : [ ],\n        \"remoteSources\" : [ \"3\" ]\n      } ],\n      \"remoteSources\" : [ ]\n    } ],\n    \"remoteSources\" : [ ]\n  } ],\n  \"remoteSources\" : [ ]\n}"
+}

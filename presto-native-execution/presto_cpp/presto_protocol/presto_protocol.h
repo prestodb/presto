@@ -2179,6 +2179,20 @@ struct WindowNode : public PlanNode {
 void to_json(json& j, const WindowNode& p);
 void from_json(const json& j, WindowNode& p);
 } // namespace facebook::presto::protocol
+
+namespace facebook::presto::protocol {
+struct MarkDistinctNode : public PlanNode {
+  std::shared_ptr<PlanNode> source = {};
+  VariableReferenceExpression markerVariable = {};
+  List<VariableReferenceExpression> distinctVariables = {};
+  std::shared_ptr<VariableReferenceExpression> hashVariable = {};
+  MarkDistinctNode() noexcept;
+};
+void to_json(json& j, const MarkDistinctNode& p);
+void from_json(const json& j, MarkDistinctNode& p);
+
+} // namespace facebook::presto::protocol
+
 namespace facebook::presto::protocol {
 struct HivePartitionKey {
   String name = {};

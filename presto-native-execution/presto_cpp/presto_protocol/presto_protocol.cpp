@@ -4934,6 +4934,12 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
+  if (type == ".MarkDistinctNode") {
+    std::shared_ptr<MarkDistinctNode> k = std::make_shared<MarkDistinctNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
 
   throw TypeError(type + " no abstract type PlanNode ");
 }
@@ -8821,6 +8827,68 @@ void from_json(const json& j, WindowNode& p) {
       "WindowNode",
       "int",
       "preSortedOrderPrefix");
+}
+} // namespace facebook::presto::protocol
+
+namespace facebook::presto::protocol {
+MarkDistinctNode::MarkDistinctNode() noexcept {
+  _type = "com.facebook.presto.sql.planner.plan.MarkDistinctNode";
+}
+
+void to_json(json& j, const MarkDistinctNode& p) {
+  j = json::object();
+  j["@type"] = "com.facebook.presto.sql.planner.plan.MarkDistinctNode";
+  to_json_key(j, "id", p.id, "MarkDistinctNode", "PlanNodeId", "id");
+  to_json_key(j, "source", p.source, "MarkDistinctNode", "PlanNode", "source");
+  to_json_key(
+      j,
+      "markerVariable",
+      p.markerVariable,
+      "MarkDistinctNode",
+      "VariableReferenceExpression",
+      "markerVariable");
+  to_json_key(
+      j,
+      "distinctVariables",
+      p.distinctVariables,
+      "MarkDistinctNode",
+      "List<VariableReferenceExpression>",
+      "distinctVariables");
+  to_json_key(
+      j,
+      "hashVariable",
+      p.hashVariable,
+      "MarkDistinctNode",
+      "std::shared_ptr<VariableReferenceExpression>",
+      "hashVariable");
+}
+
+void from_json(const json& j, MarkDistinctNode& p) {
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "MarkDistinctNode", "PlanNodeId", "id");
+  from_json_key(
+      j, "source", p.source, "MarkDistinctNode", "PlanNode", "source");
+  from_json_key(
+      j,
+      "markerVariable",
+      p.markerVariable,
+      "MarkDistinctNode",
+      "VariableReferenceExpression",
+      "markerVariable");
+  from_json_key(
+      j,
+      "distinctVariables",
+      p.distinctVariables,
+      "MarkDistinctNode",
+      "List<VariableReferenceExpression>",
+      "distinctVariables");
+  from_json_key(
+      j,
+      "hashVariable",
+      p.hashVariable,
+      "MarkDistinctNode",
+      "std::shared_ptr<VariableReferenceExpression>",
+      "hashVariable");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

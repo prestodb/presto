@@ -1869,6 +1869,31 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
+std::shared_ptr<const velox::core::MarkDistinctNode> VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::MarkDistinctNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  const core::FieldAccessTypedExprPtr markerVariable =
+      exprConverter_.toVeloxExpr(node->markerVariable);
+
+  std::vector<core::FieldAccessTypedExprPtr> distinctVariables;
+  for (auto dVar : node->distinctVariables) {
+    distinctVariables.emplace_back(exprConverter_.toVeloxExpr(dVar));
+  }
+
+  std::optional<core::FieldAccessTypedExprPtr> hashVariable = std::nullopt;
+  if (node->hashVariable) {
+    hashVariable = exprConverter_.toVeloxExpr(node->hashVariable);
+  }
+
+  return std::make_shared<velox::core::MarkDistinctNode>(
+      node->id,
+      markerVariable,
+      distinctVariables,
+      hashVariable,
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+}
+
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::PlanNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -1945,6 +1970,10 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   if (auto window =
           std::dynamic_pointer_cast<const protocol::WindowNode>(node)) {
     return toVeloxQueryPlan(window, tableWriteInfo, taskId);
+  }
+  if (auto markdistinct =
+          std::dynamic_pointer_cast<const protocol::MarkDistinctNode>(node)) {
+    return toVeloxQueryPlan(markdistinct, tableWriteInfo, taskId);
   }
   VELOX_UNSUPPORTED("Unknown plan node type {}", node->_type);
 }
