@@ -254,6 +254,7 @@ public final class SystemSessionProperties
     public static final String REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED = "remove_redundant_distinct_aggregation_enabled";
     public static final String PREFILTER_FOR_GROUPBY_LIMIT = "prefilter_for_groupby_limit";
     public static final String PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS = "prefilter_for_groupby_limit_timeout_ms";
+    public static final String MERGE_AGGS_WITH_AND_WITHOUT_FILTER = "merge_aggs_with_and_without_filter";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1444,6 +1445,11 @@ public final class SystemSessionProperties
                         PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS,
                         "Timeout for finding the LIMIT number of keys for group by",
                         10000,
+                        false),
+                booleanProperty(
+                        MERGE_AGGS_WITH_AND_WITHOUT_FILTER,
+                        "Merge aggregations that are same except for filter",
+                        featuresConfig.isMergeAggsWithAndWithoutFilter(),
                         false));
     }
 
@@ -2415,6 +2421,11 @@ public final class SystemSessionProperties
     public static boolean isPrefilterForGroupbyLimit(Session session)
     {
         return session.getSystemProperty(PREFILTER_FOR_GROUPBY_LIMIT, Boolean.class);
+    }
+
+    public static boolean isMergeAggsWithAndWithoutFilter(Session session)
+    {
+        return session.getSystemProperty(MERGE_AGGS_WITH_AND_WITHOUT_FILTER, Boolean.class);
     }
 
     public static boolean isInPredicatesAsInnerJoinsEnabled(Session session)

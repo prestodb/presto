@@ -24,6 +24,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -34,6 +36,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -167,15 +170,21 @@ public class PlannerUtils
                 LOCAL);
     }
 
-    public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, List<RowExpression> expressions)
+    public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, PlanVariableAllocator variableAllocator, List<RowExpression> expressions, List<VariableReferenceExpression> variablesToUse)
     {
         Assignments.Builder assignments = Assignments.builder();
         for (VariableReferenceExpression variableReferenceExpression : source.getOutputVariables()) {
             assignments.put(variableReferenceExpression, variableReferenceExpression);
         }
 
+        int i = 0;
+        checkState(variablesToUse.isEmpty() || variablesToUse.size() == expressions.size());
         for (RowExpression expression : expressions) {
-            assignments.put(variableAllocator.newVariable("expr", expression.getType()), expression);
+            VariableReferenceExpression variable = variablesToUse.isEmpty() ? null : variablesToUse.get(i);
+            if (variable == null) {
+                variable = variableAllocator.newVariable(expression);
+            }
+            assignments.put(variable, expression);
         }
 
         return new ProjectNode(
@@ -273,5 +282,76 @@ public class PlannerUtils
     public static String getPlanString(PlanNode planNode, Session session, TypeProvider types, Metadata metadata)
     {
         return PlanPrinter.textLogicalPlan(planNode, types, StatsAndCosts.empty(), metadata.getFunctionAndTypeManager(), session, 0);
+    }
+
+    public static AggregationNode.Aggregation removeFilterAndMask(AggregationNode.Aggregation aggregation)
+    {
+        Optional<RowExpression> filter = aggregation.getFilter();
+        Optional<VariableReferenceExpression> mask = aggregation.getMask();
+
+        if (filter.isPresent() || mask.isPresent()) {
+            return new AggregationNode.Aggregation(
+                    aggregation.getCall(),
+                    Optional.empty(),
+                    aggregation.getOrderBy(),
+                    aggregation.isDistinct(),
+                    Optional.empty());
+        }
+
+        return aggregation;
+    }
+
+    public static AggregationNode.Aggregation getIntermediateAggregation(
+            AggregationNode.Aggregation originalAggregation,
+            FunctionAndTypeManager functionAndTypeManager)
+    {
+        String functionName = functionAndTypeManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName().getObjectName();
+        FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
+        JavaAggregationFunctionImplementation function = functionAndTypeManager.getJavaAggregateFunctionImplementation(functionHandle);
+
+        return new AggregationNode.Aggregation(
+                new CallExpression(
+                        originalAggregation.getCall().getSourceLocation(),
+                        functionName,
+                        functionHandle,
+                        function.getIntermediateType(),
+                        originalAggregation.getArguments()),
+                originalAggregation.getFilter(),
+                originalAggregation.getOrderBy(),
+                originalAggregation.isDistinct(),
+                originalAggregation.getMask());
+    }
+
+    public static AggregationNode.Aggregation getFinalAggregation(
+            AggregationNode.Aggregation originalAggregation,
+            FunctionAndTypeManager functionAndTypeManager,
+            VariableReferenceExpression intermediateVariable)
+    {
+        String functionName = functionAndTypeManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName().getObjectName();
+        FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
+        JavaAggregationFunctionImplementation function = functionAndTypeManager.getJavaAggregateFunctionImplementation(functionHandle);
+
+        return new AggregationNode.Aggregation(
+                new CallExpression(
+                        originalAggregation.getCall().getSourceLocation(),
+                        functionName,
+                        functionHandle,
+                        function.getFinalType(),
+                        ImmutableList.<RowExpression>builder()
+                                .add(intermediateVariable)
+                                .addAll(originalAggregation.getArguments()
+                                        .stream()
+                                        .filter(PlannerUtils::isLambda)
+                                        .collect(toImmutableList()))
+                                .build()),
+                Optional.empty(),
+                Optional.empty(),
+                false,
+                Optional.empty());
+    }
+
+    public static boolean isLambda(RowExpression rowExpression)
+    {
+        return rowExpression instanceof LambdaDefinitionExpression;
     }
 }
