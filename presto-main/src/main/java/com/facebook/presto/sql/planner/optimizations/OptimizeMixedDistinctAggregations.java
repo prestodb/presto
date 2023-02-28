@@ -463,7 +463,7 @@ public class OptimizeMixedDistinctAggregations
                     // Now the aggregation should happen over the duplicate symbol added before
                     List<RowExpression> arguments;
                     if (!duplicatedDistinctVariable.equals(distinctVariable) &&
-                            extractVariables(entry.getValue().getArguments(), variableAllocator.getTypes()).contains(distinctVariable)) {
+                            extractVariables(entry.getValue().getArguments(), TypeProvider.viewOf(variableAllocator.getVariables())).contains(distinctVariable)) {
                         ImmutableList.Builder<RowExpression> argumentsBuilder = ImmutableList.builder();
                         for (RowExpression argument : aggregation.getArguments()) {
                             if (argument instanceof VariableReferenceExpression && argument.equals(distinctVariable)) {

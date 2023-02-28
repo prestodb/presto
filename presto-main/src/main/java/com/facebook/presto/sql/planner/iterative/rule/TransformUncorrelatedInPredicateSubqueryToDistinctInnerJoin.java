@@ -44,6 +44,7 @@ import static com.facebook.presto.matching.Pattern.empty;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.AUTOMATIC;
+import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
@@ -126,9 +127,9 @@ public class TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
         }
 
         checkArgument(inPredicate.getValue() instanceof SymbolReference, "Unexpected expression: %s", inPredicate.getValue());
-        VariableReferenceExpression leftVariableReference = context.getVariableAllocator().toVariableReference(inPredicate.getValue());
+        VariableReferenceExpression leftVariableReference = toVariableReference(context.getVariableAllocator(), inPredicate.getValue());
         checkArgument(inPredicate.getValueList() instanceof SymbolReference, "Unexpected expression: %s", inPredicate.getValueList());
-        VariableReferenceExpression rightVariableReference = context.getVariableAllocator().toVariableReference(inPredicate.getValueList());
+        VariableReferenceExpression rightVariableReference = toVariableReference(context.getVariableAllocator(), inPredicate.getValueList());
 
         JoinNode innerJoin = new JoinNode(
                 applyNode.getSourceLocation(),

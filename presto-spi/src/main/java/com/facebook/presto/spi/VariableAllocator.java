@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -143,6 +144,12 @@ public class VariableAllocator
         return newVariable(expression.getSourceLocation(), nameHint, expression.getType(), suffix);
     }
 
+    public VariableReferenceExpression getVariableReferenceExpression(Optional<SourceLocation> sourceLocation, String name)
+    {
+        checkArgument(variables.containsKey(name), "variable map does not contain name " + name);
+        return new VariableReferenceExpression(sourceLocation, name, variables.get(name));
+    }
+
     public VariableReferenceExpression newHashVariable()
     {
         return newVariable("$hashValue", BigintType.BIGINT);
@@ -151,5 +158,10 @@ public class VariableAllocator
     protected int nextId()
     {
         return nextId++;
+    }
+
+    public Map<String, Type> getVariables()
+    {
+        return unmodifiableMap(variables);
     }
 }

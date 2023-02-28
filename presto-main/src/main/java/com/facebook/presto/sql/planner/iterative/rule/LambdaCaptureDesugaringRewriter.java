@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -34,6 +35,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
+import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -86,7 +88,7 @@ public class LambdaCaptureDesugaringRewriter
 
             ImmutableMap<VariableReferenceExpression, VariableReferenceExpression> variablesMap = captureVariableToExtraVariable.build();
             Function<VariableReferenceExpression, Expression> variableMapping = variable -> createSymbolReference(variablesMap.getOrDefault(variable, variable));
-            Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inlineVariables(variableMapping, rewrittenBody, variableAllocator.getTypes()));
+            Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inlineVariables(variableMapping, rewrittenBody, TypeProvider.viewOf(variableAllocator.getVariables())));
 
             if (!captureVariables.isEmpty()) {
                 List<Expression> capturedValues = captureVariables.stream()
@@ -102,7 +104,7 @@ public class LambdaCaptureDesugaringRewriter
         @Override
         public Expression rewriteSymbolReference(SymbolReference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
-            context.getReferencedVariables().add(variableAllocator.toVariableReference(node));
+            context.getReferencedVariables().add(toVariableReference(variableAllocator, node));
             return null;
         }
     }

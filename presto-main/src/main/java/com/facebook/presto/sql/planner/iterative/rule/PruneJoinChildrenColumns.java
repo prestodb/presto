@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
@@ -51,7 +52,7 @@ public class PruneJoinChildrenColumns
                 .addAll(
                         joinNode.getFilter()
                                 .map(OriginalExpressionUtils::castToExpression)
-                                .map(expression -> extractUnique(expression, context.getVariableAllocator().getTypes()))
+                                .map(expression -> extractUnique(expression, TypeProvider.viewOf(context.getVariableAllocator().getVariables())))
                                 .orElse(ImmutableSet.of()))
                 .build();
 

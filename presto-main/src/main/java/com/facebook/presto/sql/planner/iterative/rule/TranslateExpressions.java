@@ -18,11 +18,11 @@ import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.aggregation.BuiltInAggregationFunctionImplementation;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
@@ -67,9 +67,9 @@ public class TranslateExpressions
                 return removeOriginalExpression(expression, context);
             }
 
-            private RowExpression removeOriginalExpressionArguments(CallExpression callExpression, Session session, PlanVariableAllocator variableAllocator)
+            private RowExpression removeOriginalExpressionArguments(CallExpression callExpression, Session session, VariableAllocator variableAllocator)
             {
-                Map<NodeRef<Expression>, Type> types = analyzeCallExpressionTypes(callExpression, session, variableAllocator.getTypes());
+                Map<NodeRef<Expression>, Type> types = analyzeCallExpressionTypes(callExpression, session, TypeProvider.viewOf(variableAllocator.getVariables()));
                 return new CallExpression(
                         callExpression.getSourceLocation(),
                         callExpression.getDisplayName(),
@@ -173,7 +173,7 @@ public class TranslateExpressions
                     return toRowExpression(
                             castToExpression(expression),
                             context.getSession(),
-                            analyze(castToExpression(expression), context.getSession(), context.getVariableAllocator().getTypes()));
+                            analyze(castToExpression(expression), context.getSession(), TypeProvider.viewOf(context.getVariableAllocator().getVariables())));
                 }
                 return expression;
             }

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations;
@@ -221,6 +222,6 @@ public class RuntimeReorderJoinSides
         List<StreamProperties> inputProperties = actual.getSources().stream()
                 .map(source -> derivePropertiesRecursively(source, metadata, parser, context))
                 .collect(toImmutableList());
-        return StreamPropertyDerivations.deriveProperties(actual, inputProperties, metadata, context.getSession(), context.getVariableAllocator().getTypes(), parser);
+        return StreamPropertyDerivations.deriveProperties(actual, inputProperties, metadata, context.getSession(), TypeProvider.viewOf(context.getVariableAllocator().getVariables()), parser);
     }
 }
