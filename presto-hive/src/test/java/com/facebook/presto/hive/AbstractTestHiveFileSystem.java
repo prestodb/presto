@@ -464,7 +464,13 @@ public abstract class AbstractTestHiveFileSystem
 
             TableHandle tableHandle = new TableHandle(new ConnectorId("hive"), hiveTableHandle, transaction.getTransactionHandle(), Optional.of(layoutHandle));
 
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle.getLayout().get(), columnHandles, NON_CACHEABLE)) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                    transaction.getTransactionHandle(),
+                    session,
+                    split,
+                    tableHandle.getLayout().get(),
+                    columnHandles,
+                    NON_CACHEABLE)) {
                 MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
             }

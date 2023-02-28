@@ -18,9 +18,11 @@ import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.hive.s3.PrestoS3FileSystem;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.JobConf;
@@ -30,12 +32,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
-import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
+import static com.facebook.presto.hive.HiveUtil.isSelectSplittable;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.s3select.S3SelectPushdown.shouldEnablePushdownForTable;
@@ -43,7 +45,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -57,7 +58,7 @@ public class TestS3SelectPushdown
     private Partition partition;
     private Storage storage;
     private Column column;
-    private Properties schema;
+    private FileSystem fileSystem;
 
     @BeforeClass
     public void setUp()
@@ -99,8 +100,7 @@ public class TestS3SelectPushdown
                 Optional.empty(),
                 Optional.empty());
 
-        schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, LazySimpleSerDe.class.getName());
+        fileSystem = new PrestoS3FileSystem();
     }
 
     @Test
@@ -225,6 +225,26 @@ public class TestS3SelectPushdown
         assertFalse(shouldEnablePushdownForTable(session, newTable, "s3://fakeBucket/fakeObject", Optional.of(newPartition)));
     }
 
+    @Test
+    public void testShouldEnableSplits()
+    {
+        // Uncompressed CSV
+        assertTrue(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.csv"), true));
+        // Pushdown disabled
+        assertTrue(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.csv"), false));
+        assertTrue(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.json"), false));
+        assertTrue(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.gz"), false));
+        assertTrue(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.bz2"), false));
+    }
+
+    @Test
+    public void testShouldNotEnableSplits()
+    {
+        // Compressed files
+        assertFalse(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.gz"), true));
+        assertFalse(isSelectSplittable(inputFormat, new Path("s3://fakeBucket/fakeObject.bz2"), true));
+    }
+
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
@@ -234,7 +254,6 @@ public class TestS3SelectPushdown
         partition = null;
         storage = null;
         column = null;
-        schema = null;
     }
 
     private TestingConnectorSession initTestingConnectorSession(boolean enableSelectPushdown)
