@@ -23,6 +23,7 @@ import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -47,7 +48,6 @@ import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PreferredProperties.PartitioningProperties;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -163,7 +163,7 @@ public class AddExchanges
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager).accept(plan, PreferredProperties.any());
         return result.getNode();
@@ -173,7 +173,7 @@ public class AddExchanges
             extends InternalPlanVisitor<PlanWithProperties, PreferredProperties>
     {
         private final PlanNodeIdAllocator idAllocator;
-        private final PlanVariableAllocator variableAllocator;
+        private final VariableAllocator variableAllocator;
         private final TypeProvider types;
         private final Session session;
         private final boolean distributedIndexJoins;
@@ -189,7 +189,7 @@ public class AddExchanges
 
         public Rewriter(
                 PlanNodeIdAllocator idAllocator,
-                PlanVariableAllocator variableAllocator,
+                VariableAllocator variableAllocator,
                 Session session,
                 PartitioningProviderManager partitioningProviderManager)
         {

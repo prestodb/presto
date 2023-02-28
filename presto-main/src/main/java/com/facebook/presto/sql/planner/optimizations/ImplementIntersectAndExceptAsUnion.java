@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -119,7 +119,7 @@ public class ImplementIntersectAndExceptAsUnion
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -138,9 +138,9 @@ public class ImplementIntersectAndExceptAsUnion
         private final Session session;
         private final StandardFunctionResolution functionResolution;
         private final PlanNodeIdAllocator idAllocator;
-        private final PlanVariableAllocator variableAllocator;
+        private final VariableAllocator variableAllocator;
 
-        private Rewriter(Session session, FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator)
+        private Rewriter(Session session, FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
         {
             requireNonNull(functionAndTypeManager, "functionManager is null");
             this.session = requireNonNull(session, "session is null");

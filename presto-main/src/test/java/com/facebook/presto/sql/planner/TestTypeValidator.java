@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -84,7 +85,7 @@ public class TestTypeValidator
     private static final FunctionHandle SUM = FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE));
     private static final FunctionHandle APPROX_PERCENTILE = FUNCTION_MANAGER.lookupFunction("approx_percentile", fromTypes(DOUBLE, DOUBLE));
 
-    private PlanVariableAllocator variableAllocator;
+    private VariableAllocator variableAllocator;
     private TableScanNode baseTableScan;
     private VariableReferenceExpression variableA;
     private VariableReferenceExpression variableB;
@@ -96,7 +97,7 @@ public class TestTypeValidator
     @BeforeClass
     public void setUp()
     {
-        variableAllocator = new PlanVariableAllocator();
+        variableAllocator = new VariableAllocator();
         variableA = variableAllocator.newVariable("a", BIGINT);
         variableB = variableAllocator.newVariable("b", INTEGER);
         variableC = variableAllocator.newVariable("c", DOUBLE);

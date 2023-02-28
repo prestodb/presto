@@ -19,6 +19,7 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -29,7 +30,6 @@ import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter;
@@ -201,7 +201,7 @@ public class QueryExplainer
         // analyze statement
         Analysis analysis = analyze(session, statement, parameters, warningCollector);
 
-        final PlanVariableAllocator planVariableAllocator = new PlanVariableAllocator();
+        final VariableAllocator planVariableAllocator = new VariableAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,
                 idAllocator,

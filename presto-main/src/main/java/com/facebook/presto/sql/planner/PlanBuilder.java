@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -95,7 +96,7 @@ class PlanBuilder
         return translations;
     }
 
-    public PlanBuilder appendProjections(Iterable<Expression> expressions, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanBuilder appendProjections(Iterable<Expression> expressions, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
         TranslationMap translations = copyTranslations();
 

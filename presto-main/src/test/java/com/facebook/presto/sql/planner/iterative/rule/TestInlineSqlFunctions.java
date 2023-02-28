@@ -26,6 +26,7 @@ import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.tree.Expression;
@@ -229,7 +229,7 @@ public class TestInlineSqlFunctions
                 inputSqlExpression,
                 session,
                 metadata,
-                new PlanVariableAllocator(variableTypes.entrySet().stream()
+                new VariableAllocator(variableTypes.entrySet().stream()
                         .map(entry -> new VariableReferenceExpression(Optional.empty(), entry.getKey(), entry.getValue()))
                         .collect(toImmutableList())),
                 expressionTypes);

@@ -14,8 +14,8 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -42,7 +42,7 @@ import static java.util.Objects.requireNonNull;
 
 public class LambdaCaptureDesugaringRewriter
 {
-    public static Expression rewrite(Expression expression, PlanVariableAllocator variableAllocator)
+    public static Expression rewrite(Expression expression, VariableAllocator variableAllocator)
     {
         return ExpressionTreeRewriter.rewriteWith(new Visitor(variableAllocator), expression, new Context());
     }
@@ -52,9 +52,9 @@ public class LambdaCaptureDesugaringRewriter
     private static class Visitor
             extends ExpressionRewriter<Context>
     {
-        private final PlanVariableAllocator variableAllocator;
+        private final VariableAllocator variableAllocator;
 
-        public Visitor(PlanVariableAllocator variableAllocator)
+        public Visitor(VariableAllocator variableAllocator)
         {
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         }

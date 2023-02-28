@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
@@ -24,7 +25,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -58,12 +58,12 @@ import static java.util.Objects.requireNonNull;
 public class ScalarAggregationToJoinRewriter
 {
     private final FunctionResolution functionResolution;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Lookup lookup;
     private final PlanNodeDecorrelator planNodeDecorrelator;
 
-    public ScalarAggregationToJoinRewriter(FunctionAndTypeManager functionAndTypeManager, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    public ScalarAggregationToJoinRewriter(FunctionAndTypeManager functionAndTypeManager, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         requireNonNull(functionAndTypeManager, "metadata is null");
         this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.GroupingSetDescriptor;
@@ -101,7 +102,7 @@ public class CanonicalPlanGenerator
         extends InternalPlanVisitor<Optional<PlanNode>, CanonicalPlanGenerator.Context>
 {
     private final PlanNodeIdAllocator planNodeidAllocator = new PlanNodeIdAllocator();
-    private final PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
+    private final VariableAllocator variableAllocator = new VariableAllocator();
     // TODO: DEFAULT strategy has a very different canonicalizaiton implementation, refactor it into a separate class.
     private final PlanCanonicalizationStrategy strategy;
     private final ObjectMapper objectMapper;

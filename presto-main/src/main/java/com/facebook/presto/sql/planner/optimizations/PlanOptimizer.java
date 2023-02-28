@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 
 public interface PlanOptimizer
@@ -25,7 +25,7 @@ public interface PlanOptimizer
     PlanNode optimize(PlanNode plan,
             Session session,
             TypeProvider types,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector);
 }

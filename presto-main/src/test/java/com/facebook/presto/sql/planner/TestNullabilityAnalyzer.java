@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
@@ -85,11 +86,11 @@ public class TestNullabilityAnalyzer
 
     private static class TestingDesugarExpressions
     {
-        private final PlanVariableAllocator variableAllocator;
+        private final VariableAllocator variableAllocator;
 
         public TestingDesugarExpressions(Collection<VariableReferenceExpression> variables)
         {
-            this.variableAllocator = new PlanVariableAllocator(variables);
+            this.variableAllocator = new VariableAllocator(variables);
         }
 
         public Expression rewrite(Expression expression)

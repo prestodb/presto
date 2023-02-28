@@ -31,6 +31,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -42,7 +43,6 @@ import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -88,7 +88,7 @@ public class IterativePlanFragmenter
     private final PlanChecker planChecker;
     private final SqlParser sqlParser;
     private final PlanNodeIdAllocator idAllocator;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final NodePartitioningManager nodePartitioningManager;
     private final QueryManagerConfig queryManagerConfig;
     private final Session session;
@@ -125,7 +125,7 @@ public class IterativePlanFragmenter
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-        this.variableAllocator = new PlanVariableAllocator(originalPlan.getTypes().allVariables());
+        this.variableAllocator = new VariableAllocator(originalPlan.getTypes().allVariables());
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.session = requireNonNull(session, "session is null");
@@ -244,7 +244,7 @@ public class IterativePlanFragmenter
                 WarningCollector warningCollector,
                 SqlParser sqlParser,
                 PlanNodeIdAllocator idAllocator,
-                PlanVariableAllocator variableAllocator,
+                VariableAllocator variableAllocator,
                 Set<PlanNodeId> outputTableWriterNodeIds)
         {
             super(session, metadata, statsAndCosts, planChecker, warningCollector, sqlParser, idAllocator, variableAllocator, outputTableWriterNodeIds);
