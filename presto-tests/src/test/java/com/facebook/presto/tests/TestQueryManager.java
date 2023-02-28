@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_SCAN_RAW_BYTES_
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder.builder;
+import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -223,10 +224,5 @@ public class TestQueryManager
             assertEquals(queryInfo.getState(), FAILED);
             assertEquals(queryInfo.getErrorCode(), EXCEEDED_OUTPUT_SIZE_LIMIT.toErrorCode());
         }
-    }
-
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 }
