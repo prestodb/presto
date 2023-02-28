@@ -130,14 +130,6 @@ class SelectivityVector {
     return MutableRange<bool>(bits_.data(), begin_, end_);
   }
 
-  void setActiveRange(vector_size_t begin, vector_size_t end) {
-    VELOX_DCHECK_LE(begin, end, "Setting begin after end");
-    VELOX_DCHECK_LE(end, size_, "Range end out of range");
-    begin_ = begin;
-    end_ = end;
-    allSelected_.reset();
-  }
-
   vector_size_t begin() const {
     return begin_;
   }
