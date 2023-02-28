@@ -107,7 +107,7 @@ public class LogicalPlanner
 {
     private final PlanNodeIdAllocator idAllocator;
     private final Session session;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final Metadata metadata;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
 
@@ -120,11 +120,8 @@ public class LogicalPlanner
         this.session = requireNonNull(session, "session is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        requireNonNull(variableAllocator, "variableAllocator is null");
-        checkState(variableAllocator instanceof PlanVariableAllocator, "variableAllocator should be instance of PlanVariableAllocator");
+        this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
 
-        // TODO: We should cleanup redundancy between VariableAllocator and PlanVariableAllocator.
-        this.variableAllocator = (PlanVariableAllocator) variableAllocator;
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(this.variableAllocator, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
     }
 
@@ -529,7 +526,7 @@ public class LogicalPlanner
         return columns.build();
     }
 
-    private static Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> buildLambdaDeclarationToVariableMap(Analysis analysis, PlanVariableAllocator variableAllocator)
+    private static Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> buildLambdaDeclarationToVariableMap(Analysis analysis, VariableAllocator variableAllocator)
     {
         Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> resultMap = new LinkedHashMap<>();
         for (Entry<NodeRef<Expression>, Type> entry : analysis.getTypes().entrySet()) {

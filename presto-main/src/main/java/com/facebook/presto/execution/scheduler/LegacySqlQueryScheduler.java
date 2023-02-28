@@ -36,12 +36,12 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -131,7 +131,7 @@ public class LegacySqlQueryScheduler
     private final List<PlanOptimizer> runtimePlanOptimizers;
     private final WarningCollector warningCollector;
     private final PlanNodeIdAllocator idAllocator;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final SectionExecutionFactory sectionExecutionFactory;
     private final RemoteTaskFactory remoteTaskFactory;
     private final SplitSourceFactory splitSourceFactory;
@@ -164,7 +164,7 @@ public class LegacySqlQueryScheduler
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
             SqlParser sqlParser,
@@ -213,7 +213,7 @@ public class LegacySqlQueryScheduler
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
             SqlParser sqlParser,

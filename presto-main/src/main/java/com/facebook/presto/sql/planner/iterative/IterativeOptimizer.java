@@ -24,12 +24,12 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -91,7 +91,7 @@ public class IterativeOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         // only disable new rules if we have legacy rules to fall back to
         if (!SystemSessionProperties.isNewOptimizerEnabled(session) && !legacyRules.isEmpty()) {
@@ -257,7 +257,7 @@ public class IterativeOptimizer
             }
 
             @Override
-            public PlanVariableAllocator getVariableAllocator()
+            public VariableAllocator getVariableAllocator()
             {
                 return context.variableAllocator;
             }
@@ -305,7 +305,7 @@ public class IterativeOptimizer
         private final Memo memo;
         private final Lookup lookup;
         private final PlanNodeIdAllocator idAllocator;
-        private final PlanVariableAllocator variableAllocator;
+        private final VariableAllocator variableAllocator;
         private final long startTimeInNanos;
         private final long timeoutInMilliseconds;
         private final Session session;
@@ -318,7 +318,7 @@ public class IterativeOptimizer
                 Memo memo,
                 Lookup lookup,
                 PlanNodeIdAllocator idAllocator,
-                PlanVariableAllocator variableAllocator,
+                VariableAllocator variableAllocator,
                 long startTimeInNanos,
                 long timeoutInMilliseconds,
                 Session session,

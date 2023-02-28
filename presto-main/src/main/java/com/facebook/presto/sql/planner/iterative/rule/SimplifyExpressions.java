@@ -16,12 +16,12 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpVariableResolver;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.tree.Expression;
@@ -43,7 +43,7 @@ public class SimplifyExpressions
         extends ExpressionRewriteRuleSet
 {
     @VisibleForTesting
-    static Expression rewrite(Expression expression, Session session, PlanVariableAllocator variableAllocator, Metadata metadata, LiteralEncoder literalEncoder, SqlParser sqlParser)
+    static Expression rewrite(Expression expression, Session session, VariableAllocator variableAllocator, Metadata metadata, LiteralEncoder literalEncoder, SqlParser sqlParser)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");

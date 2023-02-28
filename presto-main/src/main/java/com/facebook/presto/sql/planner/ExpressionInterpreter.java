@@ -35,6 +35,7 @@ import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -956,7 +957,7 @@ public class ExpressionInterpreter
                         functionMetadata,
                         (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle),
                         metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
-                        new PlanVariableAllocator(),
+                        new VariableAllocator(),
                         session.getSqlFunctionProperties(),
                         node.getArguments());
                 ExpressionInterpreter functionInterpreter = new ExpressionInterpreter(

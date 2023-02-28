@@ -29,7 +29,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -44,7 +43,6 @@ import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoin
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -60,7 +58,7 @@ public class Optimizer
     private final Session session;
     private final Metadata metadata;
     private final SqlParser sqlParser;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final WarningCollector warningCollector;
     private final StatsCalculator statsCalculator;
@@ -85,11 +83,7 @@ public class Optimizer
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        requireNonNull(variableAllocator, "variableAllocator is null");
-        checkState(variableAllocator instanceof PlanVariableAllocator, "variableAllocator must be an instance of PlanVariableAllocator");
-
-        // TODO: We should cleanup redundancy between VariableAllocator and PlanVariableAllocator.
-        this.variableAllocator = (PlanVariableAllocator) variableAllocator;
+        this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
