@@ -391,13 +391,6 @@ public class PlanOptimizers
                                 new ImplementOffset())),
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()),
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new SetFlatteningOptimizer(),
-                new ImplementIntersectAndExceptAsUnion(metadata.getFunctionAndTypeManager()),
                 // TODO: move this before optimization if possible!!
                 // Replace all expressions with row expressions
                 new IterativeOptimizer(
@@ -406,6 +399,13 @@ public class PlanOptimizers
                         costCalculator,
                         new TranslateExpressions(metadata, sqlParser).rules()),
                 // After this point, all planNodes should not contain OriginalExpression
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                new SetFlatteningOptimizer(),
+                new ImplementIntersectAndExceptAsUnion(metadata.getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 inlineProjections,
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
