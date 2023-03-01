@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.spi.PrestoException;
+
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.String.format;
+
 public interface RowExpressionVisitor<R, C>
 {
     R visitCall(CallExpression call, C context);
@@ -27,8 +32,25 @@ public interface RowExpressionVisitor<R, C>
 
     R visitSpecialForm(SpecialFormExpression specialForm, C context);
 
-    default R visitIntermediateFormRowExpression(IntermediateFormExpression specialForm, C context)
+    // Default implementations for IntermediateFormRowExpression are provided below, as these only exist as
+    // an intermediate form during some parts of Optimizer, and not all usecases need to care about these.
+    default R visitIntermediateFormExpression(IntermediateFormExpression intermediateFormRowExpression, C context)
     {
-        return null;
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Unexpected intermediate form expression: %s", intermediateFormRowExpression));
+    }
+
+    default R visitInSubqueryExpression(InSubqueryExpression inSubqueryRowExpression, C context)
+    {
+        return visitIntermediateFormExpression(inSubqueryRowExpression, context);
+    }
+
+    default R visitQuantifiedComparisonExpression(QuantifiedComparisonExpression quantifiedComparisonRowExpression, C context)
+    {
+        return visitIntermediateFormExpression(quantifiedComparisonRowExpression, context);
+    }
+
+    default R visitExistsExpression(ExistsExpression existsRowExpression, C context)
+    {
+        return visitIntermediateFormExpression(existsRowExpression, context);
     }
 }
