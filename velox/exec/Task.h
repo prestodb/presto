@@ -538,6 +538,14 @@ class Task : public std::enable_shared_from_this<Task> {
   static void testingWaitForAllTasksToBeDeleted(uint64_t maxWaitUs = 3'000'000);
 
  private:
+  // Returns reference to the SplitsState structure for the specified plan node
+  // id. Throws if not found, meaning that plan node does not expect splits.
+  SplitsState& getPlanNodeSplitsStateLocked(const core::PlanNodeId& planNodeId);
+
+  // Returns true if all nodes expecting splits have received 'no more splits'
+  // message.
+  bool allNodesReceivedNoMoreSplitsMessageLocked() const;
+
   // Remove the spill directory, if the Task was creating it for potential
   // spilling.
   void removeSpillDirectoryIfExists();
@@ -662,10 +670,6 @@ class Task : public std::enable_shared_from_this<Task> {
   void finishedLocked();
 
   StopReason shouldStopLocked();
-
-  /// Checks that specified plan node ID refers to a source plan node. Throws if
-  /// that's not the case.
-  void checkPlanNodeIdForSplit(const core::PlanNodeId& id) const;
 
   // Sets this to a terminal requested state and frees all resources
   // of Drivers that are not presently on thread. Unblocks all waiting
@@ -825,10 +829,6 @@ class Task : public std::enable_shared_from_this<Task> {
   // NOTE: 'childPools_' holds the ownerships of node memory pools.
   std::unordered_map<core::PlanNodeId, memory::MemoryPool*> nodePools_;
 
-  // A set of IDs of leaf plan nodes that require splits. Used to check plan
-  // node IDs specified in split management methods.
-  const std::unordered_set<core::PlanNodeId> splitPlanNodeIds_;
-
   // Set to true by PartitionedOutputBufferManager when all output is
   // acknowledged. If this happens before Drivers are at end, the last
   // Driver to finish will set state_ to kFinished. If Drivers have
@@ -905,7 +905,10 @@ class Task : public std::enable_shared_from_this<Task> {
 
   TaskState state_ = TaskState::kRunning;
 
-  /// Stores separate splits state for each plan node.
+  /// Stores splits state structure for each plan node.
+  /// At construction populated with all leaf plan nodes that require splits.
+  /// Afterwards accessed with getPlanNodeSplitsStateLocked() to ensure we only
+  /// manage splits of the plan nodes that expect splits.
   std::unordered_map<core::PlanNodeId, SplitsState> splitsStates_;
 
   std::vector<ContinuePromise> stateChangePromises_;

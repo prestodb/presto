@@ -94,10 +94,10 @@ bool unregisterTaskListener(const std::shared_ptr<TaskListener>& listener) {
 }
 
 namespace {
-void collectSplitPlanNodeIds(
+void initializeSplitStates(
     const core::PlanNode* planNode,
     std::unordered_set<core::PlanNodeId>& allIds,
-    std::unordered_set<core::PlanNodeId>& sourceIds) {
+    std::unordered_map<core::PlanNodeId, SplitsState>& splitStateMap) {
   bool ok = allIds.insert(planNode->id()).second;
   VELOX_USER_CHECK(
       ok,
@@ -110,24 +110,25 @@ void collectSplitPlanNodeIds(
     // Not all leaf nodes require splits. ValuesNode doesn't. Check if this plan
     // node requires splits.
     if (planNode->requiresSplits()) {
-      sourceIds.insert(planNode->id());
+      splitStateMap[planNode->id()];
     }
     return;
   }
 
   for (const auto& child : planNode->sources()) {
-    collectSplitPlanNodeIds(child.get(), allIds, sourceIds);
+    initializeSplitStates(child.get(), allIds, splitStateMap);
   }
 }
 
-/// Returns a set IDs of source (leaf) plan nodes that require splits. Also,
-/// checks that plan node IDs are unique and throws if encounters duplicates.
-std::unordered_set<core::PlanNodeId> collectSplitPlanNodeIds(
+/// Returns a map of ids of source (leaf) plan nodes expecting splits.
+/// SplitsState structures are initialized to blank states. Also, checks that
+/// plan node IDs are unique and throws if encounters duplicates.
+std::unordered_map<core::PlanNodeId, SplitsState> initializeSplitStates(
     const std::shared_ptr<const core::PlanNode>& planNode) {
   std::unordered_set<core::PlanNodeId> allIds;
-  std::unordered_set<core::PlanNodeId> sourceIds;
-  collectSplitPlanNodeIds(planNode.get(), allIds, sourceIds);
-  return sourceIds;
+  std::unordered_map<core::PlanNodeId, SplitsState> splitStateMap;
+  initializeSplitStates(planNode.get(), allIds, splitStateMap);
+  return splitStateMap;
 }
 
 } // namespace
@@ -168,9 +169,9 @@ Task::Task(
       queryCtx_(std::move(queryCtx)),
       pool_(
           queryCtx_->pool()->addChild(fmt::format("task.{}", taskId_.c_str()))),
-      splitPlanNodeIds_(collectSplitPlanNodeIds(planFragment_.planNode)),
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
+      splitsStates_(initializeSplitStates(planFragment_.planNode)),
       bufferManager_(PartitionedOutputBufferManager::getInstance()) {
   auto memoryUsageTracker = pool_->getMemoryUsageTracker();
   if (memoryUsageTracker) {
@@ -195,6 +196,28 @@ Task::~Task() {
   }
 
   removeSpillDirectoryIfExists();
+}
+
+SplitsState& Task::getPlanNodeSplitsStateLocked(
+    const core::PlanNodeId& planNodeId) {
+  auto it = splitsStates_.find(planNodeId);
+  if (FOLLY_LIKELY(it != splitsStates_.end())) {
+    return it->second;
+  }
+
+  VELOX_USER_FAIL(
+      "Splits can be associated only with leaf plan nodes which require splits."
+      " Plan node ID {} doesn't refer to such plan node.",
+      planNodeId);
+}
+
+bool Task::allNodesReceivedNoMoreSplitsMessageLocked() const {
+  for (const auto& it : splitsStates_) {
+    if (not it.second.noMoreSplits) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void Task::removeSpillDirectoryIfExists() {
@@ -282,11 +305,12 @@ RowVectorPtr Task::next() {
       planFragment_.executionStrategy,
       "Single-threaded execution supports only ungrouped execution");
 
-  if (!splitPlanNodeIds_.empty()) {
-    for (const auto& id : splitPlanNodeIds_) {
+  if (!splitsStates_.empty()) {
+    for (const auto& it : splitsStates_) {
       VELOX_CHECK(
-          splitsStates_[id].noMoreSplits,
-          "Single-threaded execution requires all splits to be added before calling Task::next().");
+          it.second.noMoreSplits,
+          "Single-threaded execution requires all splits to be added before "
+          "calling Task::next().");
     }
   }
 
@@ -296,7 +320,8 @@ RowVectorPtr Task::next() {
   if (driverFactories_.empty()) {
     VELOX_CHECK_NULL(
         consumerSupplier_,
-        "Single-threaded execution doesn't support delivering results to a callback");
+        "Single-threaded execution doesn't support delivering results to a "
+        "callback");
 
     LocalPlanner::plan(planFragment_, nullptr, &driverFactories_, 1);
     exchangeClients_.resize(driverFactories_.size());
@@ -705,11 +730,9 @@ void Task::ensureSplitGroupsAreBeingProcessedLocked(
 void Task::setMaxSplitSequenceId(
     const core::PlanNodeId& planNodeId,
     long maxSequenceId) {
-  checkPlanNodeIdForSplit(planNodeId);
-
   std::lock_guard<std::mutex> l(mutex_);
   if (isRunningLocked()) {
-    auto& splitsState = splitsStates_[planNodeId];
+    auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
     // We could have been sent an old split again, so only change max id, when
     // the new one is greater.
     splitsState.maxSequenceId =
@@ -721,7 +744,6 @@ bool Task::addSplitWithSequence(
     const core::PlanNodeId& planNodeId,
     exec::Split&& split,
     long sequenceId) {
-  checkPlanNodeIdForSplit(planNodeId);
   std::unique_ptr<ContinuePromise> promise;
   bool added = false;
   bool isTaskRunning;
@@ -732,7 +754,7 @@ bool Task::addSplitWithSequence(
       // The same split can be added again in some systems. The systems that
       // want 'one split processed once only' would use this method and
       // duplicate splits would be ignored.
-      auto& splitsState = splitsStates_[planNodeId];
+      auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
       if (sequenceId > splitsState.maxSequenceId) {
         promise = addSplitLocked(splitsState, std::move(split));
         added = true;
@@ -752,14 +774,14 @@ bool Task::addSplitWithSequence(
 }
 
 void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
-  checkPlanNodeIdForSplit(planNodeId);
   bool isTaskRunning;
   std::unique_ptr<ContinuePromise> promise;
   {
     std::lock_guard<std::mutex> l(mutex_);
     isTaskRunning = isRunningLocked();
     if (isTaskRunning) {
-      promise = addSplitLocked(splitsStates_[planNodeId], std::move(split));
+      promise = addSplitLocked(
+          getPlanNodeSplitsStateLocked(planNodeId), std::move(split));
     }
   }
 
@@ -785,13 +807,6 @@ void Task::addRemoteSplit(
           remoteSplit->taskId);
     }
   }
-}
-
-void Task::checkPlanNodeIdForSplit(const core::PlanNodeId& id) const {
-  VELOX_USER_CHECK(
-      splitPlanNodeIds_.find(id) != splitPlanNodeIds_.end(),
-      "Splits can be associated only with leaf plan nodes which require splits. Plan node ID {} doesn't refer to such plan node.",
-      id);
 }
 
 std::unique_ptr<ContinuePromise> Task::addSplitLocked(
@@ -849,12 +864,11 @@ std::unique_ptr<ContinuePromise> Task::addSplitToStoreLocked(
 void Task::noMoreSplitsForGroup(
     const core::PlanNodeId& planNodeId,
     int32_t splitGroupId) {
-  checkPlanNodeIdForSplit(planNodeId);
   std::vector<ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(mutex_);
 
-    auto& splitsState = splitsStates_[planNodeId];
+    auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
     auto& splitsStore = splitsState.groupSplitsStores[splitGroupId];
     splitsStore.noMoreSplits = true;
     promises = std::move(splitsStore.splitPromises);
@@ -871,7 +885,6 @@ void Task::noMoreSplitsForGroup(
 }
 
 void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
-  checkPlanNodeIdForSplit(planNodeId);
   std::vector<ContinuePromise> splitPromises;
   bool allFinished;
   std::shared_ptr<ExchangeClient> exchangeClient;
@@ -881,7 +894,7 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
     // Global 'no more splits' for a plan node comes in case of ungrouped
     // execution when no more splits will arrive. For grouped execution it
     // comes when no more split groups will arrive for that plan node.
-    auto& splitsState = splitsStates_[planNodeId];
+    auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
     splitsState.noMoreSplits = true;
     if (not splitsState.groupSplitsStores.empty()) {
       // Mark all split stores as 'no more splits'.
@@ -925,14 +938,7 @@ bool Task::checkNoMoreSplitGroupsLocked() {
   // we should review the total number of drivers, which initially is set to
   // process all split groups, but in reality workers share split groups and
   // each worker processes only a part of them, meaning much less than all.
-  bool noMoreSplitGroups = true;
-  for (auto& it : splitsStates_) {
-    if (not it.second.noMoreSplits) {
-      noMoreSplitGroups = false;
-      break;
-    }
-  }
-  if (noMoreSplitGroups) {
+  if (allNodesReceivedNoMoreSplitsMessageLocked()) {
     numTotalDrivers_ = seenSplitGroups_.size() * numDriversPerSplitGroup_;
     if (hasPartitionedOutput()) {
       auto bufferManager = bufferManager_.lock();
@@ -947,15 +953,8 @@ bool Task::checkNoMoreSplitGroupsLocked() {
 }
 
 bool Task::isAllSplitsFinishedLocked() {
-  if (taskStats_.numFinishedSplits == taskStats_.numTotalSplits) {
-    for (const auto& it : splitsStates_) {
-      if (not it.second.noMoreSplits) {
-        return false;
-      }
-    }
-    return true;
-  }
-  return false;
+  return (taskStats_.numFinishedSplits == taskStats_.numTotalSplits) &&
+      allNodesReceivedNoMoreSplitsMessageLocked();
 }
 
 BlockingReason Task::getSplitOrFuture(
@@ -967,7 +966,7 @@ BlockingReason Task::getSplitOrFuture(
     std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload) {
   std::lock_guard<std::mutex> l(mutex_);
   return getSplitOrFutureLocked(
-      splitsStates_[planNodeId].groupSplitsStores[splitGroupId],
+      getPlanNodeSplitsStateLocked(planNodeId).groupSplitsStores[splitGroupId],
       split,
       future,
       maxPreloadSplits,
