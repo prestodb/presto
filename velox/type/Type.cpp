@@ -171,9 +171,31 @@ std::ostream& operator<<(std::ostream& os, const TypeKind& kind) {
   return os;
 }
 
-std::shared_ptr<const Type> Type::create(const folly::dynamic& obj) {
+namespace {
+std::vector<TypePtr> deserializeChildTypes(const folly::dynamic& obj) {
+  return velox::ISerializable::deserialize<std::vector<Type>>(obj["cTypes"]);
+}
+} // namespace
+
+TypePtr Type::create(const folly::dynamic& obj) {
   TypeKind type = mapNameToTypeKind(obj["type"].asString());
   switch (type) {
+    case TypeKind::SHORT_DECIMAL: {
+      return SHORT_DECIMAL(obj["precision"].asInt(), obj["scale"].asInt());
+    }
+    case TypeKind::LONG_DECIMAL: {
+      return LONG_DECIMAL(obj["precision"].asInt(), obj["scale"].asInt());
+    }
+    case TypeKind::ARRAY: {
+      auto childTypes = deserializeChildTypes(obj);
+      VELOX_CHECK_EQ(1, childTypes.size());
+      if (obj.find("len") != obj.items().end()) {
+        auto len = obj["len"].asInt();
+        return FIXED_SIZE_ARRAY(len, childTypes.at(0));
+      } else {
+        return createType(type, std::move(childTypes));
+      }
+    }
     case TypeKind::ROW: {
       VELOX_USER_CHECK(obj["names"].isArray());
       std::vector<std::string> names;
@@ -181,10 +203,8 @@ std::shared_ptr<const Type> Type::create(const folly::dynamic& obj) {
         names.push_back(name.asString());
       }
 
-      auto child =
-          velox::ISerializable::deserialize<std::vector<Type>>(obj["cTypes"]);
       return std::make_shared<const RowType>(
-          std::move(names), std::move(child));
+          std::move(names), deserializeChildTypes(obj));
     }
 
     case TypeKind::OPAQUE: {
@@ -200,12 +220,10 @@ std::shared_ptr<const Type> Type::create(const folly::dynamic& obj) {
       }
       return it->second;
     }
-
     default: {
-      std::vector<std::shared_ptr<const Type>> childTypes;
+      std::vector<TypePtr> childTypes;
       if (obj.find("cTypes") != obj.items().end()) {
-        childTypes =
-            velox::ISerializable::deserialize<std::vector<Type>>(obj["cTypes"]);
+        childTypes = deserializeChildTypes(obj);
       }
       return createType(type, std::move(childTypes));
     }
@@ -216,13 +234,12 @@ std::string ArrayType::toString() const {
   return "ARRAY<" + child_->toString() + ">";
 }
 
-const std::shared_ptr<const Type>& ArrayType::childAt(uint32_t idx) const {
+const TypePtr& ArrayType::childAt(uint32_t idx) const {
   VELOX_USER_CHECK_EQ(idx, 0, "List type should have only one child");
   return elementType();
 }
 
-ArrayType::ArrayType(std::shared_ptr<const Type> child)
-    : child_{std::move(child)} {}
+ArrayType::ArrayType(TypePtr child) : child_{std::move(child)} {}
 
 bool ArrayType::equivalent(const Type& other) const {
   if (&other == this) {
@@ -243,13 +260,19 @@ folly::dynamic ArrayType::serialize() const {
   folly::dynamic children = folly::dynamic::array;
   children.push_back(child_->serialize());
   obj["cTypes"] = children;
-  ;
+
+  return obj;
+}
+
+folly::dynamic FixedSizeArrayType::serialize() const {
+  auto obj = ArrayType::serialize();
+  obj["len"] = len_;
   return obj;
 }
 
 FixedSizeArrayType::FixedSizeArrayType(
     FixedSizeArrayType::size_type len,
-    std::shared_ptr<const Type> child)
+    TypePtr child)
     : ArrayType(child), len_(len) {}
 
 std::string FixedSizeArrayType::toString() const {
@@ -278,7 +301,7 @@ bool FixedSizeArrayType::equivalent(const Type& other) const {
   return true;
 }
 
-const std::shared_ptr<const Type>& MapType::childAt(uint32_t idx) const {
+const TypePtr& MapType::childAt(uint32_t idx) const {
   if (idx == 0) {
     return keyType();
   } else if (idx == 1) {
@@ -289,9 +312,7 @@ const std::shared_ptr<const Type>& MapType::childAt(uint32_t idx) const {
       idx);
 }
 
-MapType::MapType(
-    std::shared_ptr<const Type> keyType,
-    std::shared_ptr<const Type> valueType)
+MapType::MapType(TypePtr keyType, TypePtr valueType)
     : keyType_{std::move(keyType)}, valueType_{std::move(valueType)} {}
 
 std::string MapType::toString() const {
@@ -311,9 +332,7 @@ folly::dynamic MapType::serialize() const {
   return obj;
 }
 
-RowType::RowType(
-    std::vector<std::string>&& names,
-    std::vector<std::shared_ptr<const Type>>&& types)
+RowType::RowType(std::vector<std::string>&& names, std::vector<TypePtr>&& types)
     : names_{std::move(names)}, children_{std::move(types)} {
   VELOX_USER_CHECK_EQ(
       names_.size(), children_.size(), "Mismatch names/types sizes");
@@ -323,7 +342,7 @@ uint32_t RowType::size() const {
   return children_.size();
 }
 
-const std::shared_ptr<const Type>& RowType::childAt(uint32_t idx) const {
+const TypePtr& RowType::childAt(uint32_t idx) const {
   return children_.at(idx);
 }
 
@@ -345,8 +364,7 @@ std::string makeFieldNotFoundErrorMessage(
 }
 } // namespace
 
-const std::shared_ptr<const Type>& RowType::findChild(
-    folly::StringPiece name) const {
+const TypePtr& RowType::findChild(folly::StringPiece name) const {
   for (uint32_t i = 0; i < names_.size(); ++i) {
     if (names_.at(i) == name) {
       return children_.at(i);
@@ -453,7 +471,7 @@ size_t Type::hashKind() const {
   return hash;
 }
 
-bool Type::kindEquals(const std::shared_ptr<const Type>& other) const {
+bool Type::kindEquals(const TypePtr& other) const {
   // recursive kind match (ignores names)
   if (this->kind() != other->kind()) {
     return false;
@@ -597,28 +615,26 @@ void OpaqueType::registerSerializationTypeErased(
   registry.reverse[persistentName] = type;
 }
 
-std::shared_ptr<const ArrayType> ARRAY(
-    std::shared_ptr<const Type> elementType) {
+std::shared_ptr<const ArrayType> ARRAY(TypePtr elementType) {
   return std::make_shared<const ArrayType>(std::move(elementType));
 }
 
 std::shared_ptr<const FixedSizeArrayType> FIXED_SIZE_ARRAY(
     FixedSizeArrayType::size_type len,
-    std::shared_ptr<const Type> elementType) {
+    TypePtr elementType) {
   return std::make_shared<const FixedSizeArrayType>(
       len, std::move(elementType));
 }
 
 std::shared_ptr<const RowType> ROW(
     std::vector<std::string>&& names,
-    std::vector<std::shared_ptr<const Type>>&& types) {
+    std::vector<TypePtr>&& types) {
   return TypeFactory<TypeKind::ROW>::create(std::move(names), std::move(types));
 }
 
 std::shared_ptr<const RowType> ROW(
-    std::initializer_list<
-        std::pair<const std::string, std::shared_ptr<const Type>>>&& pairs) {
-  std::vector<std::shared_ptr<const Type>> types;
+    std::initializer_list<std::pair<const std::string, TypePtr>>&& pairs) {
+  std::vector<TypePtr> types;
   std::vector<std::string> names;
   types.reserve(pairs.size());
   names.reserve(pairs.size());
@@ -629,8 +645,7 @@ std::shared_ptr<const RowType> ROW(
   return TypeFactory<TypeKind::ROW>::create(std::move(names), std::move(types));
 }
 
-std::shared_ptr<const RowType> ROW(
-    std::vector<std::shared_ptr<const Type>>&& types) {
+std::shared_ptr<const RowType> ROW(std::vector<TypePtr>&& types) {
   std::vector<std::string> names;
   names.reserve(types.size());
   for (auto& p : types) {
@@ -639,16 +654,14 @@ std::shared_ptr<const RowType> ROW(
   return TypeFactory<TypeKind::ROW>::create(std::move(names), std::move(types));
 }
 
-std::shared_ptr<const MapType> MAP(
-    std::shared_ptr<const Type> keyType,
-    std::shared_ptr<const Type> valType) {
+std::shared_ptr<const MapType> MAP(TypePtr keyType, TypePtr valType) {
   return std::make_shared<const MapType>(
       std::move(keyType), std::move(valType));
 };
 
 std::shared_ptr<const FunctionType> FUNCTION(
-    std::vector<std::shared_ptr<const Type>>&& argumentTypes,
-    std::shared_ptr<const Type> returnType) {
+    std::vector<TypePtr>&& argumentTypes,
+    TypePtr returnType) {
   return std::make_shared<const FunctionType>(
       std::move(argumentTypes), std::move(returnType));
 };
@@ -693,13 +706,11 @@ TypePtr DECIMAL(const uint8_t precision, const uint8_t scale) {
   return LONG_DECIMAL(precision, scale);
 }
 
-std::shared_ptr<const Type> createScalarType(TypeKind kind) {
+TypePtr createScalarType(TypeKind kind) {
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(createScalarType, kind);
 }
 
-std::shared_ptr<const Type> createType(
-    TypeKind kind,
-    std::vector<std::shared_ptr<const Type>>&& children) {
+TypePtr createType(TypeKind kind, std::vector<TypePtr>&& children) {
   if (kind == TypeKind::FUNCTION) {
     VELOX_USER_CHECK_GE(
         children.size(),
@@ -709,47 +720,49 @@ std::shared_ptr<const Type> createType(
         children.begin(), children.begin() + children.size() - 1);
     return std::make_shared<FunctionType>(std::move(argTypes), children.back());
   }
+
+  if (kind == TypeKind::UNKNOWN) {
+    VELOX_USER_CHECK_EQ(
+        children.size(), 0, "UNKNOWN type should not have child types");
+    return UNKNOWN();
+  }
   return VELOX_DYNAMIC_TYPE_DISPATCH(createType, kind, std::move(children));
 }
 
 template <>
-std::shared_ptr<const Type> createType<TypeKind::SHORT_DECIMAL>(
-    std::vector<std::shared_ptr<const Type>>&& /*children*/) {
+TypePtr createType<TypeKind::SHORT_DECIMAL>(
+    std::vector<TypePtr>&& /*children*/) {
   std::string name{TypeTraits<TypeKind::SHORT_DECIMAL>::name};
   VELOX_USER_FAIL("Not supported for kind: {}", name);
 }
 
 template <>
-std::shared_ptr<const Type> createType<TypeKind::LONG_DECIMAL>(
-    std::vector<std::shared_ptr<const Type>>&& /*children*/) {
+TypePtr createType<TypeKind::LONG_DECIMAL>(
+    std::vector<TypePtr>&& /*children*/) {
   std::string name{TypeTraits<TypeKind::LONG_DECIMAL>::name};
   VELOX_USER_FAIL("Not supported for kind: {}", name);
 }
 
 template <>
-std::shared_ptr<const Type> createType<TypeKind::ROW>(
-    std::vector<std::shared_ptr<const Type>>&& /*children*/) {
+TypePtr createType<TypeKind::ROW>(std::vector<TypePtr>&& /*children*/) {
   std::string name{TypeTraits<TypeKind::ROW>::name};
   VELOX_USER_FAIL("Not supported for kind: {}", name);
 }
 
 template <>
-std::shared_ptr<const Type> createType<TypeKind::ARRAY>(
-    std::vector<std::shared_ptr<const Type>>&& children) {
+TypePtr createType<TypeKind::ARRAY>(std::vector<TypePtr>&& children) {
   VELOX_USER_CHECK_EQ(children.size(), 1, "ARRAY should have only one child");
   return ARRAY(children.at(0));
 }
 
 template <>
-std::shared_ptr<const Type> createType<TypeKind::MAP>(
-    std::vector<std::shared_ptr<const Type>>&& children) {
+TypePtr createType<TypeKind::MAP>(std::vector<TypePtr>&& children) {
   VELOX_USER_CHECK_EQ(children.size(), 2, "MAP should have only two children");
   return MAP(children.at(0), children.at(1));
 }
 
 template <>
-std::shared_ptr<const Type> createType<TypeKind::OPAQUE>(
-    std::vector<std::shared_ptr<const Type>>&& /*children*/) {
+TypePtr createType<TypeKind::OPAQUE>(std::vector<TypePtr>&& /*children*/) {
   std::string name{TypeTraits<TypeKind::OPAQUE>::name};
   VELOX_USER_FAIL("Not supported for kind: {}", name);
 }
@@ -869,12 +882,19 @@ TypePtr fromKindToScalerType(TypeKind kind) {
 }
 
 void toTypeSql(const TypePtr& type, std::ostream& out) {
-  if (type->isPrimitiveType()) {
-    out << type->toString();
-    return;
-  }
-
   switch (type->kind()) {
+    case TypeKind::SHORT_DECIMAL: {
+      const auto& decimal = type->asShortDecimal();
+      out << "DECIMAL(" << std::to_string(decimal.precision()) << ", "
+          << std::to_string(decimal.scale()) << ")";
+      break;
+    }
+    case TypeKind::LONG_DECIMAL: {
+      const auto& decimal = type->asLongDecimal();
+      out << "DECIMAL(" << std::to_string(decimal.precision()) << ", "
+          << std::to_string(decimal.scale()) << ")";
+      break;
+    }
     case TypeKind::ARRAY:
       // Append <type>[], e.g. bigint[].
       toTypeSql(type->childAt(0), out);
@@ -904,6 +924,10 @@ void toTypeSql(const TypePtr& type, std::ostream& out) {
       break;
     }
     default:
+      if (type->isPrimitiveType()) {
+        out << type->toString();
+        return;
+      }
       VELOX_UNSUPPORTED("Type is not supported: {}", type->toString());
   }
 }

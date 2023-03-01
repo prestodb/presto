@@ -666,9 +666,9 @@ class DecimalType : public ScalarType<KIND> {
   }
 
   folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = "Type";
-    obj["type"] = toString();
+    auto obj = ScalarType<KIND>::serialize();
+    obj["precision"] = precision_;
+    obj["scale"] = scale_;
     return obj;
   }
 
@@ -774,6 +774,8 @@ class FixedSizeArrayType : public ArrayType {
   bool equivalent(const Type& other) const override;
 
   std::string toString() const override;
+
+  folly::dynamic serialize() const override;
 
  private:
   size_type len_;
