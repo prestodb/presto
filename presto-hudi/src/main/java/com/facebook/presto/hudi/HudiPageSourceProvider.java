@@ -14,7 +14,6 @@
 
 package com.facebook.presto.hudi;
 
-import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
@@ -104,7 +103,7 @@ public class HudiPageSourceProvider
                     baseFile.getStart(),
                     baseFile.getLength(),
                     dataColumns,
-                    TupleDomain.all(), // TODO: predicates
+                    HudiPredicates.from(layout.getTupleDomain()).getRegularColumnPredicates(),
                     fileFormatDataSourceStats);
         }
         else if (tableType == HudiTableType.MOR) {

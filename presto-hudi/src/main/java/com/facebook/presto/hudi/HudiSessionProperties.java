@@ -31,6 +31,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.dataSizeSessionProp
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static java.lang.String.format;
 
 public class HudiSessionProperties
@@ -47,6 +48,7 @@ public class HudiSessionProperties
     private static final String STANDARD_SPLIT_WEIGHT_SIZE = "standard_split_weight_size";
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
+    private static final String HOODIE_FILESYSTEM_VIEW_SPILLABLE_DIR = "hoodie_filesystem_view_spillable_dir";
 
     @Inject
     public HudiSessionProperties(HiveClientConfig hiveClientConfig, HudiConfig hudiConfig)
@@ -107,6 +109,11 @@ public class HudiSessionProperties
                         READ_MASKED_VALUE_ENABLED,
                         "Return null when access is denied for an encrypted parquet column",
                         hiveClientConfig.getReadNullMaskedParquetEncryptedValue(),
+                        false),
+                stringProperty(
+                        HOODIE_FILESYSTEM_VIEW_SPILLABLE_DIR,
+                        "Path on local storage to use, when file system view is held in a spillable map.",
+                        "/tmp/",
                         false));
     }
 
@@ -153,5 +160,10 @@ public class HudiSessionProperties
     public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
     {
         return session.getProperty(READ_MASKED_VALUE_ENABLED, Boolean.class);
+    }
+
+    public static String getHoodieFilesystemViewSpillableDir(ConnectorSession session)
+    {
+        return session.getProperty(HOODIE_FILESYSTEM_VIEW_SPILLABLE_DIR, String.class);
     }
 }
