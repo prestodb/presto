@@ -14,29 +14,23 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.expressions.LogicalRowExpressions;
+import com.facebook.presto.expressions.RowExpressionRewriter;
+import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.VariablesExtractor;
-import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.google.common.collect.Streams;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -45,22 +39,20 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.sql.ExpressionUtils.binaryExpression;
-import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class TestSimplifyExpressions
+public class TestSimplifyRowExpressions
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final MetadataManager METADATA = createTestMetadataManager();
-    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA.getBlockEncodingSerde());
     private static final Map<String, Type> TYPES = Streams.concat(
             Stream.of("A", "B", "C", "D", "E", "F", "I", "V", "X", "Y", "Z"),
             IntStream.range(1, 61).boxed().map(i -> format("A%s", i)))
@@ -109,9 +101,10 @@ public class TestSimplifyExpressions
         assertSimplifies("((X OR V) AND X) OR ((X OR V) AND V)", "X OR V");
 
         assertSimplifies("((X OR V) AND Z) OR ((X OR V) AND V)", "(X OR V) AND (Z OR V)");
-        assertSimplifies("X AND ((Y AND Z) OR (Y AND V) OR (Y AND X))", "X AND Y AND (Z OR V OR X)", "X AND Y");
-        assertSimplifies("(A AND B AND C AND D) OR (A AND B AND E) OR (A AND F)", "A AND ((B AND C AND D) OR (B AND E) OR F)");
 
+        assertSimplifies("X AND ((Y AND Z) OR (Y AND V) OR (Y AND X))", "X AND Y");
+
+        assertSimplifies("(A AND B AND C AND D) OR (A AND B AND E) OR (A AND F)", "A AND ((B AND C AND D) OR (B AND E) OR F)");
         assertSimplifies("((A AND B) OR (A AND C)) AND D", "A AND (B OR C) AND D");
         assertSimplifies("((A OR B) AND (A OR C)) OR D", "(A OR B OR D) AND (A OR C OR D)");
         assertSimplifies("(((A AND B) OR (A AND C)) AND D) OR E", "(A OR E) AND (B OR C OR E) AND (D OR E)");
@@ -175,58 +168,37 @@ public class TestSimplifyExpressions
         }
     }
 
-    private static void assertSimplifies(String expression, String expected)
-    {
-        assertSimplifies(expression, expected, null);
-    }
-
-    private static void assertSimplifies(String expression, String expected, String rowExpressionExpected)
+    private static void assertSimplifies(String expression, String rowExpressionExpected)
     {
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
-        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
-        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new VariableAllocator(booleanVariablesFor(actualExpression)), METADATA, LITERAL_ENCODER, SQL_PARSER);
-        assertEquals(
-                normalize(rewritten),
-                normalize(expectedExpression));
+
         TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(METADATA);
         RowExpression actualRowExpression = translator.translate(actualExpression, TypeProvider.viewOf(TYPES));
         RowExpression simplifiedRowExpression = SimplifyRowExpressions.rewrite(actualRowExpression, METADATA, TEST_SESSION.toConnectorSession());
-        Expression expectedByRowExpression = Optional.ofNullable(rowExpressionExpected).map(expr -> rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expr))).orElse(rewritten);
+        Expression expectedByRowExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(rowExpressionExpected));
         RowExpression simplifiedByExpression = translator.translate(expectedByRowExpression, TypeProvider.viewOf(TYPES));
-        assertEquals(simplifiedRowExpression, simplifiedByExpression);
+        assertEquals(normalize(simplifiedRowExpression), normalize(simplifiedByExpression));
     }
 
-    private static Set<VariableReferenceExpression> booleanVariablesFor(Expression expression)
+    private static RowExpression normalize(RowExpression expression)
     {
-        return VariablesExtractor.extractAllSymbols(expression).stream()
-                .map(symbol -> new VariableReferenceExpression(Optional.empty(), symbol.getName(), BOOLEAN))
-                .collect(toImmutableSet());
+        return RowExpressionTreeRewriter.rewriteWith(new NormalizeRowExpressionRewriter(), expression);
     }
 
-    private static Expression normalize(Expression expression)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new NormalizeExpressionRewriter(), expression);
-    }
-
-    private static class NormalizeExpressionRewriter
-            extends ExpressionRewriter<Void>
+    private static class NormalizeRowExpressionRewriter
+            extends RowExpressionRewriter<Void>
     {
         @Override
-        public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public RowExpression rewriteSpecialForm(SpecialFormExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
         {
-            List<Expression> predicates = extractPredicates(node.getOperator(), node).stream()
+            if (!node.getForm().equals(AND) && !node.getForm().equals(OR)) {
+                return null;
+            }
+            List<RowExpression> predicates = LogicalRowExpressions.extractPredicates(node.getForm(), node).stream()
                     .map(p -> treeRewriter.rewrite(p, context))
-                    .sorted(Comparator.comparing(Expression::toString))
+                    .sorted(Comparator.comparing(RowExpression::toString))
                     .collect(toList());
-            return binaryExpression(node.getOperator(), predicates);
-        }
-
-        @Override
-        public Expression rewriteCast(Cast node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-        {
-            // the `expected` Cast expression comes out of the AstBuilder with the `typeOnly` flag set to false.
-            // always set the `typeOnly` flag to false so that it does not break the comparison.
-            return new Cast(node.getExpression(), node.getType(), node.isSafe(), false);
+            return specialForm(node.getForm(), node.getType(), predicates);
         }
     }
 }

@@ -34,6 +34,7 @@ import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.IntermediateFormRowExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
@@ -327,6 +328,12 @@ public class RowExpressionInterpreter
                             .collect(toImmutableList()),
                     node.getArguments(),
                     map -> body.accept(this, new LambdaVariableResolver(map)));
+        }
+
+        @Override
+        public Object visitIntermediateFormRowExpression(IntermediateFormRowExpression intermediateFormRowExpression, Object context)
+        {
+            return intermediateFormRowExpression;
         }
 
         @Override
