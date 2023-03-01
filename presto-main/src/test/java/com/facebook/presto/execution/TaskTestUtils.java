@@ -146,7 +146,7 @@ public final class TaskTestUtils
                 new InMemoryNodeManager(),
                 new NodeSelectionStats(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
-                new NodeTaskMap(finalizerService),
+                new LocalNodeTaskMap(finalizerService),
                 new ThrowingNodeTtlFetcherManager(),
                 new NoOpQueryManager(),
                 new SimpleTtlNodeSelectorConfig());

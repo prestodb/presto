@@ -93,4 +93,10 @@ public class ResourceManagerServer
     {
         return executor.submit(clusterStateProvider::getRunningTaskCount);
     }
+
+    @ThriftMethod
+    public ListenableFuture<Map<String, NodeTaskState>> getNodeTaskStates()
+    {
+        return executor.submit(clusterStateProvider::getNodeTaskStates);
+    }
 }

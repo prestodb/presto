@@ -41,6 +41,7 @@ public class ResourceManagerConfig
     private int resourceManagerExecutorThreads = 1000;
     private Duration proxyAsyncTimeout = new Duration(60, SECONDS);
     private Duration memoryPoolFetchInterval = new Duration(1, SECONDS);
+    private Duration nodeTaskMapFetchInterval = new Duration(1, SECONDS);
     private boolean resourceGroupServiceCacheEnabled;
     private Duration resourceGroupServiceCacheExpireInterval = new Duration(10, SECONDS);
     private Duration resourceGroupServiceCacheRefreshInterval = new Duration(1, SECONDS);
@@ -228,6 +229,19 @@ public class ResourceManagerConfig
     public ResourceManagerConfig setMemoryPoolFetchInterval(Duration memoryPoolFetchInterval)
     {
         this.memoryPoolFetchInterval = memoryPoolFetchInterval;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getNodeTaskMapFetchInterval()
+    {
+        return nodeTaskMapFetchInterval;
+    }
+
+    @Config("resource-manager.node-task-map-fetch-interval")
+    public ResourceManagerConfig setNodeTaskMapFetchInterval(Duration nodeTaskMapFetchInterval)
+    {
+        this.nodeTaskMapFetchInterval = nodeTaskMapFetchInterval;
         return this;
     }
 

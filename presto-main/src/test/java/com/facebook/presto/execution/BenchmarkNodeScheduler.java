@@ -152,7 +152,7 @@ public class BenchmarkNodeScheduler
             TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
 
             finalizerService.start();
-            NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+            LocalNodeTaskMap nodeTaskMap = new LocalNodeTaskMap(finalizerService);
 
             ImmutableList.Builder<InternalNode> nodeBuilder = ImmutableList.builder();
             for (int i = 0; i < NODES; i++) {

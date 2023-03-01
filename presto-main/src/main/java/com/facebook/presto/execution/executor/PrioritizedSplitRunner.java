@@ -243,6 +243,11 @@ public class PrioritizedSplitRunner
         return priority.get();
     }
 
+    public long getSplitWeight()
+    {
+        return split.getSplitWeight();
+    }
+
     public String getInfo()
     {
         return String.format("Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, wait = %s ms, calls = %s)",

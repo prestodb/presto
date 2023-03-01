@@ -17,6 +17,7 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.execution.PartitionedSplitsInfo;
 import com.facebook.presto.memory.MemoryInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -41,6 +42,7 @@ public class NodeStatus
     private final long heapUsed;
     private final long heapAvailable;
     private final long nonHeapUsed;
+    private final PartitionedSplitsInfo partitionedSplitsInfo;
 
     @ThriftConstructor
     @JsonCreator
@@ -58,7 +60,8 @@ public class NodeStatus
             @JsonProperty("systemCpuLoad") double systemCpuLoad,
             @JsonProperty("heapUsed") long heapUsed,
             @JsonProperty("heapAvailable") long heapAvailable,
-            @JsonProperty("nonHeapUsed") long nonHeapUsed)
+            @JsonProperty("nonHeapUsed") long nonHeapUsed,
+            @JsonProperty("partitionedSplitsInfo") PartitionedSplitsInfo partitionedSplitsInfo)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -74,6 +77,7 @@ public class NodeStatus
         this.heapUsed = heapUsed;
         this.heapAvailable = heapAvailable;
         this.nonHeapUsed = nonHeapUsed;
+        this.partitionedSplitsInfo = requireNonNull(partitionedSplitsInfo, "partitionedSplitsInfo is null");
     }
 
     @ThriftField(1)
@@ -172,5 +176,12 @@ public class NodeStatus
     public long getNonHeapUsed()
     {
         return nonHeapUsed;
+    }
+
+    @ThriftField(15)
+    @JsonProperty
+    public PartitionedSplitsInfo getPartitionedSplitsInfo()
+    {
+        return partitionedSplitsInfo;
     }
 }

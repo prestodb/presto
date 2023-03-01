@@ -285,6 +285,18 @@ public class ResourceManagerClusterStateProvider
         return runningTaskCount;
     }
 
+    public Map<String, NodeTaskState> getNodeTaskStates()
+    {
+        return nodeStatuses.values().stream()
+                .map(InternalNodeState::getNodeStatus)
+                .collect(toImmutableMap(
+                        NodeStatus::getNodeId,
+                        nodeStatus -> new NodeTaskState(
+                                nodeStatus.getPartitionedSplitsInfo(),
+                                nodeStatus.getHeapUsed(),
+                                nodeStatus.getProcessCpuLoad())));
+    }
+
     public Map<MemoryPoolId, ClusterMemoryPoolInfo> getClusterMemoryPoolInfo()
     {
         return clusterMemoryPoolInfosSupplier.get();

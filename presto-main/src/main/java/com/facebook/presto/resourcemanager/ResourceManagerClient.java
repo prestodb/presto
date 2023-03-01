@@ -45,4 +45,7 @@ public interface ResourceManagerClient
 
     @ThriftMethod
     int getRunningTaskCount();
+
+    @ThriftMethod
+    Map<String, NodeTaskState> getNodeTaskStates();
 }

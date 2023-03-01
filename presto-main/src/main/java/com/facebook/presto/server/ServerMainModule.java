@@ -50,8 +50,10 @@ import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.event.SplitMonitor;
+import com.facebook.presto.execution.DistributedNodeTaskMap;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
+import com.facebook.presto.execution.LocalNodeTaskMap;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MemoryRevokingScheduler;
 import com.facebook.presto.execution.NodeTaskMap;
@@ -361,7 +363,6 @@ public class ServerMainModule
         binder.bind(NodeSelectionStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeSelectionStats.class).withGeneratedName();
         binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
-        binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
 
         // network topology
@@ -426,6 +427,7 @@ public class ServerMainModule
                             moduleBinder.bind(ClusterQueryTrackerService.class).in(Scopes.SINGLETON);
                             moduleBinder.bind(ResourceGroupService.class).to(ResourceManagerResourceGroupService.class).in(Scopes.SINGLETON);
                         }
+                        binder.bind(NodeTaskMap.class).to(DistributedNodeTaskMap.class).in(Scopes.SINGLETON);
                     }
 
                     @Provides
@@ -454,6 +456,7 @@ public class ServerMainModule
                 moduleBinder -> {
                     moduleBinder.bind(ClusterStatusSender.class).toInstance(execution -> {});
                     moduleBinder.bind(ResourceGroupService.class).to(NoopResourceGroupService.class).in(Scopes.SINGLETON);
+                    moduleBinder.bind(NodeTaskMap.class).to(LocalNodeTaskMap.class).in(Scopes.SINGLETON);
                 }));
 
         FeaturesConfig featuresConfig = buildConfigObject(FeaturesConfig.class);

@@ -1098,6 +1098,12 @@ public class SqlTaskExecution
                 driver.close();
             }
         }
+
+        @Override
+        public long getSplitWeight()
+        {
+            return driverContext.getSplitWeight();
+        }
     }
 
     private static final class CheckTaskCompletionOnBufferFinish

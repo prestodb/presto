@@ -17,6 +17,7 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PartialResultQueryManager;
+import com.facebook.presto.execution.PartitionedSplitsInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.warnings.DefaultWarningCollector;
@@ -82,8 +83,8 @@ public class TestPartialResultQueryTaskTracker
                 false);
         TaskId taskId1 = new TaskId("test1", 1, 0, 1);
         TaskId taskId2 = new TaskId("test2", 2, 0, 1);
-        RemoteTask task1 = taskFactory.createTableScanTask(taskId1, node1, ImmutableList.of(), new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}));
-        RemoteTask task2 = taskFactory.createTableScanTask(taskId2, node2, ImmutableList.of(), new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}));
+        RemoteTask task1 = taskFactory.createTableScanTask(taskId1, node1, ImmutableList.of(), NOOP_NODE_STATS_TRACKER);
+        RemoteTask task2 = taskFactory.createTableScanTask(taskId2, node2, ImmutableList.of(), NOOP_NODE_STATS_TRACKER);
 
         tracker.trackTask(task1);
         tracker.trackTask(task2);
@@ -114,4 +115,16 @@ public class TestPartialResultQueryTaskTracker
         // Assert that completion percent of 50.00 is specified correctly in the warning message
         assertEquals("Partial results are returned. Only 50.00 percent of the data is read.", prestoWarning.getMessage());
     }
+
+    private static final NodeTaskMap.NodeStatsTracker NOOP_NODE_STATS_TRACKER = new NodeTaskMap.NodeStatsTracker()
+    {
+        @Override
+        public void setPartitionedSplits(PartitionedSplitsInfo partitionedSplits) {}
+
+        @Override
+        public void setMemoryUsage(long memoryUsage) {}
+
+        @Override
+        public void setCpuUsage(long age, long cpuUsage) {}
+    };
 }
