@@ -129,6 +129,7 @@ public class TestHiveJoinQueries
         return Session.builder(getSession())
                 .setSystemProperty("prefer_merge_join", "true")
                 .setCatalogSessionProperty("hive", "order_based_execution_enabled", "true")
+                .setCatalogSessionProperty("hive", "enable_replicated_reads_for_broadcast_join", "false")
                 .build();
     }
 }

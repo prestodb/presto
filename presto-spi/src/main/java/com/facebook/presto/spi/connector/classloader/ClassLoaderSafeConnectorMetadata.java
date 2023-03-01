@@ -89,7 +89,15 @@ public class ClassLoaderSafeConnectorMetadata
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getTableLayout(session, handle);
+            return delegate.getTableLayout(session, handle, false);
+        }
+    }
+
+    @Override
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle, boolean isReplicatedReads)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTableLayout(session, handle, isReplicatedReads);
         }
     }
 
@@ -126,10 +134,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public ConnectorTableLayoutHandle getAlternativeLayoutHandle(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle, ConnectorPartitioningHandle partitioningHandle)
+    public ConnectorTableLayoutHandle getAlternativeLayoutHandle(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle, ConnectorPartitioningHandle partitioningHandle, boolean isReplicatedReads)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getAlternativeLayoutHandle(session, tableLayoutHandle, partitioningHandle);
+            return delegate.getAlternativeLayoutHandle(session, tableLayoutHandle, partitioningHandle, isReplicatedReads);
         }
     }
 

@@ -145,6 +145,7 @@ public final class HiveSessionProperties
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
     private static final String READ_TABLE_CONSTRAINTS = "read_table_constraints";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
+    public static final String ENABLE_REPLICATED_READS_FOR_BROADCAST_JOIN = "enable_replicated_reads_for_broadcast_join";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -591,6 +592,11 @@ public final class HiveSessionProperties
                         MANIFEST_VERIFICATION_ENABLED,
                         "Enable manifest verification",
                         hiveClientConfig.isManifestVerificationEnabled(),
+                        false),
+                booleanProperty(
+                        ENABLE_REPLICATED_READS_FOR_BROADCAST_JOIN,
+                        "high bandwidth for multiple connections to retrieve data from storage is required for replicated-reads strategy",
+                        hiveClientConfig.isReplicatedReadsForBroadcastJoinEnabled(),
                         false),
                 stringProperty(
                         NEW_PARTITION_USER_SUPPLIED_PARAMETER,
@@ -1229,5 +1235,10 @@ public final class HiveSessionProperties
     public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
     {
         return session.getProperty(READ_MASKED_VALUE_ENABLED, Boolean.class);
+    }
+
+    public static Boolean getEnableReplicatedReadsForBroadcastJoin(ConnectorSession session)
+    {
+        return session.getProperty(ENABLE_REPLICATED_READS_FOR_BROADCAST_JOIN, Boolean.class);
     }
 }

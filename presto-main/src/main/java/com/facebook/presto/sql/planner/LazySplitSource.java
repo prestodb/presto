@@ -67,6 +67,12 @@ public class LazySplitSource
     }
 
     @Override
+    public boolean isReplicatedReads()
+    {
+        return supplier.get().isReplicatedReads();
+    }
+
+    @Override
     public boolean isFinished()
     {
         return getDelegate().isFinished();

@@ -37,6 +37,7 @@ public class HivePartitioningHandle
     private final BucketFunctionType bucketFunctionType;
     private final Optional<List<HiveType>> hiveTypes;
     private final Optional<List<Type>> types;
+    private final boolean isReplicatedReads;
 
     public static HivePartitioningHandle createHiveCompatiblePartitioningHandle(
             int bucketCount,
@@ -49,6 +50,21 @@ public class HivePartitioningHandle
                 HIVE_COMPATIBLE,
                 Optional.of(hiveTypes),
                 Optional.empty());
+    }
+
+    public static HivePartitioningHandle createHiveCompatiblePartitioningHandle(
+            int bucketCount,
+            List<HiveType> hiveTypes,
+            OptionalInt maxCompatibleBucketCount,
+            boolean isReplicatedReadsTable)
+    {
+        return new HivePartitioningHandle(
+                bucketCount,
+                maxCompatibleBucketCount,
+                HIVE_COMPATIBLE,
+                Optional.of(hiveTypes),
+                Optional.empty(),
+                isReplicatedReadsTable);
     }
 
     public static HivePartitioningHandle createPrestoNativePartitioningHandle(
@@ -64,7 +80,6 @@ public class HivePartitioningHandle
                 Optional.of(types));
     }
 
-    @JsonCreator
     public HivePartitioningHandle(
             @JsonProperty("bucketCount") int bucketCount,
             @JsonProperty("maxCompatibleBucketCount") OptionalInt maxCompatibleBucketCount,
@@ -72,8 +87,21 @@ public class HivePartitioningHandle
             @JsonProperty("hiveTypes") Optional<List<HiveType>> hiveTypes,
             @JsonProperty("types") Optional<List<Type>> types)
     {
+        this(bucketCount, maxCompatibleBucketCount, bucketFunctionType, hiveTypes, types, false);
+    }
+
+    @JsonCreator
+    public HivePartitioningHandle(
+            @JsonProperty("bucketCount") int bucketCount,
+            @JsonProperty("maxCompatibleBucketCount") OptionalInt maxCompatibleBucketCount,
+            @JsonProperty("bucketFunctionType") BucketFunctionType bucketFunctionType,
+            @JsonProperty("hiveTypes") Optional<List<HiveType>> hiveTypes,
+            @JsonProperty("types") Optional<List<Type>> types,
+            @JsonProperty("isReplicatedReads") boolean isReplicatedReads)
+    {
         this.bucketCount = bucketCount;
         this.maxCompatibleBucketCount = maxCompatibleBucketCount;
+        this.isReplicatedReads = isReplicatedReads;
         this.bucketFunctionType = requireNonNull(bucketFunctionType, "bucketFunctionType is null");
         this.hiveTypes = requireNonNull(hiveTypes, "hiveTypes is null");
         this.types = requireNonNull(types, "types is null");
@@ -115,13 +143,20 @@ public class HivePartitioningHandle
     }
 
     @Override
+    public boolean isReplicatedReadsTable()
+    {
+        return isReplicatedReads;
+    }
+
+    @Override
     public String toString()
     {
         return format(
-                "buckets=%s, bucketFunctionType=%s, types=%s",
+                "buckets=%s, bucketFunctionType=%s, types=%s, isReplicatedReads=%s",
                 bucketCount,
                 bucketFunctionType,
-                bucketFunctionType.equals(HIVE_COMPATIBLE) ? hiveTypes.get() : types.get());
+                bucketFunctionType.equals(HIVE_COMPATIBLE) ? hiveTypes.get() : types.get(),
+                isReplicatedReads);
     }
 
     @Override
@@ -137,12 +172,13 @@ public class HivePartitioningHandle
         return bucketCount == that.bucketCount &&
                 bucketFunctionType.equals(that.bucketFunctionType) &&
                 Objects.equals(hiveTypes, that.hiveTypes) &&
-                Objects.equals(types, that.types);
+                Objects.equals(types, that.types) &&
+                isReplicatedReads == that.isReplicatedReads;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(bucketCount, bucketFunctionType, hiveTypes, types);
+        return Objects.hash(bucketCount, bucketFunctionType, hiveTypes, types, isReplicatedReads);
     }
 }

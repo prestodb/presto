@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.rule;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
@@ -126,6 +127,8 @@ public class HiveFilterPushdown
             Optional.empty(),
             emptyList());
 
+    private static final Logger log = Logger.get(HiveFilterPushdown.class);
+
     protected final HiveTransactionManager transactionManager;
     protected final RowExpressionService rowExpressionService;
     protected final StandardFunctionResolution functionResolution;
@@ -196,7 +199,7 @@ public class HiveFilterPushdown
     {
         checkArgument(!FALSE_CONSTANT.equals(filter), "Cannot pushdown filter that is always false");
         if (TRUE_CONSTANT.equals(filter) && currentLayoutHandle.isPresent()) {
-            return new ConnectorPushdownFilterResult(metadata.getTableLayout(session, currentLayoutHandle.get()), TRUE_CONSTANT);
+            return new ConnectorPushdownFilterResult(metadata.getTableLayout(session, currentLayoutHandle.get(), false), TRUE_CONSTANT);
         }
 
         // Split the filter into 3 groups of conjuncts:
@@ -406,7 +409,7 @@ public class HiveFilterPushdown
             TableScanNode node = new TableScanNode(
                     tableScan.getSourceLocation(),
                     tableScan.getId(),
-                    new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle())),
+                    new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle()), layout.getIsReplicatedReads()),
                     tableScan.getOutputVariables(),
                     tableScan.getAssignments(),
                     tableScan.getTableConstraints(),
@@ -443,7 +446,7 @@ public class HiveFilterPushdown
             TableScanNode node = new TableScanNode(
                     tableScan.getSourceLocation(),
                     tableScan.getId(),
-                    new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle())),
+                    new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle()), pushdownFilterResult.getLayout().getIsReplicatedReads()),
                     tableScan.getOutputVariables(),
                     tableScan.getAssignments(),
                     tableScan.getTableConstraints(),

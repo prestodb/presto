@@ -758,7 +758,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitTableScan(TableScanNode node, List<ActualProperties> inputProperties)
         {
-            TableLayout layout = metadata.getLayout(session, node.getTable());
+            TableLayout layout = metadata.getLayout(session, node.getTable(), false);
             Map<ColumnHandle, VariableReferenceExpression> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             ActualProperties.Builder properties = ActualProperties.builder();

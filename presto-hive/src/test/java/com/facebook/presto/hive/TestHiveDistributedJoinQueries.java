@@ -18,6 +18,8 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestJoinQueries;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
+import static com.facebook.presto.hive.HiveSessionProperties.ENABLE_REPLICATED_READS_FOR_BROADCAST_JOIN;
 import static io.airlift.tpch.TpchTable.getTables;
 
 public class TestHiveDistributedJoinQueries
@@ -35,6 +37,7 @@ public class TestHiveDistributedJoinQueries
     {
         return Session.builder(super.getSession())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                .setCatalogSessionProperty(HIVE_CATALOG, ENABLE_REPLICATED_READS_FOR_BROADCAST_JOIN, "false")
                 .build();
     }
 }

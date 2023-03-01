@@ -85,8 +85,7 @@ public interface Metadata
      * Returns table's layout properties for a given table handle.
      */
     @Experimental
-    TableLayout getLayout(Session session, TableHandle handle);
-
+    TableLayout getLayout(Session session, TableHandle handle, boolean isReplicatedReadsReplicated);
     /**
      * Return a table handle whose partitioning is converted to the provided partitioning handle,
      * but otherwise identical to the provided table layout handle.
@@ -94,7 +93,7 @@ public interface Metadata
      * the original partitioning handle associated with the provided table layout handle,
      * as promised by {@link #getCommonPartitioning}.
      */
-    TableHandle getAlternativeTableHandle(Session session, TableHandle tableHandle, PartitioningHandle partitioningHandle);
+    TableHandle getAlternativeTableHandle(Session session, TableHandle tableHandle, PartitioningHandle partitioningHandle, boolean isReplicatedReadsReplicated);
 
     /**
      * Experimental: if true, the engine will invoke getLayout otherwise, getLayout will not be called.

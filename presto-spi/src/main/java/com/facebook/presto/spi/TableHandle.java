@@ -36,6 +36,7 @@ public final class TableHandle
 
     // This is not serializable; for local execution only
     private final Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter;
+    private final boolean canReplicatedReads;
 
     @JsonCreator
     public TableHandle(
@@ -52,13 +53,35 @@ public final class TableHandle
             ConnectorTableHandle connectorHandle,
             ConnectorTransactionHandle transaction,
             Optional<ConnectorTableLayoutHandle> layout,
+            boolean canReplicatedReads)
+    {
+        this(connectorId, connectorHandle, transaction, layout, Optional.empty(), canReplicatedReads);
+    }
+
+    public TableHandle(
+            ConnectorId connectorId,
+            ConnectorTableHandle connectorHandle,
+            ConnectorTransactionHandle transaction,
+            Optional<ConnectorTableLayoutHandle> layout,
             Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter)
+    {
+        this(connectorId, connectorHandle, transaction, layout, dynamicFilter, false);
+    }
+
+    public TableHandle(
+            ConnectorId connectorId,
+            ConnectorTableHandle connectorHandle,
+            ConnectorTransactionHandle transaction,
+            Optional<ConnectorTableLayoutHandle> layout,
+            Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter,
+            boolean canReplicatedReads)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.layout = requireNonNull(layout, "layout is null");
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+        this.canReplicatedReads = canReplicatedReads;
     }
 
     @JsonProperty
@@ -99,6 +122,11 @@ public final class TableHandle
         return new TableHandle(connectorId, connectorHandle, transaction, layout, Optional.of(dynamicFilter));
     }
 
+    public boolean getCanReplicatedReads()
+    {
+        return canReplicatedReads;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -133,6 +161,7 @@ public final class TableHandle
         stringBuilder.append("connectorId='").append(connectorId).append('\'');
         stringBuilder.append(", connectorHandle='").append(connectorHandle).append('\'');
         stringBuilder.append(", layout='").append(layout).append('\'');
+        stringBuilder.append(", canReplicatedReads='").append(canReplicatedReads).append('\'');
         stringBuilder.append('}');
         return stringBuilder.toString();
     }

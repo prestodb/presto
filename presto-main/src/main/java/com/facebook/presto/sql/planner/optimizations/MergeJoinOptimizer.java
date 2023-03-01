@@ -31,6 +31,7 @@ import java.util.List;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.preferMergeJoin;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.determineReplicatedReadsJoinAllowed;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -128,6 +129,16 @@ public class MergeJoinOptimizer
             // Check if both the left side and right side's partitioning columns (bucketed-by columns [B]) are a subset of join columns [J]
             // B = subset (J)
             if (!verifyStreamProperties(leftProperties, leftJoinColumns) || !verifyStreamProperties(rightProperties, rightJoinColumns)) {
+                return false;
+            }
+
+            // Disable merge join optimization when replicated reads is enabled because replicated reads for broadcast join is not supported for grouped execution
+            if (determineReplicatedReadsJoinAllowed(node)) {
+                // Because merge join optimizer is placed after AddExchange in which the decision for replicated reads is already made for broadcast join,
+                // it's already too late to yield for merge join optimization when replicated reads is allowed.
+                // TODO:
+                //  Alternatively this MJ eligibility check can be moved under JoinNodeUtils class allowing other optimizers that are exchange boundary dependent to evaluate.
+                //  e.g. Replicated reads execution strategy may be disallowed if merge join conditions are satisfied.
                 return false;
             }
 

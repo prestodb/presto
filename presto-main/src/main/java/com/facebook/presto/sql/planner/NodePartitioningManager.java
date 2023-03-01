@@ -134,7 +134,7 @@ public class NodePartitioningManager
         switch (nodeSelectionStrategy) {
             case HARD_AFFINITY:
                 bucketToNode = getFixedMapping(connectorBucketNodeMap);
-                cacheable = false;
+                cacheable = connectorBucketNodeMap.isReplicatedReadTable();
                 break;
             case SOFT_AFFINITY:
                 bucketToNode = getFixedMapping(connectorBucketNodeMap);
@@ -144,7 +144,7 @@ public class NodePartitioningManager
                 bucketToNode = createArbitraryBucketToNode(
                         nodeScheduler.createNodeSelector(session, connectorId).selectRandomNodes(getMaxTasksPerStage(session)),
                         connectorBucketNodeMap.getBucketCount());
-                cacheable = false;
+                cacheable = connectorBucketNodeMap.isReplicatedReadTable();
                 break;
             default:
                 throw new PrestoException(NODE_SELECTION_NOT_SUPPORTED, format("Unsupported node selection strategy %s", nodeSelectionStrategy));
@@ -177,7 +177,7 @@ public class NodePartitioningManager
         NodeSelectionStrategy nodeSelectionStrategy = connectorBucketNodeMap.getNodeSelectionStrategy();
         switch (nodeSelectionStrategy) {
             case HARD_AFFINITY:
-                return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), getFixedMapping(connectorBucketNodeMap), false);
+                return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), getFixedMapping(connectorBucketNodeMap), connectorBucketNodeMap.isReplicatedReadTable());
             case SOFT_AFFINITY:
                 if (preferDynamic) {
                     return new DynamicBucketNodeMap(getSplitToBucket(session, partitioningHandle), connectorBucketNodeMap.getBucketCount(), getFixedMapping(connectorBucketNodeMap));

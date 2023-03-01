@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +42,7 @@ import static com.facebook.presto.SystemSessionProperties.USE_STREAMING_EXCHANGE
 import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.ALL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -459,6 +461,52 @@ public class TestAddExchangesPlans
                                                                                 "orderkey", "orderkey",
                                                                                 "clerk", "clerk",
                                                                                 "orderdate", "orderdate"))))))))));
+    }
+
+    @Test
+    public void testBroadcastJoinUsingReplicateReads()
+    {
+        assertJoinUsingReplicatedReads(
+                "SELECT s.nationkey " +
+                        "FROM supplier s, nation n " +
+                        "WHERE s.nationkey = n.nationkey",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("SUPPLIER_OK", "NATION_OK")),
+                                anyTree(
+                                        tableScan("supplier", ImmutableMap.of("SUPPLIER_OK", "nationkey"))),
+                                anyTree(
+                                        tableScan("nation", ImmutableMap.of("NATION_OK", "nationkey"))))));
+    }
+
+    @Test
+    public void testPartitionedJoinWithReplicatedReadsNotTriggered()
+    {
+        assertJoinUsingReplicatedReads(
+                "SELECT s.nationkey " +
+                        "FROM supplier s, lineitem l " +
+                        "WHERE s.suppkey = l.suppkey",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("SUPPLIER_OK", "LINEITEM_OK")), Optional.empty(), Optional.of(JoinNode.DistributionType.PARTITIONED),
+                                exchange(REMOTE_STREAMING, REPARTITION,
+                                        anyTree(
+                                                tableScan("supplier", ImmutableMap.of("SUPPLIER_OK", "suppkey")))),
+                                anyTree(
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "suppkey"))))))));
+    }
+
+    void assertJoinUsingReplicatedReads(String sql, PlanMatchPattern pattern)
+    {
+        assertDistributedPlan(
+                sql,
+                TestingSession.testSessionBuilder()
+                        .setCatalog("local")
+                        .setSchema("sf1000")
+                        .setSystemProperty(JOIN_REORDERING_STRATEGY, AUTOMATIC.toString())
+                        .setSystemProperty(JOIN_DISTRIBUTION_TYPE, AUTOMATIC.toString())
+                        .build(),
+                pattern);
     }
 
     void assertMaterializedWithStreamingMarkDistinctDistributedPlan(String sql, PlanMatchPattern pattern)

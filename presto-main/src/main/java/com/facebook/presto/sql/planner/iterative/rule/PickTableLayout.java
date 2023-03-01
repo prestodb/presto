@@ -220,10 +220,11 @@ public class PickTableLayout
                 return Result.ofPlanNode(new ValuesNode(tableScanNode.getSourceLocation(), context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of(), Optional.empty()));
             }
 
+            TableHandle newTableHandle = layout.getLayout().getNewTableHandle();
             return Result.ofPlanNode(new TableScanNode(
                     tableScanNode.getSourceLocation(),
                     tableScanNode.getId(),
-                    layout.getLayout().getNewTableHandle(),
+                    new TableHandle(newTableHandle.getConnectorId(), newTableHandle.getConnectorHandle(), newTableHandle.getTransaction(), newTableHandle.getLayout(), newTableHandle.getDynamicFilter(), layout.getLayout().getReplicatedReads()),
                     tableScanNode.getOutputVariables(),
                     tableScanNode.getAssignments(),
                     tableScanNode.getTableConstraints(),
@@ -316,10 +317,12 @@ public class PickTableLayout
             return new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(), Optional.empty());
         }
 
+        TableHandle newTableHandle = layout.getLayout().getNewTableHandle();
+
         TableScanNode tableScan = new TableScanNode(
                 node.getSourceLocation(),
                 node.getId(),
-                layout.getLayout().getNewTableHandle(),
+                new TableHandle(newTableHandle.getConnectorId(), newTableHandle.getConnectorHandle(), newTableHandle.getTransaction(), newTableHandle.getLayout(), newTableHandle.getDynamicFilter(), layout.getLayout().getReplicatedReads()),
                 node.getOutputVariables(),
                 node.getAssignments(),
                 node.getTableConstraints(),

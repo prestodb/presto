@@ -77,6 +77,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD;
@@ -127,13 +128,18 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -144,6 +150,8 @@ import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.airlift.tpch.TpchTable.REGION;
+import static io.airlift.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertFalse;
@@ -158,7 +166,7 @@ public class TestHiveLogicalPlanner
             throws Exception
     {
         return HiveQueryRunner.createQueryRunner(
-                ImmutableList.of(ORDERS, LINE_ITEM, CUSTOMER, NATION),
+                ImmutableList.of(ORDERS, LINE_ITEM, CUSTOMER, NATION, SUPPLIER, REGION),
                 ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"),
                 Optional.empty());
     }
@@ -1835,6 +1843,157 @@ public class TestHiveLogicalPlanner
             queryRunner.execute("DROP TABLE IF EXISTS orders_partitioned_parquet");
             queryRunner.execute("DROP TABLE IF EXISTS variable_length_table");
         }
+    }
+
+    @Test
+    public void testTwoWayBroadcastJoinUsingReplicateReads()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session enableReplicatedReads = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "broadcast")
+                .setCatalogSessionProperty(HIVE_CATALOG, "enable_replicated_reads_for_broadcast_join", Boolean.toString(true))
+                .build();
+
+        assertPlan(
+                enableReplicatedReads,
+                "SELECT s.nationkey FROM supplier s, nation n WHERE s.nationkey = n.nationkey",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("SUPPLIER_OK", "NATION_OK")),
+                                project(
+                                        PlanMatchPattern.tableScan("supplier", ImmutableMap.of("SUPPLIER_OK", "nationkey"))),
+                                exchange(LOCAL, REPARTITION,
+                                        project(
+                                                PlanMatchPattern.tableScan("nation", ImmutableMap.of("NATION_OK", "nationkey")))))));
+        assertPlan(
+                enableReplicatedReads,
+                "SELECT s.nationkey FROM supplier s left join nation n on s.nationkey = n.nationkey",
+                anyTree(
+                        join(LEFT, ImmutableList.of(equiJoinClause("SUPPLIER_OK", "NATION_OK")),
+                                project(
+                                        PlanMatchPattern.tableScan("supplier", ImmutableMap.of("SUPPLIER_OK", "nationkey"))),
+                                exchange(LOCAL, REPARTITION,
+                                        project(
+                                                PlanMatchPattern.tableScan("nation", ImmutableMap.of("NATION_OK", "nationkey")))))));
+    }
+
+    @Test
+    public void testThreeWayBroadcastJoinUsingReplicateReads()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session enableReplicatedReads = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "broadcast")
+                .setCatalogSessionProperty(HIVE_CATALOG, "enable_replicated_reads_for_broadcast_join", Boolean.toString(true))
+                .build();
+
+        assertPlan(
+                enableReplicatedReads,
+                "SELECT s.nationkey FROM supplier s, nation n, region r WHERE s.nationkey = n.nationkey AND n.regionkey = r.regionkey",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("SUPPLIER_OK", "NATION_OK")), Optional.empty(), Optional.of(JoinNode.DistributionType.REPLICATED),
+                                project(
+                                        PlanMatchPattern.tableScan("supplier", ImmutableMap.of("SUPPLIER_OK", "nationkey"))),
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPLICATE,
+                                                project(
+                                                        join(INNER, ImmutableList.of(equiJoinClause("REGION", "REGION_OK")), Optional.empty(), Optional.of(JoinNode.DistributionType.REPLICATED),
+                                                                project(
+                                                                        PlanMatchPattern.tableScan("nation", ImmutableMap.of("REGION", "regionkey", "NATION_OK", "nationkey"))),
+                                                                exchange(LOCAL, REPARTITION,
+                                                                        project(
+                                                                                PlanMatchPattern.tableScan("region", ImmutableMap.of("REGION_OK", "regionkey")))))))))));
+        Session disableReplicatedReads = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "broadcast")
+                .setCatalogSessionProperty(HIVE_CATALOG, "enable_replicated_reads_for_broadcast_join", Boolean.toString(false))
+                .build();
+
+        assertPlan(
+                disableReplicatedReads,
+                "SELECT s.nationkey " +
+                        "FROM supplier s, nation n, region r " +
+                        "WHERE s.nationkey = n.nationkey " +
+                        "AND n.regionkey = r.regionkey",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("SUPPLIER_OK", "NATION_OK")), Optional.empty(), Optional.of(JoinNode.DistributionType.REPLICATED),
+                                project(
+                                        PlanMatchPattern.tableScan("supplier", ImmutableMap.of("SUPPLIER_OK", "nationkey"))),
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPLICATE,
+                                                project(
+                                                        join(INNER, ImmutableList.of(equiJoinClause("REGION", "REGION_OK")), Optional.empty(), Optional.of(JoinNode.DistributionType.REPLICATED),
+                                                                project(
+                                                                        PlanMatchPattern.tableScan("nation", ImmutableMap.of("REGION", "regionkey", "NATION_OK", "nationkey"))),
+                                                                exchange(LOCAL, REPARTITION,
+                                                                        exchange(REMOTE_STREAMING, REPLICATE,
+                                                                                project(
+                                                                                        PlanMatchPattern.tableScan("region", ImmutableMap.of("REGION_OK", "regionkey"))))))))))));
+    }
+
+    @Test
+    public void testPartitionedJoinWithReplicatedReadsNotTriggered()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session enableReplicatedReads = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .setCatalogSessionProperty(HIVE_CATALOG, "enable_replicated_reads_for_broadcast_join", Boolean.toString(true))
+                .build();
+        assertPlan(
+                enableReplicatedReads,
+                "SELECT s.suppkey FROM supplier s, lineitem l WHERE s.suppkey = l.suppkey",
+                anyTree(
+                        exchange(REMOTE_STREAMING, GATHER,
+                                join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "SUPPLIER_OK")),
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                    project(
+                                                            PlanMatchPattern.tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "suppkey")))),
+                                        exchange(LOCAL, REPARTITION,
+                                                exchange(REMOTE_STREAMING, REPARTITION,
+                                                            project(
+                                                                    PlanMatchPattern.tableScan("supplier", ImmutableMap.of("SUPPLIER_OK", "suppkey")))))))));
+    }
+
+    @Test
+    public void testSemijoinBroadcastJoinUsingReplicateReads()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session enableReplicatedReads = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "broadcast")
+                .setCatalogSessionProperty(HIVE_CATALOG, "enable_replicated_reads_for_broadcast_join", Boolean.toString(true))
+                .build();
+
+        assertPlan(
+                enableReplicatedReads,
+                "SELECT * FROM lineitem WHERE orderkey IN (" +
+                        "SELECT orderkey FROM orders)",
+                anyTree(
+                        semiJoin("L_ORDERKEY", "O_ORDERKEY", "OUT", Optional.of(REPLICATED),
+                                project(
+                                        PlanMatchPattern.tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))),
+                                exchange(LOCAL, GATHER,
+                                        project(
+                                                PlanMatchPattern.tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testBroadcastJoinAggregationReplicateReadsNotTriggered()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session enableReplicatedReads = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "broadcast")
+                .setCatalogSessionProperty(HIVE_CATALOG, "enable_replicated_reads_for_broadcast_join", Boolean.toString(true))
+                .build();
+
+        assertPlan(
+                enableReplicatedReads,
+                "WITH cte AS (SELECT orderkey as oky FROM orders group by orderkey ) " +
+                        "SELECT oky from cte join lineitem l on oky = l.orderkey",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")), Optional.empty(), Optional.of(JoinNode.DistributionType.REPLICATED),
+                                project(
+                                        PlanMatchPattern.tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))),
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPLICATE,
+                                                project(
+                                                        anyTree(PlanMatchPattern.tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))))))));
     }
 
     private static Set<Subfield> toSubfields(String... subfieldPaths)

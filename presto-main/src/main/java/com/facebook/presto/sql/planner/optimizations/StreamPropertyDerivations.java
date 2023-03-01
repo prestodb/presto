@@ -279,7 +279,7 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitTableScan(TableScanNode node, List<StreamProperties> inputProperties)
         {
-            TableLayout layout = metadata.getLayout(session, node.getTable());
+            TableLayout layout = metadata.getLayout(session, node.getTable(), false);
             Map<ColumnHandle, VariableReferenceExpression> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             // Globally constant assignments

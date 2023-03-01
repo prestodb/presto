@@ -17,6 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -31,12 +33,15 @@ import java.util.Optional;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.TestHiveUtil.createTestingFileHiveMetastore;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveBenchmarkQueryRunner
 {
+    private static final String TPCH_SCHEMA = "tpch";
+
     private HiveBenchmarkQueryRunner()
     {
     }
@@ -56,25 +61,27 @@ public final class HiveBenchmarkQueryRunner
 
     public static LocalQueryRunner createLocalQueryRunner(File tempDir)
     {
-        Session session = testSessionBuilder()
-                .setCatalog("hive")
-                .setSchema("tpch")
-                .build();
+        return createLocalQueryRunner(tempDir, ImmutableMap.of(), ImmutableMap.of());
+    }
 
+    public static LocalQueryRunner createLocalQueryRunner(File tempDir, Map<String, String> systemProperties, Map<String, String> hiveProperties)
+    {
+        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
+        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId("hive"), TEST_CATALOG_PROPERTIES);
+        Session.SessionBuilder sessionBuilder = testSessionBuilder(sessionPropertyManager)
+                .setCatalog("hive")
+                .setSchema(TPCH_SCHEMA);
+
+        systemProperties.forEach(sessionBuilder::setSystemProperty);
+        Session session = sessionBuilder.build();
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), hiveProperties);
 
         // add hive
         File hiveDir = new File(tempDir, "hive_data");
         ExtendedHiveMetastore metastore = createTestingFileHiveMetastore(hiveDir);
-        metastore.createDatabase(METASTORE_CONTEXT, Database.builder()
-                .setDatabaseName("tpch")
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
-                .build());
-
         HiveConnectorFactory hiveConnectorFactory = new HiveConnectorFactory(
                 "hive",
                 HiveBenchmarkQueryRunner.class.getClassLoader(),
@@ -86,8 +93,20 @@ public final class HiveBenchmarkQueryRunner
 
         localQueryRunner.createCatalog("hive", hiveConnectorFactory, hiveCatalogConfig);
 
-        localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch.sf1.orders");
-        localQueryRunner.execute("CREATE TABLE lineitem AS SELECT * FROM tpch.sf1.lineitem");
+        if (!metastore.getDatabase(METASTORE_CONTEXT, TPCH_SCHEMA).isPresent()) {
+            metastore.createDatabase(METASTORE_CONTEXT, Database.builder()
+                    .setDatabaseName(TPCH_SCHEMA)
+                    .setOwnerName("public")
+                    .setOwnerType(PrincipalType.ROLE)
+                    .build());
+
+            localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch.sf1.orders");
+            localQueryRunner.execute("CREATE TABLE customer AS SELECT * FROM tpch.sf1.customer");
+            localQueryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.sf1.nation");
+            localQueryRunner.execute("CREATE TABLE region AS SELECT * FROM tpch.sf1.region");
+            localQueryRunner.execute("CREATE TABLE lineitem AS SELECT * FROM tpch.sf1.lineitem");
+        }
+
         return localQueryRunner;
     }
 }

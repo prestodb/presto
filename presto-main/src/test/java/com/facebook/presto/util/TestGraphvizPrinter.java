@@ -67,7 +67,7 @@ public class TestGraphvizPrinter
             TupleDomain.all(),
             TupleDomain.all());
     private static final String TEST_TABLE_SCAN_NODE_INNER_OUTPUT = format(
-            "label=\"{TableScan | [TableHandle \\{connectorId='%s', connectorHandle='%s', layout='Optional.empty'\\}]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+            "label=\"{TableScan | [TableHandle \\{connectorId='%s', connectorHandle='%s', layout='Optional.empty', canReplicatedReads='false'\\}]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
                     "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue",
             TEST_CONNECTOR_ID,
             TEST_CONNECTOR_TABLE_HANDLE);
@@ -177,7 +177,7 @@ public class TestGraphvizPrinter
                 "label = \"SOURCE\"\n" +
                 "plannode_1[label=\"{CrossJoin[REPLICATED]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
                 "}\", style=\"rounded, filled\", shape=record, fillcolor=orange];\n" +
-                "plannode_2[label=\"{TableScan | [TableHandle \\{connectorId='connector_id', connectorHandle='com.facebook.presto.testing.TestingMetadata$TestingTableHandle@1af56f7', layout='Optional.empty'\\}]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+                "plannode_2[label=\"{TableScan | [TableHandle \\{connectorId='connector_id', connectorHandle='com.facebook.presto.testing.TestingMetadata$TestingTableHandle@1af56f7', layout='Optional.empty', canReplicatedReads='false'\\}]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
                 "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue];\n" +
                 "plannode_3[label=\"{Values|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
                 "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue];\n" +

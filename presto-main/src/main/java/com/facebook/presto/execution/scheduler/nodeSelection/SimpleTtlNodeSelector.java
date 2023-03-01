@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.scheduler.NodeScheduler.calculateLowWatermark;
+import static com.facebook.presto.execution.scheduler.NodeScheduler.replicatedReadsSelectDistributionNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
@@ -248,6 +249,12 @@ public class SimpleTtlNodeSelector
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
         return simpleNodeSelector.computeAssignments(splits, existingTasks, bucketNodeMap);
+    }
+
+    @Override
+    public SplitPlacementResult replicatedReadsComputeAssignments(Split split, List<RemoteTask> existingTasks, BucketNodeMap partitioning)
+    {
+        return replicatedReadsSelectDistributionNodes(maxPendingSplitsWeightPerTask, split, existingTasks, partitioning);
     }
 
     @VisibleForTesting

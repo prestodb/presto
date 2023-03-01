@@ -49,6 +49,7 @@ import java.util.function.ToLongFunction;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.calculateLowWatermark;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.canAssignSplitBasedOnWeight;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.randomizedNodes;
+import static com.facebook.presto.execution.scheduler.NodeScheduler.replicatedReadsSelectDistributionNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistributionNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
@@ -229,6 +230,12 @@ public class SimpleNodeSelector
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
+    }
+
+    @Override
+    public SplitPlacementResult replicatedReadsComputeAssignments(Split split, List<RemoteTask> existingTasks, BucketNodeMap partitioning)
+    {
+        return replicatedReadsSelectDistributionNodes(maxPendingSplitsWeightPerTask, split, existingTasks, partitioning);
     }
 
     protected Optional<InternalNodeInfo> chooseLeastBusyNode(SplitWeight splitWeight, List<InternalNode> candidateNodes, ToLongFunction<InternalNode> splitWeightProvider, OptionalInt preferredNodeCount, long maxSplitsWeight, NodeAssignmentStats assignmentStats)
