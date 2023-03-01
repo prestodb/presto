@@ -71,19 +71,19 @@ class TopN : public Operator {
       return false;
     }
 
-    // Returns true if lhs < decodeVectors[index], false otherwise.
+    // Returns true if decodeVectors[index] < rhs, false otherwise.
     bool operator()(
-        const char* lhs,
         const std::vector<DecodedVector>& decodedVectors,
-        vector_size_t index) {
+        vector_size_t index,
+        const char* rhs) {
       for (auto& key : keyInfo_) {
         if (auto result = rowContainer_->compare(
-                lhs,
+                rhs,
                 rowContainer_->columnAt(key.first),
                 decodedVectors[key.first],
                 index,
                 {key.second.isNullsFirst(), key.second.isAscending(), false})) {
-          return result < 0;
+          return result > 0;
         }
       }
       return false;
