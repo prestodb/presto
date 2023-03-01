@@ -502,12 +502,6 @@ class FilterGenerator {
   }
 
  private:
-  static void makeFieldSpecs(
-      const std::string& pathPrefix,
-      int32_t level,
-      const std::shared_ptr<const Type>& type,
-      ScanSpec* spec);
-
   static void collectFilterableSubFields(
       const RowType* rowType,
       std::vector<std::string>& subFields);

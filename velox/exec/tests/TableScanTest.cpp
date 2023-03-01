@@ -21,6 +21,7 @@
 #include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -282,6 +283,201 @@ TEST_F(TableScanTest, columnPruning) {
 
   op = tableScanNode(ROW({"c3", "c0"}, {REAL(), BIGINT()}));
   assertQuery(op, {filePath}, "SELECT c3, c0 FROM tmp");
+}
+
+TEST_F(TableScanTest, subfieldPruningRowType) {
+  auto innerType = ROW({"a", "b"}, {BIGINT(), DOUBLE()});
+  auto columnType = ROW({"c", "d"}, {innerType, BIGINT()});
+  auto rowType = ROW({"e"}, {columnType});
+  auto vectors = makeVectors(10, 1'000, rowType);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, vectors);
+  std::vector<common::Subfield> requiredSubfields;
+  requiredSubfields.emplace_back("c");
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      assignments;
+  assignments["e"] = std::make_shared<HiveColumnHandle>(
+      "e",
+      HiveColumnHandle::ColumnType::kRegular,
+      columnType,
+      std::move(requiredSubfields));
+  auto op = PlanBuilder()
+                .tableScan(rowType, makeTableHandle(), assignments)
+                .planNode();
+  auto split = makeHiveConnectorSplit(filePath->path);
+  auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
+  ASSERT_EQ(result->size(), 10'000);
+  auto rows = result->as<RowVector>();
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->childrenSize(), 1);
+  auto e = rows->childAt(0)->as<RowVector>();
+  ASSERT_TRUE(e);
+  ASSERT_EQ(e->childrenSize(), 2);
+  auto c = e->childAt(0)->as<RowVector>();
+  ASSERT_EQ(c->childrenSize(), 2);
+  int j = 0;
+  for (auto& vec : vectors) {
+    ASSERT_LE(j + vec->size(), c->size());
+    auto ee = vec->childAt(0)->as<RowVector>();
+    auto cc = ee->childAt(0);
+    for (int i = 0; i < vec->size(); ++i) {
+      if (ee->isNullAt(i) || cc->isNullAt(i)) {
+        ASSERT_TRUE(e->isNullAt(j) || c->isNullAt(j));
+      } else {
+        ASSERT_TRUE(cc->equalValueAt(c, i, j));
+      }
+      ++j;
+    }
+  }
+  ASSERT_EQ(j, c->size());
+  auto d = e->childAt(1);
+  ASSERT_EQ(d->size(), e->size());
+  for (int i = 0; i < d->size(); ++i) {
+    ASSERT_TRUE(e->isNullAt(i) || d->isNullAt(i));
+  }
+}
+
+TEST_F(TableScanTest, subfieldPruningMapType) {
+  auto valueType = ROW({"a", "b"}, {BIGINT(), DOUBLE()});
+  auto mapType = MAP(BIGINT(), valueType);
+  std::vector<RowVectorPtr> vectors;
+  constexpr int kMapSize = 5;
+  constexpr int kSize = 200;
+  for (int i = 0; i < 3; ++i) {
+    auto nulls = makeNulls(
+        kSize, [i](auto j) { return j >= i + 1 && j % 17 == (i + 1) % 17; });
+    auto offsets = allocateOffsets(kSize, pool());
+    auto* rawOffsets = offsets->asMutable<vector_size_t>();
+    auto lengths = allocateOffsets(kSize, pool());
+    auto* rawLengths = lengths->asMutable<vector_size_t>();
+    int mapEntrySize = 0;
+    for (int j = 0; j < kSize; ++j) {
+      rawOffsets[j] = mapEntrySize;
+      rawLengths[j] = bits::isBitNull(nulls->as<uint64_t>(), j) ? 0 : kMapSize;
+      mapEntrySize += rawLengths[j];
+    }
+    auto keys = makeFlatVector<int64_t>(
+        mapEntrySize, [](auto row) { return row % kMapSize; });
+    auto values = makeVectors(1, mapEntrySize, valueType)[0];
+    auto maps = std::make_shared<MapVector>(
+        pool(), mapType, nulls, kSize, offsets, lengths, keys, values);
+    vectors.push_back(makeRowVector({"c"}, {maps}));
+  }
+  auto rowType = asRowType(vectors[0]->type());
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, vectors);
+  std::vector<common::Subfield> requiredSubfields;
+  for (int i = 0; i < kMapSize; i += 2) {
+    std::vector<std::unique_ptr<common::Subfield::PathElement>> path;
+    path.push_back(std::make_unique<common::Subfield::LongSubscript>(i));
+    requiredSubfields.emplace_back(std::move(path));
+  }
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      assignments;
+  assignments["c"] = std::make_shared<HiveColumnHandle>(
+      "c",
+      HiveColumnHandle::ColumnType::kRegular,
+      mapType,
+      std::move(requiredSubfields));
+  auto op = PlanBuilder()
+                .tableScan(rowType, makeTableHandle(), assignments)
+                .planNode();
+  auto split = makeHiveConnectorSplit(filePath->path);
+  auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
+  ASSERT_EQ(result->size(), vectors.size() * kSize);
+  auto rows = result->as<RowVector>();
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->childrenSize(), 1);
+  auto maps = rows->childAt(0)->as<MapVector>();
+  ASSERT_TRUE(maps);
+  ASSERT_EQ(maps->size(), result->size());
+  for (int i = 0; i < maps->size(); ++i) {
+    auto expected =
+        vectors[i / kSize]->as<RowVector>()->childAt(0)->as<MapVector>();
+    int j = i % kSize;
+    if (expected->isNullAt(j)) {
+      ASSERT_TRUE(maps->isNullAt(i));
+      continue;
+    }
+    ASSERT_EQ(maps->sizeAt(i), 3);
+    for (int k = 0; k < 3; ++k) {
+      int ki = maps->offsetAt(i) + k;
+      int kj = expected->offsetAt(j) + 2 * k;
+      ASSERT_TRUE(
+          maps->mapKeys()->equalValueAt(expected->mapKeys().get(), ki, kj));
+      ASSERT_TRUE(
+          maps->mapValues()->equalValueAt(expected->mapValues().get(), ki, kj));
+    }
+  }
+}
+
+TEST_F(TableScanTest, subfieldPruningArrayType) {
+  auto elementType = ROW({"a", "b"}, {BIGINT(), DOUBLE()});
+  auto arrayType = ARRAY(elementType);
+  std::vector<RowVectorPtr> vectors;
+  constexpr int kArraySize = 5;
+  constexpr int kSize = 200;
+  for (int i = 0; i < 3; ++i) {
+    auto nulls = makeNulls(
+        kSize, [i](auto j) { return j >= i + 1 && j % 17 == (i + 1) % 17; });
+    auto offsets = allocateOffsets(kSize, pool());
+    auto* rawOffsets = offsets->asMutable<vector_size_t>();
+    auto lengths = allocateOffsets(kSize, pool());
+    auto* rawLengths = lengths->asMutable<vector_size_t>();
+    int arrayElementSize = 0;
+    for (int j = 0; j < kSize; ++j) {
+      rawOffsets[j] = arrayElementSize;
+      rawLengths[j] =
+          bits::isBitNull(nulls->as<uint64_t>(), j) ? 0 : kArraySize;
+      arrayElementSize += rawLengths[j];
+    }
+    auto elements = makeVectors(1, arrayElementSize, elementType)[0];
+    auto arrays = std::make_shared<ArrayVector>(
+        pool(), arrayType, nulls, kSize, offsets, lengths, elements);
+    vectors.push_back(makeRowVector({"c"}, {arrays}));
+  }
+  auto rowType = asRowType(vectors[0]->type());
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, vectors);
+  std::vector<common::Subfield> requiredSubfields;
+  std::vector<std::unique_ptr<common::Subfield::PathElement>> path;
+  path.push_back(std::make_unique<common::Subfield::LongSubscript>(2));
+  requiredSubfields.emplace_back(std::move(path));
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      assignments;
+  assignments["c"] = std::make_shared<HiveColumnHandle>(
+      "c",
+      HiveColumnHandle::ColumnType::kRegular,
+      arrayType,
+      std::move(requiredSubfields));
+  auto op = PlanBuilder()
+                .tableScan(rowType, makeTableHandle(), assignments)
+                .planNode();
+  auto split = makeHiveConnectorSplit(filePath->path);
+  auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
+  ASSERT_EQ(result->size(), vectors.size() * kSize);
+  auto rows = result->as<RowVector>();
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->childrenSize(), 1);
+  auto arrays = rows->childAt(0)->as<ArrayVector>();
+  ASSERT_TRUE(arrays);
+  ASSERT_EQ(arrays->size(), result->size());
+  for (int i = 0; i < arrays->size(); ++i) {
+    auto expected =
+        vectors[i / kSize]->as<RowVector>()->childAt(0)->as<ArrayVector>();
+    int j = i % kSize;
+    if (expected->isNullAt(j)) {
+      ASSERT_TRUE(arrays->isNullAt(i));
+      continue;
+    }
+    ASSERT_EQ(arrays->sizeAt(i), 3);
+    for (int k = 0; k < 3; ++k) {
+      int ki = arrays->offsetAt(i) + k;
+      int kj = expected->offsetAt(j) + k;
+      ASSERT_TRUE(
+          arrays->elements()->equalValueAt(expected->elements().get(), ki, kj));
+    }
+  }
 }
 
 // Test reading files written before schema change, e.g. missing newly added

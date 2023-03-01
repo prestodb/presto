@@ -56,9 +56,9 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   // Create row set for child columns based on the row set of parent column.
   void makeNestedRowSet(RowSet rows, int32_t maxRow);
 
-  // Compact the output rows (along with the offsets and lengths) based on the
-  // current filtered rows passed in.
-  void compactOffsets(RowSet rows);
+  // Compute the offsets and lengths based on the current filtered rows passed
+  // in.
+  void makeOffsetsAndSizes(RowSet rows);
 
   // Creates a struct if '*result' is empty and 'type' is a row.
   void prepareStructResult(
@@ -74,7 +74,8 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   RowSet applyFilter(RowSet rows);
 
   std::vector<int32_t> allLengths_;
-  raw_vector<vector_size_t> nestedRows_;
+  RowSet nestedRows_;
+  raw_vector<vector_size_t> nestedRowsHolder_;
   BufferPtr offsets_;
   BufferPtr sizes_;
   // The position in the child readers that corresponds to the

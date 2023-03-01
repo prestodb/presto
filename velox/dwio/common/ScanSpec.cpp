@@ -18,22 +18,29 @@
 #include "velox/dwio/common/Statistics.h"
 
 namespace facebook::velox::common {
-ScanSpec::ScanSpec(const ScanSpec& other)
-    : subscript_(other.subscript_),
-      fieldName_(other.fieldName_),
 
-      channel_(other.channel_),
-      constantValue_(other.constantValue_),
-      projectOut_(other.projectOut_),
-      extractValues_(other.extractValues_),
-      makeFlat_(other.makeFlat_),
-      filter_(other.filter_),
-      metadataFilters_(other.metadataFilters_),
-      selectivity_(other.selectivity_),
-      enableFilterReorder_(other.enableFilterReorder_),
-      children_(other.children_),
-      stableChildren_(other.stableChildren_),
-      valueHook_(other.valueHook_) {}
+ScanSpec& ScanSpec::operator=(const ScanSpec& other) {
+  if (this != &other) {
+    numReads_ = other.numReads_;
+    subscript_ = other.subscript_;
+    fieldName_ = other.fieldName_;
+    channel_ = other.channel_;
+    constantValue_ = other.constantValue_;
+    projectOut_ = other.projectOut_;
+    extractValues_ = other.extractValues_;
+    makeFlat_ = other.makeFlat_;
+    filter_ = other.filter_;
+    metadataFilters_ = other.metadataFilters_;
+    selectivity_ = other.selectivity_;
+    enableFilterReorder_ = other.enableFilterReorder_;
+    children_ = other.children_;
+    stableChildren_ = other.stableChildren_;
+    valueHook_ = other.valueHook_;
+    isArrayElementOrMapEntry_ = other.isArrayElementOrMapEntry_;
+    maxArrayElementsCount_ = other.maxArrayElementsCount_;
+  }
+  return *this;
+}
 
 ScanSpec* ScanSpec::getOrCreateChild(const Subfield& subfield) {
   auto container = this;
@@ -137,7 +144,7 @@ bool ScanSpec::hasFilter() const {
     return true;
   }
   for (auto& child : children_) {
-    if (child->hasFilter()) {
+    if (!child->isArrayElementOrMapEntry_ && child->hasFilter()) {
       hasFilter_ = true;
       return true;
     }
@@ -400,67 +407,58 @@ std::shared_ptr<ScanSpec> ScanSpec::removeChild(const ScanSpec* child) {
   return nullptr;
 }
 
-namespace {
+void ScanSpec::addFilter(const Filter& filter) {
+  filter_ = filter_ ? filter_->mergeWith(&filter) : filter.clone();
+}
 
-void makeFieldSpecs(
-    const std::string& pathPrefix,
-    int32_t level,
+ScanSpec* ScanSpec::addField(
+    const std::string& name,
     const Type& type,
-    ScanSpec* spec) {
-  constexpr int32_t kNoChannel = -1;
-  auto makeNestedSpec = [&](const std::string& name, int32_t channel) {
-    std::string path = level == 0 ? name : pathPrefix + "." + name;
-    auto fieldSpec = spec->getOrCreateChild(Subfield(path));
-    fieldSpec->setProjectOut(true);
-    if (channel != kNoChannel) {
-      fieldSpec->setChannel(channel);
-    }
-    return path;
-  };
+    column_index_t channel) {
+  auto child = getOrCreateChild(Subfield(name));
+  child->setProjectOut(true);
+  child->setChannel(channel);
+  child->addAllChildFields(type);
+  return child;
+}
 
+ScanSpec* ScanSpec::addMapKeys(const Type& type) {
+  auto* child = addField(kMapKeysFieldName, type, kNoChannel);
+  child->isArrayElementOrMapEntry_ = true;
+  return child;
+}
+
+ScanSpec* ScanSpec::addMapValues(const Type& type) {
+  auto* child = addField(kMapValuesFieldName, type, kNoChannel);
+  child->isArrayElementOrMapEntry_ = true;
+  return child;
+}
+
+ScanSpec* ScanSpec::addArrayElements(const Type& type) {
+  auto* child = addField(kArrayElementsFieldName, type, kNoChannel);
+  child->isArrayElementOrMapEntry_ = true;
+  return child;
+}
+
+void ScanSpec::addAllChildFields(const Type& type) {
   switch (type.kind()) {
     case TypeKind::ROW: {
-      auto rowType = type.as<TypeKind::ROW>();
+      auto& rowType = type.asRow();
       for (auto i = 0; i < type.size(); ++i) {
-        makeFieldSpecs(
-            makeNestedSpec(rowType.nameOf(i), i),
-            level + 1,
-            *type.childAt(i),
-            spec);
+        addField(rowType.nameOf(i), *type.childAt(i), i);
       }
       break;
     }
-    case TypeKind::MAP: {
-      makeFieldSpecs(
-          makeNestedSpec("keys", kNoChannel),
-          level + 1,
-          *type.childAt(0),
-          spec);
-      makeFieldSpecs(
-          makeNestedSpec("elements", kNoChannel),
-          level + 1,
-          *type.childAt(1),
-          spec);
+    case TypeKind::MAP:
+      addMapKeys(*type.childAt(0));
+      addMapValues(*type.childAt(1));
       break;
-    }
-    case TypeKind::ARRAY: {
-      makeFieldSpecs(
-          makeNestedSpec("elements", kNoChannel),
-          level + 1,
-          *type.childAt(0),
-          spec);
+    case TypeKind::ARRAY:
+      addArrayElements(*type.childAt(0));
       break;
-    }
-
     default:
       break;
   }
-}
-
-} // namespace
-
-void ScanSpec::addFields(const RowType& rowType) {
-  makeFieldSpecs("", 0, rowType, this);
 }
 
 } // namespace facebook::velox::common

@@ -490,6 +490,10 @@ TEST_F(E2EFilterTest, metadataFilter) {
   testMetadataFilter();
 }
 
+TEST_F(E2EFilterTest, subfieldsPruning) {
+  testSubfieldsPruning();
+}
+
 TEST_F(E2EFilterTest, map) {
   // Break up the leaf data in small pages to cover coalescing repdefs.
   writerProperties_ =

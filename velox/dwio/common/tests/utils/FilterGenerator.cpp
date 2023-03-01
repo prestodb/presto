@@ -218,56 +218,6 @@ std::unique_ptr<Filter> ColumnStats<StringView>::makeRowGroupSkipRangeFilter(
       max, false, false, max, false, false, false);
 }
 
-void FilterGenerator::makeFieldSpecs(
-    const std::string& pathPrefix,
-    int32_t level,
-    const std::shared_ptr<const Type>& type,
-    ScanSpec* spec) {
-  switch (type->kind()) {
-    case TypeKind::ROW: {
-      VELOX_CHECK_EQ(type->kind(), velox::TypeKind::ROW);
-      auto rowType = dynamic_cast<const RowType*>(type.get());
-      VELOX_CHECK_NOT_NULL(rowType, "Expecting a row type", type->kindName());
-      for (auto i = 0; i < type->size(); ++i) {
-        std::string path = level == 0 ? rowType->nameOf(i)
-                                      : pathPrefix + "." + rowType->nameOf(i);
-        Subfield subfield(path);
-        ScanSpec* fieldSpec = spec->getOrCreateChild(subfield);
-        fieldSpec->setProjectOut(true);
-        fieldSpec->setExtractValues(true);
-        fieldSpec->setChannel(i);
-        makeFieldSpecs(path, level + 1, type->childAt(i), spec);
-      }
-      break;
-    }
-    case TypeKind::MAP: {
-      auto keySpec = spec->getOrCreateChild(Subfield(pathPrefix + ".keys"));
-      keySpec->setProjectOut(true);
-      keySpec->setExtractValues(true);
-      makeFieldSpecs(pathPrefix + ".keys", level + 1, type->childAt(0), spec);
-      auto valueSpec =
-          spec->getOrCreateChild(Subfield(pathPrefix + ".elements"));
-      valueSpec->setProjectOut(true);
-      valueSpec->setExtractValues(true);
-      makeFieldSpecs(
-          pathPrefix + ".elements", level + 1, type->childAt(1), spec);
-      break;
-    }
-    case TypeKind::ARRAY: {
-      auto childSpec =
-          spec->getOrCreateChild(Subfield(pathPrefix + ".elements"));
-      childSpec->setProjectOut(true);
-      childSpec->setExtractValues(true);
-      makeFieldSpecs(
-          pathPrefix + ".elements", level + 1, type->childAt(0), spec);
-      break;
-    }
-
-    default:
-      break;
-  }
-}
-
 std::string FilterGenerator::specsToString(
     const std::vector<FilterSpec>& specs) {
   std::stringstream out;
@@ -399,11 +349,11 @@ std::vector<FilterSpec> FilterGenerator::makeRandomSpecs(
 std::shared_ptr<ScanSpec> FilterGenerator::makeScanSpec(
     SubfieldFilters filters) {
   auto spec = std::make_shared<ScanSpec>("root");
-  makeFieldSpecs("", 0, rowType_, spec.get());
+  spec->addAllChildFields(*rowType_);
 
   for (auto& pair : filters) {
     auto fieldSpec = spec->getOrCreateChild(pair.first);
-    fieldSpec->setFilter(std::move(pair.second));
+    fieldSpec->addFilter(*pair.second);
   }
   return spec;
 }

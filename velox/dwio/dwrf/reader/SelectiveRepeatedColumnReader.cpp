@@ -58,7 +58,8 @@ SelectiveListColumnReader::SelectiveListColumnReader(
       cs.shouldReadNode(childType->id),
       "SelectiveListColumnReader must select the values stream");
   if (scanSpec_->children().empty()) {
-    scanSpec.getOrCreateChild(common::Subfield("elements"));
+    scanSpec.getOrCreateChild(
+        common::Subfield(common::ScanSpec::kArrayElementsFieldName));
   }
   scanSpec_->children()[0]->setProjectOut(true);
   scanSpec_->children()[0]->setExtractValues(true);
@@ -85,8 +86,10 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
   EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
   auto& stripe = params.stripeStreams();
   if (scanSpec_->children().empty()) {
-    scanSpec_->getOrCreateChild(common::Subfield("keys"));
-    scanSpec_->getOrCreateChild(common::Subfield("elements"));
+    scanSpec_->getOrCreateChild(
+        common::Subfield(common::ScanSpec::kMapKeysFieldName));
+    scanSpec_->getOrCreateChild(
+        common::Subfield(common::ScanSpec::kMapValuesFieldName));
   }
   scanSpec_->children()[0]->setProjectOut(true);
   scanSpec_->children()[0]->setExtractValues(true);

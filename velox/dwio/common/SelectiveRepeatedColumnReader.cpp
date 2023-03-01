@@ -30,19 +30,14 @@ void SelectiveRepeatedColumnReader::makeNestedRowSet(
   // Reads the lengths, leaves an uninitialized gap for a null
   // map/list. Reading these checks the null mask.
   readLengths(allLengths_.data(), maxRow + 1, nulls);
-  dwio::common::ensureCapacity<vector_size_t>(
-      offsets_, rows.size(), &memoryPool_);
-  dwio::common::ensureCapacity<vector_size_t>(
-      sizes_, rows.size(), &memoryPool_);
-  auto rawOffsets = offsets_->asMutable<vector_size_t>();
-  auto rawSizes = sizes_->asMutable<vector_size_t>();
   vector_size_t nestedLength = 0;
   for (auto row : rows) {
     if (!nulls || !bits::isBitNull(nulls, row)) {
-      nestedLength += allLengths_[row];
+      nestedLength +=
+          std::min(scanSpec_->maxArrayElementsCount(), allLengths_[row]);
     }
   }
-  nestedRows_.resize(nestedLength);
+  nestedRowsHolder_.resize(nestedLength);
   vector_size_t currentRow = 0;
   vector_size_t nestedRow = 0;
   vector_size_t nestedOffset = 0;
@@ -56,27 +51,17 @@ void SelectiveRepeatedColumnReader::makeNestedRowSet(
       }
     }
     currentRow = row + 1;
-    // Check if parent is null after adding up the lengths leading
-    // up to this. If null, add a null to the result and keep
-    // looping. If the null is last, the lengths will all have been
-    // added up.
     if (nulls && bits::isBitNull(nulls, row)) {
-      rawOffsets[rowIndex] = 0;
-      rawSizes[rowIndex] = 0;
-      bits::setNull(rawResultNulls_, rowIndex);
-      anyNulls_ = true;
       continue;
     }
-
-    auto lengthAtRow = allLengths_[row];
+    auto lengthAtRow =
+        std::min(scanSpec_->maxArrayElementsCount(), allLengths_[row]);
     std::iota(
-        &nestedRows_[nestedRow],
-        &nestedRows_[nestedRow + lengthAtRow],
+        nestedRowsHolder_.data() + nestedRow,
+        nestedRowsHolder_.data() + nestedRow + lengthAtRow,
         nestedOffset);
-    rawOffsets[rowIndex] = nestedRow;
-    rawSizes[rowIndex] = lengthAtRow;
     nestedRow += lengthAtRow;
-    nestedOffset += lengthAtRow;
+    nestedOffset += allLengths_[row];
   }
   for (auto i = currentRow; i <= maxRow; ++i) {
     if (!nulls || !bits::isBitNull(nulls, i)) {
@@ -84,40 +69,49 @@ void SelectiveRepeatedColumnReader::makeNestedRowSet(
     }
   }
   childTargetReadOffset_ += nestedOffset;
+  nestedRows_ = nestedRowsHolder_;
 }
 
-void SelectiveRepeatedColumnReader::compactOffsets(RowSet rows) {
-  auto rawOffsets = offsets_->asMutable<vector_size_t>();
-  auto rawSizes = sizes_->asMutable<vector_size_t>();
-  RowSet rowsToCompact;
-  if (valueRows_.empty()) {
-    valueRows_.resize(rows.size());
-    rowsToCompact = outputRows();
-  } else {
-    rowsToCompact = valueRows_;
-  }
-  if (rows.size() == rowsToCompact.size()) {
-    return;
-  }
-
-  int32_t current = 0;
-  bool moveNulls = shouldMoveNulls(rows);
+void SelectiveRepeatedColumnReader::makeOffsetsAndSizes(RowSet rows) {
+  dwio::common::ensureCapacity<vector_size_t>(
+      offsets_, rows.size(), &memoryPool_);
+  dwio::common::ensureCapacity<vector_size_t>(
+      sizes_, rows.size(), &memoryPool_);
+  auto* rawOffsets = offsets_->asMutable<vector_size_t>();
+  auto* rawSizes = sizes_->asMutable<vector_size_t>();
+  auto* nulls = nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
+  vector_size_t currentRow = 0;
+  vector_size_t currentOffset = 0;
+  vector_size_t nestedRowIndex = 0;
   for (int i = 0; i < rows.size(); ++i) {
     auto row = rows[i];
-    while (rowsToCompact[current] < row) {
-      ++current;
+    for (auto j = currentRow; j < row; ++j) {
+      if (!nulls || !bits::isBitNull(nulls, j)) {
+        currentOffset += allLengths_[j];
+      }
     }
-    VELOX_CHECK(rowsToCompact[current] == row);
-    valueRows_[i] = row;
-    rawOffsets[i] = rawOffsets[current];
-    rawSizes[i] = rawSizes[current];
-    if (moveNulls && i != current) {
-      bits::setBit(
-          rawResultNulls_, i, bits::isBitSet(rawResultNulls_, current));
+    currentRow = row + 1;
+    while (nestedRowIndex < nestedRows_.size() &&
+           nestedRows_[nestedRowIndex] < currentOffset) {
+      ++nestedRowIndex;
+    }
+    rawOffsets[i] = nestedRowIndex;
+    if (nulls && bits::isBitNull(nulls, row)) {
+      rawSizes[i] = 0;
+      bits::setNull(rawResultNulls_, i);
+      anyNulls_ = true;
+    } else {
+      vector_size_t length = 0;
+      currentOffset += allLengths_[row];
+      while (nestedRowIndex < nestedRows_.size() &&
+             nestedRows_[nestedRowIndex] < currentOffset) {
+        ++length;
+        ++nestedRowIndex;
+      }
+      rawSizes[i] = length;
     }
   }
   numValues_ = rows.size();
-  valueRows_.resize(numValues_);
   offsets_->setSize(numValues_ * sizeof(vector_size_t));
   sizes_->setSize(numValues_ * sizeof(vector_size_t));
 }
@@ -191,7 +185,7 @@ void SelectiveListColumnReader::read(
 }
 
 void SelectiveListColumnReader::getValues(RowSet rows, VectorPtr* result) {
-  compactOffsets(rows);
+  makeOffsetsAndSizes(rows);
   VectorPtr elements;
   if (child_ && !nestedRows_.empty()) {
     prepareStructResult(type_->childAt(0), &elements);
@@ -264,6 +258,7 @@ void SelectiveMapColumnReader::read(
   makeNestedRowSet(activeRows, rows.back());
   if (keyReader_ && elementReader_ && !nestedRows_.empty()) {
     keyReader_->read(keyReader_->readOffset(), nestedRows_, nullptr);
+    nestedRows_ = keyReader_->outputRows();
     elementReader_->read(elementReader_->readOffset(), nestedRows_, nullptr);
   }
   numValues_ = activeRows.size();
@@ -271,7 +266,7 @@ void SelectiveMapColumnReader::read(
 }
 
 void SelectiveMapColumnReader::getValues(RowSet rows, VectorPtr* result) {
-  compactOffsets(rows);
+  makeOffsetsAndSizes(rows);
   VectorPtr keys;
   VectorPtr values;
   VELOX_CHECK(

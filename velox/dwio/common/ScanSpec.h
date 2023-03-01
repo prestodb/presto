@@ -40,6 +40,9 @@ namespace common {
 class ScanSpec {
  public:
   static constexpr column_index_t kNoChannel = ~0;
+  static constexpr const char* kMapKeysFieldName = "keys";
+  static constexpr const char* kMapValuesFieldName = "values";
+  static constexpr const char* kArrayElementsFieldName = "elements";
 
   explicit ScanSpec(const Subfield::PathElement& element) {
     if (element.kind() == kNestedField) {
@@ -53,7 +56,11 @@ class ScanSpec {
 
   explicit ScanSpec(const std::string& name) : fieldName_(name) {}
 
-  ScanSpec(const ScanSpec& other);
+  ScanSpec(const ScanSpec& other) {
+    *this = other;
+  }
+
+  ScanSpec& operator=(const ScanSpec&);
 
   // Filter to apply. If 'this' corresponds to a struct/list/map, this
   // can only be isNull or isNotNull, other filtering is given by
@@ -66,6 +73,16 @@ class ScanSpec {
   // pushed down filter, e.g. top k cutoff.
   void setFilter(std::unique_ptr<Filter> filter) {
     filter_ = std::move(filter);
+  }
+
+  void addFilter(const Filter&);
+
+  void setMaxArrayElementsCount(vector_size_t count) {
+    maxArrayElementsCount_ = count;
+  }
+
+  vector_size_t maxArrayElementsCount() const {
+    return maxArrayElementsCount_;
   }
 
   void addMetadataFilter(
@@ -157,7 +174,6 @@ class ScanSpec {
   // Position in the RowVector returned by the top level scan. Applies
   // only to children of the root struct where projectOut_ is true.
   column_index_t channel() const {
-    VELOX_CHECK(channel_ != kNoChannel);
     return channel_;
   }
 
@@ -261,8 +277,11 @@ class ScanSpec {
     makeFlat_ = makeFlat;
   }
 
-  // True if this or a descendant has a filter. This may change as a
-  // result of runtime adaptation.
+  // True if this or a descendant has a filter that will affect the number of
+  // output rows.  Note that filter on map keys and array indices is not
+  // counted, as they do not change the number of container output rows.
+  //
+  // This may change as a result of runtime adaptation.
   bool hasFilter() const;
 
   // Resets cached values after this or children were updated, e.g. a new filter
@@ -293,9 +312,20 @@ class ScanSpec {
 
   std::string toString() const;
 
-  // Add all fields from RowType to this ScanSpec.  All fields added will be
+  // Add a field and its children recursively to this ScanSpec, all projected
+  // out.
+  ScanSpec*
+  addField(const std::string& name, const Type&, column_index_t channel);
+
+  ScanSpec* addMapKeys(const Type&);
+
+  ScanSpec* addMapValues(const Type&);
+
+  ScanSpec* addArrayElements(const Type&);
+
+  // Add all child fields on the type recursively to this ScanSpec, all
   // projected out.
-  void addFields(const RowType&);
+  void addAllChildFields(const Type&);
 
  private:
   void reorder();
@@ -364,6 +394,14 @@ class ScanSpec {
 
   mutable std::optional<bool> hasFilter_;
   ValueHook* valueHook_ = nullptr;
+
+  // If this node is map key/value or array element, filter will not be
+  // propagated to parent.
+  bool isArrayElementOrMapEntry_ = false;
+
+  // Only take the first maxArrayElementsCount_ elements from each array.
+  vector_size_t maxArrayElementsCount_ =
+      std::numeric_limits<vector_size_t>::max();
 };
 
 // Returns false if no value from a range defined by stats can pass the

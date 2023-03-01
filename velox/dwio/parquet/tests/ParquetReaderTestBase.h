@@ -115,14 +115,7 @@ class ParquetReaderTestBase : public testing::Test {
   std::shared_ptr<velox::common::ScanSpec> makeScanSpec(
       const RowTypePtr& rowType) {
     auto scanSpec = std::make_shared<velox::common::ScanSpec>("");
-
-    for (auto i = 0; i < rowType->size(); ++i) {
-      auto child = scanSpec->getOrCreateChild(
-          velox::common::Subfield(rowType->nameOf(i)));
-      child->setProjectOut(true);
-      child->setChannel(i);
-    }
-
+    scanSpec->addAllChildFields(*rowType);
     return scanSpec;
   }
 

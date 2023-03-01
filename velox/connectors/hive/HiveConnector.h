@@ -37,8 +37,12 @@ class HiveColumnHandle : public ColumnHandle {
   HiveColumnHandle(
       const std::string& name,
       ColumnType columnType,
-      TypePtr dataType)
-      : name_(name), columnType_(columnType), dataType_(std::move(dataType)) {}
+      TypePtr dataType,
+      std::vector<common::Subfield> requiredSubfields = {})
+      : name_(name),
+        columnType_(columnType),
+        dataType_(std::move(dataType)),
+        requiredSubfields_(std::move(requiredSubfields)) {}
 
   const std::string& name() const {
     return name_;
@@ -52,6 +56,26 @@ class HiveColumnHandle : public ColumnHandle {
     return dataType_;
   }
 
+  // Applies to columns of complex types: arrays, maps and structs.  When a
+  // query uses only some of the subfields, the engine provides the complete
+  // list of required subfields and the connector is free to prune the rest.
+  //
+  // Examples:
+  //  - SELECT a[1], b['x'], x.y FROM t
+  //  - SELECT a FROM t WHERE b['y'] > 10
+  //
+  // Pruning a struct means populating some of the members with null values.
+  //
+  // Pruning a map means dropping keys not listed in the required subfields.
+  //
+  // Pruning arrays means dropping values with indices larger than maximum
+  // required index.
+  //
+  // Only one level of subfield is supported for pruning.
+  const std::vector<common::Subfield>& requiredSubfields() const {
+    return requiredSubfields_;
+  }
+
   bool isPartitionKey() const {
     return columnType_ == ColumnType::kPartitionKey;
   }
@@ -60,6 +84,7 @@ class HiveColumnHandle : public ColumnHandle {
   const std::string name_;
   const ColumnType columnType_;
   const TypePtr dataType_;
+  const std::vector<common::Subfield> requiredSubfields_;
 };
 
 using SubfieldFilters =
@@ -140,6 +165,14 @@ class HiveDataSource : public DataSource {
   void setFromDataSource(std::shared_ptr<DataSource> source) override;
 
   int64_t estimatedRowSize() override;
+
+  // Internal API, made public to be accessible in unit tests.  Do not use in
+  // other places.
+  static std::shared_ptr<common::ScanSpec> makeScanSpec(
+      const SubfieldFilters& filters,
+      const RowTypePtr& rowType,
+      const std::vector<const HiveColumnHandle*>& columnHandles,
+      memory::MemoryPool* pool);
 
  private:
   // Evaluates remainingFilter_ on the specified vector. Returns number of rows

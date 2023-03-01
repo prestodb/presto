@@ -91,16 +91,15 @@ std::vector<KeyNode<T>> getKeyNodes(
   auto& stripe = params.stripeStreams();
   auto keyPredicate = prepareKeyPredicate<T>(requestedType, stripe);
 
-  std::shared_ptr<common::ScanSpec> elementsSpec;
+  std::shared_ptr<common::ScanSpec> keysSpec;
+  std::shared_ptr<common::ScanSpec> valuesSpec;
   if (!asStruct) {
-    if (auto keys = scanSpec.childByName("keys")) {
-      scanSpec.removeChild(keys);
+    if (auto keys = scanSpec.childByName(common::ScanSpec::kMapKeysFieldName)) {
+      keysSpec = scanSpec.removeChild(keys);
     }
-    if (auto elements = scanSpec.childByName("elements")) {
-      elementsSpec = scanSpec.removeChild(elements);
-      if (!requestedValueType->type->isRow()) {
-        elementsSpec.reset();
-      }
+    if (auto values =
+            scanSpec.childByName(common::ScanSpec::kMapValuesFieldName)) {
+      valuesSpec = scanSpec.removeChild(values);
     }
   }
 
@@ -139,17 +138,19 @@ std::vector<KeyNode<T>> getKeyNodes(
           // Column not selected in 'scanSpec', skipping it.
           return;
         } else {
+          if (keysSpec && keysSpec->filter() &&
+              !common::applyFilter(*keysSpec->filter(), key.get())) {
+            return; // Subfield pruning
+          }
           childSpec =
               scanSpec.getOrCreateChild(common::Subfield(toString(key.get())));
           childSpec->setProjectOut(true);
           childSpec->setExtractValues(true);
-          if (elementsSpec) {
-            for (auto& elementsChild : elementsSpec->children()) {
+          if (valuesSpec) {
+            for (auto& valuesChild : valuesSpec->children()) {
               auto c = childSpec->getOrCreateChild(
-                  common::Subfield(elementsChild->fieldName()));
-              c->setProjectOut(true);
-              c->setExtractValues(true);
-              c->setChannel(elementsChild->channel());
+                  common::Subfield(valuesChild->fieldName()));
+              *c = *valuesChild;
             }
           }
           childSpecs[key] = childSpec;

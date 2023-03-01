@@ -270,6 +270,8 @@ class E2EFilterTestBase : public testing::Test {
  protected:
   void testMetadataFilter();
 
+  void testSubfieldsPruning();
+
   // Allows testing reading with different batch sizes.
   void resetReadBatchSizes() {
     nextReadSizeIndex_ = 0;
