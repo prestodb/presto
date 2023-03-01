@@ -10,21 +10,25 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     div.body {max-width: 1300px;}
     table.coverage th {background-color: lightblue; text-align: center;}
     table.coverage td:nth-child(6) {background-color: lightblue;}
+    table.coverage td:nth-child(8) {background-color: lightblue;}
     table.coverage tr:nth-child(1) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(1) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(1) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(1) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(1) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(2) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(2) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(3) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(4) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(4) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(4) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(5) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(5) td:nth-child(7) {background-color: #6BA81E;}
@@ -37,24 +41,32 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(7) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(7) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(7) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(7) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(8) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(8) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(8) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(8) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(8) td:nth-child(9) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(9) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(9) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(9) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(10) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(10) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(10) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(10) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(10) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(10) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(11) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(11) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(11) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(11) td:nth-child(7) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(11) td:nth-child(9) {background-color: #6BA81E;}
     table.coverage tr:nth-child(12) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(12) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(12) td:nth-child(3) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(12) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(12) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(2) {background-color: #6BA81E;}
@@ -64,6 +76,8 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     table.coverage tr:nth-child(14) td:nth-child(2) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(14) td:nth-child(4) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(15) td:nth-child(1) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(15) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(15) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(16) td:nth-child(2) {background-color: #6BA81E;}
@@ -212,24 +226,24 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     :widths: auto
     :class: coverage
 
-    ========================================  ========================================  ========================================  ========================================  ========================================  ==  ========================================
-    Scalar Functions                                                                                                                                                                                                      Aggregate Functions
-    ================================================================================================================================================================================================================  ==  ========================================
-    :func:`abs`                               :func:`date_diff`                         :func:`is_json_scalar`                    render                                    st_points                                     :func:`approx_distinct`
-    :func:`acos`                              :func:`date_format`                       :func:`is_nan`                            :func:`repeat`                            st_polygon                                    :func:`approx_most_frequent`
-    all_match                                 :func:`date_parse`                        is_subnet_of                              :func:`replace`                           st_relate                                     :func:`approx_percentile`
-    any_match                                 :func:`date_trunc`                        jaccard_index                             :func:`reverse`                           st_startpoint                                 :func:`approx_set`
-    array_average                             :func:`day`                               :func:`json_array_contains`               rgb                                       st_symdifference                              :func:`arbitrary`
-    :func:`array_distinct`                    :func:`day_of_month`                      json_array_get                            :func:`round`                             st_touches                                    :func:`array_agg`
-    :func:`array_duplicates`                  :func:`day_of_week`                       :func:`json_array_length`                 :func:`rpad`                              st_union                                      :func:`avg`
-    :func:`array_except`                      :func:`day_of_year`                       json_extract                              :func:`rtrim`                             st_within                                     :func:`bitwise_and_agg`
-    array_frequency                           :func:`degrees`                           :func:`json_extract_scalar`               scale_qdigest                             st_x                                          :func:`bitwise_or_agg`
-    :func:`array_has_duplicates`              :func:`dow`                               :func:`json_format`                       :func:`second`                            st_xmax                                       :func:`bool_and`
-    :func:`array_intersect`                   :func:`doy`                               json_parse                                sequence                                  st_xmin                                       :func:`bool_or`
-    :func:`array_join`                        :func:`e`                                 :func:`json_size`                         sha1                                      st_y                                          :func:`checksum`
+    ========================================  ========================================  ========================================  ========================================  ========================================  ==  ========================================  ==  ========================================
+    Scalar Functions                                                                                                                                                                                                      Aggregate Functions                           Window Functions
+    ================================================================================================================================================================================================================  ==  ========================================  ==  ========================================
+    :func:`abs`                               :func:`date_diff`                         :func:`is_json_scalar`                    render                                    st_points                                     :func:`approx_distinct`                       :func:`cume_dist`
+    :func:`acos`                              :func:`date_format`                       :func:`is_nan`                            :func:`repeat`                            st_polygon                                    :func:`approx_most_frequent`                  :func:`dense_rank`
+    all_match                                 :func:`date_parse`                        is_subnet_of                              :func:`replace`                           st_relate                                     :func:`approx_percentile`                     first_value
+    any_match                                 :func:`date_trunc`                        jaccard_index                             :func:`reverse`                           st_startpoint                                 :func:`approx_set`                            lag
+    :func:`array_average`                     :func:`day`                               :func:`json_array_contains`               rgb                                       st_symdifference                              :func:`arbitrary`                             last_value
+    :func:`array_distinct`                    :func:`day_of_month`                      json_array_get                            :func:`round`                             st_touches                                    :func:`array_agg`                             lead
+    :func:`array_duplicates`                  :func:`day_of_week`                       :func:`json_array_length`                 :func:`rpad`                              st_union                                      :func:`avg`                                   :func:`nth_value`
+    :func:`array_except`                      :func:`day_of_year`                       json_extract                              :func:`rtrim`                             st_within                                     :func:`bitwise_and_agg`                       :func:`ntile`
+    :func:`array_frequency`                   :func:`degrees`                           :func:`json_extract_scalar`               scale_qdigest                             st_x                                          :func:`bitwise_or_agg`                        :func:`percent_rank`
+    :func:`array_has_duplicates`              :func:`dow`                               :func:`json_format`                       :func:`second`                            st_xmax                                       :func:`bool_and`                              :func:`rank`
+    :func:`array_intersect`                   :func:`doy`                               :func:`json_parse`                        sequence                                  st_xmin                                       :func:`bool_or`                               :func:`row_number`
+    :func:`array_join`                        :func:`e`                                 :func:`json_size`                         :func:`sha1`                              st_y                                          :func:`checksum`
     :func:`array_max`                         :func:`element_at`                        :func:`least`                             :func:`sha256`                            st_ymax                                       classification_fall_out
     :func:`array_min`                         :func:`empty_approx_set`                  :func:`length`                            :func:`sha512`                            st_ymin                                       classification_miss_rate
-    array_normalize                           enum_key                                  levenshtein_distance                      shuffle                                   :func:`strpos`                                classification_precision
+    :func:`array_normalize`                   enum_key                                  levenshtein_distance                      :func:`shuffle`                           :func:`strpos`                                classification_precision
     :func:`array_position`                    :func:`exp`                               line_interpolate_point                    :func:`sign`                              :func:`strrpos`                               classification_recall
     array_remove                              expand_envelope                           line_locate_point                         simplify_geometry                         :func:`substr`                                classification_thresholds
     :func:`array_sort`                        features                                  :func:`ln`                                :func:`sin`                               :func:`tan`                                   convex_hull_agg
@@ -285,4 +299,4 @@ Here is a list of all scalar and aggregate Presto functions with functions that 
     current_timezone                          ip_subnet_range                           regexp_split                              st_overlaps
     date                                      :func:`is_finite`                         regress                                   st_point
     :func:`date_add`                          :func:`is_infinite`                       reidentification_potential                st_pointn
-    ========================================  ========================================  ========================================  ========================================  ========================================  ==  ========================================
+    ========================================  ========================================  ========================================  ========================================  ========================================  ==  ========================================  ==  ========================================
