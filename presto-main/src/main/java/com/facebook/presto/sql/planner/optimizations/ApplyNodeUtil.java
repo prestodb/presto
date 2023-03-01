@@ -34,7 +34,7 @@ public final class ApplyNodeUtil
     {
         checkArgument(
                 assignments.getExpressions().stream().allMatch(ApplyNodeUtil::isSupportedSubqueryExpression),
-                "Unexpected expression used for subquery expression");
+                "Unexpected expression used for subquery expression: %s", assignments.getExpressions());
     }
 
     private static boolean isSupportedSubqueryExpression(RowExpression expression)
