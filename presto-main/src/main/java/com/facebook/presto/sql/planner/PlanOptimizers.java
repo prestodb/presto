@@ -391,7 +391,6 @@ public class PlanOptimizers
                                 new ImplementBernoulliSampleAsFilter(),
                                 new ImplementOffset())),
                 simplifyOptimizer,
-                new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()),
                 // TODO: move this before optimization if possible!!
                 // Replace all expressions with row expressions
                 new IterativeOptimizer(
@@ -400,6 +399,7 @@ public class PlanOptimizers
                         costCalculator,
                         new TranslateExpressions(metadata, sqlParser).rules()),
                 // After this point, all planNodes should not contain OriginalExpression
+                new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
