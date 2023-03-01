@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -22,6 +24,11 @@ import java.util.List;
 
 import static com.facebook.presto.Session.builder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
@@ -1373,6 +1380,17 @@ public abstract class AbstractTestAggregations
         String doNotTrigger = "SELECT DISTINCT suppkey, cnt FROM (SELECT suppkey, COUNT(*) AS cnt FROM lineitem GROUP BY suppkey " +
                 "UNION ALL SELECT suppkey, COUNT(*) AS cnt FROM lineitem GROUP BY suppkey) order by 1, 2";
         assertQuery(doNotTrigger, doNotTrigger);
+    }
+
+    @Test
+    public void testRemoveConstantBeforeGroupBy()
+    {
+        String query = "SELECT nationkey, cast(1 as varchar) from nation group by nationkey, cast(1 as varchar)";
+        // Test that constant("1") project is above aggregation node.
+        assertPlan(query,
+                anyTree(project(
+                        ImmutableMap.of("expr", expression("1")),
+                        node(AggregationNode.class, anyTree(tableScan("nation"))))));
     }
 
     @DataProvider(name = "getType")

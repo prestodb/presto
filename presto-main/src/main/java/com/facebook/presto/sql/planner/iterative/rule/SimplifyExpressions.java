@@ -39,6 +39,11 @@ import static com.facebook.presto.sql.planner.iterative.rule.PushDownNegationsEx
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Remove this class in favor of SimplifyRowExpressions.
+ * It is only used in tests so far. Not removing as of now
+ */
+@Deprecated
 public class SimplifyExpressions
         extends ExpressionRewriteRuleSet
 {

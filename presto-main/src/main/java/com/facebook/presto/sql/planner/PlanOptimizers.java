@@ -115,7 +115,6 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioning
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCardinalityMap;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
-import com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
@@ -302,12 +301,6 @@ public class PlanOptimizers
                         new PushProjectionThroughUnion(),
                         new PushProjectionThroughExchange()));
 
-        IterativeOptimizer simplifyOptimizer = new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                estimatedExchangesCostCalculator,
-                new SimplifyExpressions(metadata, sqlParser).rules());
-
         IterativeOptimizer simplifyRowExpressionOptimizer = new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
@@ -389,7 +382,6 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new ImplementBernoulliSampleAsFilter(),
                                 new ImplementOffset())),
-                simplifyOptimizer,
                 // TODO: move this before optimization if possible!!
                 // Replace all expressions with row expressions
                 new IterativeOptimizer(
@@ -398,6 +390,7 @@ public class PlanOptimizers
                         costCalculator,
                         new TranslateExpressions(metadata, sqlParser).rules()),
                 // After this point, all planNodes should not contain OriginalExpression
+                simplifyRowExpressionOptimizer,
                 new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(
                         ruleStats,
