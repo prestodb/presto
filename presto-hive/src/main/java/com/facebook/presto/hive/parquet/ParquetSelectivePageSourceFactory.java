@@ -21,6 +21,7 @@ import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveFileSplit;
+import com.facebook.presto.hive.HivePageSourceProvider;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -56,6 +57,8 @@ public class ParquetSelectivePageSourceFactory
 
     @Override
     public Optional<? extends ConnectorPageSource> createPageSource(
+            List<HivePageSourceProvider.ColumnMapping> columnMappings,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             Configuration configuration,
             ConnectorSession session,
             HiveFileSplit fileSplit,

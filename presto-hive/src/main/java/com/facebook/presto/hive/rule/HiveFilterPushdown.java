@@ -84,6 +84,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetPushdownFilterEnabled;
+import static com.facebook.presto.hive.HiveStorageFormat.ALPHA;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveWarningCode.HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
@@ -160,6 +161,7 @@ public class HiveFilterPushdown
      * all inside the TableScan. If filters are pushed down inside the TableScan, it would try to apply
      * it on base row. In these cases, override this method and return true. This will prevent the
      * expression from being pushed into the TableScan but will wrap the TableScanNode in a FilterNode.
+     *
      * @param expression expression to be evaluated.
      * @param tableHandle tableHandler where the expression to be evaluated.
      * @param columnHandleMap column name to column handle Map for all columns in the table.
@@ -546,13 +548,13 @@ public class HiveFilterPushdown
         }
 
         boolean pushdownFilterEnabled = HiveSessionProperties.isPushdownFilterEnabled(session);
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getMetadata(tableHandle).getTableMetadata(session, tableHandle.getConnectorHandle()).getProperties());
         if (pushdownFilterEnabled) {
-            HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getMetadata(tableHandle).getTableMetadata(session, tableHandle.getConnectorHandle()).getProperties());
             if (hiveStorageFormat == HiveStorageFormat.ORC || hiveStorageFormat == HiveStorageFormat.DWRF || hiveStorageFormat == HiveStorageFormat.PARQUET && isParquetPushdownFilterEnabled(session)) {
                 return true;
             }
         }
-        return false;
+        return hiveStorageFormat == ALPHA;
     }
 
     private static DomainTranslator.ExtractionResult intersectExtractionResult(DomainTranslator.ExtractionResult left, DomainTranslator.ExtractionResult right)
@@ -608,7 +610,8 @@ public class HiveFilterPushdown
     }
 
     private static class VariableReferenceBuilderVisitor
-            extends DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<VariableReferenceExpression>>
+            extends
+            DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<VariableReferenceExpression>>
     {
         @Override
         public Void visitVariableReference(VariableReferenceExpression variable, ImmutableSet.Builder<VariableReferenceExpression> builder)

@@ -29,6 +29,8 @@ import java.util.Optional;
 public interface HiveSelectivePageSourceFactory
 {
     Optional<? extends ConnectorPageSource> createPageSource(
+            List<HivePageSourceProvider.ColumnMapping> columnMappings,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             Configuration configuration,
             ConnectorSession session,
             HiveFileSplit fileSplit,

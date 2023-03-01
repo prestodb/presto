@@ -34,6 +34,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveFileSplit;
 import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
+import com.facebook.presto.hive.HivePageSourceProvider;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.SubfieldExtractor;
@@ -199,6 +200,8 @@ public class OrcSelectivePageSourceFactory
 
     @Override
     public Optional<? extends ConnectorPageSource> createPageSource(
+            List<HivePageSourceProvider.ColumnMapping> columnMappings,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
             Configuration configuration,
             ConnectorSession session,
             HiveFileSplit fileSplit,
@@ -674,7 +677,8 @@ public class OrcSelectivePageSourceFactory
     }
 
     private static class InputReferenceBuilderVisitor
-            extends DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<Integer>>
+            extends
+            DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<Integer>>
     {
         @Override
         public Void visitInputReference(InputReferenceExpression input, ImmutableSet.Builder<Integer> builder)

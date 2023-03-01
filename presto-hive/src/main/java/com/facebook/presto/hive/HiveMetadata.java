@@ -234,6 +234,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnab
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUsePageFileForHiveUnsupportedType;
 import static com.facebook.presto.hive.HiveSessionProperties.shouldCreateEmptyBucketFilesForTemporaryTable;
+import static com.facebook.presto.hive.HiveStorageFormat.ALPHA;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
@@ -2157,8 +2158,8 @@ public class HiveMetadata
      * This is required when we are overwriting the partitions by directly writing the new
      * files to the existing directory, where files written by older queries may be present too.
      *
-     * @param  session  the ConnectorSession object
-     * @param  partitionPath the path of the partition from where the older files are to be deleted
+     * @param session the ConnectorSession object
+     * @param partitionPath the path of the partition from where the older files are to be deleted
      */
     private void removeNonCurrentQueryFiles(ConnectorSession session, Path partitionPath)
     {
@@ -2762,13 +2763,13 @@ public class HiveMetadata
     private boolean isPushdownFilterEnabled(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         boolean pushdownFilterEnabled = HiveSessionProperties.isPushdownFilterEnabled(session);
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getTableMetadata(session, tableHandle).getProperties());
         if (pushdownFilterEnabled) {
-            HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getTableMetadata(session, tableHandle).getProperties());
             if (hiveStorageFormat == ORC || hiveStorageFormat == DWRF || hiveStorageFormat == PARQUET && isParquetPushdownFilterEnabled(session)) {
                 return true;
             }
         }
-        return false;
+        return hiveStorageFormat == ALPHA;
     }
 
     private List<Column> pruneColumnComments(List<Column> columns)
@@ -3644,13 +3645,13 @@ public class HiveMetadata
                     if (!(columnType instanceof RowType)) {
                         throw new PrestoException(
                                 INVALID_TABLE_PROPERTY,
-                                format("In %s subfields declared in %s, but %s has type %s", ENCRYPT_COLUMNS, columnWithSubfield.toString(), column.getName(), column.getType().getDisplayName()));
+                                format("In %s subfields declared in %s, but %s has type %s", ENCRYPT_COLUMNS, columnWithSubfield, column.getName(), column.getType().getDisplayName()));
                     }
 
                     if (seenColumns.contains(parentPath)) {
                         throw new PrestoException(
                                 INVALID_TABLE_PROPERTY,
-                                format("For (%s) found a keyReference at a higher level field (%s)", columnWithSubfield.toString(), parentPath));
+                                format("For (%s) found a keyReference at a higher level field (%s)", columnWithSubfield, parentPath));
                     }
 
                     RowType row = (RowType) columnType;
@@ -3660,7 +3661,7 @@ public class HiveMetadata
                             .map(RowType.Field::getType)
                             .orElseThrow(() -> new PrestoException(
                                     INVALID_TABLE_PROPERTY,
-                                    format("In %s subfields declared in %s, but %s has type %s", ENCRYPT_COLUMNS, columnWithSubfield.toString(), column.getName(), column.getType().getDisplayName())));
+                                    format("In %s subfields declared in %s, but %s has type %s", ENCRYPT_COLUMNS, columnWithSubfield, column.getName(), column.getType().getDisplayName())));
 
                     parentPath = format("%s.%s", parentPath, pathFragment);
                 }

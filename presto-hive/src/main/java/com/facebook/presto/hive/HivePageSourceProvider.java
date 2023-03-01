@@ -301,10 +301,25 @@ public class HivePageSourceProvider
         if (shouldSkipPartition(typeManager, layout, hiveStorageTimeZone, split, splitContext)) {
             return Optional.of(new HiveEmptySplitPageSource());
         }
+        ///
+        List<ColumnMapping> allColumnMappings = ColumnMapping.buildColumnMappings(
+                split.getPartitionKeys(),
+                allColumns,
+                split.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
+                split.getTableToPartitionMapping(),
+                split.getFileSplit(),
+                split.getTableBucketNumber());
 
+        TupleDomain<HiveColumnHandle> effectivePredicate = layout.getDomainPredicate()
+                .transform(Subfield::getRootName)
+                .transform(layout.getPredicateColumns()::get);
+        TupleDomain<HiveColumnHandle> domainPredicate = splitContext.getDynamicFilterPredicate().map(filter -> filter.transform(handle -> (HiveColumnHandle) handle).intersect(effectivePredicate)).orElse(effectivePredicate);
+        ///
         CacheQuota cacheQuota = generateCacheQuota(split);
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
+                    allColumnMappings,
+                    domainPredicate,
                     configuration,
                     session,
                     split.getFileSplit(),
