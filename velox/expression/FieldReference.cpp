@@ -87,6 +87,11 @@ void FieldReference::evalSpecialForm(
     result = useDecode ? std::move(decoded.wrap(child, *input, rows.end()))
                        : std::move(child);
   }
+
+  // Check for nulls in the input struct. Propagate these nulls to 'result'.
+  if (!inputs_.empty() && decoded.mayHaveNulls()) {
+    addNulls(rows, decoded.nulls(), context, result);
+  }
 }
 
 void FieldReference::evalSpecialFormSimplified(
