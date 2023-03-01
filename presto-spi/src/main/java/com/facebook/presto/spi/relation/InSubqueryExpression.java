@@ -93,7 +93,7 @@ public class InSubqueryExpression
     @Override
     public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
-        return visitor.visitIntermediateFormExpression(this, context);
+        return visitor.visitInSubqueryExpression(this, context);
     }
 
     @Override
