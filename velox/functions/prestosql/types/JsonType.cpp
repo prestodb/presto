@@ -621,8 +621,6 @@ FOLLY_ALWAYS_INLINE void castFromJsonTyped<TypeKind::MAP>(
   auto& writerTyped = writer.castTo<Map<Any, Any>>();
 
   for (const auto& pair : object.items()) {
-    VELOX_USER_CHECK(!pair.first.isNull(), "Map keys cannot be NULL.");
-
     // If casting to map of JSON values, nulls in map values should become the
     // JSON text "null".
     if (!isJsonType(writer.type()->childAt(1)) && pair.second.isNull()) {
