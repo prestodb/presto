@@ -13,25 +13,47 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestMergeFilters
         extends BaseRuleTest
 {
+    private TestingRowExpressionTranslator sqlToRowExpressionTranslator;
+
+    public TestMergeFilters()
+    {
+    }
+
+    @BeforeClass
+    public void setupTranslator()
+    {
+        this.sqlToRowExpressionTranslator = new TestingRowExpressionTranslator(tester().getMetadata());
+    }
+
     @Test
     public void test()
     {
-        tester().assertThat(new MergeFilters())
+        tester().assertThat(new MergeFilters(getFunctionManager()))
                 .on(p ->
-                        p.filter(expression("b > 44"),
-                                p.filter(expression("a < 42"),
+                        p.filter(sqlToRowExpression("b > 44"),
+                                p.filter(sqlToRowExpression("a < 42"),
                                         p.values(p.variable("a"), p.variable("b")))))
                 .matches(filter("(a < 42) AND (b > 44)", values(ImmutableMap.of("a", 0, "b", 1))));
+    }
+
+    private RowExpression sqlToRowExpression(String sql)
+    {
+        return sqlToRowExpressionTranslator.translateAndOptimize(PlanBuilder.expression(sql), TypeProvider.copyOf(ImmutableMap.of("a", BIGINT, "b", BIGINT)));
     }
 }

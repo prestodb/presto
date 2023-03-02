@@ -15,26 +15,29 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isOffsetClauseEnabled;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.offset;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.Expressions.comparisonExpression;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
@@ -57,6 +60,14 @@ public class ImplementOffset
         implements Rule<OffsetNode>
 {
     private static final Pattern<OffsetNode> PATTERN = offset();
+
+    private final StandardFunctionResolution functionResolution;
+
+    public ImplementOffset(FunctionAndTypeManager functionAndTypeManager)
+    {
+        requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+    }
 
     @Override
     public Pattern<OffsetNode> getPattern()
@@ -86,15 +97,12 @@ public class ImplementOffset
                 parent.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 rowNumberNode,
-                castToRowExpression(new ComparisonExpression(
-                        ComparisonExpression.Operator.GREATER_THAN,
-                        createSymbolReference(rowNumberSymbol),
-                        new GenericLiteral("BIGINT", Long.toString(parent.getCount())))));
+                comparisonExpression(functionResolution, GREATER_THAN, rowNumberSymbol, new ConstantExpression(parent.getCount(), BIGINT)));
 
         ProjectNode projectNode = new ProjectNode(
                 context.getIdAllocator().getNextId(),
                 filterNode,
-                identityAssignmentsAsSymbolReferences(parent.getOutputVariables()));
+                identityAssignments(parent.getOutputVariables()));
 
         return Result.ofPlanNode(projectNode);
     }

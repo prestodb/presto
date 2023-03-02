@@ -22,7 +22,6 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -35,7 +34,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static java.util.stream.Collectors.toSet;
 
@@ -124,8 +122,7 @@ public class MultipleDistinctAggregationToMarkDistinct
 
             if (aggregation.isDistinct() && !aggregation.getFilter().isPresent() && !aggregation.getMask().isPresent()) {
                 Set<VariableReferenceExpression> inputs = aggregation.getArguments().stream()
-                        .map(OriginalExpressionUtils::castToExpression)
-                        .map(expression -> toVariableReference(context.getVariableAllocator(), expression))
+                        .map(VariableReferenceExpression.class::cast)
                         .collect(toSet());
 
                 VariableReferenceExpression marker = markers.get(inputs);
