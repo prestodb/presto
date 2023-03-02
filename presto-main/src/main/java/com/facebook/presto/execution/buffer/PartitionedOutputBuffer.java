@@ -318,4 +318,15 @@ public class PartitionedOutputBuffer
     {
         return memoryManager;
     }
+
+    @Override
+    public boolean isAllPagesConsumed()
+    {
+        for (ClientBuffer partition : partitions) {
+            if (!partition.isEmptyPages()) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

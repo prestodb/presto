@@ -265,12 +265,13 @@ public class TaskInfoFetcher
         }
 
         // if throttled due to error, asynchronously wait for timeout and try again
+        /**  removing ex backoff temporarily for prototype
         ListenableFuture<?> errorRateLimit = errorTracker.acquireRequestPermit();
         if (!errorRateLimit.isDone()) {
             errorRateLimit.addListener(this::sendNextRequest, executor);
             return;
         }
-
+        */
         MetadataUpdates metadataUpdateRequests = taskInfo.getMetadataUpdates();
         if (!metadataUpdateRequests.getMetadataUpdates().isEmpty()) {
             scheduleMetadataUpdates(metadataUpdateRequests);

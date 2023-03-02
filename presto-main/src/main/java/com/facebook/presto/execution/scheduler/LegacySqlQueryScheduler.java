@@ -445,7 +445,8 @@ public class LegacySqlQueryScheduler
                         // modify parent and children based on the results of the scheduling
                         if (result.isFinished()) {
                             if (stageExecution.getFragment().isLeaf()) {
-                                if (stageExecution.noMoreRetry() || stageScheduler instanceof FixedSourcePartitionedScheduler) {
+                                boolean isNoMoreRetry = stageExecution.noMoreRetry();
+                                if (isNoMoreRetry || stageScheduler instanceof FixedSourcePartitionedScheduler) {
                                     stageExecution.schedulingComplete();
                                 }
                             }

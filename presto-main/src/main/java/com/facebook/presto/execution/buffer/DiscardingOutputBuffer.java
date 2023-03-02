@@ -181,4 +181,10 @@ public class DiscardingOutputBuffer
     {
         return 0;
     }
+
+    @Override
+    public boolean isAllPagesConsumed()
+    {
+        return true;
+    }
 }

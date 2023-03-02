@@ -153,7 +153,7 @@ public class OperatorStats
             @JsonProperty("info") OperatorInfo info,
             @JsonProperty("runtimeStats") RuntimeStats runtimeStats,
             @Nullable
-            @JsonProperty("poolType") String poolType)
+            @JsonProperty("poolType") String poolType,
             @JsonProperty("nullJoinBuildKeyCount") long nullJoinBuildKeyCount,
             @JsonProperty("joinBuildKeyCount") long joinBuildKeyCount)
     {
@@ -271,7 +271,7 @@ public class OperatorStats
             @Nullable
                     OperatorInfoUnion infoUnion,
             @Nullable
-            String poolType,
+                    String poolType,
             long nullJoinBuildKeyCount,
             long joinBuildKeyCount)
     {
@@ -617,14 +617,6 @@ public class OperatorStats
         return infoUnion;
     }
 
-    @Nullable
-    @JsonProperty
-    @ThriftField(40)
-    public String getPoolType()
-    {
-        return poolType;
-    }
-
     @JsonProperty
     @ThriftField(40)
     public long getNullJoinBuildKeyCount()
@@ -637,6 +629,14 @@ public class OperatorStats
     public long getJoinBuildKeyCount()
     {
         return joinBuildKeyCount;
+    }
+
+    @Nullable
+    @JsonProperty
+    @ThriftField(42)
+    public String getPoolType()
+    {
+        return poolType;
     }
 
     public OperatorStats add(OperatorStats operatorStats)

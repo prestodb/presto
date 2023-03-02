@@ -671,7 +671,7 @@ public final class HttpRemoteTask
                 && unprocessedSplits.keySet().iterator().next().equals(planNodeId);
     }
 
-    public synchronized Collection<ScheduledSplit> getAllSplits(PlanNodeId planNodeId)
+    public synchronized Collection<ScheduledSplit> getAllUnprocessedSplits(PlanNodeId planNodeId)
     {
         return unprocessedSplits.get(planNodeId).values();
     }

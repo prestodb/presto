@@ -143,4 +143,10 @@ public class TestingOutputBuffer
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public boolean isAllPagesConsumed()
+    {
+        return false;
+    }
 }

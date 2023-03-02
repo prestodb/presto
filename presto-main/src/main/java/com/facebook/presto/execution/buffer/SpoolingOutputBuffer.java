@@ -772,4 +772,10 @@ public class SpoolingOutputBuffer
             return handleInfos;
         }
     }
+
+    @Override
+    public boolean isAllPagesConsumed()
+    {
+        return pages.isEmpty();
+    }
 }

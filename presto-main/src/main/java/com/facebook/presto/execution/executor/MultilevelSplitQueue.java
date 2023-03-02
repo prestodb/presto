@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.executor;
 
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -120,6 +122,11 @@ public class MultilevelSplitQueue
         finally {
             lock.unlock();
         }
+    }
+
+    private boolean isSplitAlreadyStarted(PrioritizedSplitRunner split)
+    {
+        return split.getStartNanos() != 0;
     }
 
     public PrioritizedSplitRunner take()
@@ -265,6 +272,63 @@ public class MultilevelSplitQueue
             for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
                 level.removeAll(splits);
             }
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    public boolean isEligibleForGracefulShutdown(TaskId taskId, Set<PrioritizedSplitRunner> blockedSplit, Set<PrioritizedSplitRunner> runningSplits)
+    {
+        lock.lock();
+        if (containsTaskSplit(taskId, blockedSplit) || containsTaskSplit(taskId, runningSplits)) {
+            return false;
+        }
+        try {
+            for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
+                for (PrioritizedSplitRunner split : level) {
+                    if (!split.getTaskHandle().getTaskId().equals(taskId)) {
+                        continue;
+                    }
+                    if (isSplitAlreadyStarted(split)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    private boolean containsTaskSplit(TaskId taskId, Set<PrioritizedSplitRunner> splitRunners)
+    {
+        return splitRunners.stream().filter(split -> split.getTaskHandle().getTaskId().equals(taskId)).count() > 0;
+    }
+
+    public String getSplitViewSnapshot()
+    {
+        lock.lock();
+        try {
+            StringBuilder builder = new StringBuilder();
+            List<String> levelData = new ArrayList<>();
+            for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
+                for (PrioritizedSplitRunner split : level) {
+                    StringBuilder levelBuilder = new StringBuilder();
+                    String state = isSplitAlreadyStarted(split) ? "started" : "not_started";
+                    levelBuilder.append(state);
+                    levelBuilder.append(":");
+                    levelBuilder.append(split.getSplitSequenceID());
+                    levelData.add(levelBuilder.toString());
+                }
+            }
+            for (int level = 0; level < levelData.size(); level++) {
+                builder.append("Level " + level + ":=======>\n");
+                builder.append(levelData.get(level));
+                builder.append("\n");
+            }
+            return builder.toString();
         }
         finally {
             lock.unlock();

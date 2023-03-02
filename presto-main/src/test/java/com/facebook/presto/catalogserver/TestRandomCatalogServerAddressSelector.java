@@ -67,8 +67,7 @@ public class TestRandomCatalogServerAddressSelector
                         "1",
                         false,
                         false,
-                        true,
-                        Optional.empty()));
+                        true));
         internalNodeManager.addNode(
                 CONNECTOR_ID,
                 new InternalNode(
@@ -78,8 +77,7 @@ public class TestRandomCatalogServerAddressSelector
                         "1",
                         false,
                         false,
-                        true,
-                        Optional.empty()));
+                        true));
         internalNodeManager.addNode(
                 CONNECTOR_ID,
                 new InternalNode(
@@ -89,8 +87,7 @@ public class TestRandomCatalogServerAddressSelector
                         "1",
                         false,
                         false,
-                        true,
-                        Optional.empty()));
+                        true));
 
         Optional<SimpleAddressSelector.SimpleAddress> address = selector.selectAddress(Optional.empty());
         assertTrue(address.isPresent());

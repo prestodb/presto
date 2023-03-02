@@ -24,6 +24,7 @@ import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
+import com.facebook.presto.execution.executor.TaskShutdownStats;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.MetadataUpdates;
@@ -35,6 +36,7 @@ import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
+import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -74,7 +76,7 @@ public class SqlTask
     private static final Logger log = Logger.get(SqlTask.class);
 
     private final TaskId taskId;
-    private final Optional<String> poolType;
+    private final NodePoolType poolType;
     private final TaskInstanceId taskInstanceId;
     private final URI location;
     private final String nodeId;
@@ -104,7 +106,7 @@ public class SqlTask
             DataSize maxBufferSize,
             CounterStat failedTasks,
             SpoolingOutputBufferFactory spoolingOutputBufferFactory,
-            Optional<String> poolType)
+            NodePoolType poolType)
     {
         SqlTask sqlTask = new SqlTask(
                 taskId,
@@ -131,7 +133,7 @@ public class SqlTask
             ExecutorService taskNotificationExecutor,
             DataSize maxBufferSize,
             SpoolingOutputBufferFactory spoolingOutputBufferFactory,
-            Optional<String> poolType)
+            NodePoolType poolType)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = new TaskInstanceId(UUID.randomUUID());
@@ -285,6 +287,7 @@ public class SqlTask
         long fullGcCount = 0;
         long fullGcTimeInMillis = 0L;
         long totalCpuTimeInNanos = 0L;
+        Optional<TaskShutdownStats> hostShutdownStats = Optional.empty();
         LongSet completedSplits = LongArraySet.of();
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
@@ -318,8 +321,8 @@ public class SqlTask
             fullGcCount = taskContext.getFullGcCount();
             fullGcTimeInMillis = taskContext.getFullGcTime().toMillis();
             completedSplits = taskContext.getCompletedSplitSequenceIds();
+            hostShutdownStats = taskContext.getHostShutdownStats();
         }
-
         return new TaskStatus(
                 taskInstanceId.getUuidLeastSignificantBits(),
                 taskInstanceId.getUuidMostSignificantBits(),

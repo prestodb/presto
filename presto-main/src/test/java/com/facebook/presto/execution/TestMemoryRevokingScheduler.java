@@ -31,6 +31,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -799,7 +800,7 @@ public class TestMemoryRevokingScheduler
                 new DataSize(32, MEGABYTE),
                 new CounterStat(),
                 new SpoolingOutputBufferFactory(new FeaturesConfig()),
-                Optional.empty());
+                NodePoolType.DEFAULT);
     }
 
     private QueryContext getOrCreateQueryContext(QueryId queryId, MemoryPool memoryPool)

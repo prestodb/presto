@@ -52,6 +52,64 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTaskExecutor
 {
+    @Test
+    public void testLeafTaskExecution()
+            throws Exception
+    {
+        TestingTicker ticker = new TestingTicker();
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, TASK_FAIR, ticker);
+        taskExecutor.start();
+        ticker.increment(20, MILLISECONDS);
+
+        try {
+            TaskId taskId = new TaskId("test", 0, 0, 0, 0);
+            TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            Phaser beginPhase = new Phaser();
+            beginPhase.register();
+            Phaser verificationComplete = new Phaser();
+            verificationComplete.register();
+            // add one more job
+            TestingJob driver3 = new TestingJob(ticker, new Phaser(1), beginPhase, verificationComplete, 10, 0);
+            ListenableFuture<?> future3 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver3)));
+
+            // advance one phase and verify
+            beginPhase.arriveAndAwaitAdvance();
+            assertEquals(driver3.getCompletedPhases(), 0);
+            verificationComplete.arriveAndAwaitAdvance();
+
+            // advance to the end of the first two task and verify
+            beginPhase.arriveAndAwaitAdvance();
+            for (int i = 0; i < 7; i++) {
+                verificationComplete.arriveAndAwaitAdvance();
+                beginPhase.arriveAndAwaitAdvance();
+                assertEquals(beginPhase.getPhase(), verificationComplete.getPhase() + 1);
+            }
+
+            assertEquals(driver3.getCompletedPhases(), 8);
+
+            verificationComplete.arriveAndAwaitAdvance();
+
+            // advance two more times and verify
+            beginPhase.arriveAndAwaitAdvance();
+            verificationComplete.arriveAndAwaitAdvance();
+            beginPhase.arriveAndAwaitAdvance();
+
+            assertEquals(driver3.getCompletedPhases(), 10);
+            future3.get(1, SECONDS);
+            verificationComplete.arriveAndAwaitAdvance();
+            assertEquals(driver3.getFirstPhase(), 2);
+            assertEquals(driver3.getLastPhase(), 12);
+
+            // no splits remaining
+            ticker.increment(610, SECONDS);
+            assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
     @Test(invocationCount = 100)
     public void testTasksComplete()
             throws Exception

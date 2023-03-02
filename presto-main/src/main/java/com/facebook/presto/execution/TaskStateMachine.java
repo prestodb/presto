@@ -15,12 +15,12 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.spi.NodePoolType;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -40,7 +40,7 @@ public class TaskStateMachine
     private final TaskId taskId;
     private final StateMachine<TaskState> taskState;
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
-    private Optional<String> poolType = Optional.empty();
+    private NodePoolType poolType = NodePoolType.DEFAULT;
 
     public TaskStateMachine(TaskId taskId, Executor executor)
     {
@@ -56,12 +56,12 @@ public class TaskStateMachine
         });
     }
 
-    public Optional<String> getPoolType()
+    public NodePoolType getPoolType()
     {
         return poolType;
     }
 
-    public void setPoolType(Optional<String> poolType)
+    public void setPoolType(NodePoolType poolType)
     {
         this.poolType = poolType;
     }

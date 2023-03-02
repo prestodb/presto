@@ -132,7 +132,7 @@ public class OperatorContext
         operatorMemoryContext.initializeLocalMemoryContexts(operatorType);
         //TODO added temporarily for debugging
         RuntimeStats poolTypeStats = new RuntimeStats();
-        poolTypeStats.addMetricValue(driverContext.getPipelineContext().getTaskContext().getPoolType(), NONE, 1);
+        poolTypeStats.addMetricValue(driverContext.getPipelineContext().getTaskContext().getPoolType().name(), NONE, 1);
         runtimeStats.update(poolTypeStats);
     }
 
@@ -566,7 +566,7 @@ public class OperatorContext
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info,
                 runtimeStats,
-                driverContext.getPipelineContext().getTaskContext().getPoolType());
+                driverContext.getPipelineContext().getTaskContext().getPoolType().name(),
                 nullJoinBuildKeyCount.get(),
                 joinBuildKeyCount.get());
     }

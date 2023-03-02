@@ -20,6 +20,7 @@ import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.executor.TaskHandle;
+import com.facebook.presto.execution.executor.TaskShutdownManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -259,12 +260,15 @@ public class SqlTaskExecution
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor)
     {
+        TaskShutdownManager taskShutdownManager = new TaskShutdownManager(taskStateMachine, taskContext);
         TaskHandle taskHandle = taskExecutor.addTask(
                 taskStateMachine.getTaskId(),
                 outputBuffer::getUtilization,
                 getInitialSplitsPerNode(taskContext.getSession()),
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
-                getMaxDriversPerTask(taskContext.getSession()));
+                getMaxDriversPerTask(taskContext.getSession()),
+                Optional.of(taskShutdownManager),
+                Optional.of(outputBuffer));
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 taskExecutor.removeTask(taskHandle);

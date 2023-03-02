@@ -67,8 +67,7 @@ public class TestRandomResourceManagerAddressSelector
                     "1",
                     false,
                     true,
-                    false,
-                        Optional.empty()));
+                    false));
         internalNodeManager.addNode(
                 CONNECTOR_ID,
                 new InternalNode(
@@ -78,8 +77,7 @@ public class TestRandomResourceManagerAddressSelector
                         "1",
                         false,
                         true,
-                        false,
-                        Optional.empty()));
+                        false));
         internalNodeManager.addNode(
                 CONNECTOR_ID,
                 new InternalNode(
@@ -89,8 +87,7 @@ public class TestRandomResourceManagerAddressSelector
                         "1",
                         false,
                         true,
-                        false,
-                        Optional.empty()));
+                        false));
 
         Optional<SimpleAddressSelector.SimpleAddress> address = selector.selectAddress(Optional.empty());
         assertTrue(address.isPresent());

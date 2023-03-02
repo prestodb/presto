@@ -507,7 +507,8 @@ public class PrestoSparkTaskExecution
         @Override
         public ScheduledSplit getScheduledSplit()
         {
-            return partitionedSplit;
+            //FIXME changed to fix compilation error
+            return scheduledSplits.get(0);
         }
     }
 }

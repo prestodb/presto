@@ -429,4 +429,15 @@ public class BroadcastOutputBuffer
     {
         return memoryManager;
     }
+
+    @Override
+    public boolean isAllPagesConsumed()
+    {
+        for (ClientBuffer partition : buffers.values()) {
+            if (!partition.isEmptyPages()) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

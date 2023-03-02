@@ -66,6 +66,7 @@ import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.TaskThresholdMemoryRevokingScheduler;
 import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
+import com.facebook.presto.execution.executor.FaultInjector;
 import com.facebook.presto.execution.executor.MultilevelSplitQueue;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
@@ -427,9 +428,7 @@ public class ServerMainModule
         newOptionalBinder(binder, ClusterQueryTrackerService.class);
         install(installModuleIf(
                 ServerConfig.class,
-                serverConfig1 -> {
-                    return serverConfig1.isResourceManagerEnabled() && serverConfig1.isResourceManager();
-                },
+                ServerConfig::isResourceManagerEnabled,
                 new Module()
                 {
                     @Override
@@ -781,6 +780,7 @@ public class ServerMainModule
         //Optional Status Detector
         newOptionalBinder(binder, NodeStatusService.class);
         binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
+        binder.bind(FaultInjector.class).in(Scopes.SINGLETON);
     }
 
     @Provides

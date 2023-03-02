@@ -18,6 +18,7 @@ import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
+import com.facebook.presto.operator.HostShuttingDownException;
 import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.HostAddress;
@@ -101,6 +102,7 @@ public final class Failures
 
         String type;
         HostAddress remoteHost = null;
+        Long failureDetectionTime = null;
         if (throwable instanceof Failure) {
             type = ((Failure) throwable).getType();
         }
@@ -111,9 +113,12 @@ public final class Failures
         if (throwable instanceof PrestoTransportException) {
             remoteHost = ((PrestoTransportException) throwable).getRemoteHost();
         }
+        else if (throwable instanceof HostShuttingDownException) {
+            failureDetectionTime = ((HostShuttingDownException) throwable).getShutdownTimeInNanos();
+        }
 
         if (seenFailures.contains(throwable)) {
-            return new ExecutionFailureInfo(type, "[cyclic] " + throwable.getMessage(), null, ImmutableList.of(), ImmutableList.of(), null, GENERIC_INTERNAL_ERROR.toErrorCode(), remoteHost, UNKNOWN);
+            return new ExecutionFailureInfo(type, "[cyclic] " + throwable.getMessage(), null, ImmutableList.of(), ImmutableList.of(), null, GENERIC_INTERNAL_ERROR.toErrorCode(), remoteHost, UNKNOWN, null);
         }
         seenFailures.add(throwable);
 
@@ -139,7 +144,8 @@ public final class Failures
                 getErrorLocation(throwable),
                 errorCode,
                 remoteHost,
-                toErrorCause(throwable));
+                toErrorCause(throwable),
+                failureDetectionTime);
     }
 
     @Nullable
