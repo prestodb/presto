@@ -128,6 +128,11 @@ public class PrioritizedSplitRunner
         return createdNanos;
     }
 
+    public long getStartNanos()
+    {
+        return start.get();
+    }
+
     public boolean isFinished()
     {
         boolean finished = split.isFinished();

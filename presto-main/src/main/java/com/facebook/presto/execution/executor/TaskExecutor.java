@@ -94,8 +94,8 @@ public class TaskExecutor
     private static final Duration LONG_SPLIT_WARNING_THRESHOLD = new Duration(600, SECONDS);
     // Interrupt a split if it is running longer than this AND it's blocked on something known
     private static final Predicate<List<StackTraceElement>> DEFAULT_INTERRUPTIBLE_SPLIT_PREDICATE = elements ->
-                    elements.stream()
-                            .anyMatch(element -> element.getClassName().equals(JoniRegexpFunctions.class.getName()));
+            elements.stream()
+                    .anyMatch(element -> element.getClassName().equals(JoniRegexpFunctions.class.getName()));
     private static final Duration DEFAULT_INTERRUPT_SPLIT_INTERVAL = new Duration(60, SECONDS);
 
     private static final AtomicLong NEXT_RUNNER_ID = new AtomicLong();
@@ -159,6 +159,7 @@ public class TaskExecutor
     private final TimeStat splitQueuedTime = new TimeStat(NANOSECONDS);
     private final TimeStat splitWallTime = new TimeStat(NANOSECONDS);
 
+    private final TimeDistribution leafSplitExecutionTime = new TimeDistribution(MICROSECONDS);
     private final TimeDistribution leafSplitWallTime = new TimeDistribution(MICROSECONDS);
     private final TimeDistribution intermediateSplitWallTime = new TimeDistribution(MICROSECONDS);
 
@@ -448,6 +449,12 @@ public class TaskExecutor
         return finishedFutures;
     }
 
+    @Managed
+    public synchronized int getTargetSplitConcurrencyPerTask()
+    {
+        return tasks.stream().map(task -> task.concurrencyController.getTargetConcurrency()).max(Integer::max).orElse(0);
+    }
+
     private void splitFinished(PrioritizedSplitRunner split)
     {
         completedSplitsPerLevel.incrementAndGet(split.getPriority().getLevel());
@@ -457,6 +464,7 @@ public class TaskExecutor
             long wallNanos = System.nanoTime() - split.getCreatedNanos();
             splitWallTime.add(Duration.succinctNanos(wallNanos));
 
+            long splitExecutionTimeNanos = System.nanoTime() - split.getStartNanos();
             if (intermediateSplits.remove(split)) {
                 intermediateSplitWallTime.add(wallNanos);
                 intermediateSplitScheduledTime.add(split.getScheduledNanos());
@@ -464,8 +472,12 @@ public class TaskExecutor
                 intermediateSplitCpuTime.add(split.getCpuTimeNanos());
             }
             else {
+                leafSplitExecutionTime.add(splitExecutionTimeNanos);
+                //time when the splitrunner was created to time when it is finished. So end to end time
                 leafSplitWallTime.add(wallNanos);
+                //Time after we are done schedule run for the split by calling split.processFor(SPLIT_RUN_QUANTA) -  time when we start to process the split
                 leafSplitScheduledTime.add(split.getScheduledNanos());
+                //time when the PrioritizedSplitRunner instance was created to time before it was scheduled to run. Its kind of wait time in the split queue
                 leafSplitWaitTime.add(split.getWaitNanos());
                 leafSplitCpuTime.add(split.getCpuTimeNanos());
             }
@@ -853,6 +865,13 @@ public class TaskExecutor
     public TimeDistribution getLeafSplitWallTime()
     {
         return leafSplitWallTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeDistribution getLeafSplitExecutionTime()
+    {
+        return leafSplitExecutionTime;
     }
 
     @Managed
