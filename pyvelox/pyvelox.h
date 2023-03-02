@@ -291,9 +291,6 @@ inline void addDataTypeBindings(
       m, "MapType", py::module_local(asModuleLocalDefinitions));
   py::class_<RowType, Type, std::shared_ptr<RowType>> rowType(
       m, "RowType", py::module_local(asModuleLocalDefinitions));
-  py::class_<FixedSizeArrayType, Type, std::shared_ptr<FixedSizeArrayType>>
-      fixedArrayType(
-          m, "FixedSizeArrayType", py::module_local(asModuleLocalDefinitions));
 
   // Basic operations on Type.
   type.def("__str__", &Type::toString);
@@ -332,9 +329,6 @@ inline void addDataTypeBindings(
   arrayType.def(py::init<std::shared_ptr<Type>>());
   arrayType.def(
       "element_type", &ArrayType::elementType, "Return the element type");
-  fixedArrayType.def(py::init<int, velox::TypePtr>())
-      .def("element_type", &velox::FixedSizeArrayType::elementType)
-      .def("fixed_width", &velox::FixedSizeArrayType::fixedElementsWidth);
   mapType.def(py::init<std::shared_ptr<Type>, std::shared_ptr<Type>>());
   mapType.def("key_type", &MapType::keyType, "Return the key type");
   mapType.def("value_type", &MapType::valueType, "Return the value type");

@@ -398,28 +398,6 @@ class VectorMaker {
         ARRAY(CppToType<T>::create()), size, sizeAt, valueAt, isNullAt);
   }
 
-  /// Create a FixedArrayVector<T>
-  /// size and null for individual array is determined by sizeAt and isNullAt
-  /// value for elements of each array in a given row is determined by valueAt.
-  template <typename T>
-  ArrayVectorPtr fixedSizeArrayVector(
-      int len,
-      vector_size_t size,
-      std::function<T(vector_size_t /* row */, vector_size_t /* idx */)>
-          valueAt,
-      std::function<bool(vector_size_t /*row */)> isNullAt) {
-    return arrayVectorImpl(
-        FIXED_SIZE_ARRAY(len, CppToType<T>::create()),
-        size,
-        [=](vector_size_t i) -> vector_size_t {
-          // All entries are the same fixed size, _except_ null entries are size
-          // 0.
-          return isNullAt(i) ? 0 : len;
-        }, // sizeAt
-        valueAt,
-        isNullAt);
-  }
-
   template <typename T>
   ArrayVectorPtr arrayVectorImpl(
       const TypePtr& type,
@@ -461,16 +439,6 @@ class VectorMaker {
   template <typename T>
   ArrayVectorPtr arrayVector(const std::vector<std::vector<T>>& data) {
     return arrayVectorImpl(ARRAY(CppToType<T>::create()), data);
-  }
-
-  /// Create a FixedSizeArrayVector<T>
-  /// array elements are created based on input std::vectors and are
-  /// non-nullable.  All vectors should be the same size.
-  template <typename T>
-  ArrayVectorPtr fixedSizeArrayVector(
-      int len,
-      const std::vector<std::vector<T>>& data) {
-    return arrayVectorImpl(FIXED_SIZE_ARRAY(len, CppToType<T>::create()), data);
   }
 
   /// Create an ArrayVector<ROW> from nested std::vectors of Variants.
@@ -542,17 +510,6 @@ class VectorMaker {
       const std::vector<std::optional<std::vector<std::optional<T>>>>& data,
       const TypePtr& type = ARRAY(CppToType<T>::create())) {
     return arrayVectorNullableImpl(type, data);
-  }
-
-  /// Create a FixedSizeArrayVector<T> array elements are created
-  /// based on input std::vectors and are nullable. All vectors should be
-  /// the same size.
-  template <typename T>
-  ArrayVectorPtr fixedSizeArrayVectorNullable(
-      int len,
-      const std::vector<std::optional<std::vector<std::optional<T>>>>& data) {
-    return arrayVectorNullableImpl(
-        FIXED_SIZE_ARRAY(len, CppToType<T>::create()), data);
   }
 
   ArrayVectorPtr allNullArrayVector(

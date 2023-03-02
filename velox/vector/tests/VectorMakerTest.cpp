@@ -343,60 +343,6 @@ TEST_F(VectorMakerTest, arrayVector) {
   }
 }
 
-TEST_F(VectorMakerTest, fixedSizeArrayVector) {
-  // Check we fail on irregular data
-  std::vector<std::vector<int64_t>> irregularData = {
-      {0, 0},
-      {1, 2, 3},
-      {1024, -123, -99, -999},
-      {},
-      {-1},
-  };
-  EXPECT_THROW(
-      maker_.fixedSizeArrayVector<int64_t>(3, irregularData),
-      ::facebook::velox::VeloxRuntimeError);
-
-  std::vector<std::vector<int64_t>> data = {
-      {0, 0, 0},
-      {1, 2, 3},
-      {1024, -123, -99},
-      {4, 5, 6},
-      {-1, -1, -1},
-  };
-
-  auto arrayVector = maker_.fixedSizeArrayVector<int64_t>(3, data);
-
-  EXPECT_FALSE(arrayVector->mayHaveNulls());
-
-  // Validate array sizes and offsets.
-  EXPECT_EQ(5, arrayVector->size());
-
-  EXPECT_EQ(3, arrayVector->sizeAt(0));
-  EXPECT_EQ(3, arrayVector->sizeAt(1));
-  EXPECT_EQ(3, arrayVector->sizeAt(2));
-  EXPECT_EQ(3, arrayVector->sizeAt(3));
-  EXPECT_EQ(3, arrayVector->sizeAt(4));
-
-  EXPECT_EQ(0, arrayVector->offsetAt(0));
-  EXPECT_EQ(3, arrayVector->offsetAt(1));
-  EXPECT_EQ(6, arrayVector->offsetAt(2));
-  EXPECT_EQ(9, arrayVector->offsetAt(3));
-  EXPECT_EQ(12, arrayVector->offsetAt(4));
-
-  // Validate actual vector elements.
-  auto elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
-
-  ASSERT_NE(nullptr, elementsVector);
-  EXPECT_FALSE(elementsVector->mayHaveNulls());
-
-  vector_size_t idx = 0;
-  for (const auto& item : data) {
-    for (auto i : item) {
-      EXPECT_EQ(i, elementsVector->valueAt(idx++));
-    }
-  }
-}
-
 TEST_F(VectorMakerTest, nullableArrayVector) {
   auto O = [](std::vector<std::optional<int64_t>> data) {
     return std::make_optional(data);
@@ -426,49 +372,6 @@ TEST_F(VectorMakerTest, nullableArrayVector) {
   EXPECT_EQ(4, arrayVector->offsetAt(2));
   EXPECT_EQ(8, arrayVector->offsetAt(3));
   EXPECT_EQ(8, arrayVector->offsetAt(4));
-
-  // Validate actual vector elements.
-  auto elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
-
-  EXPECT_TRUE(elementsVector->mayHaveNulls());
-
-  vector_size_t idx = 0;
-  for (const auto& item : data) {
-    for (auto i : item.value()) {
-      if (i == std::nullopt) {
-        EXPECT_TRUE(elementsVector->isNullAt(idx));
-      } else {
-        EXPECT_FALSE(elementsVector->isNullAt(idx));
-        EXPECT_EQ(i, elementsVector->valueAt(idx));
-      }
-      ++idx;
-    }
-  }
-}
-
-TEST_F(VectorMakerTest, nullableFixedSizeArrayVector) {
-  auto O = [](std::vector<std::optional<int64_t>> data) {
-    return std::make_optional(data);
-  };
-
-  std::vector<std::optional<std::vector<std::optional<int64_t>>>> data = {
-      O({std::nullopt, std::nullopt, std::nullopt}),
-      O({1, 2, 3}),
-      O({1024, std::nullopt, -99}),
-  };
-
-  auto arrayVector = maker_.fixedSizeArrayVectorNullable<int64_t>(3, data);
-
-  // Validate array sizes and offsets.
-  EXPECT_EQ(3, arrayVector->size());
-
-  EXPECT_EQ(3, arrayVector->sizeAt(0));
-  EXPECT_EQ(3, arrayVector->sizeAt(1));
-  EXPECT_EQ(3, arrayVector->sizeAt(2));
-
-  EXPECT_EQ(0, arrayVector->offsetAt(0));
-  EXPECT_EQ(3, arrayVector->offsetAt(1));
-  EXPECT_EQ(6, arrayVector->offsetAt(2));
 
   // Validate actual vector elements.
   auto elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
@@ -527,67 +430,6 @@ TEST_F(VectorMakerTest, arrayVectorWithNulls) {
   EXPECT_EQ(2, arrayVector->offsetAt(2));
   EXPECT_EQ(6, arrayVector->offsetAt(3));
   EXPECT_EQ(6, arrayVector->offsetAt(4));
-
-  // Validate array null entries
-  EXPECT_TRUE(arrayVector->mayHaveNulls());
-  EXPECT_EQ(1, arrayVector->getNullCount().value());
-  for (int i = 0; i < nulls.size(); i++) {
-    EXPECT_EQ(arrayVector->isNullAt(i), nulls[i]);
-  }
-
-  // Validate actual vector elements.
-  auto elementsVector = arrayVector->elements()->asFlatVector<int64_t>();
-  EXPECT_FALSE(elementsVector->mayHaveNulls());
-
-  vector_size_t idx = 0;
-  for (const auto& item : data) {
-    for (auto i : item) {
-      EXPECT_EQ(i, elementsVector->valueAt(idx++));
-    }
-  }
-}
-
-TEST_F(VectorMakerTest, fixedSizeArrayVectorWithNulls) {
-  std::vector<std::vector<int64_t>> data = {
-      {0, 0, 0},
-      {},
-      {1024, -123, -99},
-      {4, 5, 6},
-      {-1, -1, -1},
-  };
-  std::vector<bool> nulls = {false, true, false, false, false};
-
-  //  auto arrayVector = maker_.arrayVector<int64_t>(data);
-  auto arrayVector = maker_.fixedSizeArrayVector<int64_t>(
-      3,
-      data.size(),
-      [data](vector_size_t i, vector_size_t j) -> int64_t {
-        return data[i][j];
-      }, // valueAt
-      [nulls](vector_size_t i) -> bool { return nulls[i]; } // nullAt
-  );
-
-  EXPECT_TRUE(arrayVector->mayHaveNulls());
-
-  // Validate array sizes and offsets.
-  EXPECT_EQ(5, arrayVector->size());
-
-  EXPECT_EQ(3, arrayVector->sizeAt(0));
-  EXPECT_EQ(
-      0, arrayVector->sizeAt(1)); // will be 3 when arrow format compatible
-  EXPECT_EQ(3, arrayVector->sizeAt(2));
-  EXPECT_EQ(3, arrayVector->sizeAt(3));
-  EXPECT_EQ(3, arrayVector->sizeAt(4));
-
-  EXPECT_EQ(0, arrayVector->offsetAt(0));
-  EXPECT_EQ(
-      0, arrayVector->offsetAt(1)); // will be 3 when arrow format compatible
-  EXPECT_EQ(
-      3, arrayVector->offsetAt(2)); // will be 6 when arrow format compatible
-  EXPECT_EQ(
-      6, arrayVector->offsetAt(3)); // will be 9 when arrow format compatible
-  EXPECT_EQ(
-      9, arrayVector->offsetAt(4)); // will be 12 when arrow format compatible
 
   // Validate array null entries
   EXPECT_TRUE(arrayVector->mayHaveNulls());

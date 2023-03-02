@@ -306,14 +306,6 @@ TEST(SignatureBinderTest, generics) {
     testSignatureBinder(
         signature, {ARRAY(DECIMAL(20, 3)), DECIMAL(20, 3)}, BOOLEAN());
     assertCannotResolve(signature, {ARRAY(DECIMAL(20, 3)), DECIMAL(20, 4)});
-    testSignatureBinder(
-        signature,
-        {ARRAY(FIXED_SIZE_ARRAY(20, BIGINT())), FIXED_SIZE_ARRAY(20, BIGINT())},
-        BOOLEAN());
-    assertCannotResolve(
-        signature,
-        {ARRAY(FIXED_SIZE_ARRAY(20, BIGINT())),
-         FIXED_SIZE_ARRAY(10, BIGINT())});
   }
 
   // array(array(T)), array(T) -> boolean

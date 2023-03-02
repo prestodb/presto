@@ -186,16 +186,6 @@ TypePtr Type::create(const folly::dynamic& obj) {
     case TypeKind::LONG_DECIMAL: {
       return LONG_DECIMAL(obj["precision"].asInt(), obj["scale"].asInt());
     }
-    case TypeKind::ARRAY: {
-      auto childTypes = deserializeChildTypes(obj);
-      VELOX_CHECK_EQ(1, childTypes.size());
-      if (obj.find("len") != obj.items().end()) {
-        auto len = obj["len"].asInt();
-        return FIXED_SIZE_ARRAY(len, childTypes.at(0));
-      } else {
-        return createType(type, std::move(childTypes));
-      }
-    }
     case TypeKind::ROW: {
       VELOX_USER_CHECK(obj["names"].isArray());
       std::vector<std::string> names;
@@ -262,43 +252,6 @@ folly::dynamic ArrayType::serialize() const {
   obj["cTypes"] = children;
 
   return obj;
-}
-
-folly::dynamic FixedSizeArrayType::serialize() const {
-  auto obj = ArrayType::serialize();
-  obj["len"] = len_;
-  return obj;
-}
-
-FixedSizeArrayType::FixedSizeArrayType(
-    FixedSizeArrayType::size_type len,
-    TypePtr child)
-    : ArrayType(child), len_(len) {}
-
-std::string FixedSizeArrayType::toString() const {
-  std::stringstream ss;
-  ss << "FIXED_SIZE_ARRAY(" << len_ << ")<" << child_->toString() << ">";
-  return ss.str();
-}
-
-bool FixedSizeArrayType::equivalent(const Type& other) const {
-  if (&other == this) {
-    return true;
-  }
-
-  if (!Type::hasSameTypeId(other)) {
-    return false;
-  }
-
-  auto otherFixedSizeArray = dynamic_cast<const FixedSizeArrayType*>(&other);
-  if (!child_->equivalent(*otherFixedSizeArray->child_)) {
-    return false;
-  }
-
-  if (fixedElementsWidth() != otherFixedSizeArray->fixedElementsWidth()) {
-    return false;
-  }
-  return true;
 }
 
 const TypePtr& MapType::childAt(uint32_t idx) const {
@@ -617,13 +570,6 @@ void OpaqueType::registerSerializationTypeErased(
 
 std::shared_ptr<const ArrayType> ARRAY(TypePtr elementType) {
   return std::make_shared<const ArrayType>(std::move(elementType));
-}
-
-std::shared_ptr<const FixedSizeArrayType> FIXED_SIZE_ARRAY(
-    FixedSizeArrayType::size_type len,
-    TypePtr elementType) {
-  return std::make_shared<const FixedSizeArrayType>(
-      len, std::move(elementType));
 }
 
 std::shared_ptr<const RowType> ROW(

@@ -48,19 +48,6 @@ TEST(TypeTest, array) {
   testTypeSerde(arr0);
 }
 
-TEST(TypeTest, fixedLenArray) {
-  auto arr0 = FIXED_SIZE_ARRAY(3, INTEGER());
-  EXPECT_EQ("FIXED_SIZE_ARRAY(3)<INTEGER>", arr0->toString());
-  EXPECT_EQ(arr0->size(), 1);
-  EXPECT_STREQ(arr0->kindName(), "FIXED_SIZE_ARRAY");
-  EXPECT_EQ(arr0->isPrimitiveType(), false);
-  EXPECT_STREQ(arr0->elementType()->kindName(), "INTEGER");
-  EXPECT_EQ(arr0->childAt(0)->toString(), "INTEGER");
-  EXPECT_THROW(arr0->childAt(1), VeloxUserError);
-
-  testTypeSerde(arr0);
-}
-
 TEST(TypeTest, integer) {
   auto int0 = INTEGER();
   EXPECT_EQ(int0->toString(), "INTEGER");
@@ -530,11 +517,6 @@ TEST(TypeTest, equality) {
   EXPECT_TRUE(*ARRAY(INTEGER()) == *ARRAY(INTEGER()));
   EXPECT_FALSE(*ARRAY(INTEGER()) == *ARRAY(REAL()));
   EXPECT_FALSE(*ARRAY(INTEGER()) == *ARRAY(ARRAY(INTEGER())));
-  EXPECT_TRUE(
-      *FIXED_SIZE_ARRAY(10, INTEGER()) == *FIXED_SIZE_ARRAY(10, INTEGER()));
-  EXPECT_FALSE(*FIXED_SIZE_ARRAY(10, INTEGER()) == *ARRAY(INTEGER()));
-  EXPECT_FALSE(
-      *FIXED_SIZE_ARRAY(10, INTEGER()) == *FIXED_SIZE_ARRAY(9, INTEGER()));
 
   // struct
   EXPECT_TRUE(
@@ -589,11 +571,6 @@ TEST(TypeTest, equivalent) {
   EXPECT_TRUE(ARRAY(BIGINT())->equivalent(*ARRAY(BIGINT())));
   EXPECT_FALSE(ARRAY(BIGINT())->equivalent(*ARRAY(INTEGER())));
   EXPECT_FALSE(ARRAY(BIGINT())->equivalent(*ROW({{"a", BIGINT()}})));
-  EXPECT_FALSE(FIXED_SIZE_ARRAY(10, BIGINT())->equivalent(*ARRAY(BIGINT())));
-  EXPECT_FALSE(FIXED_SIZE_ARRAY(10, BIGINT())
-                   ->equivalent(*FIXED_SIZE_ARRAY(9, BIGINT())));
-  EXPECT_TRUE(FIXED_SIZE_ARRAY(10, BIGINT())
-                  ->equivalent(*FIXED_SIZE_ARRAY(10, BIGINT())));
   EXPECT_TRUE(SHORT_DECIMAL(10, 5)->equivalent(*SHORT_DECIMAL(10, 5)));
   EXPECT_FALSE(SHORT_DECIMAL(10, 6)->equivalent(*SHORT_DECIMAL(10, 5)));
   EXPECT_FALSE(SHORT_DECIMAL(11, 5)->equivalent(*SHORT_DECIMAL(10, 5)));
@@ -628,11 +605,6 @@ TEST(TypeTest, kindEquals) {
   EXPECT_TRUE(ARRAY(BIGINT())->kindEquals(ARRAY(BIGINT())));
   EXPECT_FALSE(ARRAY(BIGINT())->kindEquals(ARRAY(INTEGER())));
   EXPECT_FALSE(ARRAY(BIGINT())->kindEquals(ROW({{"a", BIGINT()}})));
-  EXPECT_TRUE(FIXED_SIZE_ARRAY(10, BIGINT())->kindEquals(ARRAY(BIGINT())));
-  EXPECT_TRUE(FIXED_SIZE_ARRAY(10, BIGINT())
-                  ->kindEquals(FIXED_SIZE_ARRAY(9, BIGINT())));
-  EXPECT_TRUE(FIXED_SIZE_ARRAY(10, BIGINT())
-                  ->kindEquals(FIXED_SIZE_ARRAY(10, BIGINT())));
   EXPECT_TRUE(SHORT_DECIMAL(10, 5)->kindEquals(SHORT_DECIMAL(10, 5)));
   EXPECT_TRUE(SHORT_DECIMAL(10, 6)->kindEquals(SHORT_DECIMAL(10, 5)));
   EXPECT_TRUE(SHORT_DECIMAL(11, 5)->kindEquals(SHORT_DECIMAL(10, 5)));

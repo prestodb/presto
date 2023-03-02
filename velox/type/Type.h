@@ -748,39 +748,6 @@ class ArrayType : public TypeBase<TypeKind::ARRAY> {
   std::shared_ptr<const Type> child_;
 };
 
-/// FixedSizeArrayType implements an Array that is constrained to
-/// always be a fixed size (width). When passing this type on the wire,
-/// a FixedSizeArrayType may change into a general variable width array
-/// as Presto/Spark do not have a notion of fixed size array.
-///
-/// Anywhere an ArrayType can be used, a FixedSizeArrayType can be
-/// used.
-class FixedSizeArrayType : public ArrayType {
- public:
-  explicit FixedSizeArrayType(size_type len, std::shared_ptr<const Type> child);
-
-  bool isFixedWidth() const override {
-    return true;
-  }
-
-  size_type fixedElementsWidth() const override {
-    return len_;
-  }
-
-  const char* kindName() const override {
-    return "FIXED_SIZE_ARRAY";
-  }
-
-  bool equivalent(const Type& other) const override;
-
-  std::string toString() const override;
-
-  folly::dynamic serialize() const override;
-
- private:
-  size_type len_;
-};
-
 class MapType : public TypeBase<TypeKind::MAP> {
  public:
   MapType(
@@ -1083,9 +1050,6 @@ struct TypeFactory<TypeKind::ROW> {
 };
 
 std::shared_ptr<const ArrayType> ARRAY(std::shared_ptr<const Type> elementType);
-std::shared_ptr<const FixedSizeArrayType> FIXED_SIZE_ARRAY(
-    FixedSizeArrayType::size_type size,
-    std::shared_ptr<const Type> elementType);
 
 std::shared_ptr<const RowType> ROW(
     std::vector<std::string>&& names,

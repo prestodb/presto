@@ -260,24 +260,6 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
         BaseVector::countNulls(nulls, numRows));
   }
 
-  VectorPtr createFixedSizeArray(int32_t numRows, bool withNulls, int width) {
-    BufferPtr nulls;
-    BufferPtr offsets;
-    BufferPtr sizes;
-    int32_t numElements =
-        createRepeated(numRows, withNulls, &nulls, &offsets, &sizes, width);
-    VectorPtr elements = createRow(numElements, withNulls);
-    return std::make_shared<ArrayVector>(
-        pool_.get(),
-        FIXED_SIZE_ARRAY(width, elements->type()),
-        nulls,
-        numRows,
-        offsets,
-        sizes,
-        elements,
-        BaseVector::countNulls(nulls, numRows));
-  }
-
   VectorPtr createMap(int32_t numRows, bool withNulls);
 
   template <TypeKind KIND>
@@ -1037,20 +1019,6 @@ TEST_F(VectorTest, array) {
   testCopy(baseArray, numIterations_);
   testSlices(baseArray);
   baseArray = createArray(vectorSize_, true);
-  testCopy(baseArray, numIterations_);
-  testSlices(baseArray);
-  auto allNull =
-      BaseVector::createNullConstant(baseArray->type(), 50, pool_.get());
-  testCopy(allNull, numIterations_);
-  testSlices(allNull);
-}
-
-TEST_F(VectorTest, fixedSizeArray) {
-  const int width = 7;
-  auto baseArray = createFixedSizeArray(vectorSize_, false, width);
-  testCopy(baseArray, numIterations_);
-  testSlices(baseArray);
-  baseArray = createFixedSizeArray(vectorSize_, true, width);
   testCopy(baseArray, numIterations_);
   testSlices(baseArray);
   auto allNull =
