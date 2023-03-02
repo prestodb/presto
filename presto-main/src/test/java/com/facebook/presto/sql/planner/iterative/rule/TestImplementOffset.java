@@ -37,7 +37,7 @@ public class TestImplementOffset
     @Test
     public void testReplaceOffsetOverValues()
     {
-        tester().assertThat(new ImplementOffset())
+        tester().assertThat(new ImplementOffset(getFunctionManager()))
                 .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
@@ -61,7 +61,7 @@ public class TestImplementOffset
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Offset support is not enabled")
     public void testOffsetClauseDisabled()
     {
-        tester().assertThat(new ImplementOffset())
+        tester().assertThat(new ImplementOffset(getFunctionManager()))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression b = p.variable("b");
@@ -84,7 +84,7 @@ public class TestImplementOffset
     @Test
     public void testReplaceOffsetOverSort()
     {
-        tester().assertThat(new ImplementOffset())
+        tester().assertThat(new ImplementOffset(getFunctionManager()))
                 .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");

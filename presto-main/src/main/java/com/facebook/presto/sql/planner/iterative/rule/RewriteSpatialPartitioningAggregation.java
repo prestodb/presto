@@ -24,12 +24,10 @@ import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -41,11 +39,9 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -108,7 +104,9 @@ public class RewriteSpatialPartitioningAggregation
                     envelopeAssignments.put(envelopeVariable, geometry);
                 }
                 else {
-                    envelopeAssignments.put(envelopeVariable, castToRowExpression(new FunctionCall(QualifiedName.of("ST_Envelope"), ImmutableList.of(castToExpression(geometry)))));
+                    envelopeAssignments.put(
+                            envelopeVariable,
+                            call(metadata.getFunctionAndTypeManager(), "ST_Envelope", geometryType, geometry));
                 }
                 aggregations.put(entry.getKey(),
                         new Aggregation(
@@ -117,9 +115,7 @@ public class RewriteSpatialPartitioningAggregation
                                         name.getObjectName(),
                                         metadata.getFunctionAndTypeManager().lookupFunction(NAME.getObjectName(), fromTypes(geometryType, INTEGER)),
                                         entry.getKey().getType(),
-                                        ImmutableList.of(
-                                                castToRowExpression(asSymbolReference(envelopeVariable)),
-                                                castToRowExpression(asSymbolReference(partitionCountVariable)))),
+                                        ImmutableList.of(envelopeVariable, partitionCountVariable)),
                                 Optional.empty(),
                                 Optional.empty(),
                                 false,
@@ -138,8 +134,8 @@ public class RewriteSpatialPartitioningAggregation
                                 context.getIdAllocator().getNextId(),
                                 node.getSource(),
                                 Assignments.builder()
-                                        .putAll(identitiesAsSymbolReferences(node.getSource().getOutputVariables()))
-                                        .put(partitionCountVariable, castToRowExpression(new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession())))))
+                                        .putAll(identityAssignments(node.getSource().getOutputVariables()))
+                                        .put(partitionCountVariable, new ConstantExpression((long) getHashPartitionCount(context.getSession()), INTEGER))
                                         .putAll(envelopeAssignments.build())
                                         .build()),
                         aggregations.build(),
@@ -152,8 +148,8 @@ public class RewriteSpatialPartitioningAggregation
 
     private static boolean isFunctionNameMatch(RowExpression rowExpression, String expectedName)
     {
-        if (castToExpression(rowExpression) instanceof FunctionCall) {
-            return ((FunctionCall) castToExpression(rowExpression)).getName().toString().equalsIgnoreCase(expectedName);
+        if (rowExpression instanceof CallExpression) {
+            return ((CallExpression) rowExpression).getDisplayName().equalsIgnoreCase(expectedName);
         }
         return false;
     }
