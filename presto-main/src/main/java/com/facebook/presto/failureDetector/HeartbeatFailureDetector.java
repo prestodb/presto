@@ -370,6 +370,8 @@ public class HeartbeatFailureDetector
                     @Override
                     public Exception handleException(Request request, Exception exception)
                     {
+                        log.error("--> Error happened during ping: " + exception.toString() + ", response: " + request.toString() + ", uri: " + uri.toString());
+
                         // ignore error
                         stats.recordFailure(exception);
 
@@ -381,6 +383,8 @@ public class HeartbeatFailureDetector
                     @Override
                     public Object handle(Request request, Response response)
                     {
+                        log.info("Ping is successfull.") ;
+
                         stats.recordSuccess();
                         return null;
                     }
