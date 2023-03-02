@@ -44,7 +44,6 @@ import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins;
 import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
-import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregationsUsingExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementOffset;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
@@ -244,28 +243,10 @@ public class PlanOptimizers
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
-                new MergeFilters());
+                new MergeFilters(metadata.getFunctionAndTypeManager()));
 
         // TODO: Once we've migrated handling all the plan node types, replace uses of PruneUnreferencedOutputs with an IterativeOptimizer containing these rules.
-        Set<Rule<?>> columnPruningRulesUsingExpressions = ImmutableSet.of(
-                new PruneAggregationColumns(),
-                new PruneAggregationSourceColumns(false),
-                new PruneCrossJoinColumns(false),
-                new PruneFilterColumns(false),
-                new PruneIndexSourceColumns(),
-                new PruneJoinChildrenColumns(false),
-                new PruneJoinColumns(),
-                new PruneMarkDistinctColumns(false),
-                new PruneOutputColumns(false),
-                new PruneProjectColumns(),
-                new PruneSemiJoinColumns(false),
-                new PruneSemiJoinFilteringSourceColumns(false),
-                new PruneTopNColumns(false),
-                new PruneValuesColumns(),
-                new PruneWindowColumns(false),
-                new PruneLimitColumns(false),
-                new PruneTableScanColumns());
-
+        // TODO: Remove useRowExpressions usage once we only use RowExpressions. As of now, some tests use Expressions.
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(
                 new PruneAggregationColumns(),
                 new PruneAggregationSourceColumns(true),
@@ -339,6 +320,14 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         new CanonicalizeExpressions().rules()),
+                // TODO: move this before optimization if possible!!
+                // Replace all expressions with row expressions
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        new TranslateExpressions(metadata, sqlParser).rules()),
+                // After this point, all planNodes should not contain OriginalExpression
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -350,7 +339,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(predicatePushDownRules)
-                                .addAll(columnPruningRulesUsingExpressions)
+                                .addAll(columnPruningRules)
                                 .addAll(ImmutableSet.of(
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
@@ -366,10 +355,10 @@ public class PlanOptimizers
                                         new PushLimitThroughSemiJoin(),
                                         new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
-                                        new ImplementFilteredAggregationsUsingExpressions(),
+                                        new ImplementFilteredAggregations(metadata.getFunctionAndTypeManager()),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
-                                        new ImplementBernoulliSampleAsFilter(),
+                                        new ImplementBernoulliSampleAsFilter(metadata.getFunctionAndTypeManager()),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata.getFunctionAndTypeManager()),
                                         new PruneOrderByInAggregation(metadata.getFunctionAndTypeManager()),
@@ -380,16 +369,8 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
-                                new ImplementBernoulliSampleAsFilter(),
-                                new ImplementOffset())),
-                // TODO: move this before optimization if possible!!
-                // Replace all expressions with row expressions
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        costCalculator,
-                        new TranslateExpressions(metadata, sqlParser).rules()),
-                // After this point, all planNodes should not contain OriginalExpression
+                                new ImplementBernoulliSampleAsFilter(metadata.getFunctionAndTypeManager()),
+                                new ImplementOffset(metadata.getFunctionAndTypeManager()))),
                 simplifyRowExpressionOptimizer,
                 new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(

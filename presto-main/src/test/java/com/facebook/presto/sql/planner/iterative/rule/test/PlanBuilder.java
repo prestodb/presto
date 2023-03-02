@@ -414,7 +414,12 @@ public class PlanBuilder
 
         public AggregationBuilder addAggregation(VariableReferenceExpression output, RowExpression expression)
         {
-            return addAggregation(output, expression, Optional.empty(), Optional.empty(), false, Optional.empty());
+            return addAggregation(output, expression, false);
+        }
+
+        public AggregationBuilder addAggregation(VariableReferenceExpression output, RowExpression expression, boolean isDistinct)
+        {
+            return addAggregation(output, expression, Optional.empty(), Optional.empty(), isDistinct, Optional.empty());
         }
 
         public AggregationBuilder addAggregation(
