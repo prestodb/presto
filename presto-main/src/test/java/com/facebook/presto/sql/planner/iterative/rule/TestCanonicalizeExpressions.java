@@ -23,12 +23,11 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 public class TestCanonicalizeExpressions
         extends BaseRuleTest
 {
-    private static final CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions();
-
+    private static final CanonicalizeExpressions CANONICALIZE_EXPRESSIONS = new CanonicalizeExpressions();
     @Test
     public void testDoesNotFireForExpressionsInCanonicalForm()
     {
-        tester().assertThat(canonicalizeExpressions.filterExpressionRewrite())
+        tester().assertThat(CANONICALIZE_EXPRESSIONS.filterExpressionRewrite())
                 .on(p -> p.filter(FALSE_LITERAL, p.values()))
                 .doesNotFire();
     }
@@ -36,7 +35,7 @@ public class TestCanonicalizeExpressions
     @Test
     public void testDoesNotFireForUnfilteredJoin()
     {
-        tester().assertThat(canonicalizeExpressions.joinExpressionRewrite())
+        tester().assertThat(CANONICALIZE_EXPRESSIONS.joinExpressionRewrite())
                 .on(p -> p.join(INNER, p.values(), p.values()))
                 .doesNotFire();
     }
@@ -44,7 +43,7 @@ public class TestCanonicalizeExpressions
     @Test
     public void testDoesNotFireForCanonicalExpressions()
     {
-        tester().assertThat(canonicalizeExpressions.joinExpressionRewrite())
+        tester().assertThat(CANONICALIZE_EXPRESSIONS.joinExpressionRewrite())
                 .on(p -> p.join(INNER, p.values(), p.values(), castToRowExpression(FALSE_LITERAL)))
                 .doesNotFire();
     }

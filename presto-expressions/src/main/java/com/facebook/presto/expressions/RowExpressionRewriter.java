@@ -15,6 +15,7 @@ package com.facebook.presto.expressions;
 
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.CurrentTimeRowExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -54,6 +55,11 @@ public class RowExpressionRewriter<C>
     }
 
     public RowExpression rewriteSpecialForm(SpecialFormExpression node, C context, RowExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteRowExpression(node, context, treeRewriter);
+    }
+
+    public RowExpression rewriteCurrentTime(CurrentTimeRowExpression node, C context, RowExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteRowExpression(node, context, treeRewriter);
     }

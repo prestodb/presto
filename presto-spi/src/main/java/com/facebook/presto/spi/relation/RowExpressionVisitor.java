@@ -53,4 +53,9 @@ public interface RowExpressionVisitor<R, C>
     {
         return visitIntermediateFormExpression(existsRowExpression, context);
     }
+
+    default R visitCurrentTimeRowExpression(CurrentTimeRowExpression currentTimeRowExpression, C context)
+    {
+        return visitIntermediateFormRowExpression(currentTimeRowExpression, context);
+    }
 }
