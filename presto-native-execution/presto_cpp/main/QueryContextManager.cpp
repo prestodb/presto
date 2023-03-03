@@ -23,7 +23,7 @@ using facebook::presto::protocol::TaskId;
 
 DEFINE_int32(
     num_query_threads,
-    std::thread::hardware_concurrency(),
+    std::thread::hardware_concurrency() * 4,
     "Process-wide number of query execution threads");
 
 namespace facebook::presto {
@@ -48,6 +48,10 @@ std::shared_ptr<folly::IOThreadPoolExecutor> spillExecutor() {
 
 folly::CPUThreadPoolExecutor* driverCPUExecutor() {
   return executor().get();
+}
+
+folly::IOThreadPoolExecutor* spillExecutorPtr() {
+  return spillExecutor().get();
 }
 
 std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
