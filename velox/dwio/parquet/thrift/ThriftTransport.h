@@ -21,12 +21,61 @@
 
 namespace facebook::velox::parquet::thrift {
 
-class ThriftBufferedTransport
-    : public apache::thrift::transport::TVirtualTransport<
-          ThriftBufferedTransport> {
+class ThriftTransport
+    : public apache::thrift::transport::TVirtualTransport<ThriftTransport> {
+ public:
+  virtual uint32_t read(uint8_t* outputBuf, uint32_t len) = 0;
+  virtual ~ThriftTransport() = default;
+};
+
+class ThriftStreamingTransport : public ThriftTransport {
+ public:
+  ThriftStreamingTransport(
+      dwio::common::SeekableInputStream* inputStream,
+      const char*& bufferStart,
+      const char*& bufferEnd)
+      : inputStream_(inputStream),
+        bufferStart_(bufferStart),
+        bufferEnd_(bufferEnd) {
+    VELOX_CHECK_NOT_NULL(inputStream_);
+    VELOX_CHECK_NOT_NULL(bufferStart_);
+    VELOX_CHECK_NOT_NULL(bufferEnd_);
+  }
+
+  uint32_t read(uint8_t* outputBuf, uint32_t len) {
+    uint32_t bytesToRead = len;
+    while (bytesToRead > 0) {
+      if (bufferEnd_ == bufferStart_) {
+        int32_t size;
+        if (!inputStream_->Next(
+                reinterpret_cast<const void**>(&bufferStart_), &size)) {
+          VELOX_FAIL("Reading past the end of the stream");
+        }
+        bufferEnd_ = bufferStart_ + size;
+      }
+
+      uint32_t bytesToReadInBuffer =
+          std::min<uint32_t>(bufferEnd_ - bufferStart_, bytesToRead);
+      memcpy(outputBuf, bufferStart_, bytesToReadInBuffer);
+      bufferStart_ += bytesToReadInBuffer;
+      bytesToRead -= bytesToReadInBuffer;
+      outputBuf += bytesToReadInBuffer;
+    }
+
+    return len;
+  }
+
+ private:
+  dwio::common::SeekableInputStream* inputStream_;
+  const char*& bufferStart_;
+  const char*& bufferEnd_;
+};
+
+class ThriftBufferedTransport : public ThriftTransport {
  public:
   ThriftBufferedTransport(const void* inputBuf, uint64_t len)
-      : inputBuf_(reinterpret_cast<const uint8_t*>(inputBuf)),
+      : ThriftTransport(),
+        inputBuf_(reinterpret_cast<const uint8_t*>(inputBuf)),
         size_(len),
         offset_(0) {}
 
