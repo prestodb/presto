@@ -383,7 +383,7 @@ public class HeartbeatFailureDetector
                     @Override
                     public Object handle(Request request, Response response)
                     {
-                        log.info("Ping is successfull.") ;
+                        log.info("Ping is successfull.");
 
                         stats.recordSuccess();
                         return null;
