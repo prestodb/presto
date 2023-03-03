@@ -32,6 +32,8 @@ import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -114,6 +116,7 @@ import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchangeForMarkDistinctEnabled;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -1038,11 +1041,17 @@ public class AddExchanges
 
         private PlanWithProperties buildStarJoin(StarJoinNode node, PlanWithProperties newLeft, List<PlanWithProperties> newRight, JoinNode.DistributionType newDistributionType)
         {
+            SortNode sortNode = new SortNode(
+                    Optional.empty(),
+                    idAllocator.getNextId(),
+                    newLeft.getNode(),
+                    new OrderingScheme(ImmutableList.of(new Ordering(node.getCriteria().get(0).getLeft(), ASC_NULLS_LAST))),
+                    true);
             StarJoinNode result = new StarJoinNode(
                     node.getSourceLocation(),
                     node.getId(),
                     node.getType(),
-                    newLeft.getNode(),
+                    sortNode,
                     newRight.stream().map(PlanWithProperties::getNode).collect(toImmutableList()),
                     node.getCriteria(),
                     node.getOutputVariables(),

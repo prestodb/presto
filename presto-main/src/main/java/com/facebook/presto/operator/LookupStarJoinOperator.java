@@ -233,7 +233,7 @@ public class LookupStarJoinOperator
 
         // create probe
         inputPageSpillEpoch = spillInfoSnapshot.getSpillEpoch();
-        probe = joinProbeFactory.createJoinProbe(page);
+        probe = joinProbeFactory.createJoinProbe(page, probeTypes);
 
         // initialize to invalid join position to force output code to advance the cursors
         joinPositionLists.clear();
@@ -331,8 +331,8 @@ public class LookupStarJoinOperator
 
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         while (!yieldSignal.isSet()) {
-            if (probe.getPosition() >= 0) {
-                if (!joinCurrentPosition(lookupSource, probeOnOuterSide, yieldSignal, getStarJoinProbeType(operatorContext.getSession()))) {
+            if (probe.getStep() >= 0) {
+                if (!joinCurrentPosition(lookupSource, probeOnOuterSide, yieldSignal, getStarJoinProbeType(operatorContext.getSession()), probe.getStep())) {
                     break;
                 }
             }
@@ -381,22 +381,22 @@ public class LookupStarJoinOperator
         }
     }
 
-    private boolean joinCurrentPosition(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal, String type)
+    private boolean joinCurrentPosition(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal, String type, int step)
     {
         if (type.equals("list")) {
-            return joinCurrentPosition(lookupSource, probeOuter, yieldSignal);
+            return joinCurrentPosition(lookupSource, probeOuter, yieldSignal, step);
         }
         else if (type.equals("block")) {
-            return joinCurrentPositionBlock(lookupSource, probeOuter, yieldSignal);
+            return joinCurrentPositionBlock(lookupSource, probeOuter, yieldSignal, step);
         }
         else if (type.equals("blocktrack")) {
-            return joinCurrentPositionBlockTrack(lookupSource, probeOuter, yieldSignal);
+            return joinCurrentPositionBlockTrack(lookupSource, probeOuter, yieldSignal, step);
         }
         else if (type.equals("nolist")) {
-            return joinCurrentPositionNoList(lookupSource, probeOuter, yieldSignal);
+            return joinCurrentPositionNoList(lookupSource, probeOuter, yieldSignal, step);
         }
         else if (type.equals("nolistcache")) {
-            return joinCurrentPositionNoListCache(lookupSource, probeOuter, yieldSignal);
+            return joinCurrentPositionNoListCache(lookupSource, probeOuter, yieldSignal, step);
         }
         else {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "does not support in starjoin");
@@ -410,7 +410,7 @@ public class LookupStarJoinOperator
      *
      * @return true if all eligible rows have been produced; false otherwise
      */
-    private boolean joinCurrentPosition(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal)
+    private boolean joinCurrentPosition(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal, int step)
     {
         if (buildOutputOffsets == null || buildOutputOffsets.isEmpty()) {
             for (int i = 0; i < lookupSource.size(); ++i) {
@@ -449,8 +449,10 @@ public class LookupStarJoinOperator
             for (int i = 0; i < modular.size(); ++i) {
                 buildsidePositions.add(joinPositionLists.get(i).get((int) (currentOutputIdx / modular.get(i)) % joinPositionLists.get(i).size()));
             }
-            ++joinSourcePositions;
-            pageBuilder.appendRow(probe, lookupSource, buildsidePositions, buildOutputOffsets);
+            joinSourcePositions += step;
+            for (int i = 0; i < step; ++i) {
+                pageBuilder.appendRow(probe, lookupSource, buildsidePositions, buildOutputOffsets);
+            }
             ++currentOutputIdx;
             if (yieldSignal.isSet() || tryBuildPage()) {
                 return false;
@@ -460,7 +462,7 @@ public class LookupStarJoinOperator
         return true;
     }
 
-    private boolean joinCurrentPositionBlock(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal)
+    private boolean joinCurrentPositionBlock(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal, int step)
     {
         if (buildOutputOffsets == null || buildOutputOffsets.isEmpty()) {
             for (int i = 0; i < lookupSource.size(); ++i) {
@@ -500,8 +502,10 @@ public class LookupStarJoinOperator
             for (int i = 0; i < modular.size(); ++i) {
                 buildsidePositions.add(joinPositionBlockList[i].getLong((int) (currentOutputIdx / modular.get(i)) % joinPositionBlockList[i].getPositionCount()));
             }
-            ++joinSourcePositions;
-            pageBuilder.appendRow(probe, lookupSource, buildsidePositions, buildOutputOffsets);
+            joinSourcePositions += step;
+            for (int i = 0; i < step; ++i) {
+                pageBuilder.appendRow(probe, lookupSource, buildsidePositions, buildOutputOffsets);
+            }
             ++currentOutputIdx;
             if (yieldSignal.isSet() || tryBuildPage()) {
                 return false;
@@ -511,7 +515,7 @@ public class LookupStarJoinOperator
         return true;
     }
 
-    private boolean joinCurrentPositionBlockTrack(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal)
+    private boolean joinCurrentPositionBlockTrack(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal, int step)
     {
         if (buildOutputOffsets == null || buildOutputOffsets.isEmpty()) {
             for (int i = 0; i < lookupSource.size(); ++i) {
@@ -549,8 +553,10 @@ public class LookupStarJoinOperator
             for (int i = 0; i < buildPositions.length; ++i) {
                 buildPositions[i] = joinPositionBlockList[i].getLong(outputIndexList.getCurrentIndex()[i]);
             }
-            ++joinSourcePositions;
-            pageBuilder.appendRow(probe, lookupSource, buildPositions, buildOutputOffsets);
+            joinSourcePositions += step;
+            for (int i = 0; i < step; ++i) {
+                pageBuilder.appendRow(probe, lookupSource, buildPositions, buildOutputOffsets);
+            }
             if (!outputIndexList.advance()) {
                 break;
             }
@@ -562,7 +568,7 @@ public class LookupStarJoinOperator
         return true;
     }
 
-    private boolean joinCurrentPositionNoList(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal)
+    private boolean joinCurrentPositionNoList(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal, int step)
     {
         if (buildOutputOffsets == null || buildOutputOffsets.isEmpty()) {
             for (int i = 0; i < lookupSource.size(); ++i) {
@@ -593,8 +599,10 @@ public class LookupStarJoinOperator
             }
         }
         while (true) {
-            ++joinSourcePositions;
-            pageBuilder.appendRow(probe, lookupSource, buildCurrentPositions, buildOutputOffsets);
+            joinSourcePositions += step;
+            for (int i = 0; i < step; ++i) {
+                pageBuilder.appendRow(probe, lookupSource, buildCurrentPositions, buildOutputOffsets);
+            }
             // Now advance the build row position
             boolean hasOutput = true;
             for (int i = buildCurrentPositions.length - 1; i >= 0; --i) {
@@ -639,7 +647,7 @@ public class LookupStarJoinOperator
         return true;
     }
 
-    private boolean joinCurrentPositionNoListCache(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal)
+    private boolean joinCurrentPositionNoListCache(List<LookupSource> lookupSource, boolean probeOuter, DriverYieldSignal yieldSignal, int step)
     {
         if (buildOutputOffsets == null || buildOutputOffsets.isEmpty()) {
             for (int i = 0; i < lookupSource.size(); ++i) {
@@ -673,8 +681,10 @@ public class LookupStarJoinOperator
             }
         }
         while (true) {
-            ++joinSourcePositions;
-            pageBuilder.appendRow(probe, lookupSource, buildCurrentPositions, buildOutputOffsets);
+            joinSourcePositions += step;
+            for (int i = 0; i < step; ++i) {
+                pageBuilder.appendRow(probe, lookupSource, buildCurrentPositions, buildOutputOffsets);
+            }
             // Now advance the build row position
             boolean hasOutput = true;
             for (int i = buildCurrentPositions.length - 1; i >= 0; --i) {
@@ -717,7 +727,7 @@ public class LookupStarJoinOperator
      */
     private boolean advanceProbePosition(List<LookupSource> lookupSource)
     {
-        if (!probe.advanceNextPosition()) {
+        if (!probe.advanceMultiplePositions()) {
             clearProbe();
             return false;
         }
