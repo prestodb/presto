@@ -36,10 +36,10 @@ class TestObject {
 
  private:
   int count_ = 0;
-  int value_;
+  int value_ = 0;
 };
 
-// NOTE: we can only the testvalue tests on debug build.
+// NOTE: we can only build the TestValueTest on debug build.
 #ifndef NDEBUG
 TEST(TestValueTest, testValueDisabled) {
   TestValue::disable();
@@ -61,7 +61,6 @@ TEST(TestValueTest, testValueDisabled) {
   EXPECT_EQ(0, setCount);
 
   TestValue::clear("facebook::velox::exec::test::TestObject::set");
-  TestValue::clear("facebook::velox::exec::test::TestObject::internalSet");
 
   obj.set(value);
   EXPECT_EQ(0, setValue);
@@ -128,7 +127,7 @@ TEST(TestValueTest, scopeUsageEnabled) {
       EXPECT_EQ(value, setValue);
       EXPECT_EQ(1, setCount);
     }
-    // Scoped bject dtor will clear the test value settings.
+    // Scoped object dtor will clear the test value settings.
     setCount = 0;
     setValue = 0;
     obj.set(value + 1);
