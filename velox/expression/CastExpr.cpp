@@ -39,26 +39,22 @@ namespace {
 /// @tparam From The expression type
 /// @param row The index of the current row
 /// @param input The input vector (of type From)
-/// @param resultFlatVector The output vector (of type To)
+/// @param result The output vector (of type To)
 /// @return False if the result is null
 template <typename To, typename From, bool Truncate>
 void applyCastKernel(
     vector_size_t row,
-    const BaseVector& input,
-    FlatVector<To>* resultFlatVector,
+    const SimpleVector<From>* input,
+    FlatVector<To>* result,
     bool& nullOutput) {
-  auto* inputVector = input.asUnchecked<SimpleVector<From>>();
-
   // Special handling for string target type
   if constexpr (CppToType<To>::typeKind == TypeKind::VARCHAR) {
-    if (nullOutput) {
-      resultFlatVector->setNull(row, true);
-    } else {
-      auto output =
-          util::Converter<CppToType<To>::typeKind, void, Truncate>::cast(
-              inputVector->valueAt(row), nullOutput);
+    auto output =
+        util::Converter<CppToType<To>::typeKind, void, Truncate>::cast(
+            input->valueAt(row), nullOutput);
+    if (!nullOutput) {
       // Write the result output to the output vector
-      auto writer = exec::StringWriter<>(resultFlatVector, row);
+      auto writer = exec::StringWriter<>(result, row);
       writer.resize(output.size());
       if (output.size()) {
         std::memcpy(writer.data(), output.data(), output.size());
@@ -66,13 +62,11 @@ void applyCastKernel(
       writer.finalize();
     }
   } else {
-    auto result =
+    auto output =
         util::Converter<CppToType<To>::typeKind, void, Truncate>::cast(
-            inputVector->valueAt(row), nullOutput);
-    if (nullOutput) {
-      resultFlatVector->setNull(row, true);
-    } else {
-      resultFlatVector->set(row, result);
+            input->valueAt(row), nullOutput);
+    if (!nullOutput) {
+      result->set(row, output);
     }
   }
 }
@@ -150,16 +144,15 @@ void CastExpr::applyCastWithTry(
   const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
   auto isCastIntByTruncate = queryConfig.isCastIntByTruncate();
 
+  auto* inputSimpleVector = input.as<SimpleVector<From>>();
+
   if (!isCastIntByTruncate) {
     context.applyToSelectedNoThrow(rows, [&](int row) {
+      bool nullOutput = false;
       try {
         // Passing a false truncate flag
-        bool nullOutput = false;
         applyCastKernel<To, From, false>(
-            row, input, resultFlatVector, nullOutput);
-        if (nullOutput) {
-          throw std::invalid_argument("");
-        }
+            row, inputSimpleVector, resultFlatVector, nullOutput);
       } catch (const VeloxRuntimeError& re) {
         VELOX_FAIL(
             makeErrorMessage(input, row, resultFlatVector->type()) + " " +
@@ -173,17 +166,18 @@ void CastExpr::applyCastWithTry(
             makeErrorMessage(input, row, resultFlatVector->type()) + " " +
             e.what());
       }
+
+      if (nullOutput) {
+        VELOX_USER_FAIL(makeErrorMessage(input, row, resultFlatVector->type()));
+      }
     });
   } else {
     context.applyToSelectedNoThrow(rows, [&](int row) {
+      bool nullOutput = false;
       try {
         // Passing a true truncate flag
-        bool nullOutput = false;
         applyCastKernel<To, From, true>(
-            row, input, resultFlatVector, nullOutput);
-        if (nullOutput) {
-          throw std::invalid_argument("");
-        }
+            row, inputSimpleVector, resultFlatVector, nullOutput);
       } catch (const VeloxRuntimeError& re) {
         VELOX_FAIL(
             makeErrorMessage(input, row, resultFlatVector->type()) + " " +
@@ -196,6 +190,10 @@ void CastExpr::applyCastWithTry(
         VELOX_USER_FAIL(
             makeErrorMessage(input, row, resultFlatVector->type()) + " " +
             e.what());
+      }
+
+      if (nullOutput) {
+        VELOX_USER_FAIL(makeErrorMessage(input, row, resultFlatVector->type()));
       }
     });
   }
