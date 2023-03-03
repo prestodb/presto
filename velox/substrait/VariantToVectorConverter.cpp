@@ -23,11 +23,12 @@ namespace {
 template <TypeKind KIND>
 VectorPtr setVectorFromVariantsByKind(
     const std::vector<velox::variant>& values,
+    const TypePtr& type,
     memory::MemoryPool* pool) {
   using T = typename TypeTraits<KIND>::NativeType;
 
-  auto flatVector = BaseVector::create<FlatVector<T>>(
-      CppToType<T>::create(), values.size(), pool);
+  auto flatVector =
+      BaseVector::create<FlatVector<T>>(type, values.size(), pool);
 
   for (vector_size_t i = 0; i < values.size(); i++) {
     if (values[i].isNull()) {
@@ -42,16 +43,18 @@ VectorPtr setVectorFromVariantsByKind(
 template <>
 VectorPtr setVectorFromVariantsByKind<TypeKind::VARBINARY>(
     const std::vector<velox::variant>& /* values */,
+    const TypePtr& /*type*/,
     memory::MemoryPool* /* pool */) {
-  throw std::invalid_argument("Return of VARBINARY data is not supported");
+  VELOX_UNSUPPORTED("Return of VARBINARY data is not supported");
 }
 
 template <>
 VectorPtr setVectorFromVariantsByKind<TypeKind::VARCHAR>(
     const std::vector<velox::variant>& values,
+    const TypePtr& type,
     memory::MemoryPool* pool) {
-  auto flatVector = BaseVector::create<FlatVector<StringView>>(
-      VARCHAR(), values.size(), pool);
+  auto flatVector =
+      BaseVector::create<FlatVector<StringView>>(type, values.size(), pool);
 
   for (vector_size_t i = 0; i < values.size(); i++) {
     if (values[i].isNull()) {
@@ -69,6 +72,6 @@ VectorPtr setVectorFromVariants(
     const std::vector<velox::variant>& values,
     memory::MemoryPool* pool) {
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      setVectorFromVariantsByKind, type->kind(), values, pool);
+      setVectorFromVariantsByKind, type->kind(), values, type, pool);
 }
 } // namespace facebook::velox::substrait
