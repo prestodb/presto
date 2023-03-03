@@ -35,9 +35,7 @@ struct Converter {
   // contract.
   static typename TypeTraits<KIND>::NativeType cast(T val, bool& nullOutput) {
     VELOX_UNSUPPORTED(
-        "Conversion of {} to {} is not supported",
-        CppToType<T>::name,
-        TypeTraits<KIND>::name);
+        "Conversion to {} is not supported", TypeTraits<KIND>::name);
   }
 };
 
@@ -85,9 +83,7 @@ struct Converter<
   template <typename From>
   static T cast(const From& v, bool& nullOutput) {
     VELOX_UNSUPPORTED(
-        "Conversion of {} to {} is not supported",
-        CppToType<From>::name,
-        TypeTraits<KIND>::name);
+        "Conversion to {} is not supported", TypeTraits<KIND>::name);
   }
 
   static T convertStringToInt(const folly::StringPiece& v, bool& nullOutput) {
@@ -392,9 +388,7 @@ struct Converter<TypeKind::TIMESTAMP> {
 
   template <typename From>
   static T cast(const From& /* v */, bool& nullOutput) {
-    VELOX_UNSUPPORTED(
-        "Conversion of {} to Timestamp is not supported",
-        CppToType<From>::name);
+    VELOX_UNSUPPORTED("Conversion to Timestamp is not supported");
     return T();
   }
 
@@ -422,8 +416,7 @@ struct Converter<TypeKind::DATE, void, TRUNCATE> {
   using T = typename TypeTraits<TypeKind::DATE>::NativeType;
   template <typename From>
   static T cast(const From& /* v */, bool& nullOutput) {
-    VELOX_UNSUPPORTED(
-        "Conversion of {} to Date is not supported", CppToType<From>::name);
+    VELOX_UNSUPPORTED("Conversion to Date is not supported");
     return T();
   }
 

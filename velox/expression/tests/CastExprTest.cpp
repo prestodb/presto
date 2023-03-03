@@ -524,7 +524,7 @@ TEST_F(CastExprTest, mapCast) {
                 nullEvery(3),
                 nullEvery(7)),
             false),
-        "Failed to cast from BIGINT to TIMESTAMP: 0. Conversion of BIGINT to Timestamp is not supported");
+        "Failed to cast from BIGINT to TIMESTAMP: 0. Conversion to Timestamp is not supported");
 
     testComplexCast(
         "c0",
