@@ -21,7 +21,10 @@ workflows:
       - linux-build
       - linux-build-options
       - linux-adapters
-      - macos-build
+      - macos-build:
+          matrix:
+            parameters:
+              os: [macos-intel, macos-m1]
       - format-check
       - header-check
 
@@ -59,7 +62,10 @@ workflows:
       - linux-build-release
       - linux-build-options
       - linux-adapters
-      - macos-build
+      - macos-build:
+          matrix:
+            parameters:
+              os: [macos-intel, macos-m1]
 
 commands:
   update-submodules:
@@ -179,12 +185,21 @@ executors:
   doc-gen:
     docker:
       - image : ghcr.io/facebookincubator/velox-dev:circleci-avx
-
-jobs:
-  macos-build:
+  macos-intel:
     macos:
       xcode: "12.5.1"
     resource_class: large
+  macos-m1:
+    macos:
+      xcode: "14.2.0"
+    resource_class: macos.m1.large.gen1
+
+jobs:
+  macos-build:
+    parameters:
+      os:
+        type: executor
+    executor: << parameters.os >>
     environment:
       ICU_SOURCE: BUNDLED
     steps:
@@ -196,7 +211,7 @@ jobs:
           # to manually avoid the case where bad dependencies
           # are cached, and has no other meaning.
           # If you update it, be sure to update save_cache too.
-          key: velox-circleci-macos-deps-v1-{{ checksum ".circleci/config.yml" }}-{{ checksum "scripts/setup-macos.sh" }}
+          key: velox-circleci-macos-{{ arch }}-deps-v1-{{ checksum ".circleci/config.yml" }}-{{ checksum "scripts/setup-macos.sh" }}
       - run:
           name: "Install dependencies"
           command: |
@@ -213,7 +228,7 @@ jobs:
           # to manually avoid the case where bad dependencies
           # are cached, and has no other meaning.
           # If you update it, be sure to update restore_cache too.
-          key: velox-circleci-macos-deps-v1-{{ checksum ".circleci/config.yml" }}-{{ checksum "scripts/setup-macos.sh" }}
+          key: velox-circleci-macos-{{ arch }}-deps-v1-{{ checksum ".circleci/config.yml" }}-{{ checksum "scripts/setup-macos.sh" }}
           paths:
             - ~/deps
       - run:

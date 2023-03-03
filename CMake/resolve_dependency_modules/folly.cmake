@@ -48,8 +48,13 @@ FetchContent_Declare(
   folly
   URL ${FOLLY_SOURCE_URL}
   URL_HASH SHA256=${VELOX_FOLLY_BUILD_SHA256_CHECKSUM})
-# Fetch the content using previously declared details
+
+if(ON_APPLE_M1)
+  # folly will wrongly assume x86_64 if this is not set
+  set(CMAKE_LIBRARY_ARCHITECTURE aarch64)
+endif()
 FetchContent_MakeAvailable(folly)
+
 # Avoid possible errors for known warnings
 target_compile_options(folly PUBLIC ${FOLLY_CXX_FLAGS})
 
