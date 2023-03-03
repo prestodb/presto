@@ -38,7 +38,6 @@ class JsonCastOperator : public exec::CastOperator {
       const BaseVector& input,
       exec::EvalCtx& context,
       const SelectivityVector& rows,
-      bool nullOnFailure,
       const TypePtr& resultType,
       VectorPtr& result) const override;
 
@@ -46,7 +45,6 @@ class JsonCastOperator : public exec::CastOperator {
       const BaseVector& input,
       exec::EvalCtx& context,
       const SelectivityVector& rows,
-      bool nullOnFailure,
       const TypePtr& resultType,
       VectorPtr& result) const override;
 

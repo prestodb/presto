@@ -36,33 +36,32 @@ class CastOperator {
   /// to the other type.
   virtual bool isSupportedToType(const TypePtr& other) const = 0;
 
-  /// Casts an input vector to the custom type.
+  /// Casts an input vector to the custom type. This function should not throw
+  /// when processing input rows, but report errors via context.setError().
   /// @param input The flat or constant input vector
   /// @param context The context
   /// @param rows Non-null rows of input
-  /// @param nullOnFailure Whether this is a cast or try_cast operation
   /// @param resultType The result type.
   /// @param result The result vector of the custom type
   virtual void castTo(
       const BaseVector& input,
       exec::EvalCtx& context,
       const SelectivityVector& rows,
-      bool nullOnFailure,
       const TypePtr& resultType,
       VectorPtr& result) const = 0;
 
-  /// Casts a vector of the custom type to another type.
+  /// Casts a vector of the custom type to another type. This function should
+  /// not throw when processing input rows, but report errors via
+  /// context.setError().
   /// @param input The flat or constant input vector
   /// @param context The context
   /// @param rows Non-null rows of input
-  /// @param nullOnFailure Whether this is a cast or try_cast operation
   /// @param resultType The result type
   /// @param result The result vector of the destination type
   virtual void castFrom(
       const BaseVector& input,
       exec::EvalCtx& context,
       const SelectivityVector& rows,
-      bool nullOnFailure,
       const TypePtr& resultType,
       VectorPtr& result) const = 0;
 };
@@ -72,16 +71,13 @@ class CastExpr : public SpecialForm {
   /// @param type The target type of the cast expression
   /// @param expr The expression to cast
   /// @param trackCpuUsage Whether to track CPU usage
-  /// @param nullOnFailure Whether to throw or return null if cast is not
-  /// possible
-  CastExpr(TypePtr type, ExprPtr&& expr, bool trackCpuUsage, bool nullOnFailure)
+  CastExpr(TypePtr type, ExprPtr&& expr, bool trackCpuUsage)
       : SpecialForm(
             type,
             std::vector<ExprPtr>({expr}),
             kCast.data(),
             false /* supportsFlatNoNullsFastPath */,
-            trackCpuUsage),
-        nullOnFailure_(nullOnFailure) {
+            trackCpuUsage) {
     auto fromType = inputs_[0]->type();
     castFromOperator_ = getCastOperator(fromType->toString());
     if (castFromOperator_ && !castFromOperator_->isSupportedToType(type)) {
@@ -191,9 +187,6 @@ class CastExpr : public SpecialForm {
       const TypePtr& fromType,
       const TypePtr& toType,
       VectorPtr& result);
-
-  // When enabled the error in casting leads to null being returned.
-  const bool nullOnFailure_;
 
   // Custom cast operator for the from-type. Nullptr if the type is native or
   // doesn't support cast-from.

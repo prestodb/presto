@@ -383,7 +383,7 @@ ExprPtr compileExpression(
   } else if (auto cast = dynamic_cast<const core::CastTypedExpr*>(expr.get())) {
     VELOX_CHECK(!compiledInputs.empty());
     auto castExpr = std::make_shared<CastExpr>(
-        resultType, std::move(compiledInputs[0]), trackCpuUsage, false);
+        resultType, std::move(compiledInputs[0]), trackCpuUsage);
     if (cast->nullOnFailure()) {
       result = getSpecialForm("try", resultType, {castExpr}, trackCpuUsage);
     } else {

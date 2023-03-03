@@ -43,8 +43,7 @@ class DecimalUtil {
       const int fromPrecision,
       const int fromScale,
       const int toPrecision,
-      const int toScale,
-      const bool nullOnFailure) {
+      const int toScale) {
     int128_t rescaledValue = inputValue.unscaledValue();
     auto scaleDifference = toScale - fromScale;
     bool isOverflow = false;
@@ -67,9 +66,6 @@ class DecimalUtil {
     // Check overflow.
     if (rescaledValue < -DecimalUtil::kPowersOfTen[toPrecision] ||
         rescaledValue > DecimalUtil::kPowersOfTen[toPrecision] || isOverflow) {
-      if (nullOnFailure) {
-        return std::nullopt;
-      }
       VELOX_USER_FAIL(
           "Cannot cast DECIMAL '{}' to DECIMAL({},{})",
           DecimalUtil::toString<TInput>(
@@ -88,8 +84,7 @@ class DecimalUtil {
   inline static std::optional<TOutput> rescaleBigint(
       const int128_t inputValue,
       const int toPrecision,
-      const int toScale,
-      const bool nullOnFailure) {
+      const int toScale) {
     static_assert(
         std::is_same_v<TOutput, UnscaledShortDecimal> ||
         std::is_same_v<TOutput, UnscaledLongDecimal>);
@@ -99,9 +94,6 @@ class DecimalUtil {
     // Check overflow.
     if (rescaledValue < -DecimalUtil::kPowersOfTen[toPrecision] ||
         rescaledValue > DecimalUtil::kPowersOfTen[toPrecision] || isOverflow) {
-      if (nullOnFailure) {
-        return std::nullopt;
-      }
       VELOX_USER_FAIL(
           "Cannot cast BIGINT '{}' to DECIMAL({},{})",
           inputValue,

@@ -833,7 +833,6 @@ void JsonCastOperator::castTo(
     const BaseVector& input,
     exec::EvalCtx& context,
     const SelectivityVector& rows,
-    bool /*nullOnFailure*/,
     const TypePtr& resultType,
     VectorPtr& result) const {
   context.ensureWritable(rows, resultType, result);
@@ -850,7 +849,6 @@ void JsonCastOperator::castFrom(
     const BaseVector& input,
     exec::EvalCtx& context,
     const SelectivityVector& rows,
-    bool /*nullOnFailure*/,
     const TypePtr& resultType,
     VectorPtr& result) const {
   context.ensureWritable(rows, resultType, result);
