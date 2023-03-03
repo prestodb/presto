@@ -768,7 +768,7 @@ TEST_F(JsonCastTest, toInteger) {
       JSON(),
       TINYINT(),
       {"128.01"_sv},
-      "Cannot cast from Json value 128.01 to TINYINT: value is outside the range of TINYINT: [-128, 127].");
+      "Cannot cast from Json value 128.01 to TINYINT: value is out of range [-128, 127]: 128.01");
   testThrow<JsonNativeType, int8_t>(
       JSON(),
       TINYINT(),
@@ -778,12 +778,12 @@ TEST_F(JsonCastTest, toInteger) {
       JSON(),
       TINYINT(),
       {"Infinity"_sv},
-      "Cannot cast from Json value Infinity to TINYINT: value is outside the range of TINYINT: [-128, 127]");
+      "Cannot cast from Json value Infinity to TINYINT: value is out of range [-128, 127]: inf");
   testThrow<JsonNativeType, int8_t>(
       JSON(),
       TINYINT(),
       {"NaN"_sv},
-      "Cannot cast from Json value NaN to TINYINT: value is outside the range of TINYINT: [-128, 127]");
+      "Cannot cast from Json value NaN to TINYINT: value is out of range [-128, 127]: nan");
   testThrow<JsonNativeType, int8_t>(
       JSON(), TINYINT(), {""_sv}, "Not a JSON input");
 }

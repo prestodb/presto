@@ -539,13 +539,13 @@ FOLLY_ALWAYS_INLINE T castJsonToInt(const folly::dynamic& object) {
     double value = object.asDouble();
     if (value <= kIntMaxAsDouble && value >= kIntMinAsDouble) {
       return static_cast<T>(value);
-    } else {
-      throw std::invalid_argument(fmt::format(
-          "value is outside the range of {}: [{}, {}].",
-          CppToType<T>::create()->toString(),
-          kIntMinAsDouble,
-          kIntMaxAsDouble));
     }
+
+    VELOX_USER_FAIL(
+        "value is out of range [{}, {}]: {}",
+        kIntMinAsDouble,
+        kIntMaxAsDouble,
+        value);
   } else {
     return folly::to<T>(object.asInt());
   }
