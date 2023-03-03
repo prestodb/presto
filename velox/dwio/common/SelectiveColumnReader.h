@@ -484,7 +484,7 @@ class SelectiveColumnReader {
   void getFlatValues(
       RowSet rows,
       VectorPtr* FOLLY_NONNULL result,
-      const TypePtr& type = CppToType<TVector>::create(),
+      const TypePtr& type,
       bool isFinal = false);
 
   template <typename T, typename TVector>

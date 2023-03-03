@@ -33,7 +33,8 @@ class SelectiveFloatingPointColumnReader
       dwio::common::SelectiveFloatingPointColumnReader<TData, TRequested>;
 
   SelectiveFloatingPointColumnReader(
-      std::shared_ptr<const dwio::common::TypeWithId> nodeType,
+      std::shared_ptr<const dwio::common::TypeWithId> requestedType,
+      const TypePtr& dataType,
       DwrfParams& params,
       common::ScanSpec& scanSpec);
 
@@ -61,10 +62,12 @@ template <typename TData, typename TRequested>
 SelectiveFloatingPointColumnReader<TData, TRequested>::
     SelectiveFloatingPointColumnReader(
         std::shared_ptr<const dwio::common::TypeWithId> requestedType,
+        const TypePtr& dataType,
         DwrfParams& params,
         common::ScanSpec& scanSpec)
     : dwio::common::SelectiveFloatingPointColumnReader<TData, TRequested>(
           std::move(requestedType),
+          dataType,
           params,
           scanSpec),
       decoder_(params.stripeStreams().getStream(

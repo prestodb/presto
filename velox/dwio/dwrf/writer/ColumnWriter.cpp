@@ -484,7 +484,7 @@ uint64_t IntegerColumnWriter<T>::write(
     // it to flat vector
     if (slice->encoding() != VectorEncoding::Simple::FLAT) {
       auto newBase = BaseVector::create(
-          CppToType<T>::create(),
+          slice->type(),
           slice->size(),
           &getMemoryPool(MemoryUsageCategory::GENERAL));
       auto newVector = std::dynamic_pointer_cast<FlatVector<T>>(newBase);

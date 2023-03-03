@@ -87,16 +87,16 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
       if (requestedType->type->kind() == TypeKind::REAL) {
         return std::make_unique<
             SelectiveFloatingPointColumnReader<float, float>>(
-            requestedType, params, scanSpec);
+            requestedType, dataType->type, params, scanSpec);
       } else {
         return std::make_unique<
             SelectiveFloatingPointColumnReader<float, double>>(
-            requestedType, params, scanSpec);
+            requestedType, dataType->type, params, scanSpec);
       }
     case TypeKind::DOUBLE:
       return std::make_unique<
           SelectiveFloatingPointColumnReader<double, double>>(
-          requestedType, params, scanSpec);
+          requestedType, dataType->type, params, scanSpec);
     case TypeKind::ROW:
       return std::make_unique<SelectiveStructColumnReader>(
           requestedType, dataType, params, scanSpec);

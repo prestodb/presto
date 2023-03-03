@@ -152,35 +152,35 @@ void SelectiveColumnReader::getIntValues(
     case TypeKind::SMALLINT: {
       switch (valueSize_) {
         case 8:
-          getFlatValues<int64_t, int16_t>(rows, result);
+          getFlatValues<int64_t, int16_t>(rows, result, requestedType);
           break;
         case 4:
-          getFlatValues<int32_t, int16_t>(rows, result);
+          getFlatValues<int32_t, int16_t>(rows, result, requestedType);
           break;
         case 2:
-          getFlatValues<int16_t, int16_t>(rows, result);
+          getFlatValues<int16_t, int16_t>(rows, result, requestedType);
           break;
         default:
-          VELOX_FAIL("Unsupported value size");
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
       }
       break;
       case TypeKind::INTEGER:
         switch (valueSize_) {
           case 8:
-            getFlatValues<int64_t, int32_t>(rows, result);
+            getFlatValues<int64_t, int32_t>(rows, result, requestedType);
             break;
           case 4:
-            getFlatValues<int32_t, int32_t>(rows, result);
+            getFlatValues<int32_t, int32_t>(rows, result, requestedType);
             break;
           case 2:
-            getFlatValues<int16_t, int32_t>(rows, result);
+            getFlatValues<int16_t, int32_t>(rows, result, requestedType);
             break;
           default:
-            VELOX_FAIL("Unsupported value size");
+            VELOX_FAIL("Unsupported value size: {}", valueSize_);
         }
         break;
       case TypeKind::DATE:
-        getFlatValues<Date, Date>(rows, result);
+        getFlatValues<Date, Date>(rows, result, requestedType);
         break;
       case TypeKind::SHORT_DECIMAL:
         getFlatValues<UnscaledShortDecimal, UnscaledShortDecimal>(
@@ -193,16 +193,16 @@ void SelectiveColumnReader::getIntValues(
       case TypeKind::BIGINT:
         switch (valueSize_) {
           case 8:
-            getFlatValues<int64_t, int64_t>(rows, result);
+            getFlatValues<int64_t, int64_t>(rows, result, requestedType);
             break;
           case 4:
-            getFlatValues<int32_t, int64_t>(rows, result);
+            getFlatValues<int32_t, int64_t>(rows, result, requestedType);
             break;
           case 2:
-            getFlatValues<int16_t, int64_t>(rows, result);
+            getFlatValues<int16_t, int64_t>(rows, result, requestedType);
             break;
           default:
-            VELOX_FAIL("Unsupported value size");
+            VELOX_FAIL("Unsupported value size: {}", valueSize_);
         }
         break;
       default:

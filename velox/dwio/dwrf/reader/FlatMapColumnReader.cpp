@@ -197,7 +197,12 @@ template <typename T>
 void FlatMapColumnReader<T>::initKeysVector(
     VectorPtr& vector,
     vector_size_t size) {
-  initializeFlatVector<T>(vector, memoryPool_, size, false);
+  initializeFlatVector<T>(
+      vector,
+      memoryPool_,
+      requestedType_->type->asMap().keyType(),
+      size,
+      false);
   vector->resize(size, false);
 }
 
@@ -208,6 +213,7 @@ void FlatMapColumnReader<StringView>::initKeysVector(
   initializeFlatVector<StringView>(
       vector,
       memoryPool_,
+      VARCHAR(),
       size,
       false,
       std::vector<BufferPtr>{stringKeyBuffer_->getBuffer()});

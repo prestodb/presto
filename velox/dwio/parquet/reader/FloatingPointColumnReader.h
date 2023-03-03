@@ -33,6 +33,7 @@ class FloatingPointColumnReader
 
   FloatingPointColumnReader(
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
+      const TypePtr& dataType,
       ParquetParams& params,
       common::ScanSpec& scanSpec);
 
@@ -58,10 +59,12 @@ class FloatingPointColumnReader
 template <typename TData, typename TRequested>
 FloatingPointColumnReader<TData, TRequested>::FloatingPointColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> requestedType,
+    const TypePtr& dataType,
     ParquetParams& params,
     common::ScanSpec& scanSpec)
     : dwio::common::SelectiveFloatingPointColumnReader<TData, TRequested>(
           std::move(requestedType),
+          dataType,
           params,
           scanSpec) {}
 

@@ -52,6 +52,7 @@ template <typename T>
 void initializeFlatVector(
     VectorPtr& vector,
     memory::MemoryPool& pool,
+    const TypePtr& type,
     vector_size_t size,
     bool hasNulls,
     std::vector<BufferPtr>&& stringBuffers = {}) {
@@ -67,7 +68,7 @@ void initializeFlatVector(
   if (!vector) {
     vector = std::make_shared<FlatVector<T>>(
         &pool,
-        CppToType<T>::create(),
+        type,
         hasNulls ? AlignedBuffer::allocate<bool>(size, &pool) : nullptr,
         0 /*length*/,
         AlignedBuffer::allocate<T>(size, &pool),

@@ -25,14 +25,15 @@ class SelectiveFloatingPointColumnReader : public SelectiveColumnReader {
  public:
   using ValueType = TRequested;
   SelectiveFloatingPointColumnReader(
-      std::shared_ptr<const dwio::common::TypeWithId> nodeType,
+      std::shared_ptr<const dwio::common::TypeWithId> requestedType,
+      const TypePtr& dataType,
       FormatParams& params,
       velox::common::ScanSpec& scanSpec)
       : SelectiveColumnReader(
-            std::move(nodeType),
+            std::move(requestedType),
             params,
             scanSpec,
-            CppToType<TData>::create()) {}
+            dataType) {}
 
   // Offers fast path only if data and result widths match.
   bool hasBulkPath() const override {
@@ -44,7 +45,7 @@ class SelectiveFloatingPointColumnReader : public SelectiveColumnReader {
   readCommon(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls);
 
   void getValues(RowSet rows, VectorPtr* result) override {
-    getFlatValues<TRequested, TRequested>(rows, result);
+    getFlatValues<TRequested, TRequested>(rows, result, nodeType_->type);
   }
 
  protected:

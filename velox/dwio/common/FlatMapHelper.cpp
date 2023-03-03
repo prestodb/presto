@@ -64,7 +64,7 @@ void initializeStringVector(
     }
   }
   initializeFlatVector<StringView>(
-      vector, pool, size, hasNulls, std::move(buffers));
+      vector, pool, VARCHAR(), size, hasNulls, std::move(buffers));
 }
 
 } // namespace detail
@@ -74,6 +74,7 @@ template <TypeKind K>
 void initializeFlatVector(
     VectorPtr& vector,
     memory::MemoryPool& pool,
+    const TypePtr& type,
     const std::vector<const BaseVector*>& vectors) {
   using NativeType = typename velox::TypeTraits<K>::NativeType;
   vector_size_t size = 0;
@@ -88,22 +89,22 @@ void initializeFlatVector(
     size += vec->size();
     hasNulls = hasNulls || vec->mayHaveNulls();
   }
-  initializeFlatVector<NativeType>(vector, pool, size, hasNulls);
+  initializeFlatVector<NativeType>(vector, pool, type, size, hasNulls);
 }
 
 template <TypeKind K>
 void initializeVectorImpl(
     VectorPtr& vector,
-    const std::shared_ptr<const Type>& /* type */,
+    const TypePtr& type,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
-  initializeFlatVector<K>(vector, pool, vectors);
+  initializeFlatVector<K>(vector, pool, type, vectors);
 }
 
 template <>
 void initializeVectorImpl<TypeKind::VARCHAR>(
     VectorPtr& vector,
-    const std::shared_ptr<const Type>& /* type */,
+    const TypePtr& /* type */,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
   detail::initializeStringVector(vector, pool, vectors);
@@ -112,7 +113,7 @@ void initializeVectorImpl<TypeKind::VARCHAR>(
 template <>
 void initializeVectorImpl<TypeKind::VARBINARY>(
     VectorPtr& vector,
-    const std::shared_ptr<const Type>& /* type */,
+    const TypePtr& /* type */,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
   detail::initializeStringVector(vector, pool, vectors);
@@ -131,7 +132,7 @@ void addVector(
 template <>
 void initializeVectorImpl<TypeKind::ARRAY>(
     VectorPtr& vector,
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
   vector_size_t size = 0;
@@ -188,7 +189,7 @@ void initializeVectorImpl<TypeKind::ARRAY>(
 
 void initializeMapVector(
     VectorPtr& vector,
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors,
     std::optional<vector_size_t> sizeOverride) {
@@ -262,7 +263,7 @@ void initializeMapVector(
 template <>
 void initializeVectorImpl<TypeKind::MAP>(
     VectorPtr& vector,
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
   initializeMapVector(vector, type, pool, vectors);
@@ -271,7 +272,7 @@ void initializeVectorImpl<TypeKind::MAP>(
 template <>
 void initializeVectorImpl<TypeKind::ROW>(
     VectorPtr& vector,
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
   vector_size_t size = 0;
@@ -331,7 +332,7 @@ void initializeVectorImpl<TypeKind::ROW>(
 
 void initializeVector(
     VectorPtr& vector,
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
   VELOX_DYNAMIC_TYPE_DISPATCH(
@@ -377,7 +378,7 @@ vector_size_t copyNulls(
 
 template <TypeKind K>
 void copyImpl(
-    const std::shared_ptr<const Type>& /* type */,
+    const TypePtr& /* type */,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -397,7 +398,7 @@ void copyImpl(
 
 template <>
 void copyImpl<TypeKind::BOOLEAN>(
-    const std::shared_ptr<const Type>& /* type */,
+    const TypePtr& /* type */,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -435,7 +436,7 @@ void copyStrings(
 
 template <>
 void copyImpl<TypeKind::VARCHAR>(
-    const std::shared_ptr<const Type>& /* type */,
+    const TypePtr& /* type */,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -446,7 +447,7 @@ void copyImpl<TypeKind::VARCHAR>(
 
 template <>
 void copyImpl<TypeKind::VARBINARY>(
-    const std::shared_ptr<const Type>& /* type */,
+    const TypePtr& /* type */,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -502,7 +503,7 @@ vector_size_t copyOffsets(
 
 template <>
 void copyImpl<TypeKind::ARRAY>(
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -530,7 +531,7 @@ void copyImpl<TypeKind::ARRAY>(
 
 template <>
 void copyImpl<TypeKind::MAP>(
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -566,7 +567,7 @@ void copyImpl<TypeKind::MAP>(
 
 template <>
 void copyImpl<TypeKind::ROW>(
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -589,7 +590,7 @@ void copyImpl<TypeKind::ROW>(
 }
 
 void copy(
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -630,7 +631,7 @@ bool copyNull(
 
 template <TypeKind K>
 void copyOneImpl(
-    const std::shared_ptr<const Type>& /* type */,
+    const TypePtr& /* type */,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -647,7 +648,7 @@ void copyOneImpl(
 
 template <>
 void copyOneImpl<TypeKind::BOOLEAN>(
-    const std::shared_ptr<const Type>& /* type */,
+    const TypePtr& /* type */,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -679,7 +680,7 @@ void copyString(
 
 template <>
 void copyOneImpl<TypeKind::VARCHAR>(
-    const std::shared_ptr<const Type>& /* type */,
+    const TypePtr& /* type */,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -689,7 +690,7 @@ void copyOneImpl<TypeKind::VARCHAR>(
 
 template <>
 void copyOneImpl<TypeKind::VARBINARY>(
-    const std::shared_ptr<const Type>& /* type */,
+    const TypePtr& /* type */,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -723,7 +724,7 @@ vector_size_t copyOffset(
 
 template <>
 void copyOneImpl<TypeKind::ARRAY>(
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -748,7 +749,7 @@ void copyOneImpl<TypeKind::ARRAY>(
 
 template <>
 void copyOneImpl<TypeKind::MAP>(
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -781,7 +782,7 @@ void copyOneImpl<TypeKind::MAP>(
 
 template <>
 void copyOneImpl<TypeKind::ROW>(
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
@@ -803,7 +804,7 @@ void copyOneImpl<TypeKind::ROW>(
 }
 
 void copyOne(
-    const std::shared_ptr<const Type>& type,
+    const TypePtr& type,
     BaseVector& target,
     vector_size_t targetIndex,
     const BaseVector& source,
