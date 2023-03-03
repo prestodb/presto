@@ -26,9 +26,7 @@
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
 
-namespace facebook {
-namespace velox {
-namespace core {
+namespace facebook::velox::core {
 
 // A simple & efficient container/target for user strings
 struct StringWriter : public UDFOutputString {
@@ -132,33 +130,4 @@ struct StringWriter : public UDFOutputString {
   folly::fbstring storage_;
 };
 
-namespace detail {
-
-template <typename T, typename = int32_t>
-struct has_velox_type : std::false_type {};
-
-template <typename T>
-struct has_velox_type<T, decltype((void)T::veloxType, 0)> : std::true_type {};
-} // namespace detail
-
-template <typename T>
-struct UdfToType {
-  template <
-      typename Tx = T,
-      typename std::enable_if_t<detail::has_velox_type<Tx>::value, int32_t> = 0>
-  static std::shared_ptr<const Type> veloxType() {
-    return T::veloxType();
-  }
-
-  template <
-      typename Tx = T,
-      typename std::enable_if_t<!detail::has_velox_type<Tx>::value, int32_t> =
-          0>
-  static std::shared_ptr<const Type> veloxType() {
-    return CppToType<T>::create();
-  }
-};
-
-} // namespace core
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::core
