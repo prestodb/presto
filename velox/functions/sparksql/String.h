@@ -94,6 +94,54 @@ struct Sha1HexStringFunction {
   }
 };
 
+/// sha2 function
+/// sha2(varbinary, bitLength) -> string
+/// Calculate SHA-2 family of functions (SHA-224, SHA-256,
+/// SHA-384, and SHA-512) and convert the result to a hex string.
+/// The second argument indicates the desired bit length of the result, which
+/// must have a value of 224, 256, 384, 512, or 0 (which is equivalent to 256).
+/// If asking for an unsupported bitLength, the return value is NULL.
+/// Returns SHA-2 digest as hex string.
+template <typename T>
+struct Sha2HexStringFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  bool call(
+      out_type<Varchar>& result,
+      const arg_type<Varbinary>& input,
+      const int32_t& bitLength) {
+    const int32_t nonzeroBitLength = (bitLength == 0) ? 256 : bitLength;
+    const EVP_MD* hashAlgorithm;
+    switch (nonzeroBitLength) {
+      case 224:
+        hashAlgorithm = EVP_sha224();
+        break;
+      case 256:
+        hashAlgorithm = EVP_sha256();
+        break;
+      case 384:
+        hashAlgorithm = EVP_sha384();
+        break;
+      case 512:
+        hashAlgorithm = EVP_sha512();
+        break;
+      default:
+        // For an unsupported bitLength, the return value is NULL.
+        return false;
+    }
+    const int32_t digestLength = nonzeroBitLength >> 3;
+    result.resize(digestLength * 2);
+    auto resultBuffer =
+        folly::MutableByteRange((uint8_t*)result.data(), digestLength);
+    auto inputBuffer =
+        folly::ByteRange((const uint8_t*)input.data(), input.size());
+    folly::ssl::OpenSSLHash::hash(resultBuffer, hashAlgorithm, inputBuffer);
+    encodeDigestToBase16((uint8_t*)result.data(), digestLength);
+    return true;
+  }
+};
+
 /// contains function
 /// contains(string, string) -> bool
 /// Searches the second argument in the first one.

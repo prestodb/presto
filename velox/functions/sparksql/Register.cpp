@@ -93,6 +93,8 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<Md5Function, Varchar, Varbinary>({prefix + "md5"});
   registerFunction<Sha1HexStringFunction, Varchar, Varbinary>(
       {prefix + "sha1"});
+  registerFunction<Sha2HexStringFunction, Varchar, Varbinary, int32_t>(
+      {prefix + "sha2"});
 
   exec::registerStatefulVectorFunction(
       prefix + "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
