@@ -39,7 +39,6 @@
 #include "velox/connectors/Connector.h"
 #include "velox/core/Context.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include "velox/exec/Driver.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -267,6 +266,19 @@ void PrestoServer::run() {
     if (auto listener = getExprSetListener()) {
       exec::registerExprSetListener(listener);
     }
+  }
+
+  LOG(INFO) << "STARTUP: Driver CPU executor has "
+            << driverCPUExecutor()->numThreads() << " threads.";
+  if (httpServer_->getExecutor()) {
+    LOG(INFO) << "STARTUP: HTTP Server executor has "
+              << httpServer_->getExecutor()->numThreads() << " threads.";
+  }
+  if (spillExecutorPtr()) {
+    LOG(INFO) << "STARTUP: Spill executor has "
+              << spillExecutorPtr()->numThreads() << " threads.";
+  } else {
+    LOG(INFO) << "STARTUP: Spill executor was not configured.";
   }
 
   LOG(INFO) << "STARTUP: Starting all periodic tasks...";
