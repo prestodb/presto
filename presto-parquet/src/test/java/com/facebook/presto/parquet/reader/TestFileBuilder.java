@@ -40,7 +40,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
-public class EncryptionTestFileBuilder
+public class TestFileBuilder
 {
     private MessageType schema;
     private Configuration conf;
@@ -53,69 +53,85 @@ public class EncryptionTestFileBuilder
     private ParquetCipher cipher = ParquetCipher.AES_GCM_V1;
     private Boolean footerEncryption = false;
     private Boolean dataMaskingTest = false;
+    private int rowGroupSize = 8 * 1024 * 1024;
+    private boolean dictionaryEnabled;
+    private int dictionaryPerValueRepeatCount = 10;
+    private int lastUsedValue = ThreadLocalRandom.current().nextInt(10000);
 
-    public EncryptionTestFileBuilder(Configuration conf, MessageType schema)
+    public TestFileBuilder(Configuration conf, MessageType schema)
     {
         this.conf = conf;
         this.schema = schema;
         conf.set(GroupWriteSupport.PARQUET_EXAMPLE_SCHEMA, schema.toString());
     }
 
-    public EncryptionTestFileBuilder withNumRecord(int numRecord)
+    public TestFileBuilder withNumRecord(int numRecord)
     {
         this.numRecord = numRecord;
         return this;
     }
 
-    public EncryptionTestFileBuilder withEncrytionAlgorithm(ParquetCipher cipher)
+    public TestFileBuilder withEncrytionAlgorithm(ParquetCipher cipher)
     {
         this.cipher = cipher;
         return this;
     }
 
-    public EncryptionTestFileBuilder withExtraMeta(Map<String, String> extraMeta)
+    public TestFileBuilder withExtraMeta(Map<String, String> extraMeta)
     {
         this.extraMeta = extraMeta;
         return this;
     }
 
-    public EncryptionTestFileBuilder withWriterVersion(ParquetProperties.WriterVersion writerVersion)
+    public TestFileBuilder withWriterVersion(ParquetProperties.WriterVersion writerVersion)
     {
         this.writerVersion = writerVersion;
         return this;
     }
 
-    public EncryptionTestFileBuilder withPageSize(int pageSize)
+    public TestFileBuilder withPageSize(int pageSize)
     {
         this.pageSize = pageSize;
         return this;
     }
 
-    public EncryptionTestFileBuilder withCodec(String codec)
+    public TestFileBuilder withRowGroupSize(int rowGroupSize)
+    {
+        this.rowGroupSize = rowGroupSize;
+        return this;
+    }
+
+    public TestFileBuilder withCodec(String codec)
     {
         this.codec = codec;
         return this;
     }
 
-    public EncryptionTestFileBuilder withEncryptColumns(String[] encryptColumns)
+    public TestFileBuilder withEncryptColumns(String[] encryptColumns)
     {
         this.encryptColumns = encryptColumns;
         return this;
     }
 
-    public EncryptionTestFileBuilder withFooterEncryption()
+    public TestFileBuilder withFooterEncryption()
     {
         this.footerEncryption = true;
         return this;
     }
 
-    public EncryptionTestFileBuilder withDataMaskingTest()
+    public TestFileBuilder withDataMaskingTest()
     {
         this.dataMaskingTest = true;
         return this;
     }
 
-    public EncryptionTestFile build()
+    public TestFileBuilder withDictionaryEnabled()
+    {
+        this.dictionaryEnabled = true;
+        return this;
+    }
+
+    public TestFile build()
             throws IOException
     {
         String fileName = createTempFile("test");
@@ -127,14 +143,16 @@ public class EncryptionTestFileBuilder
                 .withExtraMetaData(extraMeta)
                 .withValidation(true)
                 .withPageSize(pageSize)
+                .withRowGroupSize(rowGroupSize)
                 .withEncryption(encryptionProperties)
+                .withDictionaryEncoding(dictionaryEnabled)
                 .withCompressionCodec(CompressionCodecName.valueOf(codec));
         try (ParquetWriter writer = builder.build()) {
             for (int i = 0; i < fileContent.length; i++) {
                 writer.write(fileContent[i]);
             }
         }
-        return new EncryptionTestFile(fileName, fileContent);
+        return new TestFile(fileName, fileContent);
     }
 
     private SimpleGroup[] createFileContent(MessageType schema)
@@ -174,9 +192,16 @@ public class EncryptionTestFileBuilder
         }
     }
 
-    private static long getInt()
+    private int getInt()
     {
-        return ThreadLocalRandom.current().nextInt(10000);
+        if (dictionaryEnabled && dictionaryPerValueRepeatCount > 0) {
+            dictionaryPerValueRepeatCount--;
+        }
+        else {
+            dictionaryPerValueRepeatCount = 10;
+            lastUsedValue = ThreadLocalRandom.current().nextInt(10000);
+        }
+        return lastUsedValue;
     }
 
     private static long getLong()

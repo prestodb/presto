@@ -113,8 +113,8 @@ public abstract class AbstractColumnReader
         else {
             dictionary = null;
         }
-        checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
-        totalValueCount = pageReader.getTotalValueCount();
+        checkArgument(pageReader.getValueCountInColumnChunk() > 0, "page is empty");
+        totalValueCount = pageReader.getValueCountInColumnChunk();
         indexIterator = (rowRanges == null) ? null : rowRanges.iterator();
     }
 
