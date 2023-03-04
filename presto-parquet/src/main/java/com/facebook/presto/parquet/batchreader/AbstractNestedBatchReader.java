@@ -82,7 +82,7 @@ public abstract class AbstractNestedBatchReader
     {
         Preconditions.checkState(!isInitialized(), "already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");
-        checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
+        checkArgument(pageReader.getValueCountInColumnChunk() > 0, "page is empty");
 
         this.field = requireNonNull(field, "field is null");
 
