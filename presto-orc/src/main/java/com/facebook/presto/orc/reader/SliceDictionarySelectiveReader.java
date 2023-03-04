@@ -237,13 +237,8 @@ public class SliceDictionarySelectiveReader
                 boolean inRowDictionary = inDictionaryStream != null && !inDictionaryStream.nextBit();
                 int rawIndex = toIntExact(dataStream.next());
                 int index = inRowDictionary ? stripeDictionarySize + rawIndex : rawIndex;
-                int length;
-                if (isCharType) {
-                    length = maxCodePointCount;
-                }
-                else {
-                    length = inRowDictionary ? rowGroupDictionaryLength[rawIndex] : stripeDictionaryLength[rawIndex];
-                }
+                int length = inRowDictionary ? rowGroupDictionaryLength[rawIndex] : stripeDictionaryLength[rawIndex];
+
                 if (evaluationStatus == null) {
                     evaluateFilter(position, index, length);
                 }
