@@ -72,7 +72,7 @@ public class Int32FlatBatchReader
     {
         checkArgument(!isInitialized(), "Parquet batch reader already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");
-        checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
+        checkArgument(pageReader.getValueCountInColumnChunk() > 0, "page is empty");
         this.field = requireNonNull(field, "field is null");
 
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
