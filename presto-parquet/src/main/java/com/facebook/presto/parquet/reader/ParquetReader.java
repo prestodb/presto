@@ -595,4 +595,106 @@ public class ParquetReader
         }
         return pageRanges;
     }
+
+    public static Builder builder(
+            MessageColumnIO messageColumnIO,
+            List<BlockMetaData> block,
+            ParquetDataSource dataSource,
+            AggregatedMemoryContext systemMemoryContext)
+    {
+        return new Builder(messageColumnIO, block, dataSource, systemMemoryContext);
+    }
+
+    public static class Builder
+    {
+        private final MessageColumnIO messageColumnIO;
+        private final List<BlockMetaData> blocks;
+        protected final ParquetDataSource dataSource;
+        private final AggregatedMemoryContext systemMemoryContext;
+        private Optional<List<Long>> firstRowsOfBlocks = Optional.empty();
+        private DataSize maxReadBlockSize;
+        private boolean batchReadEnabled;
+        private boolean enableVerification;
+        private Predicate parquetPredicate;
+        private List<ColumnIndexStore> blockIndexStores;
+        private boolean columnIndexFilterEnabled;
+        private Optional<InternalFileDecryptor> fileDecryptor = Optional.empty();
+
+        private Builder(
+                MessageColumnIO messageColumnIO,
+                List<BlockMetaData> block,
+                ParquetDataSource dataSource,
+                AggregatedMemoryContext systemMemoryContext)
+        {
+            this.messageColumnIO = messageColumnIO;
+            this.blocks = block;
+            this.dataSource = dataSource;
+            this.systemMemoryContext = systemMemoryContext;
+        }
+
+        public Builder withFirstRowOfBlocks(Optional<List<Long>> firstRowsOfBlocks)
+        {
+            this.firstRowsOfBlocks = firstRowsOfBlocks;
+            return this;
+        }
+
+        public Builder withMaxReadBlockSize(DataSize maxReadBlockSize)
+        {
+            this.maxReadBlockSize = maxReadBlockSize;
+            return this;
+        }
+
+        public Builder withBatchReadEnabled(boolean batchReadEnabled)
+        {
+            this.batchReadEnabled = batchReadEnabled;
+            return this;
+        }
+
+        public Builder withEnableVerification(boolean enableVerification)
+        {
+            this.enableVerification = enableVerification;
+            return this;
+        }
+
+        public Builder withPredicate(Predicate parquetPredicate)
+        {
+            this.parquetPredicate = parquetPredicate;
+            return this;
+        }
+
+        public Builder withBlockIndexStores(List<ColumnIndexStore> blockIndexStores)
+        {
+            this.blockIndexStores = blockIndexStores;
+            return this;
+        }
+
+        public Builder withColumnIndexEnabled(boolean columnIndexFilterEnabled)
+        {
+            this.columnIndexFilterEnabled = columnIndexFilterEnabled;
+            return this;
+        }
+
+        public Builder withFileDecryptor(Optional<InternalFileDecryptor> fileDecryptor)
+        {
+            this.fileDecryptor = fileDecryptor;
+            return this;
+        }
+
+        public ParquetReader build()
+        {
+            return new ParquetReader(
+                    this.messageColumnIO,
+                    this.blocks,
+                    this.firstRowsOfBlocks,
+                    this.dataSource,
+                    this.systemMemoryContext,
+                    this.maxReadBlockSize,
+                    this.batchReadEnabled,
+                    this.enableVerification,
+                    this.parquetPredicate,
+                    this.blockIndexStores,
+                    this.columnIndexFilterEnabled,
+                    this.fileDecryptor);
+        }
+    }
 }
