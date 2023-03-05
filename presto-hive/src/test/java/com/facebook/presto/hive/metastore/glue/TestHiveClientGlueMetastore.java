@@ -31,6 +31,7 @@ import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
+import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveTypeTranslator;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.TypeTranslator;
@@ -60,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -69,6 +71,7 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.DELTA_LAKE_PROVIDER;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.ICEBERG_TABLE_TYPE_NAME;
@@ -80,6 +83,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
 import static com.facebook.presto.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
 import static com.facebook.presto.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Sets.difference;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -172,6 +176,16 @@ public class TestHiveClientGlueMetastore
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
 
         return new GlueHiveMetastore(hdfsEnvironment, glueConfig, executor);
+    }
+
+    @Override
+    protected Set<HiveStorageFormat> getSupportedCreateTableHiveStorageFormats()
+    {
+        return difference(
+                ImmutableSet.copyOf(super.getSupportedCreateTableHiveStorageFormats()),
+                // Exclude PAGEFILE because Glue catalog requires a non-empty SerDe and PageFile has it set to an
+                // empty string.
+                ImmutableSet.of(PAGEFILE));
     }
 
     @Override
