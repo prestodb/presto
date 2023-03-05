@@ -290,9 +290,9 @@ BENCHMARK(q22) {
 }
 
 int main(int argc, char** argv) {
-  std::string usage(
-      "This program benchmarks TPC-H queries. Run 'velox_tpch_benchmark -helpon=Tpchbenchmark' for available options.\n");
-  gflags::SetUsageMessage(usage);
+  std::string kUsage(
+      "This program benchmarks TPC-H queries. Run 'velox_tpch_benchmark -helpon=TpchBenchmark' for available options.\n");
+  gflags::SetUsageMessage(kUsage);
   folly::init(&argc, &argv, false);
   benchmark.initialize();
   queryBuilder =
