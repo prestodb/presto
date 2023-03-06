@@ -36,10 +36,10 @@ Run the script referenced [here](https://github.com/facebookincubator/velox#sett
 #### Install PyVelox
 For local development, you can build with debug mode:
 ```
-DEBUG=1 python setup.py develop
+make python-build
 ```
 
 And run unit tests with
 ```
-python -m unittest -v
+make python-test
 ```
