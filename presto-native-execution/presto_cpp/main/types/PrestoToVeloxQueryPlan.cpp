@@ -2092,7 +2092,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         }
       }
       default:
-        VELOX_FAIL("Unsupported kind of SystemPartitioning");
+        VELOX_FAIL("Unsupported kind of SystemPartitioning: {}", systemPartitioningHandle->partitioning);
     }
   } else if (
       auto hivePartitioningHandle =
