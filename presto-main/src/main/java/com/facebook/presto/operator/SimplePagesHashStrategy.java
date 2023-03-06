@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
@@ -35,6 +36,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.Failures.internalError;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class SimplePagesHashStrategy
@@ -43,7 +45,7 @@ public class SimplePagesHashStrategy
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SimplePagesHashStrategy.class).instanceSize();
     private final List<Type> types;
     private final List<Integer> outputChannels;
-    private final List<List<Block>> channels;
+    private final List<ObjectArrayList<Block>> channels;
     private final List<Integer> hashChannels;
     private final List<Block> precomputedHashChannel;
     private final Optional<Integer> sortChannel;
@@ -53,7 +55,7 @@ public class SimplePagesHashStrategy
     public SimplePagesHashStrategy(
             List<Type> types,
             List<Integer> outputChannels,
-            List<List<Block>> channels,
+            List<ObjectArrayList<Block>> channels,
             List<Integer> hashChannels,
             OptionalInt precomputedHashChannel,
             Optional<Integer> sortChannel,
@@ -92,10 +94,12 @@ public class SimplePagesHashStrategy
     @Override
     public long getSizeInBytes()
     {
-        return INSTANCE_SIZE + channels.stream()
-                .flatMap(List::stream)
-                .mapToLong(Block::getRetainedSizeInBytes)
-                .sum();
+        return INSTANCE_SIZE +
+                (channels.size() > 0 ? sizeOf(channels.get(0).elements()) * channels.size() : 0) +
+                channels.stream()
+                        .flatMap(List::stream)
+                        .mapToLong(Block::getRetainedSizeInBytes)
+                        .sum();
     }
 
     @Override

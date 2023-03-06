@@ -217,7 +217,8 @@ public class HashBuilderOperator
     private final Optional<Integer> sortChannel;
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
 
-    private final PagesIndex index;
+    @Nullable
+    private PagesIndex index;
 
     private final boolean spillEnabled;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -524,6 +525,12 @@ public class HashBuilderOperator
             return;
         }
 
+        checkState(index != null, "index is null");
+        ListenableFuture<?> reserved = localUserMemoryContext.setBytes(index.getEstimatedMemoryRequiredToCreateLookupSource(
+                sortChannel));
+        if (!reserved.isDone()) {
+            // Yield when not enough memory is available to proceed, finish is expected to be called again when some memory is freed
+        }
         LookupSourceSupplier partition = buildLookupSource();
         if (spillEnabled) {
             localRevocableMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
@@ -533,6 +540,7 @@ public class HashBuilderOperator
         }
         lookupSourceNotNeeded = Optional.of(lookupSourceFactory.lendPartitionLookupSource(partitionIndex, partition));
 
+        index = null;
         state = State.LOOKUP_SOURCE_BUILT;
     }
 

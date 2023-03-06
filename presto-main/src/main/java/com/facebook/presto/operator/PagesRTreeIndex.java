@@ -28,6 +28,7 @@ import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -54,7 +55,7 @@ public class PagesRTreeIndex
     private final AdaptiveLongBigArray addresses;
     private final List<Type> types;
     private final List<Integer> outputChannels;
-    private final List<List<Block>> channels;
+    private final List<ObjectArrayList<Block>> channels;
     private final Flatbush<GeometryWithPosition> rtree;
     private final int radiusChannel;
     private final SpatialPredicate spatialRelationshipTest;
@@ -117,7 +118,7 @@ public class PagesRTreeIndex
             AdaptiveLongBigArray addresses,
             List<Type> types,
             List<Integer> outputChannels,
-            List<List<Block>> channels,
+            List<ObjectArrayList<Block>> channels,
             Flatbush<GeometryWithPosition> rtree,
             Optional<Integer> radiusChannel,
             SpatialPredicate spatialRelationshipTest,

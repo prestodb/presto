@@ -473,7 +473,7 @@ public class PagesIndex
             LocalMemoryContext localUserMemoryContext)
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
-        List<List<Block>> channels = ImmutableList.copyOf(this.channels);
+        List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
         return new PagesSpatialIndexSupplier(session, valueAddresses, positionCount, types, outputChannels, channels, geometryChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions, localUserMemoryContext);
     }
 
@@ -486,7 +486,7 @@ public class PagesIndex
             List<JoinFilterFunctionFactory> searchFunctionFactories,
             Optional<List<Integer>> outputChannels)
     {
-        List<List<Block>> channels = ImmutableList.copyOf(this.channels);
+        List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
         if (!joinChannels.isEmpty()) {
             // todo compiled implementation of lookup join does not support when we are joining with empty join channels.
             // This code path will trigger only for OUTER joins. To fix that we need to add support for
@@ -594,5 +594,20 @@ public class PagesIndex
                 return page;
             }
         };
+    }
+
+    public long getEstimatedMemoryRequiredToCreateLookupSource(
+            Optional<Integer> sortChannel)
+    {
+        // channels and valueAddresses are shared between PagesIndex and JoinHashSupplier and are accounted as part of lookupSourceEstimatedRetainedSizeInBytes
+        long lookupSourceEstimatedRetainedSizeInBytes = JoinHashSupplier.getEstimatedRetainedSizeInBytes(
+                positionCount,
+                valueAddresses,
+                ImmutableList.copyOf(channels),
+                pagesMemorySize,
+                sortChannel);
+        // PageIndex is retained during LookupSource creation, hence any extra memory retained by the PagesIndex must be accounted here
+        long pagesIndexAdditionalRetainedSizeInBytes = INSTANCE_SIZE;
+        return pagesIndexAdditionalRetainedSizeInBytes + lookupSourceEstimatedRetainedSizeInBytes;
     }
 }

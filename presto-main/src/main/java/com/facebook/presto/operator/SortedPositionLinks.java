@@ -31,6 +31,8 @@ import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -204,6 +206,15 @@ public final class SortedPositionLinks
     public long getSizeInBytes()
     {
         return sizeInBytes;
+    }
+
+    public static long getEstimatedRetainedSizeInBytes(int positionCount)
+    {
+        return INSTANCE_SIZE
+                // positionLinks
+                + ArrayPositionLinks.getEstimatedRetainedSizeInBytes(positionCount)
+                // sortedPositionLinks (one element per position in int[][] + one integer per position in worst case scenario)
+                + sizeOfObjectArray(positionCount) + sizeOfIntArray(positionCount);
     }
 
     @Override

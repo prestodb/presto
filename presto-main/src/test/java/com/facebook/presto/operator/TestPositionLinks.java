@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -311,7 +312,7 @@ public class TestPositionLinks
         return new SimplePagesHashStrategy(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(),
-                ImmutableList.of(ImmutableList.of(TEST_PAGE.getBlock(0))),
+                ImmutableList.of(new ObjectArrayList<>(ImmutableList.of(TEST_PAGE.getBlock(0)))),
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 Optional.of(0),

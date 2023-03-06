@@ -15,17 +15,23 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.array.AdaptiveLongBigArray;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.HashCommon;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfByteArray;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -51,6 +57,24 @@ public final class PagesHash
     private final long hashCollisions;
     private final double expectedHashCollisions;
 
+    public static long getEstimatedRetainedSizeInBytes(
+            int positionCount,
+            AdaptiveLongBigArray addresses,
+            List<ObjectArrayList<Block>> channels,
+            long blocksSizeInBytes)
+    {
+        return addresses.getRetainedSizeInBytes() +
+                (channels.size() > 0 ? (sizeOfObjectArray(channels.get(0).size()) * channels.size()) : 0) +
+                blocksSizeInBytes +
+                sizeOfIntArray(getHashArraySize(positionCount)) +
+                sizeOfByteArray(positionCount);
+    }
+
+    public static int getHashArraySize(int positionCount)
+    {
+        return HashCommon.arraySize(positionCount, 0.75f);
+    }
+
     public PagesHash(
             AdaptiveLongBigArray addresses,
             int positionCount,
@@ -63,7 +87,7 @@ public final class PagesHash
         this.channelCount = pagesHashStrategy.getChannelCount();
 
         // reserve memory for the arrays
-        int hashSize = HashCommon.arraySize(positionCount, 0.75f);
+        int hashSize = PagesHash.getHashArraySize(positionCount);
 
         mask = hashSize - 1;
         key = new int[hashSize];

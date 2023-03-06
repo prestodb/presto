@@ -31,6 +31,8 @@ import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -149,41 +151,42 @@ public class TestJoinCompiler
         List<Integer> outputChannels = Ints.asList(1, 2, 3, 4, 0);
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
-        List<Block> extraChannel = ImmutableList.of(
+        ObjectArrayList<Block> extraChannel = new ObjectArrayList<>(ImmutableList.of(
                 BlockAssertions.createStringSequenceBlock(10, 20),
                 BlockAssertions.createStringSequenceBlock(20, 30),
-                BlockAssertions.createStringSequenceBlock(15, 25));
-        List<Block> varcharChannel = ImmutableList.of(
+                BlockAssertions.createStringSequenceBlock(15, 25)));
+        ObjectArrayList<Block> varcharChannel = new ObjectArrayList<>(ImmutableList.of(
                 BlockAssertions.createStringSequenceBlock(10, 20),
                 BlockAssertions.createStringSequenceBlock(20, 30),
-                BlockAssertions.createStringSequenceBlock(15, 25));
-        List<Block> longChannel = ImmutableList.of(
+                BlockAssertions.createStringSequenceBlock(15, 25)));
+        ObjectArrayList<Block> longChannel = new ObjectArrayList<>(ImmutableList.of(
                 BlockAssertions.createLongSequenceBlock(10, 20),
                 BlockAssertions.createLongSequenceBlock(20, 30),
-                BlockAssertions.createLongSequenceBlock(15, 25));
-        List<Block> doubleChannel = ImmutableList.of(
+                BlockAssertions.createLongSequenceBlock(15, 25)));
+        ObjectArrayList<Block> doubleChannel = new ObjectArrayList<>(ImmutableList.of(
                 BlockAssertions.createDoubleSequenceBlock(10, 20),
                 BlockAssertions.createDoubleSequenceBlock(20, 30),
-                BlockAssertions.createDoubleSequenceBlock(15, 25));
-        List<Block> booleanChannel = ImmutableList.of(
+                BlockAssertions.createDoubleSequenceBlock(15, 25)));
+        ObjectArrayList<Block> booleanChannel = new ObjectArrayList<>(ImmutableList.of(
                 BlockAssertions.createBooleanSequenceBlock(10, 20),
                 BlockAssertions.createBooleanSequenceBlock(20, 30),
-                BlockAssertions.createBooleanSequenceBlock(15, 25));
-        List<Block> extraUnusedChannel = ImmutableList.of(
+                BlockAssertions.createBooleanSequenceBlock(15, 25)));
+        ObjectArrayList<Block> extraUnusedChannel = new ObjectArrayList<>(ImmutableList.of(
                 BlockAssertions.createBooleanSequenceBlock(10, 20),
                 BlockAssertions.createBooleanSequenceBlock(20, 30),
-                BlockAssertions.createBooleanSequenceBlock(15, 25));
+                BlockAssertions.createBooleanSequenceBlock(15, 25)));
 
         OptionalInt hashChannel = OptionalInt.empty();
-        ImmutableList<List<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel);
-        List<Block> precomputedHash = ImmutableList.of();
+
+        List<ObjectArrayList<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel);
+        ObjectArrayList<Block> precomputedHash = new ObjectArrayList<>();
         if (hashEnabled) {
-            ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
+            ObjectArrayList<Block> hashChannelBuilder = new ObjectArrayList<>();
             for (int i = 0; i < 3; i++) {
                 hashChannelBuilder.add(TypeUtils.getHashBlock(joinTypes, varcharChannel.get(i), longChannel.get(i), doubleChannel.get(i), booleanChannel.get(i)));
             }
             hashChannel = OptionalInt.of(6);
-            precomputedHash = hashChannelBuilder.build();
+            precomputedHash = hashChannelBuilder;
             channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel, precomputedHash);
             types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR, BIGINT);
             outputTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR, BIGINT);
