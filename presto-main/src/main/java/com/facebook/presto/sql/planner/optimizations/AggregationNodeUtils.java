@@ -83,9 +83,9 @@ public class AggregationNodeUtils
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
         PlanNodeStatsEstimate estimate = statsProvider.getStats(scanNode);
         if (!estimate.isConfident()) {
-            // For safety, we assume they are low card if not confident
+            // Looks like we are mostly not confident in stats so we return false in that case.
             // TODO(kaikalur) : maybe return low card only for partition keys if/when we can detect that
-            return true;
+            return false;
         }
 
         return groupbyKeys.stream().noneMatch(x -> estimate.getVariableStatistics(x).getDistinctValuesCount() >= count);
