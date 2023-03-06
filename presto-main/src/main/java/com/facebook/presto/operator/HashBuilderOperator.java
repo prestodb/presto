@@ -530,6 +530,7 @@ public class HashBuilderOperator
                 sortChannel));
         if (!reserved.isDone()) {
             // Yield when not enough memory is available to proceed, finish is expected to be called again when some memory is freed
+            return;
         }
         LookupSourceSupplier partition = buildLookupSource();
         if (spillEnabled) {

@@ -20,13 +20,27 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
+import org.testng.annotations.DataProvider;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import com.google.common.collect.Lists;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.data.Percentage.withPercentage;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 
 public class TestPagesIndex
 {
@@ -92,5 +106,55 @@ public class TestPagesIndex
         int[] initialValues = new int[types.size()];
         Arrays.setAll(initialValues, i -> 100 * i);
         return createSequencePage(types, 7, initialValues);
+    }
+
+    public static Object[][] cartesianProduct(Object[][]... args)
+    {
+        return Lists.cartesianProduct(Arrays.stream(args)
+                        .map(ImmutableList::copyOf)
+                        .collect(toImmutableList()))
+                .stream()
+                .map(list -> list.stream()
+                        .flatMap(Stream::of)
+                        .toArray(Object[]::new))
+                .toArray(Object[][]::new);
+    }
+
+    @DataProvider
+    public static Object[][] testGetEstimatedLookupSourceSizeInBytesProvider()
+    {
+        return cartesianProduct(
+                new Object[][] {{Optional.empty()}, {Optional.of(0)}, {Optional.of(1)}},
+                new Object[][] {{0}, {1}});
+    }
+
+    @Test(dataProvider = "testGetEstimatedLookupSourceSizeInBytesProvider")
+    public void testGetEstimatedLookupSourceSizeInBytes(Optional<Integer> sortChannel, int joinChannel)
+    {
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
+        PagesIndex pagesIndex = newPagesIndex(types, 50, false);
+        int pageCount = 100;
+        for (int i = 0; i < pageCount; i++) {
+            pagesIndex.addPage(somePage(types));
+        }
+        long pageIndexSize = pagesIndex.getEstimatedSize().toBytes();
+        long estimatedMemoryRequiredToCreateLookupSource = pagesIndex.getEstimatedMemoryRequiredToCreateLookupSource(sortChannel);
+        assertThat(estimatedMemoryRequiredToCreateLookupSource).isGreaterThan(pageIndexSize);
+        long estimatedLookupSourceSize = estimatedMemoryRequiredToCreateLookupSource -
+                // subtract size of page positions
+                sizeOfIntArray(pageCount);
+
+        JoinFilterFunctionFactory filterFunctionFactory = (session, addresses, pages) -> (JoinFilterFunction) (leftPosition, rightPosition, rightPage) -> false;
+        LookupSource lookupSource = pagesIndex.createLookupSourceSupplier(
+                TEST_SESSION,
+                ImmutableList.of(joinChannel),
+                OptionalInt.empty(),
+                sortChannel.map(channel -> filterFunctionFactory),
+                sortChannel,
+                ImmutableList.of(filterFunctionFactory),
+                Optional.of(ImmutableList.of(0, 1))).get();
+        long actualLookupSourceSize = lookupSource.getInMemorySizeInBytes();
+        assertThat(estimatedLookupSourceSize).isGreaterThanOrEqualTo(actualLookupSourceSize);
+        assertThat(estimatedLookupSourceSize).isCloseTo(actualLookupSourceSize, withPercentage(2));
     }
 }
