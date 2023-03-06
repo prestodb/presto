@@ -19,11 +19,10 @@ import com.facebook.presto.common.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.google.common.collect.ImmutableList;
-
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.presto.SystemSessionProperties.isFastInequalityJoin;
 import static com.facebook.presto.operator.JoinUtils.channelsToPages;

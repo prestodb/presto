@@ -13,38 +13,38 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.operator.HashBuilderOperator.State;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
+import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-import com.facebook.presto.testing.TestingTaskContext;
-import com.facebook.presto.operator.HashBuilderOperator.State;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import com.facebook.presto.common.Page;
-import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.common.type.Type;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.assertEquals;
-import static com.facebook.presto.SequencePageBuilder.createSequencePage;
 
 public class TestHashBuilderOperator
 {
@@ -108,8 +108,7 @@ public class TestHashBuilderOperator
                 false,
 
                 SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
-                false
-                )) {
+                false)) {
             assertEquals(operator.getState(), State.CONSUMING_INPUT);
 
             ListenableFuture<?> whenBuildFinishes = lookupSourceFactory.whenBuildFinishes();

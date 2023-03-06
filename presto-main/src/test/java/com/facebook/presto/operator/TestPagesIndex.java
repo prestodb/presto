@@ -15,32 +15,29 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import org.testng.annotations.DataProvider;
-import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import com.google.common.collect.Lists;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.stream.Collectors.collectingAndThen;
-import static java.util.stream.Collectors.mapping;
-import static java.util.stream.Collectors.toList;
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Percentage.withPercentage;
-import static io.airlift.slice.SizeOf.sizeOfIntArray;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestPagesIndex
 {

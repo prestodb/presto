@@ -19,8 +19,8 @@ import com.facebook.presto.common.array.AdaptiveLongBigArray;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Test;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;

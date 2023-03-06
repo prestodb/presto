@@ -28,7 +28,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -427,7 +426,7 @@ public final class Page
 
     private long updateRetainedSize()
     {
-        AtomicLong retainedSizeInBytes = new AtomicLong(INSTANCE_SIZE + sizeOf(blocks));
+        AtomicLong retainedSizeInBytes = new AtomicLong(getInstanceSizeInBytes(blocks.length));
         Set<Object> referenceSet = newSetFromMap(new IdentityHashMap<>());
         for (Block block : blocks) {
             block.retainedBytesForEachPart((object, size) -> {

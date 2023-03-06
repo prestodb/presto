@@ -15,8 +15,8 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.array.AdaptiveLongBigArray;
+import com.facebook.presto.common.block.Block;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;

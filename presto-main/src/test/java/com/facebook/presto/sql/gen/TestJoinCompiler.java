@@ -27,11 +27,10 @@ import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 import java.util.Optional;

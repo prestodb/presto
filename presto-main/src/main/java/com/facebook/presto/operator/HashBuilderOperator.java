@@ -678,7 +678,7 @@ public class HashBuilderOperator
         // close() can be called in any state, due for example to query failure, and must clean resource up unconditionally
         lookupSourceSupplier = null;
         localRevocableMemoryContext.setBytes(0);
-        localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes(), enforceBroadcastMemoryLimit);
+        localUserMemoryContext.setBytes(0, enforceBroadcastMemoryLimit);
         index = null;
         lookupSourceSupplier = null;
 

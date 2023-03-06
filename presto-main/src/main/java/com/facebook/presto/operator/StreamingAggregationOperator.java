@@ -24,8 +24,8 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
