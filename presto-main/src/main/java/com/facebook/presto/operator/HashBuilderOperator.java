@@ -541,7 +541,6 @@ public class HashBuilderOperator
         }
         lookupSourceNotNeeded = Optional.of(lookupSourceFactory.lendPartitionLookupSource(partitionIndex, partition));
 
-        index = null;
         state = State.LOOKUP_SOURCE_BUILT;
     }
 
@@ -553,10 +552,6 @@ public class HashBuilderOperator
             return;
         }
 
-        index.clear();
-        localRevocableMemoryContext.setBytes(0);
-        localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes(), enforceBroadcastMemoryLimit);
-        lookupSourceSupplier = null;
         close();
     }
 
@@ -682,15 +677,17 @@ public class HashBuilderOperator
         }
         // close() can be called in any state, due for example to query failure, and must clean resource up unconditionally
         lookupSourceSupplier = null;
+        localRevocableMemoryContext.setBytes(0);
+        localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes(), enforceBroadcastMemoryLimit);
+        index = null;
+        lookupSourceSupplier = null;
+
         unspillInProgress = Optional.empty();
         state = State.CLOSED;
         finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {});
 
         try (Closer closer = Closer.create()) {
-            closer.register(index::clear);
             spiller.ifPresent(closer::register);
-            closer.register(() -> localUserMemoryContext.setBytes(0, enforceBroadcastMemoryLimit));
-            closer.register(() -> localRevocableMemoryContext.setBytes(0));
         }
         catch (IOException e) {
             throw new RuntimeException(e);
