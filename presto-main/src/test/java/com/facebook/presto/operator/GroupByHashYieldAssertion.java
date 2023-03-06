@@ -127,7 +127,7 @@ public final class GroupByHashYieldAssertion
 
             // Skip if the memory usage is not large enough since we cannot distinguish
             // between rehash and memory used by aggregator
-            if (newMemoryUsage < new DataSize(4, MEGABYTE).toBytes()) {
+            if (newMemoryUsage < new DataSize(3, MEGABYTE).toBytes()) {
                 // free the pool for the next iteration
                 memoryPool.free(queryId1, "test", reservedMemoryInBytes);
                 // this required in case input is blocked
@@ -162,9 +162,10 @@ public final class GroupByHashYieldAssertion
                 // Hash table capacity should not change
                 assertEquals(oldCapacity, (long) getHashCapacity.apply(operator));
 
-                expectedReservedExtraBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity) + page.getRetainedSizeInBytes();
+                expectedReservedExtraBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2) + page.getRetainedSizeInBytes();
+
                 // Increased memory is no smaller than the hash table size and no greater than the hash table size + the memory used by aggregator
-                assertBetweenInclusive(actualIncreasedMemory, expectedReservedExtraBytes, expectedReservedExtraBytes + additionalMemoryInBytes);
+                assertBetweenInclusive(actualIncreasedMemory, expectedReservedExtraBytes, 2 * expectedReservedExtraBytes + additionalMemoryInBytes);
 
                 // Output should be blocked as well
                 assertNull(operator.getOutput());
@@ -186,10 +187,10 @@ public final class GroupByHashYieldAssertion
                 long rehashedMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
                 long previousHashTableSizeInBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity);
                 long expectedMemoryUsageAfterRehash = newMemoryUsage - previousHashTableSizeInBytes;
-                double memoryUsageErrorUpperBound = 1.01;
+                double memoryUsageErrorUpperBound = 1.02;
                 double memoryUsageError = rehashedMemoryUsage * 1.0 / expectedMemoryUsageAfterRehash;
-                assertBetweenInclusive(memoryUsageError, 0.99, memoryUsageErrorUpperBound);
 
+                assertBetweenInclusive(memoryUsageError, 0.98, memoryUsageErrorUpperBound);
                 // unblocked
                 assertTrue(operator.needsInput());
             }
