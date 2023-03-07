@@ -51,6 +51,21 @@ class PageReader {
     type_->makeLevelInfo(leafInfo_);
   }
 
+  // This PageReader constructor is for unit test only.
+  PageReader(
+      std::unique_ptr<dwio::common::SeekableInputStream> stream,
+      memory::MemoryPool& pool,
+      thrift::CompressionCodec::type codec,
+      int64_t chunkSize)
+      : pool_(pool),
+        inputStream_(std::move(stream)),
+        maxRepeat_(0),
+        maxDefine_(1),
+        isTopLevel_(maxRepeat_ == 0 && maxDefine_ <= 1),
+        codec_(codec),
+        chunkSize_(chunkSize),
+        nullConcatenation_(pool_) {}
+
   /// Advances 'numRows' top level rows.
   void skip(int64_t numRows);
 
@@ -111,6 +126,10 @@ class PageReader {
     return {repDefBegin_, repDefEnd_};
   }
 
+  // Parses the PageHeader at 'inputStream_', and move the bufferStart_ and
+  // bufferEnd_ to the corresponding positions.
+  thrift::PageHeader readPageHeader();
+
  private:
   // Indicates that we only want the repdefs for the next page. Used when
   // prereading repdefs with seekToPage.
@@ -162,10 +181,6 @@ class PageReader {
   // next page.
   void updateRowInfoAfterPageSkipped();
 
-  // Parses the PageHeader at 'inputStream_'. Will not read more than
-  // 'remainingBytes' since there could be less data left in the
-  // ColumnChunk than the full header size.
-  thrift::PageHeader readPageHeader(int64_t remainingSize);
   void prepareDataPageV1(const thrift::PageHeader& pageHeader, int64_t row);
   void prepareDataPageV2(const thrift::PageHeader& pageHeader, int64_t row);
   void prepareDictionary(const thrift::PageHeader& pageHeader);
