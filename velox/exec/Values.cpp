@@ -41,7 +41,7 @@ Values::Values(
 }
 
 RowVectorPtr Values::getOutput() {
-  TestValue::adjust("facebook::velox::exec::Values::getOutput", &current_);
+  TestValue::adjust("facebook::velox::exec::Values::getOutput", this);
   if (current_ >= values_.size()) {
     return nullptr;
   }

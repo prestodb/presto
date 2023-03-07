@@ -1781,31 +1781,30 @@ StopReason Task::leave(ThreadState& state) {
 StopReason Task::enterSuspended(ThreadState& state) {
   VELOX_CHECK(!state.hasBlockingFuture);
   VELOX_CHECK(state.isOnThread());
+
   std::lock_guard<std::mutex> l(mutex_);
   if (state.isTerminated) {
     return StopReason::kAlreadyTerminated;
   }
-  if (!state.isOnThread()) {
-    return StopReason::kAlreadyTerminated;
-  }
-  auto reason = shouldStopLocked();
+  const auto reason = shouldStopLocked();
   if (reason == StopReason::kTerminate) {
     state.isTerminated = true;
+    return StopReason::kTerminate;
   }
-  // A pause will not stop entering the suspended section. It will
-  // just ack that the thread is no longer in inside the
-  // CancelPool. The pause can wait at the exit of the suspended
-  // section.
-  if (reason == StopReason::kNone || reason == StopReason::kPause) {
-    state.isSuspended = true;
-    if (--numThreads_ == 0) {
-      finishedLocked();
-    }
+  // A pause will not stop entering the suspended section. It will just ack that
+  // the thread is no longer inside the driver executor pool.
+  VELOX_CHECK(reason == StopReason::kNone || reason == StopReason::kPause);
+  state.isSuspended = true;
+  if (--numThreads_ == 0) {
+    finishedLocked();
   }
   return StopReason::kNone;
 }
 
 StopReason Task::leaveSuspended(ThreadState& state) {
+  VELOX_CHECK(!state.hasBlockingFuture);
+  VELOX_CHECK(state.isOnThread());
+
   for (;;) {
     {
       std::lock_guard<std::mutex> l(mutex_);
@@ -1819,17 +1818,16 @@ StopReason Task::leaveSuspended(ThreadState& state) {
         return StopReason::kTerminate;
       }
       if (!pauseRequested_) {
-        // For yield or anything but pause  we return here.
+        // For yield or anything but pause we return here.
         return StopReason::kNone;
       }
       --numThreads_;
       state.isSuspended = true;
     }
-    // If the pause flag is on when trying to reenter, sleep a while
-    // outside of the mutex and recheck. This is rare and not time
-    // critical. Can happen if memory interrupt sets pause while
-    // already inside a suspended section for other reason, like
-    // IO.
+    // If the pause flag is on when trying to reenter, sleep a while outside of
+    // the mutex and recheck. This is rare and not time critical. Can happen if
+    // memory interrupt sets pause while already inside a suspended section for
+    // other reason, like IO.
     std::this_thread::sleep_for(std::chrono::milliseconds(10)); // NOLINT
   }
 }
@@ -2125,6 +2123,15 @@ void Task::testingWaitForAllTasksToBeDeleted(uint64_t maxWaitUs) {
       numCreatedTasks,
       numDeletedTasks,
       waitUs);
+}
+
+void Task::testingVisitDrivers(const std::function<void(Driver*)>& callback) {
+  std::lock_guard<std::mutex> l(mutex_);
+  for (int i = 0; i < drivers_.size(); ++i) {
+    if (drivers_[i] != nullptr) {
+      callback(drivers_[i].get());
+    }
+  }
 }
 
 } // namespace facebook::velox::exec

@@ -53,6 +53,10 @@ enum class StopReason {
   kAlreadyOnThread
 };
 
+std::string stopReasonString(StopReason reason);
+
+std::ostream& operator<<(std::ostream& out, const StopReason& reason);
+
 // Represents a Driver's state. This is used for cancellation, forcing
 // release of and for waiting for memory. The fields are serialized on
 // the mutex of the Driver's Task.

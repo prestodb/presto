@@ -450,6 +450,12 @@ class Operator : public BaseRuntimeStatWriter {
   // the first one that is not std::nullopt or std::nullopt otherwise.
   static std::optional<uint32_t> maxDrivers(const core::PlanNodePtr& planNode);
 
+  /// Returns the operator context of this operator. This method is only used
+  /// for test.
+  const OperatorCtx* testingOperatorCtx() const {
+    return operatorCtx_.get();
+  }
+
  protected:
   static std::vector<std::unique_ptr<PlanNodeTranslator>>& translators();
 

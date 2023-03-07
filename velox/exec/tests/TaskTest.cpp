@@ -19,6 +19,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -695,14 +696,15 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
 
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::Values::getOutput",
-      std::function<void(const int32_t*)>(([&](const int32_t* outputIdx) {
-        // Only blocks the value node on the second output.
-        if (*outputIdx != 1) {
-          return;
-        }
-        std::move(valueFuture).wait();
-        driverPromise.setValue();
-      })));
+      std::function<void(const velox::exec::Values*)>(
+          ([&](const velox::exec::Values* values) {
+            // Only blocks the value node on the second output.
+            if (values->testingCurrent() != 1) {
+              return;
+            }
+            std::move(valueFuture).wait();
+            driverPromise.setValue();
+          })));
 
   CursorParameters params;
   params.planNode = plan;
@@ -745,9 +747,10 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
   std::array<TaskStats, numBatches + 1> liveStats; // [0, 10].
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::Values::getOutput",
-      std::function<void(const int32_t*)>(([&](const int32_t* outputIdx) {
-        liveStats[*outputIdx] = task->taskStats();
-      })));
+      std::function<void(const velox::exec::Values*)>(
+          ([&](const velox::exec::Values* values) {
+            liveStats[values->testingCurrent()] = task->taskStats();
+          })));
 
   CursorParameters params;
   params.planNode = plan;

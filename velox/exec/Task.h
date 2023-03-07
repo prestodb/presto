@@ -537,6 +537,9 @@ class Task : public std::enable_shared_from_this<Task> {
   /// during this wait call. This is for testing purpose for now.
   static void testingWaitForAllTasksToBeDeleted(uint64_t maxWaitUs = 3'000'000);
 
+  /// Invoked to run provided 'callback' on each alive driver of the task.
+  void testingVisitDrivers(const std::function<void(Driver*)>& callback);
+
  private:
   // Returns reference to the SplitsState structure for the specified plan node
   // id. Throws if not found, meaning that plan node does not expect splits.
