@@ -3113,7 +3113,7 @@ TEST_F(ExprTest, applyFunctionNoResult) {
       "always_throws_vector_function(c0) AND true",
       makeFlatVector<int32_t>({1, 2, 3}),
       "always_throws_vector_function(c0)",
-      "and(always_throws_vector_function(c0), 1:BOOLEAN)",
+      "and(always_throws_vector_function(c0), true:BOOLEAN)",
       AlwaysThrowsVectorFunction::kVeloxErrorMessage);
 
   exec::registerVectorFunction(
@@ -3125,7 +3125,7 @@ TEST_F(ExprTest, applyFunctionNoResult) {
       "no_op(c0) AND true",
       makeFlatVector<int32_t>({1, 2, 3}),
       "no_op(c0)",
-      "and(no_op(c0), 1:BOOLEAN)",
+      "and(no_op(c0), true:BOOLEAN)",
       "Function neither returned results nor threw exception.");
 }
 

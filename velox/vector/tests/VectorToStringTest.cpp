@@ -83,12 +83,12 @@ TEST_F(VectorToStringTest, row) {
   ASSERT_EQ(
       row->toString(),
       "[ROW ROW<c0:INTEGER,c1:REAL,c2:BOOLEAN>: 3 elements, no nulls]");
-  ASSERT_EQ(row->toString(2), "{3, 444.55999755859375, 1}");
+  ASSERT_EQ(row->toString(2), "{3, 444.55999755859375, true}");
   ASSERT_EQ(
       row->toString(0, 10),
-      "0: {1, 10.100000381469727, 1}\n"
-      "1: {2, 2.299999952316284, 1}\n"
-      "2: {3, 444.55999755859375, 1}");
+      "0: {1, 10.100000381469727, true}\n"
+      "1: {2, 2.299999952316284, true}\n"
+      "2: {3, 444.55999755859375, true}");
 }
 
 TEST_F(VectorToStringTest, opaque) {

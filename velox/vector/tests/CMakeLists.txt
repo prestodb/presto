@@ -19,6 +19,7 @@ add_executable(
   VectorSaverTest.cpp
   VectorMakerTest.cpp
   VectorPoolTest.cpp
+  VectorPrinterTest.cpp
   VectorTest.cpp
   VectorToStringTest.cpp
   VectorEstimateFlatSizeTest.cpp

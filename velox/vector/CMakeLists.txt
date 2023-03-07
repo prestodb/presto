@@ -24,6 +24,7 @@ add_library(
   VectorSaver.cpp
   VectorEncoding.cpp
   VectorPool.cpp
+  VectorPrinter.cpp
   VectorStream.cpp
   VariantToVector.cpp)
 

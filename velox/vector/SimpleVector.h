@@ -152,7 +152,9 @@ class SimpleVector : public BaseVector {
     if (isNullAt(index)) {
       out << "null";
     } else {
-      if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
+      if constexpr (std::is_same_v<T, bool>) {
+        out << (valueAt(index) ? "true" : "false");
+      } else if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
         out << "<opaque>";
       } else if constexpr (
           std::is_same_v<T, UnscaledShortDecimal> ||
