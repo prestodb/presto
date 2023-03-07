@@ -471,12 +471,7 @@ class Task : public std::enable_shared_from_this<Task> {
   /// Requests the Task to stop activity.  The returned future is
   /// realized when all running threads have stopped running. Activity
   /// can be resumed with resume() after the future is realized.
-  ContinueFuture requestPause(bool pause) {
-    std::lock_guard<std::mutex> l(mutex_);
-    return requestPauseLocked(pause);
-  }
-
-  ContinueFuture requestPauseLocked(bool pause);
+  ContinueFuture requestPause();
 
   /// Requests activity of 'this' to stop. The returned future will be
   /// realized when the last thread stops running for 'this'. This is used to

@@ -206,7 +206,7 @@ class DriverTest : public OperatorTestBase {
           cursor->task()->requestYield();
         } else if (operation == ResultOperation::kPause) {
           auto& executor = folly::QueuedImmediateExecutor::instance();
-          auto future = cursor->task()->requestPause(true).via(&executor);
+          auto future = cursor->task()->requestPause().via(&executor);
           future.wait();
           paused = true;
         }
@@ -661,7 +661,7 @@ class TestingPauser : public Operator {
             continue;
           }
           auto& executor = folly::QueuedImmediateExecutor::instance();
-          auto future = task->requestPause(true).via(&executor);
+          auto future = task->requestPause().via(&executor);
           future.wait();
           sleep(2);
           Task::resume(task);
@@ -964,8 +964,8 @@ DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionRaceWithTaskPause) {
           testData.numDrivers,
           StopReason::kNone,
           StopReason::kNone,
-          [&](Task* task) { task->requestPause(true); },
-          [&](Task* task) { task->requestPause(true).wait(); },
+          [&](Task* task) { task->requestPause(); },
+          [&](Task* task) { task->requestPause().wait(); },
           [&](Task* task) {
             // Let the suspension leave thread to run first.
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -983,9 +983,9 @@ DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionRaceWithTaskPause) {
           testData.numDrivers,
           StopReason::kNone,
           StopReason::kNone,
-          [&](Task* task) { task->requestPause(true); },
+          [&](Task* task) { task->requestPause(); },
           [&](Task* task) {
-            task->requestPause(true).wait();
+            task->requestPause().wait();
             Task::resume(task->shared_from_this());
           });
     } else if (
@@ -996,7 +996,7 @@ DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionRaceWithTaskPause) {
           StopReason::kNone,
           StopReason::kNone,
           nullptr,
-          [&](Task* task) { task->requestPause(true).wait(); },
+          [&](Task* task) { task->requestPause().wait(); },
           [&](Task* task) {
             // Let the suspension leave thread to run first.
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -1014,7 +1014,7 @@ DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionRaceWithTaskPause) {
           StopReason::kNone,
           nullptr,
           [&](Task* task) {
-            task->requestPause(true).wait();
+            task->requestPause().wait();
             Task::resume(task->shared_from_this());
           });
     }

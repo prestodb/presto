@@ -542,7 +542,7 @@ void Task::resume(std::shared_ptr<Task> self) {
   std::lock_guard<std::mutex> l(self->mutex_);
   // Setting pause requested must be atomic with the resuming so that
   // suspended sections do not go back on thread during resume.
-  self->requestPauseLocked(false);
+  self->pauseRequested_ = false;
   for (auto& driver : self->drivers_) {
     if (driver) {
       if (driver->state().isSuspended) {
@@ -1867,8 +1867,9 @@ StopReason Task::shouldStopLocked() {
   return StopReason::kNone;
 }
 
-ContinueFuture Task::requestPauseLocked(bool pause) {
-  pauseRequested_ = pause;
+ContinueFuture Task::requestPause() {
+  std::lock_guard<std::mutex> l(mutex_);
+  pauseRequested_ = true;
   return makeFinishFutureLocked("Task::requestPause");
 }
 
