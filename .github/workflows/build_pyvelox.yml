@@ -147,6 +147,13 @@ jobs:
           path: ".ccache"
           key: ccache-wheels-${{ matrix.os }}-${{ github.sha }}
 
+      - name: "Rename wheel compatibility tag"
+        if: matrix.os == 'macos-11'
+        run: |
+          brew install rename
+          cd wheelhouse
+          rename 's/11_0/10_15/g' *.whl
+
       - uses: actions/upload-artifact@v3
         with:
           name: wheels
