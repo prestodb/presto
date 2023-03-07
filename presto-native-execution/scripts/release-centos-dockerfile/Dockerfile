@@ -56,7 +56,7 @@ RUN --mount=type=ssh \
     mkdir -p -m 0600 /root/.ssh && \
     ( \
       ssh-keyscan github.com >> /root/.ssh/known_hosts || true \
-    ) $$ \
+    ) && \
     git clone --progress ${PRESTODB_REPOSITORY} "${PRESTODB_HOME}/_repo" && \
     git -C "${PRESTODB_HOME}/_repo" checkout "${PRESTODB_CHECKOUT}" && \
     make --directory="${PRESTODB_HOME}/_repo/presto-native-execution" submodules && \
