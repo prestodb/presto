@@ -80,6 +80,8 @@ with HiveConnector, table scan reads data from ORC or Parquet files.
    * - assignments
      - Connector-specific mapping from the table schema to output columns.
 
+.. _ArrowStream operator:
+
 ArrowStreamNode
 ~~~~~~~~~~~~~~~
 
