@@ -31,7 +31,7 @@ void saveType(const TypePtr& type, std::ostream& out);
 TypePtr restoreType(std::istream& in);
 
 /// Serializes the vector into binary format and writes it to the provided
-/// output stream. The serialiation preserved encoding.
+/// output stream. The serialization format preserves the encoding.
 void saveVector(const BaseVector& vector, std::ostream& out);
 
 /// Serializes the vector into binary format and writes it to a new file in
@@ -71,5 +71,13 @@ void saveStdVectorToFile(
 // Reads a std::vector from a file stored by saveStdVectorToFile() method.
 template <typename T>
 std::vector<T> restoreStdVectorFromFile(const char* FOLLY_NONNULL filePath);
+
+/// Serializes a SelectivityVector into binary format and writes it to the
+/// provided output stream.
+void saveSelectivityVector(const SelectivityVector& rows, std::ostream& out);
+
+/// Deserializes a SelectivityVector serialized by 'saveSelectivityVector' from
+/// the provided input stream.
+SelectivityVector restoreSelectivityVector(std::istream& in);
 
 } // namespace facebook::velox
