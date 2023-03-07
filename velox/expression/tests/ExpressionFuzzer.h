@@ -189,6 +189,13 @@ class ExpressionFuzzer {
 
   core::TypedExprPtr getCallExprFromCallable(const CallableSignature& callable);
 
+  /// Return a random signature mapped to functionName in expressionToSignature_
+  /// whose return type can match returnType. Return nullptr if no such
+  /// signature template exists.
+  const CallableSignature* chooseRandomConcreteSignature(
+      const TypePtr& returnType,
+      const std::string& functionName);
+
   /// Generate an expression by randomly selecting a concrete function signature
   /// that returns 'returnType' among all signatures that the function named
   /// 'functionName' supports.
@@ -215,14 +222,6 @@ class ExpressionFuzzer {
   /// nullptr if casting to the specified type is not supported. The supported
   /// types include primitive types, array, map, and row types right now.
   core::TypedExprPtr generateCastExpression(const TypePtr& returnType);
-
-  /// Choose a random type to be casted to the specified type. If the specified
-  /// type is primitive, return a random primitive type. If the specified type
-  /// is complex, return a type whose top-level being the same and child types
-  /// being determined by chooseCastFromType() recursively. Casting to or from
-  /// custom types is not supported yet. In case of an unsupported `to` type,
-  /// this function returns a nullptr.
-  TypePtr chooseCastFromType(const TypePtr& to);
 
   /// If --duration_sec > 0, check if we expired the time budget. Otherwise,
   /// check if we expired the number of iterations (--steps).
