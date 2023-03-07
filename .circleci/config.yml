@@ -502,6 +502,7 @@ jobs:
     executor: doc-gen
     steps:
       - checkout
+      - update-submodules
       - add_ssh_keys:
           fingerprints:
             - "7b:24:f3:1a:b1:15:97:c6:fe:06:46:27:3e:b7:6b:96"
