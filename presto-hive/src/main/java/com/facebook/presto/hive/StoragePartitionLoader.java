@@ -31,7 +31,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -92,7 +91,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 
 public class StoragePartitionLoader
         extends PartitionLoader
@@ -176,7 +174,7 @@ public class StoragePartitionLoader
 
         // TODO: This should use an iterator like the HiveFileIterator
         ListenableFuture<?> lastResult = COMPLETED_FUTURE;
-        for (Path targetPath : getTargetPathsFromSymlink(fs, path)) {
+        for (Path targetPath : getTargetPathsFromSymlink(fs, path, partition.getPartition())) {
             // The input should be in TextInputFormat.
             TextInputFormat targetInputFormat = new TextInputFormat();
             // the splits must be generated using the file system for the target path
@@ -564,13 +562,19 @@ public class StoragePartitionLoader
                 .collect(toImmutableList());
     }
 
-    private static List<Path> getTargetPathsFromSymlink(ExtendedFileSystem fileSystem, Path symlinkDir)
+    private List<Path> getTargetPathsFromSymlink(ExtendedFileSystem fileSystem, Path symlinkDir, Optional<Partition> partition)
     {
         try {
-            FileStatus[] symlinks = fileSystem.listStatus(symlinkDir, HIDDEN_FILES_PATH_FILTER);
             List<Path> targets = new ArrayList<>();
+            HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(
+                    IGNORED,
+                    isUseListDirectoryCache(session),
+                    hdfsContext.getIdentity(),
+                    buildDirectoryContextProperties(session),
+                    session.getRuntimeStats());
+            List<HiveFileInfo> manifestFileInfos = ImmutableList.copyOf(directoryLister.list(fileSystem, table, symlinkDir, partition, namenodeStats, hiveDirectoryContext));
 
-            for (FileStatus symlink : symlinks) {
+            for (HiveFileInfo symlink : manifestFileInfos) {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(symlink.getPath()), StandardCharsets.UTF_8))) {
                     CharStreams.readLines(reader).stream()
                             .map(Path::new)
