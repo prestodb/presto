@@ -19,7 +19,7 @@ set(TEST_LINK_LIBS
     velox_dwio_dwrf_proto
     velox_dwio_dwrf_reader
     velox_dwio_dwrf_writer
-    ${gflags_LIBRARIES}
+    gflags::gflags
     gtest
     gtest_main
     gmock

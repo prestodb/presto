@@ -35,7 +35,7 @@ target_link_libraries(
   velox_codegen_code_generator
   gtest
   gtest_main
-  ${GFLAGS_LIBRARIES}
+  gflags::gflags
   glog::glog
   ${FMT}
   velox_core
@@ -54,7 +54,7 @@ target_link_libraries(
   velox_codegen_code_generator
   gtest
   gtest_main
-  ${GFLAGS_LIBRARIES}
+  gflags::gflags
   glog::glog
   ${FMT}
   velox_core

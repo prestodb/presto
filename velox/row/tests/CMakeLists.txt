@@ -35,5 +35,5 @@ target_link_libraries(
   ${DOUBLE_CONVERSION}
   gtest
   gtest_main
-  ${GFLAGS_LIBRARIES}
+  gflags::gflags
   glog::glog)

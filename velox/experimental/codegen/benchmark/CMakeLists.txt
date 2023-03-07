@@ -28,7 +28,7 @@ target_link_libraries(
   ${Boost_FILESYSTEM_LIBRARIES}
   gtest
   gtest_main
-  ${GFLAGS_LIBRARIES}
+  gflags::gflags
   ${FMT}
   velox_core
   velox_exec
@@ -45,7 +45,7 @@ target_link_libraries(velox_codegen_benchmark velox_hive_connector)
 
 add_compile_definitions(velox_codegen_test BASEFOLDER="${PROJECT_SOURCE_DIR}")
 add_compile_definitions(velox_codegen_test COMPFLAGS="${CMAKE_CXX_FLAGS}")
-add_compile_definitions(velox_codegen_test MYFOLLY="${GFLAGS_LIBRARIES}")
+add_compile_definitions(velox_codegen_test MYFOLLY="gflags::gflags")
 
 # find a better way to do this
 add_compile_definitions(velox_codegen_test
@@ -92,7 +92,7 @@ target_link_libraries(
   ${Boost_FILESYSTEM_LIBRARIES}
   gtest
   gtest_main
-  ${GFLAGS_LIBRARIES}
+  gflags::gflags
   glog::glog
   ${FMT}
   velox_core

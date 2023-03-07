@@ -35,6 +35,6 @@ target_link_libraries(
   velox_vector_fuzzer
   velox_vector_test_lib
   velox_window
-  ${gflags_LIBRARIES}
+  gflags::gflags
   gtest
   gtest_main)

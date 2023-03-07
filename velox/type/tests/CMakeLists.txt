@@ -34,7 +34,7 @@ target_link_libraries(
   gtest
   gtest_main
   gmock
-  ${gflags_LIBRARIES}
+  gflags::gflags
   glog::glog)
 
 add_executable(velox_filter_benchmark FilterBenchmark.cpp)
@@ -48,7 +48,7 @@ target_link_libraries(
   ${DOUBLE_CONVERSION}
   gtest
   gtest_main
-  ${gflags_LIBRARIES}
+  gflags::gflags
   glog::glog)
 
 add_executable(velox_negated_values_filter_benchmark
@@ -63,7 +63,7 @@ target_link_libraries(
   ${DOUBLE_CONVERSION}
   gtest
   gtest_main
-  ${gflags_LIBRARIES}
+  gflags::gflags
   glog::glog)
 
 add_executable(velox_negated_bytes_values_benchmark
@@ -78,7 +78,7 @@ target_link_libraries(
   ${DOUBLE_CONVERSION}
   gtest
   gtest_main
-  ${gflags_LIBRARIES}
+  gflags::gflags
   glog::glog)
 
 add_executable(velox_negated_bigint_range_benchmark
@@ -93,7 +93,7 @@ target_link_libraries(
   ${DOUBLE_CONVERSION}
   gtest
   gtest_main
-  ${gflags_LIBRARIES}
+  gflags::gflags
   glog::glog)
 
 add_executable(velox_negated_bytes_range_benchmark
@@ -108,5 +108,5 @@ target_link_libraries(
   ${DOUBLE_CONVERSION}
   gtest
   gtest_main
-  ${gflags_LIBRARIES}
+  gflags::gflags
   glog::glog)

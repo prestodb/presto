@@ -33,7 +33,7 @@ add_test(velox_base_test velox_base_test)
 target_link_libraries(
   velox_base_test
   velox_common_base
-  ${gflags_LIBRARIES}
+  gflags::gflags
   glog::glog
   gtest
   gtest_main

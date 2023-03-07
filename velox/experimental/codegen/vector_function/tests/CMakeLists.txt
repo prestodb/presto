@@ -50,12 +50,12 @@ target_link_libraries(
   ${Boost_REGEX_LIBRARIES}
   ${Boost_THREAD_LIBRARIES}
   ${Boost_SYSTEM_LIBRARIES}
-  ${gflags_LIBRARIES}
+  gflags::gflags
   gtest
   gtest_main
   ${FOLLY_WITH_DEPENDENCIES}
   ${DOUBLE_CONVERSION}
-  ${GFLAGS_LIBRARIES}
+  gflags::gflags
   glog::glog
   ${FMT}
   dl)

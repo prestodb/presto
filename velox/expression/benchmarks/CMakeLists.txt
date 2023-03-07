@@ -13,7 +13,7 @@
 # limitations under the License.
 
 set(BENCHMARK_DEPENDENCIES
-    velox_functions_test_lib velox_exec velox_exec_test_lib ${gflags_LIBRARIES}
+    velox_functions_test_lib velox_exec velox_exec_test_lib gflags::gflags
     ${FOLLY_WITH_DEPENDENCIES} ${FOLLY_BENCHMARK})
 
 add_executable(velox_benchmark_call_null_free_no_nulls

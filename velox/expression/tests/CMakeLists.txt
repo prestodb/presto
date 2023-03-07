@@ -79,7 +79,7 @@ target_link_libraries(
   gtest_main
   gmock
   ${FOLLY_WITH_DEPENDENCIES}
-  ${gflags_LIBRARIES}
+  gflags::gflags
   glog::glog
   ${FMT})
 

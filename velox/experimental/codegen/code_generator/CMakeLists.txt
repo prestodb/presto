@@ -25,7 +25,7 @@ target_link_libraries(
   ${FOLLY_WITH_DEPENDENCIES}
   gtest
   gtest_main
-  ${GFLAGS_LIBRARIES}
+  gflags::gflags
   glog::glog
   ${FMT})
 

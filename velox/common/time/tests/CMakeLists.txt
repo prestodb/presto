@@ -21,7 +21,7 @@ target_link_libraries(
   velox_time
   gtest
   gtest_main
-  ${gflags_LIBRARIES}
+  gflags::gflags
   glog::glog)
 
 gtest_add_tests(velox_time_test "" AUTO)

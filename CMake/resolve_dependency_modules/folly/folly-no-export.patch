@@ -1,0 +1,59 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -456,14 +456,14 @@ target_link_libraries(folly_test_util
+ apply_folly_compile_options_to_target(folly_test_util)
+ list(APPEND FOLLY_INSTALL_TARGETS folly_test_util)
+ 
+-install(TARGETS ${FOLLY_INSTALL_TARGETS}
+-  EXPORT folly
+-  RUNTIME DESTINATION bin
+-  LIBRARY DESTINATION ${LIB_INSTALL_DIR}
+-  ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
+-auto_install_files(folly ${FOLLY_DIR}
+-  ${hfiles}
+-)
++# install(TARGETS ${FOLLY_INSTALL_TARGETS}
++#   EXPORT folly
++#   RUNTIME DESTINATION bin
++#   LIBRARY DESTINATION ${LIB_INSTALL_DIR}
++#   ARCHIVE DESTINATION ${LIB_INSTALL_DIR})
++# auto_install_files(folly ${FOLLY_DIR}
++#   ${hfiles}
++# )
+ install(
+   FILES ${CMAKE_CURRENT_BINARY_DIR}/folly/folly-config.h
+   DESTINATION ${INCLUDE_INSTALL_DIR}/folly
+@@ -487,13 +487,13 @@ install(
+   DESTINATION ${CMAKE_INSTALL_DIR}
+   COMPONENT dev
+ )
+-install(
+-  EXPORT folly
+-  DESTINATION ${CMAKE_INSTALL_DIR}
+-  NAMESPACE Folly::
+-  FILE folly-targets.cmake
+-  COMPONENT dev
+-)
++# install(
++#   EXPORT folly
++#   DESTINATION ${CMAKE_INSTALL_DIR}
++#   NAMESPACE Folly::
++#   FILE folly-targets.cmake
++#   COMPONENT dev
++# )
+ 
+ # Generate a pkg-config file so that downstream projects that don't use
+ # CMake can depend on folly using pkg-config.

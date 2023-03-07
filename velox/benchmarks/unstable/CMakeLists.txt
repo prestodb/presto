@@ -23,7 +23,7 @@ set(velox_benchmark_deps
     ${FOLLY}
     ${FOLLY_BENCHMARK}
     ${DOUBLE_CONVERSION}
-    ${gflags_LIBRARIES}
+    gflags::gflags
     glog::glog)
 
 add_executable(velox_memory_alloc_benchmark MemoryAllocationBenchmark.cpp)

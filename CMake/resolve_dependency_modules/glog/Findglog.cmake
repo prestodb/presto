@@ -11,19 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_executable(
-  velox_presto_serializer_test
-  PrestoOutputStreamListenerTest.cpp PrestoSerializerTest.cpp
-  UnsafeRowSerializerTest.cpp)
-
-add_test(velox_presto_serializer_test velox_presto_serializer_test)
-
-target_link_libraries(
-  velox_presto_serializer_test
-  velox_presto_serializer
-  velox_vector_test_lib
-  velox_vector_fuzzer
-  gtest
-  gtest_main
-  gflags::gflags
-  glog::glog)
+message(STATUS "Using glog - Bundled")
+set(glog_FOUND TRUE)
+set(GLOG_LIBRARY ${glog_LIBRARY})

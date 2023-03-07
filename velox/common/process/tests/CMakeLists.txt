@@ -19,7 +19,7 @@ add_test(velox_process_test velox_process_test)
 target_link_libraries(
   velox_process_test
   velox_process
-  ${gflags_LIBRARIES}
+  gflags::gflags
   glog::glog
   gtest
   gtest_main

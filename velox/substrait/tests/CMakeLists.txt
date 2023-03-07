@@ -60,7 +60,7 @@ target_link_libraries(
   gtest_main
   ${FOLLY_WITH_DEPENDENCIES}
   ${DOUBLE_CONVERSION}
-  ${gflags_LIBRARIES}
+  gflags::gflags
   glog::glog
   ${FMT}
   ${FILESYSTEM})

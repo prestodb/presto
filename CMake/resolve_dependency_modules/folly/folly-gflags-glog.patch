@@ -1,0 +1,47 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+--- a/CMake/folly-deps.cmake
++++ b/CMake/folly-deps.cmake
+@@ -52,19 +52,20 @@ find_package(DoubleConversion MODULE REQUIRED)
+ list(APPEND FOLLY_LINK_LIBRARIES ${DOUBLE_CONVERSION_LIBRARY})
+ list(APPEND FOLLY_INCLUDE_DIRECTORIES ${DOUBLE_CONVERSION_INCLUDE_DIR})
+ 
+-find_package(Gflags MODULE)
+-set(FOLLY_HAVE_LIBGFLAGS ${LIBGFLAGS_FOUND})
+-if(LIBGFLAGS_FOUND)
+-  list(APPEND FOLLY_LINK_LIBRARIES ${LIBGFLAGS_LIBRARY})
+-  list(APPEND FOLLY_INCLUDE_DIRECTORIES ${LIBGFLAGS_INCLUDE_DIR})
+-  set(FOLLY_LIBGFLAGS_LIBRARY ${LIBGFLAGS_LIBRARY})
+-  set(FOLLY_LIBGFLAGS_INCLUDE ${LIBGFLAGS_INCLUDE_DIR})
++find_package(gflags)
++set(FOLLY_HAVE_LIBGFLAGS ${gflags_FOUND})
++if(gflags_FOUND)
++  list(APPEND FOLLY_LINK_LIBRARIES ${gflags_LIBRARY})
++  list(APPEND FOLLY_INCLUDE_DIRECTORIES ${gflags_INCLUDE_DIR})
++  set(FOLLY_LIBGFLAGS_LIBRARY ${gflags_LIBRARY})
++  set(FOLLY_LIBGFLAGS_INCLUDE ${gflags_INCLUDE_DIR})
+ endif()
+ 
+-find_package(Glog MODULE)
+-set(FOLLY_HAVE_LIBGLOG ${GLOG_FOUND})
+-list(APPEND FOLLY_LINK_LIBRARIES ${GLOG_LIBRARY})
+-list(APPEND FOLLY_INCLUDE_DIRECTORIES ${GLOG_INCLUDE_DIR})
++find_package(glog)
++set(FOLLY_HAVE_LIBGLOG ${glog_FOUND})
++list(APPEND FOLLY_LINK_LIBRARIES ${glog_LIBRARY})
++list(APPEND FOLLY_INCLUDE_DIRECTORIES ${glog_INCLUDE_DIR})
++message(STATUS "glog_INCLUDE_DIR: ${gflags_LINRARY}")
+ 
+ find_package(LibEvent MODULE REQUIRED)
+ list(APPEND FOLLY_LINK_LIBRARIES ${LIBEVENT_LIB})

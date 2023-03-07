@@ -26,4 +26,4 @@ target_link_libraries(
   velox_exec_test_lib
   gtest
   gtest_main
-  ${gflags_LIBRARIES})
+  gflags::gflags)

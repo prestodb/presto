@@ -18,7 +18,7 @@ set(TEST_LINK_LIBS
     gtest
     gtest_main
     gmock
-    ${gflags_LIBRARIES}
+    gflags::gflags
     ${GLOG}
     ${FILESYSTEM})
 

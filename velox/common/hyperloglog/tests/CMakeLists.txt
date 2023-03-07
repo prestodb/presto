@@ -18,4 +18,4 @@ add_test(NAME velox_common_hyperloglog_test
          COMMAND velox_common_hyperloglog_test)
 
 target_link_libraries(velox_common_hyperloglog_test velox_common_hyperloglog
-                      velox_encode ${gflags_LIBRARIES} gtest gtest_main)
+                      velox_encode gflags::gflags gtest gtest_main)
