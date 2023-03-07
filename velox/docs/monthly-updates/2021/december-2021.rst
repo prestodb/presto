@@ -5,11 +5,11 @@ December 2021 Update
 Documentation
 -------------
 
-* Add :doc:`Aggregation-related optimizations <../develop/aggregations>` guide.
+* Add :doc:`Aggregation-related optimizations </develop/aggregations>` guide.
 * Add missing documentation for :func:`json_extract_scalar` function.
-* Add documentation for missing functions in :doc:`Mathematical Functions <../functions/presto/math>` and :doc:`Comparison Functions <../functions/presto/comparison>`.
-* Update :doc:`How to add an aggregate function? <../develop/aggregate-functions>` guide to reflect changes to the function registry.
-* Update :doc:`How to add a scalar function? <../develop/scalar-functions>` guide to describe how to write functions with complex type inputs and results.
+* Add documentation for missing functions in :doc:`Mathematical Functions </functions/presto/math>` and :doc:`Comparison Functions </functions/presto/comparison>`.
+* Update :doc:`How to add an aggregate function? </develop/aggregate-functions>` guide to reflect changes to the function registry.
+* Update :doc:`How to add a scalar function? </develop/scalar-functions>` guide to describe how to write functions with complex type inputs and results.
 
 
 Core Library

@@ -6,10 +6,10 @@ Documentation
 =============
 
 * Document :ref:`flat-no-nulls fast path <expr-flat-no-nulls>` in expression evaluation.
-* Document :doc:`encoding-preserving vector serialization format <../develop/debugging/vector-saver>`.
-* Document :doc:`ANTI join semantics <../develop/anti-join>`.
-* Document :doc:`RIGHT SEMI join <../develop/joins>`.
-* Document :doc:`Velox types <../develop/types>`.
+* Document :doc:`encoding-preserving vector serialization format </develop/debugging/vector-saver>`.
+* Document :doc:`ANTI join semantics </develop/anti-join>`.
+* Document :doc:`RIGHT SEMI join </develop/joins>`.
+* Document :doc:`Velox types </develop/types>`.
 
 Core Library
 ============

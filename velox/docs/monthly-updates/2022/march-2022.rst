@@ -5,7 +5,7 @@ March 2022 Update
 Documentation
 =============
 
-* Document :doc:`printPlanWithStats <../develop/debugging/print-plan-with-stats>` debugging tool.
+* Document :doc:`printPlanWithStats </develop/debugging/print-plan-with-stats>` debugging tool.
 
 Core Library
 ============

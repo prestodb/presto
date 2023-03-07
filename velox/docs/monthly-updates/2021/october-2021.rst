@@ -5,7 +5,7 @@ October 2021 Update
 Documentation
 -------------
 
-* Add new article: :doc:`Plan Nodes and Operators <../develop/operators>`.
+* Add new article: :doc:`Plan Nodes and Operators </develop/operators>`.
 
 Core Library
 ------------
@@ -17,7 +17,7 @@ Core Library
   * Access query configs.
   * Allow for providing fast path for all-ASCII inputs.
 
-  More details in :doc:`How to add a scalar function? <../develop/scalar-functions>` guide.
+  More details in :doc:`How to add a scalar function? </develop/scalar-functions>` guide.
 * Add support for RIGHT OUTER joins.
 * Add DATE type.
 * Add FixedSizeArray vector.

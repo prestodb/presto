@@ -5,7 +5,7 @@ October 2022 Update
 Core Library
 ============
 
-* Add regular (not null aware) :doc:`Anti Join <../develop/anti-join>`. :pr:`2906`
+* Add regular (not null aware) :doc:`Anti Join </develop/anti-join>`. :pr:`2906`
 * Add spilling support for Hash Join.
 * Add query configuration properties to configure spilling: `spill_enabled`,
   `aggregation_spill_enabled`, `join_spill_enabled`, `order_by_spill_enabled`,

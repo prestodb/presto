@@ -5,7 +5,7 @@ November 2021 Update
 Documentation
 -------------
 
-* Add :doc:`How to add lambda function? <../develop/lambda-functions>` guide.
+* Add :doc:`How to add lambda function? </develop/lambda-functions>` guide.
 
 Core Library
 ------------

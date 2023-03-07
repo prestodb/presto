@@ -5,9 +5,9 @@ November 2022 Update
 Documentation
 =============
 
-* Document :doc:`spilling <../develop/spilling>`.
-* Document :doc:`configuration properties <../configs>`.
-* Document :doc:`expression and aggregation fuzzers <../develop/testing/fuzzer>`.
+* Document :doc:`spilling </develop/spilling>`.
+* Document :doc:`configuration properties </configs>`.
+* Document :doc:`expression and aggregation fuzzers </develop/testing/fuzzer>`.
 
 Core Library
 ============

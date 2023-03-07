@@ -5,9 +5,9 @@ April 2022 Update
 Documentation
 =============
 
-* Add :doc:`What’s in the Task? <../develop/task>` documentation article.
+* Add :doc:`What’s in the Task? </develop/task>` documentation article.
 * Document `lifecycle of Tasks, Drivers and Operators <https://github.com/facebookincubator/velox/blob/main/velox/exec/TaskDriverOperatorLifecycle.md>`_.
-* Document :doc:`printExprWithStats <../develop/debugging/print-expr-with-stats>` debugging tool.
+* Document :doc:`printExprWithStats </develop/debugging/print-expr-with-stats>` debugging tool.
 
 Core Library
 ============

@@ -5,8 +5,8 @@ May 2022 Update
 Documentation
 =============
 
-* Add documentation for :doc:`SIMD <../develop/simd>`.
-* Add :doc:`Velox in 10 min <../velox-in-10-min>` tutorial.
+* Add documentation for :doc:`SIMD </develop/simd>`.
+* Add :doc:`Velox in 10 min </velox-in-10-min>` tutorial.
 
 Core Library
 ============

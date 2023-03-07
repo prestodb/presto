@@ -7,19 +7,5 @@ Monthly Updates
 
     monthly-updates/february-2023
     monthly-updates/january-2023
-    monthly-updates/december-2022
-    monthly-updates/november-2022
-    monthly-updates/october-2022
-    monthly-updates/september-2022
-    monthly-updates/august-2022
-    monthly-updates/july-2022
-    monthly-updates/june-2022
-    monthly-updates/may-2022
-    monthly-updates/april-2022
-    monthly-updates/march-2022
-    monthly-updates/february-2022
-    monthly-updates/january-2022
-    monthly-updates/december-2021
-    monthly-updates/november-2021
-    monthly-updates/october-2021
-    monthly-updates/september-2021
+    monthly-updates/2022/index
+    monthly-updates/2021/index
