@@ -31,8 +31,9 @@ struct MinMaxTrait : public std::numeric_limits<T> {};
 
 template <>
 struct MinMaxTrait<Timestamp> {
-  static constexpr Timestamp min() {
-    return Timestamp(MinMaxTrait<int64_t>::min(), MinMaxTrait<uint64_t>::min());
+  static constexpr Timestamp lowest() {
+    return Timestamp(
+        MinMaxTrait<int64_t>::lowest(), MinMaxTrait<uint64_t>::lowest());
   }
 
   static constexpr Timestamp max() {
@@ -42,8 +43,8 @@ struct MinMaxTrait<Timestamp> {
 
 template <>
 struct MinMaxTrait<Date> {
-  static constexpr Date min() {
-    return Date(std::numeric_limits<int32_t>::min());
+  static constexpr Date lowest() {
+    return Date(std::numeric_limits<int32_t>::lowest());
   }
 
   static constexpr Date max() {
@@ -53,8 +54,8 @@ struct MinMaxTrait<Date> {
 
 template <>
 struct MinMaxTrait<IntervalDayTime> {
-  static constexpr IntervalDayTime min() {
-    return IntervalDayTime(std::numeric_limits<int64_t>::min());
+  static constexpr IntervalDayTime lowest() {
+    return IntervalDayTime(std::numeric_limits<int64_t>::lowest());
   }
 
   static constexpr IntervalDayTime max() {
@@ -177,7 +178,7 @@ class MaxAggregate : public MinMaxAggregate<T> {
   }
 
  private:
-  static constexpr T kInitialValue_{MinMaxTrait<T>::min()};
+  static constexpr T kInitialValue_{MinMaxTrait<T>::lowest()};
 };
 
 template <typename T>
