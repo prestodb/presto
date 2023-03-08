@@ -182,9 +182,6 @@ executors:
   check:
     docker:
       - image : ghcr.io/facebookincubator/velox-dev:check-avx
-  doc-gen:
-    docker:
-      - image : ghcr.io/facebookincubator/velox-dev:circleci-avx
   macos-intel:
     macos:
       xcode: "12.5.1"
@@ -500,7 +497,7 @@ jobs:
             fi
 
   doc-gen-job:
-    executor: doc-gen
+    executor: build
     steps:
       - checkout
       - update-submodules
