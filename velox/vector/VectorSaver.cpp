@@ -819,10 +819,13 @@ void saveSelectivityVector(const SelectivityVector& rows, std::ostream& out) {
 SelectivityVector restoreSelectivityVector(std::istream& in) {
   auto size = read<int32_t>(in);
 
+  const auto numBytes = bits::nbytes(size);
+
   // SelectivityVector::setFromBits reads whole words (8 bytes). Make sure it is
   // safe to access the "last" partially-populated word.
-  std::vector<char> bits(bits::roundUp(bits::nbytes(size), 8));
-  in.read(bits.data(), bits.size());
+  std::vector<char> bits(bits::roundUp(numBytes, 8));
+
+  in.read(bits.data(), numBytes);
 
   SelectivityVector rows(size);
   rows.setFromBits(reinterpret_cast<uint64_t*>(bits.data()), size);
