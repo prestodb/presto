@@ -219,7 +219,7 @@ public class SliceDictionaryBatchStreamReader
                 // resize the dictionary lengths array if necessary
                 if (stripeDictionaryLength.length < stripeDictionarySize) {
                     stripeDictionaryLength = new int[stripeDictionarySize];
-                    systemMemoryContext.setBytes(sizeOf(stripeDictionaryLength));
+                    systemMemoryContext.setBytes(getRetainedSizeInBytes());
                 }
 
                 // read the lengths
@@ -236,11 +236,11 @@ public class SliceDictionaryBatchStreamReader
 
                 // we must always create a new dictionary array because the previous dictionary may still be referenced
                 stripeDictionaryData = new byte[toIntExact(dataLength)];
-                systemMemoryContext.setBytes(sizeOf(stripeDictionaryData));
+                systemMemoryContext.setBytes(getRetainedSizeInBytes());
 
                 // add one extra entry for null
                 stripeDictionaryOffsetVector = new int[stripeDictionarySize + 2];
-                systemMemoryContext.setBytes(sizeOf(stripeDictionaryOffsetVector));
+                systemMemoryContext.setBytes(getRetainedSizeInBytes());
 
                 // read dictionary values
                 ByteArrayInputStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
