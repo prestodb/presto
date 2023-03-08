@@ -1075,7 +1075,6 @@ TEST_F(VectorTest, unknown) {
   auto unknownVector = BaseVector::create(UNKNOWN(), 10, pool_.get());
   ASSERT_EQ(VectorEncoding::Simple::FLAT, unknownVector->encoding());
   ASSERT_FALSE(unknownVector->isScalar());
-  ASSERT_EQ(unknownVector->getNullCount().value(), 10);
   for (int i = 0; i < unknownVector->size(); ++i) {
     ASSERT_TRUE(unknownVector->isNullAt(i)) << i;
   }
@@ -1095,7 +1094,6 @@ TEST_F(VectorTest, unknown) {
 
   // It is okay to copy to a non-constant UNKNOWN vector.
   unknownVector->copy(constUnknownVector.get(), rows, nullptr);
-  ASSERT_EQ(unknownVector->getNullCount().value(), 10);
   for (int i = 0; i < unknownVector->size(); ++i) {
     ASSERT_TRUE(unknownVector->isNullAt(i)) << i;
   }

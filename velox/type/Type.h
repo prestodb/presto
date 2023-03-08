@@ -498,11 +498,6 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
 
   virtual bool isFixedWidth() const = 0;
 
-  /// Used in FixedSizeArrayType to return the width constraint of the type.
-  virtual size_type fixedElementsWidth() const {
-    throw std::invalid_argument{"unimplemented"};
-  }
-
   static std::shared_ptr<const Type> create(const folly::dynamic& obj);
 
   /// Recursive kind hashing (uses only TypeKind).
