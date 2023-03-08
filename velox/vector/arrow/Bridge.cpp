@@ -402,7 +402,7 @@ void exportStrings(
   rows.apply([&](vector_size_t i) {
     auto newOffset = *rawOffsets;
     if (!vec.isNullAt(i)) {
-      auto& sv = vec.valueAtFast(i);
+      auto sv = vec.valueAtFast(i);
       memcpy(rawBuffer, sv.data(), sv.size());
       rawBuffer += sv.size();
       newOffset += sv.size();

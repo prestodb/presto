@@ -57,7 +57,7 @@ const T* FlatVector<T>::rawValues() const {
 }
 
 template <typename T>
-const T FlatVector<T>::valueAtFast(vector_size_t idx) const {
+T FlatVector<T>::valueAtFast(vector_size_t idx) const {
   return rawValues_[idx];
 }
 

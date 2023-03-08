@@ -108,7 +108,7 @@ class FlatVector final : public SimpleVector<T> {
 
   virtual ~FlatVector() override = default;
 
-  const T valueAtFast(vector_size_t idx) const;
+  T valueAtFast(vector_size_t idx) const;
 
   const T valueAt(vector_size_t idx) const override {
     return valueAtFast(idx);
@@ -450,7 +450,7 @@ class FlatVector final : public SimpleVector<T> {
 };
 
 template <>
-const bool FlatVector<bool>::valueAtFast(vector_size_t idx) const;
+bool FlatVector<bool>::valueAtFast(vector_size_t idx) const;
 
 template <>
 const bool* FlatVector<bool>::rawValues() const;
