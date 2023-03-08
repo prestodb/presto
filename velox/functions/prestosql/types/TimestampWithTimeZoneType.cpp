@@ -13,18 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/HyperLogLogFunctions.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
-namespace facebook::velox::functions {
+namespace facebook::velox {
 
-void registerHyperLogFunctions() {
-  registerHyperLogLogType();
-
-  registerFunction<CardinalityFunction, int64_t, HyperLogLog>({"cardinality"});
-
-  registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(
-      {"empty_approx_set"});
-  registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
+void registerTimestampWithTimeZoneType() {
+  registerType(
+      "timestamp with time zone",
+      std::make_unique<const TimestampWithTimeZoneTypeFactories>());
 }
-} // namespace facebook::velox::functions
+
+} // namespace facebook::velox

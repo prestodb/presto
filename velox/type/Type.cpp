@@ -178,12 +178,28 @@ std::vector<TypePtr> deserializeChildTypes(const folly::dynamic& obj) {
 } // namespace
 
 TypePtr Type::create(const folly::dynamic& obj) {
-  TypeKind type = mapNameToTypeKind(obj["type"].asString());
-  switch (type) {
+  std::vector<TypePtr> childTypes;
+  if (obj.find("cTypes") != obj.items().end()) {
+    childTypes = deserializeChildTypes(obj);
+  }
+
+  // Checks if 'typeName' specifies a custom type.
+  auto typeName = obj["type"].asString();
+  if (typeExists(typeName)) {
+    return getType(typeName, std::move(childTypes));
+  }
+
+  // 'typeName' must be a built-in type.
+  TypeKind typeKind = mapNameToTypeKind(typeName);
+  switch (typeKind) {
     case TypeKind::SHORT_DECIMAL: {
+      VELOX_USER_CHECK(
+          childTypes.empty(), "Short decimal type should not have child types");
       return SHORT_DECIMAL(obj["precision"].asInt(), obj["scale"].asInt());
     }
     case TypeKind::LONG_DECIMAL: {
+      VELOX_USER_CHECK(
+          childTypes.empty(), "Long decimal type should not have child types");
       return LONG_DECIMAL(obj["precision"].asInt(), obj["scale"].asInt());
     }
     case TypeKind::ROW: {
@@ -193,8 +209,9 @@ TypePtr Type::create(const folly::dynamic& obj) {
         names.push_back(name.asString());
       }
 
+      VELOX_USER_CHECK(!childTypes.empty(), "Row type must have child types");
       return std::make_shared<const RowType>(
-          std::move(names), deserializeChildTypes(obj));
+          std::move(names), std::move(childTypes));
     }
 
     case TypeKind::OPAQUE: {
@@ -211,11 +228,7 @@ TypePtr Type::create(const folly::dynamic& obj) {
       return it->second;
     }
     default: {
-      std::vector<TypePtr> childTypes;
-      if (obj.find("cTypes") != obj.items().end()) {
-        childTypes = deserializeChildTypes(obj);
-      }
-      return createType(type, std::move(childTypes));
+      return createType(typeKind, std::move(childTypes));
     }
   }
 }

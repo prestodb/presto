@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/HyperLogLogFunctions.h"
+#pragma once
 
-namespace facebook::velox::functions {
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/type/Type.h"
 
-void registerHyperLogFunctions() {
-  registerHyperLogLogType();
+namespace facebook::velox::test {
 
-  registerFunction<CardinalityFunction, int64_t, HyperLogLog>({"cardinality"});
+class TypeTestBase {
+ protected:
+  TypeTestBase();
 
-  registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(
-      {"empty_approx_set"});
-  registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
-}
-} // namespace facebook::velox::functions
+  void testTypeSerde(const TypePtr& type);
+};
+
+} // namespace facebook::velox::test

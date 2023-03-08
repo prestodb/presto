@@ -43,6 +43,13 @@ class TimestampWithTimeZoneType : public RowType {
   std::string toString() const override {
     return "TIMESTAMP WITH TIME ZONE";
   }
+
+  folly::dynamic serialize() const override {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["name"] = "Type";
+    obj["type"] = "TIMESTAMP WITH TIME ZONE";
+    return obj;
+  }
 };
 
 inline bool isTimestampWithTimeZoneType(const TypePtr& type) {
@@ -76,5 +83,7 @@ class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
         TIMESTAMP_WITH_TIME_ZONE()->toString());
   }
 };
+
+void registerTimestampWithTimeZoneType();
 
 } // namespace facebook::velox

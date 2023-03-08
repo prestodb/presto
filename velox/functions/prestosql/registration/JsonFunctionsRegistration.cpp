@@ -19,7 +19,7 @@
 
 namespace facebook::velox::functions {
 void registerJsonFunctions() {
-  registerType("json", std::make_unique<const JsonTypeFactories>());
+  registerJsonType();
 
   registerFunction<IsJsonScalarFunction, bool, Json>({"is_json_scalar"});
   registerFunction<JsonExtractScalarFunction, Varchar, Json, Varchar>(

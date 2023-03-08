@@ -75,6 +75,13 @@ class JsonType : public VarcharType {
   std::string toString() const override {
     return "JSON";
   }
+
+  folly::dynamic serialize() const override {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["name"] = "Type";
+    obj["type"] = "JSON";
+    return obj;
+  }
 };
 
 FOLLY_ALWAYS_INLINE bool isJsonType(const TypePtr& type) {
@@ -106,5 +113,7 @@ class JsonTypeFactories : public CustomTypeFactories {
     return JsonCastOperator::get();
   }
 };
+
+void registerJsonType();
 
 } // namespace facebook::velox

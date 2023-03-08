@@ -13,18 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/HyperLogLogFunctions.h"
+#include "velox/functions/prestosql/types/tests/TypeTestBase.h"
 
-namespace facebook::velox::functions {
+namespace facebook::velox::test {
 
-void registerHyperLogFunctions() {
-  registerHyperLogLogType();
-
-  registerFunction<CardinalityFunction, int64_t, HyperLogLog>({"cardinality"});
-
-  registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(
-      {"empty_approx_set"});
-  registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
+TypeTestBase::TypeTestBase() {
+  velox::DeserializationRegistryForSharedPtr().Register(
+      Type::getClassName(),
+      static_cast<std::shared_ptr<const Type> (*)(const folly::dynamic&)>(
+          Type::create));
 }
-} // namespace facebook::velox::functions
+
+void TypeTestBase::testTypeSerde(const TypePtr& type) {
+  auto copy = velox::ISerializable::deserialize<Type>(
+      velox::ISerializable::serialize(type));
+
+  ASSERT_EQ(type->toString(), copy->toString());
+  ASSERT_EQ(*type, *copy);
+}
+} // namespace facebook::velox::test

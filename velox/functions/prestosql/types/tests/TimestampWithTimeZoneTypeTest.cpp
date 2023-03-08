@@ -13,18 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/HyperLogLogFunctions.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/functions/prestosql/types/tests/TypeTestBase.h"
 
-namespace facebook::velox::functions {
+namespace facebook::velox::test {
 
-void registerHyperLogFunctions() {
-  registerHyperLogLogType();
+class TimestampWithTimeZoneTypeTest : public testing::Test,
+                                      public TypeTestBase {
+ public:
+  TimestampWithTimeZoneTypeTest() {
+    registerTimestampWithTimeZoneType();
+  }
+};
 
-  registerFunction<CardinalityFunction, int64_t, HyperLogLog>({"cardinality"});
-
-  registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(
-      {"empty_approx_set"});
-  registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
+TEST_F(TimestampWithTimeZoneTypeTest, serde) {
+  testTypeSerde(TIMESTAMP_WITH_TIME_ZONE());
 }
-} // namespace facebook::velox::functions
+} // namespace facebook::velox::test
