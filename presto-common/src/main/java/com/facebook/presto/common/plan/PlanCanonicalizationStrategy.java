@@ -66,9 +66,10 @@ public enum PlanCanonicalizationStrategy
     /**
      * Creates a list of PlanCanonicalizationStrategy to be used for history based optimizations.
      * Output is ordered by decreasing accuracy of statistics, at benefit of more coverage.
+     * TODO: Remove CONNECTOR strategy
      */
     public static List<PlanCanonicalizationStrategy> historyBasedPlanCanonicalizationStrategyList()
     {
-        return unmodifiableList(asList(CONNECTOR, REMOVE_SAFE_CONSTANTS));
+        return unmodifiableList(asList(REMOVE_SAFE_CONSTANTS));
     }
 }
