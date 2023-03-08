@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -60,7 +60,7 @@ public class CachingPlanCanonicalInfoProvider
     @Override
     public Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode)
     {
-        CacheKey key = new CacheKey(planNode, CONNECTOR);
+        CacheKey key = new CacheKey(planNode, historyBasedPlanCanonicalizationStrategyList().get(0));
         return loadValue(session, key).map(PlanNodeCanonicalInfo::getInputTableStatistics);
     }
 
@@ -72,7 +72,7 @@ public class CachingPlanCanonicalInfoProvider
             return Optional.of(result);
         }
         CanonicalPlanGenerator.Context context = new CanonicalPlanGenerator.Context();
-        key.getNode().accept(new CanonicalPlanGenerator(key.getStrategy(), objectMapper), context);
+        key.getNode().accept(new CanonicalPlanGenerator(key.getStrategy(), objectMapper, session), context);
         context.getCanonicalPlans().forEach((plan, canonicalPlan) -> {
             String hashValue = hashCanonicalPlan(canonicalPlan, objectMapper);
             // Compute input table statistics for the plan node. This is useful in history based optimizations,
