@@ -19,6 +19,7 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerContext;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.QueryAnalyzer;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
@@ -69,13 +70,18 @@ public class AnalyzerUtil
                 .build();
     }
 
-    public static AnalyzerContext getAnalyzerContext(QueryAnalyzer queryAnalyzer, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Session session)
+    public static AnalyzerContext getAnalyzerContext(
+            QueryAnalyzer queryAnalyzer,
+            MetadataResolver metadataResolver,
+            PlanNodeIdAllocator idAllocator,
+            VariableAllocator variableAllocator,
+            Session session)
     {
         // TODO: Remove this hack once inbuilt query analyzer is moved to presto-analyzer
         if (queryAnalyzer instanceof BuiltInQueryAnalyzer) {
-            return getBuiltInAnalyzerContext(idAllocator, variableAllocator, session);
+            return getBuiltInAnalyzerContext(metadataResolver, idAllocator, variableAllocator, session);
         }
 
-        return new AnalyzerContext(idAllocator, variableAllocator);
+        return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator);
     }
 }
