@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.analyzer;
+package com.facebook.presto.spi.analyzer;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
@@ -63,7 +63,6 @@ public interface MetadataResolver
      * Returns the list of column metadata for the provided catalog, schema and table name.
      *
      * @param tableHandle of the table
-     * @throws SemanticException if the table does not exist
      */
     List<ColumnMetadata> getColumns(TableHandle tableHandle);
 
