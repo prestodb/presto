@@ -61,6 +61,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
@@ -451,6 +452,26 @@ public class PropertyDerivations
                     return ActualProperties.builder()
                             .global(arbitraryPartition())
                             .build();
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
+        }
+
+        @Override
+        public ActualProperties visitStarJoin(StarJoinNode node, List<ActualProperties> inputProperties)
+        {
+            ActualProperties probeProperties = inputProperties.get(0);
+            List<VariableReferenceExpression> outputVariableReferences = node.getOutputVariables();
+
+            boolean unordered = spillPossible(session, node.getType());
+            switch (node.getType()) {
+                case LEFT:
+                    return ActualProperties.builderFrom(probeProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
+                            .unordered(unordered)
+                            .build();
+                case INNER:
+                case RIGHT:
+                case FULL:
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }

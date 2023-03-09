@@ -72,6 +72,7 @@ import com.facebook.presto.operator.LocalPlannerAware;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import com.facebook.presto.operator.LookupSourceFactory;
+import com.facebook.presto.operator.LookupStarJoinOperators;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
 import com.facebook.presto.operator.NestedLoopJoinBridge;
@@ -195,6 +196,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -318,6 +320,7 @@ import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssig
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
@@ -372,6 +375,7 @@ public class LocalExecutionPlanner
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
     private final LookupJoinOperators lookupJoinOperators;
+    private final LookupStarJoinOperators lookupStarJoinOperators;
     private final OrderingCompiler orderingCompiler;
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
     private final LogicalRowExpressions logicalRowExpressions;
@@ -405,6 +409,7 @@ public class LocalExecutionPlanner
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
             LookupJoinOperators lookupJoinOperators,
+            LookupStarJoinOperators lookupStarJoinOperators,
             OrderingCompiler orderingCompiler,
             JsonCodec<TableCommitContext> tableCommitContextCodec,
             DeterminismEvaluator determinismEvaluator,
@@ -435,6 +440,7 @@ public class LocalExecutionPlanner
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.lookupJoinOperators = requireNonNull(lookupJoinOperators, "lookupJoinOperators is null");
+        this.lookupStarJoinOperators = requireNonNull(lookupStarJoinOperators, "lookupJoinOperators is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         this.logicalRowExpressions = new LogicalRowExpressions(
@@ -1951,6 +1957,28 @@ public class LocalExecutionPlanner
         }
 
         @Override
+        public PhysicalOperation visitStarJoin(StarJoinNode node, LocalExecutionPlanContext context)
+        {
+            if (node.isCrossJoin()) {
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, "star join does not support cross join");
+            }
+
+            List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
+            List<VariableReferenceExpression> leftVariables = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
+            List<VariableReferenceExpression> rightVariables = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
+
+            switch (node.getType()) {
+                case LEFT:
+                    return createLookupStarJoin(node, node.getLeft(), leftVariables, node.getLeftHashVariable(), node.getRight(), rightVariables, node.getRightHashVariables(), context);
+                case INNER:
+                case RIGHT:
+                case FULL:
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
+        }
+
+        @Override
         public PhysicalOperation visitSpatialJoin(SpatialJoinNode node, LocalExecutionPlanContext context)
         {
             RowExpression filterExpression = node.getFilter();
@@ -2349,6 +2377,50 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operator, outputMappings.build(), context, probeSource);
         }
 
+        private PhysicalOperation createLookupStarJoin(
+                StarJoinNode node,
+                PlanNode probeNode,
+                List<VariableReferenceExpression> probeVariables,
+                Optional<VariableReferenceExpression> probeHashVariable,
+                List<PlanNode> buildNodeList,
+                List<VariableReferenceExpression> buildVariables,
+                List<Optional<VariableReferenceExpression>> buildHashVariable,
+                LocalExecutionPlanContext context)
+        {
+            // Plan probe
+            PhysicalOperation probeSource = probeNode.accept(this, context);
+
+            // Plan build
+            ImmutableList.Builder<JoinBridgeManager<? extends LookupSourceFactory>> lookupSourceFactoryBuilder = ImmutableList.builder();
+            for (int i = 0; i < buildNodeList.size(); ++i) {
+                PlanNode buildNode = buildNodeList.get(i);
+                LocalExecutionPlanContext buildContext = context.createSubContext();
+                PhysicalOperation buildSource = buildNode.accept(this, buildContext);
+                if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
+                    checkState(
+                            probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION,
+                            "Build execution is GROUPED_EXECUTION. Probe execution is expected be GROUPED_EXECUTION, but is UNGROUPED_EXECUTION.");
+                }
+
+                checkState(node.getType() == LEFT, "Star join currently only supports LEFT join");
+
+                // Plan build, Star join does not support spill for now
+                JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
+                        createStarJoinLookupSourceFactory(node, buildSource, buildContext, ImmutableList.of(buildVariables.get(i)), buildHashVariable.get(i), probeSource, false, context, i);
+                lookupSourceFactoryBuilder.add(lookupSourceFactory);
+            }
+
+            OperatorFactory operator = createLookupStarJoin(node, probeSource, probeVariables, probeHashVariable, lookupSourceFactoryBuilder.build(), false, context);
+
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
+            List<VariableReferenceExpression> outputVariables = node.getOutputVariables();
+            for (int i = 0; i < outputVariables.size(); i++) {
+                outputMappings.put(outputVariables.get(i), i);
+            }
+
+            return new PhysicalOperation(operator, outputMappings.build(), context, probeSource);
+        }
+
         private JoinBridgeManager<PartitionedLookupSourceFactory> createLookupSourceFactory(
                 JoinNode node,
                 PhysicalOperation buildSource,
@@ -2421,6 +2493,118 @@ public class LocalExecutionPlanner
 
             createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
                     filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
+
+            // Determine if planning broadcast join
+            Optional<JoinNode.DistributionType> distributionType = node.getDistributionType();
+            boolean isBroadcastJoin = distributionType.isPresent() && distributionType.get() == REPLICATED;
+
+            HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
+                    buildContext.getNextOperatorId(),
+                    node.getId(),
+                    lookupSourceFactoryManager,
+                    buildOutputChannels,
+                    buildChannels,
+                    buildHashChannel,
+                    filterFunctionFactory,
+                    sortChannel,
+                    searchFunctionFactories,
+                    10_000,
+                    pagesIndexFactory,
+                    spillEnabled && partitionCount > 1,
+                    singleStreamSpillerFactory,
+                    isBroadcastJoin);
+
+            factoriesBuilder.add(hashBuilderOperatorFactory);
+
+            context.addDriverFactory(
+                    buildContext.isInputDriver(),
+                    false,
+                    factoriesBuilder.build(),
+                    buildContext.getDriverInstanceCount(),
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
+
+            return lookupSourceFactoryManager;
+        }
+
+        private JoinBridgeManager<PartitionedLookupSourceFactory> createStarJoinLookupSourceFactory(
+                StarJoinNode node,
+                PhysicalOperation buildSource,
+                LocalExecutionPlanContext buildContext,
+                List<VariableReferenceExpression> buildVariables,
+                Optional<VariableReferenceExpression> buildHashVariable,
+                PhysicalOperation probeSource,
+                boolean spillEnabled,
+                LocalExecutionPlanContext context,
+                int index)
+        {
+            PlanNode buildNode = node.getRight().get(index);
+            List<VariableReferenceExpression> buildOutputVariables = node.getOutputVariables().stream()
+                    .filter(buildNode.getOutputVariables()::contains)
+                    .collect(toImmutableList());
+            List<Integer> buildOutputChannels = ImmutableList.copyOf(getChannelsForVariables(buildOutputVariables, buildSource.getLayout()));
+            List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForVariables(buildVariables, buildSource.getLayout()));
+            OptionalInt buildHashChannel = buildHashVariable.map(variableChannelGetter(buildSource))
+                    .map(OptionalInt::of).orElse(OptionalInt.empty());
+
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter().get(index)
+                    .map(filterExpression -> compileJoinFilterFunction(
+                            session.getSqlFunctionProperties(),
+                            session.getSessionFunctions(),
+                            filterExpression,
+                            probeSource.getLayout(),
+                            buildSource.getLayout()));
+
+            // What is sort expression?
+            Optional<SortExpressionContext> sortExpressionContext = node.getSortExpressionContext(metadata.getFunctionAndTypeManager(), index);
+
+            Optional<Integer> sortChannel = sortExpressionContext
+                    .map(SortExpressionContext::getSortExpression)
+                    .map(sortExpression -> sortExpressionAsSortChannel(
+                            sortExpression,
+                            probeSource.getLayout(),
+                            buildSource.getLayout()));
+
+            List<JoinFilterFunctionFactory> searchFunctionFactories = sortExpressionContext
+                    .map(SortExpressionContext::getSearchExpressions)
+                    .map(searchExpressions -> searchExpressions.stream()
+                            .map(searchExpression -> compileJoinFilterFunction(
+                                    session.getSqlFunctionProperties(),
+                                    session.getSessionFunctions(),
+                                    searchExpression,
+                                    probeSource.getLayout(),
+                                    buildSource.getLayout()))
+                            .collect(toImmutableList()))
+                    .orElse(ImmutableList.of());
+
+            ImmutableList<Type> buildOutputTypes = buildOutputChannels.stream()
+                    .map(buildSource.getTypes()::get)
+                    .collect(toImmutableList());
+            boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
+            // Does not support build outer for now
+            checkState(!buildOuter);
+            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
+            JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<>(
+                    false,
+                    probeSource.getPipelineExecutionStrategy(),
+                    buildSource.getPipelineExecutionStrategy(),
+                    () -> new PartitionedLookupSourceFactory(
+                            buildSource.getTypes(),
+                            buildOutputTypes,
+                            buildChannels.stream()
+                                    .map(buildSource.getTypes()::get)
+                                    .collect(toImmutableList()),
+                            partitionCount,
+                            buildSource.getLayout(),
+                            false),
+                    buildOutputTypes);
+
+            ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
+            factoriesBuilder.addAll(buildSource.getOperatorFactories());
+
+            // Do not support dynamic filter
+//            createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
+//                    filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
 
             // Determine if planning broadcast join
             Optional<JoinNode.DistributionType> distributionType = node.getDistributionType();
@@ -2592,6 +2776,37 @@ public class LocalExecutionPlanner
                             totalOperatorsCount,
                             partitioningSpillerFactory,
                             optimizeProbeForEmptyBuild);
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
+        }
+
+        private OperatorFactory createLookupStarJoin(
+                StarJoinNode node,
+                PhysicalOperation probeSource,
+                List<VariableReferenceExpression> probeVariables,
+                Optional<VariableReferenceExpression> probeHashVariable,
+                List<JoinBridgeManager<? extends LookupSourceFactory>> lookupSourceFactoryManager,
+                boolean spillEnabled,
+                LocalExecutionPlanContext context)
+        {
+            List<Type> probeTypes = probeSource.getTypes();
+            List<VariableReferenceExpression> probeOutputVariables = node.getOutputVariables().stream()
+                    .filter(node.getLeft().getOutputVariables()::contains)
+                    .collect(toImmutableList());
+            List<Integer> probeOutputChannels = ImmutableList.copyOf(getChannelsForVariables(probeOutputVariables, probeSource.getLayout()));
+            List<Integer> probeJoinChannels = ImmutableList.copyOf(getChannelsForVariables(probeVariables, probeSource.getLayout()));
+            OptionalInt probeHashChannel = probeHashVariable.map(variableChannelGetter(probeSource))
+                    .map(OptionalInt::of).orElse(OptionalInt.empty());
+            OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, spillEnabled);
+
+            switch (node.getType()) {
+                case INNER:
+                    return lookupStarJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
+                case LEFT:
+                    return lookupStarJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
+                case RIGHT:
+                case FULL:
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }

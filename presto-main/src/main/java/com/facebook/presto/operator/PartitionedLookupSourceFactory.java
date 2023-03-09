@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.type.Type;
@@ -56,6 +57,7 @@ import static java.util.Objects.requireNonNull;
 public final class PartitionedLookupSourceFactory
         implements LookupSourceFactory
 {
+    private static final Logger log = Logger.get(PartitionedLookupSourceFactory.class);
     private final List<Type> types;
     private final List<Type> outputTypes;
     private final Map<VariableReferenceExpression, Integer> layout;
@@ -82,9 +84,11 @@ public final class PartitionedLookupSourceFactory
     @GuardedBy("lock")
     private final Map<Integer, SpilledLookupSourceHandle> spilledPartitions = new HashMap<>();
 
+    // Set after build completes
     @GuardedBy("lock")
     private TrackingLookupSourceSupplier lookupSourceSupplier;
 
+    // Complete after build completes
     @GuardedBy("lock")
     private final List<SettableFuture<LookupSourceProvider>> lookupSourceFutures = new ArrayList<>();
 
@@ -115,6 +119,7 @@ public final class PartitionedLookupSourceFactory
         this.hashChannelTypes = ImmutableList.copyOf(hashChannelTypes);
         this.layout = ImmutableMap.copyOf(layout);
         checkArgument(partitionCount > 0);
+        // shared by all corresponding hash build operator
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
         spilledLookupSource = new SpilledLookupSource(outputTypes.size());
@@ -146,6 +151,8 @@ public final class PartitionedLookupSourceFactory
         return partitions.length;
     }
 
+    // The returned future completes when build side is ready
+    // Returned results is used in join op to check if build side is complete or not
     @Override
     public ListenableFuture<LookupSourceProvider> createLookupSourceProvider()
     {
@@ -165,6 +172,8 @@ public final class PartitionedLookupSourceFactory
         }
     }
 
+    // Return a future which completes when build completes
+    // Called in join bridge manager to indicate build is complete
     @Override
     public ListenableFuture<?> whenBuildFinishes()
     {
@@ -179,6 +188,7 @@ public final class PartitionedLookupSourceFactory
                 directExecutor());
     }
 
+    // Called in build side when finish processing data
     public ListenableFuture<?> lendPartitionLookupSource(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
     {
         requireNonNull(partitionLookupSource, "partitionLookupSource is null");
@@ -201,6 +211,7 @@ public final class PartitionedLookupSourceFactory
             lock.writeLock().unlock();
         }
 
+        // All partitions complete
         if (completed) {
             supplyLookupSources();
         }
@@ -208,6 +219,7 @@ public final class PartitionedLookupSourceFactory
         return partitionsNoLongerNeeded;
     }
 
+    // Called in build operator during spill handling
     public void setPartitionSpilledLookupSourceHandle(int partitionIndex, SpilledLookupSourceHandle spilledLookupSourceHandle)
     {
         requireNonNull(spilledLookupSourceHandle, "spilledLookupSourceHandle is null");
@@ -260,6 +272,7 @@ public final class PartitionedLookupSourceFactory
         }
     }
 
+    // Called after all partitions complete
     private void supplyLookupSources()
     {
         checkState(!lock.isWriteLockedByCurrentThread());
@@ -275,6 +288,7 @@ public final class PartitionedLookupSourceFactory
                 return;
             }
 
+            // Set lookupSourceSupplier
             if (partitionsSet != 1) {
                 List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
                 this.lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer);

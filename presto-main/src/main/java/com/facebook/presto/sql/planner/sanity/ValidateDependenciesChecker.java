@@ -59,6 +59,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -415,6 +416,15 @@ public final class ValidateDependenciesChecker
             });
 
             checkLeftOutputVariablesBeforeRight(node.getLeft().getOutputVariables(), node.getOutputVariables());
+            return null;
+        }
+
+        @Override
+        public Void visitStarJoin(StarJoinNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            node.getLeft().accept(this, boundVariables); // visit child
+            node.getRight().forEach(x -> x.accept(this, boundVariables));
+
             return null;
         }
 

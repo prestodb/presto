@@ -83,6 +83,55 @@ public class LookupJoinPageBuilder
     }
 
     /**
+     * append the index for the probe and copy the row for the build
+     */
+    public void appendRow(JoinProbe probe, List<LookupSource> lookupSource, List<Long> joinPosition, List<Integer> outputChannelOffset)
+    {
+        // probe side
+        appendProbeIndex(probe);
+
+        // build side
+        buildPageBuilder.declarePosition();
+        for (int i = 0; i < lookupSource.size(); ++i) {
+            if (joinPosition.get(i) >= 0) {
+                lookupSource.get(i).appendTo(joinPosition.get(i), buildPageBuilder, outputChannelOffset.get(i));
+            }
+            else {
+                int nextOutputChannelOffset = buildOutputChannelCount;
+                if (i + 1 < lookupSource.size()) {
+                    nextOutputChannelOffset = outputChannelOffset.get(i + 1);
+                }
+                for (int j = outputChannelOffset.get(i); j < nextOutputChannelOffset; ++j) {
+                    buildPageBuilder.getBlockBuilder(j).appendNull();
+                }
+            }
+        }
+    }
+
+    public void appendRow(JoinProbe probe, List<LookupSource> lookupSource, long[] joinPosition, List<Integer> outputChannelOffset)
+    {
+        // probe side
+        appendProbeIndex(probe);
+
+        // build side
+        buildPageBuilder.declarePosition();
+        for (int i = 0; i < lookupSource.size(); ++i) {
+            if (joinPosition[i] >= 0) {
+                lookupSource.get(i).appendTo(joinPosition[i], buildPageBuilder, outputChannelOffset.get(i));
+            }
+            else {
+                int nextOutputChannelOffset = buildOutputChannelCount;
+                if (i + 1 < lookupSource.size()) {
+                    nextOutputChannelOffset = outputChannelOffset.get(i + 1);
+                }
+                for (int j = outputChannelOffset.get(i); j < nextOutputChannelOffset; ++j) {
+                    buildPageBuilder.getBlockBuilder(j).appendNull();
+                }
+            }
+        }
+    }
+
+    /**
      * append the index for the probe and append nulls for the build
      */
     public void appendNullForBuild(JoinProbe probe)
@@ -97,6 +146,7 @@ public class LookupJoinPageBuilder
         }
     }
 
+    // Construct join output page
     public Page build(JoinProbe probe)
     {
         int outputPositions = probeIndexBuilder.size();

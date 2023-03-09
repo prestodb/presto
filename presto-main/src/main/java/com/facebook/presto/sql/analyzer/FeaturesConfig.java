@@ -247,6 +247,7 @@ public class FeaturesConfig
     private double pushAggregationBelowJoinByteReductionThreshold = 1;
     private boolean prefilterForGroupbyLimit;
     private boolean isOptimizeJoinProbeWithEmptyBuildRuntime;
+    private boolean isStarJoinEnabled = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2367,6 +2368,19 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(boolean isOptimizeJoinProbeWithEmptyBuildRuntime)
     {
         this.isOptimizeJoinProbeWithEmptyBuildRuntime = isOptimizeJoinProbeWithEmptyBuildRuntime;
+        return this;
+    }
+
+    public boolean isStarJoinEnabled()
+    {
+        return isStarJoinEnabled;
+    }
+
+    @Config("optimizer.star-join-enabled")
+    @ConfigDescription("Enable star join")
+    public FeaturesConfig setStarJoinEnabled(boolean isStarJoinEnabled)
+    {
+        this.isStarJoinEnabled = isStarJoinEnabled;
         return this;
     }
 }

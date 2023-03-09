@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -340,6 +341,40 @@ public class HashGenerationOptimizer
             return buildJoinNodeWithPreferredHashes(node, left, right, allHashVariables, parentPreference, Optional.of(leftHashVariable), Optional.of(rightHashVariable));
         }
 
+        @Override
+        public PlanWithProperties visitStarJoin(StarJoinNode node, HashComputationSet parentPreference)
+        {
+            List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
+            // join does not pass through preferred hash variables since they take more memory and since
+            // the join node filters, may take more compute
+            Optional<HashComputation> leftHashComputation = computeHash(Lists.transform(ImmutableList.of(clauses.get(0)), JoinNode.EquiJoinClause::getLeft), functionAndTypeManager);
+            PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(leftHashComputation), true, new HashComputationSet(leftHashComputation));
+            VariableReferenceExpression leftHashVariable = left.getRequiredHashVariable(leftHashComputation.get());
+
+            ImmutableList.Builder<PlanWithProperties> rightList = ImmutableList.builder();
+            ImmutableList.Builder<Optional<VariableReferenceExpression>> rightHashVariableList = ImmutableList.builder();
+            for (int i = 0; i < node.getRight().size(); ++i) {
+                Optional<HashComputation> rightHashComputation = computeHash(Lists.transform(ImmutableList.of(clauses.get(i)), JoinNode.EquiJoinClause::getRight), functionAndTypeManager);
+                // drop undesired hash variables from build to save memory
+                PlanWithProperties right = planAndEnforce(node.getRight().get(i), new HashComputationSet(rightHashComputation), true, new HashComputationSet(rightHashComputation));
+                VariableReferenceExpression rightHashVariable = right.getRequiredHashVariable(rightHashComputation.get());
+                rightList.add(right);
+                rightHashVariableList.add(Optional.of(rightHashVariable));
+            }
+
+            // build map of all hash variables
+            // NOTE: Full outer join doesn't use hash variables
+            Map<HashComputation, VariableReferenceExpression> allHashVariables = new HashMap<>();
+            if (node.getType() == LEFT) {
+                allHashVariables.putAll(left.getHashVariables());
+            }
+            else {
+                checkState(false);
+            }
+
+            return buildStarJoinNodeWithPreferredHashes(node, left, rightList.build(), allHashVariables, parentPreference, Optional.of(leftHashVariable), rightHashVariableList.build());
+        }
+
         private PlanWithProperties buildJoinNodeWithPreferredHashes(
                 JoinNode node,
                 PlanWithProperties left,
@@ -368,6 +403,44 @@ public class HashGenerationOptimizer
                             node.getType(),
                             left.getNode(),
                             right.getNode(),
+                            node.getCriteria(),
+                            outputVariables,
+                            node.getFilter(),
+                            leftHashVariable,
+                            rightHashVariable,
+                            node.getDistributionType(),
+                            node.getDynamicFilters()),
+                    hashVariablesWithParentPreferences);
+        }
+
+        private PlanWithProperties buildStarJoinNodeWithPreferredHashes(
+                StarJoinNode node,
+                PlanWithProperties left,
+                List<PlanWithProperties> right,
+                Map<HashComputation, VariableReferenceExpression> allHashVariables,
+                HashComputationSet parentPreference,
+                Optional<VariableReferenceExpression> leftHashVariable,
+                List<Optional<VariableReferenceExpression>> rightHashVariable)
+        {
+            // retain only hash variables preferred by parent nodes
+            Map<HashComputation, VariableReferenceExpression> hashVariablesWithParentPreferences =
+                    allHashVariables.entrySet()
+                            .stream()
+                            .filter(entry -> parentPreference.getHashes().contains(entry.getKey()))
+                            .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
+            List<VariableReferenceExpression> outputVariables = concat(left.getNode().getOutputVariables().stream(), right.stream().flatMap(x -> x.getNode().getOutputVariables().stream()))
+                    .filter(variable -> node.getOutputVariables().contains(variable) ||
+                            hashVariablesWithParentPreferences.containsValue(variable))
+                    .collect(toImmutableList());
+
+            return new PlanWithProperties(
+                    new StarJoinNode(
+                            node.getSourceLocation(),
+                            node.getId(),
+                            node.getType(),
+                            left.getNode(),
+                            right.stream().map(PlanWithProperties::getNode).collect(toImmutableList()),
                             node.getCriteria(),
                             outputVariables,
                             node.getFilter(),

@@ -164,6 +164,7 @@ public final class HiveQueryRunner
         DistributedQueryRunner queryRunner =
                 DistributedQueryRunner.builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
                         .setNodeCount(workerCount.orElse(4))
+//                        .setNodeCount(workerCount.orElse(1))
                         .setExtraProperties(systemProperties)
                         .setCoordinatorProperties(extraCoordinatorProperties)
                         .setDataDirectory(dataDirectory)

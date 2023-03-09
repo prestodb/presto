@@ -35,6 +35,7 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.LookupStarJoinOperators;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -182,6 +183,7 @@ public final class TaskTestUtils
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()),
                 new LookupJoinOperators(),
+                new LookupStarJoinOperators(),
                 new OrderingCompiler(),
                 jsonCodec(TableCommitContext.class),
                 new RowExpressionDeterminismEvaluator(metadata),

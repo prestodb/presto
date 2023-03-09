@@ -52,6 +52,11 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitStarJoin(StarJoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitSemiJoin(SemiJoinNode node, C context)
     {
         return visitPlan(node, context);

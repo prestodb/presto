@@ -119,6 +119,14 @@ public class PartitionedLookupSource
                 .sum();
     }
 
+    public long getMaxPartitionJoinPositionCount()
+    {
+        return Arrays.stream(lookupSources)
+                .mapToLong(LookupSource::getJoinPositionCount)
+                .max()
+                .orElse(0);
+    }
+
     @Override
     public long getInMemorySizeInBytes()
     {
@@ -141,6 +149,11 @@ public class PartitionedLookupSource
             return joinPosition;
         }
         return encodePartitionedJoinPosition(partition, toIntExact(joinPosition));
+    }
+
+    public int getPartitionCount()
+    {
+        return partitionGenerator.getPartitionCount();
     }
 
     @Override
@@ -202,12 +215,12 @@ public class PartitionedLookupSource
         closed = true;
     }
 
-    private int decodePartition(long partitionedJoinPosition)
+    public int decodePartition(long partitionedJoinPosition)
     {
         return (int) (partitionedJoinPosition & partitionMask);
     }
 
-    private int decodeJoinPosition(long partitionedJoinPosition)
+    public int decodeJoinPosition(long partitionedJoinPosition)
     {
         return toIntExact(partitionedJoinPosition >>> shiftSize);
     }

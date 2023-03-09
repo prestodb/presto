@@ -56,6 +56,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StarJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
@@ -545,6 +546,32 @@ public final class GraphvizPrinter
 
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitStarJoin(StarJoinNode node, Void context)
+        {
+            List<Expression> joinExpressions = new ArrayList<>();
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                joinExpressions.add(JoinNodeUtils.toExpression(clause));
+            }
+            String joinCriteria = Joiner.on(" AND ").join(joinExpressions);
+            StringBuilder details = new StringBuilder(joinCriteria);
+            if (!node.getDynamicFilters().isEmpty()) {
+                details.append(", ");
+                details.append(getDynamicFilterAssignments(node));
+            }
+
+            String distributionType = node.getDistributionType().isPresent() ? node.getDistributionType().get().toString() : "UNKNOWN";
+            final String joinType = node.isCrossJoin() ? "CrossJoin" : node.getType().getJoinLabel();
+            String label = format("%s[%s]", joinType, distributionType);
+
+            printNode(node, label, details.toString(), NODE_COLORS.get(NodeType.JOIN));
+
+            node.getLeft().accept(this, context);
+            node.getRight().forEach(x -> x.accept(this, context));
 
             return null;
         }
