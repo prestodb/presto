@@ -92,7 +92,7 @@ public class OrcMetadataReader
     }
 
     @Override
-    public PostScript readPostScript(byte[] data, int offset, int length)
+    public PostScript readPostScript(OrcDataSourceId orcDataSourceId, byte[] data, int offset, int length)
             throws IOException
     {
         long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();

@@ -85,12 +85,12 @@ public class StorageOrcFileTailSource
         // decode the post script
         PostScript postScript;
         try {
-            postScript = metadataReader.readPostScript(buffer, buffer.length - SIZE_OF_BYTE - postScriptSize, postScriptSize);
+            postScript = metadataReader.readPostScript(orcDataSource.getId(), buffer, buffer.length - SIZE_OF_BYTE - postScriptSize, postScriptSize);
         }
         catch (OrcCorruptionException e) {
             // check if this is an ORC file and not an RCFile or something else
             if (!isValidHeaderMagic(orcDataSource)) {
-                throw new OrcCorruptionException(orcDataSource.getId(), "Not an ORC file");
+                throw new OrcCorruptionException(e, orcDataSource.getId(), "Not an ORC file");
             }
             throw e;
         }
