@@ -37,7 +37,7 @@ public class TestPruneSemiJoinFilteringSourceColumns
     @Test
     public void testNotAllColumnsReferenced()
     {
-        tester().assertThat(new PruneSemiJoinFilteringSourceColumns(false))
+        tester().assertThat(new PruneSemiJoinFilteringSourceColumns())
                 .on(p -> buildSemiJoin(p, variable -> true))
                 .matches(
                         semiJoin("leftKey", "rightKey", "match",
@@ -52,7 +52,7 @@ public class TestPruneSemiJoinFilteringSourceColumns
     @Test
     public void testAllColumnsNeeded()
     {
-        tester().assertThat(new PruneSemiJoinFilteringSourceColumns(false))
+        tester().assertThat(new PruneSemiJoinFilteringSourceColumns())
                 .on(p -> buildSemiJoin(p, variable -> !variable.getName().equals("rightValue")))
                 .doesNotFire();
     }
