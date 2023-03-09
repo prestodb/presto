@@ -37,6 +37,7 @@ else
         ## generate the Python README
         cd velox/docs \
                 && make clean \
+                && mkdir -p bindings/python \
                 && pandoc ../../pyvelox/README.md --from markdown --to rst -s -o bindings/python/README_generated_pyvelox.rst \
-                && LD_LIBRARY_PATH=/usr/local/lib make html
+                && make html
 fi
