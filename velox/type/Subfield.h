@@ -195,6 +195,8 @@ class Subfield {
 
   explicit Subfield(std::vector<std::unique_ptr<PathElement>>&& path);
 
+  Subfield() = default;
+
   static std::unique_ptr<Subfield> create(const std::string& field) {
     std::vector<std::unique_ptr<PathElement>> path;
     path.push_back(std::make_unique<NestedField>(field));

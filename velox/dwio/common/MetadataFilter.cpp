@@ -165,11 +165,16 @@ std::unique_ptr<MetadataFilter::Node> MetadataFilter::Node::fromExpression(
     return std::make_unique<NotNode>(std::move(negated));
   }
   try {
-    auto res = exec::leafCallToSubfieldFilter(*call);
+    Subfield subfield;
+    auto filter = exec::leafCallToSubfieldFilter(*call, subfield);
+    if (!filter) {
+      return nullptr;
+    }
     return std::make_unique<LeafNode>(
-        scanSpec, std::move(res.first), std::move(res.second));
-  } catch (const VeloxException& e) {
-    VLOG(1) << e.what();
+        scanSpec, std::move(subfield), std::move(filter));
+  } catch (const VeloxException&) {
+    LOG(WARNING) << "Fail to convert expression to metadata filter: "
+                 << expr.toString();
     return nullptr;
   }
 }

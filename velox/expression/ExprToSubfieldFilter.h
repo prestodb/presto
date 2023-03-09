@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#include <velox/core/Expressions.h>
-#include <velox/core/ITypedExpr.h>
-#include <velox/type/Filter.h>
-#include <velox/type/Subfield.h>
+#include "velox/core/Expressions.h"
+#include "velox/core/ITypedExpr.h"
+#include "velox/type/Filter.h"
+#include "velox/type/Subfield.h"
 
 namespace facebook::velox::exec {
 
@@ -335,8 +335,12 @@ std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
     const core::TypedExprPtr& expr);
 
 /// Convert a leaf call expression (no conjunction like AND/OR) to subfield and
-/// filter.  Throw UNSUPPORTED exception if not supported for pushdown.
-std::pair<common::Subfield, std::unique_ptr<common::Filter>>
-leafCallToSubfieldFilter(const core::CallTypedExpr&);
+/// filter.  Return nullptr if not supported for pushdown.  This is needed
+/// because this conversion is frequently applied when extracting filters from
+/// remaining filter in readers.  Frequent throw clutters logs and slows down
+/// execution.
+std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
+    const core::CallTypedExpr&,
+    common::Subfield&);
 
 } // namespace facebook::velox::exec

@@ -1650,6 +1650,18 @@ void Expr::appendInputsSql(
   }
 }
 
+bool Expr::isConstant() const {
+  if (!isDeterministic()) {
+    return false;
+  }
+  for (auto& input : inputs_) {
+    if (!dynamic_cast<ConstantExpr*>(input.get())) {
+      return false;
+    }
+  }
+  return true;
+}
+
 ExprSet::ExprSet(
     const std::vector<core::TypedExprPtr>& sources,
     core::ExecCtx* execCtx,

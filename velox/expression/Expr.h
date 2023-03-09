@@ -200,6 +200,8 @@ class Expr {
     return deterministic_;
   }
 
+  bool isConstant() const;
+
   bool supportsFlatNoNullsFastPath() const {
     return supportsFlatNoNullsFastPath_;
   }

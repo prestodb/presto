@@ -24,6 +24,7 @@ add_executable(
   CustomTypeTest.cpp
   ExprEncodingsTest.cpp
   ExprTest.cpp
+  ExprToSubfieldFilterTest.cpp
   ExprCompilerTest.cpp
   EvalCtxTest.cpp
   ExprStatsTest.cpp

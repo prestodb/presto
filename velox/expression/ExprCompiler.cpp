@@ -296,15 +296,9 @@ std::shared_ptr<Expr> compileLambda(
 }
 
 ExprPtr tryFoldIfConstant(const ExprPtr& expr, Scope* scope) {
-  if (expr->isDeterministic() && !expr->inputs().empty() &&
+  if (expr->isConstant() && !expr->inputs().empty() &&
       scope->exprSet->execCtx()) {
     try {
-      // Check that all inputs are literals.
-      for (auto& input : expr->inputs()) {
-        if (!dynamic_cast<ConstantExpr*>(input.get())) {
-          return expr;
-        }
-      }
       auto rowType = ROW({}, {});
       auto execCtx = scope->exprSet->execCtx();
       auto row = BaseVector::create(rowType, 1, execCtx->pool());
