@@ -40,7 +40,7 @@ public class MergeFilters
 
     public MergeFilters(FunctionAndTypeManager functionAndTypeManager)
     {
-        requireNonNull(functionAndTypeManager, "functionManager is null");
+        requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
         this.logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
                 new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),

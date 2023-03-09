@@ -247,24 +247,23 @@ public class PlanOptimizers
                 new MergeFilters(metadata.getFunctionAndTypeManager()));
 
         // TODO: Once we've migrated handling all the plan node types, replace uses of PruneUnreferencedOutputs with an IterativeOptimizer containing these rules.
-        // TODO: Remove useRowExpressions usage once we only use RowExpressions. As of now, some tests use Expressions.
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(
                 new PruneAggregationColumns(),
-                new PruneAggregationSourceColumns(true),
-                new PruneCrossJoinColumns(true),
-                new PruneFilterColumns(true),
+                new PruneAggregationSourceColumns(),
+                new PruneCrossJoinColumns(),
+                new PruneFilterColumns(),
                 new PruneIndexSourceColumns(),
-                new PruneJoinChildrenColumns(true),
+                new PruneJoinChildrenColumns(),
                 new PruneJoinColumns(),
-                new PruneMarkDistinctColumns(true),
-                new PruneOutputColumns(true),
+                new PruneMarkDistinctColumns(),
+                new PruneOutputColumns(),
                 new PruneProjectColumns(),
-                new PruneSemiJoinColumns(true),
-                new PruneSemiJoinFilteringSourceColumns(true),
-                new PruneTopNColumns(true),
+                new PruneSemiJoinColumns(),
+                new PruneSemiJoinFilteringSourceColumns(),
+                new PruneTopNColumns(),
                 new PruneValuesColumns(),
-                new PruneWindowColumns(true),
-                new PruneLimitColumns(true),
+                new PruneWindowColumns(),
+                new PruneLimitColumns(),
                 new PruneTableScanColumns());
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(

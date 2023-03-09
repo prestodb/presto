@@ -29,7 +29,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topN;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -42,7 +42,7 @@ public class TestPruneTopNColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneTopNColumns(false))
+        tester().assertThat(new PruneTopNColumns())
                 .on(p -> buildProjectedTopN(p, variable -> variable.getName().equals("b")))
                 .matches(
                         strictProject(
@@ -58,7 +58,7 @@ public class TestPruneTopNColumns
     @Test
     public void testAllInputsRereferenced()
     {
-        tester().assertThat(new PruneTopNColumns(false))
+        tester().assertThat(new PruneTopNColumns())
                 .on(p -> buildProjectedTopN(p, variable -> variable.getName().equals("a")))
                 .doesNotFire();
     }
@@ -66,7 +66,7 @@ public class TestPruneTopNColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneTopNColumns(false))
+        tester().assertThat(new PruneTopNColumns())
                 .on(p -> buildProjectedTopN(p, Predicates.alwaysTrue()))
                 .doesNotFire();
     }
@@ -76,7 +76,7 @@ public class TestPruneTopNColumns
         VariableReferenceExpression a = planBuilder.variable("a");
         VariableReferenceExpression b = planBuilder.variable("b");
         return planBuilder.project(
-                identityAssignmentsAsSymbolReferences(ImmutableList.of(a, b).stream().filter(projectionTopN).collect(toImmutableSet())),
+                identityAssignments(ImmutableList.of(a, b).stream().filter(projectionTopN).collect(toImmutableSet())),
                 planBuilder.topN(
                         COUNT,
                         ImmutableList.of(b),

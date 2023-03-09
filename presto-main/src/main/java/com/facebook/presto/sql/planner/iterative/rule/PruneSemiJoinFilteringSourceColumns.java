@@ -33,11 +33,8 @@ public class PruneSemiJoinFilteringSourceColumns
 {
     private static final Pattern<SemiJoinNode> PATTERN = semiJoin();
 
-    private final boolean useRowExpressions;
-
-    public PruneSemiJoinFilteringSourceColumns(boolean useRowExpressions)
+    public PruneSemiJoinFilteringSourceColumns()
     {
-        this.useRowExpressions = useRowExpressions;
     }
 
     @Override
@@ -54,7 +51,7 @@ public class PruneSemiJoinFilteringSourceColumns
                 semiJoinNode.getFilteringSourceHashVariable().map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
-        return restrictOutputs(context.getIdAllocator(), semiJoinNode.getFilteringSource(), requiredFilteringSourceInputs, useRowExpressions)
+        return restrictOutputs(context.getIdAllocator(), semiJoinNode.getFilteringSource(), requiredFilteringSourceInputs)
                 .map(newFilteringSource ->
                         semiJoinNode.replaceChildren(ImmutableList.of(semiJoinNode.getSource(), newFilteringSource)))
                 .map(Result::ofPlanNode)
