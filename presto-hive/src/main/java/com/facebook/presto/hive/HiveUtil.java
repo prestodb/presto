@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.Codec;
+import com.facebook.alpha.AlphaInputFormat;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
@@ -341,6 +342,10 @@ public final class HiveUtil
 
     public static InputFormat<?, ?> getInputFormat(Configuration configuration, String inputFormatName, boolean symlinkTarget)
     {
+        AlphaInputFormat alphaInputFormat = null;
+        if (alphaInputFormat == null) {
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unable to create input format  22222 " + inputFormatName);
+        }
         try {
             JobConf jobConf = toJobConf(configuration);
 
@@ -353,7 +358,7 @@ public final class HiveUtil
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
         }
         catch (ClassNotFoundException | RuntimeException e) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unable to create input format " + inputFormatName, e);
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unable to create input format  222 " + inputFormatName, e);
         }
     }
 
@@ -907,7 +912,7 @@ public final class HiveUtil
             BigDecimal decimal = new BigDecimal(value);
             decimal = decimal.setScale(type.getScale(), ROUND_UNNECESSARY);
             if (decimal.precision() > type.getPrecision()) {
-                throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type.toString(), name));
+                throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type, name));
             }
             return decimal;
         }
@@ -921,7 +926,7 @@ public final class HiveUtil
         Slice partitionKey = Slices.utf8Slice(value);
         VarcharType varcharType = (VarcharType) columnType;
         if (SliceUtf8.countCodePoints(partitionKey) > varcharType.getLength()) {
-            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType, name));
         }
         return partitionKey;
     }
@@ -931,7 +936,7 @@ public final class HiveUtil
         Slice partitionKey = trimTrailingSpaces(Slices.utf8Slice(value));
         CharType charType = (CharType) columnType;
         if (SliceUtf8.countCodePoints(partitionKey) > charType.getLength()) {
-            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType, name));
         }
         return partitionKey;
     }

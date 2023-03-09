@@ -141,7 +141,7 @@ class HudiRecordCursors
             return ReflectionUtils.newInstance(cls, conf);
         }
         catch (ClassNotFoundException | RuntimeException e) {
-            throw new PrestoException(HUDI_CANNOT_OPEN_SPLIT, "Unable to create input format " + inputFormat, e);
+            throw new PrestoException(HUDI_CANNOT_OPEN_SPLIT, "Unable to create input format 100" + inputFormat, e);
         }
     }
 
@@ -167,6 +167,7 @@ class HudiRecordCursors
     {
         return column.getColumnType() == HudiColumnHandle.ColumnType.REGULAR;
     }
+
     private static HudiFile getHudiBaseFile(HudiSplit hudiSplit)
     {
         // use first log file as base file for MOR table if it hasn't base file

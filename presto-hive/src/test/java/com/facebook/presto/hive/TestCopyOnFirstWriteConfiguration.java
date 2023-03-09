@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 
@@ -59,5 +60,23 @@ public class TestCopyOnFirstWriteConfiguration
         // Assert the config object after 2nd update is same as after 1st update
         Configuration configAfterUpdate2 = copyOnWriteConfig.getConfig();
         assertSame(configAfterUpdate1, configAfterUpdate2);
+    }
+
+    @Test
+    public void testCopyOnWriteConfiguration1()
+            throws ClassNotFoundException
+    {
+        Configuration originalConfig = new Configuration();
+        originalConfig.set(TEST_KEY, TEST_VALUE);
+
+        CopyOnFirstWriteConfiguration copyOnWriteConfig = new CopyOnFirstWriteConfiguration(originalConfig);
+
+        Class clazzAlpha = copyOnWriteConfig.getClassByName("com.facebook.alpha.AlphaInputFormat");
+
+        Class clazzOrc = copyOnWriteConfig.getClassByName("com.facebook.hive.orc.OrcInputFormat");
+
+        assertNotNull(clazzAlpha);
+        assertEquals(clazzAlpha.getCanonicalName(), "com.facebook.alpha.AlphaInputFormat");
+        assertEquals(clazzOrc.getCanonicalName(), "com.facebook.hive.orc.OrcInputFormat");
     }
 }
