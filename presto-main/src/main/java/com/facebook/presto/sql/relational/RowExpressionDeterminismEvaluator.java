@@ -119,8 +119,7 @@ public class RowExpressionDeterminismEvaluator
         public Boolean visitIntermediateFormExpression(IntermediateFormExpression intermediateFormRowExpression, Void context)
         {
             return intermediateFormRowExpression.getChildren().stream()
-                    .map(expression -> expression.accept(this, context))
-                    .allMatch(Boolean::booleanValue);
+                    .allMatch(expression -> expression.accept(this, context));
         }
     }
 }

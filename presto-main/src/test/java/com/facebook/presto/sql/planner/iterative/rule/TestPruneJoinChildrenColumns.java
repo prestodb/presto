@@ -32,7 +32,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.castToRowExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestPruneJoinChildrenColumns
@@ -41,7 +40,7 @@ public class TestPruneJoinChildrenColumns
     @Test
     public void testNotAllInputsRereferenced()
     {
-        tester().assertThat(new PruneJoinChildrenColumns(false))
+        tester().assertThat(new PruneJoinChildrenColumns())
                 .on(p -> buildJoin(p, variable -> variable.getName().equals("leftValue")))
                 .matches(
                         join(
@@ -59,7 +58,7 @@ public class TestPruneJoinChildrenColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneJoinChildrenColumns(false))
+        tester().assertThat(new PruneJoinChildrenColumns())
                 .on(p -> buildJoin(p, Predicates.alwaysTrue()))
                 .doesNotFire();
     }
@@ -101,7 +100,7 @@ public class TestPruneJoinChildrenColumns
                 outputs.stream()
                         .filter(joinOutputFilter)
                         .collect(toImmutableList()),
-                Optional.of(castToRowExpression("leftValue > 5")),
+                Optional.of(p.rowExpression("leftValue > 5")),
                 Optional.of(leftKeyHash),
                 Optional.of(rightKeyHash));
     }

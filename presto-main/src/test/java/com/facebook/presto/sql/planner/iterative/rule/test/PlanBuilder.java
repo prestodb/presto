@@ -300,6 +300,11 @@ public class PlanBuilder
         return new SampleNode(source.getSourceLocation(), idAllocator.getNextId(), source, sampleRatio, type);
     }
 
+    public ProjectNode project(PlanNode source, Assignments assignments)
+    {
+        return new ProjectNode(idAllocator.getNextId(), source, assignments);
+    }
+
     public ProjectNode project(Assignments assignments, PlanNode source)
     {
         return new ProjectNode(idAllocator.getNextId(), source, assignments);

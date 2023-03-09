@@ -27,7 +27,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -37,7 +37,7 @@ public class TestPruneFilterColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneFilterColumns(false))
+        tester().assertThat(new PruneFilterColumns())
                 .on(p -> buildProjectedFilter(p, variable -> variable.getName().equals("b")))
                 .matches(
                         strictProject(
@@ -52,7 +52,7 @@ public class TestPruneFilterColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneFilterColumns(false))
+        tester().assertThat(new PruneFilterColumns())
                 .on(p -> buildProjectedFilter(p, symbol -> symbol.getName().equals("a")))
                 .doesNotFire();
     }
@@ -60,7 +60,7 @@ public class TestPruneFilterColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneFilterColumns(false))
+        tester().assertThat(new PruneFilterColumns())
                 .on(p -> buildProjectedFilter(p, alwaysTrue()))
                 .doesNotFire();
     }
@@ -70,9 +70,9 @@ public class TestPruneFilterColumns
         VariableReferenceExpression a = planBuilder.variable("a");
         VariableReferenceExpression b = planBuilder.variable("b");
         return planBuilder.project(
-                identityAssignmentsAsSymbolReferences(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
+                identityAssignments(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.filter(
-                        planBuilder.expression("b > 5"),
+                        planBuilder.rowExpression("b > 5"),
                         planBuilder.values(a, b)));
     }
 }

@@ -13,30 +13,48 @@
  */
 package com.facebook.presto.spi.relation;
 
-import com.facebook.presto.spi.PrestoException;
-
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 
 public interface RowExpressionVisitor<R, C>
 {
-    R visitCall(CallExpression call, C context);
-
-    R visitInputReference(InputReferenceExpression reference, C context);
-
-    R visitConstant(ConstantExpression literal, C context);
-
-    R visitLambda(LambdaDefinitionExpression lambda, C context);
-
-    R visitVariableReference(VariableReferenceExpression reference, C context);
-
-    R visitSpecialForm(SpecialFormExpression specialForm, C context);
-
-    // Default implementations for IntermediateFormRowExpression are provided below, as these only exist as
-    // an intermediate form during some parts of Optimizer, and not all usecases need to care about these.
-    default R visitIntermediateFormExpression(IntermediateFormExpression intermediateFormRowExpression, C context)
+    default R visitExpression(RowExpression expression, C context)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Unexpected intermediate form expression: %s", intermediateFormRowExpression));
+        throw new UnsupportedOperationException(format("Unimplemented RowExpression visitor for %s", expression.getClass()));
+    }
+
+    default R visitCall(CallExpression call, C context)
+    {
+        return visitExpression(call, context);
+    }
+
+    default R visitInputReference(InputReferenceExpression reference, C context)
+    {
+        return visitExpression(reference, context);
+    }
+
+    default R visitConstant(ConstantExpression literal, C context)
+    {
+        return visitExpression(literal, context);
+    }
+
+    default R visitLambda(LambdaDefinitionExpression lambda, C context)
+    {
+        return visitExpression(lambda, context);
+    }
+
+    default R visitVariableReference(VariableReferenceExpression reference, C context)
+    {
+        return visitExpression(reference, context);
+    }
+
+    default R visitSpecialForm(SpecialFormExpression specialForm, C context)
+    {
+        return visitExpression(specialForm, context);
+    }
+
+    default R visitIntermediateFormExpression(IntermediateFormExpression intermediateFormExpression, C context)
+    {
+        return visitExpression(intermediateFormExpression, context);
     }
 
     default R visitInSubqueryExpression(InSubqueryExpression inSubqueryRowExpression, C context)

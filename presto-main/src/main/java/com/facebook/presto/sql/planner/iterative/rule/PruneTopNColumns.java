@@ -30,12 +30,9 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 public class PruneTopNColumns
         extends ProjectOffPushDownRule<TopNNode>
 {
-    private final boolean useRowExpressions;
-
-    public PruneTopNColumns(boolean useRowExpressions)
+    public PruneTopNColumns()
     {
         super(topN());
-        this.useRowExpressions = useRowExpressions;
     }
 
     @Override
@@ -46,6 +43,6 @@ public class PruneTopNColumns
                 topNNode.getOrderingScheme().getOrderByVariables().stream())
                 .collect(toImmutableSet());
 
-        return restrictChildOutputs(idAllocator, topNNode, useRowExpressions, prunedTopNInputs);
+        return restrictChildOutputs(idAllocator, topNNode, prunedTopNInputs);
     }
 }

@@ -47,7 +47,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strict
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.windowFrame;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
@@ -100,7 +100,7 @@ public class TestPruneWindowColumns
     @Test
     public void testWindowNotNeeded()
     {
-        tester().assertThat(new PruneWindowColumns(false))
+        tester().assertThat(new PruneWindowColumns())
                 .on(p -> buildProjectedWindow(p, symbol -> inputSymbolNameSet.contains(symbol.getName()), alwaysTrue()))
                 .matches(
                         strictProject(
@@ -111,7 +111,7 @@ public class TestPruneWindowColumns
     @Test
     public void testOneFunctionNotNeeded()
     {
-        tester().assertThat(new PruneWindowColumns(false))
+        tester().assertThat(new PruneWindowColumns())
                 .on(p -> buildProjectedWindow(p,
                         symbol -> symbol.getName().equals("output2") || symbol.getName().equals("output3") || symbol.getName().equals("unused"),
                         alwaysTrue()))
@@ -149,7 +149,7 @@ public class TestPruneWindowColumns
     @Test
     public void testTwoFunctionsNotNeeded()
     {
-        tester().assertThat(new PruneWindowColumns(false))
+        tester().assertThat(new PruneWindowColumns())
                 .on(p -> buildProjectedWindow(p,
                         symbol -> symbol.getName().equals("output3") || symbol.getName().equals("unused"),
                         alwaysTrue()))
@@ -181,7 +181,7 @@ public class TestPruneWindowColumns
     @Test
     public void testAllColumnsNeeded()
     {
-        tester().assertThat(new PruneWindowColumns(false))
+        tester().assertThat(new PruneWindowColumns())
                 .on(p -> buildProjectedWindow(p, alwaysTrue(), alwaysTrue()))
                 .doesNotFire();
     }
@@ -190,7 +190,7 @@ public class TestPruneWindowColumns
     public void testUsedInputsNotNeeded()
     {
         // If the WindowNode needs all its inputs, we can't discard them from its child.
-        tester().assertThat(new PruneWindowColumns(false))
+        tester().assertThat(new PruneWindowColumns())
                 .on(p -> buildProjectedWindow(
                         p,
                         // only the window function outputs
@@ -203,7 +203,7 @@ public class TestPruneWindowColumns
     @Test
     public void testUnusedInputNotNeeded()
     {
-        tester().assertThat(new PruneWindowColumns(false))
+        tester().assertThat(new PruneWindowColumns())
                 .on(p -> buildProjectedWindow(
                         p,
                         // only the window function outputs
@@ -275,7 +275,7 @@ public class TestPruneWindowColumns
         List<VariableReferenceExpression> filteredInputs = inputs.stream().filter(sourceFilter).collect(toImmutableList());
 
         return p.project(
-                identityAssignmentsAsSymbolReferences(
+                identityAssignments(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

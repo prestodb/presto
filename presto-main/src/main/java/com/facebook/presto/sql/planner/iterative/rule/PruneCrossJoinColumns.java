@@ -32,19 +32,16 @@ import static com.facebook.presto.sql.planner.plan.Patterns.join;
 public class PruneCrossJoinColumns
         extends ProjectOffPushDownRule<JoinNode>
 {
-    private final boolean useRowExpressions;
-
-    public PruneCrossJoinColumns(boolean useRowExpressions)
+    public PruneCrossJoinColumns()
     {
         super(join().matching(JoinNode::isCrossJoin));
-        this.useRowExpressions = useRowExpressions;
     }
 
     @Override
     protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, JoinNode joinNode, Set<VariableReferenceExpression> referencedOutputs)
     {
-        Optional<PlanNode> newLeft = restrictOutputs(idAllocator, joinNode.getLeft(), referencedOutputs, useRowExpressions);
-        Optional<PlanNode> newRight = restrictOutputs(idAllocator, joinNode.getRight(), referencedOutputs, useRowExpressions);
+        Optional<PlanNode> newLeft = restrictOutputs(idAllocator, joinNode.getLeft(), referencedOutputs);
+        Optional<PlanNode> newRight = restrictOutputs(idAllocator, joinNode.getRight(), referencedOutputs);
 
         if (!newLeft.isPresent() && !newRight.isPresent()) {
             return Optional.empty();
