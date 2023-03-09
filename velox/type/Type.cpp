@@ -380,7 +380,7 @@ bool RowType::equivalent(const Type& other) const {
   return true;
 }
 
-bool RowType::operator==(const Type& other) const {
+bool RowType::equals(const Type& other) const {
   if (!this->equivalent(other)) {
     return false;
   }
@@ -392,6 +392,14 @@ bool RowType::operator==(const Type& other) const {
     }
   }
   return true;
+}
+
+bool RowType::operator==(const Type& other) const {
+  return this->equals(other);
+}
+
+bool RowType::operator==(const RowType& other) const {
+  return this->equals(other);
 }
 
 void RowType::printChildren(std::stringstream& ss, std::string_view delimiter)

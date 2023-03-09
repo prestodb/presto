@@ -803,7 +803,9 @@ class RowType : public TypeBase<TypeKind::ROW> {
 
   bool equivalent(const Type& other) const override;
 
+  bool equals(const Type& other) const;
   bool operator==(const Type& other) const override;
+  bool operator==(const RowType& other) const;
 
   std::string toString() const override;
 

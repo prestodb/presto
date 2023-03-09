@@ -6254,7 +6254,7 @@ public:
 		}
 		return left->Equals(right);
 	}
-	bool operator==(const BaseExpression &rhs) {
+	bool operator==(const BaseExpression &rhs) const {
 		return this->Equals(&rhs);
 	}
 

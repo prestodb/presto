@@ -139,7 +139,7 @@ class ConstantTypedExpr : public ITypedExpr {
     }
   }
 
-  bool operator==(const ITypedExpr& other) const final {
+  bool equals(const ITypedExpr& other) const {
     const auto* casted = dynamic_cast<const ConstantTypedExpr*>(&other);
     if (!casted) {
       return false;
@@ -158,6 +158,14 @@ class ConstantTypedExpr : public ITypedExpr {
     }
 
     return this->value_ == casted->value_;
+  }
+
+  bool operator==(const ITypedExpr& other) const final {
+    return this->equals(other);
+  }
+
+  bool operator==(const ConstantTypedExpr& other) const {
+    return this->equals(other);
   }
 
   VELOX_DEFINE_CLASS_NAME(ConstantTypedExpr)
