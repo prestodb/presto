@@ -39,6 +39,18 @@ Comparison Functions
         SELECT greatest(10, 9, 2, 4, 3, null); -- 10
         SELECT greatest(null, null) - null
 
+.. spark:function:: isnotnull(x) -> boolean
+
+    Returns true if x is not null, or false otherwise. ::
+
+        SELECT isnotnull(1); -- true
+
+.. spark:function:: isnull(x) -> boolean
+
+    Returns true if x is null, or false otherwise. ::
+
+        SELECT isnull(1); -- false
+
 .. spark:function:: least(value1, value2, ..., valueN) -> [same as input]
 
     Returns the smallest of the provided values ignoring nulls. Supports all scalar types.

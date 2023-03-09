@@ -20,6 +20,7 @@ Mathematical Functions
 
     Returns the results of dividing x by y. Performs floating point division.
     Corresponds to Spark's operator ``/``. ::
+
         SELECT 3 / 2; -- 1.5
         SELECT 2L / 2L; -- 1.0
         SELECT 3 / 0; -- NULL
@@ -38,6 +39,14 @@ Mathematical Functions
     Returns the result of multiplying x by y. The types of x and y must be the same.
     For integral types, overflow results in an error. Corresponds to Spark's operator ``*``.
 
+.. spark:function:: not(x) -> boolean
+
+    Logical not. ::
+
+        SELECT not true; -- false
+        SELECT not false; -- true
+        SELECT not NULL; -- NULL
+
 .. spark:function:: pmod(n, m) -> [same as n]
 
     Returns the positive remainder of n divided by m.
@@ -45,6 +54,14 @@ Mathematical Functions
 .. spark:function:: power(x, p) -> double
 
     Returns ``x`` raised to the power of ``p``.
+
+.. spark:function:: rand() -> double
+
+    Returns a random value with independent and identically distributed uniformly distributed values in [0, 1). ::
+
+        SELECT rand(); -- 0.9629742951434543
+        SELECT rand(0); -- 0.7604953758285915
+        SELECT rand(null); -- 0.7604953758285915
 
 .. spark:function:: remainder(n, m) -> [same as n]
 
@@ -59,3 +76,7 @@ Mathematical Functions
 
     Returns the result of subtracting y from x. The types of x and y must be the same.
     For integral types, overflow results in an error. Corresponds to Spark's operator ``-``.
+
+.. spark:function:: unaryminus(x) -> [same as x]
+
+    Returns the negative of `x`.  Corresponds to Spark's operator ``-``.
