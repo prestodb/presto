@@ -66,13 +66,13 @@ class QueryCtx : public Context {
       std::shared_ptr<Config> config = std::make_shared<MemConfig>(),
       std::unordered_map<std::string, std::shared_ptr<Config>>
           connectorConfigs = {},
-      memory::MemoryAllocator* FOLLY_NONNULL MemoryAllocator =
+      memory::MemoryAllocator* FOLLY_NONNULL allocator =
           memory::MemoryAllocator::getInstance(),
       std::shared_ptr<memory::MemoryPool> pool = nullptr,
       const std::string& queryId = "")
       : Context{ContextScope::QUERY},
         pool_(std::move(pool)),
-        allocator_(MemoryAllocator),
+        allocator_(allocator),
         connectorConfigs_(connectorConfigs),
         executorKeepalive_(std::move(executorKeepalive)),
         queryConfig_{this},
