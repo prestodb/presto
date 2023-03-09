@@ -222,7 +222,7 @@ Normalized Key Mode
 In normalized key mode, multiple grouping key values are mapped to a single
 64-bit integer and the processing continues as in hash mode with a single
 64-bit integer grouping key. This mode is less efficient than array mode, but
-is more efficient then hash mode because hashing and comparing a single 64-bit
+is more efficient than hash mode because hashing and comparing a single 64-bit
 integer value is faster than hashing and comparing multiple values.
 
 Adaptivity
