@@ -20,14 +20,21 @@ import static java.util.Objects.requireNonNull;
 
 public class AnalyzerContext
 {
+    private final MetadataResolver metadataResolver;
     private final PlanNodeIdAllocator idAllocator;
 
     private final VariableAllocator variableAllocator;
 
-    public AnalyzerContext(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
+    public AnalyzerContext(MetadataResolver metadataResolver, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
     {
+        this.metadataResolver = requireNonNull(metadataResolver, "metadataResolver is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+    }
+
+    public MetadataResolver getMetadataResolver()
+    {
+        return metadataResolver;
     }
 
     public PlanNodeIdAllocator getIdAllocator()

@@ -1062,7 +1062,7 @@ public class LocalQueryRunner
 
         BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer));
 
-        AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, idAllocator, new VariableAllocator(), session);
+        AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
         queryAnalyzer.checkAccessPermissions(analyzerContext, queryAnalysis);

@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.analyzer.AnalyzerContext;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.QueryAnalysis;
 import com.facebook.presto.spi.analyzer.QueryAnalyzer;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -57,9 +58,9 @@ public class BuiltInQueryAnalyzer
         this.queryExplainer = requireNonNull(queryExplainer, "query explainer is null");
     }
 
-    public static BuiltInAnalyzerContext getBuiltInAnalyzerContext(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Session session)
+    public static BuiltInAnalyzerContext getBuiltInAnalyzerContext(MetadataResolver metadataResolver, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Session session)
     {
-        return new BuiltInAnalyzerContext(idAllocator, variableAllocator, session);
+        return new BuiltInAnalyzerContext(metadataResolver, idAllocator, variableAllocator, session);
     }
 
     @Override

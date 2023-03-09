@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.analyzer.AnalyzerContext;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 
 public class BuiltInAnalyzerContext
@@ -23,9 +24,9 @@ public class BuiltInAnalyzerContext
 {
     private final Session session;
 
-    public BuiltInAnalyzerContext(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Session session)
+    public BuiltInAnalyzerContext(MetadataResolver metadataResolver, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Session session)
     {
-        super(idAllocator, variableAllocator);
+        super(metadataResolver, idAllocator, variableAllocator);
         this.session = session;
     }
 
