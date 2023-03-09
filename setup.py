@@ -32,7 +32,7 @@ from setuptools.command.build_ext import build_ext
 
 ROOT_DIR = Path(__file__).parent.resolve()
 
-with open("README.md") as f:
+with open("pyvelox/README.md") as f:
     readme = f.read()
 
 

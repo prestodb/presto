@@ -16,10 +16,16 @@ conda create --name pyveloxenv python=3.7
 conda activate pyveloxenv
 ```
 
+### Install PyVelox
+
+You can install PyVelox from pypi without the need to build it from source as we provide wheels for Linux and macOS (x86_64):
+```
+pip install pyvelox
+```
 
 ### From Source
 
-Currently PyVelox can only be built from source. You will need Python 3.7 or later and a C++17 compiler.
+You will need Python 3.7 or later and a C++17 compiler to build PyVelox from source.
 
 
 #### Install Dependencies
@@ -33,7 +39,8 @@ On Linux
 Run the script referenced [here](https://github.com/facebookincubator/velox#setting-up-on-linux-ubuntu-2004-or-later) to install on linux.
 
 
-#### Install PyVelox
+#### Build PyVelox
+
 For local development, you can build with debug mode:
 ```
 make python-build

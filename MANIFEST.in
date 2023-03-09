@@ -1,4 +1,4 @@
-inculde *.txt
+include *.txt
 include *.cmake
 graft CMake
 graft third_party
