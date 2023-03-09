@@ -103,6 +103,7 @@ public class DriverYieldSignal
         }
     }
 
+    @Override
     public synchronized String toString()
     {
         return toStringHelper(this)
