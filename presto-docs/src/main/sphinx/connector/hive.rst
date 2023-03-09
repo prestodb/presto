@@ -199,23 +199,32 @@ Metastore Configuration Properties
 
 The required Hive metastore can be configured with a number of properties.
 
-======================================= ============================================================ ============
-Property Name                                      Description                                       Default
-======================================= ============================================================ ============
-``hive.metastore-timeout``              Timeout for Hive metastore requests.                         ``10s``
+======================================================== ============================================================= ============
+Property Name                                            Description                                                   Default
+======================================================== ============================================================= ============
+``hive.metastore-timeout``                               Timeout for Hive metastore requests.                          ``10s``
 
-``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered ``0s``
-                                        valid.
+``hive.metastore-cache-ttl``                             Duration how long cached metastore data should be considered  ``0s``
+                                                         valid.
 
-``hive.metastore-cache-maximum-size``   Hive metastore cache maximum size.                            10000
+``hive.metastore-cache-maximum-size``                    Hive metastore cache maximum size.                            10000
 
-``hive.metastore-refresh-interval``     Asynchronously refresh cached metastore data after access    ``0s``
-                                        if it is older than this but is not yet expired, allowing
-                                        subsequent accesses to see fresh data.
+``hive.metastore-refresh-interval``                      Asynchronously refresh cached metastore data after access     ``0s``
+                                                         if it is older than this but is not yet expired, allowing
+                                                         subsequent accesses to see fresh data.
 
-``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        100
+``hive.metastore-refresh-max-threads``                   Maximum threads used to refresh cached metastore data.        100
 
-======================================= ============================================================ ============
+``hive.metastore.thrift.client.tls.enabled``             Whether TLS security is enabled.                              ``false``
+
+``hive.metastore.thrift.client.tls.truststore.path``     Path to the PEM or JKS key store.
+
+``hive.metastore.thrift.client.tls.truststore.password`` Password for the key store.
+
+``hive.metastore.thrift.client.tls.keystore.path``       Path to the PEM or JKS trust store.
+
+``hive.metastore.thrift.client.tls.keystore.password``   Password for the trust store
+======================================================== ============================================================= ============
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------

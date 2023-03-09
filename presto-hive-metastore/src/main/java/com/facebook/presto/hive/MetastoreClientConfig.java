@@ -25,6 +25,7 @@ import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.io.File;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -52,6 +53,11 @@ public class MetastoreClientConfig
     private int partitionCacheColumnCountLimit = 500;
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
     private boolean deleteFilesOnTableDrop;
+    private boolean metastoreTlsEnabled;
+    private File metastoreTlsKeystorePath;
+    private String metastoreTlsKeystorePassword;
+    private File metastoreTlsTruststorePath;
+    private String metastoreTlsTruststorePassword;
 
     public HostAndPort getMetastoreSocksProxy()
     {
@@ -302,5 +308,61 @@ public class MetastoreClientConfig
     {
         this.deleteFilesOnTableDrop = deleteFilesOnTableDrop;
         return this;
+    }
+
+    @Config("hive.metastore.thrift.client.tls.enabled")
+    @ConfigDescription("Enable TLS security for HMS")
+    public MetastoreClientConfig setMetastoreTlsEnabled(boolean enabled)
+    {
+        this.metastoreTlsEnabled = enabled;
+        return this;
+    }
+    public boolean getMetastoreTlsEnabled()
+    {
+        return metastoreTlsEnabled;
+    }
+    @Config("hive.metastore.thrift.client.tls.keystore.path")
+    @ConfigDescription("Path to JKS or PEM key store")
+    public MetastoreClientConfig setMetastoreTlsKeystorePath(File keystorePath)
+    {
+        this.metastoreTlsKeystorePath = keystorePath;
+        return this;
+    }
+    public File getMetastoreTlsKeystorePath()
+    {
+        return metastoreTlsKeystorePath;
+    }
+    @Config("hive.metastore.thrift.client.tls.keystore.password")
+    @ConfigDescription("Password to key store")
+    public MetastoreClientConfig setMetastoreTlsKeystorePassword(String keystorePassword)
+    {
+        this.metastoreTlsKeystorePassword = keystorePassword;
+        return this;
+    }
+    public String getMetastoreTlsKeystorePassword()
+    {
+        return metastoreTlsKeystorePassword;
+    }
+    @Config("hive.metastore.thrift.client.tls.truststore.path")
+    @ConfigDescription("Path to JKS or PEM trust store")
+    public MetastoreClientConfig setMetastoreTlsTruststorePath(File truststorePath)
+    {
+        this.metastoreTlsTruststorePath = truststorePath;
+        return this;
+    }
+    public File getMetastoreTlsTruststorePath()
+    {
+        return metastoreTlsTruststorePath;
+    }
+    @Config("hive.metastore.thrift.client.tls.truststore.password")
+    @ConfigDescription("Path to trust store")
+    public MetastoreClientConfig setMetastoreTlsTruststorePassword(String truststorePassword)
+    {
+        this.metastoreTlsTruststorePassword = truststorePassword;
+        return this;
+    }
+    public String getMetastoreTlsTruststorePassword()
+    {
+        return metastoreTlsTruststorePassword;
     }
 }
