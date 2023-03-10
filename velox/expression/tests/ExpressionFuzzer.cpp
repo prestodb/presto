@@ -211,7 +211,8 @@ std::optional<CallableSignature> processConcreteSignature(
       .args = argTypes,
       .variableArity = signature.variableArity(),
       .returnType =
-          SignatureBinder::tryResolveType(signature.returnType(), {}, {})};
+          SignatureBinder::tryResolveType(signature.returnType(), {}, {}),
+      .constantArgs = signature.constantArguments()};
   VELOX_CHECK_NOT_NULL(callable.returnType);
 
   bool onlyPrimitiveTypes = callable.returnType->isPrimitiveType();
@@ -653,14 +654,27 @@ std::vector<core::TypedExprPtr> ExpressionFuzzer::generateArgs(
             0, FLAGS_max_num_varargs)(rng_);
   inputExpressions.reserve(input.args.size() + numVarArgs);
 
-  for (const auto& arg : input.args) {
-    inputExpressions.emplace_back(generateArg(arg));
+  for (auto i = 0; i < input.args.size(); ++i) {
+    inputExpressions.emplace_back(
+        generateArg(input.args.at(i), input.constantArgs.at(i)));
   }
+
   // Append varargs to the argument list.
   for (int i = 0; i < numVarArgs; i++) {
-    inputExpressions.emplace_back(generateArg(input.args.back()));
+    inputExpressions.emplace_back(
+        generateArg(input.args.back(), input.constantArgs.back()));
   }
   return inputExpressions;
+}
+
+core::TypedExprPtr ExpressionFuzzer::generateArg(
+    const TypePtr& arg,
+    bool isConstant) {
+  if (isConstant) {
+    return generateArgConstant(arg);
+  } else {
+    return generateArg(arg);
+  }
 }
 
 // Specialization for the "like" function: second and third (optional)
@@ -888,11 +902,28 @@ core::TypedExprPtr ExpressionFuzzer::generateExpressionFromSignatureTemplate(
     }
   }
 
-  ArgumentTypeFuzzer fuzzer{*chosen->signature, returnType, rng_};
+  auto chosenSignature = *chosen->signature;
+  ArgumentTypeFuzzer fuzzer{chosenSignature, returnType, rng_};
   VELOX_CHECK_EQ(fuzzer.fuzzArgumentTypes(FLAGS_max_num_varargs), true);
   auto& argumentTypes = fuzzer.argumentTypes();
+  auto constantArguments = chosenSignature.constantArguments();
 
-  CallableSignature callable{chosen->name, argumentTypes, false, returnType};
+  // ArgumentFuzzer may generate duplicate arguments if the signature's
+  // variableArity is true, so we need to pad duplicate constant flags.
+  if (!constantArguments.empty()) {
+    auto repeat = argumentTypes.size() - constantArguments.size();
+    auto lastConstant = constantArguments.back();
+    for (int i = 0; i < repeat; ++i) {
+      constantArguments.push_back(lastConstant);
+    }
+  }
+
+  CallableSignature callable{
+      .name = chosen->name,
+      .args = argumentTypes,
+      .variableArity = false,
+      .returnType = returnType,
+      .constantArgs = constantArguments};
 
   markSelected(chosen->name);
   return getCallExprFromCallable(callable);

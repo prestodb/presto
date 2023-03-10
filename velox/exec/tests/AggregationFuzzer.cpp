@@ -342,7 +342,8 @@ AggregationFuzzer::AggregationFuzzer(
             .name = name,
             .args = {},
             .returnType = SignatureBinder::tryResolveType(
-                signature->returnType(), {}, {})};
+                signature->returnType(), {}, {}),
+            .constantArgs = {}};
         VELOX_CHECK_NOT_NULL(callable.returnType);
 
         // Process each argument and figure out its type.

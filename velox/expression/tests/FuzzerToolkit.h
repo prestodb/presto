@@ -30,6 +30,9 @@ struct CallableSignature {
   bool variableArity{false};
   TypePtr returnType;
 
+  // Boolean flags identifying constant arguments.
+  std::vector<bool> constantArgs;
+
   // Convenience print function.
   std::string toString() const;
 };

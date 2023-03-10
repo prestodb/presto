@@ -159,6 +159,8 @@ class ExpressionFuzzer {
 
   std::vector<core::TypedExprPtr> generateArgs(const CallableSignature& input);
 
+  core::TypedExprPtr generateArg(const TypePtr& arg, bool isConstant);
+
   /// Specialization for the "like" function: second and third (optional)
   /// parameters always need to be constant.
   std::vector<core::TypedExprPtr> generateLikeArgs(

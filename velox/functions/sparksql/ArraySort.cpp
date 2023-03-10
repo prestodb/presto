@@ -251,7 +251,7 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> sortArraySignatures() {
       exec::FunctionSignatureBuilder()
           .typeVariable("T")
           .argumentType("array(T)")
-          .argumentType("boolean")
+          .constantArgumentType("boolean")
           .returnType("array(T)")
           .build(),
   };
