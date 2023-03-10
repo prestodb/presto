@@ -297,7 +297,7 @@ bool Task::supportsSingleThreadedExecution() const {
   return true;
 }
 
-RowVectorPtr Task::next() {
+RowVectorPtr Task::next(ContinueFuture* future) {
   // NOTE: Task::next() is single-threaded execution so locking is not required
   // to access Task object.
   VELOX_CHECK_EQ(
@@ -386,10 +386,22 @@ RowVectorPtr Task::next() {
     }
 
     if (runnableDrivers == 0) {
-      VELOX_CHECK_EQ(
-          0,
-          blockedDrivers,
-          "Cannot make progress as all remaining drivers are blocked");
+      if (blockedDrivers > 0) {
+        if (!future) {
+          VELOX_CHECK_EQ(
+              0,
+              blockedDrivers,
+              "Cannot make progress as all remaining drivers are blocked and user are not expected to wait.");
+        } else {
+          std::vector<ContinueFuture> notReadyFutures;
+          for (auto& continueFuture : futures) {
+            if (!continueFuture.isReady()) {
+              notReadyFutures.emplace_back(std::move(continueFuture));
+            }
+          }
+          *future = folly::collectAll(std::move(notReadyFutures)).unit();
+        }
+      }
       return nullptr;
     }
   }

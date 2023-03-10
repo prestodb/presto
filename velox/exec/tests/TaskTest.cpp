@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/exec/Task.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/future/VeloxPromise.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
@@ -613,6 +615,203 @@ TEST_F(TaskTest, singleThreadedCrossJoin) {
         {{leftScanId, {leftPath->path}}, {rightScanId, {rightPath->path}}});
     assertEqualResults({expectedResult}, results);
   }
+}
+
+class ExternalBlocker {
+ public:
+  folly::SemiFuture<folly::Unit> continueFuture() {
+    if (isBlocked_) {
+      auto [promise, future] = makeVeloxContinuePromiseContract();
+      continuePromise_ = std::move(promise);
+      return std::move(future);
+    }
+    return folly::SemiFuture<folly::Unit>();
+  }
+
+  void unblock() {
+    if (isBlocked_) {
+      continuePromise_.setValue();
+      isBlocked_ = false;
+    }
+  }
+
+  void block() {
+    isBlocked_ = true;
+  }
+
+  bool isBlocked() const {
+    return isBlocked_;
+  }
+
+ private:
+  bool isBlocked_ = false;
+  folly::Promise<folly::Unit> continuePromise_;
+};
+
+// A test node that normally just re-project/passthrough the output from input
+// When the node is blocked by external even (via externalBlocker), the operator
+// will signal kBlocked. The pipeline can ONLY proceed again when it is
+// unblocked externally.
+class TestExternalBlockableNode : public core::PlanNode {
+ public:
+  TestExternalBlockableNode(
+      const core::PlanNodeId& id,
+      core::PlanNodePtr source,
+      std::shared_ptr<ExternalBlocker> externalBlocker)
+      : PlanNode(id),
+        sources_{std::move(source)},
+        externalBlocker_(std::move(externalBlocker)) {}
+
+  const RowTypePtr& outputType() const override {
+    return sources_[0]->outputType();
+  }
+
+  const std::vector<core::PlanNodePtr>& sources() const override {
+    return sources_;
+  }
+
+  std::string_view name() const override {
+    return "external blocking node";
+  }
+
+  ExternalBlocker* externalBlocker() const {
+    return externalBlocker_.get();
+  }
+
+ private:
+  void addDetails(std::stringstream& /* stream */) const override {}
+
+  std::vector<core::PlanNodePtr> sources_;
+  std::shared_ptr<ExternalBlocker> externalBlocker_;
+};
+
+class TestExternalBlockableOperator : public exec::Operator {
+ public:
+  TestExternalBlockableOperator(
+      int32_t operatorId,
+      exec::DriverCtx* driverCtx,
+      std::shared_ptr<const TestExternalBlockableNode> node)
+      : Operator(
+            driverCtx,
+            node->outputType(),
+            operatorId,
+            node->id(),
+            "ExternalBlockable"),
+        externalBlocker_(node->externalBlocker()) {}
+
+  bool needsInput() const override {
+    return !noMoreInput_;
+  }
+
+  void addInput(RowVectorPtr input) override {
+    input_ = std::move(input);
+  }
+
+  RowVectorPtr getOutput() override {
+    // If this operator is signaled to be blocked externally
+    if (externalBlocker_->isBlocked()) {
+      continueFuture_ = externalBlocker_->continueFuture();
+      return nullptr;
+    }
+    auto output = std::move(input_);
+    input_ = nullptr;
+    return output;
+  }
+
+  exec::BlockingReason isBlocked(ContinueFuture* future) override {
+    if (continueFuture_.valid()) {
+      *future = std::move(continueFuture_);
+      return exec::BlockingReason::kWaitForConsumer;
+    }
+    return exec::BlockingReason::kNotBlocked;
+  }
+
+  bool isFinished() override {
+    return noMoreInput_;
+  }
+
+ private:
+  RowVectorPtr input_;
+  ExternalBlocker* externalBlocker_;
+  folly::SemiFuture<folly::Unit> continueFuture_;
+};
+
+class TestExternalBlockableTranslator
+    : public exec::Operator::PlanNodeTranslator {
+  std::unique_ptr<exec::Operator> toOperator(
+      exec::DriverCtx* ctx,
+      int32_t id,
+      const core::PlanNodePtr& node) override {
+    if (auto castedNode =
+            std::dynamic_pointer_cast<const TestExternalBlockableNode>(node)) {
+      return std::make_unique<TestExternalBlockableOperator>(
+          id, ctx, castedNode);
+    }
+    return nullptr;
+  }
+};
+
+TEST_F(TaskTest, singleThreadedExecutionExternalBlockable) {
+  exec::Operator::registerOperator(
+      std::make_unique<TestExternalBlockableTranslator>());
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+  auto blocker = std::make_shared<ExternalBlocker>();
+  // Filter + Project.
+  auto plan =
+      PlanBuilder()
+          .values({data, data, data})
+          .addNode([blocker](std::string id, core::PlanNodePtr input) mutable {
+            return std::make_shared<TestExternalBlockableNode>(
+                id, input, std::move(blocker));
+          })
+          .project({"c0"})
+          .planFragment();
+
+  ContinueFuture continueFuture = ContinueFuture::makeEmpty();
+  // First pass, we don't activate the external blocker, expect the task to run
+  // without being blocked.
+  auto nonBlockingTask = std::make_shared<exec::Task>(
+      "single.execution.task.0", plan, 0, std::make_shared<core::QueryCtx>());
+  std::vector<RowVectorPtr> results;
+  for (;;) {
+    auto result = nonBlockingTask->next(&continueFuture);
+    if (!result) {
+      break;
+    }
+    EXPECT_FALSE(continueFuture.valid());
+    results.push_back(std::move(result));
+  }
+  EXPECT_EQ(3, results.size());
+
+  results.clear();
+  continueFuture = ContinueFuture::makeEmpty();
+  // Second pass, we will now use external blockers to block the task.
+  auto blockingTask = std::make_shared<exec::Task>(
+      "single.execution.task.1", plan, 0, std::make_shared<core::QueryCtx>());
+  // Before we block, we expect `next` to get data normally.
+  results.push_back(blockingTask->next(&continueFuture));
+  EXPECT_TRUE(results.back() != nullptr);
+  // Now, we want to block the pipeline by external event. We expect `next` to
+  // return null.  The `future` should be updated for the caller to wait before
+  // calling next() again
+  blocker->block();
+  EXPECT_EQ(nullptr, blockingTask->next(&continueFuture));
+  EXPECT_TRUE(continueFuture.valid() && !continueFuture.isReady());
+  // After the pipeline is unblocked by external event, `continueFuture` should
+  // get realized right away
+  blocker->unblock();
+  std::move(continueFuture).wait();
+  // Now, we should be able to normally get data from Task.
+  for (;;) {
+    auto result = blockingTask->next(&continueFuture);
+    if (!result) {
+      break;
+    }
+    results.push_back(std::move(result));
+  }
+  EXPECT_EQ(3, results.size());
 }
 
 TEST_F(TaskTest, supportsSingleThreadedExecution) {
