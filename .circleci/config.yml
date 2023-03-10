@@ -286,7 +286,7 @@ jobs:
             mkdir -p /tmp/fuzzer_repro/
             chmod -R 777 /tmp/fuzzer_repro
             _build/debug/velox/expression/tests/velox_expression_fuzzer_test \
-                --seed 123456 \
+                --seed ${RANDOM} \
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
                 --lazy_vector_generation_ratio 0.2 \
@@ -302,6 +302,21 @@ jobs:
       - store_artifacts:
           path: '/tmp/fuzzer_repro'
       - run:
+          name: "Run Spark Fuzzer Tests"
+          command: |
+            mkdir -p /tmp/spark_fuzzer_repro/
+            chmod -R 777 /tmp/spark_fuzzer_repro
+            _build/debug/velox/expression/tests/spark_expression_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec 60 \
+                --logtostderr=1 \ 
+                --minloglevel=0 \ 
+                --repro_persist_path=/tmp/spark_fuzzer_repro \
+            && echo -e "\n\nSpark Fuzzer run finished successfully."
+          no_output_timeout: 5m
+      - store_artifacts:
+          path: '/tmp/spark_fuzzer_repro'
+      - run:
           name: "Run Aggregate Fuzzer Tests"
           # Run aggregation fuzzer using the built executable.
           command: |
@@ -309,7 +324,7 @@ jobs:
             rm -rfv /tmp/aggregate_fuzzer_repro/*
             chmod -R 777 /tmp/aggregate_fuzzer_repro
             _build/debug/velox/exec/tests/velox_aggregation_fuzzer_test \
-                --seed 123456 \
+                --seed ${RANDOM} \
                 --duration_sec 60 \
                 --logtostderr=1 \
                 --minloglevel=0 \
