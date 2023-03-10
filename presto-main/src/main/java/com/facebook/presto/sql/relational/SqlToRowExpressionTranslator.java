@@ -52,6 +52,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -59,6 +60,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -847,6 +849,69 @@ public final class SqlToRowExpressionTranslator
                     .collect(toImmutableList());
             Type returnType = getType(node);
             return specialForm(ROW_CONSTRUCTOR, returnType, arguments);
+        }
+
+        @Override
+        protected RowExpression visitCurrentTime(CurrentTime node, Void context)
+        {
+            if (node.getPrecision() != null) {
+                throw new UnsupportedOperationException("not yet implemented: non-default precision");
+            }
+
+            switch (node.getFunction()) {
+                case DATE:
+                    return call(functionAndTypeResolver, "current_date", getType(node));
+                case TIME:
+                    return call(functionAndTypeResolver, "current_time", getType(node));
+                case LOCALTIME:
+                    return call(functionAndTypeResolver, "localtime", getType(node));
+                case TIMESTAMP:
+                    return call(functionAndTypeResolver, "current_timestamp", getType(node));
+                case LOCALTIMESTAMP:
+                    return call(functionAndTypeResolver, "localtimestamp", getType(node));
+                default:
+                    throw new UnsupportedOperationException("not yet implemented: " + node.getFunction());
+            }
+        }
+
+        @Override
+        protected RowExpression visitExtract(Extract node, Void context)
+        {
+            RowExpression value = process(node.getExpression(), context);
+            switch (node.getField()) {
+                case YEAR:
+                    return call(functionAndTypeResolver, "year", getType(node), value);
+                case QUARTER:
+                    return call(functionAndTypeResolver, "quarter", getType(node), value);
+                case MONTH:
+                    return call(functionAndTypeResolver, "month", getType(node), value);
+                case WEEK:
+                    return call(functionAndTypeResolver, "week", getType(node), value);
+                case DAY:
+                case DAY_OF_MONTH:
+                    return call(functionAndTypeResolver, "day", getType(node), value);
+                case DAY_OF_WEEK:
+                case DOW:
+                    return call(functionAndTypeResolver, "day_of_week", getType(node), value);
+                case DAY_OF_YEAR:
+                case DOY:
+                    return call(functionAndTypeResolver, "day_of_year", getType(node), value);
+                case YEAR_OF_WEEK:
+                case YOW:
+                    return call(functionAndTypeResolver, "year_of_week", getType(node), value);
+                case HOUR:
+                    return call(functionAndTypeResolver, "hour", getType(node), value);
+                case MINUTE:
+                    return call(functionAndTypeResolver, "minute", getType(node), value);
+                case SECOND:
+                    return call(functionAndTypeResolver, "second", getType(node), value);
+                case TIMEZONE_MINUTE:
+                    return call(functionAndTypeResolver, "timezone_minute", getType(node), value);
+                case TIMEZONE_HOUR:
+                    return call(functionAndTypeResolver, "timezone_hour", getType(node), value);
+            }
+
+            throw new UnsupportedOperationException("not yet implemented: " + node.getField());
         }
     }
 }
