@@ -24,6 +24,7 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -136,23 +137,23 @@ public class TestQueryManager
 
         assertNotEquals(dispatchManager.getStats().getQueuedQueries(), 0L, "Expected 0 queued queries, found: " + dispatchManager.getStats().getQueuedQueries());
 
+        Stopwatch stopwatch = Stopwatch.createStarted();
         // wait until it's admitted but fail it before it starts
-        while (true) {
+        while (dispatchManager.getStats().getQueuedQueries() > 0 && stopwatch.elapsed().toMillis() < 5000) {
             QueryState state = dispatchManager.getQueryInfo(queryId).getState();
-            if (state.ordinal() >= RUNNING.ordinal()) {
-                fail("unexpected query state: " + state);
+            if (state.ordinal() == FAILED.ordinal()) {
+                Thread.sleep(100);
+                continue;
             }
             if (state.ordinal() >= QUEUED.ordinal()) {
                 // cancel query
                 dispatchManager.failQuery(queryId, new PrestoException(GENERIC_USER_ERROR, "mock exception"));
-                break;
+                continue;
             }
         }
 
         QueryState state = dispatchManager.getQueryInfo(queryId).getState();
         assertEquals(state, FAILED);
-        //Give the stats a time to update
-        Thread.sleep(1000);
         assertEquals(queryManager.getStats().getQueuedQueries(), 0);
     }
 
