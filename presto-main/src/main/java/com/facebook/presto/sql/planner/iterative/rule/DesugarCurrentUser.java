@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
+@Deprecated
 public class DesugarCurrentUser
         extends ExpressionRewriteRuleSet
 {

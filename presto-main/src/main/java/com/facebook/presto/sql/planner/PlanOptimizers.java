@@ -28,11 +28,7 @@ import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesPro
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
-import com.facebook.presto.sql.planner.iterative.rule.DesugarAtTimeZone;
-import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentUser;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarLambdaExpression;
-import com.facebook.presto.sql.planner.iterative.rule.DesugarRowSubscript;
-import com.facebook.presto.sql.planner.iterative.rule.DesugarTryExpression;
 import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
@@ -309,11 +305,7 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new InlineSqlFunctions(metadata, sqlParser).rules())
                                 .addAll(new DesugarLambdaExpression().rules())
-                                .addAll(new DesugarAtTimeZone(metadata, sqlParser).rules())
-                                .addAll(new DesugarCurrentUser().rules())
-                                .addAll(new DesugarTryExpression().rules())
                                 .addAll(new SimplifyCardinalityMap().rules())
-                                .addAll(new DesugarRowSubscript(metadata, sqlParser).rules())
                                 .build()),
                 // TODO: move this before optimization if possible!!
                 // Replace all expressions with row expressions

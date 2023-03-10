@@ -37,6 +37,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class DesugarAtTimeZoneRewriter
 {
     public static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes)
