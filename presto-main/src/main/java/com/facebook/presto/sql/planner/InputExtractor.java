@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.TableStatistics;
@@ -108,6 +109,14 @@ public class InputExtractor
         }
 
         @Override
+        public Void visitAggregation(AggregationNode node, Context context)
+        {
+            context.setExtractStatistics(true);
+            visitPlan(node, context);
+            return null;
+        }
+
+        @Override
         public Void visitTableScan(TableScanNode node, Context context)
         {
             TableHandle tableHandle = node.getTable();
@@ -117,11 +126,10 @@ public class InputExtractor
                 columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
 
-            List<ColumnHandle> desiredColumns = node.getAssignments().values().stream().collect(toImmutableList());
-
             Optional<TableStatistics> statistics = Optional.empty();
-
             if (context.isExtractStatistics()) {
+                List<ColumnHandle> desiredColumns = node.getAssignments().values().stream().distinct().collect(toImmutableList());
+
                 Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
                 statistics = Optional.of(metadata.getTableStatistics(session, tableHandle, desiredColumns, constraint));
             }
