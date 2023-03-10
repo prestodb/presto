@@ -41,6 +41,12 @@ public class GlueMetastoreStats
     private final GlueCatalogApiStats deletePartition = new GlueCatalogApiStats();
     private final GlueCatalogApiStats getPartitions = new GlueCatalogApiStats();
     private final GlueCatalogApiStats getPartition = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats getColumnStatisticsForTable = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats getColumnStatisticsForPartition = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats updateColumnStatisticsForTable = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats deleteColumnStatisticsForTable = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats updateColumnStatisticsForPartition = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats deleteColumnStatisticsForPartition = new GlueCatalogApiStats();
 
     // see AWSRequestMetrics
     private final CounterStat awsRequestCount = new CounterStat();
@@ -160,6 +166,48 @@ public class GlueMetastoreStats
     public GlueCatalogApiStats getGetPartition()
     {
         return getPartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getGetColumnStatisticsForTable()
+    {
+        return getColumnStatisticsForTable;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getGetColumnStatisticsForPartition()
+    {
+        return getColumnStatisticsForPartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getUpdateColumnStatisticsForTable()
+    {
+        return updateColumnStatisticsForTable;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getDeleteColumnStatisticsForTable()
+    {
+        return deleteColumnStatisticsForTable;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getUpdateColumnStatisticsForPartition()
+    {
+        return updateColumnStatisticsForPartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getDeleteColumnStatisticsForPartition()
+    {
+        return deleteColumnStatisticsForPartition;
     }
 
     @Managed

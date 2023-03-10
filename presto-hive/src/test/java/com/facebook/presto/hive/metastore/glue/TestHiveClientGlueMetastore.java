@@ -18,6 +18,7 @@ import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.DeleteTableRequest;
 import com.amazonaws.services.glue.model.TableInput;
+import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.type.DateType;
@@ -60,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -171,7 +173,8 @@ public class TestHiveClientGlueMetastore
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
 
-        return new GlueHiveMetastore(hdfsEnvironment, glueConfig, executor);
+        Executor executor = new BoundedExecutor(this.executor, 10);
+        return new GlueHiveMetastore(hdfsEnvironment, glueConfig, executor, executor, executor);
     }
 
     @Override

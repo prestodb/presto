@@ -48,7 +48,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
-        <dep.aws-sdk.version>1.11.697</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.134</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
@@ -74,6 +74,7 @@
         <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.jayway.version>2.6.0</dep.jayway.version>
+<!--        <dep.jackson.version>2.12.3</dep.jackson.version>-->
         <dep.ratis.version>2.2.0</dep.ratis.version>
         <!--
           America/Bahia_Banderas has:
@@ -1364,6 +1365,14 @@
                         <groupId>org.apache.httpcomponents</groupId>
                         <artifactId>httpclient</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -1380,6 +1389,14 @@
                         <groupId>joda-time</groupId>
                         <artifactId>joda-time</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -1395,6 +1412,14 @@
                     <exclusion>
                         <groupId>joda-time</groupId>
                         <artifactId>joda-time</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1642,7 +1667,7 @@
             <dependency>
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
-                <version>1.10</version>
+                <version>1.15</version>
             </dependency>
 
             <dependency>
@@ -2239,6 +2264,10 @@
                                     <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                     <exclude>com.google.guava:guava</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
+                                    <exclude>com.fasterxml.jackson.datatype:jackson-datatype-jdk8</exclude>
+                                    <exclude>com.fasterxml.jackson.module:jackson-module-afterburner</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
