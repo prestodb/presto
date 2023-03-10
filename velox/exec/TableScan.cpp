@@ -198,7 +198,8 @@ void TableScan::preload(std::shared_ptr<connector::ConnectorSplit> split) {
        table = tableHandle_,
        columns = columnHandles_,
        connector = connector_,
-       ctx = connectorQueryCtx_,
+       ctx = operatorCtx_->createConnectorQueryCtx(
+           split->connectorId, planNodeId()),
        task = operatorCtx_->task(),
        split]() -> std::unique_ptr<DataSourcePtr> {
         if (task->isCancelled()) {

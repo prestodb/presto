@@ -18,6 +18,8 @@
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Operator.h"
 
+DECLARE_int32(split_preload_per_driver);
+
 namespace facebook::velox::exec {
 
 class TableScan : public SourceOperator {

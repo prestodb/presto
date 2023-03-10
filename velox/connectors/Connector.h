@@ -181,8 +181,13 @@ class DataSource {
   }
 };
 
-// Exposes expression evaluation functionality of the engine to the connector.
-// Connector may use it, for example, to evaluate pushed down filters.
+// Exposes expression evaluation functionality of the engine to the
+// connector.  Connector may use it, for example, to evaluate pushed
+// down filters. This is not thread safe and serializing operations is
+// the responsibility of the caller. This is self-contained and does
+// not reference objects from the thread which constructs
+// this. Passing this between threads is allowed as long as uses are
+// sequential. May reference query-level structures like QueryCtx.
 class ExpressionEvaluator {
  public:
   virtual ~ExpressionEvaluator() = default;
@@ -201,19 +206,23 @@ class ExpressionEvaluator {
       VectorPtr* FOLLY_NULLABLE result) const = 0;
 };
 
+/// Collection of context data for use in a DataSource or DataSink. One instance
+/// of this per DataSource and DataSink. This may be passed between threads but
+/// methods must be invoked sequentially. Serializing use is the responsibility
+/// of the caller.
 class ConnectorQueryCtx {
  public:
   ConnectorQueryCtx(
       memory::MemoryPool* FOLLY_NONNULL pool,
       const Config* FOLLY_NONNULL connectorConfig,
-      ExpressionEvaluator* FOLLY_NULLABLE expressionEvaluator,
+      std::unique_ptr<ExpressionEvaluator> expressionEvaluator,
       memory::MemoryAllocator* FOLLY_NONNULL allocator,
       const std::string& taskId,
       const std::string& planNodeId,
       int driverId)
       : pool_(pool),
         config_(connectorConfig),
-        expressionEvaluator_(expressionEvaluator),
+        expressionEvaluator_(std::move(expressionEvaluator)),
         allocator_(allocator),
         scanId_(fmt::format("{}.{}", taskId, planNodeId)),
         taskId_(taskId),
@@ -228,7 +237,7 @@ class ConnectorQueryCtx {
   }
 
   ExpressionEvaluator* FOLLY_NULLABLE expressionEvaluator() const {
-    return expressionEvaluator_;
+    return expressionEvaluator_.get();
   }
 
   // MemoryAllocator for large allocations. Used for caching with
@@ -256,7 +265,7 @@ class ConnectorQueryCtx {
  private:
   memory::MemoryPool* FOLLY_NONNULL pool_;
   const Config* FOLLY_NONNULL config_;
-  ExpressionEvaluator* FOLLY_NULLABLE expressionEvaluator_;
+  std::unique_ptr<ExpressionEvaluator> expressionEvaluator_;
   memory::MemoryAllocator* FOLLY_NONNULL allocator_;
   const std::string scanId_;
   const std::string taskId_;

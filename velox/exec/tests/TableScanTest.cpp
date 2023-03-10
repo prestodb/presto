@@ -2444,3 +2444,26 @@ TEST_F(TableScanTest, errorInLoadLazy) {
         << ex.context();
   }
 }
+
+TEST_F(TableScanTest, parallelPrepare) {
+  constexpr int32_t kNumParallel = 100;
+  const char* kLargeRemainingFilter =
+      "c0 + 1::BIGINT > 0::BIGINT or 1111 in (1, 2, 3, 4, 5) or array_sort(array_distinct(array[1, 1, 3, 4, 5, 6,7]))[1] = -5";
+  FLAGS_split_preload_per_driver = kNumParallel;
+  auto data = makeRowVector(
+      {makeFlatVector<int32_t>(10, [](auto row) { return row % 5; })});
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, {data});
+  auto plan =
+      exec::test::PlanBuilder(pool_.get())
+          .tableScan(ROW({"c0"}, {INTEGER()}), {}, kLargeRemainingFilter)
+          .project({"c0"})
+          .planNode();
+
+  std::vector<exec::Split> splits;
+  for (auto i = 0; i < kNumParallel; ++i) {
+    splits.push_back(makeHiveSplit(filePath->path));
+  }
+  AssertQueryBuilder(plan).splits(splits).copyResults(pool_.get());
+}

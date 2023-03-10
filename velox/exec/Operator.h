@@ -219,7 +219,6 @@ class OperatorCtx {
 
   // These members are created on demand.
   mutable std::unique_ptr<core::ExecCtx> execCtx_;
-  mutable std::unique_ptr<connector::ExpressionEvaluator> expressionEvaluator_;
 };
 
 // Query operator
