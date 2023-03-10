@@ -44,6 +44,7 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BindExpression;
@@ -92,7 +93,6 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slices;
 
 import java.util.List;
 import java.util.Map;
@@ -110,7 +110,10 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
@@ -249,12 +252,6 @@ public final class SqlToRowExpressionTranslator
         {
             // identifier should never be reachable with the exception of lambda within VALUES (#9711)
             return new VariableReferenceExpression(getSourceLocation(node), node.getValue(), getType(node));
-        }
-
-        @Override
-        protected RowExpression visitCurrentUser(CurrentUser node, Void context)
-        {
-            return user.map(user -> constant(Slices.utf8Slice(user), VARCHAR)).orElseThrow(() -> new UnsupportedOperationException("Do not have current user"));
         }
 
         @Override
@@ -669,7 +666,17 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitTryExpression(TryExpression node, Void context)
         {
-            throw new UnsupportedOperationException("Must desugar TryExpression before translate it into RowExpression");
+            RowExpression body = process(node.getInnerExpression(), context);
+
+            return call(
+                    functionAndTypeResolver,
+                    "$internal$try",
+                    getType(node),
+                    new LambdaDefinitionExpression(
+                            getSourceLocation(node),
+                            ImmutableList.of(),
+                            ImmutableList.of(),
+                            body));
         }
 
         private RowExpression buildEquals(RowExpression lhs, RowExpression rhs)
@@ -912,6 +919,38 @@ public final class SqlToRowExpressionTranslator
             }
 
             throw new UnsupportedOperationException("not yet implemented: " + node.getField());
+        }
+
+        @Override
+        protected RowExpression visitAtTimeZone(AtTimeZone node, Void context)
+        {
+            RowExpression value = process(node.getValue(), context);
+            RowExpression timeZone = process(node.getTimeZone(), context);
+            Type valueType = value.getType();
+            if (valueType.equals(TIME)) {
+                value = call(
+                        getSourceLocation(node),
+                        CAST.name(),
+                        functionAndTypeResolver.lookupCast("CAST", valueType, TIME_WITH_TIME_ZONE),
+                        TIME_WITH_TIME_ZONE,
+                        value);
+            }
+            else if (valueType.equals(TIMESTAMP)) {
+                value = call(
+                        getSourceLocation(node),
+                        CAST.name(),
+                        functionAndTypeResolver.lookupCast("CAST", valueType, TIMESTAMP_WITH_TIME_ZONE),
+                        TIMESTAMP_WITH_TIME_ZONE,
+                        value);
+            }
+
+            return call(functionAndTypeResolver, "at_timezone", getType(node), value, timeZone);
+        }
+
+        @Override
+        protected RowExpression visitCurrentUser(CurrentUser node, Void context)
+        {
+            return call(functionAndTypeResolver, "$current_user", getType(node));
         }
     }
 }
