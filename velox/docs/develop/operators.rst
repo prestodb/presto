@@ -396,6 +396,10 @@ The values operation returns specified data.
      - Description
    * - values
      - Set of rows to return.
+   * - parallelizable
+     - If the same input should be produced by each thread (one per driver).
+   * - repeatTimes
+     - How many times each vector should be produced as input.
 
 ExchangeNode
 ~~~~~~~~~~~~

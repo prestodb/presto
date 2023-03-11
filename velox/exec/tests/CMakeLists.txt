@@ -63,6 +63,7 @@ add_executable(
   UnorderedStreamReaderTest.cpp
   UnnestTest.cpp
   VectorHasherTest.cpp
+  ValuesTest.cpp
   WindowFunctionRegistryTest.cpp)
 
 add_test(

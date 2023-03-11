@@ -49,6 +49,7 @@ class Values : public SourceOperator {
  private:
   std::vector<RowVectorPtr> values_;
   int32_t current_ = 0;
+  size_t roundsLeft_ = 1;
 };
 
 } // namespace facebook::velox::exec

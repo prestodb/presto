@@ -200,27 +200,17 @@ class ValuesNode : public PlanNode {
  public:
   ValuesNode(
       const PlanNodeId& id,
-      std::vector<RowVectorPtr>&& values,
-      bool parallelizable = false)
+      std::vector<RowVectorPtr> values,
+      bool parallelizable = false,
+      size_t repeatTimes = 1)
       : PlanNode(id),
         values_(std::move(values)),
         outputType_(
-            std::dynamic_pointer_cast<const RowType>(values_[0]->type())),
-        parallelizable_(parallelizable) {
-    VELOX_CHECK(!values_.empty());
-  }
-
-  ValuesNode(
-      const PlanNodeId& id,
-      const std::vector<RowVectorPtr>& values,
-      bool parallelizable = false)
-      : PlanNode(id),
-        values_(values),
-        outputType_(
-            std::dynamic_pointer_cast<const RowType>(values_[0]->type())),
-        parallelizable_(parallelizable) {
-    VELOX_CHECK(!values_.empty());
-  }
+            values_.empty()
+                ? ROW({})
+                : std::dynamic_pointer_cast<const RowType>(values_[0]->type())),
+        parallelizable_(parallelizable),
+        repeatTimes_(repeatTimes) {}
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -232,9 +222,17 @@ class ValuesNode : public PlanNode {
     return values_;
   }
 
-  // for testing only
+  // For testing only.
   bool isParallelizable() const {
     return parallelizable_;
+  }
+
+  // Controls how many times each input buffer will be produced as input.
+  // For example, if `values_` contains 3 rowVectors {v1, v2, v3}
+  // and repeatTimes = 2, the following input will be produced:
+  //   v1, v2, v3, v1, v2, v3
+  size_t repeatTimes() const {
+    return repeatTimes_;
   }
 
   std::string_view name() const override {
@@ -247,6 +245,7 @@ class ValuesNode : public PlanNode {
   const std::vector<RowVectorPtr> values_;
   const RowTypePtr outputType_;
   const bool parallelizable_;
+  const size_t repeatTimes_;
 };
 
 class ArrowStreamNode : public PlanNode {

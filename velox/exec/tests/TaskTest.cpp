@@ -31,6 +31,7 @@ using namespace facebook::velox;
 using namespace facebook::velox::common::testutil;
 
 namespace facebook::velox::exec::test {
+
 class TaskTest : public HiveConnectorTestBase {
  protected:
   static std::pair<std::shared_ptr<exec::Task>, std::vector<RowVectorPtr>>

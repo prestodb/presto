@@ -163,10 +163,11 @@ PlanBuilder& PlanBuilder::tableScan(
 
 PlanBuilder& PlanBuilder::values(
     const std::vector<RowVectorPtr>& values,
-    bool parallelizable) {
+    bool parallelizable,
+    size_t repeatTimes) {
   auto valuesCopy = values;
   planNode_ = std::make_shared<core::ValuesNode>(
-      nextPlanNodeId(), std::move(valuesCopy), parallelizable);
+      nextPlanNodeId(), std::move(valuesCopy), parallelizable, repeatTimes);
   return *this;
 }
 

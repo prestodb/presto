@@ -29,7 +29,8 @@ Values::Values(
           values->outputType(),
           operatorId,
           values->id(),
-          "Values") {
+          "Values"),
+      roundsLeft_(values->repeatTimes()) {
   // Drop empty vectors. Operator::getOutput is expected to return nullptr or a
   // non-empty vector.
   values_.reserve(values->values().size());
@@ -43,6 +44,13 @@ Values::Values(
 RowVectorPtr Values::getOutput() {
   TestValue::adjust("facebook::velox::exec::Values::getOutput", this);
   if (current_ >= values_.size()) {
+    if (roundsLeft_ > 0) {
+      --roundsLeft_;
+    }
+    current_ = 0;
+  }
+
+  if (isFinished()) {
     return nullptr;
   }
   return values_[current_++];
@@ -50,10 +58,11 @@ RowVectorPtr Values::getOutput() {
 
 void Values::close() {
   current_ = values_.size();
+  roundsLeft_ = 0;
 }
 
 bool Values::isFinished() {
-  return current_ >= values_.size();
+  return roundsLeft_ == 0;
 }
 
 } // namespace facebook::velox::exec

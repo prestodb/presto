@@ -162,9 +162,15 @@ class PlanBuilder {
   /// @param parallelizable If true, ValuesNode can run multi-threaded, in which
   /// case it will produce duplicate data from each thread, e.g. each thread
   /// will return all the data in 'values'. Useful for testing.
+  /// @param repeatTimes The number of times data is produced as input. If
+  /// greater than one, each RowVector will produce data as input `repeatTimes`.
+  /// For example, in case `values` has 3 vectors {v1, v2, v3} and repeatTimes
+  /// is 2, the input produced will be {v1, v2, v3, v1, v2, v3}. Useful for
+  /// testing.
   PlanBuilder& values(
       const std::vector<RowVectorPtr>& values,
-      bool parallelizable = false);
+      bool parallelizable = false,
+      size_t repeatTimes = 1);
 
   /// Add an ExchangeNode.
   ///
