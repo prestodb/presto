@@ -175,7 +175,7 @@ add_subdirectory(velox)
 
 if(PRESTO_ENABLE_TESTING)
   include(CTest) # include after project() but before add_subdirectory()
-  include_directories(velox/third_party/googletest/googletest/include)
+  include_directories(${VELOX_GTEST_INCUDE_DIR})
 else()
   add_definitions(-DVELOX_DISABLE_GOOGLETEST)
 endif()
