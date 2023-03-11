@@ -309,8 +309,8 @@ jobs:
             _build/debug/velox/expression/tests/spark_expression_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec 60 \
-                --logtostderr=1 \ 
-                --minloglevel=0 \ 
+                --logtostderr=1 \
+                --minloglevel=0 \
                 --repro_persist_path=/tmp/spark_fuzzer_repro \
             && echo -e "\n\nSpark Fuzzer run finished successfully."
           no_output_timeout: 5m
