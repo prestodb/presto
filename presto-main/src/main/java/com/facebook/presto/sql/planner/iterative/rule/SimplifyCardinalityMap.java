@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import static com.facebook.presto.sql.planner.iterative.rule.SimplifyCardinalityMapRewriter.rewrite;
 
 public class SimplifyCardinalityMap
-        extends ExpressionRewriteRuleSet
+        extends RowExpressionRewriteRuleSet
 {
     public SimplifyCardinalityMap()
     {
