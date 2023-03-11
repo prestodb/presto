@@ -115,6 +115,10 @@ class PartitionAndSerializeOperator : public Operator {
     ::memcpy(rawPartitions, partitions_.data(), sizeof(int32_t) * numInput);
   }
 
+  // The logic of this method is logically identical with
+  // UnsafeRowVectorSerializer::append() and UnsafeRowVectorSerializer::flush().
+  // Rewriting of the serialization logic here to avoid additional copies so
+  // that contents are directly written into passed in vector.
   void serializeRows(FlatVector<StringView>& dataVector) {
     const auto numInput = input_->size();
 
@@ -128,7 +132,7 @@ class PartitionAndSerializeOperator : public Operator {
       const size_t rowSize = velox::row::UnsafeRowDynamicSerializer::getSizeRow(
           input_->type(), input_.get(), i);
       rowSizes_[i] = rowSize;
-      totalSize += rowSize;
+      totalSize += (sizeof(size_t) + rowSize);
     }
 
     // Allocate memory.
@@ -138,7 +142,12 @@ class PartitionAndSerializeOperator : public Operator {
     auto rawBuffer = buffer->asMutable<char>();
     size_t offset = 0;
     for (auto i = 0; i < numInput; ++i) {
-      dataVector.setNoCopy(i, StringView(rawBuffer + offset, rowSizes_[i]));
+      dataVector.setNoCopy(
+          i, StringView(rawBuffer + offset, rowSizes_[i] + sizeof(size_t)));
+
+      // Write size
+      *(size_t*)(rawBuffer + offset) = rowSizes_[i];
+      offset += sizeof(size_t);
 
       // Write row data.
       auto size = velox::row::UnsafeRowDynamicSerializer::serialize(
