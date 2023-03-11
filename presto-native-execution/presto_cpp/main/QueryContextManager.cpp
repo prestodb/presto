@@ -21,16 +21,11 @@ using namespace facebook::velox;
 using facebook::presto::protocol::QueryId;
 using facebook::presto::protocol::TaskId;
 
-DEFINE_int32(
-    num_query_threads,
-    std::thread::hardware_concurrency() * 4,
-    "Process-wide number of query execution threads");
-
 namespace facebook::presto {
 namespace {
 static std::shared_ptr<folly::CPUThreadPoolExecutor>& executor() {
   static auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(
-      FLAGS_num_query_threads,
+      SystemConfig::instance()->numQueryThreads(),
       std::make_shared<folly::NamedThreadFactory>("Driver"));
   return executor;
 }

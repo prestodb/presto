@@ -89,6 +89,7 @@ class SystemConfig : public ConfigBase {
       "task.concurrent-lifespans-per-task"};
   static constexpr std::string_view kHttpExecThreads{"http_exec_threads"};
   static constexpr std::string_view kNumIoThreads{"num-io-threads"};
+  static constexpr std::string_view kNumQueryThreads{"num-query-threads"};
   static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
   static constexpr std::string_view kSpillerSpillPath =
       "experimental.spiller-spill-path";
@@ -147,7 +148,10 @@ class SystemConfig : public ConfigBase {
 
   int32_t httpExecThreads() const;
 
+  // Process-wide number of query execution threads
   int32_t numIoThreads() const;
+
+  int32_t numQueryThreads() const;
 
   int32_t numSpillThreads() const;
 
