@@ -123,7 +123,7 @@ final class RowExpressionVerifier
     protected Boolean visitArrayConstructor(ArrayConstructor node, RowExpression context)
     {
         if (context instanceof CallExpression) {
-            if (!((CallExpression) context).getDisplayName().equals("array_constructor")) {
+            if (!((CallExpression) context).getFunctionHandle().getName().equals("presto.default.array_constructor")) {
                 return false;
             }
             for (int i = 0; i < node.getValues().size(); ++i) {

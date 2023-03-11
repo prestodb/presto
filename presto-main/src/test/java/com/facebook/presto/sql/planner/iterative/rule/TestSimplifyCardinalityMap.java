@@ -13,16 +13,27 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.iterative.rule.SimplifyCardinalityMapRewriter.rewrite;
-import static org.testng.Assert.assertEquals;
+import java.util.Map;
+
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.planner.PlannerUtils.createMapType;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 
 public class TestSimplifyCardinalityMap
         extends BaseRuleTest
 {
+    private final TestingRowExpressionTranslator testSqlToRowExpressionTranslator = new TestingRowExpressionTranslator();
+
     @Test
     public void testRewriteMapValuesCardinality()
     {
@@ -32,21 +43,21 @@ public class TestSimplifyCardinalityMap
     @Test
     public void testRewriteMapValuesMixedCasesCardinality()
     {
-        assertRewritten("CaRDinality(map_values(m))", "cardinaLITY(m)");
+        assertRewritten("CaRDinality(map_keys(m))", "cardinaLITY(m)");
     }
 
     @Test
     public void testNoRewriteMapValuesCardinality()
     {
-        assertRewritten("cardinality(map(ARRAY[1,3], ARRAY[2,4]))", "cardinality(map(ARRAY[1,3], ARRAY[2,4]))");
+        assertRewriteDoesNotFire("cardinality(map(ARRAY[1,3], ARRAY[2,4]))");
     }
 
     @Test
     public void testNestedRewriteMapValuesCardinality()
     {
         assertRewritten(
-                "cardinality(map(ARRAY[cardinality(map_values(m_1)),3], ARRAY[2,cardinality(map_values(m_2))]))",
-                "cardinality(map(ARRAY[cardinality(m_1),3], ARRAY[2,cardinality(m_2)]))");
+                "cardinality(map(ARRAY[cardinality(map_values(m_1))], ARRAY[cardinality(map_values(m_2))]))",
+                "cardinality(map(ARRAY[cardinality(m_1)], ARRAY[cardinality(m_2)]))");
     }
 
     @Test
@@ -65,8 +76,23 @@ public class TestSimplifyCardinalityMap
                 "cardinality(map(ARRAY[cardinality(map(ARRAY[1,3], ARRAY[2,4])),3], ARRAY[2,cardinality(m_2)]))");
     }
 
-    private static void assertRewritten(String from, String to)
+    private void assertRewriteDoesNotFire(String expression)
     {
-        assertEquals(rewrite(PlanBuilder.expression(from)), PlanBuilder.expression(to));
+        RowExpression inputExpression = testSqlToRowExpressionTranslator.translate(expression, ImmutableMap.of());
+        tester().assertThat(new SimplifyCardinalityMap().projectRowExpressionRewriteRule())
+                .on(p -> p.project(assignment(p.variable("x"), inputExpression), p.values()))
+                .doesNotFire();
+    }
+
+    private void assertRewritten(String inputExpressionStr,
+                                           String expectedExpressionStr)
+    {
+        Type mapType = createMapType(getFunctionManager(), BIGINT, BIGINT);
+        Map<String, Type> types = ImmutableMap.of("m", mapType, "m_1", mapType, "m_2", mapType);
+        RowExpression inputExpression = testSqlToRowExpressionTranslator.translate(inputExpressionStr, types);
+
+        tester().assertThat(new SimplifyCardinalityMap().projectRowExpressionRewriteRule())
+                .on(p -> p.project(assignment(p.variable("x"), inputExpression), p.values(p.variable("m", mapType), p.variable("m_1", mapType), p.variable("m_2", mapType))))
+                .matches(project(ImmutableMap.of("x", expression(expectedExpressionStr)), values("m", "m_1", "m_2")));
     }
 }
