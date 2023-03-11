@@ -171,6 +171,9 @@ include_directories(velox/velox/external/xxhash)
 include_directories(${VELOX_ROOT})
 include_directories(${CMAKE_BINARY_DIR})
 
+# set this for backwards compatibility, will be overwritten in velox/
+set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
+
 add_subdirectory(velox)
 
 if(PRESTO_ENABLE_TESTING)
