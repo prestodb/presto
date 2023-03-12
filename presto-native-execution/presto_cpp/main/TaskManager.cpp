@@ -851,6 +851,7 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
     int64_t lo;
     int64_t hi;
   };
+
   union UuidParse {
     boost::uuids::uuid uuid;
     UuidSplit split;
