@@ -51,6 +51,12 @@ class ConfigBase {
             })
         : key_{key}, default_{val}, toStr_{toStr}, toT_{toT} {}
 
+   public:
+    const std::string& configKey() const {
+      return key_;
+    }
+
+   private:
     const std::string key_;
     const T default_;
     const std::function<std::string(const T&)> toStr_;
