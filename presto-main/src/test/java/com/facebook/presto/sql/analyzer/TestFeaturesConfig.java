@@ -23,6 +23,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -212,6 +213,7 @@ public class TestFeaturesConfig
                 .setNativeExecutionEnabled(false)
                 .setNativeExecutionExecutablePath("./presto_server")
                 .setRandomizeOuterJoinNullKeyEnabled(false)
+                .setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy.DISABLED)
                 .setOptimizeConditionalAggregationEnabled(false)
                 .setRemoveRedundantDistinctAggregationEnabled(true)
                 .setInPredicatesAsInnerJoinsEnabled(false)
@@ -381,6 +383,7 @@ public class TestFeaturesConfig
                 .put("native-execution-enabled", "true")
                 .put("native-execution-executable-path", "/bin/echo")
                 .put("optimizer.randomize-outer-join-null-key", "true")
+                .put("optimizer.randomize-outer-join-null-key-strategy", "key_from_outer_join")
                 .put("optimizer.optimize-conditional-aggregation-enabled", "true")
                 .put("optimizer.remove-redundant-distinct-aggregation-enabled", "false")
                 .put("optimizer.in-predicates-as-inner-joins-enabled", "true")
@@ -548,6 +551,7 @@ public class TestFeaturesConfig
                 .setNativeExecutionEnabled(true)
                 .setNativeExecutionExecutablePath("/bin/echo")
                 .setRandomizeOuterJoinNullKeyEnabled(true)
+                .setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy.KEY_FROM_OUTER_JOIN)
                 .setOptimizeConditionalAggregationEnabled(true)
                 .setRemoveRedundantDistinctAggregationEnabled(false)
                 .setInPredicatesAsInnerJoinsEnabled(true)
