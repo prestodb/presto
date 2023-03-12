@@ -304,7 +304,6 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new InlineSqlFunctions(metadata, sqlParser).rules())
-                                .addAll(new DesugarLambdaExpression().rules())
                                 .build()),
                 // TODO: move this before optimization if possible!!
                 // Replace all expressions with row expressions
@@ -318,7 +317,10 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new SimplifyCardinalityMap().rules()),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new DesugarLambdaExpression().rules())
+                                .addAll(new SimplifyCardinalityMap().rules())
+                                .build()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
