@@ -114,6 +114,9 @@ class AssertQueryBuilder {
   std::shared_ptr<Task> assertResults(
       const std::vector<RowVectorPtr>& expected);
 
+  /// Run the query and test that it returns no results (empty result set).
+  std::shared_ptr<Task> assertEmptyResults();
+
   /// Run the query and ensure it returns batches of `expectedType`, and exactly
   /// `numRows`.
   std::shared_ptr<Task> assertTypeAndNumRows(

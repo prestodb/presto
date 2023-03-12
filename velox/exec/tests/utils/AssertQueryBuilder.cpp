@@ -164,6 +164,12 @@ std::shared_ptr<Task> AssertQueryBuilder::assertResults(
   return cursor->task();
 }
 
+std::shared_ptr<Task> AssertQueryBuilder::assertEmptyResults() {
+  auto [cursor, results] = readCursor();
+  test::assertEmptyResults(results);
+  return cursor->task();
+}
+
 std::shared_ptr<Task> AssertQueryBuilder::assertTypeAndNumRows(
     const TypePtr& expectedType,
     vector_size_t expectedNumRows) {

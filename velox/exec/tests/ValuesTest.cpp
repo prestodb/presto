@@ -41,18 +41,17 @@ class ValuesTest : public OperatorTestBase {
 
 TEST_F(ValuesTest, empty) {
   // Base case: no vectors.
-  AssertQueryBuilder(PlanBuilder().values({}).planNode())
-      .assertResults(std::vector<RowVectorPtr>{});
+  AssertQueryBuilder(PlanBuilder().values({}).planNode()).assertEmptyResults();
 
   // Empty input vector.
   auto emptyInput = makeRowVector({});
   AssertQueryBuilder(PlanBuilder().values({emptyInput}).planNode())
-      .assertResults(std::vector<RowVectorPtr>{});
+      .assertEmptyResults();
 
   // Many empty vectors as input.
   AssertQueryBuilder(
       PlanBuilder().values({emptyInput, emptyInput, emptyInput}).planNode())
-      .assertResults(std::vector<RowVectorPtr>{});
+      .assertEmptyResults();
 }
 
 TEST_F(ValuesTest, simple) {
@@ -91,9 +90,9 @@ TEST_F(ValuesTest, valuesWithRepeat) {
 
   // Zero repeats.
   AssertQueryBuilder(PlanBuilder().values({}, false, 0).planNode())
-      .assertResults(std::vector<RowVectorPtr>{});
+      .assertEmptyResults();
   AssertQueryBuilder(PlanBuilder().values({input_}, false, 0).planNode())
-      .assertResults(std::vector<RowVectorPtr>{});
+      .assertEmptyResults();
 
   // Try repeating with 2 different row vectors.
   AssertQueryBuilder(
