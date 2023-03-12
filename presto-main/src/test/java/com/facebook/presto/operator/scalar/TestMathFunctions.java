@@ -1468,6 +1468,38 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testInverseGammaCdf()
+    {
+        assertFunction("inverse_gamma_cdf(3, 3.6, 0.0)", DOUBLE, 0.0);
+        assertFunction("round(inverse_gamma_cdf(3, 4, 0.99), 3)", DOUBLE, 33.624);
+        assertFunction("round(inverse_gamma_cdf(3, 4, 0.50), 3)", DOUBLE, 10.696);
+        // Gamma with shape 10k/2 and scale 2 is chisquare with df=10k, which is approximatly Normal with mu=10k
+        // Hence, we expect that the quantile will be close to 10k, as we indeed get:
+        assertFunction("round(inverse_gamma_cdf(10000.0/2, 2.0, 0.50), 3)", DOUBLE, 9999.333);
+
+        assertInvalidFunction("inverse_gamma_cdf(0, 3, 0.5)", "shape must be greater than 0");
+        assertInvalidFunction("inverse_gamma_cdf(3, 0, 0.5)", "scale must be greater than 0");
+        assertInvalidFunction("inverse_gamma_cdf(3, 5, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_gamma_cdf(3, 5, 1.1)", "p must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testGammaCdf()
+    {
+        assertFunction("round(gamma_cdf(3.0, 4.0, 0.0), 10)", DOUBLE, 0.0);
+        assertFunction("round(gamma_cdf(3.0, 4.0, 1.0), 3)", DOUBLE, 0.002);
+        assertFunction("round(gamma_cdf(3.0, 4.0, 5.0), 3)", DOUBLE, 0.132);
+        assertFunction("round(gamma_cdf(3.0, 4.0, 10.0), 3)", DOUBLE, 0.456);
+        // Gamma with shape 10k/2 and scale 2 is chisquare with df=10k, which is approximatly Normal with mu=10k
+        // Hence, we expect that the CDF of 10k will be close to 0.5, as we indeed get:
+        assertFunction("round(gamma_cdf(10000.0/2, 2.0, 10000.0), 3)", DOUBLE, 0.502);
+
+        assertInvalidFunction("gamma_cdf(0, 3, 0.5)", "shape must be greater than 0");
+        assertInvalidFunction("gamma_cdf(3, 0, 0.5)", "scale must be greater than 0");
+        assertInvalidFunction("gamma_cdf(3, 5, -0.1)", "value must be greater than, or equal to, 0");
+    }
+
+    @Test
     public void testInverseLaplaceCdf()
     {
         assertFunction("inverse_laplace_cdf(5, 1, 0.5)", DOUBLE, 5.0);
