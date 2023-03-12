@@ -18,62 +18,15 @@
 #include <folly/init/Init.h>
 #include "gtest/gtest.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/connectors/fuzzer/tests/FuzzerConnectorTestBase.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/vector/fuzzer/VectorFuzzer.h"
 
-namespace {
+namespace facebook::velox::connector::fuzzer::test {
 
-using namespace facebook::velox;
-using namespace facebook::velox::connector::fuzzer;
+class FuzzerConnectorTest : public FuzzerConnectorTestBase {};
 
 using facebook::velox::exec::test::PlanBuilder;
-
-class FuzzerConnectorTest : public exec::test::OperatorTestBase {
- public:
-  const std::string kFuzzerConnectorId = "test-fuzzer";
-
-  void SetUp() override {
-    OperatorTestBase::SetUp();
-    auto fuzzerConnector =
-        connector::getConnectorFactory(
-            connector::fuzzer::FuzzerConnectorFactory::kFuzzerConnectorName)
-            ->newConnector(kFuzzerConnectorId, nullptr);
-    connector::registerConnector(fuzzerConnector);
-  }
-
-  void TearDown() override {
-    connector::unregisterConnector(kFuzzerConnectorId);
-    OperatorTestBase::TearDown();
-  }
-
-  exec::Split makeFuzzerSplit(size_t numRows) const {
-    return exec::Split(
-        std::make_shared<FuzzerConnectorSplit>(kFuzzerConnectorId, numRows));
-  }
-
-  std::vector<exec::Split> makeFuzzerSplits(
-      size_t rowsPerSplit,
-      size_t numSplits) const {
-    std::vector<exec::Split> splits;
-    splits.reserve(numSplits);
-
-    for (size_t i = 0; i < numSplits; ++i) {
-      splits.emplace_back(makeFuzzerSplit(rowsPerSplit));
-    }
-    return splits;
-  }
-
-  std::shared_ptr<FuzzerTableHandle> makeFuzzerTableHandle(
-      size_t fuzzerSeed = 0) const {
-    return std::make_shared<FuzzerTableHandle>(
-        kFuzzerConnectorId, fuzzerOptions_, fuzzerSeed);
-  }
-
- private:
-  VectorFuzzer::Options fuzzerOptions_;
-};
 
 TEST_F(FuzzerConnectorTest, singleSplit) {
   const size_t numRows = 100;
@@ -168,7 +121,7 @@ TEST_F(FuzzerConnectorTest, reproducible) {
   exec::test::assertEqualResults({results1}, {results2});
 }
 
-} // namespace
+} // namespace facebook::velox::connector::fuzzer::test
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
