@@ -275,7 +275,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testTimestamp()
     {
-        // TODO timestamp is not correctly read (see comment in StandardReadMappings.timestampReadMapping), but testing this is hard because of #7122
+        // TODO timestamp is not correctly read (see comment in StandardColumnMappings.timestampReadMapping), but testing this is hard because of #7122
     }
 
     @Test
@@ -386,5 +386,24 @@ public class TestPostgreSqlTypeMapping
     private DataSetup postgresCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()), tableNamePrefix);
+    }
+
+    @Test
+    public void testJsonDataType()
+    {
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_json(key varchar(5), json_column json, jsonb_column jsonb)");
+        try {
+            assertQuery(
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_json'",
+                    "VALUES ('key','varchar(5)'),('json_column','json'),('jsonb_column','json')");
+            assertUpdate("INSERT INTO tpch.test_json VALUES ('1', json'{\"x\":123}',json'{\"x\": 123}' )", 1);
+            assertQuery("SELECT * FROM tpch.test_json", "SELECT '1' \"key\", '{\"x\":   123}' json_column, '{\"x\":123}' jsonb_column");
+            assertQuery("SELECT * FROM test_json WHERE json_column = json'{\"x\":123}'", "SELECT '1' \"key\", '{\"x\":   123}' json_column, '{\"x\":123}' jsonb_column");
+            assertUpdate("INSERT INTO test_json VALUES ('1', json'{\"x\":123}',json'{\"x\": 123}' )", 1);
+        }
+        finally {
+            jdbcSqlExecutor.execute("DROP TABLE tpch.test_json");
+        }
     }
 }

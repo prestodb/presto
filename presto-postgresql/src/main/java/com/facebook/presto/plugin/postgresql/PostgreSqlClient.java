@@ -20,11 +20,14 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
+import com.facebook.presto.plugin.jdbc.ColumnMapping;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
-import com.facebook.presto.plugin.jdbc.ReadMapping;
+import com.facebook.presto.plugin.jdbc.SliceWriteFunction;
+import com.facebook.presto.plugin.jdbc.StandardColumnMappings;
+import com.facebook.presto.plugin.jdbc.WriteMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -37,6 +40,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.postgresql.Driver;
+import org.postgresql.util.PGobject;
 
 import javax.inject.Inject;
 
@@ -51,14 +55,15 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.facebook.presto.common.type.UuidType.javaUuidToPrestoUuid;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.uuidWriteFunction;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -104,17 +109,19 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected String toSqlType(Type type)
+    public WriteMapping toWriteMapping(Type type)
     {
         if (VARBINARY.equals(type)) {
-            return "bytea";
+            return WriteMapping.sliceMapping("bytea", StandardColumnMappings.varbinaryWriteFunction());
         }
-
-        return super.toSqlType(type);
+        if (type.getTypeSignature().getBase().equals(StandardTypes.JSON)) {
+            return WriteMapping.sliceMapping("jsonb", jsonWriteFunction());
+        }
+        return super.toWriteMapping(type);
     }
 
     @Override
-    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
         if (typeHandle.getJdbcTypeName().equals("jsonb") || typeHandle.getJdbcTypeName().equals("json")) {
             return Optional.of(jsonColumnMapping());
@@ -156,11 +163,22 @@ public class PostgreSqlClient
         }
     }
 
-    private ReadMapping jsonColumnMapping()
+    private ColumnMapping jsonColumnMapping()
     {
-        return ReadMapping.sliceReadMapping(
+        return ColumnMapping.sliceMapping(
                 jsonType,
-                (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))));
+                (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
+                jsonWriteFunction());
+    }
+
+    private SliceWriteFunction jsonWriteFunction()
+    {
+        return ((statement, index, value) -> {
+            PGobject pgObject = new PGobject();
+            pgObject.setType("json");
+            pgObject.setValue(value.toStringUtf8());
+            statement.setObject(index, pgObject);
+        });
     }
 
     public static Slice jsonParse(Slice slice)
@@ -187,15 +205,11 @@ public class PostgreSqlClient
         return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 
-    private ReadMapping uuidColumnMapping()
+    private ColumnMapping uuidColumnMapping()
     {
-        return ReadMapping.sliceReadMapping(
+        return ColumnMapping.sliceMapping(
                 uuidType,
-                (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)));
-    }
-
-    private static Slice uuidSlice(UUID uuid)
-    {
-        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+                (resultSet, columnIndex) -> javaUuidToPrestoUuid((UUID) resultSet.getObject(columnIndex)),
+                uuidWriteFunction());
     }
 }

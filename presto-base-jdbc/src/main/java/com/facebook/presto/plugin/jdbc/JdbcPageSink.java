@@ -16,48 +16,27 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import org.joda.time.DateTimeZone;
 
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.common.type.Chars.isCharType;
-import static com.facebook.presto.common.type.DateType.DATE;
-import static com.facebook.presto.common.type.Decimals.readBigDecimal;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TinyintType.TINYINT;
-import static com.facebook.presto.common.type.UuidType.prestoUuidToJavaUuid;
-import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.TimeUnit.DAYS;
-import static org.joda.time.chrono.ISOChronology.getInstanceUTC;
 
 public class JdbcPageSink
         implements ConnectorPageSink
@@ -68,6 +47,8 @@ public class JdbcPageSink
     private final PreparedStatement statement;
 
     private final List<Type> columnTypes;
+
+    private final List<WriteFunction> columnWriters;
     private int batchSize;
 
     public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
@@ -89,6 +70,12 @@ public class JdbcPageSink
         }
 
         columnTypes = handle.getColumnTypes();
+        columnWriters = columnTypes.stream().map(type -> {
+            WriteFunction writeFunction = jdbcClient.toWriteMapping(type).getWriteFunction();
+            Verify.verify(type.getJavaType() == writeFunction.getJavaType(),
+                    format("Presto type %s is not compatible with write function %s accepting %s", type, writeFunction, writeFunction.getJavaType()));
+            return writeFunction;
+        }).collect(Collectors.toList());
     }
 
     @Override
@@ -121,56 +108,30 @@ public class JdbcPageSink
             throws SQLException
     {
         Block block = page.getBlock(channel);
-        int parameter = channel + 1;
+        int parameterIndex = channel + 1;
 
         if (block.isNull(position)) {
-            statement.setObject(parameter, null);
+            statement.setObject(parameterIndex, null);
             return;
         }
 
         Type type = columnTypes.get(channel);
-        if (BOOLEAN.equals(type)) {
-            statement.setBoolean(parameter, type.getBoolean(block, position));
+        Class<?> javaType = type.getJavaType();
+        WriteFunction writeFunction = columnWriters.get(channel);
+        if (javaType == boolean.class) {
+            ((BooleanWriteFunction) writeFunction).set(statement, parameterIndex, type.getBoolean(block, position));
         }
-        else if (BIGINT.equals(type)) {
-            statement.setLong(parameter, type.getLong(block, position));
+        else if (javaType == long.class) {
+            ((LongWriteFunction) writeFunction).set(statement, parameterIndex, type.getLong(block, position));
         }
-        else if (INTEGER.equals(type)) {
-            statement.setInt(parameter, toIntExact(type.getLong(block, position)));
+        else if (javaType == double.class) {
+            ((DoubleWriteFunction) writeFunction).set(statement, parameterIndex, type.getDouble(block, position));
         }
-        else if (SMALLINT.equals(type)) {
-            statement.setShort(parameter, Shorts.checkedCast(type.getLong(block, position)));
-        }
-        else if (TINYINT.equals(type)) {
-            statement.setByte(parameter, SignedBytes.checkedCast(type.getLong(block, position)));
-        }
-        else if (DOUBLE.equals(type)) {
-            statement.setDouble(parameter, type.getDouble(block, position));
-        }
-        else if (REAL.equals(type)) {
-            statement.setFloat(parameter, intBitsToFloat(toIntExact(type.getLong(block, position))));
-        }
-        else if (type instanceof DecimalType) {
-            statement.setBigDecimal(parameter, readBigDecimal((DecimalType) type, block, position));
-        }
-        else if (isVarcharType(type) || isCharType(type)) {
-            statement.setString(parameter, type.getSlice(block, position).toStringUtf8());
-        }
-        else if (VARBINARY.equals(type)) {
-            statement.setBytes(parameter, type.getSlice(block, position).getBytes());
-        }
-        else if (DATE.equals(type)) {
-            // convert to midnight in default time zone
-            long utcMillis = DAYS.toMillis(type.getLong(block, position));
-            long localMillis = getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
-            statement.setDate(parameter, new Date(localMillis));
-        }
-        else if (UuidType.UUID.equals(type)) {
-            Slice slice = type.getSlice(block, position);
-            statement.setObject(parameter, prestoUuidToJavaUuid(slice));
+        else if (javaType == Slice.class) {
+            ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, type.getSlice(block, position));
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+            ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, type.getObject(block, position));
         }
     }
 

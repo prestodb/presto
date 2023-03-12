@@ -62,15 +62,22 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TimeType.TIME;
-import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.jdbcTypeToPrestoType;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.jdbcTypeToPrestoType;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.uuidWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -93,22 +100,17 @@ public class BaseJdbcClient
         implements JdbcClient
 {
     private static final Logger log = Logger.get(BaseJdbcClient.class);
-
-    private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
-            .put(BOOLEAN, "boolean")
-            .put(BIGINT, "bigint")
-            .put(INTEGER, "integer")
-            .put(SMALLINT, "smallint")
-            .put(TINYINT, "tinyint")
-            .put(DOUBLE, "double precision")
-            .put(REAL, "real")
-            .put(VARBINARY, "varbinary")
-            .put(DATE, "date")
-            .put(TIME, "time")
-            .put(TIME_WITH_TIME_ZONE, "time with timezone")
-            .put(TIMESTAMP, "timestamp")
-            .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with timezone")
-            .put(UuidType.UUID, "uuid")
+    private static final Map<Type, WriteMapping> WRITE_MAPPING_MAP = ImmutableMap.<Type, WriteMapping>builder()
+            .put(BOOLEAN, WriteMapping.booleanMapping("boolean", booleanWriteFunction()))
+            .put(BIGINT, WriteMapping.longMapping("bigint", bigintWriteFunction()))
+            .put(INTEGER, WriteMapping.longMapping("integer", integerWriteFunction()))
+            .put(SMALLINT, WriteMapping.longMapping("smallint", smallintWriteFunction()))
+            .put(TINYINT, WriteMapping.longMapping("tinyint", tinyintWriteFunction()))
+            .put(DOUBLE, WriteMapping.doubleMapping("double precision", doubleWriteFunction()))
+            .put(REAL, WriteMapping.longMapping("real", realWriteFunction()))
+            .put(VARBINARY, WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction()))
+            .put(DATE, WriteMapping.longMapping("date", dateWriteFunction()))
+            .put(UuidType.UUID, WriteMapping.sliceMapping("uuid", uuidWriteFunction()))
             .build();
 
     protected final String connectorId;
@@ -239,7 +241,7 @@ public class BaseJdbcClient
                             resultSet.getString("TYPE_NAME"),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"));
-                    Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);
+                    Optional<ColumnMapping> columnMapping = toPrestoType(session, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -261,7 +263,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
         return jdbcTypeToPrestoType(typeHandle);
     }
@@ -372,6 +374,7 @@ public class BaseJdbcClient
                 }
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
+                // TODO in INSERT case, we should reuse original column type and, ideally, constraints (then JdbcPageSink must get writer from toPrestoType())
                 columnList.add(getColumnString(column, columnName));
             }
 
@@ -397,7 +400,7 @@ public class BaseJdbcClient
         StringBuilder sb = new StringBuilder()
                 .append(quoted(columnName))
                 .append(" ")
-                .append(toSqlType(column.getType()));
+                .append(toWriteMapping(column.getType()).getDataType());
         if (!column.isNullable()) {
             sb.append(" NOT NULL");
         }
@@ -731,28 +734,41 @@ public class BaseJdbcClient
         }
     }
 
-    protected String toSqlType(Type type)
+    public WriteMapping toWriteMapping(Type type)
     {
+        String dataType;
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
             if (varcharType.isUnbounded()) {
-                return "varchar";
+                dataType = "varchar";
             }
-            return "varchar(" + varcharType.getLengthSafe() + ")";
+            else {
+                dataType = "varchar(" + varcharType.getLengthSafe() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
         if (type instanceof CharType) {
-            if (((CharType) type).getLength() == CharType.MAX_LENGTH) {
-                return "char";
+            CharType charType = (CharType) type;
+            if (charType.getLength() == CharType.MAX_LENGTH) {
+                dataType = "char";
             }
-            return "char(" + ((CharType) type).getLength() + ")";
+            else {
+                dataType = "char(" + ((CharType) type).getLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, StandardColumnMappings.charWriteFunction(charType));
         }
         if (type instanceof DecimalType) {
-            return format("decimal(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
+            DecimalType decimalType = (DecimalType) type;
+            dataType = format("decimal(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, StandardColumnMappings.shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.sliceMapping(dataType, StandardColumnMappings.longDecimalWriteFunction(decimalType));
         }
 
-        String sqlType = SQL_TYPES.get(type);
-        if (sqlType != null) {
-            return sqlType;
+        WriteMapping writeMapping = WRITE_MAPPING_MAP.get(type);
+        if (writeMapping != null) {
+            return writeMapping;
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
