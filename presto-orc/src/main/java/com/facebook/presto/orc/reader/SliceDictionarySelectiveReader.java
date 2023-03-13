@@ -680,7 +680,8 @@ public class SliceDictionarySelectiveReader
                 sizeOf(rowGroupDictionaryLength) +
                 sizeOf(evaluationStatus) +
                 sizeOf(valueWithPadding) +
-                dictionary.getRetainedSizeInBytes();
+                dictionary.getRetainedSizeInBytes() +
+                ((rowGroupFilter != null) ? rowGroupFilter.getRetainedSizeInBytes() : 0);
     }
 
     @VisibleForTesting

@@ -664,7 +664,7 @@ public class SliceDirectSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(offsets) + sizeOf(outputPositions) + sizeOf(data) + sizeOf(nulls) + sizeOf(lengthVector) + sizeOf(isNullVector);
+        return INSTANCE_SIZE + sizeOf(offsets) + sizeOf(outputPositions) + sizeOf(data) + sizeOf(nulls) + sizeOf(lengthVector) + sizeOf(isNullVector) + ((rowGroupFilter != null) ? rowGroupFilter.getRetainedSizeInBytes() : 0);
     }
 
     @VisibleForTesting

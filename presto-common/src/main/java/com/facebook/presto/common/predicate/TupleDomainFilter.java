@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.common.predicate;
 
+import org.openjdk.jol.info.ClassLayout;
+
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
@@ -22,6 +24,7 @@ import static com.facebook.presto.common.array.ByteArrayUtils.compareRanges;
 import static com.facebook.presto.common.array.ByteArrayUtils.hash;
 import static com.facebook.presto.common.predicate.TupleDomainFilterUtils.checkArgument;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.compare;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -97,6 +100,8 @@ public interface TupleDomainFilter
      * non-zero values
      */
     boolean isPositionalFilter();
+
+    long getRetainedSizeInBytes();
 
     abstract class AbstractTupleDomainFilter
             implements TupleDomainFilter
@@ -187,11 +192,25 @@ public interface TupleDomainFilter
         {
             return false;
         }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return 0;
+        }
     }
 
     class AlwaysFalse
             extends AbstractTupleDomainFilter
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(AlwaysFalse.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
+        }
+
         private AlwaysFalse()
         {
             super(true, false);
@@ -255,6 +274,14 @@ public interface TupleDomainFilter
     class IsNull
             extends AbstractTupleDomainFilter
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(IsNull.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
+        }
+
         private IsNull()
         {
             super(true, true);
@@ -318,6 +345,14 @@ public interface TupleDomainFilter
     class IsNotNull
             extends AbstractTupleDomainFilter
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(IsNotNull.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
+        }
+
         private IsNotNull()
         {
             super(true, false);
@@ -381,7 +416,14 @@ public interface TupleDomainFilter
     class BooleanValue
             extends AbstractTupleDomainFilter
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanValue.class).instanceSize();
         private final boolean value;
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
+        }
 
         private BooleanValue(boolean value, boolean nullAllowed)
         {
@@ -437,8 +479,15 @@ public interface TupleDomainFilter
     class BigintRange
             extends AbstractTupleDomainFilter
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintRange.class).instanceSize();
         private final long lower;
         private final long upper;
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
+        }
 
         protected BigintRange(long lower, long upper, boolean nullAllowed)
         {
@@ -513,6 +562,7 @@ public interface TupleDomainFilter
     class BigintValuesUsingHashTable
             extends AbstractTupleDomainFilter
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintValuesUsingHashTable.class).instanceSize();
         private static final long EMPTY_MARKER = 0xdeadbeefbadefeedL;
         // from Murmur hash
         private static final long M = 0xc6a4a7935bd1e995L;
@@ -522,6 +572,12 @@ public interface TupleDomainFilter
         private final long[] hashTable;
         private final int size;
         private boolean containsEmptyMarker;
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(hashTable);
+        }
 
         private BigintValuesUsingHashTable(long min, long max, long[] values, boolean nullAllowed)
         {
@@ -623,9 +679,16 @@ public interface TupleDomainFilter
     class BigintValuesUsingBitmask
             extends AbstractTupleDomainFilter
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintValuesUsingBitmask.class).instanceSize();
         private final BitSet bitmask;
         private final long min;
         private final long max;
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + (bitmask.size() / 8);
+        }
 
         private BigintValuesUsingBitmask(long min, long max, long[] values, boolean nullAllowed)
         {
@@ -705,6 +768,14 @@ public interface TupleDomainFilter
         protected final boolean upperUnbounded;
         protected final boolean upperExclusive;
 
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractRange.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
+        }
+
         private AbstractRange(boolean lowerUnbounded, boolean lowerExclusive, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
             super(true, nullAllowed);
@@ -740,6 +811,14 @@ public interface TupleDomainFilter
     {
         private final double lower;
         private final double upper;
+
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleRange.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
+        }
 
         protected DoubleRange(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
@@ -840,6 +919,14 @@ public interface TupleDomainFilter
         private final float lower;
         private final float upper;
 
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatRange.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
+        }
+
         private FloatRange(float lower, boolean lowerUnbounded, boolean lowerExclusive, float upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
             super(lowerUnbounded, lowerExclusive, upperUnbounded, upperExclusive, nullAllowed);
@@ -930,6 +1017,14 @@ public interface TupleDomainFilter
         private final long lowerHigh;
         private final long upperLow;
         private final long upperHigh;
+
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDecimalRange.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
+        }
 
         private LongDecimalRange(long lowerLow, long lowerHigh, boolean lowerUnbounded, boolean lowerExclusive, long upperLow, long upperHigh, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
@@ -1025,6 +1120,14 @@ public interface TupleDomainFilter
         private final boolean lowerExclusive;
         private final boolean upperExclusive;
         private final boolean singleValue;
+
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BytesRange.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(lower) + sizeOf(upper);
+        }
 
         private BytesRange(byte[] lower, boolean lowerExclusive, byte[] upper, boolean upperExclusive, boolean nullAllowed)
         {
@@ -1137,6 +1240,14 @@ public interface TupleDomainFilter
         private final int bloomSize;
         // Contains true in position i if at least one of the values has length i.
         private final boolean[] lengthExists;
+
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BytesValues.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(values) + sizeOf(hashTable) + sizeOf(bloom) + sizeOf(lengthExists);
+        }
 
         private BytesValues(byte[][] values, boolean nullAllowed)
         {
@@ -1261,6 +1372,14 @@ public interface TupleDomainFilter
     {
         private final BytesValues delegate;
 
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BytesValuesExclusive.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + delegate.getRetainedSizeInBytes();
+        }
+
         private BytesValuesExclusive(byte[][] values, boolean nullAllowed)
         {
             super(true, nullAllowed);
@@ -1326,6 +1445,14 @@ public interface TupleDomainFilter
     {
         private final BigintRange[] ranges;
         private final long[] longLowerBounds;
+
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintMultiRange.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(longLowerBounds) + ranges.length * (long) ClassLayout.parseClass(BigintRange.class).instanceSize();
+        }
 
         private BigintMultiRange(List<BigintRange> ranges, boolean nullAllowed)
         {
@@ -1403,6 +1530,18 @@ public interface TupleDomainFilter
     {
         private final TupleDomainFilter[] filters;
         private final boolean nanAllowed;
+
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiRange.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            long filterRetainedSize = 0;
+            for (TupleDomainFilter filter : filters) {
+                filterRetainedSize += filter.getRetainedSizeInBytes();
+            }
+            return INSTANCE_SIZE + filterRetainedSize;
+        }
 
         private MultiRange(List<TupleDomainFilter> filters, boolean nullAllowed, boolean nanAllowed)
         {
@@ -1540,6 +1679,14 @@ public interface TupleDomainFilter
         // populated on first failure within a top-level position
         private int succeedingPositionsToFail;
 
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BasePositionalFilter.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(offsets) + sizeOf(failed);
+        }
+
         @Override
         public boolean isDeterministic()
         {
@@ -1614,6 +1761,24 @@ public interface TupleDomainFilter
     {
         // Filters for individual positions being read; some may be null
         private TupleDomainFilter[] filters;
+
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(PositionalFilter.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            long filterRetainedSize = 0;
+
+            if (filters != null) {
+                for (TupleDomainFilter filter : filters) {
+                    if (filter != null) {
+                        filterRetainedSize += filter.getRetainedSizeInBytes();
+                    }
+                }
+            }
+
+            return INSTANCE_SIZE + sizeOf(offsets) + filterRetainedSize;
+        }
 
         public void setFilters(TupleDomainFilter[] filters, int[] offsets)
         {
@@ -1727,6 +1892,14 @@ public interface TupleDomainFilter
     {
         private boolean[] nullsAllowed;
         private boolean[] nonNullsAllowed;
+
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(PositionalFilter.class).instanceSize();
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(offsets) + sizeOf(nullsAllowed) + sizeOf(nonNullsAllowed);
+        }
 
         public void setup(boolean[] nullsAllowed, boolean[] nonNullsAllowed, int[] offsets)
         {

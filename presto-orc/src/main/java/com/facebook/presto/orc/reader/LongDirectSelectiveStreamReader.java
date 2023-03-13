@@ -367,6 +367,6 @@ public class LongDirectSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + super.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + super.getRetainedSizeInBytes() + ((rowGroupFilter != null) ? rowGroupFilter.getRetainedSizeInBytes() : 0);
     }
 }
