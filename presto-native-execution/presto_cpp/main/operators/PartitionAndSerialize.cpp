@@ -102,10 +102,10 @@ class PartitionAndSerializeOperator : public Operator {
  private:
   void computePartitions(FlatVector<int32_t>& partitionsVector) {
     auto numInput = input_->size();
+    partitions_.resize(numInput);
     if (numPartitions_ == 1) {
       std::fill(partitions_.begin(), partitions_.end(), 0);
     } else {
-      partitions_.resize(numInput);
       partitionFunction_->partition(*input_, partitions_);
     }
 
