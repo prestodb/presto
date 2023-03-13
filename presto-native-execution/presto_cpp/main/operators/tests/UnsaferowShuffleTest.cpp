@@ -74,11 +74,10 @@ class TestShuffleWriter : public ShuffleWriter {
 
   void collect(int32_t partition, std::string_view data) override {
     auto& buffer = inProgressPartitions_[partition];
+    auto size = data.size();
 
     // Check if there is enough space in the buffer.
-    if (buffer &&
-        inProgressSizes_[partition] + data.size() + sizeof(size_t) >=
-            maxBytesPerPartition_) {
+    if (buffer && inProgressSizes_[partition] + size >= maxBytesPerPartition_) {
       buffer->setSize(inProgressSizes_[partition]);
       (*readyPartitions_)[partition].emplace_back(std::move(buffer));
       inProgressPartitions_[partition].reset();
@@ -96,12 +95,9 @@ class TestShuffleWriter : public ShuffleWriter {
     auto rawBuffer = buffer->asMutable<char>();
     auto offset = inProgressSizes_[partition];
 
-    *(size_t*)(rawBuffer + offset) = data.size();
+    ::memcpy(rawBuffer + offset, data.data(), size);
 
-    offset += sizeof(size_t);
-    ::memcpy(rawBuffer + offset, data.data(), data.size());
-
-    inProgressSizes_[partition] += sizeof(size_t) + data.size();
+    inProgressSizes_[partition] += size;
   }
 
   void noMoreData(bool success) override {
@@ -355,18 +351,13 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
 
     // Allocate the block. Add an extra sizeof(size_t) bytes for each row to
     // hold row size.
-    BufferPtr buffer = AlignedBuffer::allocate<char>(
-        totalSize + sizeof(size_t) * serializedData->size(), pool());
+    BufferPtr buffer = AlignedBuffer::allocate<char>(totalSize, pool());
     auto rawBuffer = buffer->asMutable<char>();
 
     // Copy data.
     size_t offset = 0;
     for (auto i = 0; i < serializedData->size(); ++i) {
       auto value = serializedData->valueAt(i);
-
-      *(size_t*)(rawBuffer + offset) = value.size();
-      offset += sizeof(size_t);
-
       memcpy(rawBuffer + offset, value.data(), value.size());
       offset += value.size();
     }

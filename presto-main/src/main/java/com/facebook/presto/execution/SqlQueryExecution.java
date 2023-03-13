@@ -46,11 +46,9 @@ import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.Optimizer;
-import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.OutputExtractor;
@@ -149,7 +147,6 @@ public class SqlQueryExecution
             String slug,
             int retryCount,
             Metadata metadata,
-            AccessControl accessControl,
             SqlParser sqlParser,
             SplitManager splitManager,
             List<PlanOptimizer> planOptimizers,
@@ -161,12 +158,10 @@ public class SqlQueryExecution
             ScheduledExecutorService timeoutThreadExecutor,
             SectionExecutionFactory sectionExecutionFactory,
             InternalNodeManager internalNodeManager,
-            QueryExplainer queryExplainer,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            WarningCollector warningCollector,
             PlanChecker planChecker,
             PartialResultQueryManager partialResultQueryManager,
             PlanCanonicalInfoProvider planCanonicalInfoProvider)
@@ -841,14 +836,12 @@ public class SqlQueryExecution
     {
         private final SplitSchedulerStats schedulerStats;
         private final Metadata metadata;
-        private final AccessControl accessControl;
         private final SqlParser sqlParser;
         private final SplitManager splitManager;
         private final List<PlanOptimizer> planOptimizers;
         private final List<PlanOptimizer> runtimePlanOptimizers;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
-        private final QueryExplainer queryExplainer;
         private final LocationFactory locationFactory;
         private final ScheduledExecutorService timeoutThreadExecutor;
         private final ExecutorService queryExecutor;
@@ -865,7 +858,6 @@ public class SqlQueryExecution
         SqlQueryExecutionFactory(
                 QueryManagerConfig config,
                 Metadata metadata,
-                AccessControl accessControl,
                 SqlParser sqlParser,
                 LocationFactory locationFactory,
                 SplitManager splitManager,
@@ -876,7 +868,6 @@ public class SqlQueryExecution
                 @ForTimeoutThread ScheduledExecutorService timeoutThreadExecutor,
                 SectionExecutionFactory sectionExecutionFactory,
                 InternalNodeManager internalNodeManager,
-                QueryExplainer queryExplainer,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
                 StatsCalculator statsCalculator,
@@ -888,7 +879,6 @@ public class SqlQueryExecution
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -899,7 +889,6 @@ public class SqlQueryExecution
             this.timeoutThreadExecutor = requireNonNull(timeoutThreadExecutor, "timeoutThreadExecutor is null");
             this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
             this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
-            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
             this.planOptimizers = planOptimizers.getPlanningTimeOptimizers();
             this.runtimePlanOptimizers = planOptimizers.getRuntimeOptimizers();
@@ -931,7 +920,6 @@ public class SqlQueryExecution
                     slug,
                     retryCount,
                     metadata,
-                    accessControl,
                     sqlParser,
                     splitManager,
                     planOptimizers,
@@ -943,12 +931,10 @@ public class SqlQueryExecution
                     timeoutThreadExecutor,
                     sectionExecutionFactory,
                     internalNodeManager,
-                    queryExplainer,
                     executionPolicy,
                     schedulerStats,
                     statsCalculator,
                     costCalculator,
-                    warningCollector,
                     planChecker,
                     partialResultQueryManager,
                     historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider());

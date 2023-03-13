@@ -67,7 +67,7 @@ public class TestJdbcRecordSetProvider
         jdbcClient = database.getJdbcClient();
         split = database.getSplit("example", "numbers");
 
-        table = jdbcClient.getTableHandle(IDENTITY, new SchemaTableName("example", "numbers"));
+        table = jdbcClient.getTableHandle(SESSION, IDENTITY, new SchemaTableName("example", "numbers"));
 
         Map<String, JdbcColumnHandle> columns = database.getColumnHandles("example", "numbers");
         textColumn = columns.get("text");
@@ -182,7 +182,7 @@ public class TestJdbcRecordSetProvider
     private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
     {
         JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(SESSION.getSqlFunctionProperties(), jdbcTableHandle, domain, Optional.empty());
-        ConnectorSplitSource splits = jdbcClient.getSplits(IDENTITY, layoutHandle);
+        ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, IDENTITY, layoutHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();

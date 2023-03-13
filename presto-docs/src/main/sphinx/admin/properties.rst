@@ -737,6 +737,24 @@ Optimizer Properties
     .. warning:: The number of possible join orders scales factorially with the number of relations,
                  so increasing this value can cause serious performance issues.
 
+``optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Aggregations can sometimes be pushed below outer joins (see optimizer.push-aggregation-through-join).
+    In general, aggregate functions have custom null-handling behavior. In order to correctly process the
+    null padded rows that may be produced by the outer join, the optimizer introduces a subsequent cross
+    join with corresponding aggregations over a single null value and then coalesces the aggregations
+    from the join output with these null aggregated values.
+
+    For certain aggregate functions (those that ignore nulls, ``COUNT``, etc) the cross join may be
+    avoided and the default/known aggregate value over ``NULL`` may be coalesced  directly with the aggregate
+    outputs of the join. This optimization eliminates the cross join, may convert the outer join into an inner
+    join and thereby produces more optimal plans.
+
+
 Planner Properties
 --------------------------------------
 

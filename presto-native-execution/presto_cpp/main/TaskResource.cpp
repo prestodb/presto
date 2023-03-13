@@ -175,7 +175,7 @@ proxygen::RequestHandler* TaskResource::abortResults(
     proxygen::HTTPMessage* /*message*/,
     const std::vector<std::string>& pathMatch) {
   protocol::TaskId taskId = pathMatch[1];
-  long bufferId = std::stol(pathMatch[2]);
+  long bufferId = folly::to<long>(pathMatch[2]);
   return new http::CallbackRequestHandler(
       [this, taskId, bufferId](
           proxygen::HTTPMessage* /*message*/,
@@ -195,8 +195,8 @@ proxygen::RequestHandler* TaskResource::acknowledgeResults(
     proxygen::HTTPMessage* /*message*/,
     const std::vector<std::string>& pathMatch) {
   protocol::TaskId taskId = pathMatch[1];
-  long bufferId = std::stol(pathMatch[2]);
-  long token = std::stol(pathMatch[3]);
+  long bufferId = folly::to<long>(pathMatch[2]);
+  long token = folly::to<long>(pathMatch[3]);
 
   return new http::CallbackRequestHandler(
       [this, taskId, bufferId, token](
@@ -387,8 +387,8 @@ proxygen::RequestHandler* TaskResource::getResults(
     proxygen::HTTPMessage* message,
     const std::vector<std::string>& pathMatch) {
   protocol::TaskId taskId = pathMatch[1];
-  long bufferId = std::stol(pathMatch[2]);
-  long token = std::stol(pathMatch[3]);
+  long bufferId = folly::to<long>(pathMatch[2]);
+  long token = folly::to<long>(pathMatch[3]);
 
   auto& headers = message->getHeaders();
   auto maxSize = protocol::DataSize(
