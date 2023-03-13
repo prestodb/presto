@@ -447,7 +447,7 @@ template <
     typename TIntermediateInput,
     typename TIntermediateResult,
     typename TResultAccessor>
-bool registerCovarianceAggregate(const std::string& name) {
+bool registerCovariance(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures = {
       // (double, double) -> double
       exec::AggregateFunctionSignatureBuilder()
@@ -499,22 +499,22 @@ bool registerCovarianceAggregate(const std::string& name) {
 
 } // namespace
 
-void registerCovarianceAggregates() {
-  registerCovarianceAggregate<
+void registerCovarianceAggregates(const std::string& prefix) {
+  registerCovariance<
       CovarAccumulator,
       CovarIntermediateInput,
       CovarIntermediateResult,
-      CovarPopResultAccessor>(kCovarPop);
-  registerCovarianceAggregate<
+      CovarPopResultAccessor>(prefix + kCovarPop);
+  registerCovariance<
       CovarAccumulator,
       CovarIntermediateInput,
       CovarIntermediateResult,
-      CovarSampResultAccessor>(kCovarSamp);
-  registerCovarianceAggregate<
+      CovarSampResultAccessor>(prefix + kCovarSamp);
+  registerCovariance<
       CorrAccumulator,
       CorrIntermediateInput,
       CorrIntermediateResult,
-      CorrResultAccessor>(kCorr);
+      CorrResultAccessor>(prefix + kCorr);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

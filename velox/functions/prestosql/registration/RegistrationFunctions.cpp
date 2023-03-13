@@ -16,88 +16,91 @@
 #include <string>
 
 namespace facebook::velox::functions {
-// TODO: move functions that are not shared with spark to prestosql and avoid
-// the indirection here.
-extern void registerArithmeticFunctions();
-extern void registerCheckedArithmeticFunctions();
-extern void registerComparisonFunctions();
-extern void registerArrayFunctions();
-extern void registerMapFunctions();
-extern void registerJsonFunctions();
-extern void registerHyperLogFunctions();
-extern void registerGeneralFunctions();
-extern void registerDateTimeFunctions();
-extern void registerURLFunctions();
-extern void registerStringFunctions();
-extern void registerBitwiseFunctions();
-extern void registerMapAllowingDuplicates(const std::string& name);
+
+extern void registerArithmeticFunctions(const std::string& prefix);
+extern void registerArrayFunctions(const std::string& prefix);
+extern void registerBitwiseFunctions(const std::string& prefix);
+extern void registerCheckedArithmeticFunctions(const std::string& prefix);
+extern void registerComparisonFunctions(const std::string& prefix);
+extern void registerDateTimeFunctions(const std::string& prefix);
+extern void registerGeneralFunctions(const std::string& prefix);
+extern void registerHyperLogFunctions(const std::string& prefix);
+extern void registerJsonFunctions(const std::string& prefix);
+extern void registerMapFunctions(const std::string& prefix);
+extern void registerStringFunctions(const std::string& prefix);
+extern void registerURLFunctions(const std::string& prefix);
+extern void registerMapAllowingDuplicates(
+    const std::string& name,
+    const std::string& prefix);
 
 namespace prestosql {
-void registerArithmeticFunctions() {
-  functions::registerArithmeticFunctions();
+void registerArithmeticFunctions(const std::string& prefix) {
+  functions::registerArithmeticFunctions(prefix);
 }
 
-void registerCheckedArithmeticFunctions() {
-  functions::registerCheckedArithmeticFunctions();
+void registerCheckedArithmeticFunctions(const std::string& prefix) {
+  functions::registerCheckedArithmeticFunctions(prefix);
 }
 
-void registerComparisonFunctions() {
-  functions::registerComparisonFunctions();
+void registerComparisonFunctions(const std::string& prefix) {
+  functions::registerComparisonFunctions(prefix);
 }
 
-void registerArrayFunctions() {
-  functions::registerArrayFunctions();
+void registerArrayFunctions(const std::string& prefix) {
+  functions::registerArrayFunctions(prefix);
 }
 
-void registerMapFunctions() {
-  functions::registerMapFunctions();
+void registerMapFunctions(const std::string& prefix) {
+  functions::registerMapFunctions(prefix);
 }
 
-void registerJsonFunctions() {
-  functions::registerJsonFunctions();
+void registerJsonFunctions(const std::string& prefix) {
+  functions::registerJsonFunctions(prefix);
 }
 
-void registerHyperLogFunctions() {
-  functions::registerHyperLogFunctions();
+void registerHyperLogFunctions(const std::string& prefix) {
+  functions::registerHyperLogFunctions(prefix);
 }
 
-void registerGeneralFunctions() {
-  functions::registerGeneralFunctions();
+void registerGeneralFunctions(const std::string& prefix) {
+  functions::registerGeneralFunctions(prefix);
 }
 
-void registerDateTimeFunctions() {
-  functions::registerDateTimeFunctions();
+void registerDateTimeFunctions(const std::string& prefix) {
+  functions::registerDateTimeFunctions(prefix);
 }
 
-void registerURLFunctions() {
-  functions::registerURLFunctions();
+void registerURLFunctions(const std::string& prefix) {
+  functions::registerURLFunctions(prefix);
 }
 
-void registerStringFunctions() {
-  functions::registerStringFunctions();
+void registerStringFunctions(const std::string& prefix) {
+  functions::registerStringFunctions(prefix);
 }
 
-void registerBitwiseFunctions() {
-  functions::registerBitwiseFunctions();
+void registerBitwiseFunctions(const std::string& prefix) {
+  functions::registerBitwiseFunctions(prefix);
 }
 
-void registerAllScalarFunctions() {
-  registerArithmeticFunctions();
-  registerCheckedArithmeticFunctions();
-  registerComparisonFunctions();
-  registerMapFunctions();
-  registerArrayFunctions();
-  registerJsonFunctions();
-  registerHyperLogFunctions();
-  registerGeneralFunctions();
-  registerDateTimeFunctions();
-  registerURLFunctions();
-  registerStringFunctions();
-  registerBitwiseFunctions();
+void registerAllScalarFunctions(const std::string& prefix) {
+  registerArithmeticFunctions(prefix);
+  registerCheckedArithmeticFunctions(prefix);
+  registerComparisonFunctions(prefix);
+  registerMapFunctions(prefix);
+  registerArrayFunctions(prefix);
+  registerJsonFunctions(prefix);
+  registerHyperLogFunctions(prefix);
+  registerGeneralFunctions(prefix);
+  registerDateTimeFunctions(prefix);
+  registerURLFunctions(prefix);
+  registerStringFunctions(prefix);
+  registerBitwiseFunctions(prefix);
 }
 
-void registerMapAllowingDuplicates(const std::string& name) {
-  functions::registerMapAllowingDuplicates(name);
+void registerMapAllowingDuplicates(
+    const std::string& name,
+    const std::string& prefix) {
+  functions::registerMapAllowingDuplicates(name, prefix);
 }
 } // namespace prestosql
 

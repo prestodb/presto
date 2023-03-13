@@ -17,31 +17,33 @@
 #include <string>
 
 namespace facebook::velox::functions::prestosql {
-void registerArithmeticFunctions();
+void registerArithmeticFunctions(const std::string& prefix = "");
 
-void registerCheckedArithmeticFunctions();
+void registerCheckedArithmeticFunctions(const std::string& prefix = "");
 
-void registerComparisonFunctions();
+void registerComparisonFunctions(const std::string& prefix = "");
 
-void registerArrayFunctions();
+void registerArrayFunctions(const std::string& prefix = "");
 
-void registerMapFunctions();
+void registerMapFunctions(const std::string& prefix = "");
 
-void registerJsonFunctions();
+void registerJsonFunctions(const std::string& prefix = "");
 
-void registerHyperLogFunctions();
+void registerHyperLogFunctions(const std::string& prefix = "");
 
-void registerGeneralFunctions();
+void registerGeneralFunctions(const std::string& prefix = "");
 
-void registerDateTimeFunctions();
+void registerDateTimeFunctions(const std::string& prefix = "");
 
-void registerURLFunctions();
+void registerURLFunctions(const std::string& prefix = "");
 
-void registerStringFunctions();
+void registerStringFunctions(const std::string& prefix = "");
 
-void registerBitwiseFunctions();
+void registerBitwiseFunctions(const std::string& prefix = "");
 
-void registerAllScalarFunctions();
+void registerAllScalarFunctions(const std::string& prefix = "");
 
-void registerMapAllowingDuplicates(const std::string& name);
+void registerMapAllowingDuplicates(
+    const std::string& name,
+    const std::string& prefix = "");
 } // namespace facebook::velox::functions::prestosql

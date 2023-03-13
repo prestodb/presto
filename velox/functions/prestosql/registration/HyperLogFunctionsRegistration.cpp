@@ -18,13 +18,15 @@
 
 namespace facebook::velox::functions {
 
-void registerHyperLogFunctions() {
+void registerHyperLogFunctions(const std::string& prefix) {
   registerHyperLogLogType();
 
-  registerFunction<CardinalityFunction, int64_t, HyperLogLog>({"cardinality"});
+  registerFunction<CardinalityFunction, int64_t, HyperLogLog>(
+      {prefix + "cardinality"});
 
   registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(
-      {"empty_approx_set"});
-  registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
+      {prefix + "empty_approx_set"});
+  registerFunction<EmptyApproxSetFunction, HyperLogLog>(
+      {prefix + "empty_approx_set"});
 }
 } // namespace facebook::velox::functions

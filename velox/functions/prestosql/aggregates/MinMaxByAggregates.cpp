@@ -645,7 +645,7 @@ std::unique_ptr<exec::Aggregate> create(
 }
 
 template <template <typename U, typename V> class Aggregate>
-bool registerMinMaxByAggregate(const std::string& name) {
+bool registerMinMaxBy(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto& valueType :
        {"tinyint",
@@ -746,9 +746,9 @@ bool registerMinMaxByAggregate(const std::string& name) {
 
 } // namespace
 
-void registerMinMaxByAggregates() {
-  registerMinMaxByAggregate<MaxByAggregate>(kMaxBy);
-  registerMinMaxByAggregate<MinByAggregate>(kMinBy);
+void registerMinMaxByAggregates(const std::string& prefix) {
+  registerMinMaxBy<MaxByAggregate>(prefix + kMaxBy);
+  registerMinMaxBy<MinByAggregate>(prefix + kMinBy);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

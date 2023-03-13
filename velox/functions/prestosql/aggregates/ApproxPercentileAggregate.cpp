@@ -798,8 +798,8 @@ bool registerApproxPercentile(const std::string& name) {
 
 } // namespace
 
-void registerApproxPercentileAggregate() {
-  registerApproxPercentile(kApproxPercentile);
+void registerApproxPercentileAggregate(const std::string& prefix) {
+  registerApproxPercentile(prefix + kApproxPercentile);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

@@ -169,7 +169,7 @@ class ArrayAggAggregate : public exec::Aggregate {
   DecodedVector decodedIntermediate_;
 };
 
-bool registerArrayAggregate(const std::string& name) {
+bool registerArray(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("E")
@@ -194,8 +194,8 @@ bool registerArrayAggregate(const std::string& name) {
 
 } // namespace
 
-void registerArrayAggregate() {
-  registerArrayAggregate(kArrayAgg);
+void registerArrayAggregate(const std::string& prefix) {
+  registerArray(prefix + kArrayAgg);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

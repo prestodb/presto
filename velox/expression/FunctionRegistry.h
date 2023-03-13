@@ -88,6 +88,11 @@ class FunctionRegistry {
     return result;
   }
 
+  /// Used only in the unit tests.
+  void testingClear() {
+    registeredFunctions_.clear();
+  }
+
   std::vector<const FunctionSignature*> getFunctionSignatures(
       const std::string& name) const {
     std::vector<const FunctionSignature*> signatures;

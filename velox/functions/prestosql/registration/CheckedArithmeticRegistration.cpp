@@ -19,13 +19,13 @@
 
 namespace facebook::velox::functions {
 
-void registerCheckedArithmeticFunctions() {
-  registerBinaryIntegral<CheckedPlusFunction>({"plus"});
-  registerBinaryIntegral<CheckedMinusFunction>({"minus"});
-  registerBinaryIntegral<CheckedMultiplyFunction>({"multiply"});
-  registerBinaryIntegral<CheckedModulusFunction>({"mod"});
-  registerBinaryIntegral<CheckedDivideFunction>({"divide"});
-  registerUnaryIntegral<CheckedNegateFunction>({"negate"});
+void registerCheckedArithmeticFunctions(const std::string& prefix) {
+  registerBinaryIntegral<CheckedPlusFunction>({prefix + "plus"});
+  registerBinaryIntegral<CheckedMinusFunction>({prefix + "minus"});
+  registerBinaryIntegral<CheckedMultiplyFunction>({prefix + "multiply"});
+  registerBinaryIntegral<CheckedModulusFunction>({prefix + "mod"});
+  registerBinaryIntegral<CheckedDivideFunction>({prefix + "divide"});
+  registerUnaryIntegral<CheckedNegateFunction>({prefix + "negate"});
 }
 
 } // namespace facebook::velox::functions

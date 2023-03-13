@@ -17,48 +17,48 @@
 
 namespace facebook::velox::aggregate::prestosql {
 
-extern void registerApproxDistinctAggregates();
-extern void registerApproxMostFrequentAggregate();
-extern void registerApproxPercentileAggregate();
-extern void registerArbitraryAggregate();
-extern void registerArrayAggregate();
-extern void registerAverageAggregate();
-extern void registerBitwiseAggregates();
-extern void registerBoolAggregates();
-extern void registerChecksumAggregate();
-extern void registerCountAggregate();
-extern void registerCountIfAggregate();
-extern void registerCovarianceAggregates();
-extern void registerHistogramAggregate();
-extern void registerMapAggAggregate();
-extern void registerMapUnionAggregate();
-extern void registerMaxSizeForStatsAggregate();
-extern void registerMinMaxAggregates();
-extern void registerMinMaxByAggregates();
-extern void registerSumAggregate();
-extern void registerVarianceAggregates();
+extern void registerApproxDistinctAggregates(const std::string& prefix);
+extern void registerApproxMostFrequentAggregate(const std::string& prefix);
+extern void registerApproxPercentileAggregate(const std::string& prefix);
+extern void registerArbitraryAggregate(const std::string& prefix);
+extern void registerArrayAggregate(const std::string& prefix);
+extern void registerAverageAggregate(const std::string& prefix);
+extern void registerBitwiseAggregates(const std::string& prefix);
+extern void registerBoolAggregates(const std::string& prefix);
+extern void registerChecksumAggregate(const std::string& prefix);
+extern void registerCountAggregate(const std::string& prefix);
+extern void registerCountIfAggregate(const std::string& prefix);
+extern void registerCovarianceAggregates(const std::string& prefix);
+extern void registerHistogramAggregate(const std::string& prefix);
+extern void registerMapAggAggregate(const std::string& prefix);
+extern void registerMapUnionAggregate(const std::string& prefix);
+extern void registerMaxSizeForStatsAggregate(const std::string& prefix);
+extern void registerMinMaxAggregates(const std::string& prefix);
+extern void registerMinMaxByAggregates(const std::string& prefix);
+extern void registerSumAggregate(const std::string& prefix);
+extern void registerVarianceAggregates(const std::string& prefix);
 
-void registerAllAggregateFunctions() {
-  registerApproxDistinctAggregates();
-  registerApproxMostFrequentAggregate();
-  registerApproxPercentileAggregate();
-  registerArbitraryAggregate();
-  registerArrayAggregate();
-  registerAverageAggregate();
-  registerBitwiseAggregates();
-  registerBoolAggregates();
-  registerChecksumAggregate();
-  registerCountAggregate();
-  registerCountIfAggregate();
-  registerCovarianceAggregates();
-  registerHistogramAggregate();
-  registerMapAggAggregate();
-  registerMapUnionAggregate();
-  registerMaxSizeForStatsAggregate();
-  registerMinMaxAggregates();
-  registerMinMaxByAggregates();
-  registerSumAggregate();
-  registerVarianceAggregates();
+void registerAllAggregateFunctions(const std::string& prefix) {
+  registerApproxDistinctAggregates(prefix);
+  registerApproxMostFrequentAggregate(prefix);
+  registerApproxPercentileAggregate(prefix);
+  registerArbitraryAggregate(prefix);
+  registerArrayAggregate(prefix);
+  registerAverageAggregate(prefix);
+  registerBitwiseAggregates(prefix);
+  registerBoolAggregates(prefix);
+  registerChecksumAggregate(prefix);
+  registerCountAggregate(prefix);
+  registerCountIfAggregate(prefix);
+  registerCovarianceAggregates(prefix);
+  registerHistogramAggregate(prefix);
+  registerMapAggAggregate(prefix);
+  registerMapUnionAggregate(prefix);
+  registerMaxSizeForStatsAggregate(prefix);
+  registerMinMaxAggregates(prefix);
+  registerMinMaxByAggregates(prefix);
+  registerSumAggregate(prefix);
+  registerVarianceAggregates(prefix);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

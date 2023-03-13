@@ -194,7 +194,7 @@ class DecimalSumAggregate
 };
 
 template <template <typename U, typename V, typename W> class T>
-bool registerSumAggregate(const std::string& name) {
+bool registerSum(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .returnType("real")

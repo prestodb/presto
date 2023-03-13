@@ -460,7 +460,7 @@ void checkSumCountRowType(
 }
 
 template <template <typename TInput> class TClass>
-bool registerVarianceAggregate(const std::string& name) {
+bool registerVariance(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   std::vector<std::string> inputTypes = {
       "smallint", "integer", "bigint", "real", "double"};
@@ -512,13 +512,13 @@ bool registerVarianceAggregate(const std::string& name) {
 
 } // namespace
 
-void registerVarianceAggregates() {
-  registerVarianceAggregate<StdDevSampAggregate>(kStdDev);
-  registerVarianceAggregate<StdDevPopAggregate>(kStdDevPop);
-  registerVarianceAggregate<StdDevSampAggregate>(kStdDevSamp);
-  registerVarianceAggregate<VarSampAggregate>(kVariance);
-  registerVarianceAggregate<VarPopAggregate>(kVarPop);
-  registerVarianceAggregate<VarSampAggregate>(kVarSamp);
+void registerVarianceAggregates(const std::string& prefix) {
+  registerVariance<StdDevSampAggregate>(prefix + kStdDev);
+  registerVariance<StdDevPopAggregate>(prefix + kStdDevPop);
+  registerVariance<StdDevSampAggregate>(prefix + kStdDevSamp);
+  registerVariance<VarSampAggregate>(prefix + kVariance);
+  registerVariance<VarPopAggregate>(prefix + kVarPop);
+  registerVariance<VarSampAggregate>(prefix + kVarSamp);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

@@ -450,12 +450,13 @@ bool registerApproxDistinct(
 
 } // namespace
 
-void registerApproxDistinctAggregates() {
+void registerApproxDistinctAggregates(const std::string& prefix) {
   registerType(
-      "hyperloglog", std::make_unique<const HyperLogLogTypeFactories>());
-  registerApproxDistinct(kApproxDistinct, false, false);
-  registerApproxDistinct(kApproxSet, true, false);
-  registerApproxDistinct(kMerge, true, true);
+      prefix + "hyperloglog",
+      std::make_unique<const HyperLogLogTypeFactories>());
+  registerApproxDistinct(prefix + kApproxDistinct, false, false);
+  registerApproxDistinct(prefix + kApproxSet, true, false);
+  registerApproxDistinct(prefix + kMerge, true, true);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

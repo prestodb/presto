@@ -146,7 +146,7 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
   DecodedVector decodedIntermediate_;
 };
 
-bool registerCountAggregate(const std::string& name) {
+bool registerCount(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .returnType("bigint")
@@ -177,8 +177,8 @@ bool registerCountAggregate(const std::string& name) {
 
 } // namespace
 
-void registerCountAggregate() {
-  registerCountAggregate(kCount);
+void registerCountAggregate(const std::string& prefix) {
+  registerCount(prefix + kCount);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

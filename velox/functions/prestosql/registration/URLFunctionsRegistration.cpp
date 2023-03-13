@@ -20,22 +20,24 @@
 
 namespace facebook::velox::functions {
 
-void registerURLFunctions() {
+void registerURLFunctions(const std::string& prefix) {
   registerFunction<UrlExtractHostFunction, Varchar, Varchar>(
-      {"url_extract_host"});
+      {prefix + "url_extract_host"});
   registerFunction<UrlExtractFragmentFunction, Varchar, Varchar>(
-      {"url_extract_fragment"});
+      {prefix + "url_extract_fragment"});
   registerFunction<UrlExtractPathFunction, Varchar, Varchar>(
-      {"url_extract_path"});
+      {prefix + "url_extract_path"});
   registerFunction<UrlExtractParameterFunction, Varchar, Varchar, Varchar>(
-      {"url_extract_parameter"});
+      {prefix + "url_extract_parameter"});
   registerFunction<UrlExtractProtocolFunction, Varchar, Varchar>(
-      {"url_extract_protocol"});
+      {prefix + "url_extract_protocol"});
   registerFunction<UrlExtractPortFunction, int64_t, Varchar>(
-      {"url_extract_port"});
+      {prefix + "url_extract_port"});
   registerFunction<UrlExtractQueryFunction, Varchar, Varchar>(
-      {"url_extract_query"});
-  registerFunction<UrlEncodeFunction, Varchar, Varchar>({"url_encode"});
-  registerFunction<UrlDecodeFunction, Varchar, Varchar>({"url_decode"});
+      {prefix + "url_extract_query"});
+  registerFunction<UrlEncodeFunction, Varchar, Varchar>(
+      {prefix + "url_encode"});
+  registerFunction<UrlDecodeFunction, Varchar, Varchar>(
+      {prefix + "url_decode"});
 }
 } // namespace facebook::velox::functions

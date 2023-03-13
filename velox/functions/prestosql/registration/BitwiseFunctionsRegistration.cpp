@@ -36,32 +36,32 @@ void registerBitwiseUnaryIntegral(const std::vector<std::string>& aliases) {
 }
 } // namespace
 
-void registerBitwiseFunctions() {
-  registerBitwiseBinaryIntegral<BitwiseAndFunction>({"bitwise_and"});
-  registerBitwiseUnaryIntegral<BitwiseNotFunction>({"bitwise_not"});
-  registerBitwiseBinaryIntegral<BitwiseOrFunction>({"bitwise_or"});
-  registerBitwiseBinaryIntegral<BitwiseXorFunction>({"bitwise_xor"});
-  registerBitwiseBinaryIntegral<BitCountFunction>({"bit_count"});
+void registerBitwiseFunctions(const std::string& prefix) {
+  registerBitwiseBinaryIntegral<BitwiseAndFunction>({prefix + "bitwise_and"});
+  registerBitwiseUnaryIntegral<BitwiseNotFunction>({prefix + "bitwise_not"});
+  registerBitwiseBinaryIntegral<BitwiseOrFunction>({prefix + "bitwise_or"});
+  registerBitwiseBinaryIntegral<BitwiseXorFunction>({prefix + "bitwise_xor"});
+  registerBitwiseBinaryIntegral<BitCountFunction>({prefix + "bit_count"});
   registerBitwiseBinaryIntegral<BitwiseArithmeticShiftRightFunction>(
-      {"bitwise_arithmetic_shift_right"});
+      {prefix + "bitwise_arithmetic_shift_right"});
   registerBitwiseBinaryIntegral<BitwiseLeftShiftFunction>(
-      {"bitwise_left_shift"});
+      {prefix + "bitwise_left_shift"});
   registerBitwiseBinaryIntegral<BitwiseRightShiftFunction>(
-      {"bitwise_right_shift"});
+      {prefix + "bitwise_right_shift"});
   registerBitwiseBinaryIntegral<BitwiseRightShiftArithmeticFunction>(
-      {"bitwise_right_shift_arithmetic"});
+      {prefix + "bitwise_right_shift_arithmetic"});
   registerFunction<
       BitwiseLogicalShiftRightFunction,
       int64_t,
       int64_t,
       int64_t,
-      int64_t>({"bitwise_logical_shift_right"});
+      int64_t>({prefix + "bitwise_logical_shift_right"});
   registerFunction<
       BitwiseShiftLeftFunction,
       int64_t,
       int64_t,
       int64_t,
-      int64_t>({"bitwise_shift_left"});
+      int64_t>({prefix + "bitwise_shift_left"});
 }
 
 } // namespace facebook::velox::functions

@@ -148,7 +148,7 @@ class BitwiseAndAggregate : public BitwiseAndOrAggregate<T> {
 };
 
 template <template <typename U> class T>
-bool registerBitwiseAggregate(const std::string& name) {
+bool registerBitwise(const std::string& name) {
   // TODO Fix the signatures to match Presto.
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto& inputType : {"tinyint", "smallint", "integer", "bigint"}) {
@@ -190,9 +190,9 @@ bool registerBitwiseAggregate(const std::string& name) {
 
 } // namespace
 
-void registerBitwiseAggregates() {
-  registerBitwiseAggregate<BitwiseOrAggregate>(kBitwiseOr);
-  registerBitwiseAggregate<BitwiseAndAggregate>(kBitwiseAnd);
+void registerBitwiseAggregates(const std::string& prefix) {
+  registerBitwise<BitwiseOrAggregate>(prefix + kBitwiseOr);
+  registerBitwise<BitwiseAndAggregate>(prefix + kBitwiseAnd);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

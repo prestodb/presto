@@ -20,6 +20,7 @@ add_executable(
   RankTest.cpp
   RowNumberTest.cpp
   SimpleAggregatesTest.cpp
+  WindowFunctionRegTest.cpp
   WindowTestBase.cpp)
 
 add_test(

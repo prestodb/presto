@@ -352,8 +352,8 @@ bool registerApproxMostFrequent(const std::string& name) {
 
 } // namespace
 
-void registerApproxMostFrequentAggregate() {
-  registerApproxMostFrequent(kApproxMostFrequent);
+void registerApproxMostFrequentAggregate(const std::string& prefix) {
+  registerApproxMostFrequent(prefix + kApproxMostFrequent);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

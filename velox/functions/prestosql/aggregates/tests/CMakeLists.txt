@@ -18,6 +18,7 @@ target_link_libraries(velox_aggregates_test_lib velox_exec_test_lib)
 
 add_executable(
   velox_aggregates_test
+  AggregationFunctionRegTest.cpp
   ApproxDistinctTest.cpp
   ApproxMostFrequentTest.cpp
   ApproxPercentileTest.cpp

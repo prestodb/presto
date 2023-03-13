@@ -22,83 +22,94 @@
 namespace facebook::velox::functions {
 
 namespace {
-void registerSimpleFunctions() {
-  registerBinaryFloatingPoint<PlusFunction>({"plus"});
-  registerBinaryFloatingPoint<MinusFunction>({"minus"});
-  registerBinaryFloatingPoint<MultiplyFunction>({"multiply"});
-  registerBinaryFloatingPoint<DivideFunction>({"divide"});
-  registerBinaryFloatingPoint<ModulusFunction>({"mod"});
-  registerUnaryNumeric<CeilFunction>({"ceil", "ceiling"});
-  registerUnaryNumeric<FloorFunction>({"floor"});
-  registerUnaryNumeric<AbsFunction>({"abs"});
-  registerUnaryFloatingPoint<NegateFunction>({"negate"});
-  registerFunction<RadiansFunction, double, double>({"radians"});
-  registerFunction<DegreesFunction, double, double>({"degrees"});
-  registerUnaryNumeric<RoundFunction>({"round"});
-  registerFunction<RoundFunction, int8_t, int8_t, int32_t>({"round"});
-  registerFunction<RoundFunction, int16_t, int16_t, int32_t>({"round"});
-  registerFunction<RoundFunction, int32_t, int32_t, int32_t>({"round"});
-  registerFunction<RoundFunction, int64_t, int64_t, int32_t>({"round"});
-  registerFunction<RoundFunction, double, double, int32_t>({"round"});
-  registerFunction<RoundFunction, float, float, int32_t>({"round"});
-  registerFunction<PowerFunction, double, double, double>({"power", "pow"});
-  registerFunction<PowerFunction, double, int64_t, int64_t>({"power", "pow"});
-  registerFunction<ExpFunction, double, double>({"exp"});
-  registerFunction<ClampFunction, int8_t, int8_t, int8_t, int8_t>({"clamp"});
+void registerSimpleFunctions(const std::string& prefix) {
+  registerBinaryFloatingPoint<PlusFunction>({prefix + "plus"});
+  registerBinaryFloatingPoint<MinusFunction>({prefix + "minus"});
+  registerBinaryFloatingPoint<MultiplyFunction>({prefix + "multiply"});
+  registerBinaryFloatingPoint<DivideFunction>({prefix + "divide"});
+  registerBinaryFloatingPoint<ModulusFunction>({prefix + "mod"});
+  registerUnaryNumeric<CeilFunction>({prefix + "ceil", prefix + "ceiling"});
+  registerUnaryNumeric<FloorFunction>({prefix + "floor"});
+  registerUnaryNumeric<AbsFunction>({prefix + "abs"});
+  registerUnaryFloatingPoint<NegateFunction>({prefix + "negate"});
+  registerFunction<RadiansFunction, double, double>({prefix + "radians"});
+  registerFunction<DegreesFunction, double, double>({prefix + "degrees"});
+  registerUnaryNumeric<RoundFunction>({prefix + "round"});
+  registerFunction<RoundFunction, int8_t, int8_t, int32_t>({prefix + "round"});
+  registerFunction<RoundFunction, int16_t, int16_t, int32_t>(
+      {prefix + "round"});
+  registerFunction<RoundFunction, int32_t, int32_t, int32_t>(
+      {prefix + "round"});
+  registerFunction<RoundFunction, int64_t, int64_t, int32_t>(
+      {prefix + "round"});
+  registerFunction<RoundFunction, double, double, int32_t>({prefix + "round"});
+  registerFunction<RoundFunction, float, float, int32_t>({prefix + "round"});
+  registerFunction<PowerFunction, double, double, double>(
+      {prefix + "power", prefix + "pow"});
+  registerFunction<PowerFunction, double, int64_t, int64_t>(
+      {prefix + "power", prefix + "pow"});
+  registerFunction<ExpFunction, double, double>({prefix + "exp"});
+  registerFunction<ClampFunction, int8_t, int8_t, int8_t, int8_t>(
+      {prefix + "clamp"});
   registerFunction<ClampFunction, int16_t, int16_t, int16_t, int16_t>(
-      {"clamp"});
+      {prefix + "clamp"});
   registerFunction<ClampFunction, int32_t, int32_t, int32_t, int32_t>(
-      {"clamp"});
+      {prefix + "clamp"});
   registerFunction<ClampFunction, int64_t, int64_t, int64_t, int64_t>(
-      {"clamp"});
-  registerFunction<ClampFunction, double, double, double, double>({"clamp"});
-  registerFunction<ClampFunction, float, float, float, float>({"clamp"});
-  registerFunction<LnFunction, double, double>({"ln"});
-  registerFunction<Log2Function, double, double>({"log2"});
-  registerFunction<Log10Function, double, double>({"log10"});
-  registerFunction<CosFunction, double, double>({"cos"});
-  registerFunction<CoshFunction, double, double>({"cosh"});
-  registerFunction<AcosFunction, double, double>({"acos"});
-  registerFunction<SinFunction, double, double>({"sin"});
-  registerFunction<AsinFunction, double, double>({"asin"});
-  registerFunction<TanFunction, double, double>({"tan"});
-  registerFunction<TanhFunction, double, double>({"tanh"});
-  registerFunction<AtanFunction, double, double>({"atan"});
-  registerFunction<Atan2Function, double, double, double>({"atan2"});
-  registerFunction<SqrtFunction, double, double>({"sqrt"});
-  registerFunction<CbrtFunction, double, double>({"cbrt"});
+      {prefix + "clamp"});
+  registerFunction<ClampFunction, double, double, double, double>(
+      {prefix + "clamp"});
+  registerFunction<ClampFunction, float, float, float, float>(
+      {prefix + "clamp"});
+  registerFunction<LnFunction, double, double>({prefix + "ln"});
+  registerFunction<Log2Function, double, double>({prefix + "log2"});
+  registerFunction<Log10Function, double, double>({prefix + "log10"});
+  registerFunction<CosFunction, double, double>({prefix + "cos"});
+  registerFunction<CoshFunction, double, double>({prefix + "cosh"});
+  registerFunction<AcosFunction, double, double>({prefix + "acos"});
+  registerFunction<SinFunction, double, double>({prefix + "sin"});
+  registerFunction<AsinFunction, double, double>({prefix + "asin"});
+  registerFunction<TanFunction, double, double>({prefix + "tan"});
+  registerFunction<TanhFunction, double, double>({prefix + "tanh"});
+  registerFunction<AtanFunction, double, double>({prefix + "atan"});
+  registerFunction<Atan2Function, double, double, double>({prefix + "atan2"});
+  registerFunction<SqrtFunction, double, double>({prefix + "sqrt"});
+  registerFunction<CbrtFunction, double, double>({prefix + "cbrt"});
   registerFunction<
       WidthBucketFunction,
       int64_t,
       double,
       double,
       double,
-      int64_t>({"width_bucket"});
+      int64_t>({prefix + "width_bucket"});
 
-  registerUnaryNumeric<SignFunction>({"sign"});
-  registerFunction<InfinityFunction, double>({"infinity"});
-  registerFunction<IsFiniteFunction, bool, double>({"is_finite"});
-  registerFunction<IsInfiniteFunction, bool, double>({"is_infinite"});
-  registerFunction<IsNanFunction, bool, double>({"is_nan"});
-  registerFunction<NanFunction, double>({"nan"});
-  registerFunction<RandFunction, double>({"rand", "random"});
-  registerFunction<FromBaseFunction, int64_t, Varchar, int64_t>({"from_base"});
-  registerFunction<ToBaseFunction, Varchar, int64_t, int64_t>({"to_base"});
-  registerFunction<PiFunction, double>({"pi"});
-  registerFunction<EulerConstantFunction, double>({"e"});
-  registerFunction<TruncateFunction, double, double>({"truncate"});
-  registerFunction<TruncateFunction, double, double, int32_t>({"truncate"});
+  registerUnaryNumeric<SignFunction>({prefix + "sign"});
+  registerFunction<InfinityFunction, double>({prefix + "infinity"});
+  registerFunction<IsFiniteFunction, bool, double>({prefix + "is_finite"});
+  registerFunction<IsInfiniteFunction, bool, double>({prefix + "is_infinite"});
+  registerFunction<IsNanFunction, bool, double>({prefix + "is_nan"});
+  registerFunction<NanFunction, double>({prefix + "nan"});
+  registerFunction<RandFunction, double>({prefix + "rand", prefix + "random"});
+  registerFunction<FromBaseFunction, int64_t, Varchar, int64_t>(
+      {prefix + "from_base"});
+  registerFunction<ToBaseFunction, Varchar, int64_t, int64_t>(
+      {prefix + "to_base"});
+  registerFunction<PiFunction, double>({prefix + "pi"});
+  registerFunction<EulerConstantFunction, double>({prefix + "e"});
+  registerFunction<TruncateFunction, double, double>({prefix + "truncate"});
+  registerFunction<TruncateFunction, double, double, int32_t>(
+      {prefix + "truncate"});
 }
 
 } // namespace
 
-void registerArithmeticFunctions() {
-  registerSimpleFunctions();
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_not, "not");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_add, "plus");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_sub, "minus");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_mul, "multiply");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_div, "divide");
+void registerArithmeticFunctions(const std::string& prefix = "") {
+  registerSimpleFunctions(prefix);
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_not, prefix + "not");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_add, prefix + "plus");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_sub, prefix + "minus");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_mul, prefix + "multiply");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_div, prefix + "divide");
 }
 
 } // namespace facebook::velox::functions

@@ -17,6 +17,6 @@
 
 namespace facebook::velox::window::prestosql {
 
-void registerAllWindowFunctions();
+void registerAllWindowFunctions(const std::string& prefix = "");
 
 } // namespace facebook::velox::window::prestosql

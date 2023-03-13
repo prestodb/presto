@@ -27,14 +27,14 @@ extern void registerCumeDist(const std::string& name);
 extern void registerNtile(const std::string& name);
 extern void registerNthValue(const std::string& name);
 
-void registerAllWindowFunctions() {
-  registerRowNumber("row_number");
-  registerRank("rank");
-  registerDenseRank("dense_rank");
-  registerPercentRank("percent_rank");
-  registerCumeDist("cume_dist");
-  registerNtile("ntile");
-  registerNthValue("nth_value");
+void registerAllWindowFunctions(const std::string& prefix) {
+  registerRowNumber(prefix + "row_number");
+  registerRank(prefix + "rank");
+  registerDenseRank(prefix + "dense_rank");
+  registerPercentRank(prefix + "percent_rank");
+  registerCumeDist(prefix + "cume_dist");
+  registerNtile(prefix + "ntile");
+  registerNthValue(prefix + "nth_value");
 }
 
 } // namespace prestosql

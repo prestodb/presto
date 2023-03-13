@@ -21,127 +21,131 @@
 
 namespace facebook::velox::functions {
 template <typename T>
-inline void registerArrayMinMaxFunctions() {
-  registerFunction<ArrayMinFunction, T, Array<T>>({"array_min"});
-  registerFunction<ArrayMaxFunction, T, Array<T>>({"array_max"});
+inline void registerArrayMinMaxFunctions(const std::string& prefix) {
+  registerFunction<ArrayMinFunction, T, Array<T>>({prefix + "array_min"});
+  registerFunction<ArrayMaxFunction, T, Array<T>>({prefix + "array_max"});
 }
 
 template <typename T>
-inline void registerArrayJoinFunctions() {
+inline void registerArrayJoinFunctions(const std::string& prefix) {
   registerFunction<
       ParameterBinder<ArrayJoinFunction, T>,
       Varchar,
       Array<T>,
-      Varchar>({"array_join"});
+      Varchar>({prefix + "array_join"});
 
   registerFunction<
       ParameterBinder<ArrayJoinFunction, T>,
       Varchar,
       Array<T>,
       Varchar,
-      Varchar>({"array_join"});
+      Varchar>({prefix + "array_join"});
 }
 
 template <typename T>
-inline void registerArrayCombinationsFunctions() {
+inline void registerArrayCombinationsFunctions(const std::string& prefix) {
   registerFunction<
       ParameterBinder<CombinationsFunction, T>,
       Array<Array<T>>,
       Array<T>,
-      int64_t>({"combinations"});
+      int64_t>({prefix + "combinations"});
 }
 
 template <typename T>
-inline void registerArrayHasDuplicatesFunctions() {
+inline void registerArrayHasDuplicatesFunctions(const std::string& prefix) {
   registerFunction<
       ParameterBinder<ArrayHasDuplicatesFunction, T>,
       bool,
-      Array<T>>({"array_has_duplicates"});
+      Array<T>>({prefix + "array_has_duplicates"});
 }
 
 template <typename T>
-inline void registerArrayFrequencyFunctions() {
+inline void registerArrayFrequencyFunctions(const std::string& prefix) {
   registerFunction<
       ParameterBinder<ArrayFrequencyFunction, T>,
       Map<T, int>,
-      Array<T>>({"array_frequency"});
+      Array<T>>({prefix + "array_frequency"});
 }
 
 template <typename T>
-inline void registerArrayNormalizeFunctions() {
+inline void registerArrayNormalizeFunctions(const std::string& prefix) {
   registerFunction<
       ParameterBinder<ArrayNormalizeFunction, T>,
       Array<T>,
       Array<T>,
-      T>({"array_normalize"});
+      T>({prefix + "array_normalize"});
 }
 
-void registerArrayFunctions() {
-  registerArrayConstructor("array_constructor");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_distinct, "array_distinct");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_duplicates, "array_duplicates");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_intersect, "array_intersect");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_contains, "contains");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_except, "array_except");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_arrays_overlap, "arrays_overlap");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_slice, "slice");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_zip, "zip");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_zip_with, "zip_with");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_position, "array_position");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_shuffle, "shuffle");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sort, "array_sort");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sum, "array_sum");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_repeat, "repeat");
+void registerArrayFunctions(const std::string& prefix) {
+  registerArrayConstructor(prefix + "array_constructor");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_distinct, prefix + "array_distinct");
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_array_duplicates, prefix + "array_duplicates");
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_array_intersect, prefix + "array_intersect");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_contains, prefix + "contains");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_except, prefix + "array_except");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_arrays_overlap, prefix + "arrays_overlap");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_slice, prefix + "slice");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_zip, prefix + "zip");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_zip_with, prefix + "zip_with");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_position, prefix + "array_position");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_shuffle, prefix + "shuffle");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sort, prefix + "array_sort");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sum, prefix + "array_sum");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_repeat, prefix + "repeat");
 
   exec::registerStatefulVectorFunction(
-      "width_bucket", widthBucketArraySignature(), makeWidthBucketArray);
+      prefix + "width_bucket",
+      widthBucketArraySignature(),
+      makeWidthBucketArray);
 
-  registerArrayMinMaxFunctions<int8_t>();
-  registerArrayMinMaxFunctions<int16_t>();
-  registerArrayMinMaxFunctions<int32_t>();
-  registerArrayMinMaxFunctions<int64_t>();
-  registerArrayMinMaxFunctions<float>();
-  registerArrayMinMaxFunctions<double>();
-  registerArrayMinMaxFunctions<bool>();
-  registerArrayMinMaxFunctions<Varchar>();
-  registerArrayMinMaxFunctions<Timestamp>();
-  registerArrayMinMaxFunctions<Date>();
+  registerArrayMinMaxFunctions<int8_t>(prefix);
+  registerArrayMinMaxFunctions<int16_t>(prefix);
+  registerArrayMinMaxFunctions<int32_t>(prefix);
+  registerArrayMinMaxFunctions<int64_t>(prefix);
+  registerArrayMinMaxFunctions<float>(prefix);
+  registerArrayMinMaxFunctions<double>(prefix);
+  registerArrayMinMaxFunctions<bool>(prefix);
+  registerArrayMinMaxFunctions<Varchar>(prefix);
+  registerArrayMinMaxFunctions<Timestamp>(prefix);
+  registerArrayMinMaxFunctions<Date>(prefix);
 
-  registerArrayJoinFunctions<int8_t>();
-  registerArrayJoinFunctions<int16_t>();
-  registerArrayJoinFunctions<int32_t>();
-  registerArrayJoinFunctions<int64_t>();
-  registerArrayJoinFunctions<float>();
-  registerArrayJoinFunctions<double>();
-  registerArrayJoinFunctions<bool>();
-  registerArrayJoinFunctions<Varchar>();
-  registerArrayJoinFunctions<Timestamp>();
-  registerArrayJoinFunctions<Date>();
+  registerArrayJoinFunctions<int8_t>(prefix);
+  registerArrayJoinFunctions<int16_t>(prefix);
+  registerArrayJoinFunctions<int32_t>(prefix);
+  registerArrayJoinFunctions<int64_t>(prefix);
+  registerArrayJoinFunctions<float>(prefix);
+  registerArrayJoinFunctions<double>(prefix);
+  registerArrayJoinFunctions<bool>(prefix);
+  registerArrayJoinFunctions<Varchar>(prefix);
+  registerArrayJoinFunctions<Timestamp>(prefix);
+  registerArrayJoinFunctions<Date>(prefix);
 
   registerFunction<ArrayAverageFunction, double, Array<double>>(
-      {"array_average"});
+      {prefix + "array_average"});
 
-  registerArrayCombinationsFunctions<int8_t>();
-  registerArrayCombinationsFunctions<int16_t>();
-  registerArrayCombinationsFunctions<int32_t>();
-  registerArrayCombinationsFunctions<int64_t>();
-  registerArrayCombinationsFunctions<float>();
-  registerArrayCombinationsFunctions<double>();
-  registerArrayCombinationsFunctions<bool>();
-  registerArrayCombinationsFunctions<Varchar>();
-  registerArrayCombinationsFunctions<Timestamp>();
-  registerArrayCombinationsFunctions<Date>();
+  registerArrayCombinationsFunctions<int8_t>(prefix);
+  registerArrayCombinationsFunctions<int16_t>(prefix);
+  registerArrayCombinationsFunctions<int32_t>(prefix);
+  registerArrayCombinationsFunctions<int64_t>(prefix);
+  registerArrayCombinationsFunctions<float>(prefix);
+  registerArrayCombinationsFunctions<double>(prefix);
+  registerArrayCombinationsFunctions<bool>(prefix);
+  registerArrayCombinationsFunctions<Varchar>(prefix);
+  registerArrayCombinationsFunctions<Timestamp>(prefix);
+  registerArrayCombinationsFunctions<Date>(prefix);
 
-  registerArrayHasDuplicatesFunctions<int8_t>();
-  registerArrayHasDuplicatesFunctions<int16_t>();
-  registerArrayHasDuplicatesFunctions<int32_t>();
-  registerArrayHasDuplicatesFunctions<int64_t>();
-  registerArrayHasDuplicatesFunctions<Varchar>();
+  registerArrayHasDuplicatesFunctions<int8_t>(prefix);
+  registerArrayHasDuplicatesFunctions<int16_t>(prefix);
+  registerArrayHasDuplicatesFunctions<int32_t>(prefix);
+  registerArrayHasDuplicatesFunctions<int64_t>(prefix);
+  registerArrayHasDuplicatesFunctions<Varchar>(prefix);
 
-  registerArrayFrequencyFunctions<int64_t>();
-  registerArrayFrequencyFunctions<Varchar>();
+  registerArrayFrequencyFunctions<int64_t>(prefix);
+  registerArrayFrequencyFunctions<Varchar>(prefix);
 
-  registerArrayNormalizeFunctions<float>();
-  registerArrayNormalizeFunctions<double>();
+  registerArrayNormalizeFunctions<float>(prefix);
+  registerArrayNormalizeFunctions<double>(prefix);
 }
 }; // namespace facebook::velox::functions

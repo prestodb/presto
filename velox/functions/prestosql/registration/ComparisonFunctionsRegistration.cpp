@@ -20,81 +20,85 @@
 
 namespace facebook::velox::functions {
 
-void registerComparisonFunctions() {
-  registerNonSimdizableScalar<EqFunction, bool>({"eq"});
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_eq, "eq");
-  registerFunction<EqFunction, bool, Generic<T1>, Generic<T1>>({"eq"});
+void registerComparisonFunctions(const std::string& prefix) {
+  registerNonSimdizableScalar<EqFunction, bool>({prefix + "eq"});
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_eq, prefix + "eq");
+  registerFunction<EqFunction, bool, Generic<T1>, Generic<T1>>({prefix + "eq"});
 
-  registerNonSimdizableScalar<NeqFunction, bool>({"neq"});
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_neq, "neq");
+  registerNonSimdizableScalar<NeqFunction, bool>({prefix + "neq"});
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_neq, prefix + "neq");
 
-  registerNonSimdizableScalar<LtFunction, bool>({"lt"});
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_lt, "lt");
+  registerNonSimdizableScalar<LtFunction, bool>({prefix + "lt"});
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_lt, prefix + "lt");
 
-  registerNonSimdizableScalar<GtFunction, bool>({"gt"});
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_gt, "gt");
+  registerNonSimdizableScalar<GtFunction, bool>({prefix + "gt"});
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_gt, prefix + "gt");
 
-  registerNonSimdizableScalar<LteFunction, bool>({"lte"});
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_lte, "lte");
+  registerNonSimdizableScalar<LteFunction, bool>({prefix + "lte"});
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_lte, prefix + "lte");
 
-  registerNonSimdizableScalar<GteFunction, bool>({"gte"});
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_gte, "gte");
+  registerNonSimdizableScalar<GteFunction, bool>({prefix + "gte"});
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_gte, prefix + "gte");
 
-  registerBinaryScalar<DistinctFromFunction, bool>({"distinct_from"});
+  registerBinaryScalar<DistinctFromFunction, bool>({prefix + "distinct_from"});
 
-  registerFunction<BetweenFunction, bool, int8_t, int8_t, int8_t>({"between"});
+  registerFunction<BetweenFunction, bool, int8_t, int8_t, int8_t>(
+      {prefix + "between"});
   registerFunction<BetweenFunction, bool, int16_t, int16_t, int16_t>(
-      {"between"});
+      {prefix + "between"});
   registerFunction<BetweenFunction, bool, int32_t, int32_t, int32_t>(
-      {"between"});
+      {prefix + "between"});
   registerFunction<BetweenFunction, bool, int64_t, int64_t, int64_t>(
-      {"between"});
-  registerFunction<BetweenFunction, bool, double, double, double>({"between"});
-  registerFunction<BetweenFunction, bool, float, float, float>({"between"});
+      {prefix + "between"});
+  registerFunction<BetweenFunction, bool, double, double, double>(
+      {prefix + "between"});
+  registerFunction<BetweenFunction, bool, float, float, float>(
+      {prefix + "between"});
   registerFunction<BetweenFunction, bool, Varchar, Varchar, Varchar>(
-      {"between"});
-  registerFunction<BetweenFunction, bool, Date, Date, Date>({"between"});
+      {prefix + "between"});
+  registerFunction<BetweenFunction, bool, Date, Date, Date>(
+      {prefix + "between"});
   registerFunction<
       BetweenFunction,
       bool,
       UnscaledShortDecimal,
       UnscaledShortDecimal,
-      UnscaledShortDecimal>({"between"});
+      UnscaledShortDecimal>({prefix + "between"});
   registerFunction<
       BetweenFunction,
       bool,
       UnscaledLongDecimal,
       UnscaledLongDecimal,
-      UnscaledLongDecimal>({"between"});
+      UnscaledLongDecimal>({prefix + "between"});
   registerFunction<
       GtFunction,
       bool,
       UnscaledShortDecimal,
-      UnscaledShortDecimal>({"gt"});
+      UnscaledShortDecimal>({prefix + "gt"});
   registerFunction<GtFunction, bool, UnscaledLongDecimal, UnscaledLongDecimal>(
-      {"gt"});
+      {prefix + "gt"});
   registerFunction<
       LtFunction,
       bool,
       UnscaledShortDecimal,
-      UnscaledShortDecimal>({"lt"});
+      UnscaledShortDecimal>({prefix + "lt"});
   registerFunction<LtFunction, bool, UnscaledLongDecimal, UnscaledLongDecimal>(
-      {"lt"});
+      {prefix + "lt"});
 
   registerFunction<
       GteFunction,
       bool,
       UnscaledShortDecimal,
-      UnscaledShortDecimal>({"gte"});
+      UnscaledShortDecimal>({prefix + "gte"});
   registerFunction<GteFunction, bool, UnscaledLongDecimal, UnscaledLongDecimal>(
-      {"gte"});
+      {prefix + "gte"});
   registerFunction<
       LteFunction,
       bool,
       UnscaledShortDecimal,
-      UnscaledShortDecimal>({"lte"});
+      UnscaledShortDecimal>({prefix + "lte"});
   registerFunction<LteFunction, bool, UnscaledLongDecimal, UnscaledLongDecimal>(
-      {"lte"});
+      {prefix + "lte"});
 }
 
 } // namespace facebook::velox::functions

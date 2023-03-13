@@ -321,7 +321,7 @@ class DecimalAverageAggregate : public DecimalAggregate<TUnscaledType> {
   }
 };
 
-bool registerAverageAggregate(const std::string& name) {
+bool registerAverage(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
   for (const auto& inputType : {"smallint", "integer", "bigint", "double"}) {
@@ -428,8 +428,8 @@ bool registerAverageAggregate(const std::string& name) {
 
 } // namespace
 
-void registerAverageAggregate() {
-  registerAverageAggregate(kAvg);
+void registerAverageAggregate(const std::string& prefix) {
+  registerAverage(prefix + kAvg);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

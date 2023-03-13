@@ -459,7 +459,7 @@ class NonNumericMinAggregate : public NonNumericMinMaxAggregateBase {
 };
 
 template <template <typename T> class TNumeric, typename TNonNumeric>
-bool registerMinMaxAggregate(const std::string& name) {
+bool registerMinMax(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                            .typeVariable("T")
@@ -515,9 +515,9 @@ bool registerMinMaxAggregate(const std::string& name) {
 
 } // namespace
 
-void registerMinMaxAggregates() {
-  registerMinMaxAggregate<MinAggregate, NonNumericMinAggregate>(kMin);
-  registerMinMaxAggregate<MaxAggregate, NonNumericMaxAggregate>(kMax);
+void registerMinMaxAggregates(const std::string& prefix) {
+  registerMinMax<MinAggregate, NonNumericMinAggregate>(prefix + kMin);
+  registerMinMax<MaxAggregate, NonNumericMaxAggregate>(prefix + kMax);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

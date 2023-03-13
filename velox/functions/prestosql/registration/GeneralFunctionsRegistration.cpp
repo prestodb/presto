@@ -19,23 +19,24 @@
 
 namespace facebook::velox::functions {
 
-void registerGeneralFunctions() {
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_element_at, "element_at");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_subscript, "subscript");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_transform, "transform");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_reduce, "reduce");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_in, "in");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_filter, "filter");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "row_constructor");
+void registerGeneralFunctions(const std::string& prefix) {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_element_at, prefix + "element_at");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_subscript, prefix + "subscript");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_transform, prefix + "transform");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_reduce, prefix + "reduce");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_in, prefix + "in");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_filter, prefix + "filter");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, prefix + "row_constructor");
 
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_least, "least");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_greatest, "greatest");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_least, prefix + "least");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_greatest, prefix + "greatest");
 
-  registerFunction<CardinalityFunction, int64_t, Array<Any>>({"cardinality"});
+  registerFunction<CardinalityFunction, int64_t, Array<Any>>(
+      {prefix + "cardinality"});
   registerFunction<CardinalityFunction, int64_t, Map<Any, Any>>(
-      {"cardinality"});
+      {prefix + "cardinality"});
 
-  registerIsNullFunction("is_null");
+  registerIsNullFunction(prefix + "is_null");
 }
 
 } // namespace facebook::velox::functions

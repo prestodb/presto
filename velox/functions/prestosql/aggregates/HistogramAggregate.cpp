@@ -221,7 +221,7 @@ class HistogramAggregate : public exec::Aggregate {
   DecodedVector decodedIntermediate_;
 };
 
-bool registerHistogramAggregate(const std::string& name) {
+bool registerHistogram(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("T")
@@ -279,8 +279,8 @@ bool registerHistogramAggregate(const std::string& name) {
 
 } // namespace
 
-void registerHistogramAggregate() {
-  registerHistogramAggregate(kHistogram);
+void registerHistogramAggregate(const std::string& prefix) {
+  registerHistogram(prefix + kHistogram);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

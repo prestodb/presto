@@ -19,20 +19,23 @@
 #include "velox/functions/lib/MapConcat.h"
 
 namespace facebook::velox::functions {
-void registerMapFunctions() {
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_filter, "map_filter");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_transform_keys, "transform_keys");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_transform_values, "transform_values");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_map, "map");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_entries, "map_entries");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_keys, "map_keys");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_values, "map_values");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_zip_with, "map_zip_with");
+void registerMapFunctions(const std::string& prefix) {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_filter, prefix + "map_filter");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_transform_keys, prefix + "transform_keys");
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_transform_values, prefix + "transform_values");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_map, prefix + "map");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_entries, prefix + "map_entries");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_keys, prefix + "map_keys");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_values, prefix + "map_values");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_zip_with, prefix + "map_zip_with");
 
-  registerMapConcatFunction("map_concat");
+  registerMapConcatFunction(prefix + "map_concat");
 }
 
-void registerMapAllowingDuplicates(const std::string& name) {
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_allow_duplicates, name);
+void registerMapAllowingDuplicates(
+    const std::string& name,
+    const std::string& prefix) {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_allow_duplicates, prefix + name);
 }
 } // namespace facebook::velox::functions

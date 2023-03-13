@@ -29,88 +29,100 @@ std::shared_ptr<exec::VectorFunction> makeRegexExtract(
   return makeRe2Extract(name, inputArgs, /*emptyNoMatch=*/false);
 }
 
-void registerSimpleFunctions() {
+void registerSimpleFunctions(const std::string& prefix) {
   using namespace stringImpl;
 
   // Register string functions.
-  registerFunction<ChrFunction, Varchar, int64_t>({"chr"});
-  registerFunction<CodePointFunction, int32_t, Varchar>({"codepoint"});
-  registerFunction<LengthFunction, int64_t, Varchar>({"length"});
+  registerFunction<ChrFunction, Varchar, int64_t>({prefix + "chr"});
+  registerFunction<CodePointFunction, int32_t, Varchar>({prefix + "codepoint"});
+  registerFunction<LengthFunction, int64_t, Varchar>({prefix + "length"});
 
-  registerFunction<SubstrFunction, Varchar, Varchar, int64_t>({"substr"});
+  registerFunction<SubstrFunction, Varchar, Varchar, int64_t>(
+      {prefix + "substr"});
   registerFunction<SubstrFunction, Varchar, Varchar, int64_t, int64_t>(
-      {"substr"});
-  registerFunction<SubstrFunction, Varchar, Varchar, int32_t>({"substr"});
+      {prefix + "substr"});
+  registerFunction<SubstrFunction, Varchar, Varchar, int32_t>(
+      {prefix + "substr"});
   registerFunction<SubstrFunction, Varchar, Varchar, int32_t, int32_t>(
-      {"substr"});
+      {prefix + "substr"});
 
   registerFunction<SplitPart, Varchar, Varchar, Varchar, int64_t>(
-      {"split_part"});
+      {prefix + "split_part"});
 
-  registerFunction<TrimFunction, Varchar, Varchar>({"trim"});
-  registerFunction<LTrimFunction, Varchar, Varchar>({"ltrim"});
-  registerFunction<RTrimFunction, Varchar, Varchar>({"rtrim"});
+  registerFunction<TrimFunction, Varchar, Varchar>({prefix + "trim"});
+  registerFunction<LTrimFunction, Varchar, Varchar>({prefix + "ltrim"});
+  registerFunction<RTrimFunction, Varchar, Varchar>({prefix + "rtrim"});
 
-  registerFunction<LPadFunction, Varchar, Varchar, int64_t, Varchar>({"lpad"});
-  registerFunction<RPadFunction, Varchar, Varchar, int64_t, Varchar>({"rpad"});
+  registerFunction<LPadFunction, Varchar, Varchar, int64_t, Varchar>(
+      {prefix + "lpad"});
+  registerFunction<RPadFunction, Varchar, Varchar, int64_t, Varchar>(
+      {prefix + "rpad"});
 
   // Register hash functions.
-  registerFunction<CRC32Function, int64_t, Varbinary>({"crc32"});
-  registerFunction<XxHash64Function, Varbinary, Varbinary>({"xxhash64"});
-  registerFunction<Md5Function, Varbinary, Varbinary>({"md5"});
-  registerFunction<Sha1Function, Varbinary, Varbinary>({"sha1"});
-  registerFunction<Sha256Function, Varbinary, Varbinary>({"sha256"});
-  registerFunction<Sha512Function, Varbinary, Varbinary>({"sha512"});
+  registerFunction<CRC32Function, int64_t, Varbinary>({prefix + "crc32"});
+  registerFunction<XxHash64Function, Varbinary, Varbinary>(
+      {prefix + "xxhash64"});
+  registerFunction<Md5Function, Varbinary, Varbinary>({prefix + "md5"});
+  registerFunction<Sha1Function, Varbinary, Varbinary>({prefix + "sha1"});
+  registerFunction<Sha256Function, Varbinary, Varbinary>({prefix + "sha256"});
+  registerFunction<Sha512Function, Varbinary, Varbinary>({prefix + "sha512"});
   registerFunction<HmacSha1Function, Varbinary, Varbinary, Varbinary>(
-      {"hmac_sha1"});
+      {prefix + "hmac_sha1"});
   registerFunction<HmacSha256Function, Varbinary, Varbinary, Varbinary>(
-      {"hmac_sha256"});
+      {prefix + "hmac_sha256"});
   registerFunction<HmacSha512Function, Varbinary, Varbinary, Varbinary>(
-      {"hmac_sha512"});
+      {prefix + "hmac_sha512"});
   registerFunction<SpookyHashV232Function, Varbinary, Varbinary>(
-      {"spooky_hash_v2_32"});
+      {prefix + "spooky_hash_v2_32"});
   registerFunction<SpookyHashV264Function, Varbinary, Varbinary>(
-      {"spooky_hash_v2_64"});
+      {prefix + "spooky_hash_v2_64"});
 
-  registerFunction<ToHexFunction, Varchar, Varbinary>({"to_hex"});
-  registerFunction<FromHexFunction, Varbinary, Varchar>({"from_hex"});
-  registerFunction<ToBase64Function, Varchar, Varbinary>({"to_base64"});
-  registerFunction<FromBase64Function, Varbinary, Varchar>({"from_base64"});
-  exec::registerStatefulVectorFunction("like", likeSignatures(), makeLike);
+  registerFunction<ToHexFunction, Varchar, Varbinary>({prefix + "to_hex"});
+  registerFunction<FromHexFunction, Varbinary, Varchar>({prefix + "from_hex"});
+  registerFunction<ToBase64Function, Varchar, Varbinary>(
+      {prefix + "to_base64"});
+  registerFunction<FromBase64Function, Varbinary, Varchar>(
+      {prefix + "from_base64"});
+  exec::registerStatefulVectorFunction(
+      prefix + "like", likeSignatures(), makeLike);
 
   registerFunction<SplitPart, Varchar, Varchar, Varchar, int64_t>(
-      {"split_part"});
+      {prefix + "split_part"});
   registerFunction<Re2RegexpReplacePresto, Varchar, Varchar, Varchar>(
-      {"regexp_replace"});
+      {prefix + "regexp_replace"});
   registerFunction<Re2RegexpReplacePresto, Varchar, Varchar, Varchar, Varchar>(
-      {"regexp_replace"});
+      {prefix + "regexp_replace"});
 }
 } // namespace
 
-void registerStringFunctions() {
-  registerSimpleFunctions();
+void registerStringFunctions(const std::string& prefix) {
+  registerSimpleFunctions(prefix);
 
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, "lower");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_upper, "upper");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_split, "split");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, "concat");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_replace, "replace");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_reverse, "reverse");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_to_utf8, "to_utf8");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, prefix + "lower");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_upper, prefix + "upper");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_split, prefix + "split");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, prefix + "concat");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_replace, prefix + "replace");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_reverse, prefix + "reverse");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_to_utf8, prefix + "to_utf8");
 
   // Regex functions
   exec::registerStatefulVectorFunction(
-      "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
+      prefix + "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
   exec::registerStatefulVectorFunction(
-      "regexp_extract_all", re2ExtractAllSignatures(), makeRe2ExtractAll);
+      prefix + "regexp_extract_all",
+      re2ExtractAllSignatures(),
+      makeRe2ExtractAll);
   exec::registerStatefulVectorFunction(
-      "regexp_like", re2SearchSignatures(), makeRe2Search);
+      prefix + "regexp_like", re2SearchSignatures(), makeRe2Search);
 
-  registerFunction<StrLPosFunction, int64_t, Varchar, Varchar>({"strpos"});
+  registerFunction<StrLPosFunction, int64_t, Varchar, Varchar>(
+      {prefix + "strpos"});
   registerFunction<StrLPosFunction, int64_t, Varchar, Varchar, int64_t>(
-      {"strpos"});
-  registerFunction<StrRPosFunction, int64_t, Varchar, Varchar>({"strrpos"});
+      {prefix + "strpos"});
+  registerFunction<StrRPosFunction, int64_t, Varchar, Varchar>(
+      {prefix + "strrpos"});
   registerFunction<StrRPosFunction, int64_t, Varchar, Varchar, int64_t>(
-      {"strrpos"});
+      {prefix + "strrpos"});
 }
 } // namespace facebook::velox::functions

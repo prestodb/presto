@@ -18,25 +18,27 @@
 #include "velox/functions/prestosql/JsonFunctions.h"
 
 namespace facebook::velox::functions {
-void registerJsonFunctions() {
+void registerJsonFunctions(const std::string& prefix) {
   registerJsonType();
 
-  registerFunction<IsJsonScalarFunction, bool, Json>({"is_json_scalar"});
+  registerFunction<IsJsonScalarFunction, bool, Json>(
+      {prefix + "is_json_scalar"});
   registerFunction<JsonExtractScalarFunction, Varchar, Json, Varchar>(
-      {"json_extract_scalar"});
+      {prefix + "json_extract_scalar"});
   registerFunction<JsonArrayLengthFunction, int64_t, Json>(
-      {"json_array_length"});
+      {prefix + "json_array_length"});
   registerFunction<JsonArrayContainsFunction, bool, Json, bool>(
-      {"json_array_contains"});
+      {prefix + "json_array_contains"});
   registerFunction<JsonArrayContainsFunction, bool, Json, int64_t>(
-      {"json_array_contains"});
+      {prefix + "json_array_contains"});
   registerFunction<JsonArrayContainsFunction, bool, Json, double>(
-      {"json_array_contains"});
+      {prefix + "json_array_contains"});
   registerFunction<JsonArrayContainsFunction, bool, Json, Varchar>(
-      {"json_array_contains"});
-  registerFunction<JsonSizeFunction, int64_t, Json, Varchar>({"json_size"});
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_json_format, "json_format");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_json_parse, "json_parse");
+      {prefix + "json_array_contains"});
+  registerFunction<JsonSizeFunction, int64_t, Json, Varchar>(
+      {prefix + "json_size"});
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_json_format, prefix + "json_format");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_json_parse, prefix + "json_parse");
 }
 
 } // namespace facebook::velox::functions
