@@ -695,6 +695,33 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperator) {
   }
 }
 
+TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperatorWhenSinglePartition) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
+  });
+
+  auto plan = exec::test::PlanBuilder()
+                  .values({data}, true)
+                  .addNode(addPartitionAndSerializeNode(1))
+                  .planNode();
+
+  exec::test::CursorParameters params;
+  params.planNode = plan;
+  params.maxDrivers = 2;
+
+  auto [taskCursor, serializedResults] =
+      readCursor(params, [](auto /*task*/) {});
+  EXPECT_EQ(serializedResults.size(), 2);
+
+  for (auto& serializedResult : serializedResults) {
+    // Verify that serialized data can be deserialized successfully into the
+    // original data.
+    auto deserialized = deserialize(serializedResult, asRowType(data->type()));
+    velox::test::assertEqualVectors(data, deserialized);
+  }
+}
+
 TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
