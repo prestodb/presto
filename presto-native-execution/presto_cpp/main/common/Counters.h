@@ -197,4 +197,28 @@ constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeAllocClocks{
 // entries, since last counter retrieval
 constexpr folly::StringPiece kCounterMemoryCacheNumAllocClocks{
     "presto_cpp.memory_cache_num_alloc_clocks"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeReadEntries{
+    "presto_cpp.ssd_cache_cumulative_read_entries"};
+constexpr folly::StringPiece kCounterSsdCacheReadEntries{
+    "presto_cpp.ssd_cache_read_entries"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeReadBytes{
+    "presto_cpp.ssd_cache_cumulative_read_bytes"};
+constexpr folly::StringPiece kCounterSsdCacheReadBytes{
+    "presto_cpp.ssd_cache_read_bytes"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeWrittenEntries{
+    "presto_cpp.ssd_cache_cumulative_written_entries"};
+constexpr folly::StringPiece kCounterSsdCacheWrittenEntries{
+    "presto_cpp.ssd_cache_written_entries"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeWrittenBytes{
+    "presto_cpp.ssd_cache_cumulative_written_bytes"};
+constexpr folly::StringPiece kCounterSsdCacheWrittenBytes{
+    "presto_cpp.ssd_cache_written_bytes"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeCachedEntries{
+    "presto_cpp.ssd_cache_cumulative_cached_entries"};
+constexpr folly::StringPiece kCounterSsdCacheCachedEntries{
+    "presto_cpp.ssd_cache_cached_entries"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeCachedBytes{
+    "presto_cpp.ssd_cache_cumulative_cached_bytes"};
+constexpr folly::StringPiece kCounterSsdCacheCachedBytes{
+    "presto_cpp.ssd_cache_cached_bytes"};
 } // namespace facebook::presto

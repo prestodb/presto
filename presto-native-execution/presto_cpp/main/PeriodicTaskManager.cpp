@@ -19,6 +19,7 @@
 #include "presto_cpp/main/common/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/AsyncDataCache.h"
+#include "velox/common/caching/SsdFile.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
@@ -147,8 +148,7 @@ void PeriodicTaskManager::start() {
           velox::memory::MemoryAllocator::getInstance())) {
     scheduler_.addFunction(
         [asyncDataCache]() {
-          velox::cache::CacheStats memoryCacheStats =
-              asyncDataCache->refreshStats();
+          const auto memoryCacheStats = asyncDataCache->refreshStats();
 
           // Snapshots.
           REPORT_ADD_STAT_VALUE(
@@ -181,35 +181,72 @@ void PeriodicTaskManager::start() {
               kCounterMemoryCacheSumEvictScore, memoryCacheStats.sumEvictScore);
 
           // Interval cumulatives.
-          static int64_t numHitOld{0};
-          static int64_t numNewOld{0};
-          static int64_t numEvictOld{0};
-          static int64_t numEvictChecksOld{0};
-          static int64_t numWaitExclusiveOld{0};
-          static int64_t numAllocClocksOld{0};
+          static int64_t memoryNumHitOld{0};
+          static int64_t memoryNumNewOld{0};
+          static int64_t memoryNumEvictOld{0};
+          static int64_t memoryNumEvictChecksOld{0};
+          static int64_t memoryNumWaitExclusiveOld{0};
+          static int64_t memoryNumAllocClocksOld{0};
+          static int64_t ssdReadEntriesOld{0};
+          static int64_t ssdReadBytesOld{0};
+          static int64_t ssdWrittenBytesOld{0};
+          static int64_t ssdWrittenEntriesOld{0};
+          static int64_t ssdCachedBytesOld{0};
+          static int64_t ssdCachedEntriesOld{0};
           REPORT_ADD_STAT_VALUE(
-              kCounterMemoryCacheNumHit, memoryCacheStats.numHit - numHitOld);
+              kCounterMemoryCacheNumHit,
+              memoryCacheStats.numHit - memoryNumHitOld);
           REPORT_ADD_STAT_VALUE(
-              kCounterMemoryCacheNumNew, memoryCacheStats.numNew - numNewOld);
+              kCounterMemoryCacheNumNew,
+              memoryCacheStats.numNew - memoryNumNewOld);
           REPORT_ADD_STAT_VALUE(
               kCounterMemoryCacheNumEvict,
-              memoryCacheStats.numEvict - numEvictOld);
+              memoryCacheStats.numEvict - memoryNumEvictOld);
           REPORT_ADD_STAT_VALUE(
               kCounterMemoryCacheNumEvictChecks,
-              memoryCacheStats.numEvictChecks - numEvictChecksOld);
+              memoryCacheStats.numEvictChecks - memoryNumEvictChecksOld);
           REPORT_ADD_STAT_VALUE(
               kCounterMemoryCacheNumWaitExclusive,
-              memoryCacheStats.numWaitExclusive - numWaitExclusiveOld);
+              memoryCacheStats.numWaitExclusive - memoryNumWaitExclusiveOld);
           REPORT_ADD_STAT_VALUE(
               kCounterMemoryCacheNumAllocClocks,
-              memoryCacheStats.allocClocks - numAllocClocksOld);
-          numHitOld = memoryCacheStats.numHit;
-          numNewOld = memoryCacheStats.numNew;
-          numEvictOld = memoryCacheStats.numEvict;
-          numEvictChecksOld = memoryCacheStats.numEvictChecks;
-          numWaitExclusiveOld = memoryCacheStats.numWaitExclusive;
-          numAllocClocksOld = memoryCacheStats.allocClocks;
+              memoryCacheStats.allocClocks - memoryNumAllocClocksOld);
+          if (memoryCacheStats.ssdStats) {
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheReadEntries,
+                memoryCacheStats.ssdStats->entriesRead - ssdReadEntriesOld);
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheReadBytes,
+                memoryCacheStats.ssdStats->bytesRead - ssdReadBytesOld);
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheWrittenEntries,
+                memoryCacheStats.ssdStats->entriesWritten -
+                    ssdWrittenEntriesOld);
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheWrittenBytes,
+                memoryCacheStats.ssdStats->bytesWritten - ssdWrittenBytesOld);
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheCachedEntries,
+                memoryCacheStats.ssdStats->entriesCached - ssdCachedEntriesOld);
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheCachedBytes,
+                memoryCacheStats.ssdStats->bytesCached - ssdCachedBytesOld);
+          }
 
+          memoryNumHitOld = memoryCacheStats.numHit;
+          memoryNumNewOld = memoryCacheStats.numNew;
+          memoryNumEvictOld = memoryCacheStats.numEvict;
+          memoryNumEvictChecksOld = memoryCacheStats.numEvictChecks;
+          memoryNumWaitExclusiveOld = memoryCacheStats.numWaitExclusive;
+          memoryNumAllocClocksOld = memoryCacheStats.allocClocks;
+          if (memoryCacheStats.ssdStats) {
+            ssdReadEntriesOld = memoryCacheStats.ssdStats->entriesRead;
+            ssdReadBytesOld = memoryCacheStats.ssdStats->bytesRead;
+            ssdWrittenEntriesOld = memoryCacheStats.ssdStats->entriesWritten;
+            ssdWrittenBytesOld = memoryCacheStats.ssdStats->bytesWritten;
+            ssdCachedEntriesOld = memoryCacheStats.ssdStats->entriesCached;
+            ssdCachedBytesOld = memoryCacheStats.ssdStats->bytesCached;
+          }
           // All time cumulatives.
           REPORT_ADD_STAT_VALUE(
               kCounterMemoryCacheNumCumulativeHit, memoryCacheStats.numHit);
@@ -226,6 +263,26 @@ void PeriodicTaskManager::start() {
           REPORT_ADD_STAT_VALUE(
               kCounterMemoryCacheNumCumulativeAllocClocks,
               memoryCacheStats.allocClocks);
+          if (memoryCacheStats.ssdStats) {
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheCumulativeReadEntries,
+                memoryCacheStats.ssdStats->entriesRead)
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheCumulativeReadBytes,
+                memoryCacheStats.ssdStats->bytesRead);
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheCumulativeWrittenEntries,
+                memoryCacheStats.ssdStats->entriesWritten);
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheCumulativeWrittenBytes,
+                memoryCacheStats.ssdStats->bytesWritten);
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheCumulativeCachedEntries,
+                memoryCacheStats.ssdStats->entriesCached);
+            REPORT_ADD_STAT_VALUE(
+                kCounterSsdCacheCumulativeCachedBytes,
+                memoryCacheStats.ssdStats->bytesCached);
+          }
         },
         std::chrono::microseconds{kCachePeriodGlobalCounters},
         "cache_counters");
