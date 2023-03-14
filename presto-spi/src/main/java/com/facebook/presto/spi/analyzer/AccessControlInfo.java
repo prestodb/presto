@@ -13,23 +13,29 @@
  */
 package com.facebook.presto.spi.analyzer;
 
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 
 import java.util.Objects;
+import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class AccessControlInfo
 {
     private final AccessControl accessControl;
     private final Identity identity;
+    private final Optional<TransactionId> transactionId;
+    private final AccessControlContext accessControlContext;
 
-    public AccessControlInfo(AccessControl accessControl, Identity identity)
+    public AccessControlInfo(AccessControl accessControl, Identity identity, Optional<TransactionId> transactionId, AccessControlContext accessControlContext)
     {
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.identity = requireNonNull(identity, "identity is null");
+        this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.accessControlContext = requireNonNull(accessControlContext, "accessControlContext is null");
     }
 
     public AccessControl getAccessControl()
@@ -40,6 +46,16 @@ public final class AccessControlInfo
     public Identity getIdentity()
     {
         return identity;
+    }
+
+    public Optional<TransactionId> getTransactionId()
+    {
+        return transactionId;
+    }
+
+    public AccessControlContext getAccessControlContext()
+    {
+        return accessControlContext;
     }
 
     @Override
@@ -54,18 +70,25 @@ public final class AccessControlInfo
 
         AccessControlInfo that = (AccessControlInfo) o;
         return Objects.equals(accessControl, that.accessControl) &&
-                Objects.equals(identity, that.identity);
+                Objects.equals(identity, that.identity) &&
+                Objects.equals(transactionId, that.transactionId) &&
+                Objects.equals(accessControlContext, that.accessControlContext);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(accessControl, identity);
+        return Objects.hash(accessControl, identity, transactionId, accessControlContext);
     }
 
     @Override
     public String toString()
     {
-        return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
+        return "AccessControlInfo{" +
+                "accessControl=" + accessControl +
+                ", identity=" + identity +
+                ", transactionId=" + transactionId +
+                ", accessControlContext=" + accessControlContext +
+                '}';
     }
 }

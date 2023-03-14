@@ -40,6 +40,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -48,7 +49,6 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.ViewAccessControl;
@@ -200,6 +200,9 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
+import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_CREATE;
+import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_DELETE;
+import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_INSERT;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
@@ -387,7 +390,8 @@ class StatementAnalyzer
             if (!targetTableHandle.isPresent()) {
                 throw new SemanticException(MISSING_TABLE, insert, "Table '%s' does not exist", targetTable);
             }
-            accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), targetTable);
+
+            analysis.addAccessControlCheckForTable(TABLE_INSERT, new AccessControlInfoForTable(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), targetTable));
 
             List<ColumnMetadata> columnsMetadata = metadataResolver.getColumns(targetTableHandle.get());
             List<String> tableColumns = columnsMetadata.stream()
@@ -574,7 +578,7 @@ class StatementAnalyzer
 
             analysis.setUpdateType("DELETE");
 
-            accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+            analysis.addAccessControlCheckForTable(TABLE_DELETE, new AccessControlInfoForTable(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableName));
 
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
         }
@@ -585,7 +589,7 @@ class StatementAnalyzer
             analysis.setUpdateType("ANALYZE");
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
 
-            // verify the target table exists and it's not a view
+            // verify the target table exists, and it's not a view
             if (metadataResolver.getView(tableName).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
@@ -608,13 +612,8 @@ class StatementAnalyzer
             Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
                     .putAll(tableName, metadataResolver.getColumnHandles(tableHandle).keySet().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet()))
                     .build();
-            analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), tableColumnMap, tableColumnMap);
-            try {
-                accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
-            }
-            catch (AccessDeniedException exception) {
-                throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName));
-            }
+            analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableColumnMap, tableColumnMap);
+            analysis.addAccessControlCheckForTable(TABLE_INSERT, new AccessControlInfoForTable(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableName));
 
             analysis.setAnalyzeTarget(tableHandle);
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
@@ -643,7 +642,7 @@ class StatementAnalyzer
             node.getColumnAliases().ifPresent(analysis::setCreateTableColumnAliases);
             analysis.setCreateTableComment(node.getComment());
 
-            accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), targetTable);
+            analysis.addAccessControlCheckForTable(TABLE_CREATE, new AccessControlInfoForTable(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), targetTable));
 
             analysis.setCreateTableAsSelectWithData(node.isWithData());
 
@@ -679,6 +678,7 @@ class StatementAnalyzer
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
+            // TODO: this should be removed from here once DDL statements are onboarded to pluggable analyzer
             accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
 
             validateColumns(node, queryScope.getRelationType());
@@ -733,7 +733,14 @@ class StatementAnalyzer
                     SqlFormatterUtil.getFormattedSql(node, sqlParser, Optional.empty()),
                     viewName.getObjectName(),
                     view.getOriginalSql()));
-            accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), getOwnerIdentity(view.getOwner(), session), session.getAccessControlContext(), viewName);
+            analysis.addAccessControlCheckForTable(
+                    TABLE_INSERT,
+                    new AccessControlInfoForTable(
+                            accessControl,
+                            getOwnerIdentity(view.getOwner(), session),
+                            session.getTransactionId(),
+                            session.getAccessControlContext(),
+                            viewName));
 
             // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
             StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
@@ -1240,7 +1247,7 @@ class StatementAnalyzer
             if (name.getSchemaName().isEmpty()) {
                 throw new SemanticException(MISSING_SCHEMA, table, "Schema name is empty");
             }
-            analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
+            analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), name);
 
             Optional<ViewDefinition> optionalView = session.getRuntimeStats().profileNanos(
                     GET_VIEW_TIME_NANOS,
@@ -1969,11 +1976,11 @@ class StatementAnalyzer
                 analysis.addColumnReference(NodeRef.of(column), FieldId.from(rightField.get()));
                 if (leftField.get().getField().getOriginTable().isPresent() && leftField.get().getField().getOriginColumnName().isPresent()) {
                     Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), new Subfield(leftField.get().getField().getOriginColumnName().get(), ImmutableList.of()));
-                    analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), tableColumnMap, tableColumnMap);
+                    analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableColumnMap, tableColumnMap);
                 }
                 if (rightField.get().getField().getOriginTable().isPresent() && rightField.get().getField().getOriginColumnName().isPresent()) {
                     Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), new Subfield(rightField.get().getField().getOriginColumnName().get(), ImmutableList.of()));
-                    analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), tableColumnMap, tableColumnMap);
+                    analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableColumnMap, tableColumnMap);
                 }
             }
 

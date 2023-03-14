@@ -15,13 +15,18 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
+import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
+import com.facebook.presto.spi.analyzer.AccessControlRole;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.tree.ExistsPredicate;
@@ -96,6 +101,8 @@ public class Analysis
 
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Multimap<NodeRef<Expression>, FieldId> columnReferences = ArrayListMultimap.create();
+
+    private final AccessControlReferences accessControlReferences = new AccessControlReferences();
 
     // a map of users to the columns per table that they access
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
@@ -802,9 +809,25 @@ public class Analysis
         return joinUsing.get(NodeRef.of(node));
     }
 
-    public void addTableColumnAndSubfieldReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, Subfield> tableColumnMap, Multimap<QualifiedObjectName, Subfield> tableColumnMapForAccessControl)
+    public AccessControlReferences getAccessControlReferences()
     {
-        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
+        return accessControlReferences;
+    }
+
+    public void addAccessControlCheckForTable(AccessControlRole accessControlRole, AccessControlInfoForTable accessControlInfoForTable)
+    {
+        accessControlReferences.addTableReference(accessControlRole, accessControlInfoForTable);
+    }
+
+    public void addTableColumnAndSubfieldReferences(
+            AccessControl accessControl,
+            Identity identity,
+            Optional<TransactionId> transactionId,
+            AccessControlContext accessControlContext,
+            Multimap<QualifiedObjectName, Subfield> tableColumnMap,
+            Multimap<QualifiedObjectName, Subfield> tableColumnMapForAccessControl)
+    {
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity, transactionId, accessControlContext);
         Map<QualifiedObjectName, Set<String>> columnReferences = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
         tableColumnMap.asMap()
                 .forEach((key, value) -> columnReferences.computeIfAbsent(key, k -> new HashSet<>()).addAll(value.stream().map(Subfield::getRootName).collect(toImmutableSet())));
@@ -814,9 +837,9 @@ public class Analysis
                 .forEach((key, value) -> columnAndSubfieldReferences.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
     }
 
-    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table)
+    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, Optional<TransactionId> transactionId, AccessControlContext accessControlContext, QualifiedObjectName table)
     {
-        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity, transactionId, accessControlContext);
         tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
         tableColumnAndSubfieldReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
     }
@@ -884,7 +907,7 @@ public class Analysis
         Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> newTableColumnReferences = new LinkedHashMap<>();
 
         tableColumnReferences.forEach((accessControlInfo, references) -> {
-            AccessControlInfo allowAllAccessControlInfo = new AccessControlInfo(new AllowAllAccessControl(), accessControlInfo.getIdentity());
+            AccessControlInfo allowAllAccessControlInfo = new AccessControlInfo(new AllowAllAccessControl(), accessControlInfo.getIdentity(), accessControlInfo.getTransactionId(), accessControlInfo.getAccessControlContext());
             Map<QualifiedObjectName, Set<Subfield>> newAllowAllReferences = newTableColumnReferences.getOrDefault(allowAllAccessControlInfo, new LinkedHashMap<>());
 
             Map<QualifiedObjectName, Set<Subfield>> newOtherReferences = new LinkedHashMap<>();
