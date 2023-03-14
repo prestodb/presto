@@ -494,7 +494,7 @@ TEST_F(BaseDuckTest, largeVector) {
     auto str2 = std::to_string(input2[i]);
     input1String.push_back(StringView(str1));
     input2String.push_back(StringView(str2));
-    expectedOutputString.push_back(StringView(str1 + str2));
+    expectedOutputString.push_back(StringView::makeInline(str1 + str2));
   }
   runDuckTestBinary<StringView, StringView, StringView>(
       VARCHAR(),

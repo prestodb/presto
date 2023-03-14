@@ -318,7 +318,9 @@ TEST_F(OrderByTest, varfields) {
         batchSize, [](vector_size_t row) { return row * 0.1; }, nullEvery(11));
     auto c2 = makeFlatVector<StringView>(
         batchSize,
-        [](vector_size_t row) { return StringView(std::to_string(row)); },
+        [](vector_size_t row) {
+          return StringView::makeInline(std::to_string(row));
+        },
         nullEvery(17));
     // TODO: Add support for array/map in createDuckDbTable and verify
     // that we can sort by array/map as well.
@@ -416,7 +418,7 @@ TEST_F(OrderByTest, spill) {
     batches.push_back(makeRowVector(
         {makeFlatVector<int64_t>(kNumRows, [](auto row) { return row * 3; }),
          makeFlatVector<StringView>(kNumRows, [](auto row) {
-           return StringView(std::to_string(row * 3));
+           return StringView::makeInline(std::to_string(row * 3));
          })}));
   }
   createDuckDbTable(batches);

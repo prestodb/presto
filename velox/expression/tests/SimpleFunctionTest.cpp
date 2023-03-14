@@ -829,10 +829,8 @@ TEST_F(SimpleFunctionTest, mapStringOut) {
   for (auto i = 0; i < 4; i++) {
     auto mapView = reader[i];
     for (const auto& [key, value] : mapView) {
-      ASSERT_EQ(std::string(key.data(), key.size()), std::to_string(i + 1));
-      ASSERT_EQ(
-          std::string(value.value().data(), value.value().size()),
-          std::to_string(i + 1));
+      ASSERT_EQ(key, std::to_string(i + 1));
+      ASSERT_EQ(value.value(), std::to_string(i + 1));
     }
   }
 }

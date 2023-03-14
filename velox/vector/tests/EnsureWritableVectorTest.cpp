@@ -781,7 +781,9 @@ TEST_F(EnsureWritableVectorTest, allNullMap) {
       /*sizeAt*/ [](vector_size_t row) { return row % 5; },
       /*keyAt*/ [](vector_size_t row) { return row; },
       /*valueAt*/
-      [](vector_size_t row) { return StringView("s-" + std::to_string(row)); },
+      [](vector_size_t row) {
+        return StringView::makeInline("s-" + std::to_string(row));
+      },
       /*isNullAt*/ test::VectorMaker::nullEvery(7));
 
   VectorPtr result = vectorMaker_->allNullMapVector(size, BIGINT(), VARCHAR());

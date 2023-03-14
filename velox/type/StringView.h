@@ -18,10 +18,14 @@
 
 #include <functional>
 #include <string>
+#include <string_view>
 
 #include <folly/FBString.h>
+#include <folly/Format.h>
 #include <folly/Range.h>
 #include <folly/dynamic.h>
+
+#include <fmt/format.h>
 
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
@@ -51,11 +55,6 @@ struct StringView {
     memset(this, 0, sizeof(StringView));
   }
 
-  explicit StringView(uint32_t size) : size_(size) {
-    VELOX_DCHECK(isInline(size));
-    memset(prefix_, 0, kPrefixSize);
-    value_.data = nullptr;
-  }
   StringView(const char* data, size_t len) : size_(len) {
     VELOX_DCHECK(data || size_ == 0);
     if (isInline()) {
@@ -77,6 +76,11 @@ struct StringView {
     }
   }
 
+  static StringView makeInline(std::string str) {
+    VELOX_DCHECK(isInline(str.size()));
+    return StringView{str};
+  }
+
   // Making StringView implicitly constructible/convertible from char* and
   // string literals, in order to allow for a more flexible API and optional
   // interoperability. E.g:
@@ -86,11 +90,16 @@ struct StringView {
   //
   /* implicit */ StringView(const char* data)
       : StringView(data, strlen(data)) {}
+
   explicit StringView(const folly::fbstring& value)
       : StringView(value.data(), value.size()) {}
+  explicit StringView(folly::fbstring&& value) = delete;
+
   explicit StringView(const std::string& value)
       : StringView(value.data(), value.size()) {}
-  explicit StringView(const std::string_view& value)
+  explicit StringView(std::string&& value) = delete;
+
+  explicit StringView(std::string_view value)
       : StringView(value.data(), value.size()) {}
 
   bool isInline() const {
@@ -101,7 +110,8 @@ struct StringView {
     return size <= kInlineSize;
   }
 
-  const char* data() const {
+  const char* data() && = delete;
+  const char* data() const& {
     return isInline() ? prefix_ : value_.data;
   }
 
@@ -181,7 +191,8 @@ struct StringView {
     return compare(other) >= 0;
   }
 
-  operator folly::StringPiece() const {
+  operator folly::StringPiece() && = delete;
+  operator folly::StringPiece() const& {
     return folly::StringPiece(data(), size());
   }
 
@@ -201,19 +212,23 @@ struct StringView {
     return *this;
   }
 
-  operator folly::dynamic() const {
+  operator folly::dynamic() && = delete;
+  operator folly::dynamic() const& {
     return folly::dynamic(folly::StringPiece(data(), size()));
   }
 
-  explicit operator std::string_view() const {
+  operator std::string_view() && = delete;
+  explicit operator std::string_view() const& {
     return std::string_view(data(), size());
   }
 
-  const char* begin() const {
+  const char* begin() && = delete;
+  const char* begin() const& {
     return data();
   }
 
-  const char* end() const {
+  const char* end() && = delete;
+  const char* end() const& {
     return data() + size();
   }
 
@@ -273,3 +288,16 @@ struct hasher<::facebook::velox::StringView> {
 };
 
 } // namespace folly
+
+namespace fmt {
+template <>
+struct formatter<facebook::velox::StringView> : private formatter<string_view> {
+  using formatter<string_view>::parse;
+
+  template <typename Context>
+  typename Context::iterator format(facebook::velox::StringView s, Context& ctx)
+      const {
+    return formatter<string_view>::format(string_view{s.data(), s.size()}, ctx);
+  }
+};
+} // namespace fmt

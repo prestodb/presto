@@ -238,8 +238,7 @@ class StringFunctionsTest : public FunctionBaseTest {
     };
 
     for (int i = 0; i < inputTable.size(); ++i) {
-      EXPECT_EQ(result->valueAt(i), StringView(concatStd(inputTable[i])))
-          << "at " << i;
+      EXPECT_EQ(result->valueAt(i), concatStd(inputTable[i])) << "at " << i;
     }
   }
 
@@ -795,7 +794,7 @@ TEST_F(StringFunctionsTest, concat) {
     auto result = evaluate<SimpleVector<StringView>>(
         fmt::format("concat('{}', '{}')", c0, c1), rows);
     for (int i = 0; i < 10; ++i) {
-      EXPECT_EQ(result->valueAt(i), StringView(c0 + c1));
+      EXPECT_EQ(result->valueAt(i), c0 + c1);
     }
   }
 

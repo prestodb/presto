@@ -570,7 +570,7 @@ TEST(ColumnWriterTests, TestBinaryWriter) {
   const size_t size = 100;
   for (size_t i = 0; i < size; ++i) {
     if (i != 20 && i != 40) {
-      data.emplace_back(folly::to<std::string>(i));
+      data.emplace_back(StringView::makeInline(folly::to<std::string>(i)));
     } else {
       data.emplace_back();
     }
@@ -3276,8 +3276,8 @@ struct StringColumnWriterTestCase {
             EXPECT_EQ(sv->valueAt(k), resultSv->valueAt(k)) << folly::sformat(
                 "Mismatch on {}-th element. \nExpected: {}\n Actual: {}",
                 k,
-                sv->valueAt(k),
-                resultSv->valueAt(k));
+                sv->valueAt(k).str(),
+                resultSv->valueAt(k).str());
           }
         }
       }
@@ -4385,11 +4385,11 @@ TEST(ColumnWriterTests, ColumnWriterDictionarySimple) {
       BOOLEAN(), randomNulls(11), [](vector_size_t i) { return i % 2 == 0; });
 
   testDictionary<StringView>(VARCHAR(), randomNulls(9), [](vector_size_t i) {
-    return StringView(std::string("str") + std::to_string(i % 3));
+    return StringView::makeInline("str" + std::to_string(i % 3));
   });
 
   testDictionary<StringView>(VARBINARY(), randomNulls(9), [](vector_size_t i) {
-    return StringView(std::string("binary") + std::to_string(i % 3));
+    return StringView::makeInline("binary" + std::to_string(i % 3));
   });
 };
 

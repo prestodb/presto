@@ -90,7 +90,7 @@ class ElementAtTest : public FunctionBaseTest {
 template <>
 void ElementAtTest::testVariableInputMap<StringView>() {
   auto toStr = [](size_t input) {
-    return StringView(folly::sformat("str{}", input));
+    return StringView(folly::sformat("str{}", input).c_str());
   };
 
   auto indicesVector = makeFlatVector<StringView>(
@@ -647,7 +647,7 @@ TEST_F(ElementAtTest, constantInputMap) {
 
     // String map value type.
     auto valueAt2 = [](vector_size_t idx) {
-      return StringView(folly::sformat("str{}", idx % 5));
+      return StringView(folly::sformat("str{}", idx % 5).c_str());
     };
     auto expectedValueAt2 = [](vector_size_t /* row */) {
       return StringView("str3");
@@ -720,10 +720,10 @@ TEST_F(ElementAtTest, varcharVariableInput) {
 
   auto sizeAt = [](vector_size_t row) { return 7; };
   auto valueAt = [](vector_size_t row, vector_size_t idx) {
-    return StringView(folly::to<std::string>(idx + 1));
+    return StringView(folly::to<std::string>(idx + 1).c_str());
   };
   auto expectedValueAt = [](vector_size_t row) {
-    return StringView(folly::to<std::string>(row % 7 + 1));
+    return StringView(folly::to<std::string>(row % 7 + 1).c_str());
   };
   auto arrayVector = makeArrayVector<StringView>(kVectorSize, sizeAt, valueAt);
 

@@ -84,8 +84,7 @@ struct HllAccumulator {
     return isSparse_ ? sparseHll_.serializedSize() : denseHll_.serializedSize();
   }
 
-  void serialize(int8_t indexBitLength, StringView& output) {
-    char* outputBuffer = const_cast<char*>(output.data());
+  void serialize(int8_t indexBitLength, char* outputBuffer) {
     return isSparse_ ? sparseHll_.serialize(indexBitLength, outputBuffer)
                      : denseHll_.serialize(outputBuffer);
   }
@@ -175,17 +174,19 @@ class ApproxDistinctAggregate : public exec::Aggregate {
             FlatVector<StringView>* result,
             vector_size_t index) {
           auto size = accumulator->serializedSize();
+          StringView serialized;
           if (StringView::isInline(size)) {
-            StringView serialized(size);
-            accumulator->serialize(indexBitLength_, serialized);
-            result->setNoCopy(index, serialized);
+            std::string buffer(size, '\0');
+            accumulator->serialize(indexBitLength_, buffer.data());
+            serialized = StringView::makeInline(buffer);
           } else {
             Buffer* buffer = flatResult->getBufferWithSpace(size);
-            StringView serialized(buffer->as<char>() + buffer->size(), size);
-            accumulator->serialize(indexBitLength_, serialized);
+            char* ptr = buffer->asMutable<char>() + buffer->size();
+            accumulator->serialize(indexBitLength_, ptr);
             buffer->setSize(buffer->size() + size);
-            result->setNoCopy(index, serialized);
+            serialized = StringView(ptr, size);
           }
+          result->setNoCopy(index, serialized);
         });
   }
 

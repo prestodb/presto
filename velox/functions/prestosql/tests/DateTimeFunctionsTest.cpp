@@ -2210,26 +2210,32 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
 
   // day of week number - 'e'
   for (int i = 0; i < 31; i++) {
-    StringView date("2022-08-" + std::to_string(i + 1));
+    std::string date("2022-08-" + std::to_string(i + 1));
     EXPECT_EQ(
         std::to_string(i % 7 + 1),
-        formatDatetime(fromTimestampString(date), "e"));
+        formatDatetime(fromTimestampString(StringView{date}), "e"));
   }
   EXPECT_EQ(
       "000001", formatDatetime(fromTimestampString("2022-08-01"), "eeeeee"));
 
   // day of week text - 'E'
   for (int i = 0; i < 31; i++) {
-    StringView date("2022-08-" + std::to_string(i + 1));
-    EXPECT_EQ(daysShort[i % 7], formatDatetime(fromTimestampString(date), "E"));
+    std::string date("2022-08-" + std::to_string(i + 1));
     EXPECT_EQ(
-        daysShort[i % 7], formatDatetime(fromTimestampString(date), "EE"));
+        daysShort[i % 7],
+        formatDatetime(fromTimestampString(StringView{date}), "E"));
     EXPECT_EQ(
-        daysShort[i % 7], formatDatetime(fromTimestampString(date), "EEE"));
+        daysShort[i % 7],
+        formatDatetime(fromTimestampString(StringView{date}), "EE"));
     EXPECT_EQ(
-        daysLong[i % 7], formatDatetime(fromTimestampString(date), "EEEE"));
+        daysShort[i % 7],
+        formatDatetime(fromTimestampString(StringView{date}), "EEE"));
     EXPECT_EQ(
-        daysLong[i % 7], formatDatetime(fromTimestampString(date), "EEEEEEEE"));
+        daysLong[i % 7],
+        formatDatetime(fromTimestampString(StringView{date}), "EEEE"));
+    EXPECT_EQ(
+        daysLong[i % 7],
+        formatDatetime(fromTimestampString(StringView{date}), "EEEEEEEE"));
   }
 
   // year test cases - 'y'
@@ -2267,15 +2273,22 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
   // month of year test cases - 'M'
   for (int i = 0; i < 12; i++) {
     auto month = i + 1;
-    StringView date("2022-" + std::to_string(month) + "-01");
+    std::string date("2022-" + std::to_string(month) + "-01");
     EXPECT_EQ(
-        std::to_string(month), formatDatetime(fromTimestampString(date), "M"));
+        std::to_string(month),
+        formatDatetime(fromTimestampString(StringView{date}), "M"));
     EXPECT_EQ(
-        padNumber(month), formatDatetime(fromTimestampString(date), "MM"));
-    EXPECT_EQ(monthsShort[i], formatDatetime(fromTimestampString(date), "MMM"));
-    EXPECT_EQ(monthsLong[i], formatDatetime(fromTimestampString(date), "MMMM"));
+        padNumber(month),
+        formatDatetime(fromTimestampString(StringView{date}), "MM"));
     EXPECT_EQ(
-        monthsLong[i], formatDatetime(fromTimestampString(date), "MMMMMMMM"));
+        monthsShort[i],
+        formatDatetime(fromTimestampString(StringView{date}), "MMM"));
+    EXPECT_EQ(
+        monthsLong[i],
+        formatDatetime(fromTimestampString(StringView{date}), "MMMM"));
+    EXPECT_EQ(
+        monthsLong[i],
+        formatDatetime(fromTimestampString(StringView{date}), "MMMMMMMM"));
   }
 
   // day of month test cases - 'd'
@@ -2515,41 +2528,58 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
 
   // Day of week cases
   for (int i = 0; i < 8; i++) {
-    StringView date("1996-01-0" + std::to_string(i + 1));
+    std::string date("1996-01-0" + std::to_string(i + 1));
     // Full length name
-    EXPECT_EQ(daysLong[i % 7], dateFormat(fromTimestampString(date), "%W"));
+    EXPECT_EQ(
+        daysLong[i % 7],
+        dateFormat(fromTimestampString(StringView{date}), "%W"));
     // Abbreviated name
-    EXPECT_EQ(daysShort[i % 7], dateFormat(fromTimestampString(date), "%a"));
+    EXPECT_EQ(
+        daysShort[i % 7],
+        dateFormat(fromTimestampString(StringView{date}), "%a"));
   }
 
   // Month cases
   for (int i = 0; i < 12; i++) {
-    StringView date("1996-" + std::to_string(i + 1) + "-01");
+    std::string date("1996-" + std::to_string(i + 1) + "-01");
     std::string monthNum = std::to_string(i + 1);
     // Full length name
-    EXPECT_EQ(monthsLong[i % 12], dateFormat(fromTimestampString(date), "%M"));
+    EXPECT_EQ(
+        monthsLong[i % 12],
+        dateFormat(fromTimestampString(StringView{date}), "%M"));
     // Abbreviated name
-    EXPECT_EQ(monthsShort[i % 12], dateFormat(fromTimestampString(date), "%b"));
+    EXPECT_EQ(
+        monthsShort[i % 12],
+        dateFormat(fromTimestampString(StringView{date}), "%b"));
     // Numeric
-    EXPECT_EQ(monthNum, dateFormat(fromTimestampString(date), "%c"));
+    EXPECT_EQ(
+        monthNum, dateFormat(fromTimestampString(StringView{date}), "%c"));
     // Numeric 0-padded
     if (i + 1 < 10) {
-      EXPECT_EQ("0" + monthNum, dateFormat(fromTimestampString(date), "%m"));
+      EXPECT_EQ(
+          "0" + monthNum,
+          dateFormat(fromTimestampString(StringView{date}), "%m"));
     } else {
-      EXPECT_EQ(monthNum, dateFormat(fromTimestampString(date), "%m"));
+      EXPECT_EQ(
+          monthNum, dateFormat(fromTimestampString(StringView{date}), "%m"));
     }
   }
 
   // Day of month cases
   for (int i = 1; i <= 31; i++) {
     std::string dayOfMonth = std::to_string(i);
-    StringView date("1970-01-" + dayOfMonth);
-    EXPECT_EQ(dayOfMonth, dateFormat(util::fromTimestampString(date), "%e"));
+    std::string date("1970-01-" + dayOfMonth);
+    EXPECT_EQ(
+        dayOfMonth,
+        dateFormat(util::fromTimestampString(StringView{date}), "%e"));
     if (i < 10) {
       EXPECT_EQ(
-          "0" + dayOfMonth, dateFormat(util::fromTimestampString(date), "%d"));
+          "0" + dayOfMonth,
+          dateFormat(util::fromTimestampString(StringView{date}), "%d"));
     } else {
-      EXPECT_EQ(dayOfMonth, dateFormat(util::fromTimestampString(date), "%d"));
+      EXPECT_EQ(
+          dayOfMonth,
+          dateFormat(util::fromTimestampString(StringView{date}), "%d"));
     }
   }
 

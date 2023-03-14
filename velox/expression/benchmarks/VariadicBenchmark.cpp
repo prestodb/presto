@@ -94,7 +94,7 @@ class VariadicBenchmark : public functions::test::FunctionBenchmarkBase {
     for (vector_size_t i = 0; i < numArgs; ++i) {
       args.emplace_back(
           vectorMaker_.flatVector<StringView>(size, [](vector_size_t row) {
-            return StringView(fmt::format("{}", row));
+            return StringView::makeInline(fmt::format("{}", row));
           }));
     }
 

@@ -56,19 +56,15 @@ class Instr : public exec::VectorFunction {
 
     if (isAscii(args[0].get(), selected)) {
       selected.applyToSelected([&](vector_size_t row) {
-        output->set(
-            row,
-            instr<true>(
-                haystack->valueAt<StringView>(row),
-                needle->valueAt<StringView>(row)));
+        auto h = haystack->valueAt<StringView>(row);
+        auto n = needle->valueAt<StringView>(row);
+        output->set(row, instr<true>(h, n));
       });
     } else {
       selected.applyToSelected([&](vector_size_t row) {
-        output->set(
-            row,
-            instr<false>(
-                haystack->valueAt<StringView>(row),
-                needle->valueAt<StringView>(row)));
+        auto h = haystack->valueAt<StringView>(row);
+        auto n = needle->valueAt<StringView>(row);
+        output->set(row, instr<false>(h, n));
       });
     }
   }

@@ -72,10 +72,11 @@ class ConstantVector final : public SimpleVector<T> {
       valueVector_ = BaseVector::create(type, 1, pool);
       valueVector_->setNull(0, true);
     }
-    if (!isNull_ && std::is_same_v<T, StringView>) {
-      // Copy string value.
-      StringView* valuePtr = reinterpret_cast<StringView*>(&value_);
-      setValue(std::string(valuePtr->data(), valuePtr->size()));
+    if constexpr (std::is_same_v<T, StringView>) {
+      if (!isNull_) {
+        // Copy string value.
+        setValue(value_.str());
+      }
     }
     // If this is not encoded integer, or string, set value buffer
     if constexpr (can_simd) {

@@ -1933,7 +1933,9 @@ TEST_F(TableScanTest, remainingFilterConstantResult) {
           makeFlatVector<int64_t>(size, [](auto row) { return row; }),
           makeFlatVector<StringView>(
               size,
-              [](auto row) { return StringView(fmt::format("{}", row % 23)); }),
+              [](auto row) {
+                return StringView::makeInline(fmt::format("{}", row % 23));
+              }),
       }),
       makeRowVector({
           makeFlatVector<int64_t>(

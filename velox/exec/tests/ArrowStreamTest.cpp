@@ -181,8 +181,8 @@ TEST_F(ArrowStreamTest, basic) {
          makeFlatVector<StringView>(
              size,
              [](vector_size_t row) {
-               uint64_t val = 100000000000 + (uint64_t)(row % 100);
-               return StringView(std::to_string(val));
+               return StringView::makeInline(
+                   std::to_string(100000000000 + (uint64_t)(row % 100)));
              },
              nullEvery(7))}));
   }

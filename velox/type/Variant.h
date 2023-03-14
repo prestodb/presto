@@ -199,16 +199,6 @@ struct VariantTypeTraits<TypeKind::OPAQUE> {
 };
 } // namespace detail
 
-#define VELOX_VARIANT_SCALAR_MEMBERS(KIND)                            \
-  /* implicit */ variant(                                             \
-      const typename detail::VariantTypeTraits<KIND>::native_type& v) \
-      : kind_{KIND},                                                  \
-        ptr_{new detail::VariantTypeTraits<KIND>::stored_type{v}} {}  \
-  /* implicit */ variant(                                             \
-      typename detail::VariantTypeTraits<KIND>::native_type&& v)      \
-      : kind_{KIND},                                                  \
-        ptr_{new detail::VariantTypeTraits<KIND>::stored_type{v}} {}
-
 class variant {
  private:
   variant(TypeKind kind, void* ptr) : kind_{kind}, ptr_{ptr} {}
@@ -276,6 +266,12 @@ class variant {
     }
   };
 
+#define VELOX_VARIANT_SCALAR_MEMBERS(KIND)                     \
+  /* implicit */ variant(                                      \
+      typename detail::VariantTypeTraits<KIND>::native_type v) \
+      : kind_{KIND},                                           \
+        ptr_{new detail::VariantTypeTraits<KIND>::stored_type{v}} {}
+
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::BOOLEAN)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::TINYINT)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::SMALLINT)
@@ -283,11 +279,15 @@ class variant {
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::BIGINT)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::REAL)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::DOUBLE)
-  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARCHAR)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARCHAR);
+  // VARBINARY conflicts with VARCHAR, so we don't gen these methods
+  // VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARBINARY);
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::DATE)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::INTERVAL_DAY_TIME)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::TIMESTAMP)
   VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::UNKNOWN)
+#undef VELOX_VARIANT_SCALAR_MEMBERS
+
   // On 64-bit platforms `int64_t` is declared as `long int`, not `long long
   // int`, thus adding an extra overload to make literals like 1LL resolve
   // correctly. Note that one has to use template T because otherwise SFINAE
@@ -298,9 +298,6 @@ class variant {
           std::is_same_v<T, long long> && !std::is_same_v<long long, int64_t>,
           bool> = true>
   /* implicit */ variant(const T& v) : variant(static_cast<int64_t>(v)) {}
-
-  // VARBINARY conflicts with VARCHAR, so we don't gen these methods
-  // VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARBINARY);
 
   static variant row(const std::vector<variant>& inputs) {
     return {
@@ -422,6 +419,13 @@ class variant {
     }
   }
 
+  // Support construction from StringView as well as StringPiece.
+  variant(StringView view) : variant{folly::StringPiece{view}} {}
+
+  // Break ties between implicit conversions to StringView/StringPiece.
+  variant(std::string str)
+      : kind_{TypeKind::VARCHAR}, ptr_{new std::string{std::move(str)}} {}
+
   variant(const char* str)
       : kind_{TypeKind::VARCHAR}, ptr_{new std::string{str}} {}
 
@@ -454,12 +458,8 @@ class variant {
     return variant{kind};
   }
 
-  static variant binary(std::string&& val) {
+  static variant binary(std::string val) {
     return variant{TypeKind::VARBINARY, new std::string{std::move(val)}};
-  }
-
-  static variant binary(const std::string& val) {
-    return variant{TypeKind::VARBINARY, new std::string{val}};
   }
 
   variant& operator=(const variant& other) {
@@ -701,15 +701,14 @@ struct VariantConverter {
   static variant convert(const variant& value) {
     if (value.isNull()) {
       return variant{value.kind()};
-    } else {
-      bool nullOutput = false;
-      auto v = variant{
-          util::Converter<ToKind>::cast(value.value<FromKind>(), nullOutput)};
-      if (nullOutput) {
-        throw std::invalid_argument("Velox cast error");
-      }
-      return v;
     }
+    bool nullOutput = false;
+    auto converted =
+        util::Converter<ToKind>::cast(value.value<FromKind>(), nullOutput);
+    if (nullOutput) {
+      throw std::invalid_argument("Velox cast error");
+    }
+    return {converted};
   }
 
   template <TypeKind ToKind>
@@ -750,7 +749,5 @@ struct VariantConverter {
     return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(convert, toKind, value);
   }
 };
-
-#undef VELOX_VARIANT_SCALAR_MEMBERS
 
 } // namespace facebook::velox

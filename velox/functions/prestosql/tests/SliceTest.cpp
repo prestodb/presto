@@ -259,13 +259,13 @@ TEST_F(SliceTest, varcharVariableInput) {
 
   auto sizeAt = [](vector_size_t /*row*/) { return 7; };
   auto valueAt = [](vector_size_t /*row*/, vector_size_t idx) {
-    return StringView(folly::to<std::string>(idx + 1));
+    return StringView::makeInline(folly::to<std::string>(idx + 1));
   };
   auto arrayVector = makeArrayVector<StringView>(kVectorSize, sizeAt, valueAt);
 
   auto expectedSizeAt = [](vector_size_t row) { return 7 - row % 7; };
   auto expectedValueAt = [](vector_size_t row, vector_size_t idx) {
-    return StringView(folly::to<std::string>(1 + row % 7 + idx));
+    return StringView::makeInline(folly::to<std::string>(1 + row % 7 + idx));
   };
   auto expectedArrayVector =
       makeArrayVector<StringView>(kVectorSize, expectedSizeAt, expectedValueAt);
@@ -312,13 +312,13 @@ TEST_F(SliceTest, errorStatesArray) {
 
   auto sizeAt = [](vector_size_t /*row*/) { return 7; };
   auto valueAt = [](vector_size_t /*row*/, vector_size_t idx) {
-    return StringView(folly::to<std::string>(idx + 1));
+    return StringView::makeInline(folly::to<std::string>(idx + 1));
   };
   auto arrayVector = makeArrayVector<StringView>(kVectorSize, sizeAt, valueAt);
 
   auto expectedSizeAt = [](vector_size_t row) { return 7 - row % 7; };
   auto expectedValueAt = [](vector_size_t row, vector_size_t idx) {
-    return StringView(folly::to<std::string>(1 + row % 7 + idx));
+    return StringView::makeInline(folly::to<std::string>(1 + row % 7 + idx));
   };
   auto expectedArrayVector =
       makeArrayVector<StringView>(kVectorSize, expectedSizeAt, expectedValueAt);
@@ -341,13 +341,13 @@ TEST_F(SliceTest, zeroSliceLength) {
 
   auto sizeAt = [](vector_size_t /*row*/) { return 7; };
   auto valueAt = [](vector_size_t /*row*/, vector_size_t idx) {
-    return StringView(folly::to<std::string>(idx + 1));
+    return StringView::makeInline(folly::to<std::string>(idx + 1));
   };
   auto arrayVector = makeArrayVector<StringView>(kVectorSize, sizeAt, valueAt);
 
   auto expectedSizeAt = [](vector_size_t /*row*/) { return 0; };
   auto expectedValueAt = [](vector_size_t /*row*/, vector_size_t /*idx*/) {
-    return StringView(folly::to<std::string>());
+    return StringView::makeInline(folly::to<std::string>());
   };
   auto expectedArrayVector =
       makeArrayVector<StringView>(kVectorSize, expectedSizeAt, expectedValueAt);

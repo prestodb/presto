@@ -414,7 +414,9 @@ TEST_F(TableWriteTest, multiplePartitions) {
          makeFlatVector<int32_t>(numPartitions, [&](auto row) { return row; }),
          makeFlatVector<StringView>(
              numPartitions,
-             [&](auto row) { return StringView(fmt::format("str_{}", row)); }),
+             [&](auto row) {
+               return StringView::makeInline(fmt::format("str_{}", row));
+             }),
          makeFlatVector<int64_t>(
              numPartitions, [&](auto row) { return row + 1000; })});
   });
@@ -489,7 +491,9 @@ TEST_F(TableWriteTest, singlePartition) {
         rowType->names(),
         {makeFlatVector<StringView>(
              1'000,
-             [&](auto row) { return StringView(fmt::format("str_{}", row)); }),
+             [&](auto row) {
+               return StringView::makeInline(fmt::format("str_{}", row));
+             }),
          makeConstant((int64_t)365, 1'000)});
   });
   createDuckDbTable(vectors);

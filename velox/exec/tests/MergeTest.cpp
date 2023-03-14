@@ -138,8 +138,9 @@ TEST_F(MergeTest, localMerge) {
         batchSize, [&](auto row) { return row; }, nullEvery(5));
     auto c2 = makeFlatVector<double>(
         batchSize, [](auto row) { return row * 0.1; }, nullEvery(11));
-    auto c3 = makeFlatVector<StringView>(
-        batchSize, [](auto row) { return StringView(std::to_string(row)); });
+    auto c3 = makeFlatVector<StringView>(batchSize, [](auto row) {
+      return StringView::makeInline(std::to_string(row));
+    });
     vectors.push_back(makeRowVector({c0, c1, c2, c3}));
   }
   createDuckDbTable(vectors);

@@ -660,18 +660,18 @@ TEST_F(JodaDateTimeFormatterTest, parseJodaMonth) {
   // Ensure MMM and MMMM specifiers consume both short- and long-form month
   // names
   for (int i = 0; i < 12; i++) {
-    StringView buildString("2000-" + std::to_string(i + 1) + "-01");
+    std::string buildString("2000-" + std::to_string(i + 1) + "-01");
     EXPECT_EQ(
-        util::fromTimestampString(buildString),
+        util::fromTimestampString(StringView{buildString}),
         parseJoda(monthsShort[i], "MMM").timestamp);
     EXPECT_EQ(
-        util::fromTimestampString(buildString),
+        util::fromTimestampString(StringView{buildString}),
         parseJoda(monthsFull[i], "MMM").timestamp);
     EXPECT_EQ(
-        util::fromTimestampString(buildString),
+        util::fromTimestampString(StringView{buildString}),
         parseJoda(monthsShort[i], "MMMM").timestamp);
     EXPECT_EQ(
-        util::fromTimestampString(buildString),
+        util::fromTimestampString(StringView{buildString}),
         parseJoda(monthsFull[i], "MMMM").timestamp);
   }
 
@@ -1916,18 +1916,18 @@ TEST_F(MysqlDateTimeTest, parseMonth) {
   // Ensure %b and %M specifiers consume both short- and long-form month
   // names
   for (int i = 0; i < 12; i++) {
-    StringView buildString("2000-" + std::to_string(i + 1) + "-01");
+    std::string buildString("2000-" + std::to_string(i + 1) + "-01");
     EXPECT_EQ(
-        util::fromTimestampString(buildString),
+        util::fromTimestampString(StringView{buildString}),
         parseMysql(monthsShort[i], "%b"));
     EXPECT_EQ(
-        util::fromTimestampString(buildString),
+        util::fromTimestampString(StringView{buildString}),
         parseMysql(monthsFull[i], "%b"));
     EXPECT_EQ(
-        util::fromTimestampString(buildString),
+        util::fromTimestampString(StringView{buildString}),
         parseMysql(monthsShort[i], "%M"));
     EXPECT_EQ(
-        util::fromTimestampString(buildString),
+        util::fromTimestampString(StringView{buildString}),
         parseMysql(monthsFull[i], "%M"));
   }
 

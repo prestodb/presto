@@ -151,8 +151,9 @@ TEST(TestStatisticsBuilderUtils, addStringValues) {
 
   auto values = AlignedBuffer::allocate<StringView>(10, pool.get());
   auto* valuesPtr = values->asMutable<StringView>();
-  for (size_t i = 0; i < size; ++i) {
-    valuesPtr[i] = StringView(std::string(1, 'a' + i));
+  char c = 'a';
+  for (size_t i = 0; i < size; ++i, ++c) {
+    valuesPtr[i] = StringView(&c, 1);
   }
 
   {

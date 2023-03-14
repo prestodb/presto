@@ -650,7 +650,7 @@ class UnsafeRowComplexBatchDeserializerTests
         makeFlatVector<int64_t>(batchSize, [](vector_size_t i) { return i; });
     auto stringVector =
         makeFlatVector<StringView>(batchSize, [](vector_size_t i) {
-          return StringView("string" + std::to_string(i));
+          return StringView::makeInline("string" + std::to_string(i));
         });
     auto intArrayVector = makeArrayVector<int64_t>(
         batchSize,
@@ -660,7 +660,7 @@ class UnsafeRowComplexBatchDeserializerTests
         batchSize,
         [](vector_size_t row) { return row % 5; },
         [](vector_size_t row, vector_size_t index) {
-          return StringView("str" + std::to_string(row + index));
+          return StringView::makeInline("str" + std::to_string(row + index));
         });
     return makeRowVector(
         {intVector, stringVector, intArrayVector, stringArrayVector});

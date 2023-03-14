@@ -32,7 +32,8 @@ TEST_F(PartitionIdGeneratorTest, consecutiveIdsSingleKey) {
 
   auto input = makeRowVector(
       {makeFlatVector<StringView>(numPartitions * 3, [&](auto row) {
-        return StringView(Date(18000 + row % numPartitions).toString());
+        return StringView::makeInline(
+            Date(18000 + row % numPartitions).toString());
       })});
 
   raw_vector<uint64_t> ids;
@@ -55,7 +56,7 @@ TEST_F(PartitionIdGeneratorTest, consecutiveIdsMultipleKeys) {
       makeFlatVector<StringView>(
           1'000,
           [&](auto row) {
-            return StringView(Date(18000 + row % 5).toString());
+            return StringView::makeInline(Date(18000 + row % 5).toString());
           }),
       makeFlatVector<int32_t>(1'000, [&](auto row) { return row % 17; }),
   });
@@ -110,7 +111,7 @@ TEST_F(PartitionIdGeneratorTest, stableIdsMultipleKeys) {
       makeFlatVector<StringView>(
           size,
           [](auto row) {
-            return StringView(Date(18000 + row % 3).toString());
+            return StringView::makeInline(Date(18000 + row % 3).toString());
           }),
       makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
   });
@@ -123,7 +124,7 @@ TEST_F(PartitionIdGeneratorTest, stableIdsMultipleKeys) {
       makeFlatVector<StringView>(
           size,
           [](auto row) {
-            return StringView(Date(18000 + row % 5).toString());
+            return StringView::makeInline(Date(18000 + row % 5).toString());
           }),
       makeFlatVector<int32_t>(size, [](auto row) { return row % 17; }),
   });

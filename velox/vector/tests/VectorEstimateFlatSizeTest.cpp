@@ -63,7 +63,7 @@ bool boolAt(vector_size_t row) {
 }
 
 StringView shortStringAt(vector_size_t row) {
-  return StringView(std::string(row % 3, '.'));
+  return StringView::makeInline(std::string(row % 3, '.'));
 };
 } // namespace
 
