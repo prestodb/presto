@@ -165,6 +165,7 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
        {"        queuedWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"        rangeKey0\\s+sum: 200, count: 1, min: 200, max: 200"},
        {"     HashProbe: Input: 2000 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1"},
+       {"        blockedWaitForJoinBuildWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"        dynamicFiltersProduced\\s+sum: 1, count: 1, min: 1, max: 1"},
        {"        queuedWallNanos\\s+sum: .+, count: 1, min: .+, max: .+",
         true}, // This line may or may not appear depending on how the threads

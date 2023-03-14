@@ -79,7 +79,8 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
 
         std::lock_guard<std::mutex> l(task->mutex());
         if (!driver->state().isTerminated) {
-          state->operator_->recordBlockingTime(state->sinceMicros_);
+          state->operator_->recordBlockingTime(
+              state->sinceMicros_, state->reason_);
         }
         VELOX_CHECK(!driver->state().isSuspended);
         VELOX_CHECK(driver->state().hasBlockingFuture);

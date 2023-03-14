@@ -399,7 +399,7 @@ class Operator : public BaseRuntimeStatWriter {
     return stats_;
   }
 
-  void recordBlockingTime(uint64_t start);
+  void recordBlockingTime(uint64_t start, BlockingReason reason);
 
   virtual std::string toString() const;
 
