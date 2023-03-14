@@ -32,39 +32,26 @@ std::string toJsonString(const T& value) {
   return ((json)value).dump();
 }
 
-std::optional<std::string> mapDefaultFunctionName(
-    const std::string& lowerCaseName) {
-  static const char* kPrestoDefaultPrefix = "presto.default.";
-  static const uint32_t kPrestoDefaultPrefixLength =
-      strlen(kPrestoDefaultPrefix);
-
-  if (lowerCaseName.compare(
-          0, kPrestoDefaultPrefixLength, kPrestoDefaultPrefix) == 0) {
-    return lowerCaseName.substr(kPrestoDefaultPrefixLength);
-  }
-
-  return std::nullopt;
-}
-
 std::string mapScalarFunction(const std::string& name) {
   static const std::unordered_map<std::string, std::string> kFunctionNames = {
       // see com.facebook.presto.common.function.OperatorType
-      {"presto.default.$operator$add", "plus"},
-      {"presto.default.$operator$between", "between"},
-      {"presto.default.$operator$divide", "divide"},
-      {"presto.default.$operator$equal", "eq"},
-      {"presto.default.$operator$greater_than", "gt"},
-      {"presto.default.$operator$greater_than_or_equal", "gte"},
-      {"presto.default.$operator$is_distinct_from", "distinct_from"},
-      {"presto.default.$operator$less_than", "lt"},
-      {"presto.default.$operator$less_than_or_equal", "lte"},
-      {"presto.default.$operator$modulus", "mod"},
-      {"presto.default.$operator$multiply", "multiply"},
-      {"presto.default.$operator$negation", "negate"},
-      {"presto.default.$operator$not_equal", "neq"},
-      {"presto.default.$operator$subtract", "minus"},
-      {"presto.default.$operator$subscript", "subscript"},
-      {"presto.default.random", "rand"}};
+      {"presto.default.$operator$add", "presto.default.plus"},
+      {"presto.default.$operator$between", "presto.default.between"},
+      {"presto.default.$operator$divide", "presto.default.divide"},
+      {"presto.default.$operator$equal", "presto.default.eq"},
+      {"presto.default.$operator$greater_than", "presto.default.gt"},
+      {"presto.default.$operator$greater_than_or_equal", "presto.default.gte"},
+      {"presto.default.$operator$is_distinct_from",
+       "presto.default.distinct_from"},
+      {"presto.default.$operator$less_than", "presto.default.lt"},
+      {"presto.default.$operator$less_than_or_equal", "presto.default.lte"},
+      {"presto.default.$operator$modulus", "presto.default.mod"},
+      {"presto.default.$operator$multiply", "presto.default.multiply"},
+      {"presto.default.$operator$negation", "presto.default.negate"},
+      {"presto.default.$operator$not_equal", "presto.default.neq"},
+      {"presto.default.$operator$subtract", "presto.default.minus"},
+      {"presto.default.$operator$subscript", "presto.default.subscript"},
+      {"presto.default.random", "presto.default.rand"}};
 
   std::string lowerCaseName = boost::to_lower_copy(name);
 
@@ -73,23 +60,11 @@ std::string mapScalarFunction(const std::string& name) {
     return it->second;
   }
 
-  auto mappedName = mapDefaultFunctionName(lowerCaseName);
-  if (mappedName.has_value()) {
-    return mappedName.value();
-  }
-
   return lowerCaseName;
 }
 
 std::string mapAggregateOrWindowFunction(const std::string& name) {
-  std::string lowerCaseName = boost::to_lower_copy(name);
-
-  auto mappedName = mapDefaultFunctionName(lowerCaseName);
-  if (mappedName.has_value()) {
-    return mappedName.value();
-  }
-
-  return lowerCaseName;
+  return boost::to_lower_copy(name);
 }
 
 std::string getFunctionName(const protocol::Signature& signature) {
