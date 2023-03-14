@@ -144,7 +144,7 @@ ResultOrError ExpressionVerifier::verify(
     exec::EvalCtx evalCtxCommon(execCtx_, &exprSetCommon, inputRowVector.get());
 
     exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
-  } catch (...) {
+  } catch (const VeloxUserError&) {
     if (!canThrow) {
       LOG(ERROR)
           << "Common eval wasn't supposed to throw, but it did. Aborting.";
@@ -162,7 +162,7 @@ ResultOrError ExpressionVerifier::verify(
         execCtx_, &exprSetSimplified, rowVector.get());
 
     exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
-  } catch (...) {
+  } catch (const VeloxUserError&) {
     exceptionSimplifiedPtr = std::current_exception();
   }
 
