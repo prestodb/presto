@@ -6,9 +6,10 @@ Velox Documentation
     :maxdepth: 2
 
     velox-in-10-min
+    monthly-updates
     functions
     spark_functions
     configs
     bindings/python/README_generated_pyvelox
     develop
-    monthly-updates
+    programming-guide
