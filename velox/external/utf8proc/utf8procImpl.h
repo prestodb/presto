@@ -978,6 +978,15 @@ UTF8PROC_DLLEXPORT int utf8proc_char_length(const char* u_input) {
   return -1;
 }
 
+/// This function is not part of the original utf8proc.
+/// A utf-8 character may be 1 to 4 bytes long. The function will determine if
+/// the input is pointing to the first byte.
+UTF8PROC_DLLEXPORT bool utf8proc_char_first_byte(const char* u_input) {
+  auto u = (const unsigned char*)u_input;
+  unsigned char u0 = u[0];
+  return u0 <= 127 || u0 >= 192;
+}
+
 /// Return the size in bytes for the char represented by the input code point.
 /// The output is not undefined if uc is invalid. Its implemented to match
 /// the space writen by utf8proc_encode_char for invalid inputs case.

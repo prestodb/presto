@@ -50,6 +50,36 @@ class StringTest : public SparkFunctionBaseTest {
         "length(c0)", {arg}, {VARBINARY()});
   }
 
+  std::optional<std::string> trim(std::optional<std::string> srcStr) {
+    return evaluateOnce<std::string>("trim(c0)", srcStr);
+  }
+
+  std::optional<std::string> trim(
+      std::optional<std::string> trimStr,
+      std::optional<std::string> srcStr) {
+    return evaluateOnce<std::string>("trim(c0, c1)", trimStr, srcStr);
+  }
+
+  std::optional<std::string> ltrim(std::optional<std::string> srcStr) {
+    return evaluateOnce<std::string>("ltrim(c0)", srcStr);
+  }
+
+  std::optional<std::string> ltrim(
+      std::optional<std::string> trimStr,
+      std::optional<std::string> srcStr) {
+    return evaluateOnce<std::string>("ltrim(c0, c1)", trimStr, srcStr);
+  }
+
+  std::optional<std::string> rtrim(std::optional<std::string> srcStr) {
+    return evaluateOnce<std::string>("rtrim(c0)", srcStr);
+  }
+
+  std::optional<std::string> rtrim(
+      std::optional<std::string> trimStr,
+      std::optional<std::string> srcStr) {
+    return evaluateOnce<std::string>("rtrim(c0, c1)", trimStr, srcStr);
+  }
+
   std::optional<std::string> md5(std::optional<std::string> arg) {
     return evaluateOnce<std::string, std::string>(
         "md5(c0)", {arg}, {VARBINARY()});
@@ -252,6 +282,91 @@ TEST_F(StringTest, endsWith) {
   EXPECT_EQ(endsWith("-- hello there!", "hello there"), false);
   EXPECT_EQ(endsWith("-- hello there!", std::nullopt), std::nullopt);
   EXPECT_EQ(endsWith(std::nullopt, "abc"), std::nullopt);
+}
+
+TEST_F(StringTest, trim) {
+  EXPECT_EQ(trim(""), "");
+  EXPECT_EQ(trim("  data\t "), "data\t");
+  EXPECT_EQ(trim("  data\t"), "data\t");
+  EXPECT_EQ(trim("data\t "), "data\t");
+  EXPECT_EQ(trim("data\t"), "data\t");
+  EXPECT_EQ(trim("  \u6570\u636E\t "), "\u6570\u636E\t");
+  EXPECT_EQ(trim("  \u6570\u636E\t"), "\u6570\u636E\t");
+  EXPECT_EQ(trim("\u6570\u636E\t "), "\u6570\u636E\t");
+  EXPECT_EQ(trim("\u6570\u636E\t"), "\u6570\u636E\t");
+
+  EXPECT_EQ(trim("", ""), "");
+  EXPECT_EQ(trim("", "srcStr"), "srcStr");
+  EXPECT_EQ(trim("trimStr", ""), "");
+  EXPECT_EQ(trim("data!egr< >int", "integer data!"), "");
+  EXPECT_EQ(trim("int", "integer data!"), "eger data!");
+  EXPECT_EQ(trim("!!at", "integer data!"), "integer d");
+  EXPECT_EQ(trim("a", "integer data!"), "integer data!");
+  EXPECT_EQ(
+      trim("\u6570\u6574!\u6570 \u636E!", "\u6574\u6570 \u6570\u636E!"), "");
+  EXPECT_EQ(trim(" \u6574\u6570 ", "\u6574\u6570 \u6570\u636E!"), "\u636E!");
+  EXPECT_EQ(trim("! \u6570\u636E!", "\u6574\u6570 \u6570\u636E!"), "\u6574");
+  EXPECT_EQ(
+      trim("\u6570", "\u6574\u6570 \u6570\u636E!"),
+      "\u6574\u6570 \u6570\u636E!");
+}
+
+TEST_F(StringTest, ltrim) {
+  EXPECT_EQ(ltrim(""), "");
+  EXPECT_EQ(ltrim("  data\t "), "data\t ");
+  EXPECT_EQ(ltrim("  data\t"), "data\t");
+  EXPECT_EQ(ltrim("data\t "), "data\t ");
+  EXPECT_EQ(ltrim("data\t"), "data\t");
+  EXPECT_EQ(ltrim("  \u6570\u636E\t "), "\u6570\u636E\t ");
+  EXPECT_EQ(ltrim("  \u6570\u636E\t"), "\u6570\u636E\t");
+  EXPECT_EQ(ltrim("\u6570\u636E\t "), "\u6570\u636E\t ");
+  EXPECT_EQ(ltrim("\u6570\u636E\t"), "\u6570\u636E\t");
+
+  EXPECT_EQ(ltrim("", ""), "");
+  EXPECT_EQ(ltrim("", "srcStr"), "srcStr");
+  EXPECT_EQ(ltrim("trimStr", ""), "");
+  EXPECT_EQ(ltrim("data!egr< >int", "integer data!"), "");
+  EXPECT_EQ(ltrim("int", "integer data!"), "eger data!");
+  EXPECT_EQ(ltrim("!!at", "integer data!"), "integer data!");
+  EXPECT_EQ(ltrim("a", "integer data!"), "integer data!");
+  EXPECT_EQ(
+      ltrim("\u6570\u6574!\u6570 \u636E!", "\u6574\u6570 \u6570\u636E!"), "");
+  EXPECT_EQ(ltrim(" \u6574\u6570 ", "\u6574\u6570 \u6570\u636E!"), "\u636E!");
+  EXPECT_EQ(
+      ltrim("! \u6570\u636E!", "\u6574\u6570 \u6570\u636E!"),
+      "\u6574\u6570 \u6570\u636E!");
+  EXPECT_EQ(
+      ltrim("\u6570", "\u6574\u6570 \u6570\u636E!"),
+      "\u6574\u6570 \u6570\u636E!");
+}
+
+TEST_F(StringTest, rtrim) {
+  EXPECT_EQ(rtrim(""), "");
+  EXPECT_EQ(rtrim("  data\t "), "  data\t");
+  EXPECT_EQ(rtrim("  data\t"), "  data\t");
+  EXPECT_EQ(rtrim("data\t "), "data\t");
+  EXPECT_EQ(rtrim("data\t"), "data\t");
+  EXPECT_EQ(rtrim("  \u6570\u636E\t "), "  \u6570\u636E\t");
+  EXPECT_EQ(rtrim("  \u6570\u636E\t"), "  \u6570\u636E\t");
+  EXPECT_EQ(rtrim("\u6570\u636E\t "), "\u6570\u636E\t");
+  EXPECT_EQ(rtrim("\u6570\u636E\t"), "\u6570\u636E\t");
+
+  EXPECT_EQ(rtrim("", ""), "");
+  EXPECT_EQ(rtrim("", "srcStr"), "srcStr");
+  EXPECT_EQ(rtrim("trimStr", ""), "");
+  EXPECT_EQ(rtrim("data!egr< >int", "integer data!"), "");
+  EXPECT_EQ(rtrim("int", "integer data!"), "integer data!");
+  EXPECT_EQ(rtrim("!!at", "integer data!"), "integer d");
+  EXPECT_EQ(rtrim("a", "integer data!"), "integer data!");
+  EXPECT_EQ(
+      rtrim("\u6570\u6574!\u6570 \u636E!", "\u6574\u6570 \u6570\u636E!"), "");
+  EXPECT_EQ(
+      rtrim(" \u6574\u6570 ", "\u6574\u6570 \u6570\u636E!"),
+      "\u6574\u6570 \u6570\u636E!");
+  EXPECT_EQ(rtrim("! \u6570\u636E!", "\u6574\u6570 \u6570\u636E!"), "\u6574");
+  EXPECT_EQ(
+      rtrim("\u6570", "\u6574\u6570 \u6570\u636E!"),
+      "\u6574\u6570 \u6570\u636E!");
 }
 
 } // namespace

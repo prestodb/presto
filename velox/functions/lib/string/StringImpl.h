@@ -502,6 +502,10 @@ FOLLY_ALWAYS_INLINE bool isAsciiWhiteSpace(char ch) {
   return ch == '\t' || ch == '\n' || ch == '\r' || ch == ' ';
 }
 
+FOLLY_ALWAYS_INLINE bool isAsciiSpace(char ch) {
+  return ch == ' ';
+}
+
 // Returns -1 if 'data' does not end with a white space, otherwise returns the
 // size of the white space character at the end of 'data'. 'size' is the size of
 // 'data' in bytes.
@@ -569,6 +573,7 @@ FOLLY_ALWAYS_INLINE bool splitPart(
 template <
     bool leftTrim,
     bool rightTrim,
+    bool(shouldTrim)(char) = isAsciiWhiteSpace,
     typename TOutString,
     typename TInString>
 FOLLY_ALWAYS_INLINE void trimAsciiWhiteSpace(
@@ -581,7 +586,7 @@ FOLLY_ALWAYS_INLINE void trimAsciiWhiteSpace(
 
   auto curPos = input.begin();
   if constexpr (leftTrim) {
-    while (curPos < input.end() && isAsciiWhiteSpace(*curPos)) {
+    while (curPos < input.end() && shouldTrim(*curPos)) {
       curPos++;
     }
   }
@@ -592,7 +597,7 @@ FOLLY_ALWAYS_INLINE void trimAsciiWhiteSpace(
   auto start = curPos;
   curPos = input.end() - 1;
   if constexpr (rightTrim) {
-    while (curPos >= start && isAsciiWhiteSpace(*curPos)) {
+    while (curPos >= start && shouldTrim(*curPos)) {
       curPos--;
     }
   }

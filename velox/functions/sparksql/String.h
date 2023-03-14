@@ -211,4 +211,152 @@ struct EndsWithFunction {
   }
 };
 
+/// ltrim(trimStr, srcStr) -> varchar
+///     Remove leading specified characters from srcStr. The specified character
+///     is any character contained in trimStr.
+/// rtrim(trimStr, srcStr) -> varchar
+///     Remove trailing specified characters from srcStr. The specified
+///     character is any character contained in trimStr.
+/// trim(trimStr, srcStr) -> varchar
+///     Remove leading and trailing specified characters from srcStr. The
+///     specified character is any character contained in trimStr.
+template <typename T, bool leftTrim, bool rightTrim>
+struct TrimFunctionBase {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // Results refer to strings in the first argument.
+  static constexpr int32_t reuse_strings_from_arg = 1;
+
+  // ASCII input always produces ASCII result.
+  static constexpr bool is_default_ascii_behavior = true;
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& trimStr,
+      const arg_type<Varchar>& srcStr) {
+    if (srcStr.empty()) {
+      result.setEmpty();
+      return;
+    }
+    if (trimStr.empty()) {
+      result.setNoCopy(srcStr);
+      return;
+    }
+
+    auto trimStrView = std::string_view(trimStr);
+    size_t resultStartIndex = 0;
+    if constexpr (leftTrim) {
+      resultStartIndex =
+          std::string_view(srcStr).find_first_not_of(trimStrView);
+      if (resultStartIndex == std::string_view::npos) {
+        result.setEmpty();
+        return;
+      }
+    }
+
+    size_t resultSize = srcStr.size() - resultStartIndex;
+    if constexpr (rightTrim) {
+      size_t lastIndex =
+          std::string_view(srcStr.data() + resultStartIndex, resultSize)
+              .find_last_not_of(trimStrView);
+      if (lastIndex == std::string_view::npos) {
+        result.setEmpty();
+        return;
+      }
+      resultSize = lastIndex + 1;
+    }
+
+    result.setNoCopy(StringView(srcStr.data() + resultStartIndex, resultSize));
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& trimStr,
+      const arg_type<Varchar>& srcStr) {
+    if (srcStr.empty()) {
+      result.setEmpty();
+      return;
+    }
+    if (trimStr.empty()) {
+      result.setNoCopy(srcStr);
+      return;
+    }
+
+    auto trimStrView = std::string_view(trimStr);
+    auto resultBegin = srcStr.begin();
+    if constexpr (leftTrim) {
+      while (resultBegin < srcStr.end()) {
+        int charLen = utf8proc_char_length(resultBegin);
+        auto c = std::string_view(resultBegin, charLen);
+        if (trimStrView.find(c) == std::string_view::npos) {
+          break;
+        }
+        resultBegin += charLen;
+      }
+    }
+
+    auto resultEnd = srcStr.end();
+    if constexpr (rightTrim) {
+      auto curPos = resultEnd - 1;
+      while (curPos >= resultBegin) {
+        if (utf8proc_char_first_byte(curPos)) {
+          auto c = std::string_view(curPos, resultEnd - curPos);
+          if (trimStrView.find(c) == std::string_view::npos) {
+            break;
+          }
+          resultEnd = curPos;
+        }
+        --curPos;
+      }
+    }
+
+    result.setNoCopy(StringView(resultBegin, resultEnd - resultBegin));
+  }
+};
+
+/// ltrim(srcStr) -> varchar
+///     Removes leading 0x20(space) characters from srcStr.
+/// rtrim(srcStr) -> varchar
+///     Removes trailing 0x20(space) characters from srcStr.
+/// trim(srcStr) -> varchar
+///     Remove leading and trailing 0x20(space) characters from srcStr.
+template <typename T, bool leftTrim, bool rightTrim>
+struct TrimSpaceFunctionBase {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // Results refer to strings in the first argument.
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  // ASCII input always produces ASCII result.
+  static constexpr bool is_default_ascii_behavior = true;
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& srcStr) {
+    // Because utf-8 and Ascii have the same space character code, both are
+    // char=32. So trimAsciiSpace can be reused here.
+    stringImpl::
+        trimAsciiWhiteSpace<leftTrim, rightTrim, stringImpl::isAsciiSpace>(
+            result, srcStr);
+  }
+};
+
+template <typename T>
+struct TrimFunction : public TrimFunctionBase<T, true, true> {};
+
+template <typename T>
+struct LTrimFunction : public TrimFunctionBase<T, true, false> {};
+
+template <typename T>
+struct RTrimFunction : public TrimFunctionBase<T, false, true> {};
+
+template <typename T>
+struct TrimSpaceFunction : public TrimSpaceFunctionBase<T, true, true> {};
+
+template <typename T>
+struct LTrimSpaceFunction : public TrimSpaceFunctionBase<T, true, false> {};
+
+template <typename T>
+struct RTrimSpaceFunction : public TrimSpaceFunctionBase<T, false, true> {};
+
 } // namespace facebook::velox::functions::sparksql
