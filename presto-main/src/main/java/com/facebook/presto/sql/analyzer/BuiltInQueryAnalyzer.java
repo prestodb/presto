@@ -38,6 +38,7 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessControlPermissions;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -101,15 +102,9 @@ public class BuiltInQueryAnalyzer
         checkState(analyzerContext instanceof BuiltInAnalyzerContext, "analyzerContext should be an instance of BuiltInAnalyzerContext");
         Session session = ((BuiltInAnalyzerContext) analyzerContext).getSession();
         BuiltInQueryAnalysis builtInQueryAnalysis = (BuiltInQueryAnalysis) queryAnalysis;
-        builtInQueryAnalysis.getAnalysis().getTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session))
-                .forEach((accessControlInfo, tableColumnReferences) ->
-                        tableColumnReferences.forEach((tableName, columns) ->
-                                accessControlInfo.getAccessControl().checkCanSelectFromColumns(
-                                        session.getRequiredTransactionId(),
-                                        accessControlInfo.getIdentity(),
-                                        session.getAccessControlContext(),
-                                        tableName,
-                                        columns)));
+        Analysis analysis = builtInQueryAnalysis.getAnalysis();
+
+        checkAccessControlPermissions(analysis, isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session));
     }
 
     @Override
