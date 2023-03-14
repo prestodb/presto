@@ -189,6 +189,7 @@ public class NativeExecutionOperator
             this.process = processFactory.createNativeExecutionProcess(
                     operatorContext.getSession(),
                     URI.create(NATIVE_EXECUTION_SERVER_URI));
+            log.info("Starting native execution process of task" + getOperatorContext().getDriverContext().getTaskId().toString());
             process.start();
         }
         catch (ExecutionException | InterruptedException | IOException e) {
@@ -277,6 +278,7 @@ public class NativeExecutionOperator
             task.stop();
         }
         if (process != null) {
+            log.info("Closing native execution process for task " + getOperatorContext().getDriverContext().getTaskId().toString());
             process.close();
         }
     }

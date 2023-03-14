@@ -42,6 +42,7 @@ import java.nio.file.Paths;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.http.client.HttpStatus.OK;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -148,6 +149,20 @@ public class NativeExecutionProcess
     {
         if (process != null && process.isAlive()) {
             process.destroy();
+            try {
+                // For native process it takes 10s to initiate SHUTDOWN. The task cleanup interval is 60s. To be sure task cleanup is run at least once we just roughly double the
+                // wait time.
+                process.waitFor(120, TimeUnit.SECONDS);
+            }
+            catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            finally {
+                if (process.isAlive()) {
+                    log.warn("Graceful shutdown of native execution process failed. Force killing it.");
+                    process.destroyForcibly();
+                }
+            }
         }
     }
 
