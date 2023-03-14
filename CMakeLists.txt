@@ -333,13 +333,13 @@ resolve_dependency(Boost 1.66.0 COMPONENTS ${BOOST_INCLUDE_LIBRARIES})
 set_source(gflags)
 resolve_dependency(gflags COMPONENTS shared)
 if(NOT TARGET gflags::gflags)
-  get_target_property(gflags_global gflags IMPORTED_GLOBAL)
-  if(NOT gflags_global)
-    # Some configurations don't import the gflags target globally which will
-    # block the creation of an alias
-    set_target_properties(gflags PROPERTIES IMPORTED_GLOBAL TRUE)
-  endif()
-  add_library(gflags::gflags ALIAS gflags)
+  # This is a bit convoluted, but we want to be able to use gflags::gflags as a
+  # target even when velox is built as a subproject which uses
+  # `find_package(gflags)` which does not create a globally imported target that
+  # we can ALIAS.
+  add_library(gflags_gflags INTERFACE)
+  target_link_libraries(gflags_gflags INTERFACE gflags)
+  add_library(gflags::gflags ALIAS gflags_gflags)
 endif()
 
 if(${gflags_SOURCE} STREQUAL "BUNDLED")
@@ -476,6 +476,18 @@ include_directories(SYSTEM velox)
 include_directories(SYSTEM velox/external)
 include_directories(SYSTEM velox/external/duckdb)
 include_directories(SYSTEM velox/external/duckdb/tpch/dbgen/include)
+
+# these were previously vendored in third-party/
+if(NOT VELOX_DISABLE_GOOGLETEST)
+  set(gtest_SOURCE BUNDLED)
+  resolve_dependency(gtest)
+  set(VELOX_GTEST_INCUDE_DIR
+      "${gtest_SOURCE_DIR}/googletest/include"
+      PARENT_SCOPE)
+endif()
+
+set(xsimd_SOURCE BUNDLED)
+resolve_dependency(xsimd)
 
 include(CTest) # include after project() but before add_subdirectory()
 

@@ -17,12 +17,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
 
 include(ExternalProject)
 
-if(NOT VELOX_DISABLE_GOOGLETEST)
-  add_subdirectory(googletest)
-endif()
-
-add_subdirectory(xsimd)
-
 if(VELOX_ENABLE_ARROW)
   find_package(Thrift)
   if(Thrift_FOUND)

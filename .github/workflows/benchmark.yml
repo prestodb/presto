@@ -85,6 +85,7 @@ jobs:
             { echo "::error::Failed to find merge base"; exit 1; }
           echo "Merge Base: $merge_base"
           git checkout $merge_base
+          git submodule update --init --recursive
           echo $(git log -n 1)
 
       - name: Build Baseline Benchmarks
