@@ -1895,7 +1895,13 @@ public class ExpressionAnalyzer
         analysis.addFunctionHandles(resolvedFunctions);
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
-        analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), analyzer.getTableColumnAndSubfieldReferences(), analyzer.getTableColumnAndSubfieldReferencesForAccessControl());
+        analysis.addTableColumnAndSubfieldReferences(
+                accessControl,
+                session.getIdentity(),
+                session.getTransactionId(),
+                session.getAccessControlContext(),
+                analyzer.getTableColumnAndSubfieldReferences(),
+                analyzer.getTableColumnAndSubfieldReferencesForAccessControl());
 
         return new ExpressionAnalysis(
                 expressionTypes,
