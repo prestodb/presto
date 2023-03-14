@@ -18,6 +18,7 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.security.AccessControl;
@@ -63,7 +64,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -1106,55 +1106,6 @@ public class Analysis
         public boolean isVisiting()
         {
             return this.value == VISITING.value;
-        }
-    }
-
-    public static final class AccessControlInfo
-    {
-        private final AccessControl accessControl;
-        private final Identity identity;
-
-        public AccessControlInfo(AccessControl accessControl, Identity identity)
-        {
-            this.accessControl = requireNonNull(accessControl, "accessControl is null");
-            this.identity = requireNonNull(identity, "identity is null");
-        }
-
-        public AccessControl getAccessControl()
-        {
-            return accessControl;
-        }
-
-        public Identity getIdentity()
-        {
-            return identity;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            AccessControlInfo that = (AccessControlInfo) o;
-            return Objects.equals(accessControl, that.accessControl) &&
-                    Objects.equals(identity, that.identity);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(accessControl, identity);
-        }
-
-        @Override
-        public String toString()
-        {
-            return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
         }
     }
 }
