@@ -66,9 +66,8 @@ struct VarianceAccumulator {
       return;
     }
     int64_t newCount = countOther + count();
-    double newMean =
-        ((countOther * meanOther) + (count() * mean())) / (double)newCount;
     double delta = meanOther - mean();
+    double newMean = mean() + delta / newCount * countOther;
     m2_ += m2Other + delta * delta * countOther * count() / (double)newCount;
     count_ = newCount;
     mean_ = newMean;

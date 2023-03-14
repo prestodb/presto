@@ -166,12 +166,17 @@ TEST_F(VarianceAggregationTest, varianceWithGlobalAggregation) {
 
   for (const auto& aggrName : aggrNames_) {
     // Global aggregation
+    // Post-aggregation projection addresses floating-point precision issues
+    // between DuckDB and Velox. For example,
+    // at 0: expected 0.0754257908986254,
+    //        but got 0.07542579089862542
     auto sql = genAggrQuery(
         "SELECT {0}(c1), {0}(c2), {0}(c4), {0}(c5) FROM tmp", aggrName);
     testAggregations(
         vectors,
         {},
         {GEN_AGG("c1"), GEN_AGG("c2"), GEN_AGG("c4"), GEN_AGG("c5")},
+        {"a0", "a1", "a2", "a3"},
         sql);
 
     // Global aggregation; no input
@@ -261,6 +266,26 @@ TEST_F(VarianceAggregationTest, varianceWithGroupByAndFilter) {
         {"p0"},
         {GEN_AGG("c1")},
         sql);
+  }
+}
+
+TEST_F(VarianceAggregationTest, varianceWithoutPrecisionLoss) {
+  auto inputRowVector = makeRowVector(
+      {"c0", "c1"},
+      {
+          makeNullableFlatVector<int64_t>({-7, 8, -6, std::nullopt, -5}),
+          makeNullableFlatVector<int64_t>(
+              {-5, -8, -3, 2, -3833098290310622212}),
+      });
+
+  auto vectors = {
+      inputRowVector, inputRowVector, inputRowVector, inputRowVector};
+
+  createDuckDbTable(vectors);
+
+  for (const auto& aggrName : aggrNames_) {
+    auto sql = genAggrQuery("SELECT c0, {0}(c1) FROM tmp GROUP BY 1", aggrName);
+    testAggregations(vectors, {"c0"}, {GEN_AGG("c1")}, sql);
   }
 }
 
