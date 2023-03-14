@@ -64,6 +64,25 @@ constexpr folly::StringPiece kCounterNumBlockedDrivers{
 constexpr folly::StringPiece kCounterTotalPartitionedOutputBuffer{
     "presto_cpp.num_partitioned_output_buffer"};
 
+// ================== OS Counters =================
+
+// User CPU time of the presto_server process in microsecond since the process
+// start.
+constexpr folly::StringPiece kCounterCumulativeUserCpuTimeMicros{
+    "presto_cpp.cumulative_user_cpu_time_micros"};
+// System CPU time of the presto_server process in microsecond since the process
+// start.
+constexpr folly::StringPiece kCounterCumulativeSystemCpuTimeMicros{
+    "presto_cpp.cumulative_system_cpu_time_micros"};
+// Total number of soft page faults of the presto_server process in microsecond
+// since the process start.
+constexpr folly::StringPiece kCounterNumCumulativeSoftPageFaults{
+    "presto_cpp.num_cumulative_soft_page_faults"};
+// Total number of hard page faults of the presto_server process in microsecond
+// since the process start.
+constexpr folly::StringPiece kCounterNumCumulativeHardPageFaults{
+    "presto_cpp.num_cumulative_hard_page_faults"};
+
 // ================== Memory Counters =================
 
 // Number of bytes of memory MappedMemory currently maps (RSS). It also includes

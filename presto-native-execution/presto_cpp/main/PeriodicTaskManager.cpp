@@ -24,6 +24,8 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/exec/Driver.h"
 
+#include <sys/resource.h>
+
 namespace facebook::presto {
 
 // Every two seconds we export server counters.
@@ -34,6 +36,7 @@ static constexpr size_t kMemoryPeriodGlobalCounters{2'000'000}; // 2 seconds.
 static constexpr size_t kTaskPeriodCleanOldTasks{60'000'000}; // 60 seconds.
 // Every 1 minute we export cache counters.
 static constexpr size_t kCachePeriodGlobalCounters{60'000'000}; // 60 seconds.
+static constexpr size_t kOsPeriodGlobalCounters{2'000'000}; // 2 seconds
 
 PeriodicTaskManager::PeriodicTaskManager(
     folly::CPUThreadPoolExecutor* driverCPUExecutor,
@@ -227,6 +230,28 @@ void PeriodicTaskManager::start() {
         std::chrono::microseconds{kCachePeriodGlobalCounters},
         "cache_counters");
   }
+
+  scheduler_.addFunction(
+      []() {
+        struct rusage usage;
+        memset(&usage, 0, sizeof(usage));
+        getrusage(RUSAGE_SELF, &usage);
+
+        REPORT_ADD_STAT_VALUE(
+            kCounterCumulativeUserCpuTimeMicros,
+            (int64_t)usage.ru_utime.tv_sec * 1'000'000 +
+                (int64_t)usage.ru_utime.tv_usec);
+        REPORT_ADD_STAT_VALUE(
+            kCounterCumulativeSystemCpuTimeMicros,
+            (int64_t)usage.ru_stime.tv_sec * 1'000'000 +
+                (int64_t)usage.ru_stime.tv_usec);
+        REPORT_ADD_STAT_VALUE(
+            kCounterNumCumulativeSoftPageFaults, usage.ru_minflt)
+        REPORT_ADD_STAT_VALUE(
+            kCounterNumCumulativeHardPageFaults, usage.ru_majflt)
+      },
+      std::chrono::microseconds{kOsPeriodGlobalCounters},
+      "os_counters");
 
   // This should be the last call in this method.
   scheduler_.start();
