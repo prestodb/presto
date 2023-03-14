@@ -138,6 +138,7 @@ import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExcept
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.KeyBasedSampler;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
+import com.facebook.presto.sql.planner.optimizations.LogPlanTreeOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MergeJoinForSortedInputOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MergePartialAggregationsWithFilter;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
@@ -545,11 +546,15 @@ public class PlanOptimizers
                         new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionAndTypeManager()),
                         new PlanRemoteProjections(metadata.getFunctionAndTypeManager()))));
 
+        builder.add(new LogPlanTreeOptimizer("Before ApplyConnectorOptimization"));
+
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(
                 new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)),
                 projectionPushDown,
                 new PruneUnreferencedOutputs());
+
+        builder.add(new LogPlanTreeOptimizer("After ApplyConnectorOptimization"));
 
         // Pass after connector optimizer, as it relies on connector optimizer to identify empty input tables and convert them to empty ValuesNode
         builder.add(new SimplifyPlanWithEmptyInput(),
@@ -562,7 +567,10 @@ public class PlanOptimizers
                         ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PruneRedundantProjectionAssignments())),
                 new PushdownSubfields(metadata));
 
+        builder.add(new LogPlanTreeOptimizer("Before predicatePushDown (right after connector optimization)"));
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        builder.add(new LogPlanTreeOptimizer("After predicatePushDown (right after connector optimization)"));
+
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
 
         builder.add(new MetadataQueryOptimizer(metadata));
@@ -585,6 +593,16 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new CreatePartialTopN(),
                         new PushTopNThroughUnion())));
+
+        //Attempt to remove redundant projects one more time before ReorderJoins
+        builder.add(new LogPlanTreeOptimizer("Before : Attempt to remove junk Projects before ReorderJoins"));
+        builder.add(new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PruneRedundantProjectionAssignments())),
+                new PushdownSubfields(metadata));
+        builder.add(new LogPlanTreeOptimizer("After : Attempt to remove junk Projects before ReorderJoins"));
 
         // We do a single pass, and assign `statsEquivalentPlanNode` to each node.
         // After this step, nodes with same `statsEquivalentPlanNode` will share same history based statistics.
