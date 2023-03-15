@@ -231,9 +231,11 @@ void PrestoServer::run() {
             .sendWithEOM();
       });
 
-  velox::functions::prestosql::registerAllScalarFunctions();
-  velox::aggregate::prestosql::registerAllAggregateFunctions();
-  velox::window::prestosql::registerAllWindowFunctions();
+  static const std::string kPrestoDefaultPrefix{"presto.default."};
+  velox::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+  velox::aggregate::prestosql::registerAllAggregateFunctions(
+      kPrestoDefaultPrefix);
+  velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
   registerVectorSerdes();
 
   facebook::velox::exec::ExchangeSource::registerFactory(
