@@ -58,8 +58,6 @@ struct HashTableStats {
 
 class BaseHashTable {
  public:
-  using normalized_key_t = uint64_t;
-
 #if XSIMD_WITH_SSE2
   using TagVector = xsimd::batch<uint8_t, xsimd::sse2>;
 #elif XSIMD_WITH_NEON

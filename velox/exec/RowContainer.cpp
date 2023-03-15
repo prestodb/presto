@@ -109,29 +109,20 @@ RowContainer::RowContainer(
   int32_t firstAggregate = offsets_.size();
   int32_t firstAggregateOffset = offset;
   for (auto& aggregate : aggregates) {
-    // Accumulator offset must be aligned by their alignment size.
-    offset = bits::roundUp(offset, aggregate->accumulatorAlignmentSize());
-    offsets_.push_back(offset);
-    offset += aggregate->accumulatorFixedWidthSize();
     nullOffsets_.push_back(nullOffset);
     ++nullOffset;
     isVariableWidth |= !aggregate->isFixedSize();
     usesExternalMemory_ |= aggregate->accumulatorUsesExternalMemory();
+    alignment_ = aggregate->combineAlignment(alignment_);
+    aggregate->setAllocator(&stringAllocator_);
   }
   for (auto& type : dependentTypes) {
     types_.push_back(type);
     typeKinds_.push_back(type->kind());
-    offsets_.push_back(offset);
-    offset += typeKindSize(type->kind());
     nullOffsets_.push_back(nullOffset);
     ++nullOffset;
     isVariableWidth |= !type->isFixedWidth();
   }
-  if (isVariableWidth) {
-    rowSizeOffset_ = offset;
-    offset += sizeof(uint32_t);
-  }
-
   if (hasProbedFlag) {
     nullOffsets_.push_back(nullOffset);
     probedFlagOffset_ = nullOffset + firstAggregateOffset * 8;
@@ -145,30 +136,35 @@ RowContainer::RowContainer(
   for (int32_t i = 0; i < nullOffsets_.size(); ++i) {
     nullOffsets_[i] += firstAggregateOffset * 8;
   }
-
-  // Fixup the offset of aggregates to make space for null flags.
   int32_t nullBytes = bits::nbytes(nullOffsets_.size());
-  if (rowSizeOffset_) {
-    rowSizeOffset_ += nullBytes;
+  offset += nullBytes;
+  for (auto& aggregate : aggregates) {
+    // Accumulator offset must be aligned by their alignment size.
+    offset = bits::roundUp(offset, aggregate->accumulatorAlignmentSize());
+    offsets_.push_back(offset);
+    offset += aggregate->accumulatorFixedWidthSize();
   }
-  for (int32_t i = 0; i < aggregates_.size() + dependentTypes.size(); ++i) {
-    offsets_[i + firstAggregate] += nullBytes;
-    nullOffset = nullOffsets_[i + firstAggregate];
-    if (i < aggregates.size()) {
-      aggregates_[i]->setAllocator(&stringAllocator_);
-      aggregates_[i]->setOffsets(
-          offsets_[i + firstAggregate],
-          nullByte(nullOffset),
-          nullMask(nullOffset),
-          rowSizeOffset_);
-    }
+  for (auto& type : dependentTypes) {
+    offsets_.push_back(offset);
+    offset += typeKindSize(type->kind());
+  }
+  if (isVariableWidth) {
+    rowSizeOffset_ = offset;
+    offset += sizeof(uint32_t);
   }
   if (hasNext) {
-    nextOffset_ = offset + nullBytes;
+    nextOffset_ = offset;
     offset += sizeof(void*);
   }
-  fixedRowSize_ = offset + nullBytes;
-
+  fixedRowSize_ = bits::roundUp(offset, alignment_);
+  for (int i = 0; i < aggregates_.size(); ++i) {
+    nullOffset = nullOffsets_[i + firstAggregate];
+    aggregates_[i]->setOffsets(
+        offsets_[i + firstAggregate],
+        nullByte(nullOffset),
+        nullMask(nullOffset),
+        rowSizeOffset_);
+  }
   // A distinct hash table has no aggregates and if the hash table has
   // no nulls, it may be that there are no null flags.
   if (!nullOffsets_.empty()) {
@@ -181,7 +177,10 @@ RowContainer::RowContainer(
       bits::setBit(initialNulls_.data(), i + aggregateNullOffset);
     }
   }
-  normalizedKeySize_ = hasNormalizedKeys_ ? sizeof(normalized_key_t) : 0;
+  originalNormalizedKeySize_ = hasNormalizedKeys_
+      ? bits::roundUp(sizeof(normalized_key_t), alignment_)
+      : 0;
+  normalizedKeySize_ = originalNormalizedKeySize_;
   for (auto i = 0; i < offsets_.size(); ++i) {
     rowColumns_.emplace_back(
         offsets_[i],
@@ -201,7 +200,7 @@ char* RowContainer::newRow() {
     firstFreeRow_ = nextFree(row);
     --numFreeRows_;
   } else {
-    row = rows_.allocateFixed(fixedRowSize_ + normalizedKeySize_) +
+    row = rows_.allocateFixed(fixedRowSize_ + normalizedKeySize_, alignment_) +
         normalizedKeySize_;
     if (normalizedKeySize_) {
       ++numRowsWithNormalizedKey_;
@@ -226,6 +225,7 @@ char* RowContainer::initializeRow(char* row, bool reuse) {
   if (rowSizeOffset_) {
     variableRowSize(row) = 0;
   }
+  bits::clearBit(row, freeFlagOffset_);
   return row;
 }
 
@@ -509,9 +509,7 @@ void RowContainer::clear() {
   stringAllocator_.clear();
   numRows_ = 0;
   numRowsWithNormalizedKey_ = 0;
-  if (hasNormalizedKeys_) {
-    normalizedKeySize_ = sizeof(normalized_key_t);
-  }
+  normalizedKeySize_ = originalNormalizedKeySize_;
   numFreeRows_ = 0;
   firstFreeRow_ = nullptr;
 }
@@ -575,12 +573,14 @@ int64_t RowContainer::sizeIncrement(
 }
 
 void RowContainer::skip(RowContainerIterator& iter, int32_t numRows) {
+  VELOX_DCHECK(aggregates_.empty(), "Used in join only");
   VELOX_DCHECK_LE(0, numRows);
   if (!iter.endOfRun) {
     // Set to first row.
     VELOX_DCHECK_EQ(0, iter.rowNumber);
     VELOX_DCHECK_EQ(0, iter.allocationIndex);
     iter.normalizedKeysLeft = numRowsWithNormalizedKey_;
+    iter.normalizedKeySize = originalNormalizedKeySize_;
     auto run = rows_.allocationAt(0)->runAt(0);
     iter.rowBegin = run.data<char>();
     iter.endOfRun = iter.rowBegin + run.numBytes();
@@ -591,7 +591,7 @@ void RowContainer::skip(RowContainerIterator& iter, int32_t numRows) {
     return;
   }
   int32_t rowSize = fixedRowSize_ +
-      (iter.normalizedKeysLeft > 0 ? sizeof(normalized_key_t) : 0);
+      (iter.normalizedKeysLeft > 0 ? originalNormalizedKeySize_ : 0);
   auto toSkip = numRows;
   if (iter.normalizedKeysLeft && iter.normalizedKeysLeft < numRows) {
     toSkip -= iter.normalizedKeysLeft;

@@ -333,6 +333,23 @@ to HiveConnector.
 
 * dynamicFiltersAccepted - number of dynamic filters received
 
+Memory Layout
+-------------
+
+Inside hash table we keep the row values in `RowContainer`.  This is a row-wise
+storage and each row consists the following components:
+
+1. Null flags (1 bit per item) for
+    1. Keys (only if nullable)
+    2. Dependants
+2. Has-probed flag (1 bit)
+3. Free flag (1 bit)
+4. Keys
+5. Dependants
+6. Variable size (32 bit)
+7. Next offset (64 bit pointer)
+
+
 Merge Join Implementation
 -------------------------
 

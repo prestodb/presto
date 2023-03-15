@@ -168,4 +168,10 @@ IMemoryManager& getProcessDefaultMemoryManager();
 /// Adds a new child memory pool to the root. The new child pool memory cap is
 /// set to the input value provided.
 std::shared_ptr<MemoryPool> getDefaultMemoryPool(int64_t cap = kMaxMemory);
+
+inline int32_t alignmentPadding(void* address, int32_t alignment) {
+  auto extra = reinterpret_cast<uintptr_t>(address) % alignment;
+  return extra == 0 ? 0 : alignment - extra;
+}
+
 } // namespace facebook::velox::memory

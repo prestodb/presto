@@ -29,31 +29,41 @@ void AllocationPool::clear() {
   largeAllocations_.clear();
 }
 
-char* AllocationPool::allocateFixed(uint64_t bytes) {
+char* AllocationPool::allocateFixed(uint64_t bytes, int32_t alignment) {
   VELOX_CHECK_GT(bytes, 0, "Cannot allocate zero bytes");
+  VELOX_CHECK_EQ(
+      __builtin_popcount(alignment), 1, "Alignment can only be power of 2");
 
-  auto numPages = bits::roundUp(bytes, memory::AllocationTraits::kPageSize) /
-      memory::AllocationTraits::kPageSize;
+  auto numPages = memory::AllocationTraits::numPages(bytes + alignment - 1);
 
   // Use contiguous allocations from mapped memory if allocation size is large
   if (numPages > pool_->largestSizeClass()) {
     auto largeAlloc = std::make_unique<memory::ContiguousAllocation>();
     pool_->allocateContiguous(numPages, *largeAlloc);
     largeAllocations_.emplace_back(std::move(largeAlloc));
-    auto res = largeAllocations_.back()->data<char>();
+    auto result = largeAllocations_.back()->data<char>();
     VELOX_CHECK_NOT_NULL(
-        res, "Unexpected nullptr for large contiguous allocation");
-    return res;
+        result, "Unexpected nullptr for large contiguous allocation");
+    // Should be at page boundary and always aligned.
+    VELOX_CHECK_EQ(reinterpret_cast<uintptr_t>(result) % alignment, 0);
+    return result;
   }
 
-  if (availableInRun() < bytes) {
+  if (availableInRun() == 0) {
     newRunImpl(numPages);
+  } else if (auto alignedBytes =
+                 bytes + memory::alignmentPadding(firstFreeInRun(), alignment);
+             availableInRun() < alignedBytes) {
+    newRunImpl(memory::AllocationTraits::numPages(alignedBytes));
   }
   auto run = currentRun();
+  currentOffset_ += memory::alignmentPadding(firstFreeInRun(), alignment);
   uint64_t size = run.numBytes();
   VELOX_CHECK_LE(bytes + currentOffset_, size);
+  auto* result = run.data<char>() + currentOffset_;
+  VELOX_CHECK_EQ(reinterpret_cast<uintptr_t>(result) % alignment, 0);
   currentOffset_ += bytes;
-  return reinterpret_cast<char*>(run.data() + currentOffset_ - bytes);
+  return result;
 }
 
 void AllocationPool::newRunImpl(memory::MachinePageCount numPages) {

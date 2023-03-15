@@ -272,11 +272,13 @@ void GroupingSet::initializeGlobalAggregation() {
   //  - uint32_t row size,
   //  - fixed-width accumulators - one per aggregate
   //
-  // Here we always make space for a row size since we only have one
-  // row and no RowContainer.
+  // Here we always make space for a row size since we only have one row and no
+  // RowContainer.  The whole row is allocated to guarantee that alignment
+  // requirements of all aggregate functions are satisfied.
   int32_t rowSizeOffset = bits::nbytes(aggregates_.size());
   int32_t offset = rowSizeOffset + sizeof(int32_t);
   int32_t nullOffset = 0;
+  int32_t alignment = 1;
 
   for (auto& aggregate : aggregates_) {
     aggregate->setAllocator(&stringAllocator_);
@@ -289,9 +291,10 @@ void GroupingSet::initializeGlobalAggregation() {
         rowSizeOffset);
     offset += aggregate->accumulatorFixedWidthSize();
     ++nullOffset;
+    alignment = aggregate->combineAlignment(alignment);
   }
 
-  lookup_->hits[0] = rows_.allocateFixed(offset);
+  lookup_->hits[0] = rows_.allocateFixed(offset, alignment);
   const auto singleGroup = std::vector<vector_size_t>{0};
   for (auto& aggregate : aggregates_) {
     aggregate->initializeNewGroups(lookup_->hits.data(), singleGroup);

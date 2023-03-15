@@ -121,4 +121,15 @@ TypePtr Aggregate::intermediateType(
   VELOX_FAIL("Could not infer intermediate type for aggregate {}", name);
 }
 
+int32_t Aggregate::combineAlignment(int32_t otherAlignment) const {
+  auto thisAlignment = accumulatorAlignmentSize();
+  VELOX_CHECK_EQ(
+      __builtin_popcount(thisAlignment), 1, "Alignment can only be power of 2");
+  VELOX_CHECK_EQ(
+      __builtin_popcount(otherAlignment),
+      1,
+      "Alignment can only be power of 2");
+  return std::max(thisAlignment, otherAlignment);
+}
+
 } // namespace facebook::velox::exec

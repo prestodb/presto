@@ -92,9 +92,19 @@ Fixed-width part of the accumulator is stored in the row. Variable-width
 part (if exists) is allocated using :doc:`HashStringAllocator <arena>` and a pointer is
 stored in the fixed-width part.
 
-A row is a contiguous byte buffer. Given N aggregates, first N / 8 bytes
-store the null flags, one bit per aggregate, followed by fixed-width
-accumulators.
+A row is a contiguous byte buffer.  If any of the accumulators has alignment
+requirement, the row beginning and accumulator address will be aligned
+accordingly.  Data is stored in the following order:
+
+1. Null flags (1 bit per item) for
+    1. Keys (only if nullable)
+    2. Accumulators
+2. Free flag (1 bit)
+3. Keys
+4. Padding for alignment
+5. Accumulators, fixed-width part only
+6. Variable size (32 bit)
+7. Padding for alignment
 
 .. image:: images/aggregation-layout.png
   :width: 600

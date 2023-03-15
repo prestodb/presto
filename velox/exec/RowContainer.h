@@ -34,6 +34,7 @@ struct RowContainerIterator {
   // Number of unvisited entries that are prefixed by an uint64_t for
   // normalized key. Set in listRows() on first call.
   int64_t normalizedKeysLeft = 0;
+  int normalizedKeySize = 0;
 
   // Ordinal position of 'currentRow' in RowContainer.
   int32_t rowNumber{0};
@@ -43,20 +44,13 @@ struct RowContainerIterator {
 
   // Returns the current row, skipping a possible normalized key below the first
   // byte of row.
-  inline char* FOLLY_NULLABLE currentRow() const {
-    return (rowBegin && normalizedKeysLeft)
-        ? rowBegin + sizeof(normalized_key_t)
-        : rowBegin;
+  inline char* currentRow() const {
+    return (rowBegin && normalizedKeysLeft) ? rowBegin + normalizedKeySize
+                                            : rowBegin;
   }
 
   void reset() {
-    allocationIndex = 0;
-    runIndex = 0;
-    rowOffset = 0;
-    normalizedKeysLeft = 0;
-    rowBegin = nullptr;
-    rowNumber = 0;
-    endOfRun = nullptr;
+    *this = {};
   }
 };
 
@@ -349,15 +343,17 @@ class RowContainer {
     if (iter->allocationIndex == 0 && iter->runIndex == 0 &&
         iter->rowOffset == 0) {
       iter->normalizedKeysLeft = numRowsWithNormalizedKey_;
+      iter->normalizedKeySize = originalNormalizedKeySize_;
     }
     int32_t rowSize = fixedRowSize_ +
-        (iter->normalizedKeysLeft > 0 ? sizeof(normalized_key_t) : 0);
+        (iter->normalizedKeysLeft > 0 ? originalNormalizedKeySize_ : 0);
     for (auto i = iter->allocationIndex; i < numAllocations; ++i) {
       auto allocation = rows_.allocationAt(i);
       auto numRuns = allocation->numRuns();
       for (auto runIndex = iter->runIndex; runIndex < numRuns; ++runIndex) {
         memory::Allocation::PageRun run = allocation->runAt(runIndex);
-        auto data = run.data<char>();
+        auto* data =
+            run.data<char>() + memory::alignmentPadding(run.data(), alignment_);
         int64_t limit;
         if (i == numAllocations - 1 && runIndex == rows_.currentRunIndex()) {
           limit = rows_.currentOffset();
@@ -367,10 +363,13 @@ class RowContainer {
         auto row = iter->rowOffset;
         while (row + rowSize <= limit) {
           rows[count++] = data + row +
-              (iter->normalizedKeysLeft > 0 ? sizeof(normalized_key_t) : 0);
+              (iter->normalizedKeysLeft > 0 ? originalNormalizedKeySize_ : 0);
+          VELOX_DCHECK_EQ(
+              reinterpret_cast<uintptr_t>(rows[count - 1]) % alignment_, 0);
           row += rowSize;
+          auto newTotalBytes = totalBytes + rowSize;
           if (--iter->normalizedKeysLeft == 0) {
-            rowSize -= sizeof(normalized_key_t);
+            rowSize -= originalNormalizedKeySize_;
           }
           if (bits::isBitSet(rows[count - 1], freeFlagOffset_)) {
             --count;
@@ -388,7 +387,7 @@ class RowContainer {
               continue;
             }
           }
-          totalBytes += rowSize;
+          totalBytes = newTotalBytes;
           if (rowSizeOffset_) {
             totalBytes += variableRowSize(rows[count - 1]);
           }
@@ -1061,9 +1060,12 @@ class RowContainer {
   // The count of entries that have an extra normalized_key_t before the
   // start.
   int64_t numRowsWithNormalizedKey_ = 0;
+  // This is the original normalized key size regardless of whether
+  // disableNormalizedKeys() is called or not.
+  int originalNormalizedKeySize_;
   // Extra bytes to reserve before  each added row for a normalized key. Set to
   // 0 after deciding not to use normalized keys.
-  int8_t normalizedKeySize_ = sizeof(normalized_key_t);
+  int normalizedKeySize_;
   // Copied over the null bits of each row on initialization. Keys are
   // not null, aggregates are null.
   std::vector<uint8_t> initialNulls_;
@@ -1086,6 +1088,8 @@ class RowContainer {
     static const std::vector<std::unique_ptr<Aggregate>> kEmptyAggregates;
     return kEmptyAggregates;
   }
+
+  int alignment_ = 1;
 };
 
 template <>

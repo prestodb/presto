@@ -18,6 +18,7 @@
 
 #include <cstdint>
 
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/base/CheckedArithmetic.h"
 
 namespace facebook::velox::memory {
@@ -34,6 +35,10 @@ struct AllocationTraits {
   /// Returns the bytes of the given number pages.
   FOLLY_ALWAYS_INLINE static uint64_t pageBytes(MachinePageCount numPages) {
     return numPages * kPageSize;
+  }
+
+  static uint64_t numPages(uint64_t bytes) {
+    return bits::roundUp(bytes, kPageSize) / kPageSize;
   }
 };
 

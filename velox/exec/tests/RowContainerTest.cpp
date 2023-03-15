@@ -690,11 +690,9 @@ TEST_F(RowContainerTest, rowSize) {
   EXPECT_EQ(29, data->nextOffset());
   // 2nd bit in first byte of flags.
   EXPECT_EQ(data->probedFlagOffset(), 8 * 8 + 1);
-  std::unordered_set<char*> rowSet;
   std::vector<char*> rows;
   for (int i = 0; i < kNumRows; ++i) {
     rows.push_back(data->newRow());
-    rowSet.insert(rows.back());
   }
   EXPECT_EQ(kNumRows, data->numRows());
   for (auto i = 0; i < rows.size(); ++i) {
@@ -717,6 +715,107 @@ TEST_F(RowContainerTest, rowSize) {
   EXPECT_EQ(0, data->listRows(&iter, kNumRows, rows.data()));
 
   EXPECT_EQ(rows, rowsFromContainer);
+}
+
+TEST_F(RowContainerTest, rowSizeWithNormalizedKey) {
+  auto data = makeRowContainer({SMALLINT()}, {VARCHAR()});
+  data->newRow();
+  data->disableNormalizedKeys();
+  data->newRow();
+  auto rowSize = data->fixedRowSize() + sizeof(normalized_key_t);
+  RowContainerIterator iter;
+  char* rows[2];
+  auto numRows = data->listRows(&iter, 2, rowSize - 1, rows);
+  ASSERT_EQ(numRows, 1);
+}
+
+class AggregateWithAlignment : public Aggregate {
+ public:
+  explicit AggregateWithAlignment(TypePtr resultType, int alignment)
+      : Aggregate(std::move(resultType)), alignment_(alignment) {}
+
+  int32_t accumulatorFixedWidthSize() const override {
+    return 42;
+  }
+
+  int32_t accumulatorAlignmentSize() const override {
+    return alignment_;
+  }
+
+  void initializeNewGroups(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/) override {}
+
+  void addRawInput(
+      char** /*groups*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {}
+
+  void extractValues(
+      char** /*groups*/,
+      int32_t /*numGroups*/,
+      VectorPtr* /*result*/) override {}
+
+  void addIntermediateResults(
+      char** /*groups*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {}
+
+  void addSingleGroupRawInput(
+      char* /*group*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {}
+
+  void addSingleGroupIntermediateResults(
+      char* /*group*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {}
+
+  void extractAccumulators(
+      char** /*groups*/,
+      int32_t /*numGroups*/,
+      VectorPtr* /*result*/) override {}
+
+ private:
+  int alignment_;
+};
+
+TEST_F(RowContainerTest, alignment) {
+  std::vector<std::unique_ptr<Aggregate>> aggregates;
+  aggregates.emplace_back(new AggregateWithAlignment(BIGINT(), 64));
+  RowContainer data(
+      {SMALLINT()},
+      true,
+      aggregates,
+      {},
+      false,
+      false,
+      true,
+      true,
+      pool_.get(),
+      ContainerRowSerde::instance());
+  constexpr int kNumRows = 100;
+  char* rows[kNumRows];
+  for (int i = 0; i < kNumRows; ++i) {
+    rows[i] = data.newRow();
+    ASSERT_EQ(reinterpret_cast<uintptr_t>(rows[i]) % 64, 0);
+    if (i > 0 && rows[i - 1] < rows[i]) {
+      ASSERT_LE(rows[i - 1] + data.fixedRowSize(), rows[i]);
+    }
+    if (i == 50) {
+      data.disableNormalizedKeys();
+    }
+  }
+  RowContainerIterator iter;
+  char* result[kNumRows];
+  ASSERT_EQ(data.listRows(&iter, kNumRows, 1e8, result), kNumRows);
+  for (int i = 0; i < kNumRows; ++i) {
+    ASSERT_EQ(result[i], rows[i]);
+  }
 }
 
 // Verify comparison of fringe float valuesg

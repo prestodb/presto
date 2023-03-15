@@ -47,11 +47,15 @@ class Aggregate {
   // width part of the state from the fixed part.
   virtual int32_t accumulatorFixedWidthSize() const = 0;
 
-  /// Returns the alignment size of the accumulator.
-  /// Some types such as int128_t require aligned access.
+  /// Returns the alignment size of the accumulator.  Some types such as
+  /// int128_t require aligned access.  This value must be a power of 2.
   virtual int32_t accumulatorAlignmentSize() const {
     return 1;
   }
+
+  /// Return an alignment that satisfies both the accumulator alignment
+  /// requirement of this function and the alignment passed in.
+  int32_t combineAlignment(int32_t alignment) const;
 
   // Return true if accumulator is allocated from external memory, e.g. memory
   // not managed by Velox.
@@ -264,6 +268,10 @@ class Aggregate {
 
   template <typename T>
   T* value(char* group) const {
+    VELOX_DCHECK_EQ(
+        reinterpret_cast<uintptr_t>(group + offset_) %
+            accumulatorAlignmentSize(),
+        0);
     return reinterpret_cast<T*>(group + offset_);
   }
 
