@@ -434,7 +434,7 @@ TEST_F(RowExpressionTest, call) {
       std::static_pointer_cast<const CallTypedExpr>(converter_->toVeloxExpr(p));
 
   // Check some values ...
-  ASSERT_EQ(callexpr->name(), "eq");
+  ASSERT_EQ(callexpr->name(), "presto.default.eq");
 
   auto iexpr = callexpr->inputs();
 
@@ -542,7 +542,7 @@ TEST_F(RowExpressionTest, special) {
         std::static_pointer_cast<const CallTypedExpr>(callexpr->inputs()[0]);
 
     ASSERT_EQ(arg0expr->type()->toString(), "BOOLEAN");
-    ASSERT_EQ(arg0expr->name(), "eq");
+    ASSERT_EQ(arg0expr->name(), "presto.default.eq");
     {
       auto cexpr = std::static_pointer_cast<const FieldAccessTypedExpr>(
           arg0expr->inputs()[0]);
@@ -562,7 +562,7 @@ TEST_F(RowExpressionTest, special) {
         std::static_pointer_cast<const CallTypedExpr>(callexpr->inputs()[1]);
 
     ASSERT_EQ(arg1expr->type()->toString(), "BOOLEAN");
-    ASSERT_EQ(arg1expr->name(), "eq");
+    ASSERT_EQ(arg1expr->name(), "presto.default.eq");
     {
       auto cexpr = std::static_pointer_cast<const FieldAccessTypedExpr>(
           arg1expr->inputs()[0]);
@@ -734,7 +734,7 @@ TEST_F(RowExpressionTest, likeSimple) {
   ASSERT_NE(callExpr, nullptr);
 
   auto callExprToString = callExpr->toString();
-  ASSERT_EQ(callExprToString, "like(\"type\",\"%BRASS\")");
+  ASSERT_EQ(callExprToString, "presto.default.like(\"type\",\"%BRASS\")");
 }
 
 TEST_F(RowExpressionTest, likeWithEscape) {
@@ -797,7 +797,8 @@ TEST_F(RowExpressionTest, likeWithEscape) {
   ASSERT_NE(callExpr, nullptr);
 
   auto callExprToString = callExpr->toString();
-  ASSERT_EQ(callExpr->toString(), "like(\"type\",\"%BRASS\",\"#\")");
+  ASSERT_EQ(
+      callExpr->toString(), "presto.default.like(\"type\",\"%BRASS\",\"#\")");
 }
 
 TEST_F(RowExpressionTest, dereference) {
