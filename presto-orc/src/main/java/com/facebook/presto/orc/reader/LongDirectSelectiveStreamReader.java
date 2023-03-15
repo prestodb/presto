@@ -48,7 +48,7 @@ public class LongDirectSelectiveStreamReader
     @Nullable
     private BooleanInputStream presentStream;
     @Nullable
-    private TupleDomainFilter rowGroupFilter;
+    private TupleDomainFilter filter;
 
     private InputStreamSource<LongInputStream> dataStreamSource = getLongMissingStreamSource();
     @Nullable
@@ -93,7 +93,7 @@ public class LongDirectSelectiveStreamReader
         if (dataStream == null && presentStream != null) {
             streamPosition = readAllNulls(positions, positionCount);
         }
-        else if (rowGroupFilter == null) {
+        else if (filter == null) {
             streamPosition = readNoFilter(positions, positionCount);
         }
         else {
@@ -113,12 +113,12 @@ public class LongDirectSelectiveStreamReader
         if (context.isNonDeterministicFilter()) {
             outputPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                if (rowGroupFilter.testNull()) {
+                if (filter.testNull()) {
                     outputPositionCount++;
                 }
                 else {
-                    outputPositionCount -= rowGroupFilter.getPrecedingPositionsToFail();
-                    i += rowGroupFilter.getSucceedingPositionsToFail();
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+                    i += filter.getSucceedingPositionsToFail();
                 }
             }
         }
@@ -199,11 +199,11 @@ public class LongDirectSelectiveStreamReader
             // no skipping
             if (presentStream == null) {
                 // no nulls
-                if (!context.isOutputRequired() && !rowGroupFilter.isPositionalFilter()) {
+                if (!context.isOutputRequired() && !filter.isPositionalFilter()) {
                     // no output; just filter
                     for (int i = 0; i < positionCount; i++) {
                         long value = dataStream.next();
-                        if (rowGroupFilter.testLong(value)) {
+                        if (filter.testLong(value)) {
                             outputPositions[outputPositionCount] = positions[i];
                             outputPositionCount++;
                         }
@@ -223,7 +223,7 @@ public class LongDirectSelectiveStreamReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if ((context.isNonDeterministicFilter() && rowGroupFilter.testNull()) || context.isNullsAllowed()) {
+                if ((context.isNonDeterministicFilter() && filter.testNull()) || context.isNullsAllowed()) {
                     if (context.isOutputRequired()) {
                         nulls[outputPositionCount] = true;
                         values[outputPositionCount] = 0;
@@ -234,7 +234,7 @@ public class LongDirectSelectiveStreamReader
             }
             else {
                 long value = dataStream.next();
-                if (rowGroupFilter.testLong(value)) {
+                if (filter.testLong(value)) {
                     if (context.isOutputRequired()) {
                         values[outputPositionCount] = value;
                         if (context.isNullsAllowed() && presentStream != null) {
@@ -248,9 +248,9 @@ public class LongDirectSelectiveStreamReader
 
             streamPosition++;
 
-            outputPositionCount -= rowGroupFilter.getPrecedingPositionsToFail();
+            outputPositionCount -= filter.getPrecedingPositionsToFail();
 
-            int succeedingPositionsToFail = rowGroupFilter.getSucceedingPositionsToFail();
+            int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
             if (succeedingPositionsToFail > 0) {
                 int positionsToSkip = 0;
                 for (int j = 0; j < succeedingPositionsToFail; j++) {
@@ -285,7 +285,7 @@ public class LongDirectSelectiveStreamReader
             throws IOException
     {
         presentStream = presentStreamSource.openStream();
-        rowGroupFilter = context.getRowGroupFilter(presentStream);
+        filter = context.getFilter(presentStream);
         dataStream = dataStreamSource.openStream();
 
         rowGroupOpen = true;
@@ -328,7 +328,7 @@ public class LongDirectSelectiveStreamReader
         readOffset = 0;
 
         presentStream = null;
-        rowGroupFilter = null;
+        filter = null;
         dataStream = null;
 
         rowGroupOpen = false;
@@ -343,7 +343,7 @@ public class LongDirectSelectiveStreamReader
         readOffset = 0;
 
         presentStream = null;
-        rowGroupFilter = null;
+        filter = null;
         dataStream = null;
 
         rowGroupOpen = false;
@@ -356,7 +356,7 @@ public class LongDirectSelectiveStreamReader
         outputPositions = null;
 
         presentStream = null;
-        rowGroupFilter = null;
+        filter = null;
         presentStreamSource = null;
         dataStream = null;
         dataStreamSource = null;
