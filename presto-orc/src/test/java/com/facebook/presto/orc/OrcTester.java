@@ -361,10 +361,29 @@ public class OrcTester
     public void testRoundTrip(Type type, List<?> readValues, List<Map<Subfield, TupleDomainFilter>> filters)
             throws Exception
     {
-        List<Map<Integer, Map<Subfield, TupleDomainFilter>>> columnFilters = filters.stream().map(filter -> ImmutableMap.of(0, filter)).collect(toImmutableList());
+        testRoundTrip(type, readValues, filters, filters);
+    }
+
+    /**
+     *
+     * @param type          Presto data type for the readValues.
+     * @param readValues    The values to be written, read and compared against.
+     * @param columnFilters The filters for the readers. For CHAR(n) values, the columnFilters should remove the paddings.
+     * @param valuesFilters The filters for the readValues. For CHAR(n) values, valuesFilters keeps the original paddings.
+     * @throws Exception
+     */
+    public void testRoundTrip(
+            Type type,
+            List<?> readValues,
+            List<Map<Subfield, TupleDomainFilter>> columnFilters,
+            List<Map<Subfield, TupleDomainFilter>> valuesFilters)
+            throws Exception
+    {
+        List<Map<Integer, Map<Subfield, TupleDomainFilter>>> streamReaderFilters = columnFilters.stream().map(filter -> ImmutableMap.of(0, filter)).collect(toImmutableList());
+        List<Map<Integer, Map<Subfield, TupleDomainFilter>>> expectedValuesFilters = valuesFilters.stream().map(filter -> ImmutableMap.of(0, filter)).collect(toImmutableList());
 
         // just the values
-        testRoundTripTypes(ImmutableList.of(type), ImmutableList.of(readValues), columnFilters);
+        testRoundTripTypes(ImmutableList.of(type), ImmutableList.of(readValues), streamReaderFilters, expectedValuesFilters);
 
         // all nulls
         if (nullTestsEnabled) {
@@ -373,7 +392,8 @@ public class OrcTester
                     readValues.stream()
                             .map(value -> null)
                             .collect(toList()),
-                    columnFilters);
+                    streamReaderFilters,
+                    expectedValuesFilters);
         }
 
         // values wrapped in struct
@@ -522,10 +542,21 @@ public class OrcTester
     public void testRoundTripTypes(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
             throws Exception
     {
-        testRoundTripTypes(types, readValues, filters, ImmutableList.of());
+        testRoundTripTypes(types, readValues, filters, filters);
     }
 
-    public void testRoundTripTypes(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters, List<List<Integer>> expectedFilterOrder)
+    public void testRoundTripTypes(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> valuesFilters)
+            throws Exception
+    {
+        testRoundTripTypes(types, readValues, filters, valuesFilters, ImmutableList.of());
+    }
+
+    public void testRoundTripTypes(
+            List<Type> types,
+            List<List<?>> readValues,
+            List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters,
+            List<Map<Integer, Map<Subfield, TupleDomainFilter>>> valuesfilters,
+            List<List<Integer>> expectedFilterOrder)
             throws Exception
     {
         assertEquals(types.size(), readValues.size());
@@ -534,20 +565,20 @@ public class OrcTester
         }
 
         // forward order
-        assertRoundTrip(types, readValues, filters, expectedFilterOrder);
+        assertRoundTrip(types, readValues, filters, valuesfilters, expectedFilterOrder);
 
         // reverse order
         if (reverseTestsEnabled) {
-            assertRoundTrip(types, Lists.transform(readValues, OrcTester::reverse), filters, expectedFilterOrder);
+            assertRoundTrip(types, Lists.transform(readValues, OrcTester::reverse), filters, valuesfilters, expectedFilterOrder);
         }
 
         if (nullTestsEnabled) {
             // forward order with nulls
-            assertRoundTrip(types, insertNulls(types, readValues), filters, expectedFilterOrder);
+            assertRoundTrip(types, insertNulls(types, readValues), filters, valuesfilters, expectedFilterOrder);
 
             // reverse order with nulls
             if (reverseTestsEnabled) {
-                assertRoundTrip(types, insertNulls(types, Lists.transform(readValues, OrcTester::reverse)), filters, expectedFilterOrder);
+                assertRoundTrip(types, insertNulls(types, Lists.transform(readValues, OrcTester::reverse)), filters, valuesfilters, expectedFilterOrder);
             }
         }
     }
@@ -559,7 +590,7 @@ public class OrcTester
         assertEquals(filters.size(), expectedFilterOrder.size());
 
         // Forward order
-        testRoundTripTypes(types, readValues, filters, expectedFilterOrder);
+        testRoundTripTypes(types, readValues, filters, filters, expectedFilterOrder);
 
         // Reverse order
         int columnCount = types.size();
@@ -569,7 +600,7 @@ public class OrcTester
         List<List<Integer>> reverseFilterOrder = expectedFilterOrder.stream()
                 .map(columns -> columns.stream().map(column -> columnCount - 1 - column).collect(toImmutableList()))
                 .collect(toImmutableList());
-        testRoundTripTypes(Lists.reverse(types), Lists.reverse(readValues), reverseFilters, reverseFilterOrder);
+        testRoundTripTypes(Lists.reverse(types), Lists.reverse(readValues), reverseFilters, reverseFilters, reverseFilterOrder);
     }
 
     private List<List<?>> insertNulls(List<Type> types, List<List<?>> values)
@@ -590,17 +621,29 @@ public class OrcTester
     public void assertRoundTripWithSettings(Type type, List<?> readValues, List<OrcReaderSettings> settings)
             throws Exception
     {
+        if (settings != null) {
+            for (OrcReaderSettings setting : settings) {
+                if (setting.expectedValuesFilters.isEmpty() && !setting.columnFilters.isEmpty()) {
+                    setting.setExpectedValuesFilters(setting.columnFilters);
+                }
+            }
+        }
         assertRoundTrip(type, type, readValues, readValues, true, settings);
     }
 
-    public void assertRoundTrip(Type type, List<?> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
+    public void assertRoundTrip(
+            Type type,
+            List<?> readValues,
+            List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters,
+            List<Map<Integer, Map<Subfield, TupleDomainFilter>>> valuesFilters)
             throws Exception
     {
-        List<OrcReaderSettings> settings = filters.stream()
-                .map(entry -> OrcReaderSettings.builder().setColumnFilters(entry).build())
-                .collect(toImmutableList());
+        ImmutableList.Builder<OrcReaderSettings> settingsBuilder = ImmutableList.builder();
+        for (int i = 0; i < filters.size(); i++) {
+            settingsBuilder.add(OrcReaderSettings.builder().setColumnFilters(filters.get(i)).setExpectedValuesFilters(valuesFilters.get(i)).build());
+        }
 
-        assertRoundTrip(type, type, readValues, readValues, true, settings);
+        assertRoundTrip(type, type, readValues, readValues, true, settingsBuilder.build());
     }
 
     public void assertRoundTrip(Type type, List<?> readValues, boolean verifyWithHiveReader)
@@ -609,12 +652,17 @@ public class OrcTester
         assertRoundTrip(type, type, readValues, readValues, verifyWithHiveReader, ImmutableList.of());
     }
 
-    public void assertRoundTrip(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters, List<List<Integer>> expectedFilterOrder)
+    public void assertRoundTrip(
+            List<Type> types, List<List<?>> readValues,
+            List<Map<Integer, Map<Subfield, TupleDomainFilter>>> columnFilters,
+            List<Map<Integer, Map<Subfield, TupleDomainFilter>>> readValuesFilters,
+            List<List<Integer>> expectedFilterOrder)
             throws Exception
     {
-        List<OrcReaderSettings> settings = IntStream.range(0, filters.size())
+        List<OrcReaderSettings> settings = IntStream.range(0, columnFilters.size())
                 .mapToObj(i -> OrcReaderSettings.builder()
-                        .setColumnFilters(filters.get(i))
+                        .setColumnFilters(columnFilters.get(i))
+                        .setExpectedValuesFilters(readValuesFilters.get(i))
                         .setExpectedFilterOrder(expectedFilterOrder.isEmpty() ? ImmutableList.of() : expectedFilterOrder.get(i))
                         .build())
                 .collect(toImmutableList());
@@ -749,8 +797,13 @@ public class OrcTester
         private final Map<Integer, List<Subfield>> requiredSubfields;
         private final OrcFileTailSource orcFileTailSource;
 
+        // The filter for the expected values. Normally they are the same as the columnFilters which are passed to the StreamReaders. But when the data type is CHAR(n), the filter
+        // for the StreamReader would be trimmed without paddings, therefore the filters for the expected values need to be stored separately.
+        private Map<Integer, Map<Subfield, TupleDomainFilter>> expectedValuesFilters;
+
         private OrcReaderSettings(
                 Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters,
+                Map<Integer, Map<Subfield, TupleDomainFilter>> expectedValuesFilters,
                 List<Integer> expectedFilterOrder,
                 List<FilterFunction> filterFunctions,
                 Map<Integer, Integer> filterFunctionInputMapping,
@@ -758,6 +811,7 @@ public class OrcTester
                 OrcFileTailSource orcFileTailSource)
         {
             this.columnFilters = requireNonNull(columnFilters, "columnFilters is null");
+            this.expectedValuesFilters = requireNonNull(expectedValuesFilters, "expectedValuesFilters is null");
             this.expectedFilterOrder = requireNonNull(expectedFilterOrder, "expectedFilterOrder is null");
             this.filterFunctions = requireNonNull(filterFunctions, "filterFunctions is null");
             this.filterFunctionInputMapping = requireNonNull(filterFunctionInputMapping, "filterFunctionInputMapping is null");
@@ -768,6 +822,16 @@ public class OrcTester
         public Map<Integer, Map<Subfield, TupleDomainFilter>> getColumnFilters()
         {
             return columnFilters;
+        }
+
+        public Map<Integer, Map<Subfield, TupleDomainFilter>> getExpectedValuesFilters()
+        {
+            return expectedValuesFilters;
+        }
+
+        public void setExpectedValuesFilters(Map<Integer, Map<Subfield, TupleDomainFilter>> filters)
+        {
+            expectedValuesFilters = filters;
         }
 
         public List<Integer> getExpectedFilterOrder()
@@ -803,6 +867,7 @@ public class OrcTester
         public static class Builder
         {
             private Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters = ImmutableMap.of();
+            private Map<Integer, Map<Subfield, TupleDomainFilter>> expectedValuesFilters = ImmutableMap.of();
             private List<Integer> expectedFilterOrder = ImmutableList.of();
             private List<FilterFunction> filterFunctions = ImmutableList.of();
             private Map<Integer, Integer> filterFunctionInputMapping = ImmutableMap.of();
@@ -812,6 +877,12 @@ public class OrcTester
             public Builder setColumnFilters(Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters)
             {
                 this.columnFilters = requireNonNull(columnFilters, "columnFilters is null");
+                return this;
+            }
+
+            public Builder setExpectedValuesFilters(Map<Integer, Map<Subfield, TupleDomainFilter>> expectedValuesFilters)
+            {
+                this.expectedValuesFilters = requireNonNull(expectedValuesFilters, "expectedValuesFilters is null");
                 return this;
             }
 
@@ -855,7 +926,7 @@ public class OrcTester
 
             public OrcReaderSettings build()
             {
-                return new OrcReaderSettings(columnFilters, expectedFilterOrder, filterFunctions, filterFunctionInputMapping, requiredSubfields, orcFileTailSource);
+                return new OrcReaderSettings(columnFilters, expectedValuesFilters, expectedFilterOrder, filterFunctions, filterFunctionInputMapping, requiredSubfields, orcFileTailSource);
             }
         }
     }
@@ -1035,7 +1106,8 @@ public class OrcTester
                 assertTrue(entry.getFilterFunctionInputMapping().isEmpty(), "Filter functions are not supported yet");
 
                 Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters = entry.getColumnFilters();
-                List<List<?>> prunedAndFilteredRows = pruneValues(types, filterRows(types, expectedValues, columnFilters), entry.getRequiredSubfields());
+                Map<Integer, Map<Subfield, TupleDomainFilter>> valuesFilters = entry.getExpectedValuesFilters();
+                List<List<?>> prunedAndFilteredRows = pruneValues(types, filterRows(types, expectedValues, valuesFilters), entry.getRequiredSubfields());
 
                 Optional<TupleDomainFilterOrderChecker> orderChecker = Optional.empty();
                 List<Integer> expectedFilterOrder = entry.getExpectedFilterOrder();
