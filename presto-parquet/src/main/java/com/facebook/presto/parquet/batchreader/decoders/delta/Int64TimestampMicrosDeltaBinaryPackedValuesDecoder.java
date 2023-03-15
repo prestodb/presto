@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.batchreader.decoders.delta;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimestampMicrosValuesDecoder;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesReader;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 
@@ -29,6 +30,8 @@ import static java.util.concurrent.TimeUnit.MICROSECONDS;
 public class Int64TimestampMicrosDeltaBinaryPackedValuesDecoder
         implements Int64TimestampMicrosValuesDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimestampMicrosDeltaBinaryPackedValuesDecoder.class).instanceSize();
+
     private final DeltaBinaryPackingValuesReader innerReader;
 
     public Int64TimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream)
@@ -54,5 +57,12 @@ public class Int64TimestampMicrosDeltaBinaryPackedValuesDecoder
             innerReader.skip();
             length--;
         }
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // Not counting innerReader since it's in another library.
+        return INSTANCE_SIZE;
     }
 }
