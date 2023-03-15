@@ -90,8 +90,11 @@ import static com.facebook.presto.spark.execution.RuntimeStatistics.createRuntim
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textPlanFragment;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -212,6 +215,9 @@ public class PrestoSparkAdaptiveQueryExecution
             throws SparkException, TimeoutException
     {
         queryStateTimer.beginRunning();
+        log.info("Using AdaptiveQueryExecutor");
+        log.info(format("Logical plan : %s",
+                textLogicalPlan(this.planAndMore.getPlan().getRoot(), this.planAndMore.getPlan().getTypes(), this.planAndMore.getPlan().getStatsAndCosts(), metadata.getFunctionAndTypeManager(), session, 0)));
 
         IterativePlanFragmenter.PlanAndFragments planAndFragments = iterativePlanFragmenter.createReadySubPlans(this.planAndMore.getPlan().getRoot());
 
@@ -224,6 +230,8 @@ public class PrestoSparkAdaptiveQueryExecution
             List<SubPlan> readyFragments = planAndFragments.getReadyFragments();
             Set<PlanFragmentId> rootChildren = getRootChildNodeFragmentIDs(planAndFragments.getRemainingPlan().get());
             for (SubPlan fragment : readyFragments) {
+                log.info(format("Executing fragment : %s",
+                        textPlanFragment(fragment.getFragment(), metadata.getFunctionAndTypeManager(), session, true)));
                 Optional<Class<?>> outputType = Optional.empty();
                 if (isCoordinatorOnly(this.planAndMore.getPlan()) && rootChildren.contains(fragment.getFragment().getId())) {
                     outputType = Optional.of(PrestoSparkSerializedPage.class);
