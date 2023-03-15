@@ -105,7 +105,7 @@ public class SliceDictionarySelectiveReader
     @Nullable
     private BooleanInputStream presentStream;
     @Nullable
-    private TupleDomainFilter rowGroupFilter;
+    private TupleDomainFilter filter;
 
     private BooleanInputStream inDictionaryStream;
 
@@ -176,7 +176,7 @@ public class SliceDictionarySelectiveReader
         if (dataStream == null && presentStream != null) {
             streamPosition = readAllNulls(positions, positionCount);
         }
-        else if (rowGroupFilter == null) {
+        else if (filter == null) {
             streamPosition = readNoFilter(positions, positionCount);
         }
         else {
@@ -225,7 +225,7 @@ public class SliceDictionarySelectiveReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if ((context.isNonDeterministicFilter() && rowGroupFilter.testNull()) || context.isNullsAllowed()) {
+                if ((context.isNonDeterministicFilter() && filter.testNull()) || context.isNullsAllowed()) {
                     if (context.isOutputRequired()) {
                         values[outputPositionCount] = currentDictionarySize - 1;
                     }
@@ -267,9 +267,9 @@ public class SliceDictionarySelectiveReader
             }
             streamPosition++;
 
-            if (rowGroupFilter != null) {
-                outputPositionCount -= rowGroupFilter.getPrecedingPositionsToFail();
-                int succeedingPositionsToFail = rowGroupFilter.getSucceedingPositionsToFail();
+            if (filter != null) {
+                outputPositionCount -= filter.getPrecedingPositionsToFail();
+                int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
                 if (succeedingPositionsToFail > 0) {
                     int positionsToSkip = 0;
                     for (int j = 0; j < succeedingPositionsToFail; j++) {
@@ -287,7 +287,7 @@ public class SliceDictionarySelectiveReader
 
     private byte evaluateFilter(int position, int index, int length)
     {
-        if (!rowGroupFilter.testLength(length)) {
+        if (!filter.testLength(length)) {
             return FILTER_FAILED;
         }
 
@@ -295,11 +295,11 @@ public class SliceDictionarySelectiveReader
         if (isCharType && length != currentLength) {
             System.arraycopy(dictionaryData, dictionaryOffsetVector[index], valueWithPadding, 0, currentLength);
             Arrays.fill(valueWithPadding, currentLength, length, (byte) ' ');
-            if (!rowGroupFilter.testBytes(valueWithPadding, 0, length)) {
+            if (!filter.testBytes(valueWithPadding, 0, length)) {
                 return FILTER_FAILED;
             }
         }
-        else if (!rowGroupFilter.testBytes(dictionaryData, dictionaryOffsetVector[index], length)) {
+        else if (!filter.testBytes(dictionaryData, dictionaryOffsetVector[index], length)) {
             return FILTER_FAILED;
         }
 
@@ -319,12 +319,12 @@ public class SliceDictionarySelectiveReader
         if (context.isNonDeterministicFilter()) {
             outputPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                if (rowGroupFilter.testNull()) {
+                if (filter.testNull()) {
                     outputPositionCount++;
                 }
                 else {
-                    outputPositionCount -= rowGroupFilter.getPrecedingPositionsToFail();
-                    i += rowGroupFilter.getSucceedingPositionsToFail();
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+                    i += filter.getSucceedingPositionsToFail();
                 }
             }
         }
@@ -474,7 +474,7 @@ public class SliceDictionarySelectiveReader
             throws IOException
     {
         presentStream = presentStreamSource.openStream();
-        rowGroupFilter = context.getRowGroupFilter(presentStream);
+        filter = context.getFilter(presentStream);
 
         // read the dictionary
         if (!stripeDictionaryOpen) {
@@ -622,7 +622,7 @@ public class SliceDictionarySelectiveReader
         readOffset = 0;
 
         presentStream = null;
-        rowGroupFilter = null;
+        filter = null;
         inDictionaryStream = null;
         dataStream = null;
 
@@ -644,7 +644,7 @@ public class SliceDictionarySelectiveReader
         readOffset = 0;
 
         presentStream = null;
-        rowGroupFilter = null;
+        filter = null;
         inDictionaryStream = null;
         dataStream = null;
 
