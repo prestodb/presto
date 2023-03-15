@@ -107,16 +107,25 @@ void TryExpr::nullOutErrors(
         return;
       }
 
-      // If the result is constant, the input should have been constant as
-      // well, so we should have consistently gotten exceptions.
-      // If this is not the case, an easy way to handle it would be to wrap
-      // the ConstantVector in a DictionaryVector and NULL out the rows that
-      // saw errors.
-      VELOX_DCHECK(
-          rows.testSelected([&](auto row) { return !errors->isNullAt(row); }));
-      // Set the result to be a NULL constant.
-      result = BaseVector::createNullConstant(
-          result->type(), result->size(), context.pool());
+      if (errors->isConstantEncoding()) {
+        // Set the result to be a NULL constant.
+        result = BaseVector::createNullConstant(
+            result->type(), result->size(), context.pool());
+      } else {
+        auto size = result->size();
+        VELOX_DCHECK_GE(size, rows.end());
+
+        auto nulls = allocateNulls(size, context.pool());
+        auto rawNulls = nulls->asMutable<uint64_t>();
+        rows.applyToSelected([&](auto row) {
+          if (row < errors->size() && !errors->isNullAt(row)) {
+            bits::setNull(rawNulls, row, true);
+          }
+        });
+        // Wrap in dictionary indices all pointing to index 0.
+        auto indices = allocateIndices(size, context.pool());
+        result = BaseVector::wrapInDictionary(nulls, indices, size, result);
+      }
     } else {
       rows.applyToSelected([&](auto row) {
         if (row < errors->size() && !errors->isNullAt(row)) {

@@ -206,9 +206,14 @@ TEST_F(TryExprTest, skipExecutionOnInputErrors) {
 
 namespace {
 // A function that sets result to be a ConstantVector and then throws an
-// exception.
+// exception. The constructor parameter throwOnFirstRow controls whether the
+// function throws an exception only at the first row or at every row it is
+// evaluated on.
 class CreateConstantAndThrow : public exec::VectorFunction {
  public:
+  CreateConstantAndThrow(bool throwOnFirstRow = false)
+      : throwOnFirstRow_{throwOnFirstRow} {}
+
   bool isDefaultNullBehavior() const override {
     return true;
   }
@@ -222,10 +227,15 @@ class CreateConstantAndThrow : public exec::VectorFunction {
     result = BaseVector::createConstant(
         BIGINT(), (int64_t)1, rows.end(), context.pool());
 
-    rows.applyToSelected([&](int row) {
+    if (throwOnFirstRow_) {
       context.setError(
-          row, std::make_exception_ptr(std::invalid_argument("expected")));
-    });
+          0, std::make_exception_ptr(std::invalid_argument("expected")));
+    } else {
+      rows.applyToSelected([&](int row) {
+        context.setError(
+            row, std::make_exception_ptr(std::invalid_argument("expected")));
+      });
+    }
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -234,25 +244,51 @@ class CreateConstantAndThrow : public exec::VectorFunction {
                 .argumentType("bigint")
                 .build()};
   }
+
+ private:
+  const bool throwOnFirstRow_;
 };
 } // namespace
 
 TEST_F(TryExprTest, constant) {
   // Test a TRY around an expression that sets result to be a ConstantVector
   // and then throws an exception.
-  exec::registerVectorFunction(
-      "create_constant_and_throw",
-      CreateConstantAndThrow::signatures(),
-      std::make_unique<CreateConstantAndThrow>());
+  {
+    exec::registerVectorFunction(
+        "create_constant_and_throw",
+        CreateConstantAndThrow::signatures(),
+        std::make_unique<CreateConstantAndThrow>());
 
-  auto constant = makeConstant<int64_t>(0, 10);
+    auto constant = makeConstant<int64_t>(0, 10);
 
-  // This should return a ConstantVector of NULLs since every row throws an
-  // exception.
-  auto result = evaluate<ConstantVector<int64_t>>(
-      "try(create_constant_and_throw(c0))", makeRowVector({constant}));
+    // This should return a ConstantVector of NULLs since every row throws an
+    // exception.
+    auto result = evaluate<ConstantVector<int64_t>>(
+        "try(create_constant_and_throw(c0))", makeRowVector({constant}));
 
-  assertEqualVectors(makeNullConstant(TypeKind::BIGINT, 10), result);
+    assertEqualVectors(makeNullConstant(TypeKind::BIGINT, 10), result);
+  }
+
+  // Test a TRY over an expression that returns constant result vector but with
+  // exceptions on a subset of rows.
+  {
+    exec::registerVectorFunction(
+        "create_constant_and_throw_on_first_row",
+        CreateConstantAndThrow::signatures(),
+        std::make_unique<CreateConstantAndThrow>(true));
+
+    auto input = makeFlatVector<int64_t>({1, 2, 3, 4, 5});
+    VELOX_ASSERT_THROW(
+        evaluate<SimpleVector<int64_t>>(
+            "create_constant_and_throw_on_first_row(c0)",
+            makeRowVector({input})),
+        "expected");
+    auto result = evaluate<SimpleVector<int64_t>>(
+        "try(create_constant_and_throw_on_first_row(c0))",
+        makeRowVector({input}));
+    assertEqualVectors(
+        makeNullableFlatVector<int64_t>({std::nullopt, 1, 1, 1, 1}), result);
+  }
 }
 
 TEST_F(TryExprTest, evalSimplified) {
