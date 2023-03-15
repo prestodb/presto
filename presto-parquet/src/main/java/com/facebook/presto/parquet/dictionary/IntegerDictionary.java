@@ -17,14 +17,18 @@ import com.facebook.presto.parquet.DictionaryPage;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.plain.PlainValuesReader.IntegerPlainValuesReader;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class IntegerDictionary
         extends Dictionary
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntegerDictionary.class).instanceSize();
+
     private final int[] content;
 
     public IntegerDictionary(DictionaryPage dictionaryPage)
@@ -52,5 +56,11 @@ public class IntegerDictionary
         return toStringHelper(this)
                 .add("content", content)
                 .toString();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(content);
     }
 }

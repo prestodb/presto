@@ -14,13 +14,17 @@
 package com.facebook.presto.parquet.batchreader.decoders.plain;
 
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int32ValuesDecoder;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.parquet.batchreader.BytesUtils.getInt;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class Int32PlainValuesDecoder
         implements Int32ValuesDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int32PlainValuesDecoder.class).instanceSize();
+
     private final byte[] byteBuffer;
     private final int bufferEnd;
 
@@ -57,5 +61,11 @@ public class Int32PlainValuesDecoder
         checkArgument(bufferOffset + length * 4 <= bufferEnd, "End of stream: invalid read request");
         checkArgument(length >= 0, "invalid length %s", length);
         bufferOffset += length * 4;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(byteBuffer);
     }
 }
