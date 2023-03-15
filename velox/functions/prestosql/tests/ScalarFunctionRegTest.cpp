@@ -52,6 +52,11 @@ TEST_F(ScalarFunctionRegTest, prefix) {
   std::unordered_map<std::string, exec::VectorFunctionEntry>
       scalarVectorFuncMap = *(exec::vectorFunctionFactories().rlock());
 
+  // Remove special form functions - they don't have any prefix.
+  scalarVectorFuncMap.erase("in");
+  scalarVectorFuncMap.erase("row_constructor");
+  scalarVectorFuncMap.erase("is_null");
+
   for (const auto& entry : scalarVectorFuncMap) {
     EXPECT_EQ(prefix, entry.first.substr(0, prefix.size()));
     EXPECT_EQ(

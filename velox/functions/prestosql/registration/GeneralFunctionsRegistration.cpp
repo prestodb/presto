@@ -19,14 +19,19 @@
 
 namespace facebook::velox::functions {
 
+// Special form functions don't have any prefix.
+void registerAllSpecialFormGeneralFunctions() {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_in, "in");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "row_constructor");
+  registerIsNullFunction("is_null");
+}
+
 void registerGeneralFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_element_at, prefix + "element_at");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_subscript, prefix + "subscript");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_transform, prefix + "transform");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_reduce, prefix + "reduce");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_in, prefix + "in");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_filter, prefix + "filter");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, prefix + "row_constructor");
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_least, prefix + "least");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_greatest, prefix + "greatest");
@@ -36,7 +41,7 @@ void registerGeneralFunctions(const std::string& prefix) {
   registerFunction<CardinalityFunction, int64_t, Map<Any, Any>>(
       {prefix + "cardinality"});
 
-  registerIsNullFunction(prefix + "is_null");
+  registerAllSpecialFormGeneralFunctions();
 }
 
 } // namespace facebook::velox::functions
