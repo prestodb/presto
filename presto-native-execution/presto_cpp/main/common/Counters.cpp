@@ -58,6 +58,9 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterTotalPartitionedOutputBuffer, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterPartitionedOutputBufferGetDataLatencyMs,
+      facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterCumulativeUserCpuTimeMicros, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterCumulativeSystemCpuTimeMicros, facebook::velox::StatType::AVG);
