@@ -868,6 +868,9 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
     if (!values) {
       continue;
     }
+    if (values->isConstantEncoding() && values->size() < newRows->end()) {
+      values = BaseVector::wrapInConstant(newRows->end(), 0, values);
+    }
     context.setPeeled(i, values);
     if (constantFields.empty() || !constantFields[i]) {
       ++numPeeled;
