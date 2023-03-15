@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -55,6 +56,7 @@ public class MultilevelSplitQueue
     private final Condition notEmpty = lock.newCondition();
 
     private final double levelTimeMultiplier;
+    private final AtomicBoolean isShuttingDown = new AtomicBoolean(false);
 
     @Inject
     public MultilevelSplitQueue(TaskManagerConfig taskManagerConfig)
@@ -98,7 +100,9 @@ public class MultilevelSplitQueue
     public void offer(PrioritizedSplitRunner split)
     {
         checkArgument(split != null, "split is null");
-
+        if (isShuttingDown.get()) {
+            return;
+        }
         split.setReady();
         int level = split.getPriority().getLevel();
         lock.lock();
@@ -120,6 +124,11 @@ public class MultilevelSplitQueue
         finally {
             lock.unlock();
         }
+    }
+
+    public synchronized void shutDown()
+    {
+        isShuttingDown.set(true);
     }
 
     public PrioritizedSplitRunner take()
@@ -161,6 +170,9 @@ public class MultilevelSplitQueue
     @GuardedBy("lock")
     private PrioritizedSplitRunner pollSplit()
     {
+        if (isShuttingDown.get()) {
+            return null;
+        }
         long targetScheduledTime = getLevel0TargetTime();
         double worstRatio = 1;
         int selectedLevel = -1;

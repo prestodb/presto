@@ -25,6 +25,7 @@ import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeState;
@@ -196,7 +197,7 @@ public final class DiscoveryNodeManager
 
     private static Optional<String> getPoolType(ServiceDescriptor service)
     {
-        log.info("Discovery:pool_type = %s", service.getProperties().getOrDefault("pool_type", "not_available"));
+        //log.info("Discovery:pool_type = %s", service.getProperties().getOrDefault("pool_type", "not_available"));
         return Optional.ofNullable(service.getProperties().get("pool_type"));
     }
 
@@ -297,7 +298,7 @@ public final class DiscoveryNodeManager
         if (isMemoizeDeadNodesEnabled && this.connectorIdsByNodeId != null) {
             connectorIdsByNodeId.putAll(this.connectorIdsByNodeId);
         }
-
+        Map<String, String> activePools = new HashMap<>();
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
             OptionalInt thriftPort = getThriftServerPort(service);
@@ -309,7 +310,8 @@ public final class DiscoveryNodeManager
             boolean catalogServer = isCatalogServer(service);
             OptionalInt raftPort = getRaftPort(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, raftPort, getPoolType(service));
+                Optional<String> poolType = getPoolType(service);
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, raftPort, poolType);
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
@@ -324,7 +326,9 @@ public final class DiscoveryNodeManager
                         if (catalogServer) {
                             catalogServersBuilder.add(node);
                         }
-
+                        if (poolType.isPresent()) {
+                            activePools.put(service.getNodeId(), poolType.get());
+                        }
                         nodes.put(node.getNodeIdentifier(), node);
 
                         // record available active nodes organized by connector id
@@ -403,6 +407,8 @@ public final class DiscoveryNodeManager
             List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
             nodeStateEventExecutor.submit(() -> listeners.forEach(listener -> listener.accept(allNodes)));
         }
+        long leafSize = activePools.entrySet().stream().filter(entry -> entry.getValue().equals(ServerConfig.WORKER_POOL_TYPE_LEAF)).count();
+        long intermediateSize = activePools.entrySet().stream().filter(entry -> entry.getValue().equals(ServerConfig.WORKER_POOL_TYPE_INTERMEDIATE)).count();
     }
 
     private NodeState getNodeState(InternalNode node)

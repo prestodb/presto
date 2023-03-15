@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.executor.TaskExecutor;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -55,6 +56,7 @@ public class GracefulShutdownHandler
     private final boolean isResourceManager;
     private final ShutdownAction shutdownAction;
     private final Duration gracePeriod;
+    private final TaskExecutor taskExecutor;
 
     @GuardedBy("this")
     private boolean shutdownRequested;
@@ -65,7 +67,8 @@ public class GracefulShutdownHandler
             ServerConfig serverConfig,
             ShutdownAction shutdownAction,
             LifeCycleManager lifeCycleManager,
-            QueryManager queryManager)
+            QueryManager queryManager,
+            TaskExecutor taskExecutor)
     {
         this.sqlTaskManager = requireNonNull(sqlTaskManager, "sqlTaskManager is null");
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
@@ -74,6 +77,7 @@ public class GracefulShutdownHandler
         this.isResourceManager = serverConfig.isResourceManager();
         this.gracePeriod = serverConfig.getGracePeriod();
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
     }
 
     public synchronized void requestShutdown()
@@ -85,18 +89,24 @@ public class GracefulShutdownHandler
         }
 
         if (isShutdownRequested()) {
+            log.debug("shutdown is already requested");
             return;
         }
 
         setShutdownRequested(true);
 
         //wait for a grace period to start the shutdown sequence
+        //immediately start shutdown process for worker
+        long delay = isCoordinator ? gracePeriod.toMillis() : 0;
         shutdownHandler.schedule(() -> {
             if (isCoordinator) {
                 waitForQueriesToComplete();
             }
             else {
+                taskExecutor.gracefulShutdown();
+                long timeBeforeTaskCompletion = System.currentTimeMillis();
                 waitForTasksToComplete();
+                log.info("Wait time for task completion -> %s", System.currentTimeMillis() - timeBeforeTaskCompletion);
                 // wait for another grace period for all task states to be observed by the coordinator
                 sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
             }
@@ -122,7 +132,7 @@ public class GracefulShutdownHandler
             }
 
             shutdownAction.onShutdown();
-        }, gracePeriod.toMillis(), MILLISECONDS);
+        }, delay, MILLISECONDS);
     }
 
     private void waitForTasksToComplete()

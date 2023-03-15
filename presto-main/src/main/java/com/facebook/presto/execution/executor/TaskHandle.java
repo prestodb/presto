@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.execution.executor;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.SplitConcurrencyController;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
@@ -24,8 +26,11 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.DoubleSupplier;
 
@@ -36,6 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class TaskHandle
 {
     private volatile boolean destroyed;
+    private static final Logger log = Logger.get(TaskHandle.class);
     private final TaskId taskId;
     private final DoubleSupplier utilizationSupplier;
     private final TaskPriorityTracker priorityTracker;
@@ -51,6 +57,9 @@ public class TaskHandle
     protected final SplitConcurrencyController concurrencyController;
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
+    private final Optional<HostShutDownListener> hostShutDownListener;
+    private final Optional<OutputBuffer> outputBuffer;
+    private final AtomicBoolean isShuttingDown = new AtomicBoolean(false);
 
     public TaskHandle(
             TaskId taskId,
@@ -60,6 +69,19 @@ public class TaskHandle
             Duration splitConcurrencyAdjustFrequency,
             OptionalInt maxDriversPerTask)
     {
+        this(taskId, priorityTracker, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask, Optional.empty(), Optional.empty());
+    }
+
+    public TaskHandle(
+            TaskId taskId,
+            TaskPriorityTracker priorityTracker,
+            DoubleSupplier utilizationSupplier,
+            int initialSplitConcurrency,
+            Duration splitConcurrencyAdjustFrequency,
+            OptionalInt maxDriversPerTask,
+            Optional<HostShutDownListener> hostShutDownListener,
+            Optional<OutputBuffer> outputBuffer)
+    {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.utilizationSupplier = requireNonNull(utilizationSupplier, "utilizationSupplier is null");
         this.priorityTracker = requireNonNull(priorityTracker, "queryPriorityTracker is null");
@@ -67,6 +89,8 @@ public class TaskHandle
         this.concurrencyController = new SplitConcurrencyController(
                 initialSplitConcurrency,
                 requireNonNull(splitConcurrencyAdjustFrequency, "splitConcurrencyAdjustFrequency is null"));
+        this.hostShutDownListener = requireNonNull(hostShutDownListener, "hostShutDownListener is null");
+        this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
     }
 
     public synchronized Priority addScheduledNanos(long durationNanos)
@@ -117,7 +141,7 @@ public class TaskHandle
 
     public synchronized boolean enqueueSplit(PrioritizedSplitRunner split)
     {
-        if (destroyed) {
+        if (destroyed || isShuttingDown.get()) {
             return false;
         }
         queuedLeafSplits.add(split);
@@ -145,7 +169,7 @@ public class TaskHandle
 
     public synchronized PrioritizedSplitRunner pollNextSplit()
     {
-        if (destroyed) {
+        if (destroyed || isShuttingDown.get()) {
             return null;
         }
 
@@ -158,6 +182,37 @@ public class TaskHandle
             runningLeafSplits.add(split);
         }
         return split;
+    }
+
+    public void gracefulShutdown()
+    {
+        isShuttingDown.set(true);
+    }
+
+    public void handleShutDown(Set<PrioritizedSplitRunner> runningSplits)
+    {
+        if (!hostShutDownListener.isPresent()) {
+            return;
+        }
+        //wait for running split to be over
+        long waitTimeMillis = 100; // Wait for 100 milliseconds between checks
+        while (runningSplits.size() > 0) {
+            try {
+                log.debug("queued leaf split = %s, running leaf splits = %s,  waiting for running split to be over to kill the task - %s", queuedLeafSplits.size(), runningSplits.size(), taskId);
+                Thread.sleep(waitTimeMillis);
+            }
+            catch (InterruptedException e) {
+                // Handle interruption
+            }
+        }
+        log.info("Waiting for running split is over, going to kill task - %s", taskId);
+        hostShutDownListener.get().handleShutdown(taskId);
+        //TODO wait for ack from coordinator
+    }
+
+    public synchronized int getQueuedSplitSize()
+    {
+        return queuedLeafSplits.size();
     }
 
     public synchronized void splitComplete(PrioritizedSplitRunner split)
@@ -178,5 +233,10 @@ public class TaskHandle
         return toStringHelper(this)
                 .add("taskId", taskId)
                 .toString();
+    }
+
+    public boolean isOutputBufferEmpty()
+    {
+        return outputBuffer.get().isAllPagesConsumed();
     }
 }

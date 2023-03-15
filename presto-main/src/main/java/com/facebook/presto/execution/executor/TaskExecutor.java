@@ -23,6 +23,7 @@ import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking;
+import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
@@ -51,11 +52,13 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
@@ -178,8 +181,10 @@ public class TaskExecutor
 
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
+    private final TimeStat taskExecutorShutdownTime = new TimeStat(MICROSECONDS);
 
     private volatile boolean closed;
+    private final ExecutorService taskShutdownExecutor = newCachedThreadPool(daemonThreadsNamed("task-shutdown-%s"));
 
     @Inject
     public TaskExecutor(TaskManagerConfig config, EmbedVersion embedVersion, MultilevelSplitQueue splitQueue)
@@ -195,6 +200,44 @@ public class TaskExecutor
                 embedVersion,
                 splitQueue,
                 Ticker.systemTicker());
+    }
+
+    public synchronized void gracefulShutdown()
+    {
+        long shutdownStartTime = System.nanoTime();
+        tasks.stream().forEach(taskHandle -> taskHandle.gracefulShutdown());
+        //before killing the tasks,  make sure output buffer data is consumed.
+        CountDownLatch latch = new CountDownLatch(tasks.size());
+        for (TaskHandle taskHandle : tasks) {
+            taskShutdownExecutor.execute(
+                    () -> {
+                        long waitTimeMillis = 100; // Wait for 100 milliseconds between checks
+                        while (!taskHandle.isOutputBufferEmpty()) {
+                            try {
+                                log.debug("Waiting for output buffer to be empty for task- %s", taskHandle.getTaskId());
+                                Thread.sleep(waitTimeMillis);
+                            }
+                            catch (InterruptedException e) {
+                                // TODO Handle interruption
+                            }
+                        }
+                        log.debug("calling handleShutDown for task- %s", taskHandle.getTaskId());
+                        taskHandle.handleShutDown(runningSplits);
+                        latch.countDown();
+                    });
+        }
+
+        try {
+            log.info("Waiting for shutdown of all tasks");
+            latch.await();
+        }
+        catch (InterruptedException e) {
+            // TODO Handle interruption
+        }
+        //TODO wait for coordinator to receive callback for failed tasks?
+        Duration shutdownTime = new Duration(System.nanoTime() - shutdownStartTime, NANOSECONDS);
+        log.info("Waiting for shutdown of all tasks over in %s milli sec", shutdownTime.toMillis());
+        taskExecutorShutdownTime.add(shutdownTime);
     }
 
     @VisibleForTesting
@@ -347,6 +390,18 @@ public class TaskExecutor
             Duration splitConcurrencyAdjustFrequency,
             OptionalInt maxDriversPerTask)
     {
+        return addTask(taskId, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask, Optional.empty(), Optional.empty());
+    }
+
+    public synchronized TaskHandle addTask(
+            TaskId taskId,
+            DoubleSupplier utilizationSupplier,
+            int initialSplitConcurrency,
+            Duration splitConcurrencyAdjustFrequency,
+            OptionalInt maxDriversPerTask,
+            Optional<HostShutDownListener> taskKillListener,
+            Optional<OutputBuffer> outputBuffer)
+    {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
         checkArgument(!maxDriversPerTask.isPresent() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
@@ -360,7 +415,9 @@ public class TaskExecutor
                 utilizationSupplier,
                 initialSplitConcurrency,
                 splitConcurrencyAdjustFrequency,
-                maxDriversPerTask);
+                maxDriversPerTask,
+                taskKillListener,
+                outputBuffer);
 
         tasks.add(taskHandle);
         return taskHandle;
@@ -686,6 +743,12 @@ public class TaskExecutor
         return tasks.size();
     }
 
+    //TODO added for fault injection
+    public synchronized List<TaskHandle> getTaskList()
+    {
+        return tasks;
+    }
+
     @Managed
     public int getRunnerThreads()
     {
@@ -921,6 +984,13 @@ public class TaskExecutor
     public CounterStat getGlobalCpuTimeMicros()
     {
         return globalCpuTimeMicros;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getTaskExecutorShutdownTime()
+    {
+        return taskExecutorShutdownTime;
     }
 
     private synchronized int getRunningTasksForLevel(int level)

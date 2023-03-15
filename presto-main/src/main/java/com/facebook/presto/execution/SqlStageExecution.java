@@ -88,14 +88,14 @@ import static java.util.stream.Collectors.toList;
 public final class SqlStageExecution
 {
     private static final Logger log = Logger.get(SqlStageExecution.class);
-    public static final Set<ErrorCode> RECOVERABLE_ERROR_CODES = ImmutableSet.of(
+    public static final Set<ErrorCode> DEFAULT_RECOVERABLE_ERROR_CODES = ImmutableSet.of(
             TOO_MANY_REQUESTS_FAILED.toErrorCode(),
             PAGE_TRANSPORT_ERROR.toErrorCode(),
             PAGE_TRANSPORT_TIMEOUT.toErrorCode(),
             REMOTE_TASK_MISMATCH.toErrorCode(),
-            REMOTE_TASK_ERROR.toErrorCode(),
-            REMOTE_HOST_GONE.toErrorCode());
-
+            REMOTE_TASK_ERROR.toErrorCode());
+    private Optional<Set<ErrorCode>> recoveryErrorCodes = Optional.empty();
+    private static final int DELAY_NO_MORE_RETRY = 10_000;
     private final Session session;
     private final StageExecutionStateMachine stateMachine;
     private final PlanFragment planFragment;
@@ -144,6 +144,8 @@ public final class SqlStageExecution
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
     @GuardedBy("this")
     private final AtomicInteger totalRetries = new AtomicInteger();
+    private ThreadLocal<Boolean> noMoreRetries = ThreadLocal.withInitial(() -> false);
+    private ThreadLocal<Long> firstNoMoreRetries = ThreadLocal.withInitial(() -> 0L);
 
     public static SqlStageExecution createSqlStageExecution(
             StageExecutionId stageExecutionId,
@@ -261,6 +263,14 @@ public final class SqlStageExecution
     {
         checkState(!this.stageTaskRecoveryCallback.isPresent(), "stageTaskRecoveryCallback should be registered only once");
         this.stageTaskRecoveryCallback = Optional.of(requireNonNull(stageTaskRecoveryCallback, "stageTaskRecoveryCallback is null"));
+    }
+
+    public synchronized void registerStageTaskRecoveryCallback(StageTaskRecoveryCallback stageTaskRecoveryCallback, Set<ErrorCode> recoveryErrorCodes)
+    {
+        checkState(!this.stageTaskRecoveryCallback.isPresent(), "stageTaskRecoveryCallback should be registered only once");
+        checkState(!this.recoveryErrorCodes.isPresent(), "errorCodes should be registered only once");
+        this.stageTaskRecoveryCallback = Optional.of(requireNonNull(stageTaskRecoveryCallback, "stageTaskRecoveryCallback is null"));
+        this.recoveryErrorCodes = Optional.of(requireNonNull(recoveryErrorCodes, "recoveryErrorCodes is null"));
     }
 
     public PlanFragment getFragment()
@@ -640,13 +650,25 @@ public final class SqlStageExecution
     private boolean isRecoverable(List<ExecutionFailureInfo> failures)
     {
         for (ExecutionFailureInfo failure : failures) {
-            if (!RECOVERABLE_ERROR_CODES.contains(failure.getErrorCode())) {
+            if (!getRecoverableErrorCodes().contains(failure.getErrorCode())) {
                 return false;
             }
         }
-        return stageTaskRecoveryCallback.isPresent() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+        boolean isRecoverable = stageTaskRecoveryCallback.isPresent() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+        log.info("Failure recovery error check , isRecoverable = %s, failure error codes = %s", isRecoverable, failures.stream().map(failure -> failure.getErrorCode()).collect(toImmutableList()));
+        return isRecoverable;
     }
 
+    public Set<ErrorCode> getRecoverableErrorCodes()
+    {
+        if (recoveryErrorCodes.isPresent()) {
+            return recoveryErrorCodes.get();
+        }
+        return DEFAULT_RECOVERABLE_ERROR_CODES;
+    }
+
+    //hack, remove it once we transition to draining state of tasks
+    //there is a corner case where noMoreRetryWithFailedTasks returns true before failed splits are added to the task
     public synchronized boolean noMoreRetry()
     {
         if (failedTasks.isEmpty()) {
@@ -657,15 +679,30 @@ public final class SqlStageExecution
                     .collect(toList());
             return idleRunningHttpRemoteTasks.size() == allTasks.size();
         }
-        else {
-            List<HttpRemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
-                    .filter(task -> task instanceof HttpRemoteTask)
-                    .map(task -> (HttpRemoteTask) task)
-                    .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
-                    .filter(HttpRemoteTask::isAllSplitsRun)
-                    .collect(toList());
-            return idleRunningHttpRemoteTasks.size() == allTasks.size() - failedTasks.size() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+        boolean noMoreRetryInternal = noMoreRetryWithFailedTasks();
+        if (!noMoreRetryInternal) {
+            return false;
         }
+        //delay no more retry decision by a min
+        if (!noMoreRetries.get()) {
+            firstNoMoreRetries.set(System.currentTimeMillis());
+        }
+        noMoreRetries.set(true);
+        if (System.currentTimeMillis() - firstNoMoreRetries.get() >= DELAY_NO_MORE_RETRY) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean noMoreRetryWithFailedTasks()
+    {
+        List<HttpRemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
+                .filter(task -> task instanceof HttpRemoteTask)
+                .map(task -> (HttpRemoteTask) task)
+                .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
+                .filter(HttpRemoteTask::isAllSplitsRun)
+                .collect(toList());
+        return idleRunningHttpRemoteTasks.size() == allTasks.size() - failedTasks.size() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
     }
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
