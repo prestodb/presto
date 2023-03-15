@@ -427,14 +427,20 @@ ExpressionFuzzer::ExpressionFuzzer(
       // get their determinism.
       std::vector<TypePtr> argTypes;
       if (signature->variables().empty()) {
+        bool supportedSignature = true;
         for (const auto& arg : signature->argumentTypes()) {
           auto resolvedType = SignatureBinder::tryResolveType(arg, {}, {});
           if (!resolvedType) {
-            LOG(WARNING) << "Skipping unsupported signature with generic: "
-                         << function.first << signature->toString();
+            supportedSignature = false;
             continue;
           }
           argTypes.push_back(resolvedType);
+        }
+
+        if (!supportedSignature) {
+          LOG(WARNING) << "Skipping unsupported signature with generic: "
+                       << function.first << signature->toString();
+          continue;
         }
       } else {
         ArgumentTypeFuzzer typeFuzzer{*signature, localRng};
