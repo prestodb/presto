@@ -31,6 +31,7 @@ import com.facebook.presto.parquet.reader.PageReader;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -44,6 +45,8 @@ import static java.util.Objects.requireNonNull;
 public class Int32FlatBatchReader
         implements ColumnReader
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int32FlatBatchReader.class).instanceSize();
+
     private final RichColumnDescriptor columnDescriptor;
 
     protected Field field;
@@ -108,6 +111,16 @@ public class Int32FlatBatchReader
         readOffset = 0;
         nextBatchSize = 0;
         return columnChunk;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE +
+                (definitionLevelDecoder == null ? 0 : definitionLevelDecoder.getRetainedSizeInBytes()) +
+                (valuesDecoder == null ? 0 : valuesDecoder.getRetainedSizeInBytes()) +
+                (dictionary == null ? 0 : dictionary.getRetainedSizeInBytes()) +
+                (pageReader == null ? 0 : pageReader.getRetainedSizeInBytes());
     }
 
     protected boolean readNextPage()

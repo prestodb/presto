@@ -17,14 +17,18 @@ import com.facebook.presto.parquet.batchreader.BytesUtils;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BooleanValuesDecoder;
 import org.apache.parquet.Preconditions;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.nio.ByteBuffer;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class BooleanRLEValuesDecoder
         implements BooleanValuesDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanRLEValuesDecoder.class).instanceSize();
+
     private final ByteBuffer inputBuffer;
 
     private MODE mode;
@@ -35,7 +39,7 @@ public class BooleanRLEValuesDecoder
 
     public BooleanRLEValuesDecoder(ByteBuffer inputBuffer)
     {
-        this.inputBuffer = inputBuffer;
+        this.inputBuffer = requireNonNull(inputBuffer);
     }
 
     // Copied from BytesUtils.readUnsignedVarInt(InputStream in)
@@ -172,6 +176,12 @@ public class BooleanRLEValuesDecoder
             remainingToSkip -= numEntriesToSkip;
         }
         checkState(remainingToSkip == 0, "Invalid read size request");
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + inputBuffer.array().length;
     }
 
     private void readNext()

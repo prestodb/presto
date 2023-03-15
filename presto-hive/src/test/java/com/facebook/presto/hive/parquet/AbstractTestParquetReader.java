@@ -102,7 +102,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
-import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -1621,14 +1620,13 @@ public abstract class AbstractTestParquetReader
 
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("test", "parquet")) {
             Iterable<Integer> values = intsBetween(0, 10);
-            Iterator<?>[] readValues = stream(new Iterable<?>[] {values}).map(Iterable::iterator).toArray(size -> new Iterator<?>[size]);
 
             List<String> columnNames = singletonList("column1");
             List<Type> columnTypes = singletonList(INTEGER);
             writeParquetFileFromPresto(tempFile.getFile(),
                     columnTypes,
                     columnNames,
-                    readValues,
+                    new Iterable<?>[] {values},
                     10,
                     CompressionCodecName.GZIP);
             long tempFileCreationTime = System.currentTimeMillis();

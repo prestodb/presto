@@ -16,17 +16,21 @@ package com.facebook.presto.parquet.batchreader.decoders.rle;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int32ValuesDecoder;
 import com.facebook.presto.parquet.dictionary.IntegerDictionary;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.InputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class Int32RLEDictionaryValuesDecoder
         extends BaseRLEBitPackedDecoder
         implements Int32ValuesDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int32RLEDictionaryValuesDecoder.class).instanceSize();
+
     private final IntegerDictionary dictionary;
 
     public Int32RLEDictionaryValuesDecoder(int bitWidth, InputStream in, IntegerDictionary dictionary)
@@ -95,5 +99,11 @@ public class Int32RLEDictionaryValuesDecoder
             remaining -= chunkSize;
         }
         checkState(remaining == 0, "End of stream: Invalid skip size request: %s", length);
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + (dictionary == null ? 0 : dictionary.getRetainedSizeInBytes()) + sizeOf(currentBuffer);
     }
 }

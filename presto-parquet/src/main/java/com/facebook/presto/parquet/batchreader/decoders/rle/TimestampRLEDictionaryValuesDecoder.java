@@ -16,17 +16,21 @@ package com.facebook.presto.parquet.batchreader.decoders.rle;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.InputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class TimestampRLEDictionaryValuesDecoder
         extends BaseRLEBitPackedDecoder
         implements TimestampValuesDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampRLEDictionaryValuesDecoder.class).instanceSize();
+
     private final TimestampDictionary dictionary;
 
     public TimestampRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, TimestampDictionary dictionary)
@@ -95,5 +99,11 @@ public class TimestampRLEDictionaryValuesDecoder
             remaining -= readChunkSize;
         }
         checkState(remaining == 0, "End of stream: Invalid skip size request: %s", length);
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + (dictionary == null ? 0 : dictionary.getRetainedSizeInBytes()) + sizeOf(currentBuffer);
     }
 }
