@@ -185,8 +185,8 @@ TypePtr Type::create(const folly::dynamic& obj) {
 
   // Checks if 'typeName' specifies a custom type.
   auto typeName = obj["type"].asString();
-  if (typeExists(typeName)) {
-    return getType(typeName, std::move(childTypes));
+  if (customTypeExists(typeName)) {
+    return getCustomType(typeName);
   }
 
   // 'typeName' must be a built-in type.
@@ -758,14 +758,14 @@ typeFactories() {
 
 } // namespace
 
-bool registerType(
+bool registerCustomType(
     const std::string& name,
     std::unique_ptr<const CustomTypeFactories> factories) {
   auto uppercaseName = boost::algorithm::to_upper_copy(name);
   return typeFactories().emplace(uppercaseName, std::move(factories)).second;
 }
 
-bool typeExists(const std::string& name) {
+bool customTypeExists(const std::string& name) {
   auto uppercaseName = boost::algorithm::to_upper_copy(name);
   return typeFactories().count(uppercaseName) > 0;
 }
@@ -778,7 +778,7 @@ std::unordered_set<std::string> getCustomTypeNames() {
   return typeNames;
 }
 
-bool unregisterType(const std::string& name) {
+bool unregisterCustomType(const std::string& name) {
   auto uppercaseName = boost::algorithm::to_upper_copy(name);
   return typeFactories().erase(uppercaseName) == 1;
 }
@@ -795,16 +795,16 @@ getTypeFactories(const std::string& name) {
   return nullptr;
 }
 
-TypePtr getType(const std::string& name, std::vector<TypePtr> childTypes) {
+TypePtr getCustomType(const std::string& name) {
   auto factories = getTypeFactories(name);
   if (factories) {
-    return factories->getType(std::move(childTypes));
+    return factories->getType();
   }
 
   return nullptr;
 }
 
-exec::CastOperatorPtr getCastOperator(const std::string& name) {
+exec::CastOperatorPtr getCustomTypeCastOperator(const std::string& name) {
   auto factories = getTypeFactories(name);
   if (factories) {
     return factories->getCastOperator();

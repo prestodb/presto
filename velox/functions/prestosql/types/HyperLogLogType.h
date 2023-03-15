@@ -68,7 +68,7 @@ using HyperLogLog = CustomType<HyperLogLogT>;
 
 class HyperLogLogTypeFactories : public CustomTypeFactories {
  public:
-  TypePtr getType(std::vector<TypePtr> /*childTypes*/) const override {
+  TypePtr getType() const override {
     return HYPERLOGLOG();
   }
 

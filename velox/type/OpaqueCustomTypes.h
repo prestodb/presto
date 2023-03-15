@@ -34,7 +34,8 @@ template <typename T, const char* name>
 class OpaqueCustomTypeRegister {
  public:
   static void registerType() {
-    facebook::velox::registerType(name, std::make_unique<const TypeFactory>());
+    facebook::velox::registerCustomType(
+        name, std::make_unique<const TypeFactory>());
   }
 
   // Type used in the simple function interface as CustomType<TypeT>.
@@ -77,7 +78,7 @@ class OpaqueCustomTypeRegister {
    public:
     TypeFactory() = default;
 
-    TypePtr getType(std::vector<TypePtr> /*childTypes*/) const override {
+    TypePtr getType() const override {
       return singletonTypePtr();
     }
 

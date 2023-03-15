@@ -161,7 +161,7 @@ void validateBaseTypeAndCollectTypeParams(
     }
 
     if (!isPositiveInteger(typeName) && !isCommonDecimalName(typeName) &&
-        !typeExists(typeName)) {
+        !customTypeExists(typeName)) {
       // Check to ensure base type is supported.
       mapNameToTypeKind(typeName);
     }

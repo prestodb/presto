@@ -79,13 +79,13 @@ class CastExpr : public SpecialForm {
             false /* supportsFlatNoNullsFastPath */,
             trackCpuUsage) {
     auto fromType = inputs_[0]->type();
-    castFromOperator_ = getCastOperator(fromType->toString());
+    castFromOperator_ = getCustomTypeCastOperator(fromType->toString());
     if (castFromOperator_ && !castFromOperator_->isSupportedToType(type)) {
       VELOX_FAIL(
           "Cannot cast {} to {}.", fromType->toString(), type->toString());
     }
 
-    castToOperator_ = getCastOperator(type->toString());
+    castToOperator_ = getCustomTypeCastOperator(type->toString());
     if (castToOperator_ && !castToOperator_->isSupportedFromType(fromType)) {
       VELOX_FAIL(
           "Cannot cast {} to {}.", fromType->toString(), type->toString());

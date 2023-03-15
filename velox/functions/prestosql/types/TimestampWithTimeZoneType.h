@@ -72,7 +72,7 @@ using TimestampWithTimezone = CustomType<TimestampWithTimezoneT>;
 
 class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
  public:
-  TypePtr getType(std::vector<TypePtr> /*childTypes*/) const override {
+  TypePtr getType() const override {
     return TIMESTAMP_WITH_TIME_ZONE();
   }
 

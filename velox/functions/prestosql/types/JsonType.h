@@ -105,7 +105,7 @@ class JsonTypeFactories : public CustomTypeFactories {
  public:
   JsonTypeFactories() = default;
 
-  TypePtr getType(std::vector<TypePtr> /*childTypes*/) const override {
+  TypePtr getType() const override {
     return JSON();
   }
 

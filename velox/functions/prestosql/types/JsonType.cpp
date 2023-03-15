@@ -859,7 +859,7 @@ void JsonCastOperator::castFrom(
 }
 
 void registerJsonType() {
-  registerType("json", std::make_unique<const JsonTypeFactories>());
+  registerCustomType("json", std::make_unique<const JsonTypeFactories>());
 }
 
 } // namespace facebook::velox

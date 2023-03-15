@@ -535,7 +535,7 @@ TEST(SignatureBinderTest, lambda) {
 }
 
 TEST(SignatureBinderTest, customType) {
-  registerType(
+  registerCustomType(
       "timestamp with time zone",
       std::make_unique<const TimestampWithTimeZoneTypeFactories>());
 

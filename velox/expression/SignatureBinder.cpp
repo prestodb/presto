@@ -199,7 +199,7 @@ bool SignatureBinderBase::tryBind(
   // Type is not a variable.
   auto typeName = boost::algorithm::to_upper_copy(baseName);
 
-  if (auto customType = getType(baseName, {})) {
+  if (auto customType = getCustomType(baseName)) {
     VELOX_CHECK_EQ(
         typeSignature.parameters().size(),
         0,
@@ -272,7 +272,7 @@ TypePtr SignatureBinder::tryResolveType(
     children.emplace_back(type);
   }
 
-  if (auto type = getType(typeName, children)) {
+  if (auto type = getCustomType(typeName)) {
     return type;
   }
 

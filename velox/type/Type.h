@@ -1811,9 +1811,8 @@ class CustomTypeFactories {
  public:
   virtual ~CustomTypeFactories() = default;
 
-  /// Returns a shared pointer to the custom type with the specified child
-  /// types.
-  virtual TypePtr getType(std::vector<TypePtr> childTypes) const = 0;
+  /// Returns a shared pointer to the custom type.
+  virtual TypePtr getType() const = 0;
 
   /// Returns a shared pointer to the custom cast operator. If a custom type
   /// should be treated as its underlying native type during type castings,
@@ -1825,28 +1824,28 @@ class CustomTypeFactories {
 /// Adds custom type to the registry if it doesn't exist already. No-op if type
 /// with specified name already exists. Returns true if type was added, false if
 /// type with the specified name already exists.
-bool registerType(
+bool registerCustomType(
     const std::string& name,
     std::unique_ptr<const CustomTypeFactories> factories);
 
-/// Return true if customer type with specified name exists.
-bool typeExists(const std::string& name);
+/// Return true if a custom type with the specified name exists.
+bool customTypeExists(const std::string& name);
 
 /// Returns a set of all registered custom type names.
 std::unordered_set<std::string> getCustomTypeNames();
 
 /// Returns an instance of a custom type with the specified name and specified
 /// child types.
-TypePtr getType(const std::string& name, std::vector<TypePtr> childTypes);
+TypePtr getCustomType(const std::string& name);
 
 /// Removes custom type from the registry if exists. Returns true if type was
 /// removed, false if type didn't exist.
-bool unregisterType(const std::string& name);
+bool unregisterCustomType(const std::string& name);
 
 /// Returns the custom cast operator for the custom type with the specified
 /// name. Returns nullptr if a type with the specified name does not exist or
 /// does not have a dedicated custom cast operator.
-exec::CastOperatorPtr getCastOperator(const std::string& name);
+exec::CastOperatorPtr getCustomTypeCastOperator(const std::string& name);
 
 // Allows us to transparently use folly::toAppend(), folly::join(), etc.
 template <class TString>

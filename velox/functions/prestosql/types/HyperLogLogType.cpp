@@ -18,7 +18,7 @@
 namespace facebook::velox {
 
 void registerHyperLogLogType() {
-  registerType(
+  registerCustomType(
       "hyperloglog", std::make_unique<const HyperLogLogTypeFactories>());
 }
 

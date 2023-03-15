@@ -18,7 +18,7 @@
 namespace facebook::velox {
 
 void registerTimestampWithTimeZoneType() {
-  registerType(
+  registerCustomType(
       "timestamp with time zone",
       std::make_unique<const TimestampWithTimeZoneTypeFactories>());
 }

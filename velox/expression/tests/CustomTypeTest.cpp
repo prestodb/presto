@@ -51,7 +51,7 @@ class FancyIntType : public OpaqueType {
 
 class FancyIntTypeFactories : public CustomTypeFactories {
  public:
-  TypePtr getType(std::vector<TypePtr> /* childTypes */) const override {
+  TypePtr getType() const override {
     return FancyIntType::get();
   }
 
@@ -136,7 +136,7 @@ struct FancyPlusFunction {
 
 class AlwaysFailingTypeFactories : public CustomTypeFactories {
  public:
-  TypePtr getType(std::vector<TypePtr> /* childTypes */) const override {
+  TypePtr getType() const override {
     VELOX_UNSUPPORTED();
   }
 
@@ -151,10 +151,10 @@ class AlwaysFailingTypeFactories : public CustomTypeFactories {
 /// simple function that takes and returns this type. Verify function signatures
 /// and evaluate some expressions.
 TEST_F(CustomTypeTest, customType) {
-  ASSERT_TRUE(
-      registerType("fancy_int", std::make_unique<FancyIntTypeFactories>()));
+  ASSERT_TRUE(registerCustomType(
+      "fancy_int", std::make_unique<FancyIntTypeFactories>()));
 
-  ASSERT_FALSE(registerType(
+  ASSERT_FALSE(registerCustomType(
       "fancy_int", std::make_unique<AlwaysFailingTypeFactories>()));
 
   registerFunction<FancyPlusFunction, TheFancyInt, TheFancyInt, TheFancyInt>(
@@ -200,8 +200,8 @@ TEST_F(CustomTypeTest, customType) {
   assertEqualVectors(expected, result);
 
   // Cleanup.
-  ASSERT_TRUE(unregisterType("fancy_int"));
-  ASSERT_FALSE(unregisterType("fancy_int"));
+  ASSERT_TRUE(unregisterCustomType("fancy_int"));
+  ASSERT_FALSE(unregisterCustomType("fancy_int"));
 }
 
 TEST_F(CustomTypeTest, getCustomTypeNames) {
@@ -214,8 +214,8 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
       }),
       names);
 
-  ASSERT_TRUE(
-      registerType("fancy_int", std::make_unique<FancyIntTypeFactories>()));
+  ASSERT_TRUE(registerCustomType(
+      "fancy_int", std::make_unique<FancyIntTypeFactories>()));
 
   names = getCustomTypeNames();
   ASSERT_EQ(
@@ -227,16 +227,16 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
       }),
       names);
 
-  ASSERT_TRUE(unregisterType("fancy_int"));
+  ASSERT_TRUE(unregisterCustomType("fancy_int"));
 }
 
 TEST_F(CustomTypeTest, nullConstant) {
-  ASSERT_TRUE(
-      registerType("fancy_int", std::make_unique<FancyIntTypeFactories>()));
+  ASSERT_TRUE(registerCustomType(
+      "fancy_int", std::make_unique<FancyIntTypeFactories>()));
 
   auto names = getCustomTypeNames();
   for (const auto& name : names) {
-    auto type = getType(name, {});
+    auto type = getCustomType(name);
     auto null = BaseVector::createNullConstant(type, 10, pool());
     EXPECT_TRUE(null->isConstantEncoding());
     EXPECT_TRUE(type->equivalent(*null->type()));
@@ -246,7 +246,7 @@ TEST_F(CustomTypeTest, nullConstant) {
     }
   }
 
-  ASSERT_TRUE(unregisterType("fancy_int"));
+  ASSERT_TRUE(unregisterCustomType("fancy_int"));
 }
 
 struct Tuple {
