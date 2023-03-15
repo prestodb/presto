@@ -20,6 +20,7 @@
 
 #include <velox/common/base/VeloxException.h>
 #include <velox/vector/SimpleVector.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 namespace facebook::velox {
@@ -368,26 +369,24 @@ TEST_F(ArithmeticTest, widthBucket) {
   EXPECT_EQ(5, widthBucket(-1, 3.2, 0, 4));
 
   // failure
-  assertUserInvalidArgument(
-      [&]() { widthBucket(3.14, 0, 4, 0); },
-      "bucketCount must be greater than 0");
-  assertUserInvalidArgument(
-      [&]() { widthBucket(kNan, 0, 4, 10); }, "operand must not be NaN");
-  assertUserInvalidArgument(
-      [&]() { widthBucket(3.14, kNan, 0, 10); }, "first bound must be finite");
-  assertUserInvalidArgument(
-      [&]() { widthBucket(3.14, kInf, 0, 10); }, "first bound must be finite");
-  assertUserInvalidArgument(
-      [&]() { widthBucket(3.14, 0, kNan, 10); }, "second bound must be finite");
-  assertUserInvalidArgument(
-      [&]() { widthBucket(3.14, 0, kInf, 10); }, "second bound must be finite");
-  assertUserInvalidArgument(
-      [&]() { widthBucket(3.14, 0, 0, 10); }, "bounds cannot equal each other");
-  assertUserInvalidArgument(
-      [&]() { widthBucket(kInf, 0, 4, kMaxInt64); },
+  VELOX_ASSERT_THROW(
+      widthBucket(3.14, 0, 4, 0), "bucketCount must be greater than 0");
+  VELOX_ASSERT_THROW(widthBucket(kNan, 0, 4, 10), "operand must not be NaN");
+  VELOX_ASSERT_THROW(
+      widthBucket(3.14, kNan, 0, 10), "first bound must be finite");
+  VELOX_ASSERT_THROW(
+      widthBucket(3.14, kInf, 0, 10), "first bound must be finite");
+  VELOX_ASSERT_THROW(
+      widthBucket(3.14, 0, kNan, 10), "second bound must be finite");
+  VELOX_ASSERT_THROW(
+      widthBucket(3.14, 0, kInf, 10), "second bound must be finite");
+  VELOX_ASSERT_THROW(
+      widthBucket(3.14, 0, 0, 10), "bounds cannot equal each other");
+  VELOX_ASSERT_THROW(
+      widthBucket(kInf, 0, 4, kMaxInt64),
       "Bucket for value inf is out of range");
-  assertUserInvalidArgument(
-      [&]() { widthBucket(kInf, 4, 0, kMaxInt64); },
+  VELOX_ASSERT_THROW(
+      widthBucket(kInf, 4, 0, kMaxInt64),
       "Bucket for value inf is out of range");
 }
 

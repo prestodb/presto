@@ -207,8 +207,8 @@ TEST_F(ElementAtTest, allFlavors1) {
   auto mapVector = getSimpleMapVector();
 
   // #1
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("element_at(C0, 0)", {arrayVector}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("element_at(C0, 0)", {arrayVector}),
       "SQL array indices start at 1");
 
   EXPECT_EQ(
@@ -246,8 +246,8 @@ TEST_F(ElementAtTest, allFlavors1) {
       emptyKeys,
       emptyValues);
   // #1
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("element_at(C0, 0)", {emptyValuesArray}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("element_at(C0, 0)", {emptyValuesArray}),
       "SQL array indices start at 1");
 
   // #2
@@ -276,11 +276,8 @@ TEST_F(ElementAtTest, allFlavors1) {
       nonEmptyValues);
 
   // #1
-  assertUserInvalidArgument(
-      [&]() {
-        elementAtSimple(
-            "element_at(C0, 0)", {emptyContainerNonEmptyValuesArray});
-      },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("element_at(C0, 0)", {emptyContainerNonEmptyValuesArray}),
       "SQL array indices start at 1");
 
   // #2
@@ -356,9 +353,8 @@ TEST_F(ElementAtTest, allFlavors2) {
   auto mapVector = getSimpleMapVector();
 
   // #1
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("C0[0]", {arrayVector}); },
-      "SQL array indices start at 1");
+  VELOX_ASSERT_THROW(
+      elementAtSimple("C0[0]", {arrayVector}), "SQL array indices start at 1");
 
   EXPECT_EQ(elementAtSimple("try(C0[0])", {arrayVector}), std::nullopt);
 
@@ -367,11 +363,11 @@ TEST_F(ElementAtTest, allFlavors2) {
   EXPECT_EQ(elementAtSimple("C0[3]", {arrayVector}), 12);
 
   // #2
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("C0[4]", {arrayVector}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("C0[4]", {arrayVector}),
       "Array subscript out of bounds.");
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("C0[5]", {arrayVector}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("C0[5]", {arrayVector}),
       "Array subscript out of bounds.");
 
   EXPECT_EQ(elementAtSimple("try(C0[4])", {arrayVector}), std::nullopt);
@@ -381,12 +377,10 @@ TEST_F(ElementAtTest, allFlavors2) {
   EXPECT_EQ(elementAtSimple("C0[1001]", {mapVector}), std::nullopt);
 
   // #3
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("C0[-1]", {arrayVector}); },
-      "Array subscript is negative.");
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("C0[-4]", {arrayVector}); },
-      "Array subscript is negative.");
+  VELOX_ASSERT_THROW(
+      elementAtSimple("C0[-1]", {arrayVector}), "Array subscript is negative.");
+  VELOX_ASSERT_THROW(
+      elementAtSimple("C0[-4]", {arrayVector}), "Array subscript is negative.");
 
   EXPECT_EQ(elementAtSimple("try(C0[-1])", {arrayVector}), std::nullopt);
   EXPECT_EQ(elementAtSimple("try(C0[-4])", {arrayVector}), std::nullopt);
@@ -408,22 +402,21 @@ TEST_F(ElementAtTest, allFlavors2) {
       emptyKeys,
       emptyValues);
   // #1
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("C0[0]", {emptyValuesArray}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("C0[0]", {emptyValuesArray}),
       "SQL array indices start at 1");
 
   // #2
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("C0[4]", {arrayVector}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("C0[4]", {arrayVector}),
       "Array subscript out of bounds.");
   EXPECT_EQ(elementAtSimple("try(C0[4])", {emptyValuesArray}), std::nullopt);
   // Maps are ok.
   EXPECT_EQ(elementAtSimple("C0[1001]", {emptyValuesMap}), std::nullopt);
 
   // #3
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("C0[-1]", {arrayVector}); },
-      "Array subscript is negative.");
+  VELOX_ASSERT_THROW(
+      elementAtSimple("C0[-1]", {arrayVector}), "Array subscript is negative.");
 
   // Case 3: Empty individual arrays/maps and non-empty values vector
   auto nonEmptyValues = makeFlatVector<int64_t>(std::vector<int64_t>{2});
@@ -441,13 +434,13 @@ TEST_F(ElementAtTest, allFlavors2) {
       nonEmptyValues);
 
   // #1
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("C0[0]", {emptyContainerNonEmptyValuesArray}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("C0[0]", {emptyContainerNonEmptyValuesArray}),
       "SQL array indices start at 1");
 
   // #2
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("C0[4]", {emptyContainerNonEmptyValuesArray}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("C0[4]", {emptyContainerNonEmptyValuesArray}),
       "Array subscript out of bounds.");
   EXPECT_EQ(
       elementAtSimple("try(C0[4])", {emptyContainerNonEmptyValuesArray}),
@@ -458,8 +451,8 @@ TEST_F(ElementAtTest, allFlavors2) {
       std::nullopt);
 
   // #3
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("C0[-1]", {emptyContainerNonEmptyValuesArray}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("C0[-1]", {emptyContainerNonEmptyValuesArray}),
       "Array subscript is negative.");
 
   // Case 4: Intermittently empty individual arrays/maps and non-empty values
@@ -532,14 +525,14 @@ TEST_F(ElementAtTest, allFlavors3) {
   EXPECT_EQ(elementAtSimple("__f2(C0, 2)", {arrayVector}), 12);
 
   // #2
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("__f2(C0, 3)", {arrayVector}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("__f2(C0, 3)", {arrayVector}),
       "Array subscript out of bounds.");
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("__f2(C0, 4)", {arrayVector}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("__f2(C0, 4)", {arrayVector}),
       "Array subscript out of bounds.");
-  assertUserInvalidArgument(
-      [&]() { elementAtSimple("__f2(C0, 100)", {arrayVector}); },
+  VELOX_ASSERT_THROW(
+      elementAtSimple("__f2(C0, 100)", {arrayVector}),
       "Array subscript out of bounds.");
 
   EXPECT_EQ(elementAtSimple("try(__f2(C0, 3))", {arrayVector}), std::nullopt);
@@ -769,13 +762,9 @@ TEST_F(ElementAtTest, errorStatesArray) {
   auto arrayVector = makeArrayVector<int64_t>(kVectorSize, sizeAt, valueAt);
 
   // Trying to use index = 0.
-  assertUserInvalidArgument(
-      [&]() {
-        testElementAt<int64_t>(
-            "element_at(C0, C1)",
-            {arrayVector, indicesVector},
-            expectedValueAt);
-      },
+  VELOX_ASSERT_THROW(
+      testElementAt<int64_t>(
+          "element_at(C0, C1)", {arrayVector, indicesVector}, expectedValueAt),
       "SQL array indices start at 1");
 
   testElementAt<int64_t>(

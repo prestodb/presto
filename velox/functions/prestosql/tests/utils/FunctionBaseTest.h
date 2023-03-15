@@ -192,38 +192,6 @@ class FunctionBaseTest : public testing::Test,
                                : ReturnType(result->valueAt(0));
   }
 
-  // Asserts that `func` throws `VeloxUserError`. Optionally, checks if
-  // `expectedErrorMessage` is a substr of the exception message thrown.
-  template <typename TFunc>
-  static void assertUserInvalidArgument(
-      TFunc&& func,
-      const std::string& expectedErrorMessage = "") {
-    FunctionBaseTest::assertThrow<TFunc, VeloxUserError>(
-        std::forward<TFunc>(func), expectedErrorMessage);
-  }
-
-  template <typename TFunc>
-  static void assertUserError(
-      TFunc&& func,
-      const std::string& expectedErrorMessage = "") {
-    FunctionBaseTest::assertThrow<TFunc, VeloxUserError>(
-        std::forward<TFunc>(func), expectedErrorMessage);
-  }
-
-  template <typename TFunc, typename TException>
-  static void assertThrow(
-      TFunc&& func,
-      const std::string& expectedErrorMessage) {
-    try {
-      func();
-      ASSERT_FALSE(true) << "Expected an exception";
-    } catch (const TException& e) {
-      std::string message = e.what();
-      ASSERT_TRUE(message.find(expectedErrorMessage) != message.npos)
-          << message;
-    }
-  }
-
   core::TypedExprPtr parseExpression(
       const std::string& text,
       const RowTypePtr& rowType) {

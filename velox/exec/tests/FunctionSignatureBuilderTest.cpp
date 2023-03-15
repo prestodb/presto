@@ -15,6 +15,7 @@
  */
 #include <gtest/gtest.h>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
@@ -26,24 +27,20 @@ class FunctionSignatureBuilderTest : public functions::test::FunctionBaseTest {
 
 TEST_F(FunctionSignatureBuilderTest, basicTypeTests) {
   // All type variables should be used in the inputs arguments.
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("integer")
-            .argumentType("integer")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("integer")
+          .argumentType("integer")
+          .build(),
       "Some type variables are not used in the inputs");
 
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("T")
-            .argumentType("integer")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("T")
+          .argumentType("integer")
+          .build(),
       "Some type variables are not used in the inputs");
 
   // Integer variables do not have to be used in the inputs, but in that case
@@ -54,60 +51,50 @@ TEST_F(FunctionSignatureBuilderTest, basicTypeTests) {
                       .argumentType("integer")
                       .build(););
 
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .integerVariable("a")
-            .returnType("integer")
-            .argumentType("integer")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .integerVariable("a")
+          .returnType("integer")
+          .argumentType("integer")
+          .build(),
       "Some integer variables are not used");
 
   // Duplicate type params.
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .typeVariable("T")
-            .typeVariable("T")
-            .returnType("integer")
-            .argumentType("array(T)")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .typeVariable("T")
+          .returnType("integer")
+          .argumentType("array(T)")
+          .build(),
       "Variable T declared twice");
 
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .typeVariable("T")
-            .knownTypeVariable("T")
-            .returnType("integer")
-            .argumentType("array(T)")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .knownTypeVariable("T")
+          .returnType("integer")
+          .argumentType("array(T)")
+          .build(),
       "Variable T declared twice");
 
   // Unspecified type params.
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("integer")
-            .argumentType("T")
-            .argumentType("array(M)")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("integer")
+          .argumentType("T")
+          .argumentType("array(M)")
+          .build(),
       "Specified element is not found : M");
 
   // Only supported types.
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("nosuchtype")
-            .argumentType("array(T)")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("nosuchtype")
+          .argumentType("array(T)")
+          .build(),
       "Specified element is not found : NOSUCHTYPE");
 
   // Any Type.
@@ -122,59 +109,49 @@ TEST_F(FunctionSignatureBuilderTest, basicTypeTests) {
 
 TEST_F(FunctionSignatureBuilderTest, typeParamTests) {
   // Any type with argument throws exception.
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("integer")
-            .argumentType("Any(T)")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("integer")
+          .argumentType("Any(T)")
+          .build(),
       "Type 'Any' cannot have parameters");
 
   // Variable Arity in argument fails.
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("integer")
-            .argumentType("row(T ..., varchar)")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("integer")
+          .argumentType("row(T ..., varchar)")
+          .build(),
       "Specified element is not found : T ...");
 
   // Type params cant have type params.
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .typeVariable("T")
-            .typeVariable("M")
-            .returnType("integer")
-            .argumentType("T(M)")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .typeVariable("M")
+          .returnType("integer")
+          .argumentType("T(M)")
+          .build(),
       "Named type cannot have parameters : T(M)");
 }
 
 TEST_F(FunctionSignatureBuilderTest, anyInReturn) {
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("Any")
-            .argumentType("T")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("Any")
+          .argumentType("T")
+          .build(),
       "Type 'Any' cannot appear in return type");
 
-  assertUserInvalidArgument(
-      [=]() {
-        FunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("row(any, T)")
-            .argumentType("T")
-            .build();
-      },
+  VELOX_ASSERT_THROW(
+      FunctionSignatureBuilder()
+          .typeVariable("T")
+          .returnType("row(any, T)")
+          .argumentType("T")
+          .build(),
       "Type 'Any' cannot appear in return type");
 }
 

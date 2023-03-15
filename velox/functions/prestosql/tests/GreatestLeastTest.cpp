@@ -15,6 +15,7 @@
  */
 
 #include <optional>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -72,15 +73,13 @@ TEST_F(GreatestLeastTest, leastDouble) {
 
 TEST_F(GreatestLeastTest, nanInput) {
   std::vector<double> input{0, 1.1, std::nan("1")};
-  assertUserInvalidArgument(
-      [&]() { runTest<double>("least(c0)", {{0.0 / 0.0}}, {0}); },
+  VELOX_ASSERT_THROW(
+      runTest<double>("least(c0)", {{0.0 / 0.0}}, {0}),
       "Invalid argument to least(): NaN");
   runTest<double>("try(least(c0, 1.0))", {input}, {0, 1.0, std::nullopt});
 
-  assertUserInvalidArgument(
-      [&]() {
-        runTest<double>("greatest(c0)", {1, {0.0 / 0.0}}, {1, 0});
-      },
+  VELOX_ASSERT_THROW(
+      runTest<double>("greatest(c0)", {1, {0.0 / 0.0}}, {1, 0}),
       "Invalid argument to greatest(): NaN");
   runTest<double>("try(greatest(c0, 1.0))", {input}, {1.0, 1.1, std::nullopt});
 }

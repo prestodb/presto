@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gmock/gmock.h>
 #include <optional>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 namespace facebook::velox {
@@ -136,8 +136,8 @@ TEST_F(BitwiseTest, bitCount) {
   EXPECT_EQ(bitCount(-2, 2), 1);
 
   auto assertInvalidBits = [this](int64_t num, int64_t bits) {
-    assertUserError(
-        [&]() { this->bitCount(num, bits); },
+    VELOX_ASSERT_THROW(
+        bitCount(num, bits),
         fmt::format(
             "Bits specified in bit_count "
             "must be between "
@@ -146,8 +146,8 @@ TEST_F(BitwiseTest, bitCount) {
   };
 
   auto assertNumberTooLarge = [this](int64_t num, int64_t bits) {
-    assertUserError(
-        [&]() { this->bitCount(num, bits); },
+    VELOX_ASSERT_THROW(
+        bitCount(num, bits),
         fmt::format(
             "Number must be representable "
             "with the bits specified. "
@@ -260,9 +260,8 @@ TEST_F(BitwiseTest, arithmeticShiftRight) {
   EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(-100, 65), -50);
   EXPECT_EQ(bitwiseArithmeticShiftRight<int32_t>(-100, 66), -25);
 
-  assertUserError(
-      [&]() { bitwiseArithmeticShiftRight<int32_t>(3, -1); },
-      "Shift must be positive");
+  VELOX_ASSERT_THROW(
+      bitwiseArithmeticShiftRight<int32_t>(3, -1), "Shift must be positive");
 
   EXPECT_EQ(bitwiseArithmeticShiftRight<int16_t>(kMin16, kMax16), -1);
   EXPECT_EQ(bitwiseArithmeticShiftRight<int16_t>(kMax16, kMax16), 0);
@@ -375,11 +374,10 @@ TEST_F(BitwiseTest, logicalShiftRight) {
   EXPECT_EQ(bitwiseLogicalShiftRight(kMin64, kMax64, 64), -1);
   EXPECT_EQ(bitwiseLogicalShiftRight(kMax64, kMin64, 64), kMax64);
 
-  assertUserError(
-      [&]() { bitwiseLogicalShiftRight(3, -1, 3); }, "Shift must be positive");
-  assertUserError(
-      [&]() { bitwiseLogicalShiftRight(3, 1, 1); },
-      "Bits must be between 2 and 64");
+  VELOX_ASSERT_THROW(
+      bitwiseLogicalShiftRight(3, -1, 3), "Shift must be positive");
+  VELOX_ASSERT_THROW(
+      bitwiseLogicalShiftRight(3, 1, 1), "Bits must be between 2 and 64");
 }
 
 TEST_F(BitwiseTest, shiftLeft) {
@@ -398,11 +396,10 @@ TEST_F(BitwiseTest, shiftLeft) {
   EXPECT_EQ(bitwiseLogicalShiftRight(kMin64, kMax64, 64), -1);
   EXPECT_EQ(bitwiseLogicalShiftRight(kMax64, kMin64, 64), kMax64);
 
-  assertUserError(
-      [&]() { bitwiseLogicalShiftRight(3, -1, 3); }, "Shift must be positive");
-  assertUserError(
-      [&]() { bitwiseLogicalShiftRight(3, 1, 1); },
-      "Bits must be between 2 and 64");
+  VELOX_ASSERT_THROW(
+      bitwiseLogicalShiftRight(3, -1, 3), "Shift must be positive");
+  VELOX_ASSERT_THROW(
+      bitwiseLogicalShiftRight(3, 1, 1), "Bits must be between 2 and 64");
 }
 
 } // namespace

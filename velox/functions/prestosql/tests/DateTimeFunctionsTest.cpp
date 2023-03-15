@@ -2830,13 +2830,10 @@ TEST_F(DateTimeFunctionsTest, dateParse) {
   EXPECT_EQ(
       Timestamp(-66600, 0), dateParse("1969-12-31+11:00", "%Y-%m-%d+%H:%i"));
 
-  assertUserInvalidArgument(
-      [&] { dateParse("", "%y+"); },
-      "Invalid format: \"\" is malformed at \"\"");
-  assertUserInvalidArgument(
-      [&] { dateParse("1", "%y+"); },
-      "Invalid format: \"1\" is malformed at \"1\"");
-  assertUserInvalidArgument(
-      [&] { dateParse("116", "%y+"); },
-      "Invalid format: \"116\" is malformed at \"6\"");
+  VELOX_ASSERT_THROW(
+      dateParse("", "%y+"), "Invalid format: \"\" is malformed at \"\"");
+  VELOX_ASSERT_THROW(
+      dateParse("1", "%y+"), "Invalid format: \"1\" is malformed at \"1\"");
+  VELOX_ASSERT_THROW(
+      dateParse("116", "%y+"), "Invalid format: \"116\" is malformed at \"6\"");
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -107,25 +107,21 @@ TEST_F(SliceTest, prestoTestCases) {
   {
     auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
     auto expectedArrayVector = makeArrayVector<int64_t>({{}});
-    assertUserInvalidArgument(
-        [&]() {
-          testSlice(
-              "slice(C0, 1, -1)",
-              {arrayVector, arrayVector, expectedArrayVector},
-              expectedArrayVector);
-        },
+    VELOX_ASSERT_THROW(
+        testSlice(
+            "slice(C0, 1, -1)",
+            {arrayVector, arrayVector, expectedArrayVector},
+            expectedArrayVector),
         "The value of length argument of slice() function should not be negative");
   }
   {
     auto arrayVector = makeArrayVector<int64_t>({{1, 2, 3, 4}});
     auto expectedArrayVector = makeArrayVector<int64_t>({{}});
-    assertUserInvalidArgument(
-        [&]() {
-          testSlice(
-              "slice(C0, 0, 1)",
-              {arrayVector, arrayVector, expectedArrayVector},
-              expectedArrayVector);
-        },
+    VELOX_ASSERT_THROW(
+        testSlice(
+            "slice(C0, 0, 1)",
+            {arrayVector, arrayVector, expectedArrayVector},
+            expectedArrayVector),
         "SQL array indices start at 1");
   }
 }
@@ -170,10 +166,8 @@ TEST_F(SliceTest, constantInputArray) {
   {
     auto expectedArrayVector = makeArrayVector<int64_t>(
         {{1, 2, 3, 4, 5, 6, 7}, {1, 2, 7}, {1, 2, 3, 5, 6, 7}});
-    assertUserInvalidArgument(
-        [&]() {
-          testSlice("slice(C0, 0, 1)", {arrayVector}, expectedArrayVector);
-        },
+    VELOX_ASSERT_THROW(
+        testSlice("slice(C0, 0, 1)", {arrayVector}, expectedArrayVector),
         "SQL array indices start at 1");
   }
 }
@@ -323,13 +317,11 @@ TEST_F(SliceTest, errorStatesArray) {
   auto expectedArrayVector =
       makeArrayVector<StringView>(kVectorSize, expectedSizeAt, expectedValueAt);
 
-  assertUserInvalidArgument(
-      [&]() {
-        testSlice(
-            "slice(C0, C1, C2)",
-            {arrayVector, startsVector, lengthsVector},
-            expectedArrayVector);
-      },
+  VELOX_ASSERT_THROW(
+      testSlice(
+          "slice(C0, C1, C2)",
+          {arrayVector, startsVector, lengthsVector},
+          expectedArrayVector),
       "SQL array indices start at 1");
 }
 
@@ -376,13 +368,11 @@ TEST_F(SliceTest, negativeSliceLength) {
   };
   auto expectedArrayVector =
       makeArrayVector<int64_t>(kVectorSize, expectedSizeAt, expectedValueAt);
-  assertUserInvalidArgument(
-      [&]() {
-        testSlice(
-            "slice(C0, C1, C2)",
-            {arrayVector, startsVector, lengthsVector},
-            expectedArrayVector);
-      },
+  VELOX_ASSERT_THROW(
+      testSlice(
+          "slice(C0, C1, C2)",
+          {arrayVector, startsVector, lengthsVector},
+          expectedArrayVector),
       "The value of length argument of slice() function should not be negative");
 }
 
