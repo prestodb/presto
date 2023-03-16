@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
-import static com.facebook.presto.util.AnalyzerUtil.checkAccessControlPermissions;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -92,15 +91,6 @@ public class BuiltInQueryAnalyzer
     {
         checkState(analyzerContext instanceof BuiltInAnalyzerContext, "analyzerContext should be an instance of BuiltInAnalyzerContext");
         return new LogicalPlanner(((BuiltInAnalyzerContext) analyzerContext).getSession(), analyzerContext.getIdAllocator(), metadata, analyzerContext.getVariableAllocator()).plan(((BuiltInQueryAnalysis) queryAnalysis).getAnalysis());
-    }
-
-    @Override
-    public void checkAccessPermissions(AnalyzerContext analyzerContext, QueryAnalysis queryAnalysis)
-    {
-        checkState(analyzerContext instanceof BuiltInAnalyzerContext, "analyzerContext should be an instance of BuiltInAnalyzerContext");
-        BuiltInQueryAnalysis builtInQueryAnalysis = (BuiltInQueryAnalysis) queryAnalysis;
-        Analysis analysis = builtInQueryAnalysis.getAnalysis();
-        checkAccessControlPermissions(analysis);
     }
 
     @Override

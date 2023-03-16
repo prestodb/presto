@@ -41,4 +41,9 @@ public interface QueryAnalysis
      * Returns function names based on the kinds (scalar, aggregate and window).
      */
     Map<FunctionKind, Set<String>> getInvokedFunctions();
+
+    /**
+     * Returns access control references for ACL checks
+     */
+    AccessControlReferences getAccessControlReferences();
 }

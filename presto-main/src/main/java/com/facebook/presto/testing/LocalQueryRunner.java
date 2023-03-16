@@ -264,6 +264,7 @@ import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.util.AnalyzerUtil.getAnalyzerContext;
@@ -1065,7 +1066,7 @@ public class LocalQueryRunner
         AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        queryAnalyzer.checkAccessPermissions(analyzerContext, queryAnalysis);
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences());
 
         PlanNode planNode = session.getRuntimeStats().profileNanos(
                 LOGICAL_PLANNER_TIME_NANOS,
