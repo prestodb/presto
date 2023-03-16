@@ -45,6 +45,7 @@ import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
+import com.facebook.presto.iceberg.optimizer.IcebergParquetDereferencePushDown;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
@@ -167,6 +168,7 @@ public class IcebergModule
         configBinder(binder).bindConfig(OrcFileWriterConfig.class);
 
         binder.bind(IcebergPlanOptimizer.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergParquetDereferencePushDown.class).in(Scopes.SINGLETON);
     }
 
     @ForCachingHiveMetastore

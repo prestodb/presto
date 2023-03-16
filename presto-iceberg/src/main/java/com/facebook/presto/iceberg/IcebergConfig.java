@@ -41,6 +41,7 @@ public class IcebergConfig
     private int maxPartitionsPerWriter = 100;
     private List<String> hadoopConfigResources = ImmutableList.of();
     private double minimumAssignedSplitWeight = 0.05;
+    private boolean parquetDereferencePushdownEnabled;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -151,5 +152,18 @@ public class IcebergConfig
     public double getMinimumAssignedSplitWeight()
     {
         return minimumAssignedSplitWeight;
+    }
+
+    @Config("iceberg.enable-parquet-dereference-pushdown")
+    @ConfigDescription("enable parquet dereference pushdown")
+    public IcebergConfig setParquetDereferencePushdownEnabled(boolean parquetDereferencePushdownEnabled)
+    {
+        this.parquetDereferencePushdownEnabled = parquetDereferencePushdownEnabled;
+        return this;
+    }
+
+    public boolean isParquetDereferencePushdownEnabled()
+    {
+        return this.parquetDereferencePushdownEnabled;
     }
 }
