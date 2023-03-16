@@ -1342,7 +1342,6 @@ public class TestMathFunctions
 
     @Test
     public void testNormalCdf()
-            throws Exception
     {
         assertFunction("normal_cdf(0, 1, 1.96)", DOUBLE, 0.9750021048517796);
         assertFunction("normal_cdf(10, 9, 10)", DOUBLE, 0.5);
@@ -1361,7 +1360,6 @@ public class TestMathFunctions
 
     @Test
     public void testBinomialCdf()
-            throws Exception
     {
         assertFunction("binomial_cdf(5, 0.5, 5)", DOUBLE, 1.0);
         assertFunction("binomial_cdf(5, 0.5, 0)", DOUBLE, 0.03125);
@@ -1375,7 +1373,6 @@ public class TestMathFunctions
 
     @Test
     public void testInverseBinomialCdf()
-            throws Exception
     {
         assertFunction("inverse_binomial_cdf(20, 0.5, 0.5)", INTEGER, 10);
         assertFunction("inverse_binomial_cdf(20, 0.5, 0.0)", INTEGER, 0);
@@ -1404,7 +1401,6 @@ public class TestMathFunctions
 
     @Test
     public void testBetaCdf()
-            throws Exception
     {
         assertFunction("beta_cdf(3, 3.6, 0.0)", DOUBLE, 0.0);
         assertFunction("beta_cdf(3, 3.6, 1.0)", DOUBLE, 1.0);
@@ -1430,7 +1426,6 @@ public class TestMathFunctions
 
     @Test
     public void testCauchyCdf()
-            throws Exception
     {
         assertFunction("cauchy_cdf(0.0, 1.0, 0.0)", DOUBLE, 0.5);
         assertFunction("cauchy_cdf(0.0, 1.0, 1.0)", DOUBLE, 0.75);
@@ -1456,7 +1451,6 @@ public class TestMathFunctions
 
     @Test
     public void testChiSquaredCdf()
-            throws Exception
     {
         assertFunction("chi_squared_cdf(3, 0.0)", DOUBLE, 0.0);
         assertFunction("round(chi_squared_cdf(3, 1.0), 4)", DOUBLE, 0.1987);
@@ -1515,7 +1509,6 @@ public class TestMathFunctions
 
     @Test
     public void testLaplaceCdf()
-            throws Exception
     {
         assertFunction("laplace_cdf(4, 1, 4)", DOUBLE, 0.5);
         assertFunction("laplace_cdf(4, 2, 4.0)", DOUBLE, 0.5);
@@ -1564,7 +1557,6 @@ public class TestMathFunctions
 
     @Test
     public void testWeibullCdf()
-            throws Exception
     {
         assertFunction("weibull_cdf(1.0, 1.0, 0.0)", DOUBLE, 0.0);
         assertFunction("weibull_cdf(1.0, 1.0, 40.0)", DOUBLE, 1.0);

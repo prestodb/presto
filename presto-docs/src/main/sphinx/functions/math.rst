@@ -200,7 +200,7 @@ Probability Functions: cdf
 
     Compute the Gamma cdf with given shape and scale parameters:  P(N < value; shape, scale).
     The shape and scale parameters must be positive real numbers.
-    The value must be a real value on the interval [0, 1].
+    The value must be a non-negative real number.
 
 .. function:: laplace_cdf(mean, scale, value) -> double
 
