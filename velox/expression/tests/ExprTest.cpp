@@ -315,6 +315,11 @@ class ExprTest : public testing::Test, public VectorTestBase {
         << sql;
   }
 
+  bool propagatesNulls(const core::TypedExprPtr& typedExpr) {
+    exec::ExprSet exprSet({typedExpr}, execCtx_.get(), true);
+    return exprSet.exprs().front()->propagatesNulls();
+  }
+
   std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
   std::unique_ptr<core::ExecCtx> execCtx_{
       std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
@@ -3482,6 +3487,17 @@ TEST_F(ExprTest, smallerWrappedBaseVector) {
            std::nullopt,
            std::nullopt}),
       result[0]);
+}
+
+TEST_F(ExprTest, nullPropagation) {
+  auto singleString = parseExpression(
+      "substr(c0, 1, if (length(c0) > 2, length(c0) - 1, 0))",
+      ROW({"c0"}, {VARCHAR()}));
+  auto twoStrings = parseExpression(
+      "substr(c0, 1, if (length(c1) > 2, length(c0) - 1, 0))",
+      ROW({"c0", "c1"}, {VARCHAR(), VARCHAR()}));
+  EXPECT_TRUE(propagatesNulls(singleString));
+  EXPECT_FALSE(propagatesNulls(twoStrings));
 }
 
 TEST_F(ExprTest, peelingWithSmallerConstantInput) {

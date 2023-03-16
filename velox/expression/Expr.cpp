@@ -178,20 +178,30 @@ bool Expr::allSupportFlatNoNullsFastPath(
 }
 
 void Expr::computeMetadata() {
-  // Sets propagatesNulls if all subtrees that depend on at least one input
-  // field propagate nulls. Sets isDeterministic to false if some subtree is
+  // Sets propagatesNulls_ if a null in any of the columns this
+  // depends on makes the Expr null. If the set of fields
+  // null-propagating arguments depend on is a superset of the fields
+  // non null-propagating arguments depend on and the function itself
+  // has default null behavior, then the Expr propagates nulls.  Sets
+  // isDeterministic to false if some subtree is
   // non-deterministic. Sets 'distinctFields_' to be the union of
-  // 'distinctFields_' of inputs. If one of the inputs has the identical set of
-  // distinct fields, then the input's distinct fields are set to empty.
+  // 'distinctFields_' of inputs. If one of the inputs has the
+  // identical set of distinct fields, then the input's distinct
+  // fields are set to empty.
+  bool isNullPropagatingFunction = false;
   if (isSpecialForm()) {
     // 'propagatesNulls_' will be adjusted after inputs are processed.
     propagatesNulls_ = true;
     deterministic_ = true;
   } else if (vectorFunction_) {
-    propagatesNulls_ = vectorFunction_->isDefaultNullBehavior();
     deterministic_ = vectorFunction_->isDeterministic();
+    isNullPropagatingFunction = vectorFunction_->isDefaultNullBehavior();
+    propagatesNulls_ = isNullPropagatingFunction;
   }
 
+  std::vector<FieldReference*> nullPropagatingFields;
+  std::vector<FieldReference*> nonNullPropagatingFields;
+  std::unordered_set<FieldReference*> ignore;
   for (auto& input : inputs_) {
     // Skip computing for inputs already marked as multiply referenced as they
     // would have it computed already.
@@ -200,13 +210,24 @@ void Expr::computeMetadata() {
     }
     deterministic_ &= input->deterministic_;
     if (!input->distinctFields_.empty()) {
-      propagatesNulls_ &= input->propagatesNulls_;
+      if (!isNullPropagatingFunction) {
+        propagatesNulls_ &= input->propagatesNulls_;
+      } else if (input->propagatesNulls_) {
+        mergeFields(nullPropagatingFields, ignore, input->distinctFields_);
+      } else {
+        mergeFields(nonNullPropagatingFields, ignore, input->distinctFields_);
+      }
     }
     mergeFields(
         distinctFields_, multiplyReferencedFields_, input->distinctFields_);
   }
   if (isSpecialForm()) {
     propagatesNulls_ = propagatesNulls();
+  } else if (isNullPropagatingFunction) {
+    propagatesNulls_ =
+        isSubsetOfFields(nonNullPropagatingFields, nullPropagatingFields);
+  } else {
+    propagatesNulls_ = false;
   }
   for (auto& input : inputs_) {
     if (!input->isMultiplyReferenced_ &&
