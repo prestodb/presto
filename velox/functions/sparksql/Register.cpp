@@ -152,8 +152,8 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "sort_array", sortArraySignatures(), makeSortArray);
 
-  registerFunction<YearFunction, int32_t, Timestamp>({"year"});
-  registerFunction<YearFunction, int32_t, Date>({"year"});
+  registerFunction<YearFunction, int32_t, Timestamp>({prefix + "year"});
+  registerFunction<YearFunction, int32_t, Date>({prefix + "year"});
 }
 
 } // namespace sparksql
