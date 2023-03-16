@@ -96,13 +96,13 @@ public class AnalyzerUtil
         return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator);
     }
 
-    public static void checkAccessControlPermissions(Analysis analysis, boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields)
+    public static void checkAccessControlPermissions(Analysis analysis)
     {
         // Table checks
         checkAccessControlPermissions(analysis.getAccessControlReferences());
 
         // Table Column checks
-        analysis.getTableColumnAndSubfieldReferencesForAccessControl(checkAccessControlOnUtilizedColumnsOnly, checkAccessControlWithSubfields)
+        analysis.getAccessControlReferences().getTableColumnAndSubfieldReferencesForAccessControl()
                 .forEach((accessControlInfo, tableColumnReferences) ->
                         tableColumnReferences.forEach((tableName, columns) -> {
                             Optional<TransactionId> transactionId = accessControlInfo.getTransactionId();

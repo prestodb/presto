@@ -13,17 +13,22 @@
  */
 package com.facebook.presto.spi.analyzer;
 
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.Subfield;
+
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Objects.requireNonNull;
 
 // TODO: Should we migrate existing table column references to this class?
 public class AccessControlReferences
 {
     private final Map<AccessControlRole, Set<AccessControlInfoForTable>> tableReferences;
+    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferencesForAccessControl;
 
     public AccessControlReferences()
     {
@@ -38,5 +43,15 @@ public class AccessControlReferences
     public void addTableReference(AccessControlRole role, AccessControlInfoForTable accessControlInfoForTable)
     {
         tableReferences.computeIfAbsent(role, r -> new LinkedHashSet<>()).add(accessControlInfoForTable);
+    }
+
+    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> getTableColumnAndSubfieldReferencesForAccessControl()
+    {
+        return tableColumnAndSubfieldReferencesForAccessControl;
+    }
+
+    public void setTableColumnAndSubfieldReferencesForAccessControl(Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferencesForAccessControl)
+    {
+        this.tableColumnAndSubfieldReferencesForAccessControl = unmodifiableMap(requireNonNull(tableColumnAndSubfieldReferencesForAccessControl, "tableColumnAndSubfieldReferencesForAccessControl is null"));
     }
 }
