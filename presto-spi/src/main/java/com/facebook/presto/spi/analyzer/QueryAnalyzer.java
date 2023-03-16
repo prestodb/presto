@@ -14,10 +14,7 @@
 package com.facebook.presto.spi.analyzer;
 
 import com.facebook.presto.common.analyzer.PreparedQuery;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.plan.PlanNode;
-
-import java.util.Set;
 
 /**
  * The QueryAnalyzer interface should be implemented by respective analyzer to provide various analyzer related functionalities.
@@ -41,14 +38,4 @@ public interface QueryAnalyzer
      * @return root logical plan node created from the given query analysis
      */
     PlanNode plan(AnalyzerContext analyzerContext, QueryAnalysis queryAnalysis);
-
-    /**
-     * Returns whether the given QueryAnalysis represents an "EXPLAIN ANALYZE" query.
-     */
-    boolean isExplainAnalyzeQuery(QueryAnalysis queryAnalysis);
-
-    /**
-     * Extracts the set of ConnectorIds used in the given QueryAnalysis.
-     */
-    Set<ConnectorId> extractConnectors(QueryAnalysis queryAnalysis);
 }
