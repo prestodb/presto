@@ -44,23 +44,23 @@ class IoCounter {
     return count_;
   }
 
-  uint64_t bytes() const {
-    return bytes_;
+  uint64_t sum() const {
+    return sum_;
   }
 
-  void increment(uint64_t bytes) {
+  void increment(uint64_t amount) {
     ++count_;
-    bytes_ += bytes;
+    sum_ += amount;
   }
 
   void merge(const IoCounter& other) {
-    bytes_ += other.bytes_;
+    sum_ += other.sum_;
     count_ += other.count_;
   }
 
  private:
   std::atomic<uint64_t> count_{0};
-  std::atomic<uint64_t> bytes_{0};
+  std::atomic<uint64_t> sum_{0};
 };
 
 class IoStatistics {

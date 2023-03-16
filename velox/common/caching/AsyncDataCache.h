@@ -482,6 +482,8 @@ struct CacheStats {
   // Number of hits (saved IO). The first hit to a prefetched entry does not
   // count.
   int64_t numHit{};
+  // Sum of sizes of entries counted in 'numHit'.
+  int64_t hitBytes{};
   // Number of new entries created.
   int64_t numNew{};
   // Number of times a valid entry was removed in order to make space.
@@ -582,6 +584,8 @@ class CacheShard {
   int32_t evictionThreshold_{kNoThreshold};
   // Cumulative count of cache hits.
   uint64_t numHit_{};
+  // Sum of bytes in cache hits.
+  uint64_t hitBytes_{};
   // Cumulative count of hits on entries held in exclusive mode.
   uint64_t numWaitExclusive_{};
   // Cumulative count of new entry creation.

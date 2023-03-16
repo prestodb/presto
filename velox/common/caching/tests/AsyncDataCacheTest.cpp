@@ -543,6 +543,8 @@ TEST_F(AsyncDataCacheTest, replace) {
     executor_->join();
   }
   auto stats = cache_->refreshStats();
+  EXPECT_LT(0, stats.numHit);
+  EXPECT_LT(0, stats.hitBytes);
   EXPECT_LT(0, stats.numEvict);
   EXPECT_GE(
       kMaxBytes / memory::AllocationTraits::kPageSize,

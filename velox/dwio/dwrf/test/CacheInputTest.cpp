@@ -529,7 +529,7 @@ TEST_F(CacheTest, ssd) {
   // We read one stripe with all columns.
   readLoop("testfile", 30, 100, 1, 1, 1, ioStats_);
   // This is a cold read, so expect no hits.
-  EXPECT_EQ(0, ioStats_->ramHit().bytes());
+  EXPECT_EQ(0, ioStats_->ramHit().sum());
   // Expect some extra reading from coalescing.
   EXPECT_LT(0, ioStats_->rawOverreadBytes());
   auto fullStripeBytes = ioStats_->rawBytesRead();
@@ -540,7 +540,7 @@ TEST_F(CacheTest, ssd) {
   auto sparseStripeBytes = (ioStats_->rawBytesRead() - bytes) / 10;
   EXPECT_LT(sparseStripeBytes, fullStripeBytes / 4);
   // Expect the dense fraction of columns to have read ahead.
-  EXPECT_LT(1000000, ioStats_->prefetch().bytes());
+  EXPECT_LT(1000000, ioStats_->prefetch().sum());
 
   constexpr int32_t kStripesPerFile = 10;
   auto bytesPerFile = fullStripeBytes * kStripesPerFile;
@@ -563,13 +563,13 @@ TEST_F(CacheTest, ssd) {
       kStripesPerFile,
       4);
   // Expect some hits from SSD.
-  EXPECT_LE(kSsdBytes / 8, ioStats_->ssdRead().bytes());
+  EXPECT_LE(kSsdBytes / 8, ioStats_->ssdRead().sum());
   // We expec some prefetch but the quantity is nondeterminstic
   // because cases where the main thread reads the data ahead of
   // background reader does not count as prefetch even if prefetch was
   // issued. Also, the head of each file does not get prefetched
   // because each file has its own tracker.
-  EXPECT_LE(kSsdBytes / 8, ioStats_->prefetch().bytes());
+  EXPECT_LE(kSsdBytes / 8, ioStats_->prefetch().sum());
   LOG(INFO) << cache_->toString();
 
   readFiles(
@@ -628,12 +628,12 @@ TEST_F(CacheTest, ssdThreads) {
     // All threads access the same amount. Where the data comes from varies.
     EXPECT_EQ(stats[0]->rawBytesRead(), stats[i]->rawBytesRead());
 
-    EXPECT_GE(stats[i]->rawBytesRead(), stats[i]->ramHit().bytes());
+    EXPECT_GE(stats[i]->rawBytesRead(), stats[i]->ramHit().sum());
 
     // Prefetch is <= read from storage + read from SSD.
     EXPECT_LE(
-        stats[i]->prefetch().bytes(),
-        stats[i]->read().bytes() + stats[i]->ssdRead().bytes());
+        stats[i]->prefetch().sum(),
+        stats[i]->read().sum() + stats[i]->ssdRead().sum());
   }
   LOG(INFO) << cache_->toString();
 }
@@ -753,7 +753,7 @@ TEST_F(CacheTest, readAhead) {
   int32_t count = 0;
   for (int i = 0; i < kNumThreads; ++i) {
     threads[i].join();
-    bytes += stats[i]->prefetch().bytes();
+    bytes += stats[i]->prefetch().sum();
     count += stats[i]->prefetch().count();
   }
   executor_->join();
