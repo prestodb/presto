@@ -14,6 +14,10 @@ Binary Functions
 
     Decodes binary data from the hex encoded ``string``.
 
+.. function:: hmac_md5(binary, key) -> varbinary
+
+    Computes the HMAC with md5 of ``binary`` with the given ``key``.
+
 .. function:: hmac_sha1(binary, key) -> varbinary
 
     Computes the HMAC with sha1 of ``binary`` with the given ``key``.

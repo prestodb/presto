@@ -202,6 +202,19 @@ struct HmacSha512Function {
   }
 };
 
+/// hmac_md5(varbinary) -> varbinary
+template <typename T>
+struct HmacMd5Function {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varbinary>& result,
+      const arg_type<Varbinary>& data,
+      const arg_type<Varbinary>& key) {
+    stringImpl::hmacMd5(result, key, data);
+  }
+};
+
 template <typename T>
 struct ToHexFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);

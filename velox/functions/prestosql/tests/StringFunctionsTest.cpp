@@ -1360,6 +1360,22 @@ TEST_F(StringFunctionsTest, HmacSha512) {
   EXPECT_EQ(std::nullopt, hmacSha512(std::nullopt, "velox"));
 }
 
+TEST_F(StringFunctionsTest, HmacMd5) {
+  const auto hmacMd5 = [&](std::optional<std::string> arg,
+                           std::optional<std::string> key) {
+    return evaluateOnce<std::string, std::string>(
+        "hmac_md5(c0, c1)", {arg, key}, {VARBINARY(), VARBINARY()});
+  };
+  // The result values were obtained from Presto Java hmac_md5 function.
+  EXPECT_EQ(
+      hexToDec("ff66d72875f01e26fcbe71d973eaf524"), hmacMd5("hashme", "velox"));
+  EXPECT_EQ(
+      hexToDec("ed706a89f46773b7a478ee5d8f83db86"),
+      hmacMd5("Infinity", "velox"));
+  EXPECT_EQ(hexToDec("f05e7a0086c6633b496ee411646da51c"), hmacMd5("", "velox"));
+  EXPECT_EQ(std::nullopt, hmacMd5(std::nullopt, "velox"));
+}
+
 void StringFunctionsTest::testReplaceInPlace(
     const std::vector<std::pair<std::string, std::string>>& tests,
     const std::string& search,

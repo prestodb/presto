@@ -72,6 +72,8 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "hmac_sha256"});
   registerFunction<HmacSha512Function, Varbinary, Varbinary, Varbinary>(
       {prefix + "hmac_sha512"});
+  registerFunction<HmacMd5Function, Varbinary, Varbinary, Varbinary>(
+      {prefix + "hmac_md5"});
   registerFunction<SpookyHashV232Function, Varbinary, Varbinary>(
       {prefix + "spooky_hash_v2_32"});
   registerFunction<SpookyHashV264Function, Varbinary, Varbinary>(
