@@ -162,6 +162,22 @@ public class PlannerUtils
         return Optional.of(result);
     }
 
+    public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, Map<VariableReferenceExpression, RowExpression> variableMap)
+    {
+        Assignments.Builder assignments = Assignments.builder();
+        for (VariableReferenceExpression variableReferenceExpression : source.getOutputVariables()) {
+            assignments.put(variableReferenceExpression, variableReferenceExpression);
+        }
+        variableMap.forEach(assignments::put);
+
+        return new ProjectNode(
+                source.getSourceLocation(),
+                planNodeIdAllocator.getNextId(),
+                source,
+                assignments.build(),
+                LOCAL);
+    }
+
     public static PlanNode projectExpressions(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, List<? extends RowExpression> expressions, List<VariableReferenceExpression> variableMap)
     {
         Assignments.Builder assignments = Assignments.builder();
