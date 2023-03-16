@@ -34,14 +34,6 @@ public interface QueryAnalyzer
     QueryAnalysis analyze(AnalyzerContext analyzerContext, PreparedQuery preparedQuery);
 
     /**
-     * Check access permission for the various tables and columns used in the query.
-     *
-     * @param analyzerContext analyzerContext analyzer context which stores various information used by analyzer
-     * @param queryAnalysis query analysis on which the access permissions needs to be checked
-     */
-    void checkAccessPermissions(AnalyzerContext analyzerContext, QueryAnalysis queryAnalysis);
-
-    /**
      * Create logical plan for a given query analysis.
      *
      * @param analyzerContext analyzerContext analyzer context which stores various information used by analyzer
