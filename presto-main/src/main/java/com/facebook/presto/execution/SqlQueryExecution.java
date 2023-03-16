@@ -561,8 +561,8 @@ public class SqlQueryExecution
             // record analysis time
             stateMachine.endAnalysis();
 
-            boolean explainAnalyze = queryAnalyzer.isExplainAnalyzeQuery(queryAnalysis);
-            return new PlanRoot(fragmentedPlan, !explainAnalyze, queryAnalyzer.extractConnectors(queryAnalysis));
+            boolean explainAnalyze = queryAnalysis.isExplainAnalyzeQuery();
+            return new PlanRoot(fragmentedPlan, !explainAnalyze, queryAnalysis.extractConnectors());
         }
         catch (StackOverflowError e) {
             throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
