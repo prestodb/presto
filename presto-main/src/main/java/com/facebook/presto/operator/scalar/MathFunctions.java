@@ -796,7 +796,7 @@ public final class MathFunctions
         }
     }
 
-    @Description("inverse of normal cdf given a mean, std, and probability")
+    @Description("Inverse of normal cdf given a mean, std, and probability")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double inverseNormalCdf(@SqlType(StandardTypes.DOUBLE) double mean, @SqlType(StandardTypes.DOUBLE) double sd, @SqlType(StandardTypes.DOUBLE) double p)
@@ -807,7 +807,7 @@ public final class MathFunctions
         return mean + sd * 1.4142135623730951 * Erf.erfInv(2 * p - 1);
     }
 
-    @Description("normal cdf given a mean, standard deviation, and value")
+    @Description("Normal cdf given a mean, standard deviation, and value")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double normalCdf(
@@ -819,7 +819,7 @@ public final class MathFunctions
         return 0.5 * (1 + Erf.erf((value - mean) / (standardDeviation * Math.sqrt(2))));
     }
 
-    @Description("inverse of Beta cdf given a, b parameters and probability")
+    @Description("Inverse of Beta cdf given a, b parameters and probability")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double inverseBetaCdf(
@@ -876,7 +876,7 @@ public final class MathFunctions
         return distribution.cumulativeProbability(value);
     }
 
-    @Description("inverse of ChiSquared cdf given df parameter and probability")
+    @Description("Inverse of ChiSquared cdf given df parameter and probability")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double inverseChiSquaredCdf(
@@ -902,7 +902,7 @@ public final class MathFunctions
         return distribution.cumulativeProbability(value);
     }
 
-    @Description("inverse of Gamma cdf given shape and scale parameter and probability")
+    @Description("Inverse of Gamma cdf given shape and scale parameter and probability")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double inverseGammaCdf(
@@ -932,7 +932,7 @@ public final class MathFunctions
         return distribution.cumulativeProbability(value);
     }
 
-    @Description("inverse of Laplace cdf given mean, scale parameters and probability")
+    @Description("Inverse of Laplace cdf given mean, scale parameters and probability")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double inverseLaplaceCdf(
