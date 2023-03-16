@@ -157,18 +157,35 @@ class ISerializable {
   template <
       class T,
       typename = std::enable_if_t<std::is_base_of_v<ISerializable, T>>>
-  static std::shared_ptr<const T> deserialize(const folly::dynamic& obj) {
+  static std::shared_ptr<const T> deserialize(
+      const folly::dynamic& obj,
+      void* context) {
     VELOX_USER_CHECK(obj.isObject());
     // use the key to lookup creator and call it.
     // creator generally be a static method in the class.
     auto name = obj["name"].asString();
+
+    const auto& registryWithContext =
+        velox::DeserializationWithContextRegistryForSharedPtr();
+    if (registryWithContext.Has(name)) {
+      return std::dynamic_pointer_cast<const T>(
+          registryWithContext.Create(name, obj, context));
+    }
+
+    const auto& registry = velox::DeserializationRegistryForSharedPtr();
     VELOX_USER_CHECK(
-        velox::DeserializationRegistryForSharedPtr().Has(name),
+        registry.Has(name),
         "Deserialization function for class: {} is not registered",
         name);
 
-    return std::dynamic_pointer_cast<const T>(
-        velox::DeserializationRegistryForSharedPtr().Create(name, obj));
+    return std::dynamic_pointer_cast<const T>(registry.Create(name, obj));
+  }
+
+  template <
+      class T,
+      typename = std::enable_if_t<std::is_base_of_v<ISerializable, T>>>
+  static std::shared_ptr<const T> deserialize(const folly::dynamic& obj) {
+    return deserialize<T>(obj, nullptr);
   }
 
   template <
@@ -179,7 +196,9 @@ class ISerializable {
   template <
       class T,
       typename = std::enable_if_t<has_static_obj_create_type<T>::value>>
-  static createReturnType<T> deserialize(const folly::dynamic& obj) {
+  static createReturnType<T> deserialize(
+      const folly::dynamic& obj,
+      void* context = nullptr) {
     return T::create(obj);
   }
 
@@ -187,7 +206,7 @@ class ISerializable {
       class T,
       typename =
           std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>>>
-  static T deserialize(const folly::dynamic& obj) {
+  static T deserialize(const folly::dynamic& obj, void* context = nullptr) {
     auto raw = obj.asInt();
     VELOX_USER_CHECK_GE(raw, std::numeric_limits<T>::min());
     VELOX_USER_CHECK_LE(raw, std::numeric_limits<T>::max());
@@ -195,19 +214,23 @@ class ISerializable {
   }
 
   template <class T, typename = std::enable_if_t<std::is_same_v<T, bool>>>
-  static bool deserialize(const folly::dynamic& obj) {
+  static bool deserialize(const folly::dynamic& obj, void* context = nullptr) {
     return obj.asBool();
   }
 
   template <class T, typename = std::enable_if_t<std::is_same_v<T, double>>>
-  static double deserialize(const folly::dynamic& obj) {
+  static double deserialize(
+      const folly::dynamic& obj,
+      void* context = nullptr) {
     return obj.asDouble();
   }
 
   template <
       class T,
       typename = std::enable_if_t<std::is_same_v<T, std::string>>>
-  static std::string deserialize(const folly::dynamic& obj) {
+  static std::string deserialize(
+      const folly::dynamic& obj,
+      void* context = nullptr) {
     return obj.asString();
   }
 
@@ -218,7 +241,7 @@ class ISerializable {
   static folly::Optional<
       decltype(ISerializable::deserialize<typename T::value_type>(
           std::declval<folly::dynamic>()))>
-  deserialize(const folly::dynamic& obj) {
+  deserialize(const folly::dynamic& obj, void* context = nullptr) {
     if (obj.isNull()) {
       return folly::none;
     }
@@ -235,15 +258,18 @@ class ISerializable {
       decltype(ISerializable::deserialize<T>(std::declval<folly::dynamic>()));
 
   template <class T, typename = std::enable_if_t<is_vector_type<T>::value>>
-  static auto deserialize(const folly::dynamic& array) {
+  static auto deserialize(
+      const folly::dynamic& array,
+      void* context = nullptr) {
     using deserializeValType =
         decltype(ISerializable::deserialize<typename T::value_type>(
-            std::declval<folly::dynamic>()));
+            std::declval<folly::dynamic>(), context));
 
     VELOX_USER_CHECK(array.isArray());
     std::vector<deserializeValType> exprs;
     for (auto& obj : array) {
-      exprs.push_back(ISerializable::deserialize<typename T::value_type>(obj));
+      exprs.push_back(
+          ISerializable::deserialize<typename T::value_type>(obj, context));
     }
     return exprs;
   }
@@ -258,7 +284,7 @@ class ISerializable {
           std::declval<folly::dynamic>())),
       decltype(ISerializable::deserialize<typename T::mapped_type>(
           std::declval<folly::dynamic>()))>
-  deserialize(const folly::dynamic& obj) {
+  deserialize(const folly::dynamic& obj, void* context = nullptr) {
     using deserializeKeyType =
         decltype(ISerializable::deserialize<typename T::key_type>(
             std::declval<folly::dynamic>()));
@@ -273,9 +299,10 @@ class ISerializable {
     VELOX_USER_CHECK(keys.isArray() && values.isArray());
     VELOX_USER_CHECK_EQ(keys.size(), values.size());
     for (size_t idx = 0; idx < keys.size(); ++idx) {
-      auto first = ISerializable::deserialize<typename T::key_type>(keys[idx]);
-      auto second =
-          ISerializable::deserialize<typename T::mapped_type>(values[idx]);
+      auto first =
+          ISerializable::deserialize<typename T::key_type>(keys[idx], context);
+      auto second = ISerializable::deserialize<typename T::mapped_type>(
+          values[idx], context);
       map.insert({first, second});
     }
     return map;

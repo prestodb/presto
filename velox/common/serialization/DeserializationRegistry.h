@@ -31,6 +31,13 @@ using DeserializationRegistryType = Registry<
 
 DeserializationRegistryType& DeserializationRegistryForSharedPtr();
 
+using DeserializationWithContextRegistryType = Registry<
+    std::string,
+    std::shared_ptr<const ISerializable>(const folly::dynamic&, void* context)>;
+
+DeserializationWithContextRegistryType&
+DeserializationWithContextRegistryForSharedPtr();
+
 namespace detail {
 template <class, class = void>
 struct is_templated_create : std::false_type {};
