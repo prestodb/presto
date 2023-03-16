@@ -500,6 +500,8 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
 
   static std::shared_ptr<const Type> create(const folly::dynamic& obj);
 
+  static void registerSerDe();
+
   /// Recursive kind hashing (uses only TypeKind).
   size_t hashKind() const;
 

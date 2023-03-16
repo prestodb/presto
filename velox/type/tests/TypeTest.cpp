@@ -22,10 +22,7 @@ using namespace facebook::velox;
 
 namespace {
 void testTypeSerde(const TypePtr& type) {
-  velox::DeserializationRegistryForSharedPtr().Register(
-      Type::getClassName(),
-      static_cast<std::shared_ptr<const Type> (*)(const folly::dynamic&)>(
-          Type::create));
+  Type::registerSerDe();
 
   auto copy = velox::ISerializable::deserialize<Type>(
       velox::ISerializable::serialize(type));
@@ -378,6 +375,11 @@ TEST(TypeTest, row) {
   testTypeSerde(rowInner);
 }
 
+TEST(TypeTest, emptyRow) {
+  auto row = ROW({});
+  testTypeSerde(row);
+}
+
 class Foo {};
 class Bar {};
 
@@ -660,6 +662,8 @@ TEST(TypeTest, function) {
   ASSERT_EQ(BIGINT(), type->childAt(0));
   ASSERT_EQ(VARCHAR(), type->childAt(1));
   ASSERT_EQ(BOOLEAN(), type->childAt(2));
+
+  testTypeSerde(type);
 }
 
 TEST(TypeTest, follySformat) {

@@ -18,10 +18,7 @@
 namespace facebook::velox::test {
 
 TypeTestBase::TypeTestBase() {
-  velox::DeserializationRegistryForSharedPtr().Register(
-      Type::getClassName(),
-      static_cast<std::shared_ptr<const Type> (*)(const folly::dynamic&)>(
-          Type::create));
+  Type::registerSerDe();
 }
 
 void TypeTestBase::testTypeSerde(const TypePtr& type) {

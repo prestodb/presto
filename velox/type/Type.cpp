@@ -209,7 +209,6 @@ TypePtr Type::create(const folly::dynamic& obj) {
         names.push_back(name.asString());
       }
 
-      VELOX_USER_CHECK(!childTypes.empty(), "Row type must have child types");
       return std::make_shared<const RowType>(
           std::move(names), std::move(childTypes));
     }
@@ -231,6 +230,14 @@ TypePtr Type::create(const folly::dynamic& obj) {
       return createType(typeKind, std::move(childTypes));
     }
   }
+}
+
+// static
+void Type::registerSerDe() {
+  velox::DeserializationRegistryForSharedPtr().Register(
+      Type::getClassName(),
+      static_cast<std::shared_ptr<const Type> (*)(const folly::dynamic&)>(
+          Type::create));
 }
 
 std::string ArrayType::toString() const {
@@ -495,7 +502,11 @@ std::string FunctionType::toString() const {
 }
 
 folly::dynamic FunctionType::serialize() const {
-  throw std::logic_error("FUNCTION type is not serializable");
+  folly::dynamic obj = folly::dynamic::object;
+  obj["name"] = "Type";
+  obj["type"] = TypeTraits<TypeKind::FUNCTION>::name;
+  obj["cTypes"] = velox::ISerializable::serialize(children_);
+  return obj;
 }
 
 OpaqueType::OpaqueType(const std::type_index& typeIndex)
