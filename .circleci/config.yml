@@ -24,7 +24,7 @@ workflows:
       - macos-build:
           matrix:
             parameters:
-              os: [macos-m1]
+              os: [macos-intel, macos-m1]
       - format-check
       - header-check
 
@@ -184,8 +184,8 @@ executors:
       - image : ghcr.io/facebookincubator/velox-dev:check-avx
   macos-intel:
     macos:
-      xcode: "12.5.1"
-    resource_class: large
+      xcode: "14.2.0"
+    resource_class: macos.x86.medium.gen2
   macos-m1:
     macos:
       xcode: "14.2.0"
@@ -219,6 +219,7 @@ jobs:
               PATH=~/deps/bin:${PATH} DEPENDENCY_DIR=~/deps-src INSTALL_PREFIX=~/deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-macos.sh
               rm -rf ~/deps/.git ~/deps/Library/Taps/  # Reduce cache size by 70%.
             fi
+          no_output_timeout: 20m
       - save_cache:
           name: "Save Dependency Cache"
           # The version number in the key can be incremented

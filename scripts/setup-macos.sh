@@ -57,7 +57,13 @@ function prompt {
 }
 
 function update_brew {
-  /usr/local/bin/brew update --force --quiet
+  BREW_PATH=/usr/local/bin/brew
+  if [ `arch` == "arm64" ] ;
+     then
+       BREW_PATH=/opt/homebrew/bin/brew ;
+ fi
+  $BREW_PATH update --auto-update
+  $BREW_PATH developer off
 }
 
 function install_build_prerequisites {
@@ -119,6 +125,7 @@ function install_velox_deps {
 (return 2> /dev/null) && return # If script was sourced, don't run commands.
 
 (
+  update_brew
   if [[ $# -ne 0 ]]; then
     for cmd in "$@"; do
       run_and_time "${cmd}"
