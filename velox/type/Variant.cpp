@@ -457,13 +457,25 @@ folly::dynamic variant::serialize() const {
       objValue = value<TypeKind::VARCHAR>();
       break;
     }
+    case TypeKind::DATE: {
+      objValue = value<TypeKind::DATE>();
+      break;
+    }
+    case TypeKind::INTERVAL_DAY_TIME: {
+      objValue = value<TypeKind::INTERVAL_DAY_TIME>();
+      break;
+    }
     case TypeKind::OPAQUE: {
       serializeOpaque(variantObj, value<TypeKind::OPAQUE>());
       break;
     }
-    case TypeKind::DATE:
-    case TypeKind::INTERVAL_DAY_TIME:
-    case TypeKind::TIMESTAMP:
+    case TypeKind::TIMESTAMP: {
+      auto ts = value<TypeKind::TIMESTAMP>();
+      variantObj["value"] = -1; // Not used, but cannot be null.
+      variantObj["seconds"] = ts.getSeconds();
+      variantObj["nanos"] = ts.getNanos();
+      break;
+    }
     case TypeKind::INVALID:
       VELOX_NYI();
 
@@ -559,10 +571,17 @@ variant variant::create(const folly::dynamic& variantobj) {
     case TypeKind::OPAQUE: {
       return deserializeOpaque(variantobj);
     }
-    case TypeKind::DATE:
-    case TypeKind::INTERVAL_DAY_TIME:
-    case TypeKind::TIMESTAMP:
-      FOLLY_FALLTHROUGH;
+    case TypeKind::DATE: {
+      return variant::create<TypeKind::DATE>(obj.asInt());
+    }
+    case TypeKind::INTERVAL_DAY_TIME: {
+      return variant::create<TypeKind::INTERVAL_DAY_TIME>(
+          IntervalDayTime(obj.asInt()));
+    }
+    case TypeKind::TIMESTAMP: {
+      return variant::create<TypeKind::TIMESTAMP>(Timestamp(
+          variantobj["seconds"].asInt(), variantobj["nanos"].asInt()));
+    }
     case TypeKind::INVALID:
       VELOX_NYI();
 

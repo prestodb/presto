@@ -1359,7 +1359,7 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
         return CLASS<::facebook::velox::TypeKind::TIMESTAMP>::FIELD;          \
       }                                                                       \
       case ::facebook::velox::TypeKind::DATE: {                               \
-        return CLASS<::facebook::velox::TypeKind::TIMESTAMP>::FIELD;          \
+        return CLASS<::facebook::velox::TypeKind::DATE>::FIELD;               \
       }                                                                       \
       case ::facebook::velox::TypeKind::INTERVAL_DAY_TIME: {                  \
         return CLASS<::facebook::velox::TypeKind::INTERVAL_DAY_TIME>::FIELD;  \

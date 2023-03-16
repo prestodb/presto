@@ -20,6 +20,15 @@
 
 using namespace facebook::velox;
 
+namespace {
+void testSerDe(const variant& value) {
+  auto serialized = value.serialize();
+  auto copy = variant::create(serialized);
+
+  ASSERT_EQ(value, copy);
+}
+} // namespace
+
 TEST(VariantTest, arrayInferType) {
   EXPECT_EQ(*ARRAY(UNKNOWN()), *variant(TypeKind::ARRAY).inferType());
   EXPECT_EQ(*ARRAY(UNKNOWN()), *variant::array({}).inferType());
@@ -330,6 +339,40 @@ TEST(VariantTest, equalsWithEpsilonFloat) {
 
   ASSERT_NE(sum1, sum3);
   ASSERT_FALSE(variant(sum1).equalsWithEpsilon(variant(sum3)));
+}
+
+TEST(VariantTest, serialize) {
+  // Null values.
+  testSerDe(variant(TypeKind::BOOLEAN));
+  testSerDe(variant(TypeKind::TINYINT));
+  testSerDe(variant(TypeKind::SMALLINT));
+  testSerDe(variant(TypeKind::INTEGER));
+  testSerDe(variant(TypeKind::BIGINT));
+  testSerDe(variant(TypeKind::REAL));
+  testSerDe(variant(TypeKind::DOUBLE));
+  testSerDe(variant(TypeKind::VARCHAR));
+  testSerDe(variant(TypeKind::VARBINARY));
+  testSerDe(variant(TypeKind::TIMESTAMP));
+  testSerDe(variant(TypeKind::DATE));
+  testSerDe(variant(TypeKind::INTERVAL_DAY_TIME));
+  testSerDe(variant(TypeKind::ARRAY));
+  testSerDe(variant(TypeKind::MAP));
+  testSerDe(variant(TypeKind::ROW));
+  testSerDe(variant(TypeKind::UNKNOWN));
+
+  // Non-null values.
+  testSerDe(variant(true));
+  testSerDe(variant((int8_t)12));
+  testSerDe(variant((int16_t)1234));
+  testSerDe(variant((int32_t)12345));
+  testSerDe(variant((int64_t)1234567));
+  testSerDe(variant((float)1.2));
+  testSerDe(variant((double)1.234));
+  testSerDe(variant("This is a test."));
+  testSerDe(variant::binary("This is a test."));
+  testSerDe(variant(Date(123)));
+  testSerDe(variant(Timestamp(1, 2)));
+  testSerDe(variant(IntervalDayTime(123)));
 }
 
 struct SerializableClass {
