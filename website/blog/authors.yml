@@ -35,3 +35,22 @@ lsakka:
   title: Software Engineer @ Meta
   url: https://github.com/laithsakka
   image_url: https://github.com/laithsakka.png
+
+kgpai:
+  name: Krishna Pai
+  title: Software Engineer @ Meta
+  url: https://github.com/kgpai
+  image_url:  https://github.com/kgpai.png
+
+jwujciak:
+  name: Jacob Wujciak-Jens
+  title: Software Engineer @ Voltron Data
+  url: https://github.com/assignUser
+  image_url: https://github.com/assignuser.png
+
+raulcd:
+  name: Raúl Cumplido
+  title: Software Engineer @ Voltron Data
+  url: https://github.com/raulcd
+  image_url: https://github.com/raulcd.png
+

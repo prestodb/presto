@@ -1,0 +1,50 @@
+---
+slug: velox-build-experience
+title: "Improving the Velox Build Experience"
+authors: [jwujciak, raulcd, kgpai]
+tags: [tech-blog, packaging]
+---
+
+
+When Velox was open sourced in August 2021, it was not nearly as easily usable and portable as it is today. In order for Velox to become the unified execution engine blurring the boundaries for data analytics and ML, we needed Velox to be easy to build and package on multiple platforms, and support a wide range of hardware architectures. If we are supporting all these platforms, we also need to ensure that Velox remains fast and regressions are caught early.  
+
+To improve the Velox experience for users and community developers, Velox has partnered with Voltron Data to help make Velox more accessible and user-friendly. In this blog post, we will examine the challenges we faced, the improvements that have already been made, and the ones yet to come.
+
+## Enhancements & Improvements
+
+Velox was a product of the mono repo and required installation of dependencies on the system via a script. Any change in the state of the host system could cause a build failure and introduce version conflicts of dependencies. Fixing these challenges was a big focus to help the Velox Community and we worked in collaboration with the Voltron Data Team. We wanted to improve the overall Velox user experience by making Velox easy to consume across a wide range of platforms to accelerate its adoption. 
+
+We choose hermetic builds as a solution to the aforementioned problems, as they provide a number of benefits. Hermetic builds[^1] improve reproducibility by providing isolation from the state of the host machine and produce the same result for any given commit in the Velox repository. This requires precise dependency management.
+
+[^1]: [Hermeticity](https://bazel.build/basics/hermeticity) - why hermetic builds are recommended
+
+The first major step in moving towards hermetic builds was the integration of a new [dependency management system](https://github.com/facebookincubator/velox/tree/main/CMake/resolve_dependency_modules) that is able to download, configure and build the necessary dependencies within the Velox build process. This new system also gives users the option to use already installed system dependencies. We hope this work will increase adoption of Velox in downstream projects and make troubleshooting of build issues easier, as well as improve overall reliability and stability.
+
+We also wanted to lower the barrier to entry for contributions to Velox. Therefore, we created Docker [Development images](https://github.com/facebookincubator/velox/pkgs/container/velox-dev) for both Ubuntu and CentOS, and we now publish them automatically when changes are merged. We hope this work will help speed up the development process by allowing developers to stand up a development environment quickly, without the requirement of installing third-party dependencies locally. We also use these images in the Velox CI to lower build times and speed up the feedback loop for proposing a PR.
+
+```bash
+# Run the development image from the root of the Velox repository
+# to build and test Velox
+docker compose run --rm ubuntu-cpp
+```
+
+An important non-technical improvement is the introduction of new issue templates and utility scripts. These will help guide troubleshooting and getting support from the relevant Velox developers via Github. This helps to improve the experience for the community and make it easier for users and contributors to get help and support when they need it.
+
+Lastly, we implemented new [nightly builds](https://app.circleci.com/pipelines/github/facebookincubator/velox?branch=main) to increase the overall reliability and stability of Velox, as well as test the integration with downstream community projects.
+
+To enable easy access to Velox from Python, we built CI infrastructure to generate and publish pre-built binary wheels for [PyVelox](https://pypi.org/project/pyvelox/) (the Velox Python Bindings). We also improved Conda support by contributing to upstream feedstocks.
+
+```bash
+# Try PyVelox today!
+pip install pyvelox
+```
+
+## Future Goals
+
+We will continue the work of moving all dependencies to the new dependency management system to move closer to hermetic builds and make development and usage as smooth as possible.
+
+In the same theme, the next major goal is the refactoring of the existing CMake build system to use a target based "modern" style. This will allow us to properly install Velox as a system library to be used by other projects. This project will improve the development experience overall by creating a stable, reliable build infrastructure, but also allows us to publish Velox as a conda-forge package and make it easier to further improve support for non x86_64 architectures like Apple Silicon, arm64 systems, various compilers and older CPUs that don’t support the currently obligatory instructions sets like BMI2 and make Velox available to an even larger community.
+
+Confidence in the stability and reliability of a project are key when you want to deploy it as part of your stack. Therefore, we are working on a release process and versioning scheme for Velox so that you can deploy with confidence!
+
+In conclusion, the collaboration between Velox and Voltron Data has led to several key improvements in Velox's packaging and CI. Setting up a new environment with Velox has never been this easy! With the new improvements, this new broader community of developers and contributors can expect a smoother and more user-friendly experience when using Velox. The Velox team is continuously working towards further improving the developer and user experience, and we invite you to [join us](https://github.com/facebookincubator/velox/blob/main/CONTRIBUTING.md) in building the next generation unified execution engine!
