@@ -22,7 +22,6 @@ public class AnalyzerContext
 {
     private final MetadataResolver metadataResolver;
     private final PlanNodeIdAllocator idAllocator;
-
     private final VariableAllocator variableAllocator;
 
     public AnalyzerContext(MetadataResolver metadataResolver, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
