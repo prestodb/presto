@@ -379,8 +379,12 @@ public class OrcTester
             List<Map<Subfield, TupleDomainFilter>> valuesFilters)
             throws Exception
     {
-        List<Map<Integer, Map<Subfield, TupleDomainFilter>>> streamReaderFilters = columnFilters.stream().map(filter -> ImmutableMap.of(0, filter)).collect(toImmutableList());
-        List<Map<Integer, Map<Subfield, TupleDomainFilter>>> expectedValuesFilters = valuesFilters.stream().map(filter -> ImmutableMap.of(0, filter)).collect(toImmutableList());
+        List<Map<Integer, Map<Subfield, TupleDomainFilter>>> streamReaderFilters = columnFilters.stream()
+                .map(filter -> ImmutableMap.of(0, filter))
+                .collect(toImmutableList());
+        List<Map<Integer, Map<Subfield, TupleDomainFilter>>> expectedValuesFilters = valuesFilters.stream()
+                .map(filter -> ImmutableMap.of(0, filter))
+                .collect(toImmutableList());
 
         // just the values
         testRoundTripTypes(ImmutableList.of(type), ImmutableList.of(readValues), streamReaderFilters, expectedValuesFilters);
@@ -469,7 +473,7 @@ public class OrcTester
                     .map(OrcTester::toHiveStructWithNull)
                     .collect(toList());
 
-            assertRoundTrip(writeType, readType, writeValues, readValues, true, ImmutableList.of());
+            assertRoundTripWithSettings(writeType, readType, writeValues, readValues, true, ImmutableList.of());
         }
     }
 
@@ -615,20 +619,7 @@ public class OrcTester
     public void assertRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
-        assertRoundTrip(type, type, readValues, readValues, true, ImmutableList.of());
-    }
-
-    public void assertRoundTripWithSettings(Type type, List<?> readValues, List<OrcReaderSettings> settings)
-            throws Exception
-    {
-        if (settings != null) {
-            for (OrcReaderSettings setting : settings) {
-                if (setting.expectedValuesFilters.isEmpty() && !setting.columnFilters.isEmpty()) {
-                    setting.setExpectedValuesFilters(setting.columnFilters);
-                }
-            }
-        }
-        assertRoundTrip(type, type, readValues, readValues, true, settings);
+        assertRoundTripWithSettings(type, type, readValues, readValues, true, ImmutableList.of());
     }
 
     public void assertRoundTrip(
@@ -639,17 +630,21 @@ public class OrcTester
             throws Exception
     {
         ImmutableList.Builder<OrcReaderSettings> settingsBuilder = ImmutableList.builder();
+        OrcReaderSettings.Builder orcSettingBuilder = OrcReaderSettings.builder();
         for (int i = 0; i < filters.size(); i++) {
-            settingsBuilder.add(OrcReaderSettings.builder().setColumnFilters(filters.get(i)).setExpectedValuesFilters(valuesFilters.get(i)).build());
+            settingsBuilder.add(orcSettingBuilder
+                    .setColumnFilters(filters.get(i))
+                    .setExpectedValuesFilters(valuesFilters.get(i))
+                    .build());
         }
 
-        assertRoundTrip(type, type, readValues, readValues, true, settingsBuilder.build());
+        assertRoundTripWithSettings(type, type, readValues, readValues, true, settingsBuilder.build());
     }
 
     public void assertRoundTrip(Type type, List<?> readValues, boolean verifyWithHiveReader)
             throws Exception
     {
-        assertRoundTrip(type, type, readValues, readValues, verifyWithHiveReader, ImmutableList.of());
+        assertRoundTripWithSettings(type, type, readValues, readValues, verifyWithHiveReader, ImmutableList.of());
     }
 
     public void assertRoundTrip(
@@ -666,18 +661,38 @@ public class OrcTester
                         .setExpectedFilterOrder(expectedFilterOrder.isEmpty() ? ImmutableList.of() : expectedFilterOrder.get(i))
                         .build())
                 .collect(toImmutableList());
-        assertRoundTrip(types, types, readValues, readValues, true, settings);
+        assertRoundTripWithSettings(types, types, readValues, readValues, true, settings);
     }
 
-    private void assertRoundTrip(Type writeType, Type readType, List<?> writeValues, List<?> readValues, boolean verifyWithHiveReader, List<OrcReaderSettings> settings)
+    public void assertRoundTripWithSettings(Type type, List<?> readValues, List<OrcReaderSettings> settings)
             throws Exception
     {
-        assertRoundTrip(ImmutableList.of(writeType), ImmutableList.of(readType), ImmutableList.of(writeValues), ImmutableList.of(readValues), verifyWithHiveReader, settings);
+        assertRoundTripWithSettings(type, type, readValues, readValues, true, settings);
     }
 
-    private void assertRoundTrip(List<Type> writeTypes, List<Type> readTypes, List<List<?>> writeValues, List<List<?>> readValues, boolean verifyWithHiveReader, List<OrcReaderSettings> settings)
+    private void assertRoundTripWithSettings(Type writeType, Type readType, List<?> writeValues, List<?> readValues, boolean verifyWithHiveReader, List<OrcReaderSettings> settings)
             throws Exception
     {
+        assertRoundTripWithSettings(ImmutableList.of(writeType), ImmutableList.of(readType), ImmutableList.of(writeValues), ImmutableList.of(readValues), verifyWithHiveReader, settings);
+    }
+
+    private void assertRoundTripWithSettings(
+            List<Type> writeTypes,
+            List<Type> readTypes,
+            List<List<?>> writeValues,
+            List<List<?>> readValues,
+            boolean verifyWithHiveReader,
+            List<OrcReaderSettings> settings)
+            throws Exception
+    {
+        if (settings != null) {
+            for (OrcReaderSettings setting : settings) {
+                if (setting.expectedValuesFilters.isEmpty() && !setting.columnFilters.isEmpty()) {
+                    setting.setExpectedValuesFilters(setting.columnFilters);
+                }
+            }
+        }
+
         assertEquals(writeTypes.size(), readTypes.size());
         assertEquals(writeTypes.size(), writeValues.size());
         assertEquals(writeTypes.size(), readValues.size());
