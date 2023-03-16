@@ -29,7 +29,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
@@ -96,13 +95,17 @@ public class AnalyzerUtil
         return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator);
     }
 
-    public static void checkAccessControlPermissions(Analysis analysis)
+    public static void checkAccessPermissions(AccessControlReferences accessControlReferences)
     {
         // Table checks
-        checkAccessControlPermissions(analysis.getAccessControlReferences());
-
+        checkAccessPermissionsForTable(accessControlReferences);
         // Table Column checks
-        analysis.getAccessControlReferences().getTableColumnAndSubfieldReferencesForAccessControl()
+        checkAccessPermissionsForColumns(accessControlReferences);
+    }
+
+    private static void checkAccessPermissionsForColumns(AccessControlReferences accessControlReferences)
+    {
+        accessControlReferences.getTableColumnAndSubfieldReferencesForAccessControl()
                 .forEach((accessControlInfo, tableColumnReferences) ->
                         tableColumnReferences.forEach((tableName, columns) -> {
                             Optional<TransactionId> transactionId = accessControlInfo.getTransactionId();
@@ -116,7 +119,7 @@ public class AnalyzerUtil
                         }));
     }
 
-    private static void checkAccessControlPermissions(AccessControlReferences accessControlReferences)
+    private static void checkAccessPermissionsForTable(AccessControlReferences accessControlReferences)
     {
         accessControlReferences.getTableReferences().forEach((accessControlRole, accessControlInfoForTables) -> accessControlInfoForTables.forEach(accessControlInfoForTable -> {
             AccessControlInfo accessControlInfo = accessControlInfoForTable.getAccessControlInfo();

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.QueryAnalysis;
 import com.facebook.presto.spi.function.FunctionKind;
 
@@ -51,5 +52,11 @@ public class BuiltInQueryAnalysis
     public Map<FunctionKind, Set<String>> getInvokedFunctions()
     {
         return analysis.getInvokedFunctions();
+    }
+
+    @Override
+    public AccessControlReferences getAccessControlReferences()
+    {
+        return analysis.getAccessControlReferences();
     }
 }
