@@ -1001,13 +1001,13 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> likeSignatures() {
       exec::FunctionSignatureBuilder()
           .returnType("boolean")
           .argumentType("varchar")
-          .argumentType("varchar")
+          .constantArgumentType("varchar")
           .build(),
       exec::FunctionSignatureBuilder()
           .returnType("boolean")
           .argumentType("varchar")
-          .argumentType("varchar")
-          .argumentType("varchar")
+          .constantArgumentType("varchar")
+          .constantArgumentType("varchar")
           .build(),
   };
 }

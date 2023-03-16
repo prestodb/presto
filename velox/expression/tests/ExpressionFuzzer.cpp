@@ -557,7 +557,6 @@ ExpressionFuzzer::ExpressionFuzzer(
 
   // Register function override (for cases where we want to restrict the types
   // or parameters we pass to functions).
-  registerFuncOverride(&ExpressionFuzzer::generateLikeArgs, "like");
   registerFuncOverride(
       &ExpressionFuzzer::generateEmptyApproxSetArgs, "empty_approx_set");
   registerFuncOverride(
@@ -681,18 +680,6 @@ core::TypedExprPtr ExpressionFuzzer::generateArg(
   } else {
     return generateArg(arg);
   }
-}
-
-// Specialization for the "like" function: second and third (optional)
-// parameters always need to be constant.
-std::vector<core::TypedExprPtr> ExpressionFuzzer::generateLikeArgs(
-    const CallableSignature& input) {
-  std::vector<core::TypedExprPtr> inputExpressions = {
-      generateArg(input.args[0]), generateArgConstant(input.args[1])};
-  if (input.args.size() == 3) {
-    inputExpressions.emplace_back(generateArgConstant(input.args[2]));
-  }
-  return inputExpressions;
 }
 
 // Specialization for the "empty_approx_set" function: first optional
