@@ -35,8 +35,6 @@ import com.google.inject.Inject;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
-import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessControlPermissions;
 import static com.google.common.base.Preconditions.checkState;
@@ -100,11 +98,9 @@ public class BuiltInQueryAnalyzer
     public void checkAccessPermissions(AnalyzerContext analyzerContext, QueryAnalysis queryAnalysis)
     {
         checkState(analyzerContext instanceof BuiltInAnalyzerContext, "analyzerContext should be an instance of BuiltInAnalyzerContext");
-        Session session = ((BuiltInAnalyzerContext) analyzerContext).getSession();
         BuiltInQueryAnalysis builtInQueryAnalysis = (BuiltInQueryAnalysis) queryAnalysis;
         Analysis analysis = builtInQueryAnalysis.getAnalysis();
-
-        checkAccessControlPermissions(analysis, isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session));
+        checkAccessControlPermissions(analysis);
     }
 
     @Override
