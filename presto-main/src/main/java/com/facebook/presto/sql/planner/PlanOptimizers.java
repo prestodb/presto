@@ -297,14 +297,6 @@ public class PlanOptimizers
         PlanOptimizer prefilterForLimitingAggregation = new StatsRecordingPlanOptimizer(optimizerStats, new PrefilterForLimitingAggregation(metadata, statsCalculator));
 
         builder.add(
-                // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.<Rule<?>>builder()
-                                .addAll(new InlineSqlFunctions(metadata, sqlParser).rules())
-                                .build()),
                 // TODO: move this before optimization if possible!!
                 // Replace all expressions with row expressions
                 new IterativeOptimizer(
@@ -318,6 +310,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
+                                .addAll(new InlineSqlFunctions(metadata, sqlParser).rules())
                                 .addAll(new DesugarLambdaExpression().rules())
                                 .addAll(new SimplifyCardinalityMap().rules())
                                 .build()),
