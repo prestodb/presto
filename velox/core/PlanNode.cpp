@@ -229,6 +229,13 @@ void ValuesNode::addDetails(std::stringstream& stream) const {
     totalCount += vector->size();
   }
   stream << totalCount << " rows in " << values_.size() << " vectors";
+
+  // TODO Figure out how to include 'parallelizable_' flag without breaking
+  // Prestissimo tests.
+
+  if (repeatTimes_ > 1) {
+    stream << ", repeat " << repeatTimes_ << " times";
+  }
 }
 
 void ProjectNode::addDetails(std::stringstream& stream) const {
