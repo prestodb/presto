@@ -32,8 +32,8 @@ using ::duckdb::dtime_t;
 using ::duckdb::string_t;
 using ::duckdb::timestamp_t;
 
-namespace {
 variant decimalVariant(const Value& val) {
+  VELOX_DCHECK(val.type().id() == LogicalTypeId::DECIMAL)
   uint8_t precision;
   uint8_t scale;
   val.type().GetDecimalProperties(precision, scale);
@@ -57,7 +57,6 @@ variant decimalVariant(const Value& val) {
       VELOX_UNSUPPORTED();
   }
 }
-} // namespace
 
 //! Type mapping for velox -> DuckDB conversions
 LogicalType fromVeloxType(const TypePtr& type) {

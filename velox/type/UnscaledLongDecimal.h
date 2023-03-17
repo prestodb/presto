@@ -277,6 +277,10 @@ class numeric_limits<facebook::velox::UnscaledLongDecimal> {
   static facebook::velox::UnscaledLongDecimal max() {
     return facebook::velox::UnscaledLongDecimal::max();
   }
+
+  static facebook::velox::UnscaledLongDecimal lowest() {
+    return facebook::velox::UnscaledLongDecimal::min();
+  }
 };
 } // namespace std
 

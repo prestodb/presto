@@ -267,19 +267,6 @@ velox::variant variantAt<TypeKind::INTERVAL_DAY_TIME>(
       ::duckdb::Interval::GetMicro(value.GetValue<::duckdb::interval_t>())));
 }
 
-velox::variant decimalVariantAt(const ::duckdb::Value& value) {
-  uint8_t precision;
-  uint8_t scale;
-  value.type().GetDecimalProperties(precision, scale);
-  auto type = DECIMAL(precision, scale);
-  if (type->isShortDecimal()) {
-    return velox::variant::shortDecimal(value.GetValue<int64_t>(), type);
-  } else {
-    auto val = value.GetValueUnsafe<::duckdb::hugeint_t>();
-    return velox::variant::longDecimal(buildInt128(val.upper, val.lower), type);
-  }
-}
-
 velox::variant rowVariantAt(
     const ::duckdb::Value& vector,
     const TypePtr& rowType) {
@@ -389,7 +376,7 @@ std::vector<MaterializedRow> materialize(
         row.push_back(
             rowVariantAt(dataChunk->GetValue(j, i), rowType->childAt(j)));
       } else if (isDecimalKind(typeKind)) {
-        row.push_back(decimalVariantAt(dataChunk->GetValue(j, i)));
+        row.push_back(duckdb::decimalVariant(dataChunk->GetValue(j, i)));
       } else {
         auto value = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
             variantAt, typeKind, dataChunk, i, j);
