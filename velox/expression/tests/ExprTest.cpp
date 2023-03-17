@@ -3043,6 +3043,31 @@ TEST_F(ExprTest, addNulls) {
 
     checkResult(slicedVector);
   }
+
+  // Lazy reading sometimes generates row vector that has child with length
+  // shorter than the parent.  The extra rows in parent are all marked as nulls
+  // so it is valid.  We need to handle this situation when propagating nulls
+  // from parent to child.
+  {
+    auto a = makeFlatVector<int64_t>(kSize - 1, folly::identity);
+    auto b = makeArrayVector<int64_t>(
+        kSize - 1, [](auto) { return 1; }, [](auto i) { return i; });
+    auto row = std::make_shared<RowVector>(
+        pool_.get(),
+        ROW({{"a", a->type()}, {"b", b->type()}}),
+        nullptr,
+        kSize,
+        std::vector<VectorPtr>({a, b}));
+    VectorPtr result = row;
+    exec::Expr::addNulls(rows, rawNulls, context, row->type(), result);
+    ASSERT_NE(result.get(), row.get());
+    ASSERT_EQ(result->size(), kSize);
+    for (int i = 0; i < kSize - 1; ++i) {
+      ASSERT_FALSE(result->isNullAt(i));
+      ASSERT_TRUE(result->equalValueAt(row.get(), i, i));
+    }
+    ASSERT_TRUE(result->isNullAt(kSize - 1));
+  }
 }
 
 namespace {

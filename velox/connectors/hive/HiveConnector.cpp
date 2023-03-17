@@ -553,8 +553,7 @@ std::optional<RowVectorPtr> HiveDataSource::next(
     velox::ContinueFuture& /*future*/) {
   VELOX_CHECK(split_ != nullptr, "No split to process. Call addSplit first.");
   if (emptySplit_) {
-    split_.reset();
-    // Keep readers around to hold adaptation.
+    resetSplit();
     return nullptr;
   }
 

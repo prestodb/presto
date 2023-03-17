@@ -367,3 +367,14 @@ TEST_F(PrestoSerializerTest, rle) {
   testRleRoundTrip(BaseVector::createNullConstant(
       MAP(VARCHAR(), INTEGER()), 17, pool_.get()));
 }
+
+TEST_F(PrestoSerializerTest, lazy) {
+  constexpr int kSize = 1000;
+  auto rowVector = makeTestVector(kSize);
+  auto lazyVector = std::make_shared<LazyVector>(
+      pool_.get(),
+      rowVector->type(),
+      kSize,
+      std::make_unique<SimpleVectorLoader>([&](auto) { return rowVector; }));
+  testRoundTrip(lazyVector);
+}

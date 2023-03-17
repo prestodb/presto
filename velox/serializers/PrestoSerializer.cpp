@@ -1339,6 +1339,9 @@ void serializeColumn(
     case VectorEncoding::Simple::MAP:
       serializeMapVector(vector, ranges, stream);
       break;
+    case VectorEncoding::Simple::LAZY:
+      serializeColumn(vector->loadedVector(), ranges, stream);
+      break;
     default:
       serializeWrapped(vector, ranges, stream);
   }
@@ -1600,6 +1603,9 @@ void estimateSerializedSizeInt(
           arrayVector->elements().get(), childRanges, childSizes.data());
       break;
     }
+    case VectorEncoding::Simple::LAZY:
+      estimateSerializedSizeInt(vector->loadedVector(), ranges, sizes);
+      break;
     default:
       VELOX_CHECK(false, "Unsupported vector encoding {}", vector->encoding());
   }
@@ -1622,7 +1628,7 @@ class PrestoVectorSerializer : public VectorSerializer {
   }
 
   void append(
-      RowVectorPtr vector,
+      const RowVectorPtr& vector,
       const folly::Range<const IndexRange*>& ranges) override {
     auto newRows = rangesTotalSize(ranges);
     if (newRows > 0) {

@@ -2143,6 +2143,46 @@ TEST_F(TableScanTest, structLazy) {
   assertQuery(op, {filePath}, "select c0 % 3 from tmp");
 }
 
+TEST_F(TableScanTest, interleaveLazyEager) {
+  constexpr int kSize = 1000;
+  auto column = makeRowVector(
+      {makeFlatVector<int64_t>(kSize, folly::identity),
+       makeRowVector({makeFlatVector<int64_t>(kSize, folly::identity)})});
+  auto rows = makeRowVector({column});
+  auto rowType = asRowType(rows->type());
+  auto lazyFile = TempFilePath::create();
+  writeToFile(lazyFile->path, {rows});
+  auto rowsWithNulls = makeVectors(1, kSize, rowType);
+  int numNonNull = 0;
+  for (int i = 0; i < kSize; ++i) {
+    auto* c0 = rowsWithNulls[0]->childAt(0)->asUnchecked<RowVector>();
+    if (c0->isNullAt(i)) {
+      continue;
+    }
+    auto& c0c0 = c0->asUnchecked<RowVector>()->childAt(0);
+    numNonNull += !c0c0->isNullAt(i);
+  }
+  auto eagerFile = TempFilePath::create();
+  writeToFile(eagerFile->path, rowsWithNulls);
+  auto tableHandle = makeTableHandle(
+      SubfieldFiltersBuilder().add("c0.c0", isNotNull()).build());
+  ColumnHandleMap assignments = {{"c0", regularColumn("c0", column->type())}};
+  CursorParameters params;
+  params.planNode =
+      PlanBuilder().tableScan(rowType, tableHandle, assignments).planNode();
+  TaskCursor cursor(params);
+  cursor.task()->addSplit("0", makeHiveSplit(lazyFile->path));
+  cursor.task()->addSplit("0", makeHiveSplit(eagerFile->path));
+  cursor.task()->addSplit("0", makeHiveSplit(lazyFile->path));
+  cursor.task()->noMoreSplits("0");
+  for (int i = 0; i < 3; ++i) {
+    ASSERT_TRUE(cursor.moveNext());
+    auto result = cursor.current();
+    ASSERT_EQ(result->size(), i % 2 == 0 ? kSize : numNonNull);
+  }
+  ASSERT_FALSE(cursor.moveNext());
+}
+
 TEST_F(TableScanTest, lazyVectorAccessTwiceWithDifferentRows) {
   auto data = makeRowVector({
       makeNullableFlatVector<int64_t>({1, 1, 1, std::nullopt}),

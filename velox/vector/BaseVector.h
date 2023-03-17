@@ -378,6 +378,9 @@ class BaseVector {
       const vector_size_t* toSourceRow) {
     rows.applyToSelected([&](vector_size_t row) {
       auto sourceRow = toSourceRow ? toSourceRow[row] : row;
+      if (sourceRow >= source->size()) {
+        return;
+      }
       if (source->isNullAt(sourceRow)) {
         setNull(row, true);
       } else {

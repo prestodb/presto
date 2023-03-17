@@ -33,7 +33,7 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
       : pool_{streamArena->pool()} {}
 
   void append(
-      RowVectorPtr vector,
+      const RowVectorPtr& vector,
       const folly::Range<const IndexRange*>& ranges) override {
     size_t totalSize = 0;
     for (auto& range : ranges) {

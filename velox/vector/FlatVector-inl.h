@@ -175,8 +175,10 @@ void FlatVector<T>::copyValuesAndNulls(
         }
       });
     } else {
-      VELOX_CHECK_GE(source->size(), rows.end());
       rows.applyToSelected([&](vector_size_t row) {
+        if (row >= source->size()) {
+          return;
+        }
         if (sourceValues) {
           rawValues_[row] = sourceValues[row];
         }

@@ -210,20 +210,18 @@ void SelectiveStructColumnReaderBase::getValues(
   VELOX_CHECK(
       result->get()->type()->isRow(),
       "Struct reader expects a result of type ROW.");
-
-  auto resultRow = static_cast<RowVector*>(result->get());
-  if (!result->unique()) {
-    std::vector<VectorPtr> children(resultRow->children().size());
-    fillRowVectorChildren(
-        *resultRow->pool(), resultRow->type()->asRow(), children);
+  auto& rowType = result->get()->type()->asRow();
+  if (!result->unique() || result->get()->isLazy()) {
+    std::vector<VectorPtr> children(rowType.size());
+    fillRowVectorChildren(*result->get()->pool(), rowType, children);
     *result = std::make_unique<RowVector>(
-        resultRow->pool(),
-        resultRow->type(),
-        BufferPtr(nullptr),
+        result->get()->pool(),
+        result->get()->type(),
+        nullptr,
         0,
         std::move(children));
-    resultRow = static_cast<RowVector*>(result->get());
   }
+  auto* resultRow = static_cast<RowVector*>(result->get());
   resultRow->resize(rows.size());
   if (!rows.size()) {
     return;
