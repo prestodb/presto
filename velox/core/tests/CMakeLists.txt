@@ -14,9 +14,15 @@
 
 add_executable(
   velox_core_test
-  ConstantTypedExprTest.cpp PlanFragmentTest.cpp PlanNodeTest.cpp
-  QueryConfigTest.cpp StringTest.cpp TypeAnalysisTest.cpp)
+  ConstantTypedExprTest.cpp
+  PlanFragmentTest.cpp
+  PlanNodeTest.cpp
+  QueryConfigTest.cpp
+  StringTest.cpp
+  TypeAnalysisTest.cpp
+  TypedExprSerdeTest.cpp)
 
 add_test(velox_core_test velox_core_test)
 
-target_link_libraries(velox_core_test velox_core gtest gtest_main)
+target_link_libraries(velox_core_test velox_core velox_vector_test_lib gtest
+                      gtest_main)

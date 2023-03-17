@@ -21,7 +21,7 @@
 namespace facebook::velox::core {
 
 /* a strongly-typed expression, such as literal, function call, etc... */
-class ITypedExpr {
+class ITypedExpr : public ISerializable {
  public:
   explicit ITypedExpr(std::shared_ptr<const Type> type)
       : type_{std::move(type)}, inputs_{} {}
@@ -81,7 +81,11 @@ class ITypedExpr {
 
   virtual bool operator==(const ITypedExpr& other) const = 0;
 
+  static void registerSerDe();
+
  protected:
+  folly::dynamic serializeBase(std::string_view name) const;
+
   std::vector<std::shared_ptr<const ITypedExpr>> rewriteInputsRecursive(
       const std::unordered_map<std::string, std::string>& mapping) const {
     std::vector<std::shared_ptr<const ITypedExpr>> newInputs;

@@ -66,6 +66,10 @@ class InputTypedExpr : public ITypedExpr {
 
     return std::make_shared<InputTypedExpr>(type());
   }
+
+  folly::dynamic serialize() const override;
+
+  static TypedExprPtr create(const folly::dynamic& obj, void* context);
 };
 
 class ConstantTypedExpr : public ITypedExpr {
@@ -168,7 +172,9 @@ class ConstantTypedExpr : public ITypedExpr {
     return this->equals(other);
   }
 
-  VELOX_DEFINE_CLASS_NAME(ConstantTypedExpr)
+  folly::dynamic serialize() const override;
+
+  static TypedExprPtr create(const folly::dynamic& obj, void* context);
 
  private:
   const variant value_;
@@ -230,6 +236,10 @@ class CallTypedExpr : public ITypedExpr {
         casted->inputs().end(),
         [](const auto& p1, const auto& p2) { return *p1 == *p2; });
   }
+
+  folly::dynamic serialize() const override;
+
+  static TypedExprPtr create(const folly::dynamic& obj, void* context);
 
  private:
   const std::string name_;
@@ -311,6 +321,10 @@ class FieldAccessTypedExpr : public ITypedExpr {
     return isInputColumn_;
   }
 
+  folly::dynamic serialize() const override;
+
+  static TypedExprPtr create(const folly::dynamic& obj, void* context);
+
  private:
   const std::string name_;
   const bool isInputColumn_;
@@ -325,8 +339,8 @@ class ConcatTypedExpr : public ITypedExpr {
  public:
   ConcatTypedExpr(
       const std::vector<std::string>& names,
-      const std::vector<TypedExprPtr>& expressions)
-      : ITypedExpr{toType(names, expressions), expressions} {}
+      const std::vector<TypedExprPtr>& inputs)
+      : ITypedExpr{toType(names, inputs), inputs} {}
 
   TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, std::string>& mapping)
@@ -355,7 +369,7 @@ class ConcatTypedExpr : public ITypedExpr {
   }
 
   bool operator==(const ITypedExpr& other) const override {
-    const auto* casted = dynamic_cast<const FieldAccessTypedExpr*>(&other);
+    const auto* casted = dynamic_cast<const ConcatTypedExpr*>(&other);
     if (!casted) {
       return false;
     }
@@ -366,6 +380,10 @@ class ConcatTypedExpr : public ITypedExpr {
         casted->inputs().end(),
         [](const auto& p1, const auto& p2) { return *p1 == *p2; });
   }
+
+  folly::dynamic serialize() const override;
+
+  static TypedExprPtr create(const folly::dynamic& obj, void* context);
 
  private:
   static std::shared_ptr<const Type> toType(
@@ -423,6 +441,10 @@ class LambdaTypedExpr : public ITypedExpr {
     return *signature_ == *casted->signature_ && *body_ == *casted->body_;
   }
 
+  folly::dynamic serialize() const override;
+
+  static TypedExprPtr create(const folly::dynamic& obj, void* context);
+
  private:
   const RowTypePtr signature_;
   const TypedExprPtr body_;
@@ -475,6 +497,10 @@ class CastTypedExpr : public ITypedExpr {
   bool nullOnFailure() const {
     return nullOnFailure_;
   }
+
+  folly::dynamic serialize() const override;
+
+  static TypedExprPtr create(const folly::dynamic& obj, void* context);
 
  private:
   // This flag prevents throws and instead returns

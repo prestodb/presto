@@ -18,7 +18,8 @@ endif()
 add_library(velox_config Context.cpp)
 target_link_libraries(velox_config ${FOLLY_WITH_DEPENDENCIES})
 
-add_library(velox_core PlanFragment.cpp PlanNode.cpp SimpleFunctionMetadata.cpp)
+add_library(velox_core Expressions.cpp PlanFragment.cpp PlanNode.cpp
+                       SimpleFunctionMetadata.cpp)
 
 target_link_libraries(
   velox_core
