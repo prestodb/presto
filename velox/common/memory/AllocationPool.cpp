@@ -51,10 +51,12 @@ char* AllocationPool::allocateFixed(uint64_t bytes, int32_t alignment) {
 
   if (availableInRun() == 0) {
     newRunImpl(numPages);
-  } else if (auto alignedBytes =
-                 bytes + memory::alignmentPadding(firstFreeInRun(), alignment);
-             availableInRun() < alignedBytes) {
-    newRunImpl(memory::AllocationTraits::numPages(alignedBytes));
+  } else {
+    auto alignedBytes =
+        bytes + memory::alignmentPadding(firstFreeInRun(), alignment);
+    if (availableInRun() < alignedBytes) {
+      newRunImpl(numPages);
+    }
   }
   auto run = currentRun();
   currentOffset_ += memory::alignmentPadding(firstFreeInRun(), alignment);

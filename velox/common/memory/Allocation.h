@@ -37,7 +37,7 @@ struct AllocationTraits {
     return numPages * kPageSize;
   }
 
-  static uint64_t numPages(uint64_t bytes) {
+  static MachinePageCount numPages(uint64_t bytes) {
     return bits::roundUp(bytes, kPageSize) / kPageSize;
   }
 };
