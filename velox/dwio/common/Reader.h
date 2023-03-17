@@ -63,13 +63,6 @@ class RowReader {
    */
   virtual void resetFilterCaches() = 0;
 
-  // Moves the adaptively acquired filters/filter order from 'other'
-  // to 'this'. Returns true if 'this' is ready to read, false if
-  // 'this' is known to be empty.
-  virtual bool moveAdaptationFrom(RowReader& /*other*/) {
-    return true;
-  }
-
   /**
    * Get an estimated row size basing on available statistics. Can
    * differ from the actual row size due to variable-length values.

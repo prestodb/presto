@@ -137,15 +137,6 @@ class ParquetRowReader : public dwio::common::RowReader {
     return options_;
   }
 
-  bool moveAdaptationFrom(RowReader& other) override {
-    auto otherReader = dynamic_cast<ParquetRowReader*>(&other);
-    if (!columnReader_ || !otherReader->columnReader_) {
-      return false;
-    }
-    columnReader_->moveScanSpec(*otherReader->columnReader_);
-    return true;
-  }
-
   bool allPrefetchIssued() const override {
     //  Allow opening the next split while this is reading.
     return true;

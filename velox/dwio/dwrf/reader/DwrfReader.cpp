@@ -464,22 +464,6 @@ std::optional<size_t> DwrfRowReader::estimatedRowSize() const {
   return std::nullopt;
 }
 
-bool DwrfRowReader::moveAdaptationFrom(RowReader& other) {
-  auto otherReader = dynamic_cast<DwrfRowReader*>(&other);
-  if (!selectiveColumnReader_) {
-    VLOG(1) << "PRESPL: Moving adaptation to reader with no reader tree. Can "
-            << "happen if split contains no stripe begin.";
-    return false;
-  }
-  if (!otherReader->selectiveColumnReader_) {
-    VLOG(1) << "PRESPL: Moving adaptation from reader with no tree. "
-            << "No adaptation moved but continuing.";
-    return true;
-  }
-  selectiveColumnReader_->moveScanSpec(*otherReader->selectiveColumnReader_);
-  return true;
-}
-
 DwrfReader::DwrfReader(
     const ReaderOptions& options,
     std::unique_ptr<dwio::common::BufferedInput> input)

@@ -91,8 +91,6 @@ class DwrfRowReader : public StrideIndexProvider,
 
   void resetFilterCaches() override;
 
-  bool moveAdaptationFrom(RowReader& other) override;
-
   bool allPrefetchIssued() const override {
     return true;
   }

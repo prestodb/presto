@@ -526,22 +526,12 @@ void HiveDataSource::setFromDataSource(
   emptySplit_ = source->emptySplit_;
   split_ = std::move(source->split_);
   if (emptySplit_) {
-    // Leave old readers in place so tat their adaptation can be moved to a new
-    // reader.
     return;
   }
-  if (rowReader_) {
-    if (!source->rowReader_->moveAdaptationFrom(*rowReader_)) {
-      // The source had a reader that did not have state that could be
-      // advanced. Keep the old readers so that you can transfer the
-      // adaptation to the next non-empty one.
-      emptySplit_ = true;
-      return;
-    }
-  }
+  source->scanSpec_->moveAdaptationFrom(*scanSpec_);
+  scanSpec_ = std::move(source->scanSpec_);
   reader_ = std::move(source->reader_);
   rowReader_ = std::move(source->rowReader_);
-  scanSpec_ = std::move(source->scanSpec_);
   // New io will be accounted on the stats of 'source'. Add the existing
   // balance to that.
   source->ioStats_->merge(*ioStats_);
