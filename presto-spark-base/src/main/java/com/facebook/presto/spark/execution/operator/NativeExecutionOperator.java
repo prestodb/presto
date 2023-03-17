@@ -29,7 +29,6 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.SplitOperatorInfo;
-import com.facebook.presto.spark.execution.NativeExecutionProcess;
 import com.facebook.presto.spark.execution.NativeExecutionProcessFactory;
 import com.facebook.presto.spark.execution.NativeExecutionTask;
 import com.facebook.presto.spark.execution.NativeExecutionTaskFactory;
@@ -46,7 +45,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
@@ -91,7 +89,6 @@ public class NativeExecutionOperator
     private final NativeExecutionProcessFactory processFactory;
     private final NativeExecutionTaskFactory taskFactory;
 
-    private NativeExecutionProcess process;
     private NativeExecutionTask task;
     private CompletableFuture<Void> taskStatusFuture;
     private TaskSource taskSource;
@@ -150,13 +147,9 @@ public class NativeExecutionOperator
             return null;
         }
 
-        if (process == null) {
-            createProcess();
-            checkState(process != null, "process is null");
-            createTask();
-            checkState(task != null, "task is null");
-            taskStatusFuture = task.start();
-        }
+        createTask();
+        checkState(task != null, "task is null");
+        taskStatusFuture = task.start();
 
         try {
             if (taskStatusFuture.isDone()) {
@@ -183,29 +176,14 @@ public class NativeExecutionOperator
         }
     }
 
-    private void createProcess()
-    {
-        try {
-            this.process = processFactory.createNativeExecutionProcess(
-                    operatorContext.getSession(),
-                    URI.create(NATIVE_EXECUTION_SERVER_URI));
-            log.info("Starting native execution process of task" + getOperatorContext().getDriverContext().getTaskId().toString());
-            process.start();
-        }
-        catch (ExecutionException | InterruptedException | IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private void createTask()
     {
         checkState(taskSource != null, "taskSource is null");
         checkState(taskStatusFuture == null, "taskStatusFuture has already been set");
         checkState(task == null, "task has already been set");
-        checkState(process != null, "process is null");
         this.task = taskFactory.createNativeExecutionTask(
                 operatorContext.getSession(),
-                uriBuilderFrom(URI.create(NATIVE_EXECUTION_SERVER_URI)).port(process.getPort()).build(),
+                uriBuilderFrom(URI.create(NATIVE_EXECUTION_SERVER_URI)).port(processFactory.getNativeExecutionProcess().getPort()).build(),
                 operatorContext.getDriverContext().getTaskId(),
                 planFragment,
                 ImmutableList.of(taskSource),
@@ -276,10 +254,6 @@ public class NativeExecutionOperator
         systemMemoryContext.setBytes(0);
         if (task != null) {
             task.stop();
-        }
-        if (process != null) {
-            log.info("Closing native execution process for task " + getOperatorContext().getDriverContext().getTaskId().toString());
-            process.close();
         }
     }
 

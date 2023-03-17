@@ -15,7 +15,6 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
@@ -48,6 +47,8 @@ public class NativeExecutionProcessFactory
     private final TaskManagerConfig taskManagerConfig;
     private final WorkerProperty<?, ?, ?> workerProperty;
 
+    private NativeExecutionProcess nativeExecutionProcess;
+
     @Inject
     public NativeExecutionProcessFactory(
             @ForNativeExecutionTask HttpClient httpClient,
@@ -67,27 +68,36 @@ public class NativeExecutionProcessFactory
     }
 
     public NativeExecutionProcess createNativeExecutionProcess(
-            Session session,
+            String executablePath,
+            String catalog,
             URI location)
     {
-        return createNativeExecutionProcess(session, location, MAX_ERROR_DURATION);
+        nativeExecutionProcess = createNativeExecutionProcess(executablePath, catalog, location, MAX_ERROR_DURATION);
+        return nativeExecutionProcess;
+    }
+
+    public NativeExecutionProcess getNativeExecutionProcess()
+    {
+        return nativeExecutionProcess;
     }
 
     public NativeExecutionProcess createNativeExecutionProcess(
-            Session session,
+            String executablePath,
+            String catalog,
             URI location,
             Duration maxErrorDuration)
     {
         try {
             return new NativeExecutionProcess(
-                    session,
+                    executablePath,
                     location,
                     httpClient,
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
                     maxErrorDuration,
                     taskManagerConfig,
-                    workerProperty);
+                    workerProperty,
+                    catalog);
         }
         catch (IOException e) {
             throw new PrestoException(NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR, format("Cannot start native process: %s", e.getMessage()), e);

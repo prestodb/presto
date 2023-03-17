@@ -57,5 +57,6 @@ public class PrestoSparkService
     public void close()
     {
         lifeCycleManager.stop();
+        taskExecutorFactory.stop();
     }
 }
