@@ -570,82 +570,18 @@ VectorPtr readLazyVector(
 } // namespace
 
 void saveType(const TypePtr& type, std::ostream& out) {
-  // Type kind.
-  write(static_cast<int>(type->kind()), out);
-
-  switch (type->kind()) {
-    case TypeKind::BOOLEAN:
-    case TypeKind::TINYINT:
-    case TypeKind::SMALLINT:
-    case TypeKind::INTEGER:
-    case TypeKind::BIGINT:
-    case TypeKind::REAL:
-    case TypeKind::DOUBLE:
-    case TypeKind::VARCHAR:
-    case TypeKind::VARBINARY:
-    case TypeKind::TIMESTAMP:
-    case TypeKind::DATE:
-    case TypeKind::INTERVAL_DAY_TIME:
-    case TypeKind::UNKNOWN:
-      break;
-    case TypeKind::ROW: {
-      // Number of children.
-      write<int32_t>(type->size(), out);
-
-      // Child types.
-      const auto& names = type->asRow().names();
-      for (auto i = 0; i < type->size(); ++i) {
-        write<int32_t>(names[i].size(), out);
-        out.write(names[i].data(), names[i].size());
-        saveType(type->childAt(i), out);
-      }
-      break;
-    }
-    case TypeKind::ARRAY:
-      saveType(type->childAt(0), out);
-      break;
-    case TypeKind::MAP:
-      saveType(type->childAt(0), out);
-      saveType(type->childAt(1), out);
-      break;
-    default:
-      VELOX_UNSUPPORTED("Unsupported type: {}", type->toString());
-  }
+  auto serialized = toJson(type->serialize());
+  write(serialized, out);
 }
 
 TypePtr restoreType(std::istream& in) {
-  // Type kind.
-  auto typeKind = TypeKind(read<int32_t>(in));
+  static folly::once_flag kOnce;
 
-  if (typeKind == TypeKind::UNKNOWN) {
-    return UNKNOWN();
-  }
+  folly::call_once(kOnce, []() { Type::registerSerDe(); });
 
-  if (typeKind == TypeKind::ROW) {
-    // Number of children.
-    auto numChildren = read<int32_t>(in);
-
-    std::vector<std::string> names;
-    std::vector<TypePtr> types;
-    for (auto i = 0; i < numChildren; ++i) {
-      names.push_back(read<std::string>(in));
-      types.push_back(restoreType(in));
-    }
-
-    return ROW(std::move(names), std::move(types));
-  }
-
-  if (typeKind == TypeKind::ARRAY) {
-    return ARRAY(restoreType(in));
-  }
-
-  if (typeKind == TypeKind::MAP) {
-    auto keyType = restoreType(in);
-    auto valueType = restoreType(in);
-    return MAP(keyType, valueType);
-  }
-
-  return createScalarType(typeKind);
+  auto serialized = read<std::string>(in);
+  auto json = folly::parseJson(serialized);
+  return ISerializable::deserialize<Type>(json);
 }
 
 void saveVector(const BaseVector& vector, std::ostream& out) {

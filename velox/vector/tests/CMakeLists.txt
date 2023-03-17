@@ -42,6 +42,7 @@ target_link_libraries(
   velox_serialization
   velox_memory
   velox_presto_serializer
+  velox_presto_types
   velox_temp_path
   velox_vector_fuzzer
   ${Boost_ATOMIC_LIBRARIES}

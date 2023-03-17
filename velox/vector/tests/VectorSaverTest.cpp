@@ -16,8 +16,12 @@
 #include "velox/vector/VectorSaver.h"
 #include <fstream>
 #include "velox/common/base/Fs.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
+#include "velox/functions/prestosql/types/HyperLogLogType.h"
+#include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -25,6 +29,12 @@ namespace facebook::velox::test {
 
 class VectorSaverTest : public testing::Test, public VectorTestBase {
  protected:
+  VectorSaverTest() {
+    registerJsonType();
+    registerHyperLogLogType();
+    registerTimestampWithTimeZoneType();
+  }
+
   void SetUp() override {
     LOG(ERROR) << "Seed: " << seed_;
   }
@@ -238,7 +248,13 @@ TEST_F(VectorSaverTest, types) {
 
   testTypeRoundTrip(UNKNOWN());
 
-  ASSERT_THROW(testTypeRoundTrip(OPAQUE<std::string>()), VeloxUserError);
+  VELOX_ASSERT_THROW(
+      testTypeRoundTrip(OPAQUE<std::string>()),
+      "No serialization persistent name registered for OPAQUE");
+
+  testTypeRoundTrip(JSON());
+  testTypeRoundTrip(HYPERLOGLOG());
+  testTypeRoundTrip(TIMESTAMP_WITH_TIME_ZONE());
 }
 
 TEST_F(VectorSaverTest, selectivityVector) {
