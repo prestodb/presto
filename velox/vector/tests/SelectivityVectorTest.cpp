@@ -216,6 +216,10 @@ TEST(SelectivityVectorTest, setValidRange) {
 
   ASSERT_NO_FATAL_FAILURE(setRangeAndAssert(0, vectorSize, false))
       << "all to false";
+
+  // Test empty ranges.
+  ASSERT_NO_FATAL_FAILURE(setRangeAndAssert(50000, 50000, false));
+  ASSERT_NO_FATAL_FAILURE(setRangeAndAssert(0, 0, false));
 }
 
 TEST(SelectivityVectorTest, clearAll) {
