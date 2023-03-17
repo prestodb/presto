@@ -56,6 +56,7 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      image: 'img/velox_blog_pic.png',
       navbar: {
         title: 'Velox',
         logo: {
