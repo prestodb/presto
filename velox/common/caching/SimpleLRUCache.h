@@ -34,6 +34,34 @@
 
 namespace facebook::velox {
 
+struct SimpleLRUCacheStats {
+  // Capacity of the cache.
+  int64_t maxSize{0};
+
+  // Current cache size used.
+  int64_t curSize{0};
+
+  // Current cache size used by pinned entries.
+  int64_t pinnedSize{0};
+
+  // Total number of elements in the cache.
+  size_t numElements{0};
+
+  std::string toString() const {
+    return fmt::format(
+        "{{\n"
+        "  maxSize: {}\n"
+        "  curSize: {}\n"
+        "  pinnedSize: {}\n"
+        "  numElements: {}\n"
+        "}}",
+        maxSize,
+        curSize,
+        pinnedSize,
+        numElements);
+  }
+};
+
 // Requires that key be copyable and movable.
 template <
     typename Key,
@@ -100,13 +128,23 @@ class SimpleLRUCache {
     return maxSize_;
   }
 
- private:
-  bool addInternal(Key key, Value* value, int64_t size, bool pinned);
+  SimpleLRUCacheStats getStats() const {
+    SimpleLRUCacheStats stats;
+    stats.numElements = elements_.size();
+    CHECK_EQ(stats.numElements, keys_.size());
+    stats.maxSize = maxSize_;
+    stats.curSize = curSize_;
+    stats.pinnedSize = pinnedSize_;
+    return stats;
+  }
 
   // Remove unpinned elements until at least size space is freed. Returns
   // the size actually freed, which may be less than requested if the
   // remaining are all pinned.
   int64_t free(int64_t size);
+
+ private:
+  bool addInternal(Key key, Value* value, int64_t size, bool pinned);
 
   const int64_t maxSize_;
   int64_t curSize_ = 0;
@@ -234,5 +272,4 @@ inline int64_t SimpleLRUCache<Key, Value, Comparator, Hash>::free(
   }
   return freed;
 }
-
 } // namespace facebook::velox

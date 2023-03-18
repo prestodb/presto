@@ -176,6 +176,18 @@ class CachedFactory {
     return cache_->maxSize();
   }
 
+  SimpleLRUCacheStats cacheStats() {
+    std::lock_guard l(cacheMu_);
+    return cache_->getStats();
+  }
+
+  // Clear the cache and return the current cache status
+  SimpleLRUCacheStats clearCache() {
+    std::lock_guard l(cacheMu_);
+    cache_->free(cache_->maxSize());
+    return cache_->getStats();
+  }
+
   // Move allowed, copy disallowed.
   CachedFactory(CachedFactory&&) = default;
   CachedFactory& operator=(CachedFactory&&) = default;

@@ -34,5 +34,11 @@ target_link_libraries(
 
 add_executable(cached_factory_test CachedFactoryTest.cpp)
 add_test(cached_factory_test cached_factory_test)
-target_link_libraries(cached_factory_test gtest gtest_main glog::glog
-                      gflags::gflags ${FOLLY_WITH_DEPENDENCIES})
+target_link_libraries(
+  cached_factory_test
+  velox_caching
+  gtest
+  gtest_main
+  glog::glog
+  gflags::gflags
+  ${FOLLY_WITH_DEPENDENCIES})
