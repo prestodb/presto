@@ -210,7 +210,7 @@ public class PrefilterForLimitingAggregation
 
             VariableReferenceExpression mapAggVariable = variableAllocator.newVariable("expr", mapType);
             PlanNode crossJoinRhs = addAggregation(rightProjectNode, functionAndTypeManager, idAllocator, variableAllocator, "MAP_AGG", mapType, ImmutableList.of(), mapAggVariable, rightProjectNode.getOutputVariables().get(0), rightProjectNode.getOutputVariables().get(1));
-            PlanNode crossJoinLhs = addProjections(originalSource, idAllocator, variableAllocator, ImmutableList.of(leftHashExpression));
+            PlanNode crossJoinLhs = addProjections(originalSource, idAllocator, variableAllocator, ImmutableList.of(leftHashExpression), ImmutableList.of());
             ImmutableList.Builder<VariableReferenceExpression> crossJoinOutput = ImmutableList.builder();
 
             crossJoinOutput.addAll(crossJoinLhs.getOutputVariables());

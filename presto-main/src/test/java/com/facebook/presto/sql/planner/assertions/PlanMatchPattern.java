@@ -222,9 +222,19 @@ public final class PlanMatchPattern
             Step step,
             PlanMatchPattern source)
     {
-        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, preGroupedSymbols, masks, groupId, step));
+        PlanMatchPattern result = node(AggregationNode.class, source);
         aggregations.entrySet().forEach(
-                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
+                aggregation ->
+                {
+                    if (aggregation.getKey().isPresent() && masks.containsKey(new Symbol(aggregation.getKey().get()))) {
+                        result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue(), masks.get(new Symbol(aggregation.getKey().get()))));
+                    }
+                    else {
+                        result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue()));
+                    }
+                });
+        // Put the AggregationMatcher at the end as the mask mapping will use the output mapping from aggregation function calls above
+        result.with(new AggregationMatcher(groupingSets, preGroupedSymbols, masks, groupId, step));
         return result;
     }
 
@@ -530,6 +540,14 @@ public final class PlanMatchPattern
         return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, identityMappings, groupIdAlias));
     }
 
+    public static PlanMatchPattern groupingSet(List<List<String>> groups, Map<String, String> identityMappings, String groupIdAlias, Map<String, ExpressionMatcher> groupingColumns, PlanMatchPattern source)
+    {
+        PlanMatchPattern result = node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, identityMappings, groupIdAlias));
+        groupingColumns.entrySet().forEach(
+                groupingColumn -> result.withAlias(groupingColumn.getKey(), groupingColumn.getValue()));
+        return result;
+    }
+
     private static PlanMatchPattern values(
             Map<String, Integer> aliasToIndex,
             Optional<Integer> expectedOutputSymbolCount,
@@ -631,7 +649,13 @@ public final class PlanMatchPattern
         SymbolAliases.Builder newAliases = SymbolAliases.builder();
 
         for (Matcher matcher : matchers) {
-            MatchResult matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases);
+            MatchResult matchResult;
+            if (matcher instanceof AggregationMatcher) {
+                matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases.withNewAliases(newAliases.build()));
+            }
+            else {
+                matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases);
+            }
             if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }
@@ -912,7 +936,7 @@ public final class PlanMatchPattern
         private final int groupingSetCount;
         private final Set<Integer> globalGroupingSets;
 
-        private GroupingSetDescriptor(List<String> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
+        public GroupingSetDescriptor(List<String> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
         {
             this.groupingKeys = groupingKeys;
             this.groupingSetCount = groupingSetCount;

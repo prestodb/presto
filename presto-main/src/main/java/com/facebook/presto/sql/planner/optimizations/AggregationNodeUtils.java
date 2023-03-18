@@ -90,4 +90,21 @@ public class AggregationNodeUtils
 
         return groupbyKeys.stream().noneMatch(x -> estimate.getVariableStatistics(x).getDistinctValuesCount() >= count);
     }
+
+    public static AggregationNode.Aggregation removeFilterAndMask(AggregationNode.Aggregation aggregation)
+    {
+        Optional<RowExpression> filter = aggregation.getFilter();
+        Optional<VariableReferenceExpression> mask = aggregation.getMask();
+
+        if (filter.isPresent() || mask.isPresent()) {
+            return new AggregationNode.Aggregation(
+                    aggregation.getCall(),
+                    Optional.empty(),
+                    aggregation.getOrderBy(),
+                    aggregation.isDistinct(),
+                    Optional.empty());
+        }
+
+        return aggregation;
+    }
 }
