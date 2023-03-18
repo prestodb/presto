@@ -34,6 +34,7 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.CauchyDistribution;
 import org.apache.commons.math3.distribution.ChiSquaredDistribution;
+import org.apache.commons.math3.distribution.FDistribution;
 import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.distribution.LaplaceDistribution;
 import org.apache.commons.math3.distribution.PoissonDistribution;
@@ -899,6 +900,36 @@ public final class MathFunctions
         checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must non-negative");
         checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
         ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.cumulativeProbability(value);
+    }
+
+    @Description("Inverse of F cdf given numerator degrees of freedom (df1), denominator degrees of freedom (df2) parameters, and probability")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double inverseFCdf(
+            @SqlType(StandardTypes.DOUBLE) double df1,
+            @SqlType(StandardTypes.DOUBLE) double df2,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        checkCondition(df1 > 0, INVALID_FUNCTION_ARGUMENT, "numerator df must be greater than 0");
+        checkCondition(df2 > 0, INVALID_FUNCTION_ARGUMENT, "denominator df must be greater than 0");
+        FDistribution distribution = new FDistribution(null, df1, df2, FDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.inverseCumulativeProbability(p);
+    }
+
+    @Description("F cdf given the numerator degrees of freedom (df1), denominator degrees of freedom (df2) parameters, and value")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double fCdf(
+            @SqlType(StandardTypes.DOUBLE) double df1,
+            @SqlType(StandardTypes.DOUBLE) double df2,
+            @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must non-negative");
+        checkCondition(df1 > 0, INVALID_FUNCTION_ARGUMENT, "numerator df must be greater than 0");
+        checkCondition(df2 > 0, INVALID_FUNCTION_ARGUMENT, "denominator df must be greater than 0");
+        FDistribution distribution = new FDistribution(null, df1, df2, FDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
 

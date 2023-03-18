@@ -1462,6 +1462,30 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testInverseFCdf()
+    {
+        assertFunction("inverse_f_cdf(2.0, 5.0, 0.0)", DOUBLE, 0.0);
+        assertFunction("round(inverse_f_cdf(2.0, 5.0, 0.5), 4)", DOUBLE, 0.7988);
+        assertFunction("round(inverse_f_cdf(2.0, 5.0, 0.9), 4)", DOUBLE, 3.7797);
+
+        assertInvalidFunction("inverse_f_cdf(0, 3, 0.5)", "numerator df must be greater than 0");
+        assertInvalidFunction("inverse_f_cdf(3, 0, 0.5)", "denominator df must be greater than 0");
+        assertInvalidFunction("inverse_f_cdf(3, 5, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_f_cdf(3, 5, 1.1)", "p must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testFCdf()
+    {
+        assertFunction("round(f_cdf(2.0, 5.0, 0.7988), 4)", DOUBLE, 0.5);
+        assertFunction("round(f_cdf(2.0, 5.0, 3.7797), 4)", DOUBLE, 0.9);
+
+        assertInvalidFunction("f_cdf(0, 3, 0.5)", "numerator df must be greater than 0");
+        assertInvalidFunction("f_cdf(3, 0, 0.5)", "denominator df must be greater than 0");
+        assertInvalidFunction("f_cdf(3, 5, -0.1)", "value must non-negative");
+    }
+
+    @Test
     public void testInverseGammaCdf()
     {
         assertFunction("inverse_gamma_cdf(3, 3.6, 0.0)", DOUBLE, 0.0);
