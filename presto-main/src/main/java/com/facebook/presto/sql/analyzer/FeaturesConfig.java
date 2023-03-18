@@ -251,6 +251,8 @@ public class FeaturesConfig
     private boolean isOptimizeJoinProbeWithEmptyBuildRuntime;
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     private boolean mergeDuplicateAggregationsEnabled = true;
+    private boolean mergeAggregationsWithAndWithoutFilter;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2422,6 +2424,19 @@ public class FeaturesConfig
     public FeaturesConfig setMergeDuplicateAggregationsEnabled(boolean mergeDuplicateAggregationsEnabled)
     {
         this.mergeDuplicateAggregationsEnabled = mergeDuplicateAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isMergeAggregationsWithAndWithoutFilter()
+    {
+        return this.mergeAggregationsWithAndWithoutFilter;
+    }
+
+    @Config("optimizer.merge-aggregations-with-and-without-filter")
+    @ConfigDescription("Enable optimization that merges the same agg with and without filter for efficiency")
+    public FeaturesConfig setMergeAggregationsWithAndWithoutFilter(boolean mergeAggregationsWithAndWithoutFilter)
+    {
+        this.mergeAggregationsWithAndWithoutFilter = mergeAggregationsWithAndWithoutFilter;
         return this;
     }
 }

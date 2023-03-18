@@ -135,6 +135,7 @@ import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.KeyBasedSampler;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeJoinForSortedInputOptimizer;
+import com.facebook.presto.sql.planner.optimizations.MergePartialAggregationsWithFilter;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
 import com.facebook.presto.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
@@ -691,8 +692,15 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.of(
                         new PushPartialAggregationThroughJoin(),
-                        new PushPartialAggregationThroughExchange(metadata.getFunctionAndTypeManager()),
-                        new PruneJoinColumns())));
+                        new PushPartialAggregationThroughExchange(metadata.getFunctionAndTypeManager()))),
+                // MergePartialAggregationsWithFilter should immediately follow PushPartialAggregationThroughExchange
+                new MergePartialAggregationsWithFilter(metadata.getFunctionAndTypeManager()),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(
+                                new PruneJoinColumns())));
 
         builder.add(new IterativeOptimizer(
                 ruleStats,
