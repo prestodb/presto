@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/http/filters/AccessLogFilter.h"
 
 namespace facebook::presto::http {
 
@@ -115,9 +117,18 @@ void HttpServer::start(
   options.threads = httpExecThreads_;
   options.idleTimeout = std::chrono::milliseconds(60'000);
   options.enableContentCompression = false;
-  options.handlerFactories = proxygen::RequestHandlerChain()
-                                 .addThen(std::move(handlerFactory_))
-                                 .build();
+
+  if (SystemConfig::instance()->enableHttpAccessLog()) {
+    options.handlerFactories = proxygen::RequestHandlerChain()
+                                   .addThen<filters::AccessLogFilterFactory>()
+                                   .addThen(std::move(handlerFactory_))
+                                   .build();
+  } else {
+    options.handlerFactories = proxygen::RequestHandlerChain()
+                                   .addThen(std::move(handlerFactory_))
+                                   .build();
+  }
+
   // Increase the default flow control to 1MB/10MB
   options.initialReceiveWindow = uint32_t(1 << 20);
   options.receiveStreamWindowSize = uint32_t(1 << 20);

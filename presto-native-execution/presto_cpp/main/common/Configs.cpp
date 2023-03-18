@@ -154,6 +154,11 @@ bool SystemConfig::useMmapAllocator() const {
   return opt.value_or(kUseMmapAllocatorDefault);
 }
 
+bool SystemConfig::enableHttpAccessLog() const {
+  auto opt = optionalProperty<bool>(std::string(kHttpEnableAccessLog));
+  return opt.value_or(kHttpEnableAccessLogDefault);
+}
+
 NodeConfig* NodeConfig::instance() {
   static std::unique_ptr<NodeConfig> instance = std::make_unique<NodeConfig>();
   return instance.get();

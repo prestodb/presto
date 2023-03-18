@@ -9,24 +9,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(presto_http HttpClient.cpp HttpServer.cpp
-                        filters/AccessLogFilter.cpp)
+add_executable(access_log_test AccessLogFilterTest.cpp)
 
-target_link_libraries(
-  presto_http
-  presto_common
-  velox_memory
-  velox_exception
-  ${PROXYGEN_LIBRARIES}
-  ${LIBSODIUM_LIBRARY}
-  ${OPENSSL_SSL_LIBRARY}
-  ${OPENSSL_CRYPTO_LIBRARY}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG}
-  ${GFLAGS_LIBRARIES}
-  ${FMT}
-  ${RE2})
+add_test(access_log_test access_log_test)
 
-if(PRESTO_ENABLE_TESTING)
-  add_subdirectory(tests)
-endif()
+target_link_libraries(access_log_test presto_http gtest gtest_main)
