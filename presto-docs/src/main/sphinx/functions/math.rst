@@ -196,6 +196,11 @@ Probability Functions: cdf
     Compute the Chi-square cdf with given df (degrees of freedom) parameter:  P(N < value; df).
     The df parameter must be a positive real number, and value must be a non-negative real value (both of type DOUBLE).
 
+.. function:: f_cdf(df1, df2, value) -> double
+
+    Compute the F cdf with given df1 (numerator degrees of freedom) and df2 (denominator degrees of freedom) parameters:  P(N < value; df1, df2).
+    The numerator and denominator df parameters must be positive real numbers. The value must be a non-negative real number.
+
 .. function:: gamma_cdf(shape, scale, value) -> double
 
     Compute the Gamma cdf with given shape and scale parameters:  P(N < value; shape, scale).
@@ -255,6 +260,12 @@ Probability Functions: inverse_cdf
 
     Compute the inverse of the Gamma cdf with given shape and scale parameters for the cumulative
     probability (p): P(N < n). The shape and scale parameters must be positive real values.
+    The probability p must lie on the interval [0, 1].
+
+.. function:: inverse_f_cdf(df1, df2, p) -> double
+
+    Compute the inverse of the F cdf with a given df1 (numerator degrees of freedom) and df2 (denominator degrees of freedom) parameters 
+    for the cumulative probability (p): P(N < n). The numerator and denominator df parameters must be positive real numbers.
     The probability p must lie on the interval [0, 1].
 
 .. function:: inverse_laplace_cdf(mean, scale, p) -> double
