@@ -688,6 +688,9 @@ CacheStats AsyncDataCache::refreshStats() const {
   for (auto& shard : shards_) {
     shard->updateStats(stats);
   }
+  if (ssdCache_) {
+    stats.ssdStats = std::make_shared<SsdCacheStats>(ssdCache_->stats());
+  }
   return stats;
 }
 

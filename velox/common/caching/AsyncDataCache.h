@@ -36,6 +36,7 @@ namespace facebook::velox::cache {
 class AsyncDataCache;
 class CacheShard;
 class SsdCache;
+class SsdCacheStats;
 class SsdFile;
 
 // Type for tracking last access. This is based on CPU clock and
@@ -499,6 +500,8 @@ struct CacheStats {
   // Sum of scores of evicted entries. This serves to infer an average
   // lifetime for entries in cache.
   int64_t sumEvictScore{};
+
+  std::shared_ptr<SsdCacheStats> ssdStats = nullptr;
 };
 // Collection of cache entries whose key hashes to the same shard of
 // the hash number space.  The cache population is divided into shards
