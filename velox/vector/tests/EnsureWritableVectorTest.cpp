@@ -15,6 +15,7 @@
  */
 #include <gtest/gtest.h>
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/tests/VectorTestUtils.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace facebook::velox;
@@ -838,4 +839,66 @@ TEST_F(EnsureWritableVectorTest, booleanFlatVector) {
       BaseVector::ensureWritable(rows, BOOLEAN(), pool_.get(), vector));
   ASSERT_EQ(vectorPtr, vector.get());
   ASSERT_NE(another->as<void>(), vector->valuesAsVoid());
+}
+
+TEST_F(EnsureWritableVectorTest, dataDependentFlags) {
+  auto pool = pool_.get();
+  auto size = 10;
+
+  auto ensureWritableStatic = [](VectorPtr& vector) {
+    BaseVector::ensureWritable(
+        SelectivityVector{1}, vector->type(), vector->pool(), vector);
+  };
+  auto ensureWritableInstance = [](VectorPtr& vector) {
+    vector->ensureWritable(SelectivityVector{1});
+  };
+
+  // Primitive flat vector.
+  {
+    SCOPED_TRACE("Flat");
+    auto createVector = [&]() {
+      return test::makeFlatVectorWithFlags<TypeKind::VARCHAR>(size, pool);
+    };
+
+    test::checkVectorFlagsReset(
+        createVector, ensureWritableInstance, SelectivityVector{1});
+    test::checkVectorFlagsReset(
+        createVector, ensureWritableStatic, SelectivityVector{1});
+  }
+
+  // Constant vector.
+  {
+    SCOPED_TRACE("Constant");
+    auto createVector = [&]() {
+      return test::makeConstantVectorWithFlags<TypeKind::VARCHAR>(size, pool);
+    };
+
+    test::checkVectorFlagsReset(
+        createVector, ensureWritableStatic, SelectivityVector{1});
+  }
+
+  // Dictionary vector.
+  {
+    SCOPED_TRACE("Dictionary");
+    auto createVector = [&]() {
+      return test::makeDictionaryVectorWithFlags<TypeKind::VARCHAR>(size, pool);
+    };
+
+    test::checkVectorFlagsReset(
+        createVector, ensureWritableStatic, SelectivityVector{1});
+  }
+
+  // Map vector.
+  {
+    SCOPED_TRACE("Map");
+    auto createVector = [&]() {
+      return test::makeMapVectorWithFlags<TypeKind::VARCHAR, TypeKind::VARCHAR>(
+          size, pool);
+    };
+
+    test::checkVectorFlagsReset(
+        createVector, ensureWritableInstance, SelectivityVector{1});
+    test::checkVectorFlagsReset(
+        createVector, ensureWritableStatic, SelectivityVector{1});
+  }
 }

@@ -23,7 +23,9 @@
 
 #include "velox/buffer/StringViewBufferHolder.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/type/DecimalUtil.h"
 #include "velox/type/StringView.h"
+#include "velox/type/Type.h"
 
 namespace facebook::velox::test {
 

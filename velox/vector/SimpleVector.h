@@ -319,6 +319,18 @@ class SimpleVector : public BaseVector {
     return left < right ? -1 : left == right ? 0 : 1;
   }
 
+  virtual void resetDataDependentFlags(const SelectivityVector* rows) override {
+    BaseVector::resetDataDependentFlags(rows);
+    isSorted_ = std::nullopt;
+    stats_ = SimpleVectorStats<T>{};
+    if (rows) {
+      asciiSetRows_.deselect(*rows);
+    } else {
+      asciiSetRows_.clearAll();
+      isAllAscii_ = false;
+    }
+  }
+
   std::optional<bool> isSorted_ = std::nullopt;
 
   // Allows checking that access is with the same width of T as

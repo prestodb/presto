@@ -245,9 +245,6 @@ void FlatVector<StringView>::prepareForReuse() {
       rawValues_[i] = StringView();
     }
   }
-
-  // Clear ASCII-ness.
-  SimpleVector<StringView>::invalidateIsAscii();
 }
 
 template <>

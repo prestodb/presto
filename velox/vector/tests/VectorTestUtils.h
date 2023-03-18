@@ -16,9 +16,11 @@
 
 #pragma once
 
+#include <gtest/gtest.h>
 #include "velox/vector/tests/VectorValueGenerator.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 #include "velox/vector/tests/utils/VectorMakerStats.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::test {
 
@@ -276,5 +278,140 @@ SimpleVectorPtr<T> createAndAssert(
   assertVectorAndProperties(expected, vector);
   return vector;
 }
+
+BufferPtr makeNulls(
+    vector_size_t size,
+    memory::MemoryPool* pool,
+    std::function<bool(vector_size_t /*row*/)> isNullAt);
+
+// Create a flat vector of default values of `kind` with data-dependent flags
+// being set. The last row is set to NULL.
+template <TypeKind kind>
+VectorPtr makeFlatVectorWithFlags(
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  using T = typename TypeTraits<kind>::NativeType;
+  T value;
+
+  auto nulls = makeNulls(size, pool, [&](auto row) { return row == size - 1; });
+  auto values = AlignedBuffer::allocate<T>(size, pool, value);
+  auto vector = std::make_shared<FlatVector<T>>(
+      pool,
+      CppToType<T>::create(),
+      nulls,
+      size,
+      std::move(values),
+      std::vector<BufferPtr>(),
+      /*stats*/ SimpleVectorStats<T>{value, value},
+      /*distinctValueCount*/ 1,
+      /*nullCount*/ 1,
+      /*isSorted*/ true,
+      /*representedBytes*/ 0,
+      /*storageByteCount*/ 0);
+  vector->computeAndSetIsAscii(SelectivityVector(size - 1));
+  return vector;
+}
+
+// Create a constant vector of default values of `kind` with data-dependent
+// flags being set.
+template <TypeKind kind>
+VectorPtr makeConstantVectorWithFlags(
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  using T = typename TypeTraits<kind>::NativeType;
+  T value;
+
+  auto vector = std::make_shared<ConstantVector<T>>(
+      pool,
+      size,
+      false,
+      CppToType<T>::create(),
+      std::move(value),
+      /*stats*/ SimpleVectorStats<T>{value, value},
+      /*representedBytes*/ 0,
+      /*storageByteCount*/ 0);
+  vector->computeAndSetIsAscii(SelectivityVector(size));
+  return vector;
+}
+
+// Create a dictionary vector of default values of `kind` with data-dependent
+// flags being set. The indices are identity mapping and the last row is set to
+// null.
+template <TypeKind kind>
+VectorPtr makeDictionaryVectorWithFlags(
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  using T = typename TypeTraits<kind>::NativeType;
+  using TVariant = typename detail::VariantTypeTraits<kind>::native_type;
+  T value;
+  TVariant variant{value};
+
+  auto nulls = makeNulls(size, pool, [&](auto row) { return row == size - 1; });
+  auto base =
+      BaseVector::createConstant(CppToType<T>::create(), variant, size, pool);
+  auto vector = std::make_shared<DictionaryVector<T>>(
+      pool,
+      nulls,
+      size,
+      base,
+      test::makeIndices(
+          size, [](auto row) { return row; }, pool),
+      /*stats*/ SimpleVectorStats<T>{value, value},
+      /*distinctValueCount*/ 1,
+      /*nullCount*/ 1,
+      /*isSorted*/ true,
+      /*representedBytes*/ 0,
+      /*storageByteCount*/ 0);
+  vector->computeAndSetIsAscii(SelectivityVector(size - 1));
+  return vector;
+}
+
+// Create a flat map vector of default values of `keyKind` and `valueKind` with
+// data-dependent flags being set. The last row of the map vector and of its
+// keys and values vectors are set to null.
+template <TypeKind keyKind, TypeKind valueKind>
+VectorPtr makeMapVectorWithFlags(vector_size_t size, memory::MemoryPool* pool) {
+  using K = typename TypeTraits<keyKind>::NativeType;
+  using V = typename TypeTraits<valueKind>::NativeType;
+  K key;
+  V value;
+
+  auto keys = makeFlatVectorWithFlags<keyKind>(size, pool);
+  auto values = makeDictionaryVectorWithFlags<valueKind>(size, pool);
+
+  auto offsets = allocateOffsets(size, pool);
+  auto* rawOffsets = offsets->asMutable<vector_size_t>();
+  auto sizes = allocateSizes(size, pool);
+  auto* rawSizes = sizes->asMutable<vector_size_t>();
+  for (auto i = 0; i < size; ++i) {
+    rawOffsets[i] = i;
+    rawSizes[i] = 1;
+  }
+
+  auto nulls = makeNulls(size, pool, [&](auto row) { return row == size - 1; });
+  auto vector = std::make_shared<MapVector>(
+      pool,
+      MAP(CppToType<K>::create(), CppToType<V>::create()),
+      nulls,
+      size,
+      offsets,
+      sizes,
+      keys,
+      values,
+      /*nullCount*/ 1,
+      /*sortedKeys*/ true);
+  return vector;
+}
+
+// Create a vector through createVector and verify that data-dependent flags
+// are set. Then call ensureWritable() or prepareForReuse() through makeMutable
+// and verify that data-dependent flags are cleared after the call. mutatedRows
+// specifies the rows that are mutated by makeMutable where the asciiness flag
+// should be cleared (if exists). If createVector creates an array or map
+// vector, mutatedRows should select into its element vector.
+void checkVectorFlagsReset(
+    const std::function<VectorPtr()>& createVector,
+    const std::function<void(VectorPtr&)>& makeMutable,
+    const SelectivityVector& mutatedRows);
 
 } // namespace facebook::velox::test
