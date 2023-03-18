@@ -180,15 +180,19 @@ public class PlannerUtils
                 LOCAL);
     }
 
-    public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, List<RowExpression> expressions)
+    public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, List<RowExpression> expressions,
+            List<VariableReferenceExpression> variablesToUse)
     {
         Assignments.Builder assignments = Assignments.builder();
         for (VariableReferenceExpression variableReferenceExpression : source.getOutputVariables()) {
             assignments.put(variableReferenceExpression, variableReferenceExpression);
         }
 
-        for (RowExpression expression : expressions) {
-            assignments.put(variableAllocator.newVariable("expr", expression.getType()), expression);
+        checkState(variablesToUse.isEmpty() || variablesToUse.size() == expressions.size());
+        for (int i = 0; i < expressions.size(); i++) {
+            RowExpression expression = expressions.get(i);
+            VariableReferenceExpression variable = variablesToUse.isEmpty() ? variableAllocator.newVariable(expression) : variablesToUse.get(i);
+            assignments.put(variable, expression);
         }
 
         return new ProjectNode(

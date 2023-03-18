@@ -22,6 +22,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
@@ -117,6 +118,10 @@ public class ExpressionMatcher
         else if (node instanceof ApplyNode) {
             ApplyNode applyNode = (ApplyNode) node;
             return applyNode.getSubqueryAssignments().getMap();
+        }
+        else if (node instanceof GroupIdNode) {
+            GroupIdNode groupIdNode = (GroupIdNode) node;
+            return groupIdNode.getGroupingColumns().entrySet().stream().collect(Collectors.toMap(x -> x.getKey(), x -> (RowExpression) x.getValue()));
         }
         else {
             return null;

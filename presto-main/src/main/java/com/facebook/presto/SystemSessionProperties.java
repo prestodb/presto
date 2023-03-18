@@ -260,6 +260,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME = "optimize_join_probe_for_empty_build_runtime";
     public static final String USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS = "use_defaults_for_correlated_aggregation_pushdown_through_outer_joins";
     public static final String MERGE_DUPLICATE_AGGREGATIONS = "merge_duplicate_aggregations";
+    public static final String MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER = "merge_aggregations_with_and_without_filter";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1498,6 +1499,11 @@ public final class SystemSessionProperties
                         MERGE_DUPLICATE_AGGREGATIONS,
                         "Merge identical aggregation functions within the same aggregation node",
                         featuresConfig.isMergeDuplicateAggregationsEnabled(),
+                        false),
+                booleanProperty(
+                        MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER,
+                        "Merge aggregations that are same except for filter",
+                        featuresConfig.isMergeAggregationsWithAndWithoutFilter(),
                         false));
     }
 
@@ -2482,6 +2488,11 @@ public final class SystemSessionProperties
     public static boolean isPrefilterForGroupbyLimit(Session session)
     {
         return session.getSystemProperty(PREFILTER_FOR_GROUPBY_LIMIT, Boolean.class);
+    }
+
+    public static boolean isMergeAggregationsWithAndWithoutFilter(Session session)
+    {
+        return session.getSystemProperty(MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER, Boolean.class);
     }
 
     public static boolean isInPredicatesAsInnerJoinsEnabled(Session session)
