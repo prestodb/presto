@@ -34,6 +34,8 @@ class SpillOperatorGroup;
 /// Corresponds to Presto TaskState, needed for reporting query completion.
 enum TaskState { kRunning, kFinished, kCanceled, kAborted, kFailed };
 
+std::string taskStateString(TaskState state);
+
 struct BarrierState {
   int32_t numRequested;
   std::vector<std::shared_ptr<Driver>> drivers;

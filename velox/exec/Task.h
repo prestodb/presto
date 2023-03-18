@@ -545,6 +545,9 @@ class Task : public std::enable_shared_from_this<Task> {
   void testingVisitDrivers(const std::function<void(Driver*)>& callback);
 
  private:
+  // Returns time (ms) since the task execution started or zero, if not started.
+  uint64_t timeSinceStartMsLocked() const;
+
   // Returns reference to the SplitsState structure for the specified plan node
   // id. Throws if not found, meaning that plan node does not expect splits.
   SplitsState& getPlanNodeSplitsStateLocked(const core::PlanNodeId& planNodeId);

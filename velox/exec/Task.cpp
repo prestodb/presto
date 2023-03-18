@@ -38,6 +38,22 @@ using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 
+std::string taskStateString(TaskState state) {
+  switch (state) {
+    case TaskState::kRunning:
+      return "Running";
+    case TaskState::kFinished:
+      return "Finished";
+    case TaskState::kCanceled:
+      return "Canceled";
+    case TaskState::kAborted:
+      return "Aborted";
+    case TaskState::kFailed:
+      return "Failed";
+  }
+  return "<Unknown>";
+}
+
 namespace {
 
 folly::Synchronized<std::vector<std::shared_ptr<TaskListener>>>& listeners() {
@@ -196,6 +212,13 @@ Task::~Task() {
   }
 
   removeSpillDirectoryIfExists();
+}
+
+uint64_t Task::timeSinceStartMsLocked() const {
+  if (taskStats_.executionStartTimeMs == 0UL) {
+    return 0UL;
+  }
+  return getCurrentTimeMs() - taskStats_.executionStartTimeMs;
 }
 
 SplitsState& Task::getPlanNodeSplitsStateLocked(
@@ -692,6 +715,13 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
       }
       foundDriver = true;
       break;
+    }
+
+    if (self->numFinishedDrivers_ == self->numTotalDrivers_) {
+      LOG(INFO) << "All drivers (" << self->numFinishedDrivers_
+                << ") finished for task " << self->taskId()
+                << " after running for " << self->timeSinceStartMsLocked()
+                << " ms.";
     }
   }
 
@@ -1340,6 +1370,10 @@ ContinueFuture Task::terminate(TaskState terminalState) {
       }
     }
 
+    LOG(INFO) << "Terminating task " << taskId() << " with state "
+              << taskStateString(state_) << " after running for "
+              << timeSinceStartMsLocked() << " ms.";
+
     activateTaskCompletionNotifier(completionNotifier);
 
     // Update the total number of drivers in case of grouped execution, if we
@@ -1523,10 +1557,7 @@ TaskStats Task::taskStats() const {
 
 uint64_t Task::timeSinceStartMs() const {
   std::lock_guard<std::mutex> l(mutex_);
-  if (taskStats_.executionStartTimeMs == 0UL) {
-    return 0UL;
-  }
-  return getCurrentTimeMs() - taskStats_.executionStartTimeMs;
+  return timeSinceStartMsLocked();
 }
 
 uint64_t Task::timeSinceEndMs() const {
