@@ -154,7 +154,9 @@ class TaskManagerTest : public testing::Test {
     connector::registerConnector(hiveConnector);
     dwrf::registerDwrfReaderFactory();
 
-    pool_ = memory::getDefaultMemoryPool();
+    rootPool_ = memory::getProcessDefaultMemoryManager().getPool(
+        "TaskManagerTest.root");
+    leafPool_ = memory::getDefaultMemoryPool("TaskManagerTest.leaf");
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
 
     taskManager_ = std::make_unique<TaskManager>();
@@ -189,7 +191,7 @@ class TaskManagerTest : public testing::Test {
     for (int i = 0; i < count; ++i) {
       auto vector = std::dynamic_pointer_cast<RowVector>(
           facebook::velox::test::BatchMaker::createBatch(
-              rowType_, rowsPerVector, *pool_));
+              rowType_, rowsPerVector, *leafPool_));
       vectors.emplace_back(vector);
     }
     return vectors;
@@ -207,7 +209,7 @@ class TaskManagerTest : public testing::Test {
     options.schema = rowType_;
     auto sink = std::make_unique<dwio::common::LocalFileSink>(
         filePath, dwio::common::MetricsLog::voidLog());
-    dwrf::Writer writer{options, std::move(sink), *pool_};
+    dwrf::Writer writer{options, std::move(sink), *rootPool_};
 
     for (size_t i = 0; i < vectors.size(); ++i) {
       writer.write(vectors[i]);
@@ -269,7 +271,7 @@ class TaskManagerTest : public testing::Test {
       const protocol::TaskId& taskId,
       const RowTypePtr& resultType,
       const std::vector<std::string>& allTaskIds) {
-    Cursor cursor(taskManager_.get(), taskId, resultType, pool_.get());
+    Cursor cursor(taskManager_.get(), taskId, resultType, leafPool_.get());
     std::vector<RowVectorPtr> vectors;
     for (;;) {
       auto moreVectors = cursor.next();
@@ -550,7 +552,8 @@ class TaskManagerTest : public testing::Test {
         taskId, planFragment, 0, std::move(queryCtx));
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> rootPool_;
+  std::shared_ptr<memory::MemoryPool> leafPool_;
   RowTypePtr rowType_;
   exec::test::DuckDbQueryRunner duckDbQueryRunner_;
   std::unique_ptr<TaskManager> taskManager_;
