@@ -27,9 +27,10 @@ namespace {
 VectorPtr toConstant(
     const core::TypedExprPtr& expr,
     const std::shared_ptr<core::QueryCtx>& queryCtx) {
+  static auto pool = memory::getDefaultMemoryPool();
   auto data = std::make_shared<RowVector>(
-      queryCtx->pool(), ROW({}, {}), nullptr, 1, std::vector<VectorPtr>{});
-  core::ExecCtx execCtx{queryCtx->pool(), queryCtx.get()};
+      pool.get(), ROW({}, {}), nullptr, 1, std::vector<VectorPtr>{});
+  core::ExecCtx execCtx{pool.get(), queryCtx.get()};
   ExprSet exprSet({expr}, &execCtx);
   if (!exprSet.exprs()[0]->isConstant()) {
     return nullptr;

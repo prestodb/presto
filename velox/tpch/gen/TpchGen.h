@@ -80,11 +80,10 @@ TypePtr resolveTpchColumn(Table table, const std::string& columnName);
 ///  o_comment: VARCHAR
 ///
 RowVectorPtr genTpchOrders(
+    memory::MemoryPool* pool,
     size_t maxRows = 10000,
     size_t offset = 0,
-    double scaleFactor = 1,
-    memory::MemoryPool* pool =
-        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+    double scaleFactor = 1);
 
 /// NOTE: This function's parameters have different semantic from the function
 /// above. Dbgen does not provide deterministic random access to lineitem
@@ -119,11 +118,10 @@ RowVectorPtr genTpchOrders(
 ///  l_comment: VARCHAR
 ///
 RowVectorPtr genTpchLineItem(
+    memory::MemoryPool* pool,
     size_t maxOrdersRows = 10000,
     size_t ordersOffset = 0,
-    double scaleFactor = 1,
-    memory::MemoryPool* pool =
-        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+    double scaleFactor = 1);
 
 /// Returns a row vector containing at most `maxRows` rows of the "part"
 /// table, starting at `offset`, and given the scale factor. The row vector
@@ -140,11 +138,10 @@ RowVectorPtr genTpchLineItem(
 ///  p_comment: VARCHAR
 ///
 RowVectorPtr genTpchPart(
+    memory::MemoryPool* pool,
     size_t maxRows = 10000,
     size_t offset = 0,
-    double scaleFactor = 1,
-    memory::MemoryPool* pool =
-        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+    double scaleFactor = 1);
 
 /// Returns a row vector containing at most `maxRows` rows of the "supplier"
 /// table, starting at `offset`, and given the scale factor. The row vector
@@ -159,11 +156,10 @@ RowVectorPtr genTpchPart(
 ///  s_comment: VARCHAR
 ///
 RowVectorPtr genTpchSupplier(
+    memory::MemoryPool* pool,
     size_t maxRows = 10000,
     size_t offset = 0,
-    double scaleFactor = 1,
-    memory::MemoryPool* pool =
-        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+    double scaleFactor = 1);
 
 /// Returns a row vector containing at most `maxRows` rows of the "partsupp"
 /// table, starting at `offset`, and given the scale factor. The row vector
@@ -176,11 +172,10 @@ RowVectorPtr genTpchSupplier(
 ///  ps_comment: VARCHAR
 ///
 RowVectorPtr genTpchPartSupp(
+    memory::MemoryPool* pool,
     size_t maxRows = 10000,
     size_t offset = 0,
-    double scaleFactor = 1,
-    memory::MemoryPool* pool =
-        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+    double scaleFactor = 1);
 
 /// Returns a row vector containing at most `maxRows` rows of the "customer"
 /// table, starting at `offset`, and given the scale factor. The row vector
@@ -196,11 +191,10 @@ RowVectorPtr genTpchPartSupp(
 ///  c_comment: VARCHAR
 ///
 RowVectorPtr genTpchCustomer(
+    memory::MemoryPool* pool,
     size_t maxRows = 10000,
     size_t offset = 0,
-    double scaleFactor = 1,
-    memory::MemoryPool* pool =
-        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+    double scaleFactor = 1);
 
 /// Returns a row vector containing at most `maxRows` rows of the "nation"
 /// table, starting at `offset`, and given the scale factor. The row vector
@@ -212,11 +206,10 @@ RowVectorPtr genTpchCustomer(
 ///  n_comment: VARCHAR
 ///
 RowVectorPtr genTpchNation(
+    memory::MemoryPool* pool,
     size_t maxRows = 10000,
     size_t offset = 0,
-    double scaleFactor = 1,
-    memory::MemoryPool* pool =
-        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+    double scaleFactor = 1);
 
 /// Returns a row vector containing at most `maxRows` rows of the "region"
 /// table, starting at `offset`, and given the scale factor. The row vector
@@ -227,10 +220,9 @@ RowVectorPtr genTpchNation(
 ///  r_comment: VARCHAR
 ///
 RowVectorPtr genTpchRegion(
+    memory::MemoryPool* pool,
     size_t maxRows = 10000,
     size_t offset = 0,
-    double scaleFactor = 1,
-    memory::MemoryPool* pool =
-        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+    double scaleFactor = 1);
 
 } // namespace facebook::velox::tpch

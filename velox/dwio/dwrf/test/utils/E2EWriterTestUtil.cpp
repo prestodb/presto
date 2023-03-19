@@ -48,7 +48,9 @@ namespace facebook::velox::dwrf {
   options.layoutPlannerFactory = layoutPlannerFactory;
 
   auto writer = std::make_unique<Writer>(
-      options, std::move(sink), velox::memory::getDefaultMemoryPool());
+      options,
+      std::move(sink),
+      velox::memory::getProcessDefaultMemoryManager().getPool());
 
   for (size_t i = 0; i < batches.size(); ++i) {
     writer->write(batches[i]);

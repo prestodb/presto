@@ -46,9 +46,9 @@ class QueryCtx : public Context {
       std::shared_ptr<folly::Executor> spillExecutor = nullptr,
       const std::string& queryId = "")
       : Context{ContextScope::QUERY},
-        pool_(std::move(pool)),
-        allocator_(allocator),
         connectorConfigs_(connectorConfigs),
+        allocator_(allocator),
+        pool_(std::move(pool)),
         executor_(executor),
         queryConfig_{this},
         queryId_(queryId),
@@ -71,9 +71,9 @@ class QueryCtx : public Context {
       std::shared_ptr<memory::MemoryPool> pool = nullptr,
       const std::string& queryId = "")
       : Context{ContextScope::QUERY},
-        pool_(std::move(pool)),
-        allocator_(allocator),
         connectorConfigs_(connectorConfigs),
+        allocator_(allocator),
+        pool_(std::move(pool)),
         executorKeepalive_(std::move(executorKeepalive)),
         queryConfig_{this},
         queryId_(queryId) {
@@ -152,7 +152,7 @@ class QueryCtx : public Context {
 
   void initPool(const std::string& queryId) {
     if (pool_ == nullptr) {
-      pool_ = memory::getProcessDefaultMemoryManager().getRoot().addChild(
+      pool_ = memory::getProcessDefaultMemoryManager().getPool(
           QueryCtx::generatePoolName(queryId));
     }
     if (pool_->getMemoryUsageTracker() == nullptr) {
@@ -160,9 +160,9 @@ class QueryCtx : public Context {
     }
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_;
-  memory::MemoryAllocator* FOLLY_NONNULL allocator_;
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs_;
+  memory::MemoryAllocator* FOLLY_NONNULL allocator_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   folly::Executor* FOLLY_NULLABLE executor_;
   folly::Executor::KeepAlive<> executorKeepalive_;
   QueryConfig queryConfig_;

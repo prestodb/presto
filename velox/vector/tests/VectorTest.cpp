@@ -2032,7 +2032,7 @@ TEST_F(VectorTest, mapSliceMutability) {
 TEST_F(VectorTest, lifetime) {
   ASSERT_DEATH(
       {
-        auto childPool = pool_->addChild("test");
+        auto childPool = memory::getDefaultMemoryPool();
         auto v = BaseVector::create(INTEGER(), 10, childPool.get());
 
         // BUG: Memory pool needs to stay alive until all memory allocated from
@@ -2040,7 +2040,7 @@ TEST_F(VectorTest, lifetime) {
         childPool.reset();
         v.reset();
       },
-      "Memory pool test should be destroyed only after all allocated memory has been freed.");
+      "");
 }
 
 TEST_F(VectorTest, ensureNullsCapacity) {

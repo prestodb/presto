@@ -76,7 +76,10 @@ void runBenchmark(int nullEvery) {
 
   for (auto i = 0; i < kNumIterations; i++) {
     auto config = std::make_shared<Config>();
-    WriterContext context{config, memory::getDefaultMemoryPool()};
+    WriterContext context{
+        config,
+        memory::getProcessDefaultMemoryManager().getPool(
+            "FloatColumnWriterBenchmark")};
     auto writer = BaseColumnWriter::create(context, *typeWithId, 0);
     writer->write(vector, common::Ranges::of(0, kVectorSize));
   }

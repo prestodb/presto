@@ -183,8 +183,9 @@ Task::Task(
       planFragment_(std::move(planFragment)),
       destination_(destination),
       queryCtx_(std::move(queryCtx)),
-      pool_(
-          queryCtx_->pool()->addChild(fmt::format("task.{}", taskId_.c_str()))),
+      pool_(queryCtx_->pool()->addChild(
+          fmt::format("task.{}", taskId_.c_str()),
+          memory::MemoryPool::Kind::kAggregate)),
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
       splitsStates_(initializeSplitStates(planFragment_.planNode)),
@@ -261,12 +262,10 @@ Task::getOrAddNodePool(const core::PlanNodeId& planNodeId) {
     return nodePools_[planNodeId];
   }
 
-  childPools_.push_back(pool_->addChild(fmt::format("node.{}", planNodeId)));
+  childPools_.push_back(pool_->addChild(
+      fmt::format("node.{}", planNodeId),
+      memory::MemoryPool::Kind::kAggregate));
   auto* nodePool = childPools_.back().get();
-  auto parentTracker = pool_->getMemoryUsageTracker();
-  if (parentTracker != nullptr) {
-    nodePool->setMemoryUsageTracker(parentTracker->addChild());
-  }
   nodePools_[planNodeId] = nodePool;
   return nodePool;
 }
@@ -279,6 +278,25 @@ velox::memory::MemoryPool* Task::addOperatorPool(
   auto* nodePool = getOrAddNodePool(planNodeId);
   childPools_.push_back(nodePool->addChild(fmt::format(
       "op.{}.{}.{}.{}", planNodeId, pipelineId, driverId, operatorType)));
+  return childPools_.back().get();
+}
+
+velox::memory::MemoryPool* Task::addConnectorWriterPoolLocked(
+    const core::PlanNodeId& planNodeId,
+    int pipelineId,
+    uint32_t driverId,
+    const std::string& operatorType,
+    const std::string& connectorId) {
+  auto* nodePool = getOrAddNodePool(planNodeId);
+  childPools_.push_back(nodePool->addChild(
+      fmt::format(
+          "op.{}.{}.{}.{}.{}",
+          planNodeId,
+          pipelineId,
+          driverId,
+          operatorType,
+          connectorId),
+      memory::MemoryPool::Kind::kAggregate));
   return childPools_.back().get();
 }
 

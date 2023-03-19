@@ -25,8 +25,9 @@ using facebook::velox::common::testutil::TestValue;
 namespace facebook::velox::memory {
 std::shared_ptr<MemoryUsageTracker> MemoryUsageTracker::create(
     const std::shared_ptr<MemoryUsageTracker>& parent,
+    bool leafTracker,
     int64_t maxMemory) {
-  auto* tracker = new MemoryUsageTracker(parent, maxMemory);
+  auto* tracker = new MemoryUsageTracker(parent, leafTracker, maxMemory);
   return std::shared_ptr<MemoryUsageTracker>(tracker);
 }
 
@@ -43,6 +44,8 @@ MemoryUsageTracker::~MemoryUsageTracker() {
 }
 
 void MemoryUsageTracker::update(int64_t size) {
+  reservationCheck();
+
   if (size == 0) {
     return;
   }
@@ -59,6 +62,7 @@ void MemoryUsageTracker::update(int64_t size) {
 }
 
 void MemoryUsageTracker::reserve(uint64_t size) {
+  reservationCheck();
   if (size == 0) {
     return;
   }
@@ -102,6 +106,7 @@ void MemoryUsageTracker::reserve(uint64_t size, bool reserveOnly) {
 }
 
 void MemoryUsageTracker::release() {
+  reservationCheck();
   ++numReleases_;
   release(0);
 }
@@ -201,6 +206,7 @@ void MemoryUsageTracker::sanityCheckLocked() const {
 }
 
 bool MemoryUsageTracker::maybeReserve(uint64_t increment) {
+  reservationCheck();
   TestValue::adjust(
       "facebook::velox::memory::MemoryUsageTracker::maybeReserve", this);
   constexpr int32_t kGrowthQuantum = 8 << 20;

@@ -28,8 +28,18 @@ using namespace facebook::velox::tpch;
 
 // Nation tests.
 
-TEST(TpchGenTestNation, default) {
-  auto rowVector = genTpchNation();
+class TpchGenTestNationTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    pool_ = memory::getProcessDefaultMemoryManager().getPool(
+        "TpchGenTestNationTest", memory::MemoryPool::Kind::kLeaf);
+  }
+
+  std::shared_ptr<memory::MemoryPool> pool_;
+};
+
+TEST_F(TpchGenTestNationTest, default) {
+  auto rowVector = genTpchNation(pool_.get());
   ASSERT_NE(rowVector, nullptr);
   EXPECT_EQ(4, rowVector->childrenSize());
   EXPECT_EQ(25, rowVector->size());
@@ -49,16 +59,16 @@ TEST(TpchGenTestNation, default) {
 }
 
 // Ensure scale factor doesn't affect Nation table.
-TEST(TpchGenTestNation, scaleFactor) {
-  auto rowVector = genTpchNation(10'000, 0, 1'000);
+TEST_F(TpchGenTestNationTest, scaleFactor) {
+  auto rowVector = genTpchNation(pool_.get(), 10'000, 0, 1'000);
   ASSERT_NE(rowVector, nullptr);
 
   EXPECT_EQ(4, rowVector->childrenSize());
   EXPECT_EQ(25, rowVector->size());
 }
 
-TEST(TpchGenTestNation, smallBatch) {
-  auto rowVector = genTpchNation(10);
+TEST_F(TpchGenTestNationTest, smallBatch) {
+  auto rowVector = genTpchNation(pool_.get(), 10);
   ASSERT_NE(rowVector, nullptr);
 
   EXPECT_EQ(4, rowVector->childrenSize());
@@ -69,8 +79,8 @@ TEST(TpchGenTestNation, smallBatch) {
   EXPECT_EQ(9, nationKey->valueAt(9));
 }
 
-TEST(TpchGenTestNation, smallBatchWithOffset) {
-  auto rowVector = genTpchNation(10, 5);
+TEST_F(TpchGenTestNationTest, smallBatchWithOffset) {
+  auto rowVector = genTpchNation(pool_.get(), 10, 5);
   ASSERT_NE(rowVector, nullptr);
 
   EXPECT_EQ(4, rowVector->childrenSize());
@@ -81,8 +91,8 @@ TEST(TpchGenTestNation, smallBatchWithOffset) {
   EXPECT_EQ(14, nationKey->valueAt(9));
 }
 
-TEST(TpchGenTestNation, smallBatchPastEnd) {
-  auto rowVector = genTpchNation(10, 20);
+TEST_F(TpchGenTestNationTest, smallBatchPastEnd) {
+  auto rowVector = genTpchNation(pool_.get(), 10, 20);
   ASSERT_NE(rowVector, nullptr);
 
   EXPECT_EQ(4, rowVector->childrenSize());
@@ -93,10 +103,10 @@ TEST(TpchGenTestNation, smallBatchPastEnd) {
   EXPECT_EQ(24, nationKey->valueAt(4));
 }
 
-TEST(TpchGenTestNation, reproducible) {
-  auto rowVector1 = genTpchNation();
-  auto rowVector2 = genTpchNation();
-  auto rowVector3 = genTpchNation();
+TEST_F(TpchGenTestNationTest, reproducible) {
+  auto rowVector1 = genTpchNation(pool_.get());
+  auto rowVector2 = genTpchNation(pool_.get());
+  auto rowVector3 = genTpchNation(pool_.get());
 
   for (size_t i = 0; i < rowVector1->size(); ++i) {
     ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
@@ -104,8 +114,8 @@ TEST(TpchGenTestNation, reproducible) {
   }
 
   // Ensure it's also reproducible if we add an offset.
-  auto rowVector4 = genTpchNation(100, 10);
-  auto rowVector5 = genTpchNation(100, 10);
+  auto rowVector4 = genTpchNation(pool_.get(), 100, 10);
+  auto rowVector5 = genTpchNation(pool_.get(), 100, 10);
 
   for (size_t i = 0; i < rowVector4->size(); ++i) {
     ASSERT_TRUE(rowVector4->equalValueAt(rowVector5.get(), i, i));
@@ -113,8 +123,8 @@ TEST(TpchGenTestNation, reproducible) {
 
   // Ensure it's also reproducible if we generate batches starting in
   // different offsets.
-  auto rowVector6 = genTpchNation(100, 0);
-  auto rowVector7 = genTpchNation(90, 10);
+  auto rowVector6 = genTpchNation(pool_.get(), 100, 0);
+  auto rowVector7 = genTpchNation(pool_.get(), 90, 10);
 
   for (size_t i = 0; i < rowVector7->size(); ++i) {
     ASSERT_TRUE(rowVector7->equalValueAt(rowVector6.get(), i, i + 10));
@@ -122,9 +132,18 @@ TEST(TpchGenTestNation, reproducible) {
 }
 
 // Region.
+class TpchGenTestRegionTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    pool_ = memory::getProcessDefaultMemoryManager().getPool(
+        "TpchGenTestRegionTest", memory::MemoryPool::Kind::kLeaf);
+  }
 
-TEST(TpchGenTestRegion, batches) {
-  auto rowVector1 = genTpchRegion();
+  std::shared_ptr<memory::MemoryPool> pool_;
+};
+
+TEST_F(TpchGenTestRegionTest, batches) {
+  auto rowVector1 = genTpchRegion(pool_.get());
 
   EXPECT_EQ(3, rowVector1->childrenSize());
   EXPECT_EQ(5, rowVector1->size());
@@ -141,24 +160,24 @@ TEST(TpchGenTestRegion, batches) {
   LOG(INFO) << rowVector1->toString(4);
 }
 
-TEST(TpchGenTestRegion, lastBatch) {
+TEST_F(TpchGenTestRegionTest, lastBatch) {
   // Ask for 100 regions but there are only 5.
-  auto rowVector = genTpchRegion(100);
+  auto rowVector = genTpchRegion(pool_.get(), 100);
   EXPECT_EQ(5, rowVector->size());
 
   // Scale factor doens't affect it.
-  rowVector = genTpchRegion(100, 0, 2);
+  rowVector = genTpchRegion(pool_.get(), 100, 0, 2);
   EXPECT_EQ(5, rowVector->size());
 
   // Zero records if we go beyond the end.
-  rowVector = genTpchRegion(1'000, 200'000);
+  rowVector = genTpchRegion(pool_.get(), 1'000, 200'000);
   EXPECT_EQ(0, rowVector->size());
 }
 
-TEST(TpchGenTestRegion, reproducible) {
-  auto rowVector1 = genTpchRegion(100);
-  auto rowVector2 = genTpchRegion(100);
-  auto rowVector3 = genTpchRegion(100);
+TEST_F(TpchGenTestRegionTest, reproducible) {
+  auto rowVector1 = genTpchRegion(pool_.get(), 100);
+  auto rowVector2 = genTpchRegion(pool_.get(), 100);
+  auto rowVector3 = genTpchRegion(pool_.get(), 100);
 
   ASSERT_EQ(5, rowVector1->size());
 
@@ -167,8 +186,8 @@ TEST(TpchGenTestRegion, reproducible) {
     ASSERT_TRUE(rowVector1->equalValueAt(rowVector3.get(), i, i));
   }
 
-  auto rowVector4 = genTpchRegion(100, 0);
-  auto rowVector5 = genTpchRegion(98, 2);
+  auto rowVector4 = genTpchRegion(pool_.get(), 100, 0);
+  auto rowVector5 = genTpchRegion(pool_.get(), 98, 2);
 
   for (size_t i = 0; i < rowVector5->size(); ++i) {
     ASSERT_TRUE(rowVector5->equalValueAt(rowVector4.get(), i, i + 2));
@@ -176,9 +195,18 @@ TEST(TpchGenTestRegion, reproducible) {
 }
 
 // Orders tests.
+class TpchGenTestOrdersTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    pool_ = memory::getProcessDefaultMemoryManager().getPool(
+        "TpchGenTestOrdersTest", memory::MemoryPool::Kind::kLeaf);
+  }
 
-TEST(TpchGenTestOrders, batches) {
-  auto rowVector1 = genTpchOrders(10'000);
+  std::shared_ptr<memory::MemoryPool> pool_;
+};
+
+TEST_F(TpchGenTestOrdersTest, batches) {
+  auto rowVector1 = genTpchOrders(pool_.get(), 10'000);
 
   EXPECT_EQ(9, rowVector1->childrenSize());
   EXPECT_EQ(10'000, rowVector1->size());
@@ -198,7 +226,7 @@ TEST(TpchGenTestOrders, batches) {
   LOG(INFO) << rowVector1->toString(9999);
 
   // Get second batch.
-  auto rowVector2 = genTpchOrders(10'000, 10'000);
+  auto rowVector2 = genTpchOrders(pool_.get(), 10'000, 10'000);
 
   EXPECT_EQ(9, rowVector2->childrenSize());
   EXPECT_EQ(10'000, rowVector2->size());
@@ -218,21 +246,21 @@ TEST(TpchGenTestOrders, batches) {
   LOG(INFO) << rowVector2->toString(9999);
 }
 
-TEST(TpchGenTestOrders, lastBatch) {
+TEST_F(TpchGenTestOrdersTest, lastBatch) {
   // Ask for 200 but there are only 100 left.
-  auto rowVector = genTpchOrders(200, 1'499'900);
+  auto rowVector = genTpchOrders(pool_.get(), 200, 1'499'900);
   EXPECT_EQ(100, rowVector->size());
 
   // Ensure we get 200 on a larger scale factor.
-  rowVector = genTpchOrders(200, 1'499'900, 2);
+  rowVector = genTpchOrders(pool_.get(), 200, 1'499'900, 2);
   EXPECT_EQ(200, rowVector->size());
 }
 
-TEST(TpchGenTestOrders, reproducible) {
+TEST_F(TpchGenTestOrdersTest, reproducible) {
   {
-    auto rowVector1 = genTpchOrders(1000);
-    auto rowVector2 = genTpchOrders(1000);
-    auto rowVector3 = genTpchOrders(1000);
+    auto rowVector1 = genTpchOrders(pool_.get(), 1000);
+    auto rowVector2 = genTpchOrders(pool_.get(), 1000);
+    auto rowVector3 = genTpchOrders(pool_.get(), 1000);
 
     for (size_t i = 0; i < rowVector1->size(); ++i) {
       ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
@@ -242,9 +270,9 @@ TEST(TpchGenTestOrders, reproducible) {
 
   // Ensure it's also reproducible if we add an offset.
   {
-    auto rowVector1 = genTpchOrders(1000, 2000);
-    auto rowVector2 = genTpchOrders(1000, 2000);
-    auto rowVector3 = genTpchOrders(1000, 2000);
+    auto rowVector1 = genTpchOrders(pool_.get(), 1000, 2000);
+    auto rowVector2 = genTpchOrders(pool_.get(), 1000, 2000);
+    auto rowVector3 = genTpchOrders(pool_.get(), 1000, 2000);
 
     for (size_t i = 0; i < rowVector1->size(); ++i) {
       ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
@@ -254,8 +282,8 @@ TEST(TpchGenTestOrders, reproducible) {
 
   // Ensure it's reproducible if we generate from different offsets.
   {
-    auto rowVector1 = genTpchOrders(1000, 0);
-    auto rowVector2 = genTpchOrders(990, 10);
+    auto rowVector1 = genTpchOrders(pool_.get(), 1000, 0);
+    auto rowVector2 = genTpchOrders(pool_.get(), 990, 10);
 
     for (size_t i = 0; i < rowVector2->size(); ++i) {
       ASSERT_TRUE(rowVector2->equalValueAt(rowVector1.get(), i, i + 10));
@@ -264,8 +292,8 @@ TEST(TpchGenTestOrders, reproducible) {
 
   // Ensure that if the offsets are different, records will be different.
   {
-    auto rowVector1 = genTpchOrders(1000, 2000);
-    auto rowVector2 = genTpchOrders(1000, 2001);
+    auto rowVector1 = genTpchOrders(pool_.get(), 1000, 2000);
+    auto rowVector2 = genTpchOrders(pool_.get(), 1000, 2001);
 
     for (size_t i = 0; i < rowVector2->size(); ++i) {
       ASSERT_FALSE(rowVector1->equalValueAt(rowVector2.get(), i, i));
@@ -274,10 +302,19 @@ TEST(TpchGenTestOrders, reproducible) {
 }
 
 // Lineitem.
+class TpchGenTestLineItemTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    pool_ = memory::getProcessDefaultMemoryManager().getPool(
+        "TpchGenTestLineItemTest", memory::MemoryPool::Kind::kLeaf);
+  }
 
-TEST(TpchGenTestLineItem, batches) {
+  std::shared_ptr<memory::MemoryPool> pool_;
+};
+
+TEST_F(TpchGenTestLineItemTest, batches) {
   size_t ordersMaxSize = 100;
-  auto rowVector1 = genTpchLineItem(ordersMaxSize);
+  auto rowVector1 = genTpchLineItem(pool_.get(), ordersMaxSize);
 
   // Always returns 16 columns, and number of lineItem rows varies from 1 to 7
   // per order.
@@ -298,7 +335,7 @@ TEST(TpchGenTestLineItem, batches) {
   LOG(INFO) << rowVector1->toString(lastRow);
 
   // Get next batch.
-  auto rowVector2 = genTpchLineItem(ordersMaxSize, ordersMaxSize);
+  auto rowVector2 = genTpchLineItem(pool_.get(), ordersMaxSize, ordersMaxSize);
 
   EXPECT_EQ(16, rowVector2->childrenSize());
   EXPECT_GE(rowVector2->size(), ordersMaxSize);
@@ -317,23 +354,23 @@ TEST(TpchGenTestLineItem, batches) {
   LOG(INFO) << rowVector2->toString(lastRow);
 }
 
-TEST(TpchGenTestLineItem, lastBatch) {
+TEST_F(TpchGenTestLineItemTest, lastBatch) {
   // Ask for 1000 lineItems but there are only 10 orders left.
-  auto rowVector = genTpchLineItem(1000, 1'499'990);
+  auto rowVector = genTpchLineItem(pool_.get(), 1000, 1'499'990);
   EXPECT_GE(rowVector->size(), 10);
   EXPECT_LE(rowVector->size(), 10 * 7);
 
   // Ensure we get 1000 orders on a larger scale factor.
-  rowVector = genTpchLineItem(1000, 1'499'990, 2);
+  rowVector = genTpchLineItem(pool_.get(), 1000, 1'499'990, 2);
   EXPECT_GE(rowVector->size(), 1000);
   EXPECT_LE(rowVector->size(), 1000 * 7);
 }
 
-TEST(TpchGenTestLineItem, reproducible) {
+TEST_F(TpchGenTestLineItemTest, reproducible) {
   {
-    auto rowVector1 = genTpchLineItem(1000);
-    auto rowVector2 = genTpchLineItem(1000);
-    auto rowVector3 = genTpchLineItem(1000);
+    auto rowVector1 = genTpchLineItem(pool_.get(), 1000);
+    auto rowVector2 = genTpchLineItem(pool_.get(), 1000);
+    auto rowVector3 = genTpchLineItem(pool_.get(), 1000);
 
     for (size_t i = 0; i < rowVector1->size(); ++i) {
       ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
@@ -343,9 +380,9 @@ TEST(TpchGenTestLineItem, reproducible) {
 
   // Ensure it's also reproducible if we add an offset.
   {
-    auto rowVector1 = genTpchLineItem(1000, 2000);
-    auto rowVector2 = genTpchLineItem(1000, 2000);
-    auto rowVector3 = genTpchLineItem(1000, 2000);
+    auto rowVector1 = genTpchLineItem(pool_.get(), 1000, 2000);
+    auto rowVector2 = genTpchLineItem(pool_.get(), 1000, 2000);
+    auto rowVector3 = genTpchLineItem(pool_.get(), 1000, 2000);
 
     for (size_t i = 0; i < rowVector1->size(); ++i) {
       ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
@@ -355,8 +392,8 @@ TEST(TpchGenTestLineItem, reproducible) {
 
   // Ensure it's reproducible if we generate from different offsets.
   {
-    auto rowVector1 = genTpchLineItem(1000);
-    auto rowVector2 = genTpchLineItem(998, 2);
+    auto rowVector1 = genTpchLineItem(pool_.get(), 1000);
+    auto rowVector2 = genTpchLineItem(pool_.get(), 998, 2);
 
     // The offset for comparisons is 7, since the first generated order has 6
     // lineitems, and the second has 1.
@@ -367,8 +404,8 @@ TEST(TpchGenTestLineItem, reproducible) {
 
   // Ensure that if the offsets are different, records will be different.
   {
-    auto rowVector1 = genTpchLineItem(1000, 2000);
-    auto rowVector2 = genTpchLineItem(1000, 2001);
+    auto rowVector1 = genTpchLineItem(pool_.get(), 1000, 2000);
+    auto rowVector2 = genTpchLineItem(pool_.get(), 1000, 2001);
 
     for (size_t i = 0; i < rowVector2->size(); ++i) {
       ASSERT_FALSE(rowVector1->equalValueAt(rowVector2.get(), i, i));
@@ -377,9 +414,18 @@ TEST(TpchGenTestLineItem, reproducible) {
 }
 
 // Supplier.
+class TpchGenTestSupplierTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    pool_ = memory::getProcessDefaultMemoryManager().getPool(
+        "TpchGenTestSupplierTest", memory::MemoryPool::Kind::kLeaf);
+  }
 
-TEST(TpchGenTestSupplier, batches) {
-  auto rowVector1 = genTpchSupplier(1'000);
+  std::shared_ptr<memory::MemoryPool> pool_;
+};
+
+TEST_F(TpchGenTestSupplierTest, batches) {
+  auto rowVector1 = genTpchSupplier(pool_.get(), 1'000);
 
   EXPECT_EQ(7, rowVector1->childrenSize());
   EXPECT_EQ(1'000, rowVector1->size());
@@ -399,7 +445,7 @@ TEST(TpchGenTestSupplier, batches) {
   LOG(INFO) << rowVector1->toString(999);
 
   // Get second batch.
-  auto rowVector2 = genTpchSupplier(1'000, 1'000);
+  auto rowVector2 = genTpchSupplier(pool_.get(), 1'000, 1'000);
 
   EXPECT_EQ(7, rowVector2->childrenSize());
   EXPECT_EQ(1'000, rowVector2->size());
@@ -419,24 +465,24 @@ TEST(TpchGenTestSupplier, batches) {
   LOG(INFO) << rowVector2->toString(999);
 }
 
-TEST(TpchGenTestSupplier, lastBatch) {
+TEST_F(TpchGenTestSupplierTest, lastBatch) {
   // Ask for 10'000 suppliers but there are only 10 left.
-  auto rowVector = genTpchSupplier(10'000, 9'990);
+  auto rowVector = genTpchSupplier(pool_.get(), 10'000, 9'990);
   EXPECT_EQ(10, rowVector->size());
 
   // Ensure we get 1000 suppliers on a larger scale factor.
-  rowVector = genTpchSupplier(1'000, 9'990, 2);
+  rowVector = genTpchSupplier(pool_.get(), 1'000, 9'990, 2);
   EXPECT_EQ(1'000, rowVector->size());
 
   // Zero records if we go beyond the end.
-  rowVector = genTpchSupplier(1'000, 10'000);
+  rowVector = genTpchSupplier(pool_.get(), 1'000, 10'000);
   EXPECT_EQ(0, rowVector->size());
 }
 
-TEST(TpchGenTestSupplier, reproducible) {
-  auto rowVector1 = genTpchSupplier(100);
-  auto rowVector2 = genTpchSupplier(100);
-  auto rowVector3 = genTpchSupplier(100);
+TEST_F(TpchGenTestSupplierTest, reproducible) {
+  auto rowVector1 = genTpchSupplier(pool_.get(), 100);
+  auto rowVector2 = genTpchSupplier(pool_.get(), 100);
+  auto rowVector3 = genTpchSupplier(pool_.get(), 100);
 
   for (size_t i = 0; i < rowVector1->size(); ++i) {
     ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
@@ -444,16 +490,16 @@ TEST(TpchGenTestSupplier, reproducible) {
   }
 
   // Ensure it's also reproducible if we add an offset.
-  auto rowVector4 = genTpchSupplier(100, 10);
-  auto rowVector5 = genTpchSupplier(100, 10);
+  auto rowVector4 = genTpchSupplier(pool_.get(), 100, 10);
+  auto rowVector5 = genTpchSupplier(pool_.get(), 100, 10);
 
   for (size_t i = 0; i < rowVector4->size(); ++i) {
     ASSERT_TRUE(rowVector4->equalValueAt(rowVector5.get(), i, i));
   }
 
   // Ensure it's also reproducible if we generate from different offsets.
-  auto rowVector6 = genTpchSupplier(100, 0);
-  auto rowVector7 = genTpchSupplier(90, 10);
+  auto rowVector6 = genTpchSupplier(pool_.get(), 100, 0);
+  auto rowVector7 = genTpchSupplier(pool_.get(), 90, 10);
 
   for (size_t i = 0; i < rowVector7->size(); ++i) {
     ASSERT_TRUE(rowVector7->equalValueAt(rowVector6.get(), i, i + 10));
@@ -461,9 +507,18 @@ TEST(TpchGenTestSupplier, reproducible) {
 }
 
 // Part.
+class TpchGenTestPartTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    pool_ = memory::getProcessDefaultMemoryManager().getPool(
+        "TpchGenTestPartTest", memory::MemoryPool::Kind::kLeaf);
+  }
 
-TEST(TpchGenTestPart, batches) {
-  auto rowVector1 = genTpchPart(1'000);
+  std::shared_ptr<memory::MemoryPool> pool_;
+};
+
+TEST_F(TpchGenTestPartTest, batches) {
+  auto rowVector1 = genTpchPart(pool_.get(), 1'000);
 
   EXPECT_EQ(9, rowVector1->childrenSize());
   EXPECT_EQ(1'000, rowVector1->size());
@@ -479,7 +534,7 @@ TEST(TpchGenTestPart, batches) {
   LOG(INFO) << rowVector1->toString(999);
 
   // Get second batch.
-  auto rowVector2 = genTpchPart(1'000, 1'000);
+  auto rowVector2 = genTpchPart(pool_.get(), 1'000, 1'000);
 
   EXPECT_EQ(9, rowVector2->childrenSize());
   EXPECT_EQ(1'000, rowVector2->size());
@@ -496,24 +551,24 @@ TEST(TpchGenTestPart, batches) {
   LOG(INFO) << rowVector2->toString(999);
 }
 
-TEST(TpchGenTestPart, lastBatch) {
+TEST_F(TpchGenTestPartTest, lastBatch) {
   // Ask for 10'000 parts but there are only 10 left.
-  auto rowVector = genTpchPart(10'000, 199'990);
+  auto rowVector = genTpchPart(pool_.get(), 10'000, 199'990);
   EXPECT_EQ(10, rowVector->size());
 
   // Ensure we get 1000 parts on a larger scale factor.
-  rowVector = genTpchPart(1'000, 199'990, 2);
+  rowVector = genTpchPart(pool_.get(), 1'000, 199'990, 2);
   EXPECT_EQ(1'000, rowVector->size());
 
   // Zero records if we go beyond the end.
-  rowVector = genTpchPart(1'000, 200'000);
+  rowVector = genTpchPart(pool_.get(), 1'000, 200'000);
   EXPECT_EQ(0, rowVector->size());
 }
 
-TEST(TpchGenTestPart, reproducible) {
-  auto rowVector1 = genTpchPart(100);
-  auto rowVector2 = genTpchPart(100);
-  auto rowVector3 = genTpchPart(100);
+TEST_F(TpchGenTestPartTest, reproducible) {
+  auto rowVector1 = genTpchPart(pool_.get(), 100);
+  auto rowVector2 = genTpchPart(pool_.get(), 100);
+  auto rowVector3 = genTpchPart(pool_.get(), 100);
 
   for (size_t i = 0; i < rowVector1->size(); ++i) {
     ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
@@ -521,16 +576,16 @@ TEST(TpchGenTestPart, reproducible) {
   }
 
   // Ensure it's also reproducible if we add an offset.
-  auto rowVector4 = genTpchPart(100, 10);
-  auto rowVector5 = genTpchPart(100, 10);
+  auto rowVector4 = genTpchPart(pool_.get(), 100, 10);
+  auto rowVector5 = genTpchPart(pool_.get(), 100, 10);
 
   for (size_t i = 0; i < rowVector4->size(); ++i) {
     ASSERT_TRUE(rowVector4->equalValueAt(rowVector5.get(), i, i));
   }
 
   // Ensure it's also reproducible if we add different offsets.
-  auto rowVector6 = genTpchPart(100, 0);
-  auto rowVector7 = genTpchPart(90, 10);
+  auto rowVector6 = genTpchPart(pool_.get(), 100, 0);
+  auto rowVector7 = genTpchPart(pool_.get(), 90, 10);
 
   for (size_t i = 0; i < rowVector7->size(); ++i) {
     ASSERT_TRUE(rowVector7->equalValueAt(rowVector6.get(), i, i + 10));
@@ -538,19 +593,28 @@ TEST(TpchGenTestPart, reproducible) {
 }
 
 // PartSupp.
+class TpchGenTestPartSuppTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    pool_ = memory::getProcessDefaultMemoryManager().getPool(
+        "TpchGenTestPartSuppTest", memory::MemoryPool::Kind::kLeaf);
+  }
 
-bool partSuppCheck(
-    const RowVectorPtr& vector,
-    size_t idx,
-    std::pair<size_t, size_t> expected) {
-  return (expected.first ==
-          vector->childAt(0)->asFlatVector<int64_t>()->valueAt(idx)) &&
-      (expected.second ==
-       vector->childAt(1)->asFlatVector<int64_t>()->valueAt(idx));
-}
+  bool partSuppCheck(
+      const RowVectorPtr& vector,
+      size_t idx,
+      std::pair<size_t, size_t> expected) {
+    return (expected.first ==
+            vector->childAt(0)->asFlatVector<int64_t>()->valueAt(idx)) &&
+        (expected.second ==
+         vector->childAt(1)->asFlatVector<int64_t>()->valueAt(idx));
+  }
 
-TEST(TpchGenTestPartSupp, batches) {
-  auto rowVector1 = genTpchPartSupp(1'000);
+  std::shared_ptr<memory::MemoryPool> pool_;
+};
+
+TEST_F(TpchGenTestPartSuppTest, batches) {
+  auto rowVector1 = genTpchPartSupp(pool_.get(), 1'000);
 
   EXPECT_EQ(5, rowVector1->childrenSize());
   EXPECT_EQ(1'000, rowVector1->size());
@@ -563,7 +627,7 @@ TEST(TpchGenTestPartSupp, batches) {
   EXPECT_TRUE(partSuppCheck(rowVector1, 5, {2, 2503}));
 
   // Get second batch.
-  auto rowVector2 = genTpchPartSupp(1'000, 1'000);
+  auto rowVector2 = genTpchPartSupp(pool_.get(), 1'000, 1'000);
 
   EXPECT_EQ(5, rowVector2->childrenSize());
   EXPECT_EQ(1'000, rowVector2->size());
@@ -579,8 +643,8 @@ TEST(TpchGenTestPartSupp, batches) {
 // PartSupp records are generated based on mk_part, which generates 4 partsupp
 // records at a time. This tests that the 4 record boundary is transparent and
 // works as expected.
-TEST(TpchGenTestPartSupp, misalignedBatches) {
-  auto rowVector = genTpchPartSupp(5, 0);
+TEST_F(TpchGenTestPartSuppTest, misalignedBatches) {
+  auto rowVector = genTpchPartSupp(pool_.get(), 5, 0);
   EXPECT_EQ(5, rowVector->size());
 
   EXPECT_TRUE(partSuppCheck(rowVector, 0, {1, 2}));
@@ -590,7 +654,7 @@ TEST(TpchGenTestPartSupp, misalignedBatches) {
   EXPECT_TRUE(partSuppCheck(rowVector, 4, {2, 3}));
 
   // Rotate.
-  rowVector = genTpchPartSupp(5, 1);
+  rowVector = genTpchPartSupp(pool_.get(), 5, 1);
   EXPECT_EQ(5, rowVector->size());
 
   EXPECT_TRUE(partSuppCheck(rowVector, 0, {1, 2502}));
@@ -600,7 +664,7 @@ TEST(TpchGenTestPartSupp, misalignedBatches) {
   EXPECT_TRUE(partSuppCheck(rowVector, 4, {2, 2503}));
 
   // Rotate.
-  rowVector = genTpchPartSupp(5, 2);
+  rowVector = genTpchPartSupp(pool_.get(), 5, 2);
   EXPECT_EQ(5, rowVector->size());
 
   EXPECT_TRUE(partSuppCheck(rowVector, 0, {1, 5002}));
@@ -610,7 +674,7 @@ TEST(TpchGenTestPartSupp, misalignedBatches) {
   EXPECT_TRUE(partSuppCheck(rowVector, 4, {2, 5003}));
 
   // Rotate.
-  rowVector = genTpchPartSupp(5, 3);
+  rowVector = genTpchPartSupp(pool_.get(), 5, 3);
   EXPECT_EQ(5, rowVector->size());
 
   EXPECT_TRUE(partSuppCheck(rowVector, 0, {1, 7502}));
@@ -620,7 +684,7 @@ TEST(TpchGenTestPartSupp, misalignedBatches) {
   EXPECT_TRUE(partSuppCheck(rowVector, 4, {2, 7503}));
 
   // Rotate. We're aligned to the 4-record window again.
-  rowVector = genTpchPartSupp(5, 4);
+  rowVector = genTpchPartSupp(pool_.get(), 5, 4);
   EXPECT_EQ(5, rowVector->size());
 
   EXPECT_TRUE(partSuppCheck(rowVector, 0, {2, 3}));
@@ -630,24 +694,24 @@ TEST(TpchGenTestPartSupp, misalignedBatches) {
   EXPECT_TRUE(partSuppCheck(rowVector, 4, {3, 4}));
 }
 
-TEST(TpchGenTestPartSupp, lastBatch) {
+TEST_F(TpchGenTestPartSuppTest, lastBatch) {
   // Ask for 1'000 records but there are only 10 left.
-  auto rowVector = genTpchPartSupp(1'000, 799'990);
+  auto rowVector = genTpchPartSupp(pool_.get(), 1'000, 799'990);
   EXPECT_EQ(10, rowVector->size());
 
   // Ensure we get 1'000 records on a larger scale factor.
-  rowVector = genTpchPartSupp(1'000, 799'990, 2);
+  rowVector = genTpchPartSupp(pool_.get(), 1'000, 799'990, 2);
   EXPECT_EQ(1'000, rowVector->size());
 
   // Zero records if we go beyond the end.
-  rowVector = genTpchPartSupp(1'000, 800'000);
+  rowVector = genTpchPartSupp(pool_.get(), 1'000, 800'000);
   EXPECT_EQ(0, rowVector->size());
 }
 
-TEST(TpchGenTestPartSupp, reproducible) {
-  auto rowVector1 = genTpchPartSupp(100);
-  auto rowVector2 = genTpchPartSupp(100);
-  auto rowVector3 = genTpchPartSupp(100);
+TEST_F(TpchGenTestPartSuppTest, reproducible) {
+  auto rowVector1 = genTpchPartSupp(pool_.get(), 100);
+  auto rowVector2 = genTpchPartSupp(pool_.get(), 100);
+  auto rowVector3 = genTpchPartSupp(pool_.get(), 100);
   EXPECT_EQ(100, rowVector1->size());
 
   for (size_t i = 0; i < rowVector1->size(); ++i) {
@@ -656,8 +720,8 @@ TEST(TpchGenTestPartSupp, reproducible) {
   }
 
   // Ensure it's also reproducible if we add an offset.
-  auto rowVector4 = genTpchPartSupp(100, 10);
-  auto rowVector5 = genTpchPartSupp(100, 10);
+  auto rowVector4 = genTpchPartSupp(pool_.get(), 100, 10);
+  auto rowVector5 = genTpchPartSupp(pool_.get(), 100, 10);
   EXPECT_EQ(100, rowVector4->size());
 
   for (size_t i = 0; i < rowVector4->size(); ++i) {
@@ -665,8 +729,8 @@ TEST(TpchGenTestPartSupp, reproducible) {
   }
 
   // Ensure it's also reproducible if we add different offsets.
-  auto rowVector6 = genTpchPartSupp(100, 0);
-  auto rowVector7 = genTpchPartSupp(91, 9);
+  auto rowVector6 = genTpchPartSupp(pool_.get(), 100, 0);
+  auto rowVector7 = genTpchPartSupp(pool_.get(), 91, 9);
 
   for (size_t i = 0; i < rowVector7->size(); ++i) {
     ASSERT_TRUE(rowVector7->equalValueAt(rowVector6.get(), i, i + 9));
@@ -674,9 +738,18 @@ TEST(TpchGenTestPartSupp, reproducible) {
 }
 
 // Customer.
+class TpchGenTestCustomerTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    pool_ = memory::getProcessDefaultMemoryManager().getPool(
+        "TpchGenTestCustomerTest", memory::MemoryPool::Kind::kLeaf);
+  }
 
-TEST(TpchGenTestCustomer, batches) {
-  auto rowVector1 = genTpchCustomer(1'000);
+  std::shared_ptr<memory::MemoryPool> pool_;
+};
+
+TEST_F(TpchGenTestCustomerTest, batches) {
+  auto rowVector1 = genTpchCustomer(pool_.get(), 1'000);
 
   EXPECT_EQ(8, rowVector1->childrenSize());
   EXPECT_EQ(1'000, rowVector1->size());
@@ -692,7 +765,7 @@ TEST(TpchGenTestCustomer, batches) {
   LOG(INFO) << rowVector1->toString(999);
 
   // Get second batch.
-  auto rowVector2 = genTpchCustomer(1'000, 1'000);
+  auto rowVector2 = genTpchCustomer(pool_.get(), 1'000, 1'000);
 
   EXPECT_EQ(8, rowVector2->childrenSize());
   EXPECT_EQ(1'000, rowVector2->size());
@@ -709,24 +782,24 @@ TEST(TpchGenTestCustomer, batches) {
   LOG(INFO) << rowVector2->toString(999);
 }
 
-TEST(TpchGenTestCustomer, lastBatch) {
+TEST_F(TpchGenTestCustomerTest, lastBatch) {
   // Ask for 10'000 customers but there are only 10 left.
-  auto rowVector = genTpchCustomer(10'000, 149'990);
+  auto rowVector = genTpchCustomer(pool_.get(), 10'000, 149'990);
   EXPECT_EQ(10, rowVector->size());
 
   // Ensure we get 1000 customers on a larger scale factor.
-  rowVector = genTpchCustomer(1'000, 149'990, 2);
+  rowVector = genTpchCustomer(pool_.get(), 1'000, 149'990, 2);
   EXPECT_EQ(1'000, rowVector->size());
 
   // Zero records if we go beyond the end.
-  rowVector = genTpchCustomer(1'000, 200'000);
+  rowVector = genTpchCustomer(pool_.get(), 1'000, 200'000);
   EXPECT_EQ(0, rowVector->size());
 }
 
-TEST(TpchGenTestCustomer, reproducible) {
-  auto rowVector1 = genTpchCustomer(100);
-  auto rowVector2 = genTpchCustomer(100);
-  auto rowVector3 = genTpchCustomer(100);
+TEST_F(TpchGenTestCustomerTest, reproducible) {
+  auto rowVector1 = genTpchCustomer(pool_.get(), 100);
+  auto rowVector2 = genTpchCustomer(pool_.get(), 100);
+  auto rowVector3 = genTpchCustomer(pool_.get(), 100);
 
   for (size_t i = 0; i < rowVector1->size(); ++i) {
     ASSERT_TRUE(rowVector1->equalValueAt(rowVector2.get(), i, i));
@@ -734,16 +807,16 @@ TEST(TpchGenTestCustomer, reproducible) {
   }
 
   // Ensure it's also reproducible if we add an offset.
-  auto rowVector4 = genTpchCustomer(100, 10);
-  auto rowVector5 = genTpchCustomer(100, 10);
+  auto rowVector4 = genTpchCustomer(pool_.get(), 100, 10);
+  auto rowVector5 = genTpchCustomer(pool_.get(), 100, 10);
 
   for (size_t i = 0; i < rowVector4->size(); ++i) {
     ASSERT_TRUE(rowVector4->equalValueAt(rowVector5.get(), i, i));
   }
 
   // Ensure it's also reproducible if we add different offsets.
-  auto rowVector6 = genTpchCustomer(100, 0);
-  auto rowVector7 = genTpchCustomer(90, 10);
+  auto rowVector6 = genTpchCustomer(pool_.get(), 100, 0);
+  auto rowVector7 = genTpchCustomer(pool_.get(), 90, 10);
 
   for (size_t i = 0; i < rowVector7->size(); ++i) {
     ASSERT_TRUE(rowVector7->equalValueAt(rowVector6.get(), i, i + 10));

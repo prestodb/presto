@@ -79,7 +79,9 @@ class E2EFilterTestBase : public testing::Test {
   static constexpr int32_t kRowsInGroup = 10'000;
 
   void SetUp() override {
-    pool_ = memory::getDefaultMemoryPool();
+    rootPool_ =
+        memory::getProcessDefaultMemoryManager().getPool("E2EFilterTestBase");
+    leafPool_ = rootPool_->addChild("E2EFilterTestBase");
   }
 
   static bool typeKindSupportsValueHook(TypeKind kind) {
@@ -212,7 +214,7 @@ class E2EFilterTestBase : public testing::Test {
       rows.push_back(i);
     }
     auto result = std::static_pointer_cast<FlatVector<T>>(
-        BaseVector::create(child->type(), batch->size(), pool_.get()));
+        BaseVector::create(child->type(), batch->size(), leafPool_.get()));
     TestingHook<T> hook(result.get());
     child->as<LazyVector>()->load(rows, &hook);
     for (auto i = 0; i < rows.size(); ++i) {
@@ -290,7 +292,8 @@ class E2EFilterTestBase : public testing::Test {
 
   std::unique_ptr<test::DataSetBuilder> dataSetBuilder_;
   std::unique_ptr<common::FilterGenerator> filterGenerator_;
-  std::shared_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> rootPool_;
+  std::shared_ptr<memory::MemoryPool> leafPool_;
   std::shared_ptr<const RowType> rowType_;
   dwio::common::MemorySink* sinkPtr_;
   bool useVInts_ = true;

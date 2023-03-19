@@ -105,7 +105,7 @@ class MemoryUsageTracker
   /// Create default usage tracker which is a 'root' tracker.
   static std::shared_ptr<MemoryUsageTracker> create(
       int64_t maxMemory = kMaxMemory) {
-    return create(nullptr, maxMemory);
+    return create(nullptr, false, maxMemory);
   }
 
   ~MemoryUsageTracker();
@@ -135,17 +135,15 @@ class MemoryUsageTracker
   void update(int64_t size);
 
   /// Returns the current memory usage.
-  ///
-  /// TODO: we will add tracker type to calculate the current bytes based on the
-  /// tracker type explicitly.
   int64_t currentBytes() const {
-    return adjustByReservation(reservationBytes_);
+    return leafTracker_ ? usedReservationBytes_ : reservationBytes_;
   }
 
   /// Returns the unused reservations in bytes.
   int64_t availableReservation() const {
-    return std::max<int64_t>(
-        0, grantedReservationBytes_ - usedReservationBytes_);
+    return !leafTracker_
+        ? 0
+        : std::max<int64_t>(0, reservationBytes_ - usedReservationBytes_);
   }
 
   /// Returns the number of allocations.
@@ -186,9 +184,18 @@ class MemoryUsageTracker
     return parent_ != nullptr ? parent_->maxMemory() : maxMemory_;
   }
 
-  std::shared_ptr<MemoryUsageTracker> addChild() {
+  /// Create a child memory usage tracker. 'leafTracker' indicates if the child
+  /// is a leaf tracker for memory reservation use. If it is false, then the
+  /// child is used for memory reservation aggregation and it is associated with
+  /// an aggregation memory pool. The tracker can not be used for memory
+  /// reservation but it allows to create child trackers from it.
+  std::shared_ptr<MemoryUsageTracker> addChild(bool leafTracker = true) {
+    VELOX_CHECK(
+        !leafTracker_,
+        "Can only create child usage tracker from a non-leaf memory usage tracker: {}",
+        toString());
     ++numChildren_;
-    return create(shared_from_this());
+    return create(shared_from_this(), leafTracker);
   }
 
   void setGrowCallback(GrowCallback func) {
@@ -207,6 +214,10 @@ class MemoryUsageTracker
   std::string toString() const;
 
   void testingUpdateMaxMemory(int64_t maxMemory) {
+    if (parent_ != nullptr) {
+      parent_->testingUpdateMaxMemory(maxMemory);
+      return;
+    }
     maxMemory_ = maxMemory;
   }
 
@@ -215,14 +226,24 @@ class MemoryUsageTracker
 
   static std::shared_ptr<MemoryUsageTracker> create(
       const std::shared_ptr<MemoryUsageTracker>& parent,
+      bool leafTracker,
       int64_t maxMemory = kMaxMemory);
 
   MemoryUsageTracker(
       const std::shared_ptr<MemoryUsageTracker>& parent,
+      bool leafTracker,
       int64_t maxMemory)
-      : parent_(parent), maxMemory_{maxMemory} {
+      : parent_(parent), leafTracker_(leafTracker), maxMemory_{maxMemory} {
     // NOTE: only the root memory tracker enforces the memory limit check.
     VELOX_CHECK(parent_ == nullptr || maxMemory_ == kMaxMemory);
+    VELOX_CHECK(parent_ != nullptr || !leafTracker_);
+  }
+
+  FOLLY_ALWAYS_INLINE void reservationCheck() const {
+    VELOX_CHECK(
+        leafTracker_,
+        "Reservation is only allowed on leaf memory usage tracker: {}",
+        toString());
   }
 
   void reserve(uint64_t size, bool reserveOnly);
@@ -238,12 +259,6 @@ class MemoryUsageTracker
 
   //  Decrements the reservation in 'this' and parents.
   void decrementReservation(uint64_t size) noexcept;
-
-  int64_t adjustByReservation(int64_t total) const {
-    return grantedReservationBytes_ > 0
-        ? std::max<int64_t>(total - availableReservation(), 0)
-        : std::max<int64_t>(total, 0);
-  }
 
   // Returns the needed reservation size. If there is sufficient unused memory
   // reservation, this function returns zero.
@@ -272,13 +287,15 @@ class MemoryUsageTracker
 
   void sanityCheckLocked() const;
 
+  const std::shared_ptr<MemoryUsageTracker> parent_;
+  const bool leafTracker_;
+
   // Serializes updates on 'grantedReservationBytes_', 'usedReservationBytes_'
   // and 'minReservationBytes_' to make reservation decision on a consistent
   // read/write of those counters. incrementReservation()/decrementReservation()
   // work based on atomic 'reservationBytes_' without mutex as children updating
   // the same parent do not have to be serialized.
   std::mutex mutex_;
-  std::shared_ptr<MemoryUsageTracker> parent_;
 
   // The memory limit in bytes to enforce.
   int64_t maxMemory_;

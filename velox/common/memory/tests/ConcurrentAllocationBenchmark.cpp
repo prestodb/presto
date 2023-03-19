@@ -57,7 +57,8 @@ class MemoryOperator {
       : maxMemory_(maxMemory),
         allocationBytes_(allocationSize),
         maxOps_(maxOps),
-        pool_(memoryManager->getChild()) {
+        pool_(
+            memoryManager->getPool("MemoryOperator", MemoryPool::Kind::kLeaf)) {
     rng_.seed(1234);
     if (FLAGS_enable_memory_usage_tracker) {
       pool_->setMemoryUsageTracker(MemoryUsageTracker::create());

@@ -87,9 +87,17 @@ core::ExecCtx* OperatorCtx::execCtx() const {
 std::shared_ptr<connector::ConnectorQueryCtx>
 OperatorCtx::createConnectorQueryCtx(
     const std::string& connectorId,
-    const std::string& planNodeId) const {
+    const std::string& planNodeId,
+    bool forScan) const {
   return std::make_shared<connector::ConnectorQueryCtx>(
       pool_,
+      forScan ? nullptr
+              : driverCtx_->task->addConnectorWriterPoolLocked(
+                    planNodeId_,
+                    driverCtx_->pipelineId,
+                    driverCtx_->driverId,
+                    operatorType_,
+                    connectorId),
       driverCtx_->task->queryCtx()->getConnectorConfig(connectorId),
       std::make_unique<SimpleExpressionEvaluator>(
           execCtx()->queryCtx(), execCtx()->pool()),

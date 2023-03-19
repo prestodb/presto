@@ -57,11 +57,11 @@ class E2EFilterTest : public E2EFilterTestBase {
       const TypePtr&,
       const std::vector<RowVectorPtr>& batches,
       bool /*forRowGroupSkip*/) override {
-    auto sink = std::make_unique<MemorySink>(*pool_, 200 * 1024 * 1024);
+    auto sink = std::make_unique<MemorySink>(*leafPool_, 200 * 1024 * 1024);
     sinkPtr_ = sink.get();
 
     writer_ = std::make_unique<facebook::velox::parquet::Writer>(
-        std::move(sink), *pool_, rowGroupSize_, writerProperties_);
+        std::move(sink), *leafPool_, rowGroupSize_, writerProperties_);
     for (auto& batch : batches) {
       writer_->write(batch);
     }
@@ -83,7 +83,7 @@ TEST_F(E2EFilterTest, writerMagic) {
   rowType_ = ROW({INTEGER()});
   std::vector<RowVectorPtr> batches;
   batches.push_back(std::static_pointer_cast<RowVector>(
-      test::BatchMaker::createBatch(rowType_, 20000, *pool_, nullptr, 0)));
+      test::BatchMaker::createBatch(rowType_, 20000, *leafPool_, nullptr, 0)));
   writeToMemory(rowType_, batches, false);
   auto data = sinkPtr_->getData();
   auto size = sinkPtr_->size();
@@ -550,9 +550,9 @@ TEST_F(E2EFilterTest, largeMetadata) {
   rowType_ = ROW({INTEGER()});
   std::vector<RowVectorPtr> batches;
   batches.push_back(std::static_pointer_cast<RowVector>(
-      test::BatchMaker::createBatch(rowType_, 1000, *pool_, nullptr, 0)));
+      test::BatchMaker::createBatch(rowType_, 1000, *leafPool_, nullptr, 0)));
   writeToMemory(rowType_, batches, false);
-  dwio::common::ReaderOptions readerOpts{pool_.get()};
+  dwio::common::ReaderOptions readerOpts{leafPool_.get()};
   readerOpts.setDirectorySizeGuess(1024);
   readerOpts.setFilePreloadThreshold(1024 * 8);
   dwio::common::RowReaderOptions rowReaderOpts;

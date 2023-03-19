@@ -58,7 +58,8 @@ class VectorUtilTest : public testing::Test {
 
  protected:
   void SetUp() override {
-    pool_ = memoryManager_.getChild();
+    pool_ = memoryManager_.getPool(
+        "VectorUtilTest", memory::MemoryPool::Kind::kLeaf);
   }
 
   memory::MemoryManager memoryManager_;

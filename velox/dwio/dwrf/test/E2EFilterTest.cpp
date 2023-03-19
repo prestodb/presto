@@ -73,9 +73,9 @@ class E2EFilterTest : public E2EFilterTestBase {
                                : (++flushCounter % flushEveryNBatches_ == 0);
       });
     };
-    auto sink = std::make_unique<MemorySink>(*pool_, 200 * 1024 * 1024);
+    auto sink = std::make_unique<MemorySink>(*leafPool_, 200 * 1024 * 1024);
     sinkPtr_ = sink.get();
-    writer_ = std::make_unique<Writer>(options, std::move(sink), *pool_);
+    writer_ = std::make_unique<Writer>(options, std::move(sink), *rootPool_);
     for (auto& batch : batches) {
       writer_->write(batch);
     }

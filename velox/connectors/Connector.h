@@ -213,23 +213,36 @@ class ExpressionEvaluator {
 class ConnectorQueryCtx {
  public:
   ConnectorQueryCtx(
-      memory::MemoryPool* FOLLY_NONNULL pool,
-      const Config* FOLLY_NONNULL connectorConfig,
+      memory::MemoryPool* leafPool,
+      memory::MemoryPool* aggregatePool,
+      const Config* connectorConfig,
       std::unique_ptr<ExpressionEvaluator> expressionEvaluator,
       memory::MemoryAllocator* FOLLY_NONNULL allocator,
       const std::string& taskId,
       const std::string& planNodeId,
       int driverId)
-      : pool_(pool),
+      : leafPool_(leafPool),
+        aggregatePool_(aggregatePool),
         config_(connectorConfig),
         expressionEvaluator_(std::move(expressionEvaluator)),
         allocator_(allocator),
         scanId_(fmt::format("{}.{}", taskId, planNodeId)),
         taskId_(taskId),
-        driverId_(driverId) {}
+        driverId_(driverId) {
+    VELOX_CHECK_NOT_NULL(leafPool_);
+  }
 
-  memory::MemoryPool* FOLLY_NONNULL memoryPool() const {
-    return pool_;
+  /// Returns the memory pool for memory allocation.
+  memory::MemoryPool* memoryPool() const {
+    return leafPool_;
+  }
+
+  /// Returns the aggregate memory pool for the data sink that needs the
+  /// hierarchical memory pool management, such as HiveDataSink. This is set to
+  /// null for table scan.
+  memory::MemoryPool* aggregatePool() const {
+    VELOX_CHECK_NOT_NULL(aggregatePool_);
+    return aggregatePool_;
   }
 
   const Config* FOLLY_NONNULL config() const {
@@ -263,7 +276,8 @@ class ConnectorQueryCtx {
   }
 
  private:
-  memory::MemoryPool* FOLLY_NONNULL pool_;
+  memory::MemoryPool* leafPool_;
+  memory::MemoryPool* aggregatePool_;
   const Config* FOLLY_NONNULL config_;
   std::unique_ptr<ExpressionEvaluator> expressionEvaluator_;
   memory::MemoryAllocator* FOLLY_NONNULL allocator_;

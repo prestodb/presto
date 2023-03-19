@@ -58,14 +58,13 @@ void HiveConnectorTestBase::writeToFile(
     const std::string& filePath,
     const std::vector<RowVectorPtr>& vectors,
     std::shared_ptr<dwrf::Config> config) {
-  static const auto kWriter = "HiveConnectorTestBase.Writer";
-
   facebook::velox::dwrf::WriterOptions options;
   options.config = config;
   options.schema = vectors[0]->type();
   auto sink =
       std::make_unique<facebook::velox::dwio::common::LocalFileSink>(filePath);
-  auto childPool = pool_->addChild(kWriter);
+  auto childPool = rootPool_->addChild(
+      "HiveConnectorTestBase.Writer", memory::MemoryPool::Kind::kAggregate);
   facebook::velox::dwrf::Writer writer{options, std::move(sink), *childPool};
   for (size_t i = 0; i < vectors.size(); ++i) {
     writer.write(vectors[i]);

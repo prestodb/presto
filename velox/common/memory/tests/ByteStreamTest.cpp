@@ -33,7 +33,7 @@ class ByteStreamTest : public testing::Test {
     MemoryAllocator::setDefaultInstance(mmapAllocator_.get());
     memoryManager_ = std::make_unique<MemoryManager>(IMemoryManager::Options{
         .capacity = kMaxMemory, .allocator = MemoryAllocator::getInstance()});
-    pool_ = memoryManager_->getChild();
+    pool_ = memoryManager_->getPool("ByteStreamTest", MemoryPool::Kind::kLeaf);
   }
 
   void TearDown() override {

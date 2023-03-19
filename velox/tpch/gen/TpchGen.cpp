@@ -87,7 +87,6 @@ Date toDate(std::string_view stringDate) {
   parseTo(stringDate, date);
   return date;
 }
-
 } // namespace
 
 std::string_view toTableName(Table table) {
@@ -358,10 +357,10 @@ TypePtr resolveTpchColumn(Table table, const std::string& columnName) {
 }
 
 RowVectorPtr genTpchOrders(
+    memory::MemoryPool* pool,
     size_t maxRows,
     size_t offset,
-    double scaleFactor,
-    memory::MemoryPool* pool) {
+    double scaleFactor) {
   // Create schema and allocate vectors.
   auto ordersRowType = getTableSchema(Table::TBL_ORDERS);
   size_t vectorSize = getVectorSize(
@@ -403,10 +402,10 @@ RowVectorPtr genTpchOrders(
 }
 
 RowVectorPtr genTpchLineItem(
+    memory::MemoryPool* pool,
     size_t maxOrderRows,
     size_t ordersOffset,
-    double scaleFactor,
-    memory::MemoryPool* pool) {
+    double scaleFactor) {
   // We control the buffer size based on the orders table, then allocate the
   // underlying buffer using the worst case (orderVectorSize * 7).
   size_t orderVectorSize = getVectorSize(
@@ -493,10 +492,10 @@ RowVectorPtr genTpchLineItem(
 }
 
 RowVectorPtr genTpchPart(
+    memory::MemoryPool* pool,
     size_t maxRows,
     size_t offset,
-    double scaleFactor,
-    memory::MemoryPool* pool) {
+    double scaleFactor) {
   // Create schema and allocate vectors.
   auto partRowType = getTableSchema(Table::TBL_PART);
   size_t vectorSize =
@@ -537,10 +536,10 @@ RowVectorPtr genTpchPart(
 }
 
 RowVectorPtr genTpchSupplier(
+    memory::MemoryPool* pool,
     size_t maxRows,
     size_t offset,
-    double scaleFactor,
-    memory::MemoryPool* pool) {
+    double scaleFactor) {
   // Create schema and allocate vectors.
   auto supplierRowType = getTableSchema(Table::TBL_SUPPLIER);
   size_t vectorSize = getVectorSize(
@@ -581,10 +580,10 @@ RowVectorPtr genTpchSupplier(
 }
 
 RowVectorPtr genTpchPartSupp(
+    memory::MemoryPool* pool,
     size_t maxRows,
     size_t offset,
-    double scaleFactor,
-    memory::MemoryPool* pool) {
+    double scaleFactor) {
   // Create schema and allocate vectors.
   auto partSuppRowType = getTableSchema(Table::TBL_PARTSUPP);
   size_t vectorSize = getVectorSize(
@@ -641,10 +640,10 @@ RowVectorPtr genTpchPartSupp(
 }
 
 RowVectorPtr genTpchCustomer(
+    memory::MemoryPool* pool,
     size_t maxRows,
     size_t offset,
-    double scaleFactor,
-    memory::MemoryPool* pool) {
+    double scaleFactor) {
   // Create schema and allocate vectors.
   auto customerRowType = getTableSchema(Table::TBL_CUSTOMER);
   size_t vectorSize = getVectorSize(
@@ -688,10 +687,10 @@ RowVectorPtr genTpchCustomer(
 }
 
 RowVectorPtr genTpchNation(
+    memory::MemoryPool* pool,
     size_t maxRows,
     size_t offset,
-    double scaleFactor,
-    memory::MemoryPool* pool) {
+    double scaleFactor) {
   // Create schema and allocate vectors.
   auto nationRowType = getTableSchema(Table::TBL_NATION);
   size_t vectorSize = getVectorSize(
@@ -722,10 +721,10 @@ RowVectorPtr genTpchNation(
 }
 
 RowVectorPtr genTpchRegion(
+    memory::MemoryPool* pool,
     size_t maxRows,
     size_t offset,
-    double scaleFactor,
-    memory::MemoryPool* pool) {
+    double scaleFactor) {
   // Create schema and allocate vectors.
   auto regionRowType = getTableSchema(Table::TBL_REGION);
   size_t vectorSize = getVectorSize(

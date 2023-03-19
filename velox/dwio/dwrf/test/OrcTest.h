@@ -226,9 +226,13 @@ class MockIndexBuilder : public IndexBuilder {
 
 class ProtoWriter : public WriterBase {
  public:
-  ProtoWriter(memory::MemoryPool& pool)
-      : WriterBase{std::make_unique<dwio::common::MemorySink>(pool, 1024)} {
-    initContext(std::make_shared<Config>(), pool.addChild("proto_writer"));
+  ProtoWriter(
+      std::shared_ptr<memory::MemoryPool> pool,
+      memory::MemoryPool& sinkPool)
+      : WriterBase{std::make_unique<dwio::common::MemorySink>(sinkPool, 1024)} {
+    initContext(
+        std::make_shared<Config>(),
+        pool->addChild("proto_writer", MemoryPool::Kind::kAggregate));
   }
 
   template <typename T>

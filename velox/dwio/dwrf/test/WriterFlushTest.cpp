@@ -36,9 +36,10 @@ class MockMemoryPool : public velox::memory::MemoryPool {
  public:
   explicit MockMemoryPool(
       const std::string& name,
+      MemoryPool::Kind kind,
       std::shared_ptr<MemoryPool> parent,
       int64_t cap = std::numeric_limits<int64_t>::max())
-      : MemoryPool{name, parent, {.alignment = velox::memory::MemoryAllocator::kMinAlignment}},
+      : MemoryPool{name, kind, parent, {.alignment = velox::memory::MemoryAllocator::kMinAlignment}},
         memoryUsageTracker_{velox::memory::MemoryUsageTracker::create(cap)} {}
 
   // Methods not usually exposed by MemoryPool interface to
@@ -56,7 +57,8 @@ class MockMemoryPool : public velox::memory::MemoryPool {
   }
 
   static std::shared_ptr<MockMemoryPool> create() {
-    return std::make_shared<MockMemoryPool>("standalone_pool", nullptr);
+    return std::make_shared<MockMemoryPool>(
+        "standalone_pool", MemoryPool::Kind::kAggregate, nullptr);
   }
 
   void* allocate(int64_t size) override {
@@ -122,9 +124,10 @@ class MockMemoryPool : public velox::memory::MemoryPool {
 
   std::shared_ptr<MemoryPool> genChild(
       std::shared_ptr<MemoryPool> parent,
-      const std::string& name) override {
+      const std::string& name,
+      MemoryPool::Kind kind) override {
     return std::make_shared<MockMemoryPool>(
-        name, parent, memoryUsageTracker_->maxMemory());
+        name, kind, parent, memoryUsageTracker_->maxMemory());
   }
 
   void setMemoryUsageTracker(
@@ -289,7 +292,10 @@ class WriterFlushTestHelper {
         // Unused sink.
         std::make_unique<dwio::common::MemorySink>(*sinkPool, kSizeKB),
         std::make_shared<MockMemoryPool>(
-            "writer_root_pool", nullptr, writerMemoryBudget));
+            "writer_root_pool",
+            memory::MemoryPool::Kind::kAggregate,
+            nullptr,
+            writerMemoryBudget));
     auto& context = writer->getContext();
     zeroOutMemoryUsage(context);
     return writer;

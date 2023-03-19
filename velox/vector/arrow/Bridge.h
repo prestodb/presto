@@ -57,8 +57,7 @@ namespace facebook::velox {
 void exportToArrow(
     const VectorPtr& vector,
     ArrowArray& arrowArray,
-    memory::MemoryPool* pool =
-        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+    memory::MemoryPool* pool);
 
 /// Export the type of a Velox vector to an ArrowSchema.
 ///
@@ -127,8 +126,7 @@ TypePtr importFromArrow(const ArrowSchema& arrowSchema);
 VectorPtr importFromArrowAsViewer(
     const ArrowSchema& arrowSchema,
     const ArrowArray& arrowArray,
-    memory::MemoryPool* pool =
-        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+    memory::MemoryPool* pool);
 
 /// Import an ArrowArray and ArrowSchema into a Velox vector, acquiring
 /// ownership over the input data.
@@ -145,7 +143,6 @@ VectorPtr importFromArrowAsViewer(
 VectorPtr importFromArrowAsOwner(
     ArrowSchema& arrowSchema,
     ArrowArray& arrowArray,
-    memory::MemoryPool* pool =
-        &velox::memory::getProcessDefaultMemoryManager().getRoot());
+    memory::MemoryPool* pool);
 
 } // namespace facebook::velox

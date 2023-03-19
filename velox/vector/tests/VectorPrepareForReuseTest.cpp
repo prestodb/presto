@@ -22,9 +22,7 @@ using namespace facebook::velox;
 class VectorPrepareForReuseTest : public testing::Test,
                                   public test::VectorTestBase {
  protected:
-  VectorPrepareForReuseTest() {
-    pool()->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
-  }
+  VectorPrepareForReuseTest() = default;
 };
 
 class MemoryAllocationChecker {

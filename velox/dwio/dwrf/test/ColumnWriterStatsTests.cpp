@@ -35,49 +35,6 @@ using namespace facebook::velox;
 using namespace facebook::velox::memory;
 using folly::Random;
 
-std::unique_ptr<RowReader> writeAndGetReader(
-    MemoryPool& pool,
-    const std::shared_ptr<const Type>& type,
-    VectorPtr batch,
-    const size_t repeat,
-    const int32_t flatMapColId) {
-  // write file to memory
-  auto sink = std::make_unique<MemorySink>(pool, 200 * 1024 * 1024);
-  auto sinkPtr = sink.get();
-
-  auto config = std::make_shared<Config>();
-  config->set(Config::ROW_INDEX_STRIDE, folly::to<uint32_t>(batch->size()));
-  if (flatMapColId >= 0) {
-    config->set(Config::FLATTEN_MAP, true);
-    config->set(Config::MAP_FLAT_COLS, {folly::to<uint32_t>(flatMapColId)});
-  }
-  WriterOptions options;
-  options.config = config;
-  options.schema = type;
-  options.flushPolicyFactory = [&]() {
-    return std::make_unique<LambdaFlushPolicy>([]() {
-      return false; // All batches are in one stripe.
-    });
-  };
-
-  Writer writer{options, std::move(sink), pool};
-
-  for (size_t i = 0; i < repeat; ++i) {
-    writer.write(batch);
-  }
-
-  writer.close();
-
-  std::string_view data(sinkPtr->getData(), sinkPtr->size());
-  auto readFile = std::make_shared<facebook::velox::InMemoryReadFile>(data);
-  auto input = std::make_unique<BufferedInput>(readFile, pool);
-
-  ReaderOptions readerOpts{&pool};
-  RowReaderOptions rowReaderOpts;
-  auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
-  return reader->createRowReader(rowReaderOpts);
-}
-
 uint64_t computeCumulativeNodeSize(
     std::unordered_map<uint32_t, uint64_t>& nodeSizes,
     const TypeWithId& type) {
@@ -181,34 +138,84 @@ void verifyStats(
 using PopulateBatch =
     std::function<std::vector<size_t>(MemoryPool&, VectorPtr*, size_t)>;
 
-void verifyTypeStats(
-    MemoryPool& pool,
-    const std::string& schema,
-    PopulateBatch populateBatch,
-    int32_t flatMapColId = -1) {
-  HiveTypeParser parser;
-  auto type = parser.parse(schema);
-
-  constexpr size_t batchSize = 1000;
-  VectorPtr childBatch;
-  auto nodeSizePerStride = populateBatch(pool, &childBatch, batchSize);
-  VectorPtr batch = std::make_shared<RowVector>(
-      &pool, type, nullptr, batchSize, std::vector<VectorPtr>{childBatch}, 0);
-
-  constexpr size_t repeat = 2;
-  auto rowReaderPtr =
-      writeAndGetReader(pool, type, std::move(batch), repeat, flatMapColId);
-  auto& rowReader = dynamic_cast<DwrfRowReader&>(*rowReaderPtr);
-  const bool hasFlatMapCol = flatMapColId >= 0;
-  verifyStats(rowReader, repeat, nodeSizePerStride, hasFlatMapCol);
-}
-
 class ColumnWriterStatsTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    pool_ = getDefaultMemoryPool();
+    rootPool_ =
+        getProcessDefaultMemoryManager().getPool("ColumnWriterStatsTest");
+    leafPool_ = rootPool_->addChild("ColumnWriterStatsTest");
   }
-  std::shared_ptr<MemoryPool> pool_;
+
+  std::unique_ptr<RowReader> writeAndGetReader(
+      const std::shared_ptr<const Type>& type,
+      VectorPtr batch,
+      const size_t repeat,
+      const int32_t flatMapColId) {
+    // write file to memory
+    auto sink = std::make_unique<MemorySink>(*leafPool_, 200 * 1024 * 1024);
+    auto sinkPtr = sink.get();
+
+    auto config = std::make_shared<Config>();
+    config->set(Config::ROW_INDEX_STRIDE, folly::to<uint32_t>(batch->size()));
+    if (flatMapColId >= 0) {
+      config->set(Config::FLATTEN_MAP, true);
+      config->set(Config::MAP_FLAT_COLS, {folly::to<uint32_t>(flatMapColId)});
+    }
+    WriterOptions options;
+    options.config = config;
+    options.schema = type;
+    options.flushPolicyFactory = [&]() {
+      return std::make_unique<LambdaFlushPolicy>([]() {
+        return false; // All batches are in one stripe.
+      });
+    };
+
+    Writer writer{options, std::move(sink), rootPool_};
+
+    for (size_t i = 0; i < repeat; ++i) {
+      writer.write(batch);
+    }
+
+    writer.close();
+
+    std::string_view data(sinkPtr->getData(), sinkPtr->size());
+    auto readFile = std::make_shared<facebook::velox::InMemoryReadFile>(data);
+    auto input = std::make_unique<BufferedInput>(readFile, *leafPool_);
+
+    ReaderOptions readerOpts{leafPool_.get()};
+    RowReaderOptions rowReaderOpts;
+    auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
+    return reader->createRowReader(rowReaderOpts);
+  }
+
+  void verifyTypeStats(
+      const std::string& schema,
+      PopulateBatch populateBatch,
+      int32_t flatMapColId = -1) {
+    HiveTypeParser parser;
+    auto type = parser.parse(schema);
+
+    constexpr size_t batchSize = 1000;
+    VectorPtr childBatch;
+    auto nodeSizePerStride = populateBatch(*leafPool_, &childBatch, batchSize);
+    VectorPtr batch = std::make_shared<RowVector>(
+        leafPool_.get(),
+        type,
+        nullptr,
+        batchSize,
+        std::vector<VectorPtr>{childBatch},
+        0);
+
+    constexpr size_t repeat = 2;
+    auto rowReaderPtr =
+        writeAndGetReader(type, std::move(batch), repeat, flatMapColId);
+    auto& rowReader = dynamic_cast<DwrfRowReader&>(*rowReaderPtr);
+    const bool hasFlatMapCol = flatMapColId >= 0;
+    verifyStats(rowReader, repeat, nodeSizePerStride, hasFlatMapCol);
+  }
+
+  std::shared_ptr<MemoryPool> rootPool_;
+  std::shared_ptr<MemoryPool> leafPool_;
 };
 
 template <typename T>
@@ -252,7 +259,7 @@ TEST_F(ColumnWriterStatsTest, Bool) {
         *vector = makeFlatVector<bool>(pool, nulls, nullCount, size, values);
         return std::vector<size_t>{size, size};
       };
-  verifyTypeStats(*pool_, "struct<bool_val:boolean>", populateBoolBatch);
+  verifyTypeStats("struct<bool_val:boolean>", populateBoolBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, TinyInt) {
@@ -278,7 +285,7 @@ TEST_F(ColumnWriterStatsTest, TinyInt) {
         *vector = makeFlatVector<int8_t>(pool, nulls, nullCount, size, values);
         return std::vector<size_t>{size, size};
       };
-  verifyTypeStats(*pool_, "struct<byte_val:tinyint>", populateTinyIntBatch);
+  verifyTypeStats("struct<byte_val:tinyint>", populateTinyIntBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, SmallInt) {
@@ -306,7 +313,7 @@ TEST_F(ColumnWriterStatsTest, SmallInt) {
         *vector = makeFlatVector<int16_t>(pool, nulls, nullCount, size, values);
         return std::vector<size_t>{totalSize, totalSize};
       };
-  verifyTypeStats(*pool_, "struct<small_val:smallint>", populateSmallIntBatch);
+  verifyTypeStats("struct<small_val:smallint>", populateSmallIntBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, Int) {
@@ -333,7 +340,7 @@ TEST_F(ColumnWriterStatsTest, Int) {
     *vector = makeFlatVector<int32_t>(pool, nulls, nullCount, size, values);
     return std::vector<size_t>{totalSize, totalSize};
   };
-  verifyTypeStats(*pool_, "struct<int_val:int>", populateIntBatch);
+  verifyTypeStats("struct<int_val:int>", populateIntBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, Long) {
@@ -361,7 +368,7 @@ TEST_F(ColumnWriterStatsTest, Long) {
         *vector = makeFlatVector<int64_t>(pool, nulls, nullCount, size, values);
         return std::vector<size_t>{totalSize, totalSize};
       };
-  verifyTypeStats(*pool_, "struct<long_val:bigint>", populateLongBatch);
+  verifyTypeStats("struct<long_val:bigint>", populateLongBatch);
 }
 
 auto populateFloatBatch = [](MemoryPool& pool, VectorPtr* vector, size_t size) {
@@ -388,7 +395,7 @@ auto populateFloatBatch = [](MemoryPool& pool, VectorPtr* vector, size_t size) {
 };
 
 TEST_F(ColumnWriterStatsTest, Float) {
-  verifyTypeStats(*pool_, "struct<float_val:float>", populateFloatBatch);
+  verifyTypeStats("struct<float_val:float>", populateFloatBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, Double) {
@@ -416,11 +423,10 @@ TEST_F(ColumnWriterStatsTest, Double) {
         *vector = makeFlatVector<double>(pool, nulls, nullCount, size, values);
         return std::vector<size_t>{totalSize, totalSize};
       };
-  verifyTypeStats(*pool_, "struct<long_val:double>", populateDoubleBatch);
+  verifyTypeStats("struct<long_val:double>", populateDoubleBatch);
 }
 
-TEST(ColumnWriterStats, String) {
-  auto pool = getDefaultMemoryPool();
+TEST_F(ColumnWriterStatsTest, String) {
   auto populateStringBatch =
       [](MemoryPool& pool, VectorPtr* vector, size_t size) {
         std::mt19937 gen{};
@@ -437,11 +443,10 @@ TEST(ColumnWriterStats, String) {
         }
         return std::vector<size_t>{totalSize, totalSize};
       };
-  verifyTypeStats(*pool, "struct<string_val:string>", populateStringBatch);
+  verifyTypeStats("struct<string_val:string>", populateStringBatch);
 }
 
-TEST(ColumnWriterStats, Binary) {
-  auto pool = getDefaultMemoryPool();
+TEST_F(ColumnWriterStatsTest, Binary) {
   auto populateBinaryBatch =
       [](MemoryPool& pool, VectorPtr* vector, size_t size) {
         std::mt19937 gen{};
@@ -458,7 +463,7 @@ TEST(ColumnWriterStats, Binary) {
         }
         return std::vector<size_t>{totalSize, totalSize};
       };
-  verifyTypeStats(*pool, "struct<binary_val:binary>", populateBinaryBatch);
+  verifyTypeStats("struct<binary_val:binary>", populateBinaryBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, Timestamp) {
@@ -487,8 +492,7 @@ TEST_F(ColumnWriterStatsTest, Timestamp) {
     *vector = makeFlatVector<Timestamp>(pool, nulls, nullCount, size, values);
     return std::vector<size_t>{totalSize, totalSize};
   };
-  verifyTypeStats(
-      *pool_, "struct<timestamp_val:timestamp>", populateTimestampBatch);
+  verifyTypeStats("struct<timestamp_val:timestamp>", populateTimestampBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, List) {
@@ -534,7 +538,7 @@ TEST_F(ColumnWriterStatsTest, List) {
     size_t totalSize = nullCount * NULL_SIZE + nodeSizePerStride.at(0);
     return std::vector<size_t>{totalSize, totalSize, nodeSizePerStride.at(0)};
   };
-  verifyTypeStats(*pool_, "struct<array_val:array<float>>", populateListBatch);
+  verifyTypeStats("struct<array_val:array<float>>", populateListBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, Map) {
@@ -586,13 +590,10 @@ TEST_F(ColumnWriterStatsTest, Map) {
     size_t totalSize = nullCount * NULL_SIZE + keySize + valueSize;
     return std::vector<size_t>{totalSize, totalSize, keySize, valueSize};
   };
-  verifyTypeStats(*pool_, "struct<map_val:map<int,float>>", populateMapBatch);
+  verifyTypeStats("struct<map_val:map<int,float>>", populateMapBatch);
   const uint32_t FLAT_MAP_COL_ID = 0;
   verifyTypeStats(
-      *pool_,
-      "struct<map_val:map<int,float>>",
-      populateMapBatch,
-      FLAT_MAP_COL_ID);
+      "struct<map_val:map<int,float>>", populateMapBatch, FLAT_MAP_COL_ID);
 }
 
 TEST_F(ColumnWriterStatsTest, Struct) {
@@ -644,7 +645,5 @@ TEST_F(ColumnWriterStatsTest, Struct) {
         return nodeSizePerStride;
       };
   verifyTypeStats(
-      *pool_,
-      "struct<struct_val:struct<a:float,b:float>>",
-      populateStructBatch);
+      "struct<struct_val:struct<a:float,b:float>>", populateStructBatch);
 }

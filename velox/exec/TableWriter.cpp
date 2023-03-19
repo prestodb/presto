@@ -37,7 +37,7 @@ TableWriter::TableWriter(
   const auto& connectorId = tableWriteNode->insertTableHandle()->connectorId();
   connector_ = connector::getConnector(connectorId);
   connectorQueryCtx_ =
-      operatorCtx_->createConnectorQueryCtx(connectorId, planNodeId());
+      operatorCtx_->createConnectorQueryCtx(connectorId, planNodeId(), false);
 
   auto names = tableWriteNode->columnNames();
   auto types = tableWriteNode->columns()->children();
@@ -94,19 +94,17 @@ RowVectorPtr TableWriter::getOutput() {
   }
   finished_ = true;
 
-  memory::MemoryPool* pool = connectorQueryCtx_->memoryPool();
-
   if (outputType_->size() == 0) {
     return nullptr;
   }
   if (outputType_->size() == 1) {
     return std::make_shared<RowVector>(
-        pool,
+        pool(),
         outputType_,
         nullptr,
         1,
         std::vector<VectorPtr>{std::make_shared<ConstantVector<int64_t>>(
-            pool, 1, false /*isNull*/, BIGINT(), numWrittenRows_)});
+            pool(), 1, false /*isNull*/, BIGINT(), numWrittenRows_)});
   }
 
   std::vector<std::string> fragments = dataSink_->finish();
@@ -115,7 +113,7 @@ RowVectorPtr TableWriter::getOutput() {
 
   // Set rows column.
   FlatVectorPtr<int64_t> writtenRowsVector =
-      BaseVector::create<FlatVector<int64_t>>(BIGINT(), numOutputRows, pool);
+      BaseVector::create<FlatVector<int64_t>>(BIGINT(), numOutputRows, pool());
   writtenRowsVector->set(0, (int64_t)numWrittenRows_);
   for (int idx = 1; idx < numOutputRows; ++idx) {
     writtenRowsVector->setNull(idx, true);
@@ -124,7 +122,7 @@ RowVectorPtr TableWriter::getOutput() {
   // Set fragments column.
   FlatVectorPtr<StringView> fragmentsVector =
       BaseVector::create<FlatVector<StringView>>(
-          VARBINARY(), numOutputRows, pool);
+          VARBINARY(), numOutputRows, pool());
   fragmentsVector->setNull(0, true);
   for (int i = 1; i < numOutputRows; i++) {
     fragmentsVector->set(i, StringView(fragments[i - 1]));
@@ -132,16 +130,16 @@ RowVectorPtr TableWriter::getOutput() {
 
   // Set commitcontext column.
   // clang-format off
-     auto commitContextJson = folly::toJson(
-       folly::dynamic::object
-           ("lifespan", "TaskWide")
-           ("taskId", connectorQueryCtx_->taskId())
-           ("pageSinkCommitStrategy", commitStrategyToString(commitStrategy_))
-           ("lastPage", true));
+    auto commitContextJson = folly::toJson(
+      folly::dynamic::object
+          ("lifespan", "TaskWide")
+          ("taskId", connectorQueryCtx_->taskId())
+          ("pageSinkCommitStrategy", commitStrategyToString(commitStrategy_))
+          ("lastPage", true));
   // clang-format on
 
   auto commitContextVector = std::make_shared<ConstantVector<StringView>>(
-      pool,
+      pool(),
       numOutputRows,
       false /*isNull*/,
       VARBINARY(),
@@ -151,6 +149,6 @@ RowVectorPtr TableWriter::getOutput() {
       writtenRowsVector, fragmentsVector, commitContextVector};
 
   return std::make_shared<RowVector>(
-      pool, outputType_, nullptr, numOutputRows, columns);
+      pool(), outputType_, nullptr, numOutputRows, columns);
 }
 } // namespace facebook::velox::exec

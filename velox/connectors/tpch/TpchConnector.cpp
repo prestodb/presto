@@ -31,21 +31,21 @@ RowVectorPtr getTpchData(
     memory::MemoryPool* pool) {
   switch (table) {
     case Table::TBL_PART:
-      return velox::tpch::genTpchPart(maxRows, offset, scaleFactor, pool);
+      return velox::tpch::genTpchPart(pool, maxRows, offset, scaleFactor);
     case Table::TBL_SUPPLIER:
-      return velox::tpch::genTpchSupplier(maxRows, offset, scaleFactor, pool);
+      return velox::tpch::genTpchSupplier(pool, maxRows, offset, scaleFactor);
     case Table::TBL_PARTSUPP:
-      return velox::tpch::genTpchPartSupp(maxRows, offset, scaleFactor, pool);
+      return velox::tpch::genTpchPartSupp(pool, maxRows, offset, scaleFactor);
     case Table::TBL_CUSTOMER:
-      return velox::tpch::genTpchCustomer(maxRows, offset, scaleFactor, pool);
+      return velox::tpch::genTpchCustomer(pool, maxRows, offset, scaleFactor);
     case Table::TBL_ORDERS:
-      return velox::tpch::genTpchOrders(maxRows, offset, scaleFactor, pool);
+      return velox::tpch::genTpchOrders(pool, maxRows, offset, scaleFactor);
     case Table::TBL_LINEITEM:
-      return velox::tpch::genTpchLineItem(maxRows, offset, scaleFactor, pool);
+      return velox::tpch::genTpchLineItem(pool, maxRows, offset, scaleFactor);
     case Table::TBL_NATION:
-      return velox::tpch::genTpchNation(maxRows, offset, scaleFactor, pool);
+      return velox::tpch::genTpchNation(pool, maxRows, offset, scaleFactor);
     case Table::TBL_REGION:
-      return velox::tpch::genTpchRegion(maxRows, offset, scaleFactor, pool);
+      return velox::tpch::genTpchRegion(pool, maxRows, offset, scaleFactor);
   }
   return nullptr;
 }

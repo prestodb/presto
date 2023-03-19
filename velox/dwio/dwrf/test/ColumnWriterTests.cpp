@@ -80,10 +80,11 @@ class TestStripeStreams : public StripeStreamsBase {
       WriterContext& context,
       const proto::StripeFooter& footer,
       const std::shared_ptr<const RowType>& rowType,
+      MemoryPool* pool,
       bool returnFlatVector = false,
       std::unordered_map<uint32_t, std::vector<std::string>>
           structReaderContext = {})
-      : StripeStreamsBase{&memory::getProcessDefaultMemoryManager().getRoot()},
+      : StripeStreamsBase{pool},
         context_{context},
         footer_{footer},
         selector_{rowType} {
@@ -311,7 +312,7 @@ void testDataTypeWriter(
 
   auto config = std::make_shared<Config>();
   auto pool = getDefaultMemoryPool();
-  WriterContext context{config, getDefaultMemoryPool()};
+  WriterContext context{config, getProcessDefaultMemoryManager().getPool()};
   auto rowType = ROW({type});
   auto dataTypeWithId = TypeWithId::create(type, 1);
 
@@ -332,7 +333,7 @@ void testDataTypeWriter(
       return *sf.add_encoding();
     });
 
-    TestStripeStreams streams(context, sf, rowType);
+    TestStripeStreams streams(context, sf, rowType, pool.get());
     auto typeWithId = TypeWithId::create(rowType);
     auto reqType = typeWithId->childAt(0);
     auto reader = ColumnReader::build(
@@ -357,7 +358,8 @@ TEST(ColumnWriterTests, LowMemoryModeConfig) {
   auto dataTypeWithId = TypeWithId::create(std::make_shared<VarcharType>(), 1);
   auto config = std::make_shared<Config>();
   WriterContext context{
-      config, facebook::velox::memory::getDefaultMemoryPool()};
+      config,
+      facebook::velox::memory::getProcessDefaultMemoryManager().getPool()};
   auto writer = BaseColumnWriter::create(context, *dataTypeWithId);
   EXPECT_TRUE(writer->useDictionaryEncoding());
 }
@@ -883,7 +885,7 @@ void testMapWriter(
     // expect that if we pass useStruct true with useFlatMap false, it will fail
   }
 
-  WriterContext context{config, getDefaultMemoryPool()};
+  WriterContext context{config, getProcessDefaultMemoryManager().getPool()};
   const auto writer = BaseColumnWriter::create(context, *writerDataTypeWithId);
   // For writing flat map with encoded input, we'd like to test all 4
   // combinations.
@@ -924,7 +926,7 @@ void testMapWriter(
 
     auto validate = [&](bool returnFlatVector = false) {
       TestStripeStreams streams(
-          context, sf, rowType, returnFlatVector, structReaderContext);
+          context, sf, rowType, &pool, returnFlatVector, structReaderContext);
       const auto reader =
           ColumnReader::build(dataTypeWithId, dataTypeWithId, streams);
       VectorPtr out;
@@ -1029,7 +1031,7 @@ void testMapWriterRow(
   config->set(
       Config::MAP_FLAT_DISABLE_DICT_ENCODING, disableDictionaryEncoding);
 
-  WriterContext context{config, getDefaultMemoryPool()};
+  WriterContext context{config, getProcessDefaultMemoryManager().getPool()};
   const auto writer = BaseColumnWriter::create(context, *writerDataTypeWithId);
 
   // Each batch represents an input for a separate stripe
@@ -1056,7 +1058,7 @@ void testMapWriterRow(
 
     auto validate = [&](bool returnFlatVector = false) {
       TestStripeStreams streams(
-          context, sf, rowType, returnFlatVector, structReaderContext);
+          context, sf, rowType, &pool, returnFlatVector, structReaderContext);
       const auto reader =
           ColumnReader::build(dataTypeWithId, dataTypeWithId, streams);
       VectorPtr out;
@@ -1467,7 +1469,8 @@ TEST(ColumnWriterTests, TestStructKeysConfigSerializationDeserialization) {
 }
 
 std::unique_ptr<DwrfReader> getDwrfReader(
-    MemoryPool& pool,
+    MemoryPool& rootPool,
+    MemoryPool& leafPool,
     const std::shared_ptr<const RowType> type,
     const VectorPtr& batch,
     bool useFlatMap) {
@@ -1477,7 +1480,7 @@ std::unique_ptr<DwrfReader> getDwrfReader(
     config->set(Config::MAP_FLAT_COLS, {0});
   }
 
-  auto sink = std::make_unique<MemorySink>(pool, 2 * 1024 * 1024);
+  auto sink = std::make_unique<MemorySink>(leafPool, 2 * 1024 * 1024);
   auto sinkPtr = sink.get();
 
   WriterOptions options;
@@ -1488,12 +1491,12 @@ std::unique_ptr<DwrfReader> getDwrfReader(
       return true; // Flushes every batch.
     });
   };
-  Writer writer{options, std::move(sink), pool};
+  Writer writer{options, std::move(sink), rootPool};
   writer.write(batch);
   writer.close();
 
   std::string_view data(sinkPtr->getData(), sinkPtr->size());
-  ReaderOptions readerOpts{&pool};
+  ReaderOptions readerOpts{&leafPool};
   return std::make_unique<DwrfReader>(
       readerOpts,
       std::make_unique<BufferedInput>(
@@ -1513,10 +1516,11 @@ void removeSizeFromStats(std::string& input) {
 }
 
 void testMapWriterStats(const std::shared_ptr<const RowType> type) {
-  auto pool = getDefaultMemoryPool();
-  auto batch = BatchMaker::createBatch(type, 10, *pool);
-  auto mapReader = getDwrfReader(*pool, type, batch, false);
-  auto flatMapReader = getDwrfReader(*pool, type, batch, true);
+  auto rootPool = getProcessDefaultMemoryManager().getPool();
+  auto leafPool = getDefaultMemoryPool();
+  auto batch = BatchMaker::createBatch(type, 10, *leafPool);
+  auto mapReader = getDwrfReader(*rootPool, *leafPool, type, batch, false);
+  auto flatMapReader = getDwrfReader(*rootPool, *leafPool, type, batch, true);
   ASSERT_EQ(
       mapReader->getFooter().statisticsSize(),
       flatMapReader->getFooter().statisticsSize());
@@ -1979,7 +1983,7 @@ struct IntegerColumnWriterTypedTestCase {
     config->set(
         Config::DICTIONARY_NUMERIC_KEY_SIZE_THRESHOLD,
         dictionaryWriteThreshold);
-    WriterContext context{config, getDefaultMemoryPool()};
+    WriterContext context{config, getProcessDefaultMemoryManager().getPool()};
     // Register root node.
     auto columnWriter = BaseColumnWriter::create(context, *typeWithId);
 
@@ -1999,7 +2003,7 @@ struct IntegerColumnWriterTypedTestCase {
       // Read and verify.
       const size_t nodeId = 1;
       auto rowType = ROW({{"integral_column", type}});
-      TestStripeStreams streams(context, stripeFooter, rowType);
+      TestStripeStreams streams(context, stripeFooter, rowType, pool.get());
       EncodingKey key{nodeId};
       const auto& encoding = streams.getEncoding(key);
       if (writeDirect) {
@@ -3077,13 +3081,13 @@ void testIntegerDictionaryEncodableWriterConstructor() {
   float slightlyOver = 1.0f + std::numeric_limits<float>::epsilon() * 2;
   {
     config->set(Config::DICTIONARY_NUMERIC_KEY_SIZE_THRESHOLD, slightlyOver);
-    WriterContext context{config, getDefaultMemoryPool()};
+    WriterContext context{config, getProcessDefaultMemoryManager().getPool()};
     EXPECT_ANY_THROW(BaseColumnWriter::create(context, *typeWithId));
   }
   float slightlyUnder = -std::numeric_limits<float>::epsilon();
   {
     config->set(Config::DICTIONARY_NUMERIC_KEY_SIZE_THRESHOLD, slightlyUnder);
-    WriterContext context{config, getDefaultMemoryPool()};
+    WriterContext context{config, getProcessDefaultMemoryManager().getPool()};
     EXPECT_ANY_THROW(BaseColumnWriter::create(context, *typeWithId));
   }
 }
@@ -3199,7 +3203,7 @@ struct StringColumnWriterTestCase {
     config->set(
         Config::DICTIONARY_STRING_KEY_SIZE_THRESHOLD,
         dictionaryKeyEfficiencyThreshold);
-    WriterContext context{config, getDefaultMemoryPool()};
+    WriterContext context{config, getProcessDefaultMemoryManager().getPool()};
     // Register root node.
     auto typeWithId = TypeWithId::create(type, 1);
     auto columnWriter = BaseColumnWriter::create(context, *typeWithId);
@@ -3230,7 +3234,7 @@ struct StringColumnWriterTestCase {
       // Read and verify.
       const size_t nodeId = 1;
       auto rowType = ROW({{"string_column", type}});
-      TestStripeStreams streams(context, stripeFooter, rowType);
+      TestStripeStreams streams(context, stripeFooter, rowType, pool.get());
       EncodingKey key{nodeId};
       const auto& encoding = streams.getEncoding(key);
       if (writeDirect) {
@@ -4032,7 +4036,10 @@ TEST(ColumnWriterTests, StringColumnWriterAbandonLowValueDictionaries) {
 TEST(ColumnWriterTests, IntDictWriterDirectValueOverflow) {
   auto config = std::make_shared<Config>();
   auto pool = getDefaultMemoryPool();
-  WriterContext context{config, getDefaultMemoryPool()};
+  WriterContext context{
+      config,
+      getProcessDefaultMemoryManager().getPool(
+          "IntDictWriterDirectValueOverflow")};
   auto type = std::make_shared<const IntegerType>();
   auto typeWithId = TypeWithId::create(type, 1);
 
@@ -4055,7 +4062,7 @@ TEST(ColumnWriterTests, IntDictWriterDirectValueOverflow) {
   ASSERT_EQ(enc.kind(), proto::ColumnEncoding_Kind_DICTIONARY);
 
   // get data stream
-  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
+  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}), pool.get());
   DwrfStreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
   auto stream = streams.getStream(si, true);
 
@@ -4072,7 +4079,7 @@ TEST(ColumnWriterTests, IntDictWriterDirectValueOverflow) {
 TEST(ColumnWriterTests, ShortDictWriterDictValueOverflow) {
   auto config = std::make_shared<Config>();
   auto pool = getDefaultMemoryPool();
-  WriterContext context{config, getDefaultMemoryPool()};
+  WriterContext context{config, getProcessDefaultMemoryManager().getPool()};
   auto type = std::make_shared<const SmallintType>();
   auto typeWithId = TypeWithId::create(type, 1);
 
@@ -4100,7 +4107,7 @@ TEST(ColumnWriterTests, ShortDictWriterDictValueOverflow) {
   ASSERT_EQ(enc.kind(), proto::ColumnEncoding_Kind_DICTIONARY);
 
   // get data stream
-  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
+  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}), pool.get());
   DwrfStreamIdentifier si{1, 0, 0, proto::Stream_Kind_DATA};
   auto stream = streams.getStream(si, true);
 
@@ -4124,7 +4131,7 @@ TEST(ColumnWriterTests, RemovePresentStream) {
     data.push_back(i);
   }
   auto vector = populateBatch<int32_t>(data, pool.get());
-  WriterContext context{config, getDefaultMemoryPool()};
+  WriterContext context{config, getProcessDefaultMemoryManager().getPool()};
   auto type = std::make_shared<const IntegerType>();
   auto typeWithId = TypeWithId::create(type, 1);
 
@@ -4139,7 +4146,7 @@ TEST(ColumnWriterTests, RemovePresentStream) {
   });
 
   // get data stream
-  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
+  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}), pool.get());
   DwrfStreamIdentifier si{1, 0, 0, proto::Stream_Kind_PRESENT};
   ASSERT_EQ(streams.getStream(si, false), nullptr);
 }
@@ -4154,7 +4161,8 @@ TEST(ColumnWriterTests, ColumnIdInStream) {
     data.push_back(i);
   }
   auto vector = populateBatch<int32_t>(data, pool.get());
-  WriterContext context{config, getDefaultMemoryPool()};
+  WriterContext context{
+      config, getProcessDefaultMemoryManager().getPool("ColumnIdInStream")};
   auto type = std::make_shared<const IntegerType>();
   const uint32_t kNodeId = 4;
   const uint32_t kColumnId = 2;
@@ -4176,7 +4184,7 @@ TEST(ColumnWriterTests, ColumnIdInStream) {
   });
 
   // get data stream
-  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}));
+  TestStripeStreams streams(context, sf, ROW({"foo"}, {type}), pool.get());
   DwrfStreamIdentifier si{
       kNodeId, /* sequence */ 0, kColumnId, proto::Stream_Kind_DATA};
   ASSERT_NE(streams.getStream(si, false), nullptr);
@@ -4279,7 +4287,7 @@ struct DictColumnWriterTestCase {
     auto typeWithId = TypeWithId::create(type_, 1);
     auto rowType = ROW({type_});
 
-    WriterContext context{config, getDefaultMemoryPool()};
+    WriterContext context{config, getProcessDefaultMemoryManager().getPool()};
 
     // complexVectorType will be nullptr if the vector is not complex.
     bool isComplexType = std::dynamic_pointer_cast<const RowType>(type_) ||
@@ -4304,8 +4312,9 @@ struct DictColumnWriterTestCase {
       return *sf.add_encoding();
     });
 
+    auto pool = getDefaultMemoryPool();
     // Reading the vector out
-    TestStripeStreams streams(context, sf, rowType);
+    TestStripeStreams streams(context, sf, rowType, pool.get());
     EXPECT_CALL(streams.getMockStrideIndexProvider(), getStrideIndex())
         .WillRepeatedly(Return(0));
     auto rowTypeWithId = TypeWithId::create(rowType);

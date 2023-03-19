@@ -87,6 +87,19 @@ class MemoryManager;
 /// be merged into memory pool object later.
 class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
  public:
+  /// Defines the kinds of a memory pool.
+  enum class Kind {
+    /// The leaf memory pool is used for memory allocation. User can allocate
+    /// memory from this kind of pool but can't create child pool from it.
+    kLeaf = 0,
+    /// The aggregation memory pool is used to manage the memory pool hierarchy
+    /// and aggregate the memory usage from the leaf pools. The user can't
+    /// directly allocate memory from this kind of pool but can create child
+    /// pools from it.
+    kAggregate = 1,
+  };
+  static std::string kindString(Kind kind);
+
   struct Options {
     /// Specifies the memory allocation alignment through this memory pool.
     uint16_t alignment{MemoryAllocator::kMaxAlignment};
@@ -94,9 +107,13 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     int64_t capacity{kMaxMemory};
   };
 
-  /// Constructs a named memory pool with specified 'parent'.
+  /// Constructs a named memory pool with specified 'name', 'parent' and 'kind'.
+  ///
+  /// NOTE: we can't create a memory pool with no 'parent' but has 'kind' of
+  /// kLeaf.
   MemoryPool(
       const std::string& name,
+      Kind kind,
       std::shared_ptr<MemoryPool> parent,
       const Options& options);
 
@@ -107,6 +124,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Tree methods used to access and manage the memory hierarchy.
   /// Returns the name of this memory pool.
   virtual const std::string& name() const;
+
+  /// Returns the kind of this memory pool.
+  virtual Kind kind() const;
 
   /// Returns the raw pointer to the parent pool. The root memory pool has
   /// no parent.
@@ -124,8 +144,10 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual void visitChildren(std::function<void(MemoryPool*)> visitor) const;
 
   /// Invoked to create a named child memory pool from this with specified
-  /// 'cap'.
-  virtual std::shared_ptr<MemoryPool> addChild(const std::string& name);
+  /// 'kind'.
+  virtual std::shared_ptr<MemoryPool> addChild(
+      const std::string& name,
+      Kind kind = MemoryPool::Kind::kLeaf);
 
   /// Allocates a buffer with specified 'size'.
   virtual void* allocate(int64_t size) = 0;
@@ -228,13 +250,31 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// a shared pointer created from this.
   virtual std::shared_ptr<MemoryPool> genChild(
       std::shared_ptr<MemoryPool> parent,
-      const std::string& name) = 0;
+      const std::string& name,
+      Kind kind) = 0;
 
   /// Invoked only on destruction to remove this memory pool from its parent's
   /// child memory pool tracking.
   virtual void dropChild(const MemoryPool* child);
 
+  FOLLY_ALWAYS_INLINE virtual void checkMemoryAllocation() {
+    VELOX_CHECK_EQ(
+        kind_,
+        Kind::kLeaf,
+        "Memory allocation is only allowed on leaf memory pool: {}",
+        toString());
+  }
+
+  FOLLY_ALWAYS_INLINE virtual void checkPoolManagement() {
+    VELOX_CHECK_EQ(
+        kind_,
+        Kind::kAggregate,
+        "Pool management is only allowed on aggregation memory pool: {}",
+        toString());
+  }
+
   const std::string name_;
+  const Kind kind_;
   const uint16_t alignment_;
   const std::shared_ptr<MemoryPool> parent_;
 
@@ -243,20 +283,26 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   std::unordered_map<std::string, std::weak_ptr<MemoryPool>> children_;
 };
 
+std::ostream& operator<<(std::ostream& out, MemoryPool::Kind kind);
+
 class MemoryManager;
 
 /// The implementation of MemoryPool interface with a specified memory manager.
 class MemoryPoolImpl : public MemoryPool {
  public:
+  using DestructionCallback = std::function<void(MemoryPool*)>;
+
   // Should perhaps make this method private so that we only create node through
   // parent.
   MemoryPoolImpl(
-      MemoryManager& memoryManager,
+      MemoryManager* memoryManager,
       const std::string& name,
+      Kind kind,
       std::shared_ptr<MemoryPool> parent,
+      DestructionCallback destructionCb = nullptr,
       const Options& options = Options{});
 
-  ~MemoryPoolImpl();
+  ~MemoryPoolImpl() override;
 
   // Actual memory allocation operations. Can be delegated.
   // Access global MemoryManager to check usage of current node and enforce
@@ -304,7 +350,8 @@ class MemoryPoolImpl : public MemoryPool {
 
   std::shared_ptr<MemoryPool> genChild(
       std::shared_ptr<MemoryPool> parent,
-      const std::string& name) override;
+      const std::string& name,
+      Kind kind) override;
 
   // Gets the memory allocation stats of the MemoryPoolImpl attached to the
   // current MemoryPoolImpl. Not to be confused with total memory usage of the
@@ -324,24 +371,26 @@ class MemoryPoolImpl : public MemoryPool {
 
   std::string toString() const override;
 
- private:
-  VELOX_FRIEND_TEST(MemoryPoolTest, Ctor);
+  MemoryAllocator* testingAllocator() const {
+    return allocator_;
+  }
 
+ private:
   int64_t sizeAlign(int64_t size);
 
   void accessSubtreeMemoryUsage(
       std::function<void(const MemoryUsage&)> visitor) const;
   void updateSubtreeMemoryUsage(std::function<void(MemoryUsage&)> visitor);
 
-  MemoryManager& memoryManager_;
+  MemoryManager* const memoryManager_;
+  MemoryAllocator* const allocator_;
+  const DestructionCallback destructionCb_;
 
   // Memory allocated attributed to the memory node.
   MemoryUsage localMemoryUsage_;
   std::shared_ptr<MemoryUsageTracker> memoryUsageTracker_;
   mutable folly::SharedMutex subtreeUsageMutex_;
   MemoryUsage subtreeMemoryUsage_;
-
-  MemoryAllocator& allocator_;
 };
 
 /// An Allocator backed by a memory pool for STL containers.

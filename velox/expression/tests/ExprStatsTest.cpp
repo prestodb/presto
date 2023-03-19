@@ -33,7 +33,7 @@ class ExprStatsTest : public functions::test::FunctionBaseTest {
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
 
-    pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
+    pool_->setMemoryUsageTracker(tracker_->addChild());
 
     // Enable CPU usage tracking.
     queryCtx_->setConfigOverridesUnsafe({

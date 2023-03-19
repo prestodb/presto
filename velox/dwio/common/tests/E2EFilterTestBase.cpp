@@ -47,7 +47,7 @@ std::vector<RowVectorPtr> E2EFilterTestBase::makeDataset(
     std::function<void()> customize,
     bool forRowGroupSkip) {
   if (!dataSetBuilder_) {
-    dataSetBuilder_ = std::make_unique<DataSetBuilder>(*pool_, 0);
+    dataSetBuilder_ = std::make_unique<DataSetBuilder>(*leafPool_, 0);
   }
 
   dataSetBuilder_->makeDataset(rowType_, batchCount_, batchSize_);
@@ -90,7 +90,7 @@ void E2EFilterTestBase::readWithoutFilter(
     std::shared_ptr<ScanSpec> spec,
     const std::vector<RowVectorPtr>& batches,
     uint64_t& time) {
-  dwio::common::ReaderOptions readerOpts{pool_.get()};
+  dwio::common::ReaderOptions readerOpts{leafPool_.get()};
   dwio::common::RowReaderOptions rowReaderOpts;
   std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
   auto input = std::make_unique<BufferedInput>(
@@ -104,7 +104,7 @@ void E2EFilterTestBase::readWithoutFilter(
 
   auto batchIndex = 0;
   auto rowIndex = 0;
-  auto resultBatch = BaseVector::create(rowType_, 1, pool_.get());
+  auto resultBatch = BaseVector::create(rowType_, 1, leafPool_.get());
   while (true) {
     bool hasData;
     {
@@ -141,7 +141,7 @@ void E2EFilterTestBase::readWithFilter(
     uint64_t& time,
     bool useValueHook,
     bool skipCheck) {
-  dwio::common::ReaderOptions readerOpts{pool_.get()};
+  dwio::common::ReaderOptions readerOpts{leafPool_.get()};
   dwio::common::RowReaderOptions rowReaderOpts;
   std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
   auto input = std::make_unique<BufferedInput>(
@@ -153,7 +153,7 @@ void E2EFilterTestBase::readWithFilter(
   auto rowReader = reader->createRowReader(rowReaderOpts);
   runtimeStats_ = dwio::common::RuntimeStatistics();
   auto rowIndex = 0;
-  auto resultBatch = BaseVector::create(rowType_, 1, pool_.get());
+  auto resultBatch = BaseVector::create(rowType_, 1, leafPool_.get());
   resetReadBatchSizes();
   int32_t clearCnt = 0;
   while (true) {
@@ -354,7 +354,7 @@ void E2EFilterTestBase::testMetadataFilterImpl(
   }
   auto untypedExpr = parse::parseExpr(remainingFilter, {});
   auto typedExpr = core::Expressions::inferTypes(
-      untypedExpr, batches[0]->type(), pool_.get());
+      untypedExpr, batches[0]->type(), leafPool_.get());
   auto metadataFilter = std::make_shared<MetadataFilter>(*spec, *typedExpr);
   auto specA = spec->getOrCreateChild(common::Subfield("a"));
   auto specB = spec->getOrCreateChild(common::Subfield("b"));
@@ -365,7 +365,7 @@ void E2EFilterTestBase::testMetadataFilterImpl(
   specB->setChannel(1);
   specC->setProjectOut(true);
   specC->setChannel(0);
-  ReaderOptions readerOpts{pool_.get()};
+  ReaderOptions readerOpts{leafPool_.get()};
   RowReaderOptions rowReaderOpts;
   std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
   auto input = std::make_unique<BufferedInput>(
@@ -374,7 +374,7 @@ void E2EFilterTestBase::testMetadataFilterImpl(
   setUpRowReaderOptions(rowReaderOpts, spec);
   rowReaderOpts.setMetadataFilter(metadataFilter);
   auto rowReader = reader->createRowReader(rowReaderOpts);
-  auto result = BaseVector::create(batches[0]->type(), 1, pool_.get());
+  auto result = BaseVector::create(batches[0]->type(), 1, leafPool_.get());
   int64_t originalIndex = 0;
   auto nextExpectedIndex = [&]() -> int64_t {
     for (;;) {
@@ -414,21 +414,21 @@ void E2EFilterTestBase::testMetadataFilter() {
   std::vector<RowVectorPtr> batches;
   for (int i = 0; i < 10; ++i) {
     auto a = BaseVector::create<FlatVector<int64_t>>(
-        BIGINT(), kRowsInGroup, pool_.get());
+        BIGINT(), kRowsInGroup, leafPool_.get());
     auto c = BaseVector::create<FlatVector<int64_t>>(
-        BIGINT(), kRowsInGroup, pool_.get());
+        BIGINT(), kRowsInGroup, leafPool_.get());
     for (int j = 0; j < kRowsInGroup; ++j) {
       a->set(j, i);
       c->set(j, i);
     }
     auto b = std::make_shared<RowVector>(
-        pool_.get(),
+        leafPool_.get(),
         ROW({{"c", c->type()}}),
         nullptr,
         c->size(),
         std::vector<VectorPtr>({c}));
     batches.push_back(std::make_shared<RowVector>(
-        pool_.get(),
+        leafPool_.get(),
         ROW({{"a", a->type()}, {"b", b->type()}}),
         nullptr,
         a->size(),
@@ -461,7 +461,7 @@ void E2EFilterTestBase::testMetadataFilter() {
 }
 
 void E2EFilterTestBase::testSubfieldsPruning() {
-  test::VectorMaker vectorMaker(pool_.get());
+  test::VectorMaker vectorMaker(leafPool_.get());
   std::vector<RowVectorPtr> batches;
   constexpr int kMapSize = 5;
   for (int i = 0; i < batchCount_; ++i) {
@@ -499,7 +499,7 @@ void E2EFilterTestBase::testSubfieldsPruning() {
   specB->childByName(common::ScanSpec::kMapKeysFieldName)
       ->setFilter(common::createBigintValues(requiredB, false));
   spec->addField("c", *ARRAY(BIGINT()), 2)->setMaxArrayElementsCount(6);
-  ReaderOptions readerOpts{pool_.get()};
+  ReaderOptions readerOpts{leafPool_.get()};
   RowReaderOptions rowReaderOpts;
   std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
   auto input = std::make_unique<BufferedInput>(
@@ -507,7 +507,7 @@ void E2EFilterTestBase::testSubfieldsPruning() {
   auto reader = makeReader(readerOpts, std::move(input));
   setUpRowReaderOptions(rowReaderOpts, spec);
   auto rowReader = reader->createRowReader(rowReaderOpts);
-  auto result = BaseVector::create(batches[0]->type(), 1, pool_.get());
+  auto result = BaseVector::create(batches[0]->type(), 1, leafPool_.get());
   int totalIndex = 0;
   while (rowReader->next(10, result)) {
     ASSERT_EQ(*result->type(), *batches[0]->type());

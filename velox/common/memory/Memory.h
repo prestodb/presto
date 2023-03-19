@@ -85,15 +85,29 @@ class IMemoryManager {
   /// Returns the memory allocation alignment of this memory manager.
   virtual uint16_t alignment() const = 0;
 
-  /// Power users that want to explicitly modify the tree should get the root of
-  /// the tree.
-  ///
-  /// TODO: deprecate this API to disallow user to allocate from the root memory
-  /// pool directly.
-  virtual MemoryPool& getRoot() const = 0;
+  /// Creates a memory pool for use with specified 'name', 'kind' and 'cap'. If
+  /// 'name' is missing, the memory manager generates a default name internally
+  /// to ensure uniqueness. If 'kind' is kAggregate, a root memory pool is
+  /// created. Otherwise, a leaf memory pool is created as the child of the
+  /// memory manager's default root memory pool.
+  virtual std::shared_ptr<MemoryPool> getPool(
+      const std::string& name = "",
+      MemoryPool::Kind kind = MemoryPool::Kind::kAggregate,
+      int64_t maxBytes = kMaxMemory) = 0;
 
-  /// Adds a child pool to root for use.
-  virtual std::shared_ptr<MemoryPool> getChild(int64_t cap = kMaxMemory) = 0;
+  /// Returns the number of alive memory pools allocated from getPool().
+  ///
+  /// NOTE: this doesn't count the memory manager's internal default root and
+  /// leaf memory pools.
+  virtual size_t numPools() const = 0;
+
+  /// Returns a leaf memory pool for memory allocation use. The pool is
+  /// created as the child of the memory manager's default root memory pool and
+  /// is owned by the memory manager.
+  ///
+  /// TODO: deprecate this API after all the use cases are able to manage the
+  /// lifecycle of the allocated memory pools properly.
+  virtual MemoryPool& deprecatedGetPool() = 0;
 
   /// Returns the current total memory usage under this memory manager.
   virtual int64_t getTotalBytes() const = 0;
@@ -109,6 +123,9 @@ class IMemoryManager {
   ///
   /// TODO: deprecate this and enforce the memory usage quota by memory pool.
   virtual void release(int64_t size) = 0;
+
+  /// Returns debug string of this memory manager.
+  virtual std::string toString() const = 0;
 };
 
 /// For now, users wanting multiple different allocators would need to
@@ -140,38 +157,60 @@ class MemoryManager final : public IMemoryManager {
 
   uint16_t alignment() const final;
 
-  MemoryPool& getRoot() const final;
+  std::shared_ptr<MemoryPool> getPool(
+      const std::string& name = "",
+      MemoryPool::Kind kind = MemoryPool::Kind::kAggregate,
+      int64_t maxBytes = kMaxMemory) final;
 
-  std::shared_ptr<MemoryPool> getChild(int64_t cap = kMaxMemory) final;
+  MemoryPool& deprecatedGetPool() final;
 
   int64_t getTotalBytes() const final;
 
   bool reserve(int64_t size) final;
   void release(int64_t size) final;
 
+  size_t numPools() const final;
+
+  std::string toString() const final;
+
   MemoryAllocator& getAllocator();
 
+  /// Returns the memory manger's internal default root memory pool for testing
+  /// purpose.
+  MemoryPool& testingDefaultRoot() const {
+    return *defaultRoot_;
+  }
+
  private:
-  VELOX_FRIEND_TEST(MemoryPoolImplTest, MemoryManagerGlobalCap);
+  void dropPool(MemoryPool* pool);
 
   const std::shared_ptr<MemoryAllocator> allocator_;
   const int64_t memoryQuota_;
   const uint16_t alignment_;
+  // The destruction callback set for the root memory pools created by getPool()
+  // which are tracked by 'pools_'. It is invoked on the root pool destruction
+  // and removes the pool from 'pools_'.
+  const MemoryPoolImpl::DestructionCallback poolDestructionCb_;
 
-  std::shared_ptr<MemoryPool> root_;
+  const std::shared_ptr<MemoryPool> defaultRoot_;
+  // The leaf memory pool created as child of 'defaultRoot_' on memory manager
+  // construction. This is for legacy use cases that can't manage the memory
+  // pool's lifecycle properly, and will be deprecated later.
+  const std::shared_ptr<MemoryPool> deprecatedDefaultLeafPool_;
+
   mutable folly::SharedMutex mutex_;
   std::atomic_long totalBytes_{0};
+  std::vector<MemoryPool*> pools_;
 };
 
 IMemoryManager& getProcessDefaultMemoryManager();
 
-/// Adds a new child memory pool to the root. The new child pool memory cap is
-/// set to the input value provided.
-std::shared_ptr<MemoryPool> getDefaultMemoryPool(int64_t cap = kMaxMemory);
+/// Creates a leaf memory pool from the default memory manager for memory
+/// allocation use.
+std::shared_ptr<MemoryPool> getDefaultMemoryPool(const std::string& name = "");
 
 FOLLY_ALWAYS_INLINE int32_t alignmentPadding(void* address, int32_t alignment) {
   auto extra = reinterpret_cast<uintptr_t>(address) % alignment;
   return extra == 0 ? 0 : alignment - extra;
 }
-
 } // namespace facebook::velox::memory

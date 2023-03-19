@@ -49,8 +49,9 @@ void addStats(
 class EncryptedStatsTest : public Test {
  protected:
   void SetUp() override {
-    pool_ = getDefaultMemoryPool();
-    ProtoWriter writer{*pool_};
+    pool_ = getProcessDefaultMemoryManager().getPool("EncryptedStatsTest");
+    sinkPool_ = pool_->addChild("sink");
+    ProtoWriter writer{pool_, *sinkPool_};
     auto& context = const_cast<const ProtoWriter&>(writer).getContext();
 
     // fake post script
@@ -95,9 +96,10 @@ class EncryptedStatsTest : public Test {
 
     auto readFile =
         std::make_shared<facebook::velox::InMemoryReadFile>(std::string());
+    readerPool_ = pool_->addChild("reader");
     reader_ = std::make_unique<ReaderBase>(
-        *pool_,
-        std::make_unique<BufferedInput>(readFile, *pool_),
+        *readerPool_,
+        std::make_unique<BufferedInput>(readFile, *readerPool_),
         std::make_unique<PostScript>(std::move(ps)),
         footer,
         nullptr,
@@ -115,6 +117,8 @@ class EncryptedStatsTest : public Test {
   std::unique_ptr<ReaderBase> reader_;
   DecryptionHandler* handler_;
   std::shared_ptr<MemoryPool> pool_;
+  std::shared_ptr<MemoryPool> sinkPool_;
+  std::shared_ptr<MemoryPool> readerPool_;
 };
 
 TEST_F(EncryptedStatsTest, getStatistics) {
