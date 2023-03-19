@@ -259,6 +259,7 @@ public final class SystemSessionProperties
     public static final String PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS = "prefilter_for_groupby_limit_timeout_ms";
     public static final String OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME = "optimize_join_probe_for_empty_build_runtime";
     public static final String USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS = "use_defaults_for_correlated_aggregation_pushdown_through_outer_joins";
+    public static final String MERGE_DUPLICATE_AGGREGATIONS = "merge_duplicate_aggregations";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1476,6 +1477,11 @@ public final class SystemSessionProperties
                         USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS,
                         "Coalesce with defaults for correlated aggregations",
                         featuresConfig.isUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(),
+                        false),
+                booleanProperty(
+                        MERGE_DUPLICATE_AGGREGATIONS,
+                        "Merge identical aggregation functions within the same aggregation node",
+                        featuresConfig.isMergeDuplicateAggregationsEnabled(),
                         false));
     }
 
@@ -2480,5 +2486,10 @@ public final class SystemSessionProperties
     public static boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(Session session)
     {
         return session.getSystemProperty(USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS, Boolean.class);
+    }
+
+    public static boolean isMergeDuplicateAggregationsEnabled(Session session)
+    {
+        return session.getSystemProperty(MERGE_DUPLICATE_AGGREGATIONS, Boolean.class);
     }
 }
