@@ -295,9 +295,7 @@ class PrestoExchangeSourceTest : public testing::Test {
  public:
   void SetUp() override {
     auto& defaultManager = memory::MemoryManager::getInstance();
-    auto& pool =
-        dynamic_cast<memory::MemoryPoolImpl&>(defaultManager.getRoot());
-    pool_ = &pool;
+    pool_ = memory::getDefaultMemoryPool("PrestoExchangeSourceTest");
     memory::MmapAllocator::Options options;
     options.capacity = 1L << 30;
     allocator_ = std::make_unique<memory::MmapAllocator>(options);
@@ -318,7 +316,7 @@ class PrestoExchangeSourceTest : public testing::Test {
     exchangeSource->request();
   }
 
-  memory::MemoryPool* pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<memory::MemoryAllocator> allocator_;
 };
 
@@ -342,8 +340,8 @@ TEST_F(PrestoExchangeSourceTest, basic) {
   queue->addSourceLocked();
   queue->noMoreSources();
 
-  auto exchangeSource =
-      std::make_shared<PrestoExchangeSource>(producerUri, 3, queue, pool_);
+  auto exchangeSource = std::make_shared<PrestoExchangeSource>(
+      producerUri, 3, queue, pool_.get());
 
   size_t beforePoolSize = pool_->getCurrentBytes();
   size_t beforeQueueSize = queue->totalBytes();
@@ -385,7 +383,7 @@ TEST_F(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
   queue->noMoreSources();
 
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
-      makeProducerUri(producerAddress), 3, queue, pool_);
+      makeProducerUri(producerAddress), 3, queue, pool_.get());
   exchangeSource->close();
 
   producer->waitForDeleteResults();
@@ -408,7 +406,7 @@ TEST_F(PrestoExchangeSourceTest, slowProducer) {
   queue->addSourceLocked();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
-      makeProducerUri(producerAddress), 3, queue, pool_);
+      makeProducerUri(producerAddress), 3, queue, pool_.get());
 
   size_t beforePoolSize = pool_->getCurrentBytes();
   size_t beforeQueueSize = queue->totalBytes();
@@ -446,7 +444,7 @@ TEST_F(PrestoExchangeSourceTest, failedProducer) {
   queue->addSourceLocked();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
-      makeProducerUri(producerAddress), 3, queue, pool_);
+      makeProducerUri(producerAddress), 3, queue, pool_.get());
 
   requestNextPage(queue, exchangeSource);
   producer->enqueue(pages[0]);
