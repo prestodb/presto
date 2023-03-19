@@ -219,7 +219,8 @@ public class TestFeaturesConfig
                 .setPushAggregationBelowJoinByteReductionThreshold(1)
                 .setPrefilterForGroupbyLimit(false)
                 .setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(false)
-                .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(true));
+                .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(true)
+                .setMergeDuplicateAggregationsEnabled(true));
     }
 
     @Test
@@ -389,6 +390,7 @@ public class TestFeaturesConfig
                 .put("optimizer.prefilter-for-groupby-limit", "true")
                 .put("optimizer.optimize-probe-for-empty-build-runtime", "true")
                 .put("optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins", "false")
+                .put("optimizer.merge-duplicate-aggregations", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -555,7 +557,8 @@ public class TestFeaturesConfig
                 .setPushAggregationBelowJoinByteReductionThreshold(0.9)
                 .setPrefilterForGroupbyLimit(true)
                 .setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(true)
-                .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(false);
+                .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(false)
+                .setMergeDuplicateAggregationsEnabled(false);
         assertFullMapping(properties, expected);
     }
 

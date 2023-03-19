@@ -25,9 +25,10 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
@@ -101,7 +102,7 @@ public class ExpressionMatcher
             }
         }
 
-        List<Object> matches = matchesBuilder.build();
+        Set<Object> matches = new HashSet<>(matchesBuilder.build());
         checkState(matches.size() < 2, "Ambiguous expression %s matches multiple assignments", expression,
                 (matches.stream().map(Object::toString).collect(Collectors.joining(", "))));
         return result;
