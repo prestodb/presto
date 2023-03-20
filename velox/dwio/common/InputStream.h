@@ -148,28 +148,6 @@ class InputStream {
   IoStatistics* FOLLY_NULLABLE stats_;
 };
 
-class FileInputStream : public InputStream {
- private:
-  int file;
-  uint64_t totalLength;
-
- public:
-  explicit FileInputStream(
-      const std::string& filename,
-      const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
-      IoStatistics* FOLLY_NULLABLE stats = nullptr);
-
-  ~FileInputStream() override;
-
-  uint64_t getLength() const override;
-
-  uint64_t getNaturalReadSize() const override;
-
-  void read(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType) override;
-
-  static void registerFactory();
-};
-
 // An input stream that reads from an already opened ReadFile.
 class ReadFileInputStream final : public InputStream {
  public:

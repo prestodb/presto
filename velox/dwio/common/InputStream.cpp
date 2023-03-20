@@ -52,94 +52,6 @@ folly::SemiFuture<uint64_t> InputStream::readAsync(
   }
 }
 
-FileInputStream::FileInputStream(
-    const std::string& path,
-    const MetricsLogPtr& metricsLog,
-    IoStatistics* stats)
-    : InputStream(path, metricsLog, stats) {
-  file = open(path.c_str(), O_RDONLY);
-  if (file == -1) {
-    throw std::runtime_error(
-        "Can't open \"" + path + "\". Error: " + std::to_string(errno));
-  }
-  struct stat fileStat;
-  if (fstat(file, &fileStat) == -1) {
-    throw std::runtime_error(
-        "Can't stat \"" + path + "\". Error: " + std::to_string(errno));
-  }
-  totalLength = static_cast<uint64_t>(fileStat.st_size);
-}
-
-void FileInputStream::read(
-    void* buf,
-    uint64_t length,
-    uint64_t offset,
-    MetricsLog::MetricsType purpose) {
-  if (!buf) {
-    throw std::invalid_argument("Buffer is null");
-  }
-
-  // log the metric
-  logRead(offset, length, purpose);
-  auto readStartMicros = getCurrentTimeMicro();
-
-  auto dest = static_cast<char*>(buf);
-  uint64_t totalBytesRead = 0;
-  while (totalBytesRead < length) {
-    ssize_t bytesRead = pread(
-        file,
-        dest,
-        length - totalBytesRead,
-        static_cast<off_t>(offset + totalBytesRead));
-
-    DWIO_ENSURE_GE(
-        bytesRead,
-        0,
-        "pread failure . File name: ",
-        getName(),
-        ", offset: ",
-        offset,
-        ", length: ",
-        length,
-        ", read: ",
-        totalBytesRead,
-        ", errno: ",
-        errno);
-
-    DWIO_ENSURE_NE(
-        bytesRead,
-        0,
-        "Unexepected EOF. File name: ",
-        getName(),
-        ", offset: ",
-        offset,
-        ", length: ",
-        length,
-        ", read: ",
-        totalBytesRead);
-
-    totalBytesRead += bytesRead;
-    dest += bytesRead;
-  }
-
-  DWIO_ENSURE_EQ(
-      totalBytesRead,
-      length,
-      "Should read exactly as requested. File name: ",
-      getName(),
-      ", offset: ",
-      offset,
-      ", length: ",
-      length,
-      ", read: ",
-      totalBytesRead);
-
-  if (stats_) {
-    stats_->incRawBytesRead(length);
-    stats_->incTotalScanTime((getCurrentTimeMicro() - readStartMicros) * 1000);
-  }
-}
-
 ReadFileInputStream::ReadFileInputStream(
     std::shared_ptr<velox::ReadFile> readFile,
     const MetricsLogPtr& metricsLog,
@@ -245,18 +157,6 @@ const std::string& InputStream::getName() const {
 void InputStream::logRead(uint64_t offset, uint64_t length, LogType purpose) {
   metricsLog_->logRead(
       0, "readFully", getLength(), 0, 0, offset, length, purpose, 1, 0);
-}
-
-FileInputStream::~FileInputStream() {
-  close(file);
-}
-
-uint64_t FileInputStream::getLength() const {
-  return totalLength;
-}
-
-uint64_t FileInputStream::getNaturalReadSize() const {
-  return DEFAULT_AUTO_PRELOAD_SIZE;
 }
 
 uint64_t ReferenceableInputStream::getPreloadLength() const {
