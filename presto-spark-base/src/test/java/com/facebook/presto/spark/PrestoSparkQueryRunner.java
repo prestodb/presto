@@ -52,6 +52,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
+import com.facebook.presto.spark.execution.NativeExecutionModule;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -260,7 +261,7 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 new SqlParserOptions(),
-                ImmutableList.of(new PrestoSparkLocalMetadataStorageModule()),
+                ImmutableList.of(new PrestoSparkLocalMetadataStorageModule(), new NativeExecutionModule()),
                 true);
 
         Injector injector = injectorFactory.create();
