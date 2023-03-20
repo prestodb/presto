@@ -142,18 +142,6 @@ class InputStream {
 
   virtual void logRead(uint64_t offset, uint64_t length, LogType purpose);
 
-  using Factory = std::function<std::unique_ptr<InputStream>(
-      const std::string&,
-      const MetricsLogPtr&,
-      IoStatistics* FOLLY_NULLABLE stats)>;
-
-  static std::unique_ptr<InputStream> create(
-      const std::string&,
-      const MetricsLogPtr& = MetricsLog::voidLog(),
-      IoStatistics* FOLLY_NULLABLE stats = nullptr);
-
-  static bool registerFactory(Factory factory);
-
  protected:
   std::string path_;
   MetricsLogPtr metricsLog_;
@@ -251,14 +239,3 @@ class ReferenceableInputStream : public InputStream {
   readReferenceOnly(uint64_t length, uint64_t offset, LogType) = 0;
 };
 } // namespace facebook::velox::dwio::common
-
-#define VELOX_STATIC_REGISTER_INPUT_STREAM(function)                           \
-  namespace {                                                                  \
-  static bool FB_ANONYMOUS_VARIABLE(g_InputStreamFunction) =                   \
-      facebook::velox::dwio::common::InputStream::registerFactory((function)); \
-  }
-
-#define VELOX_REGISTER_INPUT_STREAM_METHOD_DEFINITION(class, function)       \
-  void class ::registerFactory() {                                           \
-    facebook::velox::dwio::common::InputStream::registerFactory((function)); \
-  }

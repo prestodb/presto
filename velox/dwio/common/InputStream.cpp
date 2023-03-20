@@ -275,43 +275,4 @@ void ReferenceableInputStream::setPrefetching(bool pf) {
   prefetching_ = pf;
 }
 
-static std::vector<InputStream::Factory>& factories() {
-  static std::vector<InputStream::Factory> factories;
-  return factories;
-}
-
-bool InputStream::registerFactory(InputStream::Factory factory) {
-  factories().push_back(factory);
-  return true;
-}
-
-std::unique_ptr<InputStream> InputStream::create(
-    const std::string& path,
-    const MetricsLogPtr& metricsLog,
-    IoStatistics* stats) {
-  DWIO_ENSURE_NOT_NULL(metricsLog.get());
-  for (auto& factory : factories()) {
-    auto result = factory(path, metricsLog, stats);
-    if (result) {
-      return result;
-    }
-  }
-  return std::make_unique<FileInputStream>(path, metricsLog, stats);
-}
-
-static std::unique_ptr<InputStream> fileInputStreamFactory(
-    const std::string& filename,
-    const MetricsLogPtr& metricsLog,
-    IoStatistics* stats = nullptr) {
-  if (strncmp(filename.c_str(), "file:", 5) == 0) {
-    return std::make_unique<FileInputStream>(
-        filename.substr(5), metricsLog, stats);
-  }
-  return nullptr;
-}
-
-VELOX_REGISTER_INPUT_STREAM_METHOD_DEFINITION(
-    FileInputStream,
-    fileInputStreamFactory)
-
 } // namespace facebook::velox::dwio::common
