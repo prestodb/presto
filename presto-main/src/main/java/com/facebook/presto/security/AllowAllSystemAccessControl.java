@@ -23,6 +23,7 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.security.ViewExpression;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
@@ -206,5 +207,11 @@ public class AllowAllSystemAccessControl
     @Override
     public void checkCanRevokeTablePrivilege(Identity identity, AccessControlContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+    {
+        return Optional.empty();
     }
 }
