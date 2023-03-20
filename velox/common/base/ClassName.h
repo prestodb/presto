@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#define VELOX_DEFINE_CLASS_NAME(name) \
- public:                              \
-  static const char* getClassName() { \
-    return #name;                     \
+#define VELOX_DEFINE_CLASS_NAME(name)          \
+ public:                                       \
+  static const char* getClassName() noexcept { \
+    return #name;                              \
   }
