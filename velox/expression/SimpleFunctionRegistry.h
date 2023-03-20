@@ -32,12 +32,9 @@ SimpleFunctionRegistry& SimpleFunctions();
 
 // This function should be called once and alone.
 template <typename UDFHolder>
-void registerSimpleFunction(
-    const std::vector<std::string>& names,
-    std::shared_ptr<const Type> returnType) {
+void registerSimpleFunction(const std::vector<std::string>& names) {
   SimpleFunctions()
-      .registerFunction<SimpleFunctionAdapterFactoryImpl<UDFHolder>>(
-          names, returnType);
+      .registerFunction<SimpleFunctionAdapterFactoryImpl<UDFHolder>>(names);
 }
 
 } // namespace facebook::velox::exec

@@ -523,6 +523,9 @@ bool OpaqueType::equivalent(const Type& other) const {
 }
 
 bool OpaqueType::operator==(const Type& other) const {
+  if (&other == this) {
+    return true;
+  }
   if (!this->equivalent(other)) {
     return false;
   }

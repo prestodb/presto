@@ -61,8 +61,7 @@ struct CountCallsFunction {
 };
 
 TEST_F(TryExprTest, skipExecution) {
-  registerFunction<CountCallsFunction, int64_t, int64_t>(
-      {"count_calls"}, BIGINT());
+  registerFunction<CountCallsFunction, int64_t, int64_t>({"count_calls"});
 
   std::vector<std::optional<int64_t>> expected{
       0, std::nullopt, 1, std::nullopt, 2};
@@ -132,8 +131,7 @@ TEST_F(TryExprTest, nestedTryParentErrors) {
 }
 
 TEST_F(TryExprTest, skipExecutionEvalSimplified) {
-  registerFunction<CountCallsFunction, int64_t, int64_t>(
-      {"count_calls"}, BIGINT());
+  registerFunction<CountCallsFunction, int64_t, int64_t>({"count_calls"});
 
   // Test that when a subset of the inputs to a function wrapped in a TRY throw
   // exceptions, that function is only evaluated on the inputs that did not
@@ -148,8 +146,7 @@ TEST_F(TryExprTest, skipExecutionEvalSimplified) {
 }
 
 TEST_F(TryExprTest, skipExecutionWholeBatchEvalSimplified) {
-  registerFunction<CountCallsFunction, int64_t, int64_t>(
-      {"count_calls"}, BIGINT());
+  registerFunction<CountCallsFunction, int64_t, int64_t>({"count_calls"});
 
   // Test that when all the inputs to a function wrapped in a TRY throw
   // exceptions, that function isn't evaluated and a NULL constant is returned
@@ -292,8 +289,7 @@ TEST_F(TryExprTest, constant) {
 }
 
 TEST_F(TryExprTest, evalSimplified) {
-  registerFunction<CountCallsFunction, int64_t, int64_t>(
-      {"count_calls"}, BIGINT());
+  registerFunction<CountCallsFunction, int64_t, int64_t>({"count_calls"});
 
   std::vector<std::optional<int64_t>> expected{0, 1, 2, 3};
   auto constant = makeConstant<int64_t>(0, 4);

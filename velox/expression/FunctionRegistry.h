@@ -22,9 +22,8 @@ namespace facebook::velox::exec {
 class FunctionSignature;
 
 template <typename T>
-const std::shared_ptr<const T>& GetSingletonUdfMetadata(
-    std::shared_ptr<const Type> returnType) {
-  static auto instance = std::make_shared<const T>(std::move(returnType));
+const std::shared_ptr<const T>& GetSingletonUdfMetadata() {
+  static auto instance = std::make_shared<const T>();
   return instance;
 }
 
@@ -59,14 +58,9 @@ class FunctionRegistry {
 
  public:
   template <typename UDF>
-  void registerFunction(
-      const std::vector<std::string>& aliases = {},
-      std::shared_ptr<const Type> returnType = nullptr) {
-    const auto& metadata =
-        GetSingletonUdfMetadata<typename UDF::Metadata>(std::move(returnType));
-    const auto factory = [metadata]() {
-      return CreateUdf<UDF>(metadata->returnType());
-    };
+  void registerFunction(const std::vector<std::string>& aliases = {}) {
+    const auto& metadata = GetSingletonUdfMetadata<typename UDF::Metadata>();
+    const auto factory = [metadata]() { return CreateUdf<UDF>(); };
 
     if (aliases.empty()) {
       registerFunctionInternal(metadata->getName(), metadata, factory);
@@ -160,8 +154,8 @@ class FunctionRegistry {
 
  private:
   template <typename T>
-  static std::unique_ptr<T> CreateUdf(std::shared_ptr<const Type> returnType) {
-    return std::make_unique<T>(std::move(returnType));
+  static std::unique_ptr<T> CreateUdf() {
+    return std::make_unique<T>();
   }
 
   void registerFunctionInternal(

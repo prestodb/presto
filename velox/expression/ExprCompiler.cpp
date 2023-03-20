@@ -404,7 +404,7 @@ ExprPtr compileExpression(
             SimpleFunctions().resolveFunction(call->name(), inputTypes)) {
       const auto& metadata = simpleFunctionEntry->getMetadata();
       VELOX_USER_CHECK(
-          resultType->kindEquals(metadata.returnType()),
+          resultType->kindEquals(simpleFunctionEntry->type()),
           "Found incompatible return types for '{}' ({} vs. {}) "
           "for input types ({}).",
           call->name(),

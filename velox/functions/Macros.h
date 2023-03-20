@@ -20,6 +20,7 @@
 
 #define VELOX_UDF_BEGIN(Name)                                                \
   struct udf_##Name {                                                        \
+    static constexpr auto name = #Name;                                      \
     template <typename __Velox_ExecParams>                                   \
     struct udf {                                                             \
       template <typename __Velox_TArg>                                       \

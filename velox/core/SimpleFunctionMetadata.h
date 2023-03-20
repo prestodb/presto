@@ -15,12 +15,15 @@
  */
 #pragma once
 
-#include "folly/Likely.h"
+#include <boost/algorithm/string.hpp>
+#include <folly/Likely.h>
+
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/core/Metaprogramming.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/expression/FunctionSignature.h"
+#include "velox/expression/SignatureBinder.h"
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
 
@@ -289,13 +292,11 @@ struct TypeAnalysis<CustomType<T>> {
   }
 };
 
-// todo(youknowjack): need a better story for types for UDFs. Mapping
-//                    c++ types <-> Velox types is imprecise (e.g. string vs
-//                    binary) and difficult to change.
 class ISimpleFunctionMetadata {
  public:
-  virtual std::shared_ptr<const Type> returnType() const = 0;
-  virtual std::vector<std::shared_ptr<const Type>> argTypes() const = 0;
+  // Return the return type of the function if its independent on the input
+  // types, otherwise return null.
+  virtual TypePtr tryResolveReturnType() const = 0;
   virtual std::string getName() const = 0;
   virtual bool isDeterministic() const = 0;
   virtual uint32_t priority() const = 0;
@@ -310,20 +311,6 @@ struct udf_has_name : std::false_type {};
 template <typename T>
 struct udf_has_name<T, decltype(&T::name, 0)> : std::true_type {};
 
-template <typename Arg>
-struct CreateType {
-  static std::shared_ptr<const Type> create() {
-    return CppToType<Arg>::create();
-  }
-};
-
-template <typename Underlying>
-struct CreateType<Variadic<Underlying>> {
-  static std::shared_ptr<const Type> create() {
-    return CreateType<Underlying>::create();
-  }
-};
-
 template <typename Fun, typename TReturn, typename... Args>
 class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
  public:
@@ -334,6 +321,29 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
   static constexpr int num_args = std::tuple_size<arg_types>::value;
 
  public:
+  template <typename T>
+  struct CreateType {
+    static auto create(const exec::FunctionSignaturePtr& signature) {
+      auto type = velox::exec::SignatureBinder::tryResolveType(
+          signature->returnType(), {}, {});
+      return type;
+    }
+  };
+
+  // Signature does not capture the type index of the opaque type.
+  template <typename T>
+  struct CreateType<std::shared_ptr<T>> {
+    // We override the type with the concrete specialization here!
+    // using NativeType = std::shared_ptr<T>;
+    static auto create(const exec::FunctionSignaturePtr& signature) {
+      return OpaqueType::create<T>();
+    }
+  };
+
+  virtual TypePtr tryResolveReturnType() const final {
+    return CreateType<return_type>::create(signature());
+  }
+
   uint32_t priority() const override {
     return priority_;
   }
@@ -353,26 +363,6 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
     return udf_is_deterministic<Fun>();
   }
 
-  std::shared_ptr<const Type> returnType() const final {
-    return returnType_;
-  }
-
-  // Will convert Args to std::shared_ptr<const Type>.
-  // Note that if the last arg is Variadic, this will return a
-  // std::shared_ptr<const Type> matching the underlying type for that
-  // argument.
-  // You can check if that argument is Variadic by calling isVariadic()
-  // on this object.
-  std::vector<std::shared_ptr<const Type>> argTypes() const final {
-    std::vector<std::shared_ptr<const Type>> args(num_args);
-    auto it = args.begin();
-    ((*it++ = CreateType<Args>::create()), ...);
-    for (const auto& arg : args) {
-      CHECK_NOTNULL(arg.get());
-    }
-    return args;
-  }
-
   static constexpr bool isVariadic() {
     if constexpr (num_args == 0) {
       return false;
@@ -381,31 +371,29 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
     }
   }
 
-  explicit SimpleFunctionMetadata(std::shared_ptr<const Type> returnType)
-      : returnType_(
-            returnType ? std::move(returnType) : CppToType<TReturn>::create()) {
+  explicit SimpleFunctionMetadata() {
     auto analysis = analyzeSignatureTypes();
     buildSignature(analysis);
     priority_ = analysis.stats.computePriority();
-    verifyReturnTypeCompatibility();
   }
 
   ~SimpleFunctionMetadata() override = default;
 
-  const std::shared_ptr<exec::FunctionSignature> signature() const override {
+  const exec::FunctionSignaturePtr signature() const override {
     return signature_;
   }
 
   std::string helpMessage(const std::string& name) const final {
+    // return fmt::format("{}({})", name, signature_->toString());
     std::string s{name};
     s.append("(");
     bool first = true;
-    for (auto& arg : argTypes()) {
+    for (auto& arg : signature_->argumentTypes()) {
       if (!first) {
         s.append(", ");
       }
       first = false;
-      s.append(arg->toString());
+      s.append(boost::algorithm::to_upper_copy(arg.toString()));
     }
 
     if (isVariadic()) {
@@ -474,14 +462,7 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
     signature_ = builder.build();
   }
 
-  void verifyReturnTypeCompatibility() {
-    VELOX_USER_CHECK(
-        CppToType<TReturn>::create()->kindEquals(returnType_),
-        "return type override mismatch");
-  }
-
-  const std::shared_ptr<const Type> returnType_;
-  std::shared_ptr<exec::FunctionSignature> signature_;
+  exec::FunctionSignaturePtr signature_;
   uint32_t priority_;
 };
 
@@ -680,8 +661,7 @@ class UDFHolder final
   template <size_t N>
   using exec_type_at = typename std::tuple_element<N, exec_arg_types>::type;
 
-  explicit UDFHolder(std::shared_ptr<const Type> returnType)
-      : Metadata(std::move(returnType)), instance_{} {}
+  explicit UDFHolder() : Metadata(), instance_{} {}
 
   FOLLY_ALWAYS_INLINE void initialize(
       const core::QueryConfig& config,
