@@ -14,7 +14,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.executor.FaultInjector;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.failureDetector.FailureDetector;
@@ -56,7 +55,7 @@ public class WorkerModule
         binder.bind(NodeResourceStatusProvider.class).toInstance(newProxy(NodeResourceStatusProvider.class, (proxy, method, args) -> {
             return true;
         }));
-        binder.bind(FaultInjector.class).in(Scopes.SINGLETON);
+        //binder.bind(FaultInjector.class).in(Scopes.SINGLETON);
     }
 
     @Provides
