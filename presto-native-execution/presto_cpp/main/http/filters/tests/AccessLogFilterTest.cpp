@@ -24,9 +24,15 @@ TEST(AccessLogFilterTest, logFormat) {
    public:
     explicit MockedAccessLogFilter(proxygen::RequestHandler* upstream)
         : AccessLogFilter(upstream) {}
-    mutable std::string accessLog = "";
+
+    std::function<void(std::string)> verifyFn_;
+
+    void init(std::function<void(std::string)>&& verifyFn) {
+      verifyFn_ = verifyFn;
+    }
+
     void writeLog(std::string logLine) const noexcept override {
-      accessLog = logLine;
+      verifyFn_(logLine);
     }
   };
 
@@ -36,17 +42,19 @@ TEST(AccessLogFilterTest, logFormat) {
   request->setURL("/testing/url1");
 
   std::unique_ptr<proxygen::MockRequestHandler> mock =
-      std::unique_ptr<proxygen::MockRequestHandler>(
-          new proxygen::MockRequestHandler());
+      std::make_unique<proxygen::MockRequestHandler>();
   EXPECT_CALL(*mock.get(), requestComplete);
 
-  std::unique_ptr<MockedAccessLogFilter> requestFilter =
-      std::make_unique<MockedAccessLogFilter>(std::move(mock.get()));
+  // Using new here since the base class uses delete in Filters.h:62
+  auto requestFilter = new MockedAccessLogFilter(std::move(mock.get()));
+
+  auto verifyFn = [requestFilter](std::string logLine) {
+    EXPECT_TRUE(logLine.find("POST") != std::string::npos);
+    EXPECT_TRUE(logLine.find("/testing/url1") != std::string::npos);
+    EXPECT_TRUE(logLine.find("HTTP") != std::string::npos);
+  };
+  requestFilter->init(verifyFn);
+
   requestFilter->onRequest(std::move(request));
   requestFilter->requestComplete();
-
-  EXPECT_TRUE(requestFilter->accessLog.find("POST") != std::string::npos);
-  EXPECT_TRUE(
-      requestFilter->accessLog.find("/testing/url1") != std::string::npos);
-  EXPECT_TRUE(requestFilter->accessLog.find("HTTP") != std::string::npos);
 }
