@@ -478,9 +478,11 @@ public abstract class AbstractPrestoSparkQueryExecution
             long currentFragmentOutputUncompressedSizeInBytes = 0;
             for (Tuple2<MutablePartitionId, PrestoSparkSerializedPage> tuple : tuples) {
                 PrestoSparkSerializedPage page = tuple._2;
-                currentFragmentOutputCompressedSizeInBytes += page.getSize();
-                currentFragmentOutputUncompressedSizeInBytes += page.getUncompressedSizeInBytes();
-                pages.add(page);
+                if (page != null) {
+                    currentFragmentOutputCompressedSizeInBytes += page.getSize();
+                    currentFragmentOutputUncompressedSizeInBytes += page.getUncompressedSizeInBytes();
+                    pages.add(page);
+                }
             }
             log.info(
                     "Received %s pages from fragment %s. Compressed size: %s. Uncompressed size: %s.",

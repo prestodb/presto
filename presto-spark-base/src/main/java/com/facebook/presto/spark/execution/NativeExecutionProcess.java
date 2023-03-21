@@ -115,13 +115,13 @@ public class NativeExecutionProcess
             throws ExecutionException, InterruptedException, IOException
     {
         String configPath = Paths.get(getProcessWorkingPath("./"), String.valueOf(port)).toAbsolutePath().toString();
-
+        String executableFullPath = getProcessWorkingPath(executablePath);
         populateConfigurationFiles(configPath, catalog);
-        ProcessBuilder processBuilder = new ProcessBuilder(executablePath, "--v", "1", "--etc_dir", configPath);
+        ProcessBuilder processBuilder = new ProcessBuilder(executableFullPath, "--v", "1", "--etc_dir", configPath);
         processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
         try {
-            log.info("Launching %s \nConfig path: %s\n", executablePath, configPath);
+            log.info("Launching %s \nConfig path: %s\n", executableFullPath, configPath);
             process = processBuilder.start();
         }
         catch (IOException e) {
@@ -145,7 +145,7 @@ public class NativeExecutionProcess
     @Override
     public void close()
     {
-        if (process != null && process.isAlive()) {
+        if (isAlive()) {
             process.destroy();
             try {
                 // For native process it takes 10s to initiate SHUTDOWN. The task cleanup interval is 60s. To be sure task cleanup is run at least once we just roughly double the
@@ -162,6 +162,11 @@ public class NativeExecutionProcess
                 }
             }
         }
+    }
+
+    public boolean isAlive()
+    {
+        return process != null && process.isAlive();
     }
 
     public int getPort()

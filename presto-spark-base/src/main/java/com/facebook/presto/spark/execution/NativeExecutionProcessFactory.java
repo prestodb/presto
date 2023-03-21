@@ -36,10 +36,7 @@ import static java.util.Objects.requireNonNull;
 
 public class NativeExecutionProcessFactory
 {
-    // TODO add config
-    private static final int MAX_THREADS = 1000;
     private static final Duration MAX_ERROR_DURATION = new Duration(2, TimeUnit.MINUTES);
-
     private final HttpClient httpClient;
     private final ExecutorService coreExecutor;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
