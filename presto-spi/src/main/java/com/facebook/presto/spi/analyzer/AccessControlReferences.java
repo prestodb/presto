@@ -24,15 +24,15 @@ import java.util.Set;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
-// TODO: Should we migrate existing table column references to this class?
 public class AccessControlReferences
 {
     private final Map<AccessControlRole, Set<AccessControlInfoForTable>> tableReferences;
-    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferencesForAccessControl;
+    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferencesForAccessControl;
 
     public AccessControlReferences()
     {
         tableReferences = new LinkedHashMap<>();
+        tableColumnAndSubfieldReferencesForAccessControl = new LinkedHashMap<>();
     }
 
     public Map<AccessControlRole, Set<AccessControlInfoForTable>> getTableReferences()
@@ -50,8 +50,8 @@ public class AccessControlReferences
         return tableColumnAndSubfieldReferencesForAccessControl;
     }
 
-    public void setTableColumnAndSubfieldReferencesForAccessControl(Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferencesForAccessControl)
+    public void addTableColumnAndSubfieldReferencesForAccessControl(Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferencesForAccessControl)
     {
-        this.tableColumnAndSubfieldReferencesForAccessControl = unmodifiableMap(requireNonNull(tableColumnAndSubfieldReferencesForAccessControl, "tableColumnAndSubfieldReferencesForAccessControl is null"));
+        this.tableColumnAndSubfieldReferencesForAccessControl.putAll((requireNonNull(tableColumnAndSubfieldReferencesForAccessControl, "tableColumnAndSubfieldReferencesForAccessControl is null")));
     }
 }
