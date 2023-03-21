@@ -559,7 +559,7 @@ public abstract class BasePlanFragmenter
         String catalogName = tableHandle.getConnectorId().getCatalogName();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
-        StatisticsAggregationPlanner.TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable, false);
+        StatisticsAggregationPlanner.TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable);
         StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());
         PlanNode tableWriterMerge;
 
