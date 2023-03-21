@@ -33,7 +33,7 @@ using namespace facebook::velox::dwrf;
 
 DEFINE_int32(
     file_handle_cache_mb,
-    1024,
+    16,
     "Amount of space for the file handle cache in mb.");
 
 namespace facebook::velox::connector::hive {
