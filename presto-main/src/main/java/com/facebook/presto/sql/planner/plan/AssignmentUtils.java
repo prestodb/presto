@@ -89,10 +89,10 @@ public class AssignmentUtils
         return identityAssignmentsAsSymbolReferences(asList(variables));
     }
 
-    public static Assignments rewrite(Assignments assignments, Function<Expression, Expression> rewrite)
+    public static Assignments rewrite(Assignments assignments, Function<RowExpression, RowExpression> rewrite)
     {
         return assignments.entrySet().stream()
-                .map(entry -> Maps.immutableEntry(entry.getKey(), castToRowExpression(rewrite.apply(castToExpression(entry.getValue())))))
+                .map(entry -> Maps.immutableEntry(entry.getKey(), rewrite.apply(entry.getValue())))
                 .collect(toAssignments());
     }
 
