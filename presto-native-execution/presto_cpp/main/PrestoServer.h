@@ -88,7 +88,7 @@ class PrestoServer {
 
   virtual void registerShuffleInterfaceFactories();
 
-  virtual void registerCustomOperators(){};
+  virtual void registerCustomOperators();
 
   virtual void registerVectorSerdes();
 
