@@ -85,6 +85,6 @@ public class BuiltInQueryAnalyzer
     public PlanNode plan(AnalyzerContext analyzerContext, QueryAnalysis queryAnalysis)
     {
         checkState(analyzerContext instanceof BuiltInAnalyzerContext, "analyzerContext should be an instance of BuiltInAnalyzerContext");
-        return new LogicalPlanner(((BuiltInAnalyzerContext) analyzerContext).getSession(), analyzerContext.getIdAllocator(), metadata, analyzerContext.getVariableAllocator()).plan(((BuiltInQueryAnalysis) queryAnalysis).getAnalysis());
+        return new LogicalPlanner(((BuiltInAnalyzerContext) analyzerContext).getSession(), analyzerContext.getIdAllocator(), metadata, analyzerContext.getVariableAllocator(), sqlParser).plan(((BuiltInQueryAnalysis) queryAnalysis).getAnalysis());
     }
 }

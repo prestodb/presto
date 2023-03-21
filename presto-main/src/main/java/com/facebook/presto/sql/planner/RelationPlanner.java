@@ -45,6 +45,8 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.optimizations.SampleNodeUtil;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -103,7 +105,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
@@ -117,9 +118,6 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualCompar
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -127,6 +125,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 class RelationPlanner
         extends DefaultTraversalVisitor<RelationPlan, SqlPlannerContext>
@@ -138,6 +137,7 @@ class RelationPlanner
     private final Metadata metadata;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
+    private final SqlParser sqlParser;
 
     RelationPlanner(
             Analysis analysis,
@@ -145,22 +145,17 @@ class RelationPlanner
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,
-            Session session)
+            Session session,
+            SqlParser sqlParser)
     {
-        requireNonNull(analysis, "analysis is null");
-        requireNonNull(variableAllocator, "variableAllocator is null");
-        requireNonNull(idAllocator, "idAllocator is null");
-        requireNonNull(lambdaDeclarationToVariableMap, "lambdaDeclarationToVariableMap is null");
-        requireNonNull(metadata, "metadata is null");
-        requireNonNull(session, "session is null");
-
-        this.analysis = analysis;
-        this.variableAllocator = variableAllocator;
-        this.idAllocator = idAllocator;
-        this.lambdaDeclarationToVariableMap = lambdaDeclarationToVariableMap;
-        this.metadata = metadata;
-        this.session = session;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session);
+        this.analysis = requireNonNull(analysis, "analysis is null");
+        this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+        this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+        this.lambdaDeclarationToVariableMap = requireNonNull(lambdaDeclarationToVariableMap, "lambdaDeclarationToVariableMap is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.session = requireNonNull(session, "session is null");
+        this.subqueryPlanner = new SubqueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser);
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
     @Override
@@ -183,7 +178,7 @@ class RelationPlanner
             // Add implicit coercions if view query produces types that don't match the declared output types
             // of the view (e.g., if the underlying tables referenced by the view changed)
             Type[] types = scope.getRelationType().getAllFields().stream().map(Field::getType).toArray(Type[]::new);
-            RelationPlan withCoercions = addCoercions(subPlan, types);
+            RelationPlan withCoercions = addCoercions(subPlan, types, context);
             return new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings());
         }
 
@@ -222,7 +217,7 @@ class RelationPlanner
                 Field field = subPlan.getDescriptor().getFieldByIndex(i);
                 if (!field.isHidden()) {
                     VariableReferenceExpression aliasedColumn = newVariable(variableAllocator, mappings.get(i).getSourceLocation(), field);
-                    assignments.put(aliasedColumn, castToRowExpression(asSymbolReference(subPlan.getFieldMappings().get(i))));
+                    assignments.put(aliasedColumn, subPlan.getFieldMappings().get(i));
                     newMappings.add(aliasedColumn);
                 }
             }
@@ -260,7 +255,7 @@ class RelationPlanner
             if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
                 throw notSupportedException(unnest.get(), "UNNEST on other than the right side of CROSS JOIN");
             }
-            return planCrossJoinUnnest(leftPlan, node, unnest.get());
+            return planCrossJoinUnnest(leftPlan, node, unnest.get(), context);
         }
 
         Optional<Lateral> lateral = getLateral(node.getRight());
@@ -274,7 +269,7 @@ class RelationPlanner
         RelationPlan rightPlan = process(node.getRight(), context);
 
         if (node.getCriteria().isPresent() && node.getCriteria().get() instanceof JoinUsing) {
-            return planJoinUsing(node, leftPlan, rightPlan);
+            return planJoinUsing(node, leftPlan, rightPlan, context);
         }
 
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
@@ -348,8 +343,8 @@ class RelationPlanner
             rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, rightComparisonExpressions, node, context);
 
             // Add projections for join criteria
-            leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions, variableAllocator, idAllocator);
-            rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, variableAllocator, idAllocator);
+            leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, context);
+            rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, context);
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
                 if (joinConditionComparisonOperators.get(i) == ComparisonExpression.Operator.EQUAL) {
@@ -416,7 +411,7 @@ class RelationPlanner
                             .addAll(leftPlanBuilder.getRoot().getOutputVariables())
                             .addAll(rightPlanBuilder.getRoot().getOutputVariables())
                             .build(),
-                    Optional.of(castToRowExpression(rewrittenFilterCondition)),
+                    Optional.of(toRowExpression(rewrittenFilterCondition, context)),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
@@ -436,7 +431,7 @@ class RelationPlanner
             Expression postInnerJoinCriteria;
             if (!postInnerJoinConditions.isEmpty()) {
                 postInnerJoinCriteria = ExpressionUtils.and(postInnerJoinConditions);
-                root = new FilterNode(getSourceLocation(postInnerJoinCriteria), idAllocator.getNextId(), root, castToRowExpression(postInnerJoinCriteria));
+                root = new FilterNode(getSourceLocation(postInnerJoinCriteria), idAllocator.getNextId(), root, toRowExpression(postInnerJoinCriteria, context));
             }
         }
 
@@ -469,7 +464,7 @@ class RelationPlanner
         }
     }
 
-    private RelationPlan planJoinUsing(Join node, RelationPlan left, RelationPlan right)
+    private RelationPlan planJoinUsing(Join node, RelationPlan left, RelationPlan right, SqlPlannerContext context)
     {
         /* Given: l JOIN r USING (k1, ..., kn)
 
@@ -508,8 +503,8 @@ class RelationPlanner
         Assignments.Builder leftCoercions = Assignments.builder();
         Assignments.Builder rightCoercions = Assignments.builder();
 
-        leftCoercions.putAll(identitiesAsSymbolReferences(left.getRoot().getOutputVariables()));
-        rightCoercions.putAll(identitiesAsSymbolReferences(right.getRoot().getOutputVariables()));
+        leftCoercions.putAll(left.getRoot().getOutputVariables().stream().collect(toImmutableMap(identity(), identity())));
+        rightCoercions.putAll(right.getRoot().getOutputVariables().stream().collect(toImmutableMap(identity(), identity())));
         for (int i = 0; i < joinColumns.size(); i++) {
             Identifier identifier = joinColumns.get(i);
             Type type = analysis.getType(identifier);
@@ -517,23 +512,27 @@ class RelationPlanner
             // compute the coercion for the field on the left to the common supertype of left & right
             VariableReferenceExpression leftOutput = newVariable(variableAllocator, identifier, type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
-            leftCoercions.put(leftOutput, castToRowExpression(new Cast(
-                    identifier.getLocation(),
-                    createSymbolReference(left.getVariable(leftField)),
-                    type.getTypeSignature().toString(),
-                    false,
-                    metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type))));
+            leftCoercions.put(leftOutput, toRowExpression(
+                    new Cast(
+                            identifier.getLocation(),
+                            createSymbolReference(left.getVariable(leftField)),
+                            type.getTypeSignature().toString(),
+                            false,
+                            metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type)),
+                    context));
             leftJoinColumns.put(identifier, leftOutput);
 
             // compute the coercion for the field on the right to the common supertype of left & right
             VariableReferenceExpression rightOutput = newVariable(variableAllocator, identifier, type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
-            rightCoercions.put(rightOutput, castToRowExpression(new Cast(
-                    identifier.getLocation(),
-                    createSymbolReference(right.getVariable(rightField)),
-                    type.getTypeSignature().toString(),
-                    false,
-                    metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type))));
+            rightCoercions.put(rightOutput, toRowExpression(
+                    new Cast(
+                            identifier.getLocation(),
+                            createSymbolReference(right.getVariable(rightField)),
+                            type.getTypeSignature().toString(),
+                            false,
+                            metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type)),
+                    context));
             rightJoinColumns.put(identifier, rightOutput);
 
             clauses.add(new JoinNode.EquiJoinClause(leftOutput, rightOutput));
@@ -567,22 +566,24 @@ class RelationPlanner
         for (Identifier column : joinColumns) {
             VariableReferenceExpression output = newVariable(variableAllocator, column, analysis.getType(column));
             outputs.add(output);
-            assignments.put(output, castToRowExpression(new CoalesceExpression(
-                    column.getLocation(),
-                    createSymbolReference(leftJoinColumns.get(column)),
-                    createSymbolReference(rightJoinColumns.get(column)))));
+            assignments.put(output, toRowExpression(
+                    new CoalesceExpression(
+                            column.getLocation(),
+                            createSymbolReference(leftJoinColumns.get(column)),
+                            createSymbolReference(rightJoinColumns.get(column))),
+                    context));
         }
 
         for (int field : joinAnalysis.getOtherLeftFields()) {
             VariableReferenceExpression variable = left.getFieldMappings().get(field);
             outputs.add(variable);
-            assignments.put(variable, castToRowExpression(createSymbolReference(variable)));
+            assignments.put(variable, variable);
         }
 
         for (int field : joinAnalysis.getOtherRightFields()) {
             VariableReferenceExpression variable = right.getFieldMappings().get(field);
             outputs.add(variable);
-            assignments.put(variable, castToRowExpression(createSymbolReference(variable)));
+            assignments.put(variable, variable);
         }
 
         return new RelationPlan(
@@ -619,7 +620,7 @@ class RelationPlanner
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
-        PlanBuilder planBuilder = subqueryPlanner.appendLateralJoin(leftPlanBuilder, rightPlanBuilder, lateral.getQuery(), true, LateralJoinNode.Type.INNER);
+        PlanBuilder planBuilder = subqueryPlanner.appendLateralJoin(leftPlanBuilder, rightPlanBuilder, lateral.getQuery(), true, LateralJoinNode.Type.INNER, context);
 
         List<VariableReferenceExpression> outputVariables = ImmutableList.<VariableReferenceExpression>builder()
                 .addAll(leftPlan.getRoot().getOutputVariables())
@@ -628,7 +629,7 @@ class RelationPlanner
         return new RelationPlan(planBuilder.getRoot(), analysis.getScope(join), outputVariables);
     }
 
-    private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
+    private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node, SqlPlannerContext context)
     {
         RelationType unnestOutputDescriptor = analysis.getOutputDescriptor(node);
         // Create variables for the result of unnesting
@@ -641,7 +642,7 @@ class RelationPlanner
 
         // Add a projection for all the unnest arguments
         PlanBuilder planBuilder = initializePlanBuilder(leftPlan);
-        planBuilder = planBuilder.appendProjections(node.getExpressions(), variableAllocator, idAllocator);
+        planBuilder = planBuilder.appendProjections(node.getExpressions(), variableAllocator, idAllocator, session, metadata, sqlParser, analysis, context);
         TranslationMap translations = planBuilder.getTranslations();
         ProjectNode projectNode = (ProjectNode) planBuilder.getRoot();
 
@@ -711,19 +712,19 @@ class RelationPlanner
         Assignments.Builder projections = Assignments.builder();
         // The projection output needs to respect the order of unnest output
         // first add replicated variables
-        projections.putAll(unnestNode.getReplicateVariables().stream().collect(toImmutableMap(Function.identity(), v -> castToRowExpression(createSymbolReference(v)))));
+        projections.putAll(unnestNode.getReplicateVariables().stream().collect(toImmutableMap(identity(), identity())));
         // then add unnested variables
         for (VariableReferenceExpression unnestedVariable : completeUnnestedOutput) {
             if (duplicateUnnestOutputMapping.containsKey(unnestedVariable)) {
-                projections.put(unnestedVariable, castToRowExpression(createSymbolReference(duplicateUnnestOutputMapping.get(unnestedVariable))));
+                projections.put(unnestedVariable, duplicateUnnestOutputMapping.get(unnestedVariable));
             }
             else {
-                projections.put(unnestedVariable, castToRowExpression(createSymbolReference(unnestedVariable)));
+                projections.put(unnestedVariable, unnestedVariable);
             }
         }
         // Finally add ordinalityVariable
         if (unnestNode.getOrdinalityVariable().isPresent()) {
-            projections.put(unnestNode.getOrdinalityVariable().get(), castToRowExpression(createSymbolReference(unnestNode.getOrdinalityVariable().get())));
+            projections.put(unnestNode.getOrdinalityVariable().get(), unnestNode.getOrdinalityVariable().get());
         }
         return new ProjectNode(idAllocator.getNextId(), unnestNode, projections.build());
     }
@@ -737,14 +738,14 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuery(Query node, SqlPlannerContext context)
     {
-        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context)
+        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser)
                 .plan(node);
     }
 
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, SqlPlannerContext context)
     {
-        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context)
+        return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser)
                 .plan(node);
     }
 
@@ -762,11 +763,11 @@ class RelationPlanner
             ImmutableList.Builder<RowExpression> values = ImmutableList.builder();
             if (row instanceof Row) {
                 for (Expression item : ((Row) row).getItems()) {
-                    values.add(rewriteRow(item));
+                    values.add(rewriteRow(item, context));
                 }
             }
             else {
-                values.add(rewriteRow(row));
+                values.add(rewriteRow(row, context));
             }
             rowsBuilder.add(values.build());
         }
@@ -776,7 +777,7 @@ class RelationPlanner
         return new RelationPlan(valuesNode, scope, outputVariablesBuilder.build());
     }
 
-    private RowExpression rewriteRow(Expression row)
+    private RowExpression rewriteRow(Expression row, SqlPlannerContext context)
     {
         // resolve enum literals
         Expression expression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
@@ -794,7 +795,7 @@ class RelationPlanner
         }, row);
         expression = Coercer.addCoercions(expression, analysis);
         expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), expression);
-        return castToRowExpression(expression);
+        return toRowExpression(expression, context);
     }
 
     @Override
@@ -817,7 +818,7 @@ class RelationPlanner
             Type type = analysis.getType(expression);
             Expression rewritten = Coercer.addCoercions(expression, analysis);
             rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), rewritten);
-            values.add(castToRowExpression(rewritten));
+            values.add(toRowExpression(rewritten, context));
             VariableReferenceExpression input = newVariable(variableAllocator, rewritten, type);
             argumentVariables.add(new VariableReferenceExpression(getSourceLocation(rewritten), input.getName(), type));
             if (type instanceof ArrayType) {
@@ -863,10 +864,10 @@ class RelationPlanner
             return plan;
         }
 
-        return addCoercions(plan, coerceToTypes);
+        return addCoercions(plan, coerceToTypes, context);
     }
 
-    private RelationPlan addCoercions(RelationPlan plan, Type[] targetColumnTypes)
+    private RelationPlan addCoercions(RelationPlan plan, Type[] targetColumnTypes, SqlPlannerContext context)
     {
         RelationType oldRelation = plan.getDescriptor();
         List<VariableReferenceExpression> oldVisibleVariables = oldRelation.getVisibleFields().stream()
@@ -885,13 +886,13 @@ class RelationPlanner
             if (!outputType.equals(inputVariable.getType())) {
                 Expression cast = new Cast(createSymbolReference(inputVariable), outputType.getTypeSignature().toString());
                 VariableReferenceExpression outputVariable = newVariable(variableAllocator, cast, outputType);
-                assignments.put(outputVariable, castToRowExpression(cast));
+                assignments.put(outputVariable, toRowExpression(cast, context));
                 newVariables.add(outputVariable);
             }
             else {
                 SymbolReference symbolReference = new SymbolReference(oldField.getNodeLocation(), inputVariable.getName());
                 VariableReferenceExpression outputVariable = newVariable(variableAllocator, symbolReference, outputType);
-                assignments.put(outputVariable, castToRowExpression(symbolReference));
+                assignments.put(outputVariable, toRowExpression(symbolReference, context));
                 newVariables.add(outputVariable);
             }
             newFields[i] = new Field(
@@ -1017,6 +1018,18 @@ class RelationPlanner
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    private RowExpression toRowExpression(Expression expression, SqlPlannerContext context)
+    {
+        return TranslateExpressions.toRowExpression(
+                expression,
+                metadata,
+                session,
+                sqlParser,
+                variableAllocator,
+                analysis,
+                context.getTranslatorContext());
     }
 
     private static class SetOperationPlan

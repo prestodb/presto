@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.SystemSessionProperties.isLeafNodeLimitEnabled;
@@ -25,10 +26,17 @@ public class SqlPlannerContext
 {
     // Record the current number of leaf nodes (table scan and value nodes) in query plan during planning
     private int leafNodesInLogicalPlan;
+    private final SqlToRowExpressionTranslator.Context translatorContext;
 
     public SqlPlannerContext(int leafNodesInLogicalPlan)
     {
         this.leafNodesInLogicalPlan = leafNodesInLogicalPlan;
+        this.translatorContext = new SqlToRowExpressionTranslator.Context();
+    }
+
+    public SqlToRowExpressionTranslator.Context getTranslatorContext()
+    {
+        return translatorContext;
     }
 
     public void incrementLeafNodes(Session session)

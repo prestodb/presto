@@ -36,15 +36,6 @@ public final class SemanticExceptions
                 name);
     }
 
-    /**
-     * Use {@link #missingAttributeException(Expression, QualifiedName)} instead.
-     */
-    @Deprecated
-    public static SemanticException missingAttributeException(Expression node)
-    {
-        throw new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", node);
-    }
-
     public static SemanticException ambiguousAttributeException(Expression node, QualifiedName name)
     {
         throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", name);

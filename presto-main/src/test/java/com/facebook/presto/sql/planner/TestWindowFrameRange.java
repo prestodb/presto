@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.ShortDecimalType;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.tree.DecimalLiteral;
@@ -34,11 +35,13 @@ import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.sql.Optimizer.PlanStage.CREATED;
+import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
@@ -67,7 +70,7 @@ public class TestWindowFrameRange
                                                 ImmutableList.of("key"),
                                                 ImmutableMap.of("key", SortOrder.ASC_NULLS_LAST)))
                                         .addFunction(
-                                                "array_agg_result",
+                                                "array_agg",
                                                 functionCall("array_agg", ImmutableList.of("key")),
                                                 createTestFunctionAndTypeManager().resolveFunction(Optional.empty(), Optional.empty(), QualifiedObjectName.valueOf("presto.default.array_agg"), fromTypes(INTEGER)),
                                                 windowFrame(
@@ -82,24 +85,17 @@ public class TestWindowFrameRange
                                                         Optional.empty(),
                                                         Optional.empty(),
                                                         Optional.empty())),
-                                project(// coerce sort key to compare sort key values with frame start values
-                                        ImmutableMap.of("key_for_frame_start_comparison", expression("CAST(key AS decimal(12, 1))")),
-                                        project(// calculate frame start value (sort key - frame offset)
-                                                ImmutableMap.of("frame_start_value", expression(new FunctionCall(QualifiedName.of("presto", "default", "$operator$subtract"), ImmutableList.of(new SymbolReference("key_for_frame_start_calculation"), new SymbolReference("x"))))),
                                                 project(// coerce sort key to calculate frame start values
-                                                        ImmutableMap.of("key_for_frame_start_calculation", expression("CAST(key AS decimal(10, 0))")),
-                                                        filter(// validate offset values
-                                                                "IF((x >= CAST(0 AS DECIMAL(2,1))), " +
-                                                                        "true, " +
-                                                                        "CAST(presto.default.fail(CAST('Window frame offset value must not be negative or null' AS varchar)) AS boolean))",
-                                                                anyTree(
-                                                                        values(
-                                                                                ImmutableList.of("key", "x"),
-                                                                                ImmutableList.of(
-                                                                                        ImmutableList.of(new LongLiteral("1"), new DecimalLiteral("1.1")),
-                                                                                        ImmutableList.of(new LongLiteral("2"), new DecimalLiteral("2.2")))))))))));
+                                                        ImmutableMap.of("key_for_frame_start_comparison", expression("CAST(key AS decimal(12, 1))"), "key", expression("key"), "frame_start_value", expression("CAST(key AS decimal(10, 0)) - x")),
+                                                        node(
+                                                                FilterNode.class,
+                                                                values(
+                                                                        ImmutableList.of("key", "x"),
+                                                                        ImmutableList.of(
+                                                                                ImmutableList.of(new LongLiteral("1"), new DecimalLiteral("11")), // 11 is the java type representation of 1.1
+                                                                                ImmutableList.of(new LongLiteral("2"), new DecimalLiteral("22"))))))));
 
-        assertPlan(sql, CREATED, pattern);
+        assertPlan(sql, OPTIMIZED, pattern);
     }
 
     @Test
@@ -117,10 +113,9 @@ public class TestWindowFrameRange
                                                 ImmutableList.of("key"),
                                                 ImmutableMap.of("key", SortOrder.ASC_NULLS_LAST)))
                                         .addFunction(
-                                                "array_agg_result",
+                                                "array_agg",
                                                 functionCall("array_agg", ImmutableList.of("key")),
-                                                createTestFunctionAndTypeManager().resolveFunction(Optional.empty(), Optional.empty(),
-                                                        QualifiedObjectName.valueOf("presto.default.array_agg"), fromTypes(createDecimalType(2, 1))),
+                                                createTestFunctionAndTypeManager().resolveFunction(Optional.empty(), Optional.empty(), QualifiedObjectName.valueOf("presto.default.array_agg"), fromTypes(createDecimalType(2, 1))),
                                                 windowFrame(
                                                         RANGE,
                                                         CURRENT_ROW,
@@ -133,24 +128,17 @@ public class TestWindowFrameRange
                                                         Optional.of(new ShortDecimalType(12, 1)),
                                                         Optional.of("key_for_frame_end_comparison"),
                                                         Optional.of(new ShortDecimalType(12, 1)))),
-                                project(// coerce sort key to compare sort key values with frame end values
-                                        ImmutableMap.of("key_for_frame_end_comparison", expression("CAST(key AS decimal(12, 1))")),
-                                        project(// calculate frame end value (sort key + frame offset)
-                                                ImmutableMap.of("frame_end_value", expression(new FunctionCall(QualifiedName.of("presto", "default", "$operator$add"), ImmutableList.of(new SymbolReference("key"), new SymbolReference("offset"))))),
-                                                filter(// validate offset values
-                                                        "IF((offset >= CAST(0 AS DECIMAL(10, 0))), " +
-                                                                "true, " +
-                                                                "CAST(presto.default.fail(CAST('Window frame offset value must not be negative or null' AS varchar)) AS boolean))",
-                                                        project(// coerce offset value to calculate frame end values
-                                                                ImmutableMap.of("offset", expression("CAST(x AS decimal(10, 0))")),
-                                                                anyTree(
-                                                                        values(
-                                                                                ImmutableList.of("key", "x"),
-                                                                                ImmutableList.of(
-                                                                                        ImmutableList.of(new DecimalLiteral("1.1"), new LongLiteral("1")),
-                                                                                        ImmutableList.of(new DecimalLiteral("2.2"), new LongLiteral("2")))))))))));
+                                project(// coerce sort key to calculate frame start values
+                                        ImmutableMap.of("key_for_frame_end_comparison", expression("CAST(key AS decimal(12, 1))"), "key", expression("key"), "frame_end_value", expression("key + CAST(x AS decimal(10, 0))")),
+                                        node(
+                                                FilterNode.class,
+                                                values(
+                                                        ImmutableList.of("key", "x"),
+                                                        ImmutableList.of(
+                                                                ImmutableList.of(new DecimalLiteral("11"), new LongLiteral("1")), // 11 is the java type representation of 1.1
+                                                                ImmutableList.of(new DecimalLiteral("22"), new LongLiteral("2"))))))));
 
-        assertPlan(sql, CREATED, pattern);
+        assertPlan(sql, OPTIMIZED, pattern);
     }
 
     @Test

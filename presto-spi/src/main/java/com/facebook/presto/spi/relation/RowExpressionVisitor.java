@@ -71,4 +71,9 @@ public interface RowExpressionVisitor<R, C>
     {
         return visitIntermediateFormExpression(existsRowExpression, context);
     }
+
+    default R visitUnresolvedSymbolExpression(UnresolvedSymbolExpression unresolvedSymbolExpression, C context)
+    {
+        return visitIntermediateFormExpression(unresolvedSymbolExpression, context);
+    }
 }
