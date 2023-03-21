@@ -211,7 +211,9 @@ public class ClickHouseComputePushdown
             boolean hasAvg = false;
             if (pushedDownPlan.isPresent()) {
                 for (int variableIndex = 0; variableIndex < pushedDownPlan.get().getOutputVariables().size(); variableIndex++) {
+                    // Filter nodes that may contain aggregate functions
                     if (pushedDownPlan.get().getOutputVariables().get(variableIndex).getName().length() > 3) {
+                        // Determine whether the node is an avg function. The avg function currently does not support pushdown.
                         if (pushedDownPlan.get().getOutputVariables().get(variableIndex).getName().substring(0, 3).equals(PushdownException)) {
                             hasAvg = true;
                             break;
