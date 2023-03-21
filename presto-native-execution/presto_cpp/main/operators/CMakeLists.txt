@@ -16,7 +16,7 @@ add_library(
                    UnsafeRowExchangeSource.cpp LocalPersistentShuffle.cpp)
 
 target_link_libraries(presto_operators presto_common velox_core velox_exec
-                      velox_vector)
+                      velox_presto_serializer velox_vector)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
