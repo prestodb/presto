@@ -394,6 +394,9 @@ public abstract class AbstractPrestoSparkQueryExecution
         List<Type> types = getOutputTypes();
         ImmutableList.Builder<List<Object>> result = ImmutableList.builder();
         for (Tuple2<MutablePartitionId, PrestoSparkSerializedPage> tuple : rddResults) {
+            if (tuple == null) {
+                continue;
+            }
             Page page = pagesSerde.deserialize(toSerializedPage(tuple._2));
             checkArgument(page.getChannelCount() == types.size(), "expected %s channels, got %s", types.size(), page.getChannelCount());
             for (int position = 0; position < page.getPositionCount(); position++) {
@@ -478,9 +481,11 @@ public abstract class AbstractPrestoSparkQueryExecution
             long currentFragmentOutputUncompressedSizeInBytes = 0;
             for (Tuple2<MutablePartitionId, PrestoSparkSerializedPage> tuple : tuples) {
                 PrestoSparkSerializedPage page = tuple._2;
-                currentFragmentOutputCompressedSizeInBytes += page.getSize();
-                currentFragmentOutputUncompressedSizeInBytes += page.getUncompressedSizeInBytes();
-                pages.add(page);
+                if (page != null) {
+                    currentFragmentOutputCompressedSizeInBytes += page.getSize();
+                    currentFragmentOutputUncompressedSizeInBytes += page.getUncompressedSizeInBytes();
+                    pages.add(page);
+                }
             }
             log.info(
                     "Received %s pages from fragment %s. Compressed size: %s. Uncompressed size: %s.",
