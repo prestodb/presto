@@ -28,7 +28,9 @@
 #include "presto_cpp/main/connectors/hive/storage_adapters/FileSystems.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
+#include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleInterface.h"
+#include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
@@ -492,6 +494,15 @@ void PrestoServer::registerShuffleInterfaceFactories() {
   operators::ShuffleInterfaceFactory::registerFactory(
       operators::LocalPersistentShuffleFactory::kShuffleName.toString(),
       std::make_unique<operators::LocalPersistentShuffleFactory>());
+}
+
+void PrestoServer::registerCustomOperators() {
+  facebook::velox::exec::Operator::registerOperator(
+      std::make_unique<operators::PartitionAndSerializeTranslator>());
+  facebook::velox::exec::Operator::registerOperator(
+      std::make_unique<facebook::presto::operators::ShuffleWriteTranslator>());
+  facebook::velox::exec::Operator::registerOperator(
+      std::make_unique<operators::ShuffleReadTranslator>());
 }
 
 void PrestoServer::registerVectorSerdes() {
