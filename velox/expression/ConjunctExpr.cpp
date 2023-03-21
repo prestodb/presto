@@ -25,7 +25,7 @@ uint64_t* rowsWithError(
     const SelectivityVector& rows,
     const SelectivityVector& activeRows,
     EvalCtx& context,
-    EvalCtx::ErrorVectorPtr& previousErrors,
+    ErrorVectorPtr& previousErrors,
     LocalSelectivityVector& errorRowsHolder) {
   auto errors = context.errors();
   if (!errors) {
@@ -126,7 +126,7 @@ void ConjunctExpr::evalSpecialForm(
   for (int32_t i = 0; i < inputs_.size(); ++i) {
     VectorPtr inputResult;
     VectorRecycler inputResultRecycler(inputResult, context.vectorPool());
-    EvalCtx::ErrorVectorPtr errors;
+    ErrorVectorPtr errors;
     if (handleErrors) {
       context.swapErrors(errors);
     }

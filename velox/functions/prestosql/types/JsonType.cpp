@@ -169,7 +169,7 @@ struct AsJson {
       const BufferPtr& elementToTopLevelRows,
       bool isMapKey = false)
       : decoded_(context, *input, rows) {
-    exec::EvalCtx::ErrorVectorPtr oldErrors;
+    ErrorVectorPtr oldErrors;
     context.swapErrors(oldErrors);
 
     if (isMapKey && decoded_->mayHaveNulls()) {
@@ -272,7 +272,7 @@ struct AsJson {
       exec::EvalCtx& context,
       const SelectivityVector& rows,
       const BufferPtr& elementToTopLevelRows,
-      exec::EvalCtx::ErrorVectorPtr& oldErrors) {
+      ErrorVectorPtr& oldErrors) {
     if (context.errors()) {
       if (elementToTopLevelRows) {
         context.addElementErrorsToTopLevel(

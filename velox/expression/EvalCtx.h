@@ -101,13 +101,6 @@ class EvalCtx {
     });
   }
 
-  // Error vector uses an opaque flat vector to store std::exception_ptr.
-  // Since opaque types are stored as shared_ptr<void>, this ends up being a
-  // double pointer in the form of std::shared_ptr<std::exception_ptr>. This is
-  // fine since we only need to actually follow the pointer in failure cases.
-  using ErrorVector = FlatVector<std::shared_ptr<void>>;
-  using ErrorVectorPtr = std::shared_ptr<ErrorVector>;
-
   // Sets the error at 'index' in '*errorPtr' if the value is
   // null. Creates and resizes '*errorPtr' as needed and initializes
   // new positions to null.
@@ -320,7 +313,7 @@ struct ScopedContextSaver {
   // The selection of the context being saved.
   const SelectivityVector* FOLLY_NONNULL rows;
   const SelectivityVector* FOLLY_NULLABLE finalSelection;
-  EvalCtx::ErrorVectorPtr errors;
+  ErrorVectorPtr errors;
 };
 
 /// Produces a SelectivityVector with a single row selected using a pool of

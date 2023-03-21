@@ -649,7 +649,7 @@ class ExprSetListener {
   /// @param errors Error vector produced inside the try expression.
   virtual void onError(
       const SelectivityVector& rows,
-      const EvalCtx::ErrorVector& errors) = 0;
+      const ErrorVector& errors) = 0;
 };
 
 /// Return the ExprSetListeners having been registered.

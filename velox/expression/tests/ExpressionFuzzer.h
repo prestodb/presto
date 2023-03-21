@@ -132,8 +132,7 @@ class ExpressionFuzzer {
     // occurred.
     void onError(
         const SelectivityVector& /*rows*/,
-        const ::facebook::velox::exec::EvalCtx::ErrorVector& /*errors*/)
-        override {}
+        const ::facebook::velox::ErrorVector& /*errors*/) override {}
 
    private:
     std::unordered_map<std::string, ExprUsageStats>& exprNameToStats_;

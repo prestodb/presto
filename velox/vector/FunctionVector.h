@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/vector/BaseVector.h"
+#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox {
 
@@ -54,6 +55,17 @@ class Callable {
       exec::EvalCtx* context,
       const std::vector<VectorPtr>& args,
       const BufferPtr& elementToTopLevelRows,
+      VectorPtr* result) = 0;
+
+  /// Same as 'apply', but errors are suppressed and returned in
+  /// 'elementErrors', and errors in 'context' are not updated.
+  virtual void applyNoThrow(
+      const SelectivityVector& rows,
+      const SelectivityVector& finalSelection,
+      const BufferPtr& wrapCapture,
+      exec::EvalCtx* context,
+      const std::vector<VectorPtr>& args,
+      ErrorVectorPtr& elementErrors,
       VectorPtr* result) = 0;
 };
 

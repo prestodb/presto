@@ -300,7 +300,7 @@ VectorPtr CastExpr::applyMap(
         mapKeys->size(), rows, input, context.pool());
   }
 
-  EvalCtx::ErrorVectorPtr oldErrors;
+  ErrorVectorPtr oldErrors;
   context.swapErrors(oldErrors);
 
   // Cast keys
@@ -362,7 +362,7 @@ VectorPtr CastExpr::applyArray(
   auto elementToTopLevelRows = functions::getElementToTopLevelRows(
       arrayElements->size(), rows, input, context.pool());
 
-  EvalCtx::ErrorVectorPtr oldErrors;
+  ErrorVectorPtr oldErrors;
   context.swapErrors(oldErrors);
 
   VectorPtr newElements;

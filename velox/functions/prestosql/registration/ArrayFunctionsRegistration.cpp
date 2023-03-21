@@ -78,6 +78,7 @@ inline void registerArrayNormalizeFunctions(const std::string& prefix) {
 
 void registerArrayFunctions(const std::string& prefix) {
   registerArrayConstructor(prefix + "array_constructor");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_all_match, prefix + "all_match");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_distinct, prefix + "array_distinct");
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_array_duplicates, prefix + "array_duplicates");

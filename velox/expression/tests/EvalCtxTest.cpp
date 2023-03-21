@@ -161,7 +161,7 @@ TEST_F(EvalCtxTest, addErrorsPreserveOldErrors) {
   ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 4), 2);
 
   // Add two out_of_range to anotherErrors.
-  EvalCtx::ErrorVectorPtr anotherErrors;
+  ErrorVectorPtr anotherErrors;
   std::out_of_range rangeError{"out of range"};
   context.addError(0, std::make_exception_ptr(rangeError), anotherErrors);
   context.addError(4, std::make_exception_ptr(rangeError), anotherErrors);

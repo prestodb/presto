@@ -174,7 +174,7 @@ class TestListener : public exec::ExprSetListener {
 
   void onError(
       const SelectivityVector& rows,
-      const ::facebook::velox::exec::EvalCtx::ErrorVector& errors) override {
+      const ::facebook::velox::ErrorVector& errors) override {
     rows.applyToSelected([&](auto row) {
       exceptionCount_++;
 

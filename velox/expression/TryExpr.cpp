@@ -31,8 +31,7 @@ void TryExpr::evalSpecialForm(
   // This also prevents this TRY expression from leaking exceptions to the
   // parent TRY expression, so the parent won't incorrectly null out rows that
   // threw exceptions which this expression already handled.
-  ScopedVarSetter<EvalCtx::ErrorVectorPtr> errorsSetter(
-      context.errorsPtr(), nullptr);
+  ScopedVarSetter<ErrorVectorPtr> errorsSetter(context.errorsPtr(), nullptr);
   inputs_[0]->eval(rows, context, result);
 
   nullOutErrors(rows, context, result);
@@ -51,8 +50,7 @@ void TryExpr::evalSpecialFormSimplified(
   // This also prevents this TRY expression from leaking exceptions to the
   // parent TRY expression, so the parent won't incorrectly null out rows that
   // threw exceptions which this expression already handled.
-  ScopedVarSetter<EvalCtx::ErrorVectorPtr> errorsSetter(
-      context.errorsPtr(), nullptr);
+  ScopedVarSetter<ErrorVectorPtr> errorsSetter(context.errorsPtr(), nullptr);
   inputs_[0]->evalSimplified(rows, context, result);
 
   nullOutErrors(rows, context, result);
