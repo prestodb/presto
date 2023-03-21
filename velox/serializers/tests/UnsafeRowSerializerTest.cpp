@@ -101,7 +101,8 @@ TEST_F(UnsafeRowSerializerTest, types) {
   opts.stringVariableLength = true;
   opts.stringLength = 20;
   // Spark uses microseconds to store timestamp
-  opts.useMicrosecondPrecisionTimestamp = true;
+  opts.timestampPrecision =
+      VectorFuzzer::Options::TimestampPrecision::kMicroSeconds;
   opts.containerLength = 10;
 
   auto seed = folly::Random::rand32();

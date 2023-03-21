@@ -73,7 +73,8 @@ TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
   opts.stringVariableLength = true;
   opts.stringLength = 20;
   // Spark uses microseconds to store timestamp
-  opts.useMicrosecondPrecisionTimestamp = true;
+  opts.timestampPrecision =
+      VectorFuzzer::Options::TimestampPrecision::kMicroSeconds,
   opts.containerLength = 65;
 
   auto seed = folly::Random::rand32();

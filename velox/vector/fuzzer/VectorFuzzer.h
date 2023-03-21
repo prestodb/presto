@@ -125,8 +125,18 @@ class VectorFuzzer {
     /// If true, generated map keys are normalized (unique and not-null).
     bool normalizeMapKeys{true};
 
-    /// If true, the random generated timestamp value will only be in
-    /// microsecond precision (default is nanosecond).
+    /// Control the precision of timestamps generated. By default generate using
+    /// nanoseconds precision.
+    enum class TimestampPrecision : int8_t {
+      kNanoSeconds = 0,
+      kMicroSeconds = 1,
+      kMilliSeconds = 2,
+      kSeconds = 3,
+    };
+    TimestampPrecision timestampPrecision{TimestampPrecision::kNanoSeconds};
+
+    /// TODO: keeping the deprecated option for backwards compatibility. Will be
+    /// removed soon. For new code the option above.
     bool useMicrosecondPrecisionTimestamp{false};
 
     /// If true, fuzz() will randomly generate lazy vectors and fuzzInputRow()

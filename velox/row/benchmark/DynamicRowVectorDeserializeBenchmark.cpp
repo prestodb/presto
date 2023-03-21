@@ -96,7 +96,8 @@ class BenchmarkHelper {
     opts.stringVariableLength = true;
     opts.stringLength = 20;
     // Spark uses microseconds to store timestamp
-    opts.useMicrosecondPrecisionTimestamp = true;
+    opts.timestampPrecision =
+        VectorFuzzer::Options::TimestampPrecision::kMicroSeconds;
 
     auto seed = folly::Random::rand32();
     VectorFuzzer fuzzer(opts, pool_.get(), seed);

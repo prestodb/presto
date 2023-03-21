@@ -81,8 +81,6 @@ class VectorFuzzerTest : public testing::Test {
   std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
 };
 
-// TODO: add coverage for other VectorFuzzer methods.
-
 TEST_F(VectorFuzzerTest, flatPrimitive) {
   VectorFuzzer::Options opts;
   opts.nullRatio = 0.5;
@@ -413,6 +411,69 @@ TEST_F(VectorFuzzerTest, row) {
   ASSERT_TRUE(vector->mayHaveNulls());
   EXPECT_THAT(
       vector->type()->asRow().names(), ::testing::ElementsAre("c0", "c1"));
+}
+
+FlatVectorPtr<Timestamp> genTimestampVector(
+    VectorFuzzer::Options::TimestampPrecision precision,
+    size_t vectorSize,
+    memory::MemoryPool* pool) {
+  VectorFuzzer::Options opts;
+  opts.vectorSize = vectorSize;
+  opts.timestampPrecision = precision;
+
+  VectorFuzzer fuzzer(opts, pool);
+  return std::dynamic_pointer_cast<FlatVector<Timestamp>>(
+      fuzzer.fuzzFlat(TIMESTAMP()));
+};
+
+TEST_F(VectorFuzzerTest, timestamp) {
+  const size_t vectorSize = 1000;
+
+  // Second granularity.
+  auto secTsVector = genTimestampVector(
+      VectorFuzzer::Options::TimestampPrecision::kSeconds, vectorSize, pool());
+
+  for (size_t i = 0; i < vectorSize; ++i) {
+    auto ts = secTsVector->valueAt(i);
+    ASSERT_EQ(ts.getNanos(), 0);
+  }
+
+  // Millisecond granularity.
+  auto milliTsVector = genTimestampVector(
+      VectorFuzzer::Options::TimestampPrecision::kMilliSeconds,
+      vectorSize,
+      pool());
+
+  for (size_t i = 0; i < vectorSize; ++i) {
+    auto ts = milliTsVector->valueAt(i);
+    ASSERT_EQ(ts.getNanos() % 1'000'000, 0);
+  }
+
+  // Microsecond granularity.
+  auto microTsVector = genTimestampVector(
+      VectorFuzzer::Options::TimestampPrecision::kMicroSeconds,
+      vectorSize,
+      pool());
+
+  for (size_t i = 0; i < vectorSize; ++i) {
+    auto ts = microTsVector->valueAt(i);
+    ASSERT_EQ(ts.getNanos() % 1'000, 0);
+  }
+
+  // Nanosecond granularity.
+  auto nanoTsVector = genTimestampVector(
+      VectorFuzzer::Options::TimestampPrecision::kNanoSeconds,
+      vectorSize,
+      pool());
+
+  // Check that at least one timestamp has nano > 0.
+  bool nanosFound = false;
+  for (size_t i = 0; i < vectorSize; ++i) {
+    if (nanoTsVector->valueAt(i).getNanos() > 0) {
+      nanosFound = true;
+    }
+  }
+  ASSERT_TRUE(nanosFound);
 }
 
 TEST_F(VectorFuzzerTest, assorted) {

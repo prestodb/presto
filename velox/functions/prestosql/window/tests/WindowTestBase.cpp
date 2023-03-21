@@ -87,7 +87,8 @@ std::vector<RowVectorPtr> WindowTestBase::makeFuzzVectors(
   VectorFuzzer::Options options;
   options.vectorSize = size;
   options.nullRatio = nullRatio;
-  options.useMicrosecondPrecisionTimestamp = true;
+  options.timestampPrecision =
+      VectorFuzzer::Options::TimestampPrecision::kMicroSeconds;
   VectorFuzzer fuzzer(options, pool_.get(), 0);
   for (int32_t i = 0; i < numVectors; ++i) {
     auto vector = std::dynamic_pointer_cast<RowVector>(fuzzer.fuzzRow(rowType));
@@ -103,7 +104,8 @@ VectorPtr WindowTestBase::makeFlatFuzzVector(
   VectorFuzzer::Options options;
   options.vectorSize = size;
   options.nullRatio = nullRatio;
-  options.useMicrosecondPrecisionTimestamp = true;
+  options.timestampPrecision =
+      VectorFuzzer::Options::TimestampPrecision::kMicroSeconds;
   VectorFuzzer fuzzer(options, pool_.get(), 0);
 
   return fuzzer.fuzzFlat(type);

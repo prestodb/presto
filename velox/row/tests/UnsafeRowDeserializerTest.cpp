@@ -988,7 +988,8 @@ VectorFuzzer::Options fuzzerOptions() {
       .dictionaryHasNulls = false,
       .stringVariableLength = true,
       .containerVariableLength = true,
-      .useMicrosecondPrecisionTimestamp = true,
+      .timestampPrecision =
+          VectorFuzzer::Options::TimestampPrecision::kMicroSeconds,
   };
 }
 

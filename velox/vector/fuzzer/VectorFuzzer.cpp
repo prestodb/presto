@@ -117,12 +117,22 @@ int128_t rand(FuzzerGenerator& rng) {
   return buildInt128(rand<int64_t>(rng), rand<uint64_t>(rng));
 }
 
-Timestamp randTimestamp(
-    FuzzerGenerator& rng,
-    bool useMicrosecondPrecisionTimestamp = false) {
-  return useMicrosecondPrecisionTimestamp
-      ? Timestamp::fromMicros(rand<int64_t>(rng))
-      : Timestamp(rand<int32_t>(rng), (rand<int64_t>(rng) % MAX_NANOS));
+Timestamp randTimestamp(FuzzerGenerator& rng, VectorFuzzer::Options opts) {
+  auto precision = opts.useMicrosecondPrecisionTimestamp
+      ? VectorFuzzer::Options::TimestampPrecision::kMicroSeconds
+      : opts.timestampPrecision;
+
+  switch (precision) {
+    case VectorFuzzer::Options::TimestampPrecision::kNanoSeconds:
+      return Timestamp(rand<int32_t>(rng), (rand<int64_t>(rng) % MAX_NANOS));
+    case VectorFuzzer::Options::TimestampPrecision::kMicroSeconds:
+      return Timestamp::fromMicros(rand<int64_t>(rng));
+    case VectorFuzzer::Options::TimestampPrecision::kMilliSeconds:
+      return Timestamp::fromMillis(rand<int64_t>(rng));
+    case VectorFuzzer::Options::TimestampPrecision::kSeconds:
+      return Timestamp(rand<int32_t>(rng), 0);
+  }
+  return {}; // no-op.
 }
 
 Date randDate(FuzzerGenerator& rng) {
@@ -247,11 +257,7 @@ VectorPtr fuzzConstantPrimitiveImpl(
   }
   if constexpr (std::is_same_v<TCpp, Timestamp>) {
     return std::make_shared<ConstantVector<TCpp>>(
-        pool,
-        size,
-        false,
-        type,
-        randTimestamp(rng, opts.useMicrosecondPrecisionTimestamp));
+        pool, size, false, type, randTimestamp(rng, opts));
   } else if constexpr (std::is_same_v<TCpp, Date>) {
     return std::make_shared<ConstantVector<TCpp>>(
         pool, size, false, type, randDate(rng));
@@ -286,8 +292,7 @@ void fuzzFlatPrimitiveImpl(
     if constexpr (std::is_same_v<TCpp, StringView>) {
       flatVector->set(i, randString(rng, opts, strBuf, converter));
     } else if constexpr (std::is_same_v<TCpp, Timestamp>) {
-      flatVector->set(
-          i, randTimestamp(rng, opts.useMicrosecondPrecisionTimestamp));
+      flatVector->set(i, randTimestamp(rng, opts));
     } else if constexpr (std::is_same_v<TCpp, Date>) {
       flatVector->set(i, randDate(rng));
     } else if constexpr (std::is_same_v<TCpp, IntervalDayTime>) {
