@@ -16,9 +16,8 @@
 
 #pragma once
 
+#include <cuda_runtime.h>
 #include <cstdio>
-#include <cuda/atomic>
-#include <cuda/semaphore>
 #include <memory>
 #include <type_traits>
 

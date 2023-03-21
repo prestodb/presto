@@ -18,6 +18,7 @@
 #include <gflags/gflags.h>
 #include <cub/cub.cuh> // @manual
 #include <numeric>
+#include <thread>
 #include "velox/experimental/gpu/Common.h"
 
 DEFINE_int64(buffer_size, 32 << 20, "");
