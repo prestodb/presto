@@ -206,7 +206,8 @@ public class QueryExplainer
                 session,
                 idAllocator,
                 metadata,
-                planVariableAllocator);
+                planVariableAllocator,
+                sqlParser);
 
         PlanNode planNode = session.getRuntimeStats().profileNanos(
                 LOGICAL_PLANNER_TIME_NANOS,
