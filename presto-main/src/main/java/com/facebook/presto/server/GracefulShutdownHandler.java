@@ -82,14 +82,14 @@ public class GracefulShutdownHandler
 
     public synchronized void requestShutdown()
     {
-        log.info("Shutdown requested");
+        log.warn("Shutdown requested");
 
         if (isResourceManager) {
             throw new UnsupportedOperationException("Cannot shutdown resource manager");
         }
 
         if (isShutdownRequested()) {
-            log.debug("shutdown is already requested");
+            log.warn("shutdown is already requested");
             return;
         }
 
@@ -103,10 +103,12 @@ public class GracefulShutdownHandler
                 waitForQueriesToComplete();
             }
             else {
+                long timeBeforeTaskExecutorShutdown = System.currentTimeMillis();
                 taskExecutor.gracefulShutdown();
+                log.warn("Wait time for task TaskExecutor Shutdown -> %s", System.currentTimeMillis() - timeBeforeTaskExecutorShutdown);
                 long timeBeforeTaskCompletion = System.currentTimeMillis();
                 waitForTasksToComplete();
-                log.info("Wait time for task completion -> %s", System.currentTimeMillis() - timeBeforeTaskCompletion);
+                log.warn("Wait time for task completion -> %s", System.currentTimeMillis() - timeBeforeTaskCompletion);
                 // wait for another grace period for all task states to be observed by the coordinator
                 sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
             }

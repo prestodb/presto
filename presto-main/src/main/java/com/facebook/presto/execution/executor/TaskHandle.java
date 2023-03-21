@@ -198,15 +198,16 @@ public class TaskHandle
         long waitTimeMillis = 100; // Wait for 100 milliseconds between checks
         while (runningSplits.size() > 0) {
             try {
-                log.debug("queued leaf split = %s, running leaf splits = %s,  waiting for running split to be over to kill the task - %s", queuedLeafSplits.size(), runningSplits.size(), taskId);
+                log.info("queued leaf split = %s, running leaf splits = %s,  waiting for running split to be over to kill the task - %s", queuedLeafSplits.size(), runningSplits.size(), taskId);
                 Thread.sleep(waitTimeMillis);
             }
             catch (InterruptedException e) {
                 // Handle interruption
             }
         }
-        log.info("Waiting for running split is over, going to kill task - %s", taskId);
+        log.warn("GracefulShutdown:: Waiting for running split is over, going to kill task - %s", taskId);
         hostShutDownListener.get().handleShutdown(taskId);
+        log.warn("GracefulShutdown:: Waiting for running split is over, going to kill task - %s", taskId);
         //TODO wait for ack from coordinator
     }
 

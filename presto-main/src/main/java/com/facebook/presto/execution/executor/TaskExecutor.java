@@ -181,7 +181,9 @@ public class TaskExecutor
 
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
-    private final TimeStat taskExecutorShutdownTime = new TimeStat(MICROSECONDS);
+    private final TimeStat taskExecutorShutdownTime = new TimeStat(NANOSECONDS);
+    private final TimeStat outputBufferEmptyWaitTime = new TimeStat(NANOSECONDS);
+    private final TimeStat waitForRunningSplitTime = new TimeStat(NANOSECONDS);
 
     private volatile boolean closed;
     private final ExecutorService taskShutdownExecutor = newCachedThreadPool(daemonThreadsNamed("task-shutdown-%s"));
@@ -208,21 +210,26 @@ public class TaskExecutor
         tasks.stream().forEach(taskHandle -> taskHandle.gracefulShutdown());
         //before killing the tasks,  make sure output buffer data is consumed.
         CountDownLatch latch = new CountDownLatch(tasks.size());
+        log.warn("GracefulShutdown:: Going to shutdown %s tasks", tasks.size());
         for (TaskHandle taskHandle : tasks) {
             taskShutdownExecutor.execute(
                     () -> {
-                        long waitTimeMillis = 100; // Wait for 100 milliseconds between checks
+                        long startTime = System.nanoTime();
+                        long waitTimeMillis = 10; // Wait for 100 milliseconds between checks
                         while (!taskHandle.isOutputBufferEmpty()) {
                             try {
-                                log.debug("Waiting for output buffer to be empty for task- %s", taskHandle.getTaskId());
+                                log.warn("GracefulShutdown:: Waiting for output buffer to be empty for task- %s", taskHandle.getTaskId());
                                 Thread.sleep(waitTimeMillis);
                             }
                             catch (InterruptedException e) {
-                                // TODO Handle interruption
+                                log.error("GracefulShutdown got interrupted", e);
                             }
                         }
-                        log.debug("calling handleShutDown for task- %s", taskHandle.getTaskId());
+                        outputBufferEmptyWaitTime.add(Duration.nanosSince(startTime));
+                        startTime = System.nanoTime();
+                        log.warn("GracefulShutdown:: calling handleShutDown for task- %s", taskHandle.getTaskId());
                         taskHandle.handleShutDown(runningSplits);
+                        waitForRunningSplitTime.add(Duration.nanosSince(startTime));
                         latch.countDown();
                     });
         }
@@ -235,7 +242,7 @@ public class TaskExecutor
             // TODO Handle interruption
         }
         //TODO wait for coordinator to receive callback for failed tasks?
-        Duration shutdownTime = new Duration(System.nanoTime() - shutdownStartTime, NANOSECONDS);
+        Duration shutdownTime = Duration.nanosSince(shutdownStartTime);
         log.info("Waiting for shutdown of all tasks over in %s milli sec", shutdownTime.toMillis());
         taskExecutorShutdownTime.add(shutdownTime);
     }
@@ -991,6 +998,20 @@ public class TaskExecutor
     public TimeStat getTaskExecutorShutdownTime()
     {
         return taskExecutorShutdownTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getOutputBufferEmptyWaitTime()
+    {
+        return outputBufferEmptyWaitTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getWaitForRunningSplitTime()
+    {
+        return waitForRunningSplitTime;
     }
 
     private synchronized int getRunningTasksForLevel(int level)

@@ -17,6 +17,8 @@ import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
+
 public class GracefulShutdownModule
         extends AbstractConfigurationAwareModule
 {
@@ -25,5 +27,6 @@ public class GracefulShutdownModule
     {
         binder.bind(ShutdownAction.class).to(DefaultShutdownAction.class).in(Scopes.SINGLETON);
         binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(GracefulShutdownHandler.class).withGeneratedName();
     }
 }
