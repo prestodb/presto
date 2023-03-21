@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.ToLongFunction;
@@ -81,6 +82,7 @@ public class SimpleNodeSelector
     private final int maxUnacknowledgedSplitsPerTask;
     private final int maxTasksPerStage;
     private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
+    private final boolean assignSplitsRandomly;
 
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
@@ -95,6 +97,34 @@ public class SimpleNodeSelector
             int maxTasksPerStage,
             NodeSelectionHashStrategy nodeSelectionHashStrategy)
     {
+        this(nodeManager,
+                nodeSelectionStats,
+                nodeTaskMap,
+                includeCoordinator,
+                nodeMap,
+                minCandidates,
+                maxSplitsWeightPerNode,
+                maxPendingSplitsWeightPerTask,
+                maxUnacknowledgedSplitsPerTask,
+                maxTasksPerStage,
+                nodeSelectionHashStrategy,
+                false);
+    }
+
+    public SimpleNodeSelector(
+            InternalNodeManager nodeManager,
+            NodeSelectionStats nodeSelectionStats,
+            NodeTaskMap nodeTaskMap,
+            boolean includeCoordinator,
+            Supplier<NodeMap> nodeMap,
+            int minCandidates,
+            long maxSplitsWeightPerNode,
+            long maxPendingSplitsWeightPerTask,
+            int maxUnacknowledgedSplitsPerTask,
+            int maxTasksPerStage,
+            NodeSelectionHashStrategy nodeSelectionHashStrategy,
+            boolean assignSplitsRandomly)
+    {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -107,6 +137,7 @@ public class SimpleNodeSelector
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.maxTasksPerStage = maxTasksPerStage;
         this.nodeSelectionHashStrategy = requireNonNull(nodeSelectionHashStrategy, "nodeSelectionHashStrategy is null");
+        this.assignSplitsRandomly = assignSplitsRandomly;
     }
 
     @Override
@@ -187,9 +218,13 @@ public class SimpleNodeSelector
             }
 
             SplitWeight splitWeight = split.getSplitWeight();
-            Optional<InternalNodeInfo> chosenNodeInfo = chooseLeastBusyNode(splitWeight, candidateNodes, assignmentStats::getTotalSplitsWeight, preferredNodeCount, maxSplitsWeightPerNode, assignmentStats);
+            Optional<InternalNodeInfo> chosenNodeInfo = assignSplitsRandomly ?
+                    chooseRandomNode(splitWeight, candidateNodes, assignmentStats::getTotalSplitsWeight, preferredNodeCount, maxSplitsWeightPerNode, assignmentStats) :
+                    chooseLeastBusyNode(splitWeight, candidateNodes, assignmentStats::getTotalSplitsWeight, preferredNodeCount, maxSplitsWeightPerNode, assignmentStats);
             if (!chosenNodeInfo.isPresent()) {
-                chosenNodeInfo = chooseLeastBusyNode(splitWeight, candidateNodes, assignmentStats::getQueuedSplitsWeightForStage, preferredNodeCount, maxPendingSplitsWeightPerTask, assignmentStats);
+                chosenNodeInfo = assignSplitsRandomly ?
+                        chooseRandomNode(splitWeight, candidateNodes, assignmentStats::getQueuedSplitsWeightForStage, preferredNodeCount, maxPendingSplitsWeightPerTask, assignmentStats) :
+                        chooseLeastBusyNode(splitWeight, candidateNodes, assignmentStats::getQueuedSplitsWeightForStage, preferredNodeCount, maxPendingSplitsWeightPerTask, assignmentStats);
             }
 
             if (chosenNodeInfo.isPresent()) {
@@ -270,6 +305,25 @@ public class SimpleNodeSelector
         if (chosenNode == null) {
             return Optional.empty();
         }
+        nodeSelectionStats.incrementNonPreferredNodeSelectedCount();
+        return Optional.of(new InternalNodeInfo(chosenNode, false));
+    }
+
+    protected Optional<InternalNodeInfo> chooseRandomNode(SplitWeight splitWeight, List<InternalNode> candidateNodes, ToLongFunction<InternalNode> splitWeightProvider, OptionalInt preferredNodeCount, long maxSplitsWeight, NodeAssignmentStats assignmentStats)
+    {
+        candidateNodes = candidateNodes.stream()
+                .filter(n -> n.getNodeStatus() != DEAD)
+                .filter(n -> assignmentStats.getUnacknowledgedSplitCountForStage(n) < maxUnacknowledgedSplitsPerTask)
+                .filter(n -> canAssignSplitBasedOnWeight(splitWeightProvider.applyAsLong(n), maxSplitsWeight, splitWeight))
+                .collect(toList());
+
+        if (candidateNodes.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Random random = new Random();
+        InternalNode chosenNode = candidateNodes.get(random.nextInt(candidateNodes.size()));
+
         nodeSelectionStats.incrementNonPreferredNodeSelectedCount();
         return Optional.of(new InternalNodeInfo(chosenNode, false));
     }

@@ -163,6 +163,7 @@ public class NodeSchedulerConfig
     public enum ResourceAwareSchedulingStrategy
     {
         RANDOM,
-        TTL
+        TTL,
+        ASSIGN_SPLITS_RANDOMLY
     }
 }

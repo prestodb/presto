@@ -61,6 +61,7 @@ import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSp
 import static com.facebook.presto.SystemSessionProperties.getResourceAwareSchedulingStrategy;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy.ASSIGN_SPLITS_RANDOMLY;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy.TTL;
 import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.CONSISTENT_HASHING;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
@@ -237,6 +238,22 @@ public class NodeScheduler
                     nodeTtlFetcherManager,
                     queryManager,
                     session);
+        }
+
+        if (resourceAwareSchedulingStrategy == ASSIGN_SPLITS_RANDOMLY) {
+            return new SimpleNodeSelector(
+                    nodeManager,
+                    nodeSelectionStats,
+                    nodeTaskMap,
+                    includeCoordinator,
+                    nodeMap,
+                    minCandidates,
+                    maxSplitsWeightPerNode,
+                    maxPendingSplitsWeightPerTask,
+                    maxUnacknowledgedSplitsPerTask,
+                    maxTasksPerStage,
+                    nodeSelectionHashStrategy,
+                    true);
         }
 
         return simpleNodeSelector;
