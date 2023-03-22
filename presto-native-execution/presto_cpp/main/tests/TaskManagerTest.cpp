@@ -932,7 +932,7 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
   int token = 123;
   auto scanTaskId = "scan.0.0.1";
   bool promiseFulfilled = false;
-  auto prestoTask = std::make_shared<PrestoTask>(scanTaskId);
+  auto prestoTask = std::make_shared<PrestoTask>(scanTaskId, "1");
   auto [promise, f] = folly::makePromiseContract<std::unique_ptr<Result>>();
   folly::ThreadedExecutor executor;
   folly::Future<std::unique_ptr<Result>> semiFuture =
@@ -960,6 +960,7 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
   prestoTask->task = createDummyExecTask(scanTaskId, planFragment);
   taskManager_->getDataForResultRequests(prestoTask->resultRequests);
   std::move(future).get();
+  ASSERT_EQ(prestoTask->info.nodeId, "1");
   ASSERT_TRUE(promiseFulfilled);
 }
 

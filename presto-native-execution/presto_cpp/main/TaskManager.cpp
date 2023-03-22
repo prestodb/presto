@@ -846,7 +846,7 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
     return prestoTask;
   }
 
-  auto prestoTask = std::make_shared<PrestoTask>(taskId);
+  auto prestoTask = std::make_shared<PrestoTask>(taskId, nodeId_);
   prestoTask->info.stats.createTime =
       util::toISOTimestamp(velox::getCurrentTimeMs());
   prestoTask->info.needsPlan = true;

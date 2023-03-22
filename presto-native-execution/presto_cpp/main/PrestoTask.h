@@ -96,7 +96,7 @@ struct PrestoTask {
   /// Info request. May arrive before there is a Task.
   PromiseHolderWeakPtr<std::unique_ptr<protocol::TaskInfo>> infoRequest;
 
-  explicit PrestoTask(const std::string& taskId);
+  explicit PrestoTask(const std::string& taskId, const std::string& nodeId);
 
   /// Updates when this task was touched last time.
   void updateHeartbeatLocked();

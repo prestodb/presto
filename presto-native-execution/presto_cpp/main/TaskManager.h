@@ -38,6 +38,10 @@ class TaskManager {
     baseUri_ = baseUri;
   }
 
+  void setNodeId(const std::string& nodeId) {
+    nodeId_ = nodeId;
+  }
+
   TaskMap tasks() const {
     return taskMap_.withRLock([](const auto& tasks) { return tasks; });
   }
@@ -150,6 +154,7 @@ class TaskManager {
       const protocol::TaskId& taskId);
 
   std::string baseUri_;
+  std::string nodeId_;
   std::shared_ptr<velox::exec::PartitionedOutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   QueryContextManager queryContextManager_;
