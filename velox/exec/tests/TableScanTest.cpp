@@ -218,6 +218,34 @@ TEST_F(TableScanTest, allColumns) {
   EXPECT_LT(0, exec::TableScan::ioWaitNanos());
 }
 
+TEST_F(TableScanTest, connectorStats) {
+  auto hiveConnector =
+      std::dynamic_pointer_cast<connector::hive::HiveConnector>(
+          connector::getConnector(kHiveConnectorId));
+  EXPECT_NE(nullptr, hiveConnector);
+  auto cacheStats = hiveConnector->fileHandleCacheStats();
+  EXPECT_EQ(0, cacheStats.curSize);
+  EXPECT_EQ(0, cacheStats.pinnedSize);
+  EXPECT_EQ(0, cacheStats.numElements);
+
+  for (size_t i = 0; i < 99; i++) {
+    auto vectors = makeVectors(10, 10);
+    auto filePath = TempFilePath::create();
+    writeToFile(filePath->path, vectors);
+    createDuckDbTable(vectors);
+    auto plan = tableScanNode();
+    assertQuery(plan, {filePath}, "SELECT * FROM tmp");
+  }
+
+  cacheStats = hiveConnector->fileHandleCacheStats();
+  EXPECT_EQ(0, cacheStats.pinnedSize);
+  EXPECT_EQ(99, cacheStats.numElements);
+
+  cacheStats = hiveConnector->clearFileHandleCache();
+  EXPECT_EQ(0, cacheStats.pinnedSize);
+  EXPECT_EQ(0, cacheStats.numElements);
+}
+
 TEST_F(TableScanTest, columnAliases) {
   auto vectors = makeVectors(1, 1'000);
   auto filePath = TempFilePath::create();

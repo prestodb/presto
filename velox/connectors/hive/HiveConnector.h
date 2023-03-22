@@ -285,13 +285,13 @@ class HiveConnector final : public Connector {
     return executor_;
   }
 
-  SimpleLRUCacheStats fileHandleCacheStats() {
+  FileHandleCacheStats fileHandleCacheStats() {
     return fileHandleFactory_.cacheStats();
   }
 
   // NOTE: this is to clear file handle cache which might affect performance,
   // and is only used for operational purposes.
-  SimpleLRUCacheStats clearFileHandleCache() {
+  FileHandleCacheStats clearFileHandleCache() {
     return fileHandleFactory_.clearCache();
   }
 

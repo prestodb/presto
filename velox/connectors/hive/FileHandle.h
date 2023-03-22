@@ -85,4 +85,6 @@ using FileHandleFactory = CachedFactory<
 
 using FileHandleCachedPtr = CachedPtr<std::string, FileHandle>;
 
+using FileHandleCacheStats = SimpleLRUCacheStats;
+
 } // namespace facebook::velox
