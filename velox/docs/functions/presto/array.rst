@@ -11,6 +11,24 @@ Array Functions
         Returns NULL if the predicate function returns NULL for one or more elements and true for all other elements.
         Throws an exception if the predicate fails for one or more elements and returns true or NULL for the rest.
 
+.. function:: any_match(array(T), function(T, boolean)) → boolean
+
+    Returns whether at least one element of an array matches the given predicate.
+
+        Returns true if one or more elements match the predicate;
+        Returns false if none of the elements matches (a special case is when the array is empty);
+        Returns NULL if the predicate function returns NULL for one or more elements and false for all other elements.
+        Throws an exception if the predicate fails for one or more elements and returns false or NULL for the rest.
+
+.. function:: none_match(array(T), function(T, boolean)) → boolean
+
+    Returns whether no elements of an array match the given predicate.
+
+        Returns true if none of the elements matches the predicate (a special case is when the array is empty);
+        Returns false if one or more elements match;
+        Returns NULL if the predicate function returns NULL for one or more elements and false for all other elements.
+        Throws an exception if the predicate fails for one or more elements and returns false or NULL for the rest.
+
 .. function:: array_average(array(double)) -> double
 
     Returns the average of all non-null elements of the array. If there are no non-null elements, returns null.

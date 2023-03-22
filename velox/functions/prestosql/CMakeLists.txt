@@ -17,12 +17,12 @@ add_subdirectory(window)
 
 add_library(
   velox_functions_prestosql_impl
-  ArrayAllMatch.cpp
   ArrayConstructor.cpp
   ArrayContains.cpp
   ArrayDistinct.cpp
   ArrayDuplicates.cpp
   ArrayIntersectExcept.cpp
+  ArrayMatch.cpp
   ArrayPosition.cpp
   ArrayShuffle.cpp
   ArraySort.cpp
