@@ -267,6 +267,18 @@ velox::variant variantAt<TypeKind::INTERVAL_DAY_TIME>(
       ::duckdb::Interval::GetMicro(value.GetValue<::duckdb::interval_t>())));
 }
 
+variant nullVariant(const TypePtr& type) {
+  auto typeKind = type->kind();
+  switch (typeKind) {
+    case TypeKind::SHORT_DECIMAL:
+      return variant::shortDecimal(std::nullopt, type);
+    case TypeKind::LONG_DECIMAL:
+      return variant::longDecimal(std::nullopt, type);
+    default:
+      return variant(typeKind);
+  }
+}
+
 velox::variant rowVariantAt(
     const ::duckdb::Value& vector,
     const TypePtr& rowType) {
@@ -274,15 +286,15 @@ velox::variant rowVariantAt(
   const auto& structValue = ::duckdb::StructValue::GetChildren(vector);
   for (size_t i = 0; i < structValue.size(); ++i) {
     auto currChild = structValue[i];
-    auto currType = rowType->childAt(i)->kind();
+    auto currType = rowType->childAt(i);
     // TODO: Add support for ARRAY and MAP children types.
     if (currChild.IsNull()) {
-      values.push_back(variant(currType));
-    } else if (currType == TypeKind::ROW) {
-      values.push_back(rowVariantAt(currChild, rowType->childAt(i)));
+      values.push_back(nullVariant(currType));
+    } else if (currType->kind() == TypeKind::ROW) {
+      values.push_back(rowVariantAt(currChild, currType));
     } else {
-      auto value =
-          VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(variantAt, currType, currChild);
+      auto value = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          variantAt, currType->kind(), currChild);
       values.push_back(value);
     }
   }
@@ -298,8 +310,8 @@ velox::variant mapVariantAt(
   VELOX_CHECK_EQ(mapValue.size(), 2);
 
   auto mapTypePtr = dynamic_cast<const MapType*>(mapType.get());
-  auto keyType = mapTypePtr->keyType()->kind();
-  auto valueType = mapTypePtr->valueType()->kind();
+  auto keyType = mapTypePtr->keyType();
+  auto valueType = mapTypePtr->valueType();
   const auto& keyList = ::duckdb::ListValue::GetChildren(mapValue[0]);
   const auto& valueList = ::duckdb::ListValue::GetChildren(mapValue[1]);
   VELOX_CHECK_EQ(keyList.size(), valueList.size());
@@ -307,17 +319,17 @@ velox::variant mapVariantAt(
     // TODO: Add support for complex key and value types.
     variant variantKey;
     if (keyList[i].IsNull()) {
-      variantKey = variant(keyType);
+      variantKey = nullVariant(keyType);
     } else {
-      variantKey =
-          VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(variantAt, keyType, keyList[i]);
+      variantKey = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          variantAt, keyType->kind(), keyList[i]);
     }
     variant variantValue;
     if (valueList[i].IsNull()) {
-      variantValue = variant(valueType);
+      variantValue = nullVariant(valueType);
     } else {
       variantValue = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          variantAt, valueType, valueList[i]);
+          variantAt, valueType->kind(), valueList[i]);
     }
     map.insert({variantKey, variantValue});
   }
@@ -332,17 +344,17 @@ velox::variant arrayVariantAt(
   const auto& elementList = ::duckdb::ListValue::GetChildren(vector);
 
   auto arrayTypePtr = dynamic_cast<const ArrayType*>(arrayType.get());
-  auto elementType = arrayTypePtr->elementType()->kind();
+  auto elementType = arrayTypePtr->elementType();
   for (int i = 0; i < elementList.size(); i++) {
     // TODO: Add support for MAP and ROW element types.
     if (elementList[i].IsNull()) {
-      array.push_back(variant(elementType));
-    } else if (elementType == TypeKind::ARRAY) {
+      array.push_back(nullVariant(elementType));
+    } else if (elementType->kind() == TypeKind::ARRAY) {
       array.push_back(
           arrayVariantAt(elementList[i], arrayTypePtr->elementType()));
     } else {
       auto variant = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          variantAt, elementType, elementList[i]);
+          variantAt, elementType->kind(), elementList[i]);
       array.push_back(variant);
     }
   }
@@ -359,13 +371,19 @@ std::vector<MaterializedRow> materialize(
   std::vector<MaterializedRow> rows;
   rows.reserve(size);
 
+  // Pre-compute null values for all columns.
+  std::vector<variant> nulls;
+  for (size_t j = 0; j < rowType->size(); ++j) {
+    nulls.emplace_back(nullVariant(rowType->childAt(j)));
+  }
+
   for (size_t i = 0; i < size; ++i) {
     MaterializedRow row;
     row.reserve(rowType->size());
     for (size_t j = 0; j < rowType->size(); ++j) {
       auto typeKind = rowType->childAt(j)->kind();
       if (dataChunk->GetValue(j, i).IsNull()) {
-        row.push_back(variant(typeKind));
+        row.push_back(nulls[j]);
       } else if (typeKind == TypeKind::ARRAY) {
         row.push_back(
             arrayVariantAt(dataChunk->GetValue(j, i), rowType->childAt(j)));
@@ -464,17 +482,11 @@ velox::variant rowVariantAt(const VectorPtr& vector, vector_size_t row) {
 }
 
 variant variantAt(const VectorPtr& vector, vector_size_t row) {
-  auto typeKind = vector->typeKind();
   if (vector->isNullAt(row)) {
-    if (typeKind == TypeKind::SHORT_DECIMAL) {
-      return variant::shortDecimal(std::nullopt, vector->type());
-    }
-    if (typeKind == TypeKind::LONG_DECIMAL) {
-      return variant::longDecimal(std::nullopt, vector->type());
-    }
-    return variant(typeKind);
+    return nullVariant(vector->type());
   }
 
+  auto typeKind = vector->typeKind();
   if (typeKind == TypeKind::ROW) {
     return rowVariantAt(vector, row);
   }

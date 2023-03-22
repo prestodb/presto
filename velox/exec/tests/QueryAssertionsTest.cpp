@@ -348,13 +348,50 @@ TEST_F(QueryAssertionsTest, nullDecimalValue) {
       {std::nullopt}, SHORT_DECIMAL(5, 2))});
   EXPECT_TRUE(assertEqualResults({shortDecimal}, {shortDecimal}));
 
+  createDuckDbTable({shortDecimal});
+  auto plan = PlanBuilder().values({shortDecimal}).planNode();
+  assertQuery(plan, "SELECT c0 FROM tmp");
+
   auto longDecimal = makeRowVector(
       {makeNullableLongDecimalFlatVector({std::nullopt}, LONG_DECIMAL(20, 2))});
   EXPECT_TRUE(assertEqualResults({longDecimal}, {longDecimal}));
 
+  createDuckDbTable({longDecimal});
+  plan = PlanBuilder().values({longDecimal}).planNode();
+  assertQuery(plan, "SELECT c0 FROM tmp");
+
   EXPECT_NONFATAL_FAILURE(
       assertEqualResults({shortDecimal}, {longDecimal}),
       "Types of expected and actual results do not match");
+}
+
+TEST_F(QueryAssertionsTest, nullVariant) {
+  auto input = makeRowVector(
+      {makeNullableArrayVector<int64_t>(
+           {{std::nullopt, 1}, {2, 3, 4}, {std::nullopt}}),
+       makeNullableArrayVector<double>(
+           {{std::nullopt, 1.1}, {2.2, 3.3, 4.4}, {std::nullopt}})});
+  createDuckDbTable({input});
+  auto plan = PlanBuilder().values({input}).planNode();
+  assertQuery(plan, "SELECT * FROM tmp");
+
+  input = makeRowVector({makeNullableMapVector<int64_t, double>(
+      {std::nullopt,
+       {{{1, 1.1}, {2, std::nullopt}}},
+       {},
+       {{{3, 3.3}, {4, 4.4}, {5, 5.5}}},
+       {std::nullopt},
+       {{{6, std::nullopt}}}})});
+  createDuckDbTable({input});
+  plan = PlanBuilder().values({input}).planNode();
+  assertQuery(plan, "SELECT * FROM tmp");
+
+  input = makeRowVector({makeRowVector(
+      {makeNullConstant(TypeKind::BIGINT, 10),
+       makeNullConstant(TypeKind::DOUBLE, 10)})});
+  createDuckDbTable({input});
+  plan = PlanBuilder().values({input}).planNode();
+  assertQuery(plan, "SELECT * FROM tmp");
 }
 
 } // namespace facebook::velox::test
