@@ -351,7 +351,11 @@ public class StoragePartitionLoader
             cacheable &= partition.get().isSealedPartition();
         }
 
-        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, cacheable, buildDirectoryContextProperties(session));
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(
+                recursiveDirWalkerEnabled ? RECURSE : IGNORED,
+                cacheable,
+                hdfsContext.getIdentity(),
+                buildDirectoryContextProperties(session));
         return stream(directoryLister.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
@@ -378,7 +382,11 @@ public class StoragePartitionLoader
         // list all files in the partition
         List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, partition, namenodeStats, new HiveDirectoryContext(FAIL, isUseListDirectoryCache(session), buildDirectoryContextProperties(session))));
+            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, partition, namenodeStats, new HiveDirectoryContext(
+                    FAIL,
+                    isUseListDirectoryCache(session),
+                    hdfsContext.getIdentity(),
+                    buildDirectoryContextProperties(session))));
         }
         catch (HiveFileIterator.NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -522,7 +530,11 @@ public class StoragePartitionLoader
     private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, Optional<Partition> partition, boolean splittable)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
-        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, isUseListDirectoryCache(session), buildDirectoryContextProperties(session));
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(
+                recursiveDirWalkerEnabled ? RECURSE : IGNORED,
+                isUseListDirectoryCache(session),
+                hdfsContext.getIdentity(),
+                buildDirectoryContextProperties(session));
         return stream(directoryLister.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext))
                 .map(fileInfo -> {
                     int virtualBucketNumber = getVirtualBucketNumber(bucketCount, fileInfo.getPath());
