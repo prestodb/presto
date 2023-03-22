@@ -1065,4 +1065,25 @@ TEST_F(SimpleFunctionTest, isAsciiArgs) {
   input->as<SimpleVector<StringView>>()->computeAndSetIsAscii(rows);
   ASSERT_TRUE(function_t::isAsciiArgs(rows, {input}));
 }
+
+// Return false always.
+template <typename T>
+struct GenericOutputFunc {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  // If input is Array<x> out is x.
+  bool call(out_type<Generic<T1>>&, const arg_type<Array<Generic<T1>>>&) {
+    return false;
+  }
+};
+
+TEST_F(SimpleFunctionTest, evalGenericOutput) {
+  registerFunction<GenericOutputFunc, Generic<T1>, Array<Generic<T1>>>(
+      {"test_generic_out"});
+
+  auto input = makeArrayVector<int32_t>({{1, 2}, {1, 3}});
+  auto result = evaluate("test_generic_out(c0)", makeRowVector({input}));
+  auto expected = makeNullableFlatVector<int32_t>({std::nullopt, std::nullopt});
+  assertEqualVectors(expected, result);
+}
+
 } // namespace

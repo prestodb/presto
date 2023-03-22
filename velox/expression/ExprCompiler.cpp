@@ -402,9 +402,8 @@ ExprPtr compileExpression(
     } else if (
         auto simpleFunctionEntry =
             SimpleFunctions().resolveFunction(call->name(), inputTypes)) {
-      const auto& metadata = simpleFunctionEntry->getMetadata();
       VELOX_USER_CHECK(
-          resultType->kindEquals(simpleFunctionEntry->type()),
+          resultType->equivalent(*simpleFunctionEntry->type().get()),
           "Found incompatible return types for '{}' ({} vs. {}) "
           "for input types ({}).",
           call->name(),
