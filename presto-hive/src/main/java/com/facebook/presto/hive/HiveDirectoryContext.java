@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -23,12 +24,18 @@ public class HiveDirectoryContext
 {
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
     private final boolean cacheable;
+    private final ConnectorIdentity connectorIdentity;
     private final Map<String, String> additionalProperties;
 
-    public HiveDirectoryContext(NestedDirectoryPolicy nestedDirectoryPolicy, boolean cacheable, Map<String, String> additionalProperties)
+    public HiveDirectoryContext(
+            NestedDirectoryPolicy nestedDirectoryPolicy,
+            boolean cacheable,
+            ConnectorIdentity connectorIdentity,
+            Map<String, String> additionalProperties)
     {
         this.nestedDirectoryPolicy = requireNonNull(nestedDirectoryPolicy, "nestedDirectoryPolicy is null");
         this.cacheable = cacheable;
+        this.connectorIdentity = requireNonNull(connectorIdentity, "connectorIdentity is null");
         this.additionalProperties = ImmutableMap.copyOf(requireNonNull(additionalProperties, "additionalProperties is null"));
     }
 
@@ -40,6 +47,11 @@ public class HiveDirectoryContext
     public boolean isCacheable()
     {
         return cacheable;
+    }
+
+    public ConnectorIdentity getConnectorIdentity()
+    {
+        return connectorIdentity;
     }
 
     public Map<String, String> getAdditionalProperties()
