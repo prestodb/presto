@@ -27,48 +27,10 @@ namespace facebook::presto {
 
 namespace {
 
-void sendOkResponse(proxygen::ResponseHandler* downstream) {
-  proxygen::ResponseBuilder(downstream)
-      .status(http::kHttpOk, "OK")
-      .sendWithEOM();
-}
-
-void sendOkResponse(proxygen::ResponseHandler* downstream, const json& body) {
-  proxygen::ResponseBuilder(downstream)
-      .status(http::kHttpOk, "OK")
-      .header(
-          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationJson)
-      .body(body.dump())
-      .sendWithEOM();
-}
-
-void sendOkThriftResponse(
-    proxygen::ResponseHandler* downstream,
-    const std::string& body) {
-  proxygen::ResponseBuilder(downstream)
-      .status(http::kHttpOk, "OK")
-      .header(
-          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationThrift)
-      .body(body)
-      .sendWithEOM();
-}
-
-void sendErrorResponse(
-    proxygen::ResponseHandler* downstream,
-    const std::string& error = "",
-    int status = http::kHttpInternalServerError) {
-  static const int kMaxStatusSize = 1024;
-
-  proxygen::ResponseBuilder(downstream)
-      .status(status, error.substr(0, kMaxStatusSize))
-      .body(error)
-      .sendWithEOM();
-}
-
 void sendTaskNotFound(
     proxygen::ResponseHandler* downstream,
     const protocol::TaskId& taskId) {
-  sendErrorResponse(
+  http::sendErrorResponse(
       downstream,
       fmt::format("Task not found: {}", taskId),
       http::kHttpNotFound);
@@ -184,10 +146,10 @@ proxygen::RequestHandler* TaskResource::abortResults(
         try {
           taskManager_.abortResults(taskId, bufferId);
         } catch (const std::exception& e) {
-          sendErrorResponse(downstream, e.what());
+          http::sendErrorResponse(downstream, e.what());
           return;
         }
-        sendOkResponse(downstream);
+        http::sendOkResponse(downstream);
       });
 }
 
@@ -206,13 +168,13 @@ proxygen::RequestHandler* TaskResource::acknowledgeResults(
         try {
           taskManager_.acknowledgeResults(taskId, bufferId, token);
         } catch (const velox::VeloxException& e) {
-          sendErrorResponse(downstream, e.what());
+          http::sendErrorResponse(downstream, e.what());
           return;
         } catch (const std::exception& e) {
-          sendErrorResponse(downstream, e.what());
+          http::sendErrorResponse(downstream, e.what());
           return;
         }
-        sendOkResponse(downstream);
+        http::sendOkResponse(downstream);
       });
 }
 
@@ -278,12 +240,12 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
           taskInfo = taskManager_.createOrUpdateErrorTask(
               taskId, std::current_exception());
         } catch (const std::exception& e) {
-          sendErrorResponse(downstream, e.what());
+          http::sendErrorResponse(downstream, e.what());
           return;
         }
 
         json taskInfoJson = *taskInfo;
-        sendOkResponse(downstream, taskInfoJson);
+        http::sendOkResponse(downstream, taskInfoJson);
       });
 }
 
@@ -366,10 +328,10 @@ proxygen::RequestHandler* TaskResource::deleteTask(
         try {
           taskInfo = taskManager_.deleteTask(taskId, abort);
         } catch (const velox::VeloxException& e) {
-          sendErrorResponse(downstream, e.what());
+          http::sendErrorResponse(downstream, e.what());
           return;
         } catch (const std::exception& e) {
-          sendErrorResponse(downstream, e.what());
+          http::sendErrorResponse(downstream, e.what());
           return;
         }
 
@@ -379,7 +341,7 @@ proxygen::RequestHandler* TaskResource::deleteTask(
         }
 
         json taskInfoJson = *taskInfo;
-        sendOkResponse(downstream, taskInfoJson);
+        http::sendOkResponse(downstream, taskInfoJson);
       });
 }
 
@@ -437,14 +399,14 @@ proxygen::RequestHandler* TaskResource::getResults(
                 folly::tag_t<velox::VeloxException>{},
                 [downstream, handlerState](const velox::VeloxException& e) {
                   if (!handlerState->requestExpired()) {
-                    sendErrorResponse(downstream, e.what());
+                    http::sendErrorResponse(downstream, e.what());
                   }
                 })
             .thenError(
                 folly::tag_t<std::exception>{},
                 [downstream, handlerState](const std::exception& e) {
                   if (!handlerState->requestExpired()) {
-                    sendErrorResponse(downstream, e.what());
+                    http::sendErrorResponse(downstream, e.what());
                   }
                 });
       });
@@ -478,11 +440,11 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
                   if (useThrift) {
                     thrift::TaskStatus thriftTaskStatus;
                     toThrift(*taskStatus, thriftTaskStatus);
-                    sendOkThriftResponse(
+                    http::sendOkThriftResponse(
                         downstream, thriftWrite(thriftTaskStatus));
                   } else {
                     json taskStatusJson = *taskStatus;
-                    sendOkResponse(downstream, taskStatusJson);
+                    http::sendOkResponse(downstream, taskStatusJson);
                   }
                 }
               })
@@ -490,18 +452,18 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
                   folly::tag_t<velox::VeloxException>{},
                   [downstream, handlerState](const velox::VeloxException& e) {
                     if (!handlerState->requestExpired()) {
-                      sendErrorResponse(downstream, e.what());
+                      http::sendErrorResponse(downstream, e.what());
                     }
                   })
               .thenError(
                   folly::tag_t<std::exception>{},
                   [downstream, handlerState](const std::exception& e) {
                     if (!handlerState->requestExpired()) {
-                      sendErrorResponse(downstream, e.what());
+                      http::sendErrorResponse(downstream, e.what());
                     }
                   });
         } catch (const std::exception& e) {
-          sendErrorResponse(downstream, e.what());
+          http::sendErrorResponse(downstream, e.what());
         }
       });
 }
@@ -529,25 +491,25 @@ proxygen::RequestHandler* TaskResource::getTaskInfo(
                              std::unique_ptr<protocol::TaskInfo> taskInfo) {
                 if (!handlerState->requestExpired()) {
                   json taskInfoJson = *taskInfo;
-                  sendOkResponse(downstream, taskInfoJson);
+                  http::sendOkResponse(downstream, taskInfoJson);
                 }
               })
               .thenError(
                   folly::tag_t<velox::VeloxException>{},
                   [downstream, handlerState](const velox::VeloxException& e) {
                     if (!handlerState->requestExpired()) {
-                      sendErrorResponse(downstream, e.what());
+                      http::sendErrorResponse(downstream, e.what());
                     }
                   })
               .thenError(
                   folly::tag_t<std::exception>{},
                   [downstream, handlerState](const std::exception& e) {
                     if (!handlerState->requestExpired()) {
-                      sendErrorResponse(downstream, e.what());
+                      http::sendErrorResponse(downstream, e.what());
                     }
                   });
         } catch (const std::exception& e) {
-          sendErrorResponse(downstream, e.what());
+          http::sendErrorResponse(downstream, e.what());
           return;
         }
       });
@@ -567,13 +529,13 @@ proxygen::RequestHandler* TaskResource::removeRemoteSource(
         try {
           taskManager_.removeRemoteSource(taskId, remoteId);
         } catch (const velox::VeloxException& e) {
-          sendErrorResponse(downstream, e.what());
+          http::sendErrorResponse(downstream, e.what());
           return;
         } catch (const std::exception& e) {
-          sendErrorResponse(downstream, e.what());
+          http::sendErrorResponse(downstream, e.what());
           return;
         }
-        sendOkResponse(downstream);
+        http::sendOkResponse(downstream);
       });
 }
 } // namespace facebook::presto
