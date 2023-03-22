@@ -11,8 +11,13 @@
 # limitations under the License.
 add_executable(
   presto_server_test
-  PrestoExchangeSourceTest.cpp TaskManagerTest.cpp HttpServerWrapper.cpp
-  PrestoTaskTest.cpp AnnouncerTest.cpp QueryContextCacheTest.cpp)
+  PrestoExchangeSourceTest.cpp
+  TaskManagerTest.cpp
+  HttpServerWrapper.cpp
+  PrestoTaskTest.cpp
+  AnnouncerTest.cpp
+  QueryContextCacheTest.cpp
+  ServerOperationTest.cpp)
 
 add_test(presto_server_test presto_server_test)
 

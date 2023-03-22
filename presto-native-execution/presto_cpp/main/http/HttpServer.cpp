@@ -18,6 +18,55 @@
 
 namespace facebook::presto::http {
 
+void sendOkResponse(proxygen::ResponseHandler* downstream) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "OK")
+      .sendWithEOM();
+}
+
+void sendOkResponse(proxygen::ResponseHandler* downstream, const json& body) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "OK")
+      .header(
+          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationJson)
+      .body(body.dump())
+      .sendWithEOM();
+}
+
+void sendOkResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "OK")
+      .header(
+          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationJson)
+      .body(body)
+      .sendWithEOM();
+}
+
+void sendOkThriftResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "OK")
+      .header(
+          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationThrift)
+      .body(body)
+      .sendWithEOM();
+}
+
+void sendErrorResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& error,
+    uint16_t status) {
+  static const size_t kMaxStatusSize = 1024;
+
+  proxygen::ResponseBuilder(downstream)
+      .status(status, error.substr(0, kMaxStatusSize))
+      .body(error)
+      .sendWithEOM();
+}
+
 HttpServer::HttpServer(
     const folly::SocketAddress& httpAddress,
     int httpExecThreads)

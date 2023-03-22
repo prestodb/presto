@@ -25,6 +25,7 @@ add_library(
   PrestoServer.cpp
   PrestoTask.cpp
   QueryContextManager.cpp
+  ServerOperation.cpp
   SignalHandler.cpp
   TaskManager.cpp
   TaskResource.cpp)
