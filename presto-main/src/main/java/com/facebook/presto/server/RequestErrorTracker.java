@@ -62,6 +62,11 @@ public class RequestErrorTracker
     public boolean isLeaf;
     private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
+    public RequestErrorTracker(Object id, URI uri, ErrorCodeSupplier errorCode, String nodeErrorMessage, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    {
+        this(id, uri, errorCode, nodeErrorMessage, maxErrorDuration, scheduledExecutor, jobDescription, false);
+    }
+
     private RequestErrorTracker(Object id, URI uri, ErrorCodeSupplier errorCode, String nodeErrorMessage, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription, boolean isLeaf)
     {
         this.id = requireNonNull(id, "id is null");
