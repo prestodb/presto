@@ -105,7 +105,7 @@ class MemoryUsageTracker
   /// Create default usage tracker which is a 'root' tracker.
   static std::shared_ptr<MemoryUsageTracker> create(
       int64_t maxMemory = kMaxMemory) {
-    return create(nullptr, false, maxMemory);
+    return create(/*parent=*/nullptr, /*leafTracker=*/false, maxMemory);
   }
 
   ~MemoryUsageTracker();
