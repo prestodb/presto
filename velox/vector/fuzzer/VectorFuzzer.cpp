@@ -21,6 +21,7 @@
 #include <codecvt>
 #include <locale>
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/type/Date.h"
 #include "velox/type/Timestamp.h"
 #include "velox/vector/FlatVector.h"
@@ -146,6 +147,13 @@ IntervalDayTime randIntervalDayTime(FuzzerGenerator& rng) {
 size_t getElementsVectorLength(
     const VectorFuzzer::Options& opts,
     vector_size_t size) {
+  if (opts.containerVariableLength == false &&
+      size * opts.containerLength > opts.complexElementsMaxSize) {
+    VELOX_USER_FAIL(
+        "Requested fixed opts.containerVariableLength can't be satisfied: "
+        "increase opts.complexElementsMaxSize, reduce opts.containerLength"
+        " or make opts.containerVariableLength=true");
+  }
   return std::min(size * opts.containerLength, opts.complexElementsMaxSize);
 }
 

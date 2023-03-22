@@ -72,10 +72,13 @@ TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
   opts.dictionaryHasNulls = false;
   opts.stringVariableLength = true;
   opts.stringLength = 20;
+  opts.containerVariableLength = false;
+  opts.complexElementsMaxSize = 1000000;
+
   // Spark uses microseconds to store timestamp
   opts.timestampPrecision =
       VectorFuzzer::Options::TimestampPrecision::kMicroSeconds,
-  opts.containerLength = 65;
+  opts.containerLength = 10;
 
   auto seed = folly::Random::rand32();
   LOG(INFO) << "seed: " << seed;

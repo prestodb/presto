@@ -282,6 +282,7 @@ TEST_F(VectorFuzzerTest, constantsNull) {
 
 TEST_F(VectorFuzzerTest, array) {
   VectorFuzzer::Options opts;
+  opts.containerVariableLength = false;
   VectorFuzzer fuzzer(opts, pool());
 
   // 1 elements per array.
@@ -337,6 +338,7 @@ TEST_F(VectorFuzzerTest, array) {
 
 TEST_F(VectorFuzzerTest, map) {
   VectorFuzzer::Options opts;
+  opts.containerVariableLength = false;
   VectorFuzzer fuzzer(opts, pool());
 
   // 1 elements per array.
@@ -700,6 +702,15 @@ TEST_F(VectorFuzzerTest, complexTooLarge) {
 
   vector = fuzzer.fuzzFlat(ARRAY(ARRAY(ARRAY(ARRAY(ARRAY(SMALLINT()))))));
   validateMaxSizes(vector, opts.complexElementsMaxSize);
+
+  // If opts.containerVariableLength is false,  then throw if requested size
+  // cant be satisfied.
+  opts.containerVariableLength = false;
+  fuzzer.setOptions(opts);
+
+  EXPECT_THROW(
+      fuzzer.fuzzFlat(ARRAY(ARRAY(ARRAY(ARRAY(ARRAY(SMALLINT())))))),
+      VeloxUserError);
 }
 
 } // namespace

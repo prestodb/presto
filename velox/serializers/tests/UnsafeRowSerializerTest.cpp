@@ -100,6 +100,8 @@ TEST_F(UnsafeRowSerializerTest, types) {
   opts.dictionaryHasNulls = false;
   opts.stringVariableLength = true;
   opts.stringLength = 20;
+  opts.containerVariableLength = false;
+
   // Spark uses microseconds to store timestamp
   opts.timestampPrecision =
       VectorFuzzer::Options::TimestampPrecision::kMicroSeconds;

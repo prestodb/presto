@@ -116,7 +116,7 @@ class VectorFuzzer {
 
     /// If true, the length of array/map are randomly generated and
     /// `containerLength` is treated as maximum length.
-    bool containerVariableLength{false};
+    bool containerVariableLength{true};
 
     /// Restricts the maximum inner (elements) vector size created when
     /// generating nested vectors (arrays, maps, and rows).
