@@ -257,14 +257,53 @@ void LocalPlanner::plan(
 
   (*driverFactories)[0]->outputDriver = true;
 
+  // Determine which pipelines should run Grouped Execution.
+  if (planFragment.isGroupedExecution()) {
+    // We run backwards - from leaf pipelines to the root pipeline.
+    for (auto it = driverFactories->rbegin(); it != driverFactories->rend();
+         ++it) {
+      auto& factory = *it;
+
+      // See if pipelines have leaf nodes that use grouped execution strategy.
+      if (planFragment.leafNodeRunsGroupedExecution(factory->leafNodeId())) {
+        factory->groupedExecution = true;
+      }
+
+      // If a pipeline's leaf node is Local Partition, which has all sources
+      // belonging to pipelines that run Grouped Execution, then our pipeline
+      // should run Grouped Execution as well.
+      if (auto localPartitionNode =
+              std::dynamic_pointer_cast<const core::LocalPartitionNode>(
+                  factory->planNodes.front())) {
+        size_t numGroupedExecutionSources{0};
+        for (const auto& sourceNode : localPartitionNode->sources()) {
+          for (auto& anotherFactory : *driverFactories) {
+            if (sourceNode == anotherFactory->planNodes.back() and
+                anotherFactory->groupedExecution) {
+              ++numGroupedExecutionSources;
+              break;
+            }
+          }
+        }
+        if (numGroupedExecutionSources > 0 and
+            numGroupedExecutionSources ==
+                localPartitionNode->sources().size()) {
+          factory->groupedExecution = true;
+        }
+      }
+    }
+  }
+
+  // Determine number of drivers for each pipeline.
   for (auto& factory : *driverFactories) {
     factory->maxDrivers = detail::maxDrivers(*factory);
     factory->numDrivers = std::min(factory->maxDrivers, maxDrivers);
-    // For grouped/bucketed execution we would have separate groups of drivers
-    // dealing with separate split groups (one driver can access splits from
-    // only one designated split group), hence we will have total number of
-    // drivers multiplied by the number of split groups.
-    if (planFragment.isGroupedExecution()) {
+
+    // Pipelines running grouped/bucketed execution would have separate groups
+    // of drivers dealing with separate split groups (one driver can access
+    // splits from only one designated split group), hence we will have total
+    // number of drivers multiplied by the number of split groups.
+    if (factory->groupedExecution) {
       factory->numTotalDrivers =
           factory->numDrivers * planFragment.numSplitGroups;
     } else {

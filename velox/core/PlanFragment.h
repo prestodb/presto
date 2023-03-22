@@ -68,10 +68,12 @@ struct PlanFragment {
   PlanFragment(
       std::shared_ptr<const core::PlanNode> topNode,
       ExecutionStrategy strategy,
-      int numberOfSplitGroups)
+      int numberOfSplitGroups,
+      const std::unordered_set<PlanNodeId>& groupedExecLeafNodeIds)
       : planNode(std::move(topNode)),
         executionStrategy(strategy),
-        numSplitGroups(numberOfSplitGroups) {}
+        numSplitGroups(numberOfSplitGroups),
+        groupedExecutionLeafNodeIds(groupedExecLeafNodeIds) {}
 
   /// Returns true if the spilling is enabled and there is at least one node in
   /// the plan, whose operator can spill. Returns false otherwise.

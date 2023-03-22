@@ -42,6 +42,9 @@ struct CursorParameters {
   core::ExecutionStrategy executionStrategy{
       core::ExecutionStrategy::kUngrouped};
 
+  /// Contains leaf plan nodes that need to be executed in the grouped mode.
+  std::unordered_set<core::PlanNodeId> groupedExecutionLeafNodeIds;
+
   // Number of splits groups the task will be processing. Must be 1 for
   // ungrouped execution.
   int numSplitGroups{1};

@@ -110,7 +110,7 @@ bool unregisterTaskListener(const std::shared_ptr<TaskListener>& listener) {
 }
 
 namespace {
-void initializeSplitStates(
+void buildSplitStates(
     const core::PlanNode* planNode,
     std::unordered_set<core::PlanNodeId>& allIds,
     std::unordered_map<core::PlanNodeId, SplitsState>& splitStateMap) {
@@ -132,18 +132,18 @@ void initializeSplitStates(
   }
 
   for (const auto& child : planNode->sources()) {
-    initializeSplitStates(child.get(), allIds, splitStateMap);
+    buildSplitStates(child.get(), allIds, splitStateMap);
   }
 }
 
 /// Returns a map of ids of source (leaf) plan nodes expecting splits.
 /// SplitsState structures are initialized to blank states. Also, checks that
 /// plan node IDs are unique and throws if encounters duplicates.
-std::unordered_map<core::PlanNodeId, SplitsState> initializeSplitStates(
+std::unordered_map<core::PlanNodeId, SplitsState> buildSplitStates(
     const std::shared_ptr<const core::PlanNode>& planNode) {
   std::unordered_set<core::PlanNodeId> allIds;
   std::unordered_map<core::PlanNodeId, SplitsState> splitStateMap;
-  initializeSplitStates(planNode.get(), allIds, splitStateMap);
+  buildSplitStates(planNode.get(), allIds, splitStateMap);
   return splitStateMap;
 }
 
@@ -188,7 +188,7 @@ Task::Task(
           memory::MemoryPool::Kind::kAggregate)),
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
-      splitsStates_(initializeSplitStates(planFragment_.planNode)),
+      splitsStates_(buildSplitStates(planFragment_.planNode)),
       bufferManager_(PartitionedOutputBufferManager::getInstance()) {
   auto memoryUsageTracker = pool_->getMemoryUsageTracker();
   if (memoryUsageTracker) {
@@ -370,7 +370,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
     // In Task::next() we always assume ungrouped execution.
     for (const auto& factory : driverFactories_) {
       VELOX_CHECK(factory->supportsSingleThreadedExecution());
-      numDriversPerSplitGroup_ += factory->numDrivers;
+      numDriversUngrouped_ += factory->numDrivers;
       numTotalDrivers_ += factory->numTotalDrivers;
       taskStats_.pipelineStats.emplace_back(
           factory->inputDriver, factory->outputDriver);
@@ -379,7 +379,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
     // Create drivers.
     auto self = shared_from_this();
     std::vector<std::shared_ptr<Driver>> drivers;
-    drivers.reserve(numDriversPerSplitGroup_);
+    drivers.reserve(numDriversUngrouped_);
     createSplitGroupStateLocked(kUngroupedGroupId);
     createDriversLocked(self, kUngroupedGroupId, drivers);
 
@@ -448,6 +448,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
   }
 }
 
+/*static*/
 void Task::start(
     std::shared_ptr<Task> self,
     uint32_t maxDrivers,
@@ -460,7 +461,6 @@ void Task::start(
       "concurrentSplitGroups parameter must be greater then or equal to 1");
 
   uint32_t numPipelines;
-  uint32_t numSplitGroups;
   {
     std::unique_lock<std::mutex> l(self->mutex_);
     VELOX_CHECK(self->drivers_.empty());
@@ -494,19 +494,21 @@ void Task::start(
     numPipelines = self->driverFactories_.size();
     self->exchangeClients_.resize(numPipelines);
 
-    // For ungrouped execution we reuse some structures used for grouped
-    // execution and assume we have "1 split".
-    numSplitGroups = std::max(1, self->planFragment_.numSplitGroups);
-
     // For each pipeline we have a corresponding driver factory.
     // Here we count how many drivers in total we need and create
     // pipeline stats.
     for (auto& factory : self->driverFactories_) {
-      self->numDriversPerSplitGroup_ += factory->numDrivers;
+      if (factory->groupedExecution) {
+        self->numDriversPerSplitGroup_ += factory->numDrivers;
+      } else {
+        self->numDriversUngrouped_ += factory->numDrivers;
+      }
       self->numTotalDrivers_ += factory->numTotalDrivers;
       self->taskStats_.pipelineStats.emplace_back(
           factory->inputDriver, factory->outputDriver);
     }
+
+    self->validateGroupedExecutionLeafNodes();
   }
 
   // Register self for possible memory recovery callback. Do this
@@ -530,11 +532,15 @@ void Task::start(
           !self->hasPartitionedOutput(),
           "Only one output pipeline per task is supported");
       self->numDriversInPartitionedOutput_ = factory->numDrivers;
+      self->groupedPartitionedOutput_ = factory->groupedExecution;
+      const auto totalOutputDrivers = factory->groupedExecution
+          ? factory->numDrivers * self->planFragment_.numSplitGroups
+          : factory->numDrivers;
       bufferManager->initializeTask(
           self,
           partitionedOutputNode->isBroadcast(),
           partitionedOutputNode->numPartitions(),
-          self->numDriversInPartitionedOutput_ * numSplitGroups);
+          totalOutputDrivers);
     }
 
     // NOTE: MergeExchangeNode doesn't use the exchange client created here to
@@ -550,15 +556,33 @@ void Task::start(
 
   std::unique_lock<std::mutex> l(self->mutex_);
 
-  // For grouped execution we postpone driver creation up until the splits start
-  // arriving, as we don't know what split groups we are going to get.
-  // Here we create Drivers only for ungrouped (normal) execution.
-  if (self->isUngroupedExecution()) {
+  // Preallocate a bunch of slots for max concurrent grouped execution
+  // drivers, if needed.
+  if (self->numDriversPerSplitGroup_ > 0) {
+    self->drivers_.resize(
+        self->numDriversPerSplitGroup_ * self->concurrentSplitGroups_);
+  }
+
+  // We create the drivers running pipelines in ungrouped execution mode
+  // first.
+  if (self->numDriversUngrouped_ > 0) {
     // Create the drivers we are going to run for this task.
     std::vector<std::shared_ptr<Driver>> drivers;
-    drivers.reserve(self->numDriversPerSplitGroup_);
+    drivers.reserve(self->numDriversUngrouped_);
     self->createSplitGroupStateLocked(kUngroupedGroupId);
     self->createDriversLocked(self, kUngroupedGroupId, drivers);
+
+    // We might have first slots taken for grouped execution drivers, so need to
+    // append the ungrouped execution drivers afterwards in that case.
+    if (self->drivers_.empty()) {
+      self->drivers_ = std::move(drivers);
+    } else {
+      self->drivers_.reserve(
+          self->drivers_.size() + self->numDriversUngrouped_);
+      for (auto& driver : drivers) {
+        self->drivers_.emplace_back(std::move(driver));
+      }
+    }
 
     // Set and start all Drivers together inside 'mutex_' so that cancellations
     // and pauses have well defined timing. For example, do not pause and
@@ -566,25 +590,28 @@ void Task::start(
     // If the given executor is folly::InlineLikeExecutor (or it's child), since
     // the drivers will be executed synchronously on the same thread as the
     // current task, so we need release the lock to avoid the deadlock.
-    self->drivers_ = std::move(drivers);
     if (dynamic_cast<const folly::InlineLikeExecutor*>(
             self->queryCtx()->executor())) {
       l.unlock();
     }
-    for (auto& driver : self->drivers_) {
-      if (driver) {
+    // We might have first slots taken for grouped execution drivers, so need
+    // only to enqueue the ungrouped execution drivers.
+    for (auto it = self->drivers_.end() - self->numDriversUngrouped_;
+         it != self->drivers_.end();
+         ++it) {
+      if (*it) {
         ++self->numRunningDrivers_;
-        Driver::enqueue(driver);
+        Driver::enqueue(*it);
       }
     }
-  } else {
-    // Preallocate a bunch of slots for max concurrent drivers during grouped
-    // execution.
-    self->drivers_.resize(
-        self->numDriversPerSplitGroup_ * self->concurrentSplitGroups_);
+  }
 
-    // As some splits could have been added before the task start, ensure we
-    // start running drivers for them.
+  // As some splits for grouped execution could have been added before the task
+  // start, ensure we start running drivers for them.
+  if (self->numDriversPerSplitGroup_ > 0) {
+    if (!l.owns_lock()) {
+      l.lock();
+    }
     self->ensureSplitGroupsAreBeingProcessedLocked(self);
   }
 }
@@ -619,12 +646,52 @@ void Task::resume(std::shared_ptr<Task> self) {
   }
 }
 
+void Task::validateGroupedExecutionLeafNodes() {
+  if (isGroupedExecution()) {
+    VELOX_USER_CHECK(
+        !planFragment_.groupedExecutionLeafNodeIds.empty(),
+        "groupedExecutionLeafNodeIds must not be empty in "
+        "grouped execution mode");
+    // Check that each node designated as the grouped execution leaf node
+    // existing in a pipeline that will run grouped execution.
+    for (const auto& leafNodeId : planFragment_.groupedExecutionLeafNodeIds) {
+      bool found{false};
+      for (auto& factory : driverFactories_) {
+        if (leafNodeId == factory->leafNodeId()) {
+          VELOX_USER_CHECK(
+              factory->inputDriver,
+              "Grouped execution leaf node {} not found "
+              "or it is not a leaf node",
+              leafNodeId);
+          found = true;
+          break;
+        }
+      }
+      VELOX_USER_CHECK(
+          found,
+          "Grouped execution leaf node {} is not a leaf node in "
+          "any pipeline",
+          leafNodeId);
+    }
+  } else {
+    VELOX_USER_CHECK(
+        planFragment_.groupedExecutionLeafNodeIds.empty(),
+        "groupedExecutionLeafNodeIds must be empty in "
+        "ungrouped execution mode");
+  }
+}
+
 void Task::createSplitGroupStateLocked(uint32_t splitGroupId) {
+  const bool groupedExecutionDrivers = (splitGroupId != kUngroupedGroupId);
   // In this loop we prepare per split group pipelines structures:
   // local exchanges and join bridges.
   const auto numPipelines = driverFactories_.size();
   for (auto pipeline = 0; pipeline < numPipelines; ++pipeline) {
     auto& factory = driverFactories_[pipeline];
+    // We either create states for grouped execution or ungrouped.
+    if (factory->groupedExecution != groupedExecutionDrivers) {
+      continue;
+    }
 
     auto exchangeId = factory->needsLocalExchange();
     if (exchangeId.has_value()) {
@@ -642,11 +709,21 @@ void Task::createDriversLocked(
     std::shared_ptr<Task>& self,
     uint32_t splitGroupId,
     std::vector<std::shared_ptr<Driver>>& out) {
+  const bool groupedExecutionDrivers = (splitGroupId != kUngroupedGroupId);
   auto& splitGroupState = self->splitGroupStates_[splitGroupId];
   const auto numPipelines = driverFactories_.size();
+
   for (auto pipeline = 0; pipeline < numPipelines; ++pipeline) {
     auto& factory = driverFactories_[pipeline];
-    const uint32_t driverIdOffset = factory->numDrivers * splitGroupId;
+    // We either create drivers for grouped execution or ungrouped.
+    if (factory->groupedExecution != groupedExecutionDrivers) {
+      continue;
+    }
+
+    // In each pipleine we start drivers id from zero or, in case of grouped
+    // execution, from the split group id.
+    const uint32_t driverIdOffset =
+        factory->numDrivers * (groupedExecutionDrivers ? splitGroupId : 0);
     for (uint32_t partitionId = 0; partitionId < factory->numDrivers;
          ++partitionId) {
       out.emplace_back(factory->createDriver(
@@ -656,7 +733,7 @@ void Task::createDriversLocked(
               pipeline,
               splitGroupId,
               partitionId),
-          self->getExchangeClientLocked(pipeline),
+          getExchangeClientLocked(pipeline),
           [self](size_t i) {
             return i < self->driverFactories_.size()
                 ? self->driverFactories_[i]->numTotalDrivers
@@ -666,17 +743,25 @@ void Task::createDriversLocked(
     }
   }
   noMoreLocalExchangeProducers(splitGroupId);
-  ++numRunningSplitGroups_;
+  if (groupedExecutionDrivers) {
+    ++numRunningSplitGroups_;
+  }
 
   // Initialize operator stats using the 1st driver of each operator.
-  if (not initializedOpStats_) {
-    initializedOpStats_ = true;
-    size_t driverIndex{0};
+  // We create drivers for grouped and ungrouped execution separately, so we
+  // need to track down initialization of operator stats separately as well.
+  if ((groupedExecutionDrivers & !initializedGroupedOpStats_) ||
+      (!groupedExecutionDrivers & !initializedUngroupedOpStats_)) {
+    groupedExecutionDrivers ? initializedGroupedOpStats_
+                            : initializedUngroupedOpStats_ = true;
+    size_t firstPipelineDriverIndex{0};
     for (auto pipeline = 0; pipeline < numPipelines; ++pipeline) {
-      auto& factory = self->driverFactories_[pipeline];
-      out[driverIndex]->initializeOperatorStats(
-          self->taskStats_.pipelineStats[pipeline].operatorStats);
-      driverIndex += factory->numDrivers;
+      auto& factory = driverFactories_[pipeline];
+      if (factory->groupedExecution == groupedExecutionDrivers) {
+        out[firstPipelineDriverIndex]->initializeOperatorStats(
+            taskStats_.pipelineStats[pipeline].operatorStats);
+        firstPipelineDriverIndex += factory->numDrivers;
+      }
     }
   }
 
@@ -722,7 +807,7 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
 
       // Check if a split group is finished.
       if (splitGroupState.numRunningDrivers == 0) {
-        if (self->isGroupedExecution()) {
+        if (splitGroupId != kUngroupedGroupId) {
           --self->numRunningSplitGroups_;
           self->taskStats_.completedSplitGroups.emplace(splitGroupId);
           splitGroupState.clear();
@@ -881,20 +966,13 @@ std::unique_ptr<ContinuePromise> Task::addSplitLocked(
     // not process all its splits.
     split.connectorSplit->dataSource.reset();
   }
-  if (isUngroupedExecution()) {
-    VELOX_USER_DCHECK(
-        not split.hasGroup(),
-        "Got split group for ungrouped execution of task {}!",
-        taskId());
+
+  if (!split.hasGroup()) {
     return addSplitToStoreLocked(
         splitsState.groupSplitsStores[kUngroupedGroupId], std::move(split));
   }
 
-  VELOX_USER_CHECK(
-      split.hasGroup(),
-      "Missing split group for grouped execution of task {}!",
-      taskId());
-  const auto splitGroupId = split.groupId; // Avoid eval order c++ warning.
+  const auto splitGroupId = split.groupId;
   // If this is the 1st split from this group, add the split group to queue.
   // Also add that split group to the set of 'seen' split groups.
   if (seenSplitGroups_.find(splitGroupId) == seenSplitGroups_.end()) {
@@ -962,7 +1040,7 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
         it.second.noMoreSplits = true;
         splitPromises = std::move(it.second.splitPromises);
       }
-    } else if (isUngroupedExecution()) {
+    } else if (!planFragment_.leafNodeRunsGroupedExecution(planNodeId)) {
       // During ungrouped execution, in the unlikely case there are no split
       // stores (this means there were no splits at all), we create one.
       splitsState.groupSplitsStores.emplace(
@@ -999,8 +1077,9 @@ bool Task::checkNoMoreSplitGroupsLocked() {
   // process all split groups, but in reality workers share split groups and
   // each worker processes only a part of them, meaning much less than all.
   if (allNodesReceivedNoMoreSplitsMessageLocked()) {
-    numTotalDrivers_ = seenSplitGroups_.size() * numDriversPerSplitGroup_;
-    if (hasPartitionedOutput()) {
+    numTotalDrivers_ = seenSplitGroups_.size() * numDriversPerSplitGroup_ +
+        numDriversUngrouped_;
+    if (groupedPartitionedOutput_) {
       auto bufferManager = bufferManager_.lock();
       bufferManager->updateNumDrivers(
           taskId(), numDriversInPartitionedOutput_ * seenSplitGroups_.size());
@@ -1331,8 +1410,11 @@ std::shared_ptr<TBridgeType> Task::getJoinBridgeInternalLocked(
   auto it = splitGroupState.bridges.find(planNodeId);
   VELOX_CHECK(
       it != splitGroupState.bridges.end(),
-      "Join bridge for plan node ID not found: {}",
-      planNodeId);
+      "Join bridge for plan node ID {} not found for group {}, task {}",
+      planNodeId,
+      splitGroupId,
+      taskId());
+
   auto bridge = std::dynamic_pointer_cast<TBridgeType>(it->second);
   VELOX_CHECK_NOT_NULL(
       bridge,
@@ -1394,11 +1476,9 @@ ContinueFuture Task::terminate(TaskState terminalState) {
 
     activateTaskCompletionNotifier(completionNotifier);
 
-    // Update the total number of drivers in case of grouped execution, if we
-    // were cancelled.
-    if (isGroupedExecution()) {
-      numTotalDrivers_ = seenSplitGroups_.size() * numDriversPerSplitGroup_;
-    }
+    // Update the total number of drivers if we were cancelled.
+    numTotalDrivers_ = seenSplitGroups_.size() * numDriversPerSplitGroup_ +
+        numDriversUngrouped_;
     // Drivers that are on thread will see this at latest when they go off
     // thread.
     terminateRequested_ = true;
@@ -1749,8 +1829,10 @@ Task::getLocalExchangeQueues(
   auto it = splitGroupState.localExchanges.find(planNodeId);
   VELOX_CHECK(
       it != splitGroupState.localExchanges.end(),
-      "Incorrect local exchange ID: {}",
-      planNodeId);
+      "Incorrect local exchange ID {} for group {}, task {}",
+      planNodeId,
+      splitGroupId,
+      taskId());
   return it->second.queues;
 }
 

@@ -125,7 +125,10 @@ TaskCursor::TaskCursor(const CursorParameters& params)
   // Captured as a shared_ptr by the consumer callback of task_.
   auto queue = queue_;
   core::PlanFragment planFragment{
-      params.planNode, params.executionStrategy, params.numSplitGroups};
+      params.planNode,
+      params.executionStrategy,
+      params.numSplitGroups,
+      params.groupedExecutionLeafNodeIds};
   const std::string taskId = fmt::format("test_cursor {}", ++serial_);
 
   task_ = std::make_shared<exec::Task>(

@@ -191,8 +191,7 @@ class BlockingState {
 };
 
 /// Special group id to reflect the ungrouped execution.
-/// TODO(spershin): We will soon change it to uint32_t::max().
-constexpr uint32_t kUngroupedGroupId{0};
+constexpr uint32_t kUngroupedGroupId{std::numeric_limits<uint32_t>::max()};
 
 struct DriverCtx {
   const int driverId;
@@ -370,7 +369,8 @@ struct DriverFactory {
   /// The (local) node that will consume results supplied by this pipeline.
   /// Can be null. We use that to determine the max drivers.
   std::shared_ptr<const core::PlanNode> consumerNode;
-
+  /// True if the drivers in this pipeline use grouped execution strategy.
+  bool groupedExecution{false};
   /// True if 'planNodes' contains a source node for the task, e.g. TableScan or
   /// Exchange.
   bool inputDriver{false};
@@ -386,6 +386,11 @@ struct DriverFactory {
   bool supportsSingleThreadedExecution() const {
     return !needsPartitionedOutput() && !needsExchangeClient() &&
         !needsLocalExchange();
+  }
+
+  const core::PlanNodeId& leafNodeId() const {
+    VELOX_CHECK(!planNodes.empty());
+    return planNodes.front()->id();
   }
 
   std::shared_ptr<const core::PartitionedOutputNode> needsPartitionedOutput()
