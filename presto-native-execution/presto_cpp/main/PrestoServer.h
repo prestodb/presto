@@ -42,6 +42,7 @@ class HttpServer;
 }
 
 namespace proxygen {
+class HTTPMessage;
 class ResponseHandler;
 }
 
@@ -54,6 +55,7 @@ namespace facebook::presto {
 // Three states our server can be in.
 enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
 
+struct ServerOperation;
 class SignalHandler;
 class TaskManager;
 class TaskResource;
@@ -109,6 +111,15 @@ class PrestoServer {
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
   void populateMemAndCPUInfo();
+
+  /// Invoked to run operation on this server per http request.
+  void runOperation(
+      proxygen::HTTPMessage* message,
+      proxygen::ResponseHandler* downstream);
+
+  std::string connectorOperation(
+      const ServerOperation& op,
+      proxygen::HTTPMessage* message);
 
   const std::string configDirectoryPath_;
 

@@ -17,12 +17,32 @@
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <re2/re2.h>
+#include "presto_cpp/external/json/json.hpp"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/time/Timer.h"
 
 namespace facebook::presto::http {
+
+using json = nlohmann::json;
+
+void sendOkResponse(proxygen::ResponseHandler* downstream);
+
+void sendOkResponse(proxygen::ResponseHandler* downstream, const json& body);
+
+void sendOkResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body);
+
+void sendOkThriftResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body);
+
+void sendErrorResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& error = "",
+    uint16_t status = http::kHttpInternalServerError);
 
 class AbstractRequestHandler : public proxygen::RequestHandler {
  public:
