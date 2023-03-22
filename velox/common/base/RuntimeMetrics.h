@@ -51,6 +51,10 @@ struct RuntimeMetric {
 
   void addValue(int64_t value);
 
+  /// Aggregate sets 'min' and 'max' to 'sum', also sets 'count' to 1 if
+  /// positive.
+  void aggregate();
+
   void printMetric(std::stringstream& stream) const;
 
   void merge(const RuntimeMetric& other);

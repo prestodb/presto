@@ -29,6 +29,11 @@ void RuntimeMetric::addValue(int64_t value) {
   max = std::max(max, value);
 }
 
+void RuntimeMetric::aggregate() {
+  count = std::min(count, static_cast<int64_t>(1));
+  min = max = sum;
+}
+
 void RuntimeMetric::merge(const RuntimeMetric& other) {
   VELOX_CHECK_EQ(unit, other.unit);
   sum += other.sum;
