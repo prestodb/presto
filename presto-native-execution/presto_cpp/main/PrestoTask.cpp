@@ -129,6 +129,20 @@ static void addRuntimeMetricIfNotZero(
   }
 }
 
+bool shouldAggregateRuntimeMetric(const std::string& name) {
+  if (name == "dataSourceWallNanos" || name == "dataSourceLazyWallNanos" ||
+      name == "queuedWallNanos") {
+    return true;
+  }
+
+  // 'blocked*WallNanos'
+  if (name.size() > 16 and strncmp(name.c_str(), "blocked", 7) == 0) {
+    return true;
+  }
+
+  return false;
+}
+
 } // namespace
 
 PrestoTask::PrestoTask(const std::string& taskId) : id(taskId) {
@@ -203,7 +217,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
     return info;
   }
 
-  const velox::exec::TaskStats taskStats = task->taskStats();
+  velox::exec::TaskStats taskStats = task->taskStats();
   protocol::TaskStats& prestoTaskStats = info.stats;
   // Clear the old runtime metrics as not all of them would be overwritten by
   // the new ones.
@@ -382,7 +396,10 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
       opOut.spilledDataSize =
           protocol::DataSize(op.spilledBytes, protocol::DataUnit::BYTE);
 
-      for (const auto& stat : op.runtimeStats) {
+      for (auto& stat : op.runtimeStats) {
+        if (shouldAggregateRuntimeMetric(stat.first)) {
+          stat.second.aggregate();
+        }
         auto statName =
             fmt::format("{}.{}.{}", op.operatorType, op.planNodeId, stat.first);
         opOut.runtimeStats[statName] = toRuntimeMetric(statName, stat.second);
