@@ -145,8 +145,10 @@ bool shouldAggregateRuntimeMetric(const std::string& name) {
 
 } // namespace
 
-PrestoTask::PrestoTask(const std::string& taskId) : id(taskId) {
+PrestoTask::PrestoTask(const std::string& taskId, const std::string& nodeId)
+    : id(taskId) {
   info.taskId = taskId;
+  info.nodeId = nodeId;
 }
 
 void PrestoTask::updateHeartbeatLocked() {

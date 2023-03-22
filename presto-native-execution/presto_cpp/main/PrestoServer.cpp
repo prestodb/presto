@@ -292,6 +292,7 @@ void PrestoServer::run() {
   taskManager_ = std::make_unique<TaskManager>(
       systemConfig->values(), nodeConfig->values());
   taskManager_->setBaseUri(fmt::format(kBaseUriFormat, address_, servicePort));
+  taskManager_->setNodeId(nodeId_);
   taskResource_ = std::make_unique<TaskResource>(*taskManager_);
   taskResource_->registerUris(*httpServer_);
   if (systemConfig->enableSerializedPageChecksum()) {
