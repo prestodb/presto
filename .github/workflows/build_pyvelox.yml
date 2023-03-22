@@ -52,7 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04]
+        os: [ubuntu-22.04, macos-11]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -98,9 +98,12 @@ jobs:
           restore-keys: |
             ccache-wheels-${{ matrix.os }}-
 
-      - if: matrix.os == 'macos-11'
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-11'
         run: |
           echo "OPENSSL_ROOT_DIR=/usr/local/opt/openssl@1.1/" >> $GITHUB_ENV
+          bash scripts/setup-macos.sh &&
+          bash scripts/setup-macos.sh install_folly
 
       - name: "Create sdist"
         if: matrix.os == 'ubuntu-22.04'
@@ -110,7 +113,7 @@ jobs:
           python setup.py sdist --dist-dir wheelhouse
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.12.0
+        uses: pypa/cibuildwheel@v2.12.1
         env:
           # required for preadv/pwritev
           MACOSX_DEPLOYMENT_TARGET: "11.0"
@@ -119,9 +122,6 @@ jobs:
           CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp37-*' || 'cp3*' }}
           CIBW_SKIP: "*musllinux* cp36-*"
           CIBW_MANYLINUX_X86_64_IMAGE: "ghcr.io/facebookincubator/velox-dev:torcharrow-avx"
-          CIBW_BEFORE_ALL_MACOS: >
-            bash {package}/scripts/setup-macos.sh &&
-            bash {package}/scripts/setup-macos.sh install_folly
           CIBW_BEFORE_ALL_LINUX: >
             mkdir -p /output &&
             cp -R /host${{ github.workspace }}/.ccache /output/.ccache &&
