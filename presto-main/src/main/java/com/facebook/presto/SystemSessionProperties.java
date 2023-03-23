@@ -203,7 +203,6 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER = "dynamic_filtering_range_row_limit_per_driver";
     public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
-    public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
@@ -1131,11 +1130,6 @@ public final class SystemSessionProperties
                         "Enable fragment result caching and read/write leaf fragment result pages from/to cache when applicable",
                         featuresConfig.isFragmentResultCachingEnabled(),
                         false),
-                booleanProperty(
-                        LEGACY_TYPE_COERCION_WARNING_ENABLED,
-                        "Enable warning for query relying on legacy type coercion",
-                        featuresConfig.isLegacyDateTimestampToVarcharCoercion(),
-                        true),
                 booleanProperty(
                         SKIP_REDUNDANT_SORT,
                         "Skip redundant sort operations",
@@ -2237,11 +2231,6 @@ public final class SystemSessionProperties
     public static boolean isFragmentResultCachingEnabled(Session session)
     {
         return session.getSystemProperty(FRAGMENT_RESULT_CACHING_ENABLED, Boolean.class);
-    }
-
-    public static boolean isLegacyTypeCoercionWarningEnabled(Session session)
-    {
-        return session.getSystemProperty(LEGACY_TYPE_COERCION_WARNING_ENABLED, Boolean.class);
     }
 
     public static boolean isInlineSqlFunctions(Session session)
