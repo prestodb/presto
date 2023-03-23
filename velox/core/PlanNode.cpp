@@ -254,6 +254,10 @@ std::vector<FieldAccessTypedExprPtr> deserializeFields(
 std::vector<std::string> deserializeStrings(const folly::dynamic& array) {
   return ISerializable::deserialize<std::vector<std::string>>(array);
 }
+
+RowTypePtr deserializeRowType(const folly::dynamic& obj) {
+  return ISerializable::deserialize<RowType>(obj);
+}
 } // namespace
 
 // static
@@ -355,15 +359,43 @@ void GroupIdNode::addDetails(std::stringstream& stream) const {
   }
 }
 
+folly::dynamic GroupIdNode::GroupingKeyInfo::serialize() const {
+  folly::dynamic obj = folly::dynamic::object;
+  obj["output"] = output;
+  obj["input"] = input->serialize();
+  return obj;
+}
+
 folly::dynamic GroupIdNode::serialize() const {
-  VELOX_NYI();
+  auto obj = PlanNode::serialize();
+  obj["groupingSets"] = ISerializable::serialize(groupingSets_);
+  obj["aggregationInputs"] = ISerializable::serialize(aggregationInputs_);
+  obj["groupIdName"] = groupIdName_;
+  obj["groupingKeyInfos"] = folly::dynamic::array();
+  for (const auto& info : groupingKeyInfos_) {
+    obj["groupingKeyInfos"].push_back(info.serialize());
+  }
+  return obj;
 }
 
 // static
-PlanNodePtr GroupIdNode::create(
-    const folly::dynamic& /* obj */,
-    void* /* context */) {
-  VELOX_NYI();
+PlanNodePtr GroupIdNode::create(const folly::dynamic& obj, void* context) {
+  auto source = deserializeSingleSource(obj, context);
+  auto groupingSets = ISerializable::deserialize<
+      std::vector<std::vector<FieldAccessTypedExpr>>>(obj["groupingSets"]);
+  std::vector<GroupingKeyInfo> groupingKeyInfos;
+  for (const auto& info : obj["groupingKeyInfos"]) {
+    groupingKeyInfos.push_back(
+        {info["output"].asString(),
+         ISerializable::deserialize<FieldAccessTypedExpr>(info["input"])});
+  }
+  return std::make_shared<GroupIdNode>(
+      deserializePlanNodeId(obj),
+      std::move(groupingSets),
+      std::move(groupingKeyInfos),
+      deserializeFields(obj["aggregationInputs"], context),
+      obj["groupIdName"].asString(),
+      std::move(source));
 }
 
 const std::vector<PlanNodePtr>& ValuesNode::sources() const {
@@ -496,14 +528,15 @@ void ExchangeNode::addDetails(std::stringstream& /* stream */) const {
 }
 
 folly::dynamic ExchangeNode::serialize() const {
-  VELOX_NYI();
+  auto obj = PlanNode::serialize();
+  obj["outputType"] = ExchangeNode::outputType()->serialize();
+  return obj;
 }
 
 // static
-PlanNodePtr ExchangeNode::create(
-    const folly::dynamic& /* obj */,
-    void* /* context */) {
-  VELOX_NYI();
+PlanNodePtr ExchangeNode::create(const folly::dynamic& obj, void* context) {
+  auto outputType = deserializeRowType(obj["outputType"]);
+  return std::make_shared<ExchangeNode>(deserializePlanNodeId(obj), outputType);
 }
 
 UnnestNode::UnnestNode(
@@ -769,7 +802,7 @@ PlanNodePtr HashJoinNode::create(const folly::dynamic& obj, void* context) {
     filter = ISerializable::deserialize<ITypedExpr>(obj["filter"]);
   }
 
-  auto outputType = ISerializable::deserialize<RowType>(obj["outputType"]);
+  auto outputType = deserializeRowType(obj["outputType"]);
 
   return std::make_shared<HashJoinNode>(
       deserializePlanNodeId(obj),
@@ -800,7 +833,7 @@ PlanNodePtr MergeJoinNode::create(const folly::dynamic& obj, void* context) {
     filter = ISerializable::deserialize<ITypedExpr>(obj["filter"]);
   }
 
-  auto outputType = ISerializable::deserialize<RowType>(obj["outputType"]);
+  auto outputType = deserializeRowType(obj["outputType"]);
 
   return std::make_shared<MergeJoinNode>(
       deserializePlanNodeId(obj),
@@ -827,14 +860,21 @@ void CrossJoinNode::addDetails(std::stringstream& /* stream */) const {
 }
 
 folly::dynamic CrossJoinNode::serialize() const {
-  VELOX_NYI();
+  auto obj = PlanNode::serialize();
+  obj["outputType"] = outputType_->serialize();
+  return obj;
 }
 
 // static
-PlanNodePtr CrossJoinNode::create(
-    const folly::dynamic& /* obj */,
-    void* /* context */) {
-  VELOX_NYI();
+PlanNodePtr CrossJoinNode::create(const folly::dynamic& obj, void* context) {
+  auto sources = deserializeSources(obj, context);
+  VELOX_CHECK_EQ(2, sources.size());
+
+  return std::make_shared<CrossJoinNode>(
+      deserializePlanNodeId(obj),
+      std::move(sources[0]),
+      std::move(sources[1]),
+      deserializeRowType(obj["outputType"]));
 }
 
 AssignUniqueIdNode::AssignUniqueIdNode(
@@ -1172,14 +1212,22 @@ void MergeExchangeNode::addDetails(std::stringstream& stream) const {
 }
 
 folly::dynamic MergeExchangeNode::serialize() const {
-  VELOX_NYI();
+  auto obj = PlanNode::serialize();
+  obj["outputType"] = ExchangeNode::outputType()->serialize();
+  obj["sortingKeys"] = ISerializable::serialize(sortingKeys_);
+  obj["sortingOrders"] = serializeSortingOrders(sortingOrders_);
+  return obj;
 }
 
 // static
 PlanNodePtr MergeExchangeNode::create(
-    const folly::dynamic& /* obj */,
-    void* /* context */) {
-  VELOX_NYI();
+    const folly::dynamic& obj,
+    void* context) {
+  auto outputType = deserializeRowType(obj["outputType"]);
+  auto sortingKeys = deserializeFields(obj["sortingKeys"], context);
+  auto sortingOrders = deserializeSortingOrders(obj["sortingOrders"]);
+  return std::make_shared<MergeExchangeNode>(
+      deserializePlanNodeId(obj), outputType, sortingKeys, sortingOrders);
 }
 
 void LocalPartitionNode::addDetails(std::stringstream& stream) const {

@@ -71,13 +71,57 @@ TEST_F(PlanNodeSerdeTest, assignUniqueId) {
   testSerde(plan);
 }
 
+TEST_F(PlanNodeSerdeTest, crossJoin) {
+  auto left = makeRowVector(
+      {"t0", "t1", "t2"},
+      {
+          makeFlatVector<int32_t>({1, 2, 3}),
+          makeFlatVector<int64_t>({10, 20, 30}),
+          makeFlatVector<bool>({true, true, false}),
+      });
+
+  auto right = makeRowVector(
+      {"u0", "u1", "u2"},
+      {
+          makeFlatVector<int32_t>({1, 2, 3}),
+          makeFlatVector<int64_t>({10, 20, 30}),
+          makeFlatVector<bool>({true, true, false}),
+      });
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .values({left})
+          .crossJoin(
+              PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+              {"t0", "u1", "t2", "t1"})
+          .planNode();
+  testSerde(plan);
+}
+
 TEST_F(PlanNodeSerdeTest, enforceSingleRow) {
   auto plan = PlanBuilder().values({data_}).enforceSingleRow().planNode();
   testSerde(plan);
 }
 
+TEST_F(PlanNodeSerdeTest, exchange) {
+  auto plan =
+      PlanBuilder()
+          .exchange(ROW({"a", "b", "c"}, {BIGINT(), DOUBLE(), VARCHAR()}))
+          .planNode();
+  testSerde(plan);
+}
+
 TEST_F(PlanNodeSerdeTest, filter) {
   auto plan = PlanBuilder().values({data_}).filter("c0 > 100").planNode();
+  testSerde(plan);
+}
+
+TEST_F(PlanNodeSerdeTest, groupId) {
+  auto plan = PlanBuilder()
+                  .values({data_})
+                  .groupId({{"c0"}, {"c0", "c1"}}, {"c2"})
+                  .planNode();
   testSerde(plan);
 }
 
@@ -89,6 +133,15 @@ TEST_F(PlanNodeSerdeTest, limit) {
   testSerde(plan);
 
   plan = PlanBuilder().values({data_}).limit(12, 10, false).planNode();
+  testSerde(plan);
+}
+
+TEST_F(PlanNodeSerdeTest, mergeExchange) {
+  auto plan = PlanBuilder()
+                  .mergeExchange(
+                      ROW({"a", "b", "c"}, {BIGINT(), DOUBLE(), VARCHAR()}),
+                      {"a DESC", "b NULLS FIRST"})
+                  .planNode();
   testSerde(plan);
 }
 

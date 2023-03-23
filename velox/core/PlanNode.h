@@ -678,6 +678,8 @@ class GroupIdNode : public PlanNode {
     std::string output;
     // The input field.
     FieldAccessTypedExprPtr input;
+
+    folly::dynamic serialize() const;
   };
 
   /// @param id Plan node ID.
