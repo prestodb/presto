@@ -159,9 +159,8 @@ uint64_t SelectiveListColumnReader::skip(uint64_t numValues) {
       }
       lengthsRead += chunk;
     }
-    child_->skip(childElements);
+    child_->seekTo(child_->readOffset() + childElements, false);
     childTargetReadOffset_ += childElements;
-    child_->setReadOffset(child_->readOffset() + childElements);
   } else {
     VELOX_FAIL("Repeated reader with no children");
   }
@@ -225,13 +224,11 @@ uint64_t SelectiveMapColumnReader::skip(uint64_t numValues) {
       lengthsRead += chunk;
     }
     if (keyReader_) {
-      keyReader_->skip(childElements);
-      keyReader_->setReadOffset(keyReader_->readOffset() + childElements);
+      keyReader_->seekTo(keyReader_->readOffset() + childElements, false);
     }
     if (elementReader_) {
-      elementReader_->skip(childElements);
-      elementReader_->setReadOffset(
-          elementReader_->readOffset() + childElements);
+      elementReader_->seekTo(
+          elementReader_->readOffset() + childElements, false);
     }
     childTargetReadOffset_ += childElements;
 

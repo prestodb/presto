@@ -65,7 +65,7 @@ uint64_t batchPosition(uint32_t batchNumber, vector_size_t batchRow);
 uint32_t batchNumber(uint64_t position);
 vector_size_t batchRow(uint64_t position);
 VectorPtr getChildBySubfield(
-    RowVector* rowVector,
+    const RowVector* rowVector,
     const Subfield& subfield,
     const RowTypePtr& rowType = nullptr);
 
@@ -486,7 +486,19 @@ class FilterGenerator {
   std::vector<FilterSpec> makeRandomSpecs(
       const std::vector<std::string>& filterable,
       int32_t countX100);
-  std::shared_ptr<ScanSpec> makeScanSpec(SubfieldFilters filters);
+
+  // Make a ScanSpec with random prunings on columns included in 'prunable'.
+  // Only complex typed columns are prunable.
+  std::shared_ptr<ScanSpec> makeScanSpec(
+      const std::vector<std::string>& prunable,
+      std::vector<RowVectorPtr>& batches,
+      memory::MemoryPool* pool);
+
+  // Make a ScanSpec with the filters specified.
+  std::shared_ptr<ScanSpec> makeScanSpec(const SubfieldFilters& filters);
+
+  // Add the filter to an existing ScanSpec.
+  static void addToScanSpec(const SubfieldFilters& filters, ScanSpec&);
 
   inline folly::Random::DefaultGenerator& rng() {
     return rng_;

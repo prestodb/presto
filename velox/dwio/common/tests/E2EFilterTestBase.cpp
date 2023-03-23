@@ -29,6 +29,7 @@
 // Set FLAGS_logtostderr = true to log messages to stderr instead of logfiles
 // Set FLAGS_timing_repeats = n to run timing filter tests n times
 DEFINE_int32(timing_repeats, 0, "Count of repeats for timing filter tests");
+DEFINE_bool(use_random_seed, false, "");
 
 namespace facebook::velox::dwio::common {
 
@@ -245,6 +246,23 @@ bool E2EFilterTestBase::loadWithHook(
       rowIndex);
 }
 
+void E2EFilterTestBase::testReadWithFilterLazy(
+    const std::shared_ptr<common::ScanSpec>& spec,
+    const std::vector<RowVectorPtr>& batches,
+    const std::vector<uint64_t>& hitRows) {
+  // Test with LazyVectors for non-filtered columns.
+  uint64_t timeWithFilter = 0;
+  for (auto& childSpec : spec->children()) {
+    childSpec->setExtractValues(false);
+    for (auto& grandchild : childSpec->children()) {
+      grandchild->setExtractValues(false);
+    }
+  }
+  readWithFilter(spec, batches, hitRows, timeWithFilter, false);
+  timeWithFilter = 0;
+  readWithFilter(spec, batches, hitRows, timeWithFilter, true);
+}
+
 void E2EFilterTestBase::testFilterSpecs(
     const std::vector<RowVectorPtr>& batches,
     const std::vector<FilterSpec>& filterSpecs) {
@@ -266,17 +284,7 @@ void E2EFilterTestBase::testFilterSpecs(
         batches[0]->size() * batches.size() * FLAGS_timing_repeats /
             (timeWithFilter / 1000000.0));
   }
-  // Redo the test with LazyVectors for non-filtered columns.
-  timeWithFilter = 0;
-  for (auto& childSpec : spec->children()) {
-    childSpec->setExtractValues(false);
-    for (auto& grandchild : childSpec->children()) {
-      grandchild->setExtractValues(false);
-    }
-  }
-  readWithFilter(spec, batches, hitRows, timeWithFilter, false);
-  timeWithFilter = 0;
-  readWithFilter(spec, batches, hitRows, timeWithFilter, true);
+  testReadWithFilterLazy(spec, batches, hitRows);
 }
 
 void E2EFilterTestBase::testNoRowGroupSkip(
@@ -319,7 +327,46 @@ void E2EFilterTestBase::testRowGroupSkip(
   EXPECT_LT(0, runtimeStats_.skippedStrides);
 }
 
-void E2EFilterTestBase::testSenario(
+void E2EFilterTestBase::testPruningWithFilter(
+    std::vector<RowVectorPtr>& batches,
+    const std::vector<std::string>& filterable) {
+  std::vector<std::string> prunable;
+  for (int i = 0; i < rowType_->size(); ++i) {
+    auto kind = rowType_->childAt(i)->kind();
+    if (kind != TypeKind::ROW && kind != TypeKind::ARRAY &&
+        kind != TypeKind::MAP) {
+      continue;
+    }
+    auto& field = rowType_->nameOf(i);
+    bool ok = true;
+    for (auto& path : filterable) {
+      if (path.size() >= field.size() &&
+          strncmp(path.data(), field.data(), field.size()) == 0) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) {
+      prunable.push_back(field);
+    }
+  }
+  VLOG(1) << prunable.size() << " of the fields are prunable";
+  if (prunable.empty()) {
+    return;
+  }
+  auto scanSpec =
+      filterGenerator_->makeScanSpec(prunable, batches, leafPool_.get());
+  std::vector<uint64_t> hitRows;
+  auto filterSpecs = filterGenerator_->makeRandomSpecs(filterable, 125);
+  auto filters =
+      filterGenerator_->makeSubfieldFilters(filterSpecs, batches, hitRows);
+  FilterGenerator::addToScanSpec(filters, *scanSpec);
+  uint64_t timeWithFilter = 0;
+  readWithFilter(scanSpec, batches, hitRows, timeWithFilter, false);
+  testReadWithFilterLazy(scanSpec, batches, hitRows);
+}
+
+void E2EFilterTestBase::testScenario(
     const std::string& columns,
     std::function<void()> customize,
     bool wrapInStruct,
@@ -327,13 +374,17 @@ void E2EFilterTestBase::testSenario(
     int32_t numCombinations) {
   rowType_ = DataSetBuilder::makeRowType(columns, wrapInStruct);
 
-  // TODO: Seed was hard coded as 1 to make it behave the same as before.
-  // Change to use random seed (like current timestamp).
-  filterGenerator_ = std::make_unique<FilterGenerator>(rowType_, 1);
+  uint32_t seed = 1;
+  if (FLAGS_use_random_seed) {
+    seed = folly::Random::secureRand32();
+    LOG(INFO) << "Random seed: " << seed;
+  }
+  filterGenerator_ = std::make_unique<FilterGenerator>(rowType_, seed);
 
   auto batches = makeDataset(customize, false);
   writeToMemory(rowType_, batches, false);
   testNoRowGroupSkip(batches, filterable, numCombinations);
+  testPruningWithFilter(batches, filterable);
 
   batches = makeDataset(customize, true);
   writeToMemory(rowType_, batches, true);
@@ -488,17 +539,18 @@ void E2EFilterTestBase::testSubfieldsPruning() {
       requiredA.push_back(i);
     }
   }
-  spec->addField("a", *BIGINT(), 0)
+  spec->addFieldRecursively("a", *BIGINT(), 0)
       ->setFilter(common::createBigintValues(requiredA, false));
   std::vector<int64_t> requiredB;
   for (int i = 0; i < kMapSize; i += 2) {
     requiredB.push_back(i);
   }
-  auto specB = spec->addField("b", *MAP(BIGINT(), BIGINT()), 1);
+  auto specB = spec->addFieldRecursively("b", *MAP(BIGINT(), BIGINT()), 1);
   specB->setFilter(exec::isNotNull());
   specB->childByName(common::ScanSpec::kMapKeysFieldName)
       ->setFilter(common::createBigintValues(requiredB, false));
-  spec->addField("c", *ARRAY(BIGINT()), 2)->setMaxArrayElementsCount(6);
+  spec->addFieldRecursively("c", *ARRAY(BIGINT()), 2)
+      ->setMaxArrayElementsCount(6);
   ReaderOptions readerOpts{leafPool_.get()};
   RowReaderOptions rowReaderOpts;
   std::string_view data(sinkPtr_->getData(), sinkPtr_->size());

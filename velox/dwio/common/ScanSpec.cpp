@@ -411,31 +411,54 @@ void ScanSpec::addFilter(const Filter& filter) {
   filter_ = filter_ ? filter_->mergeWith(&filter) : filter.clone();
 }
 
-ScanSpec* ScanSpec::addField(
-    const std::string& name,
-    const Type& type,
-    column_index_t channel) {
+ScanSpec* ScanSpec::addField(const std::string& name, column_index_t channel) {
   auto child = getOrCreateChild(Subfield(name));
   child->setProjectOut(true);
   child->setChannel(channel);
+  return child;
+}
+
+ScanSpec* ScanSpec::addFieldRecursively(
+    const std::string& name,
+    const Type& type,
+    column_index_t channel) {
+  auto* child = addField(name, channel);
   child->addAllChildFields(type);
   return child;
 }
 
-ScanSpec* ScanSpec::addMapKeys(const Type& type) {
-  auto* child = addField(kMapKeysFieldName, type, kNoChannel);
+ScanSpec* ScanSpec::addMapKeyField() {
+  auto* child = addField(kMapKeysFieldName, kNoChannel);
   child->isArrayElementOrMapEntry_ = true;
   return child;
 }
 
-ScanSpec* ScanSpec::addMapValues(const Type& type) {
-  auto* child = addField(kMapValuesFieldName, type, kNoChannel);
+ScanSpec* ScanSpec::addMapKeyFieldRecursively(const Type& type) {
+  auto* child = addFieldRecursively(kMapKeysFieldName, type, kNoChannel);
   child->isArrayElementOrMapEntry_ = true;
   return child;
 }
 
-ScanSpec* ScanSpec::addArrayElements(const Type& type) {
-  auto* child = addField(kArrayElementsFieldName, type, kNoChannel);
+ScanSpec* ScanSpec::addMapValueField() {
+  auto* child = addField(kMapValuesFieldName, kNoChannel);
+  child->isArrayElementOrMapEntry_ = true;
+  return child;
+}
+
+ScanSpec* ScanSpec::addMapValueFieldRecursively(const Type& type) {
+  auto* child = addFieldRecursively(kMapValuesFieldName, type, kNoChannel);
+  child->isArrayElementOrMapEntry_ = true;
+  return child;
+}
+
+ScanSpec* ScanSpec::addArrayElementField() {
+  auto* child = addField(kArrayElementsFieldName, kNoChannel);
+  child->isArrayElementOrMapEntry_ = true;
+  return child;
+}
+
+ScanSpec* ScanSpec::addArrayElementFieldRecursively(const Type& type) {
+  auto* child = addFieldRecursively(kArrayElementsFieldName, type, kNoChannel);
   child->isArrayElementOrMapEntry_ = true;
   return child;
 }
@@ -445,16 +468,16 @@ void ScanSpec::addAllChildFields(const Type& type) {
     case TypeKind::ROW: {
       auto& rowType = type.asRow();
       for (auto i = 0; i < type.size(); ++i) {
-        addField(rowType.nameOf(i), *type.childAt(i), i);
+        addFieldRecursively(rowType.nameOf(i), *type.childAt(i), i);
       }
       break;
     }
     case TypeKind::MAP:
-      addMapKeys(*type.childAt(0));
-      addMapValues(*type.childAt(1));
+      addMapKeyFieldRecursively(*type.childAt(0));
+      addMapValueFieldRecursively(*type.childAt(1));
       break;
     case TypeKind::ARRAY:
-      addArrayElements(*type.childAt(0));
+      addArrayElementFieldRecursively(*type.childAt(0));
       break;
     default:
       break;

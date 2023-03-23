@@ -40,7 +40,7 @@ class E2EFilterTest : public E2EFilterTestBase {
       bool wrapInStruct,
       const std::vector<std::string>& filterable,
       int32_t numCombinations) {
-    testSenario(columns, customize, wrapInStruct, filterable, numCombinations);
+    testScenario(columns, customize, wrapInStruct, filterable, numCombinations);
 
     // Always test no null case.
     auto newCustomize = [&]() {
@@ -49,7 +49,7 @@ class E2EFilterTest : public E2EFilterTestBase {
       }
       makeNotNull(0);
     };
-    testSenario(
+    testScenario(
         columns, newCustomize, wrapInStruct, filterable, numCombinations);
   }
 

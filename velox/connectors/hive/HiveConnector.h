@@ -70,8 +70,6 @@ class HiveColumnHandle : public ColumnHandle {
   //
   // Pruning arrays means dropping values with indices larger than maximum
   // required index.
-  //
-  // Only one level of subfield is supported for pruning.
   const std::vector<common::Subfield>& requiredSubfields() const {
     return requiredSubfields_;
   }

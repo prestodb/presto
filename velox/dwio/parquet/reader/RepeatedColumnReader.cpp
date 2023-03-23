@@ -185,6 +185,13 @@ void MapColumnReader::read(
     const uint64_t* incomingNulls) {
   // The topmost list reader reads the repdefs for the left subtree.
   ensureRepDefs(*this, offset + rows.back() + 1 - readOffset_);
+  if (offset > readOffset_) {
+    // There is no page reader on this level so cannot call skipNullsOnly on it.
+    if (nodeType().parent && !nodeType().parent->parent) {
+      skip(offset - readOffset_);
+    }
+    readOffset_ = offset;
+  }
   SelectiveMapColumnReader::read(offset, rows, incomingNulls);
 
   // The child should be at the end of the range provided to this
@@ -281,6 +288,13 @@ void ListColumnReader::read(
     const uint64_t* incomingNulls) {
   // The topmost list reader reads the repdefs for the left subtree.
   ensureRepDefs(*this, offset + rows.back() + 1 - readOffset_);
+  if (offset > readOffset_) {
+    // There is no page reader on this level so cannot call skipNullsOnly on it.
+    if (nodeType().parent && !nodeType().parent->parent) {
+      skip(offset - readOffset_);
+    }
+    readOffset_ = offset;
+  }
   SelectiveListColumnReader::read(offset, rows, incomingNulls);
 
   // The child should be at the end of the range provided to this

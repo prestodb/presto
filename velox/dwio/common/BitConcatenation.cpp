@@ -41,7 +41,9 @@ void BitConcatenation::appendOnes(int32_t numOnes) {
     bits::fillBits(ensureSpace(numOnes), numBits_, numBits_ + numOnes, 1);
   }
   numBits_ += numOnes;
-  setSize();
+  if (hasZeros_) {
+    setSize();
+  }
 }
 
 uint64_t* FOLLY_NONNULL BitConcatenation::ensureSpace(int32_t numBits) {

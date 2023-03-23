@@ -14,7 +14,7 @@
 add_executable(
   velox_hive_connector_test
   HivePartitionFunctionTest.cpp FileHandleTest.cpp HivePartitionUtilTest.cpp
-  PartitionIdGeneratorTest.cpp)
+  PartitionIdGeneratorTest.cpp HiveConnectorTest.cpp)
 add_test(velox_hive_connector_test velox_hive_connector_test)
 
 target_link_libraries(

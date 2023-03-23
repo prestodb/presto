@@ -132,7 +132,8 @@ std::vector<KeyNode<T>> getKeyNodes(
           return;
         }
         common::ScanSpec* childSpec;
-        if (auto it = childSpecs.find(key); it != childSpecs.end()) {
+        if (auto it = childSpecs.find(key);
+            it != childSpecs.end() && !it->second->isConstant()) {
           childSpec = it->second;
         } else if (asStruct) {
           // Column not selected in 'scanSpec', skipping it.
@@ -147,11 +148,7 @@ std::vector<KeyNode<T>> getKeyNodes(
           childSpec->setProjectOut(true);
           childSpec->setExtractValues(true);
           if (valuesSpec) {
-            for (auto& valuesChild : valuesSpec->children()) {
-              auto c = childSpec->getOrCreateChild(
-                  common::Subfield(valuesChild->fieldName()));
-              *c = *valuesChild;
-            }
+            *childSpec = *valuesSpec;
           }
           childSpecs[key] = childSpec;
         }

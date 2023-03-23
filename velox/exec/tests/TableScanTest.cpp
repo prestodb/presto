@@ -326,7 +326,7 @@ TEST_F(TableScanTest, subfieldPruningRowType) {
   auto filePath = TempFilePath::create();
   writeToFile(filePath->path, vectors);
   std::vector<common::Subfield> requiredSubfields;
-  requiredSubfields.emplace_back("c");
+  requiredSubfields.emplace_back("e.c");
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
   assignments["e"] = std::make_shared<HiveColumnHandle>(
@@ -400,11 +400,9 @@ TEST_F(TableScanTest, subfieldPruningMapType) {
   auto filePath = TempFilePath::create();
   writeToFile(filePath->path, vectors);
   std::vector<common::Subfield> requiredSubfields;
-  for (int i = 0; i < kMapSize; i += 2) {
-    std::vector<std::unique_ptr<common::Subfield::PathElement>> path;
-    path.push_back(std::make_unique<common::Subfield::LongSubscript>(i));
-    requiredSubfields.emplace_back(std::move(path));
-  }
+  requiredSubfields.emplace_back("c[0]");
+  requiredSubfields.emplace_back("c[2]");
+  requiredSubfields.emplace_back("c[4]");
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
   assignments["c"] = std::make_shared<HiveColumnHandle>(
@@ -473,9 +471,7 @@ TEST_F(TableScanTest, subfieldPruningArrayType) {
   auto filePath = TempFilePath::create();
   writeToFile(filePath->path, vectors);
   std::vector<common::Subfield> requiredSubfields;
-  std::vector<std::unique_ptr<common::Subfield::PathElement>> path;
-  path.push_back(std::make_unique<common::Subfield::LongSubscript>(2));
-  requiredSubfields.emplace_back(std::move(path));
+  requiredSubfields.emplace_back("c[3]");
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
   assignments["c"] = std::make_shared<HiveColumnHandle>(

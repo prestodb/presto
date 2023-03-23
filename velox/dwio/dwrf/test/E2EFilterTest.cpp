@@ -53,7 +53,7 @@ class E2EFilterTest : public E2EFilterTestBase {
           };
         }
 
-        testSenario(
+        testScenario(
             columns, newCustomize, wrapInStruct, filterable, numCombinations);
       }
     }

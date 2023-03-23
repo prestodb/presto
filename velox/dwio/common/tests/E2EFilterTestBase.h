@@ -254,7 +254,18 @@ class E2EFilterTestBase : public testing::Test {
       const std::vector<RowVectorPtr>& batches,
       const std::vector<std::string>& filterable);
 
-  void testSenario(
+ private:
+  void testReadWithFilterLazy(
+      const std::shared_ptr<common::ScanSpec>& spec,
+      const std::vector<RowVectorPtr>& batches,
+      const std::vector<uint64_t>& hitRows);
+
+  void testPruningWithFilter(
+      std::vector<RowVectorPtr>& batches,
+      const std::vector<std::string>& filterable);
+
+ protected:
+  void testScenario(
       const std::string& columns,
       std::function<void()> customize,
       bool wrapInStruct,

@@ -41,38 +41,45 @@ vector_size_t batchRow(uint64_t position) {
 }
 
 VectorPtr getChildBySubfield(
-    RowVector* rowVector,
+    const RowVector* rowVector,
     const Subfield& subfield,
-    const RowTypePtr& type) {
+    const RowTypePtr& rootType) {
+  const Type* type = rootType ? rootType.get() : rowVector->type().get();
   auto& path = subfield.path();
-  auto container = rowVector;
-  auto parentType = type.get();
-  for (int i = 0; i < path.size(); ++i) {
-    auto nestedField =
-        dynamic_cast<const Subfield::NestedField*>(path[i].get());
-    VELOX_CHECK(nestedField, "Path does not consist of nested fields");
-
-    auto rowType = parentType == nullptr
-        ? container->type()->as<TypeKind::ROW>()
-        : *parentType;
-    auto childIdx = rowType.getChildIdx(nestedField->name());
-    auto child = container->childAt(childIdx);
-
-    if (i == path.size() - 1) {
-      return child;
+  VELOX_CHECK(!path.empty())
+  auto* rowType = &type->asRow();
+  auto* field = dynamic_cast<const Subfield::NestedField*>(path[0].get());
+  VELOX_CHECK(field);
+  auto fieldIndex = rowType->getChildIdx(field->name());
+  type = rowType->childAt(fieldIndex).get();
+  auto vector = rowVector->childAt(fieldIndex);
+  for (int i = 1; i < path.size(); ++i) {
+    switch (type->kind()) {
+      case TypeKind::ROW:
+        rowType = &type->asRow();
+        field = dynamic_cast<const Subfield::NestedField*>(path[i].get());
+        VELOX_CHECK(field);
+        fieldIndex = rowType->getChildIdx(field->name());
+        type = rowType->childAt(fieldIndex).get();
+        vector = vector->asUnchecked<RowVector>()->childAt(fieldIndex);
+        break;
+      case TypeKind::ARRAY:
+        VELOX_CHECK(
+            dynamic_cast<const Subfield::AllSubscripts*>(path[i].get()));
+        type = type->childAt(0).get();
+        vector = vector->asUnchecked<ArrayVector>()->elements();
+        break;
+      case TypeKind::MAP:
+        VELOX_CHECK(
+            dynamic_cast<const Subfield::AllSubscripts*>(path[i].get()));
+        type = type->childAt(1).get();
+        vector = vector->asUnchecked<MapVector>()->mapValues();
+        break;
+      default:
+        VELOX_FAIL();
     }
-    VELOX_CHECK(child->typeKind() == TypeKind::ROW);
-    container = child->as<RowVector>();
-    parentType = dynamic_cast<const RowType*>(rowType.childAt(childIdx).get());
-    VELOX_CHECK_NOT_NULL(
-        parentType,
-        "Expecting child to be row type",
-        subfield.toString().c_str(),
-        i);
   }
-  // Never reached.
-  VELOX_CHECK(false);
-  return nullptr;
+  return vector;
 }
 
 uint32_t AbstractColumnStats::counter_ = 0;
@@ -347,15 +354,19 @@ std::vector<FilterSpec> FilterGenerator::makeRandomSpecs(
 }
 
 std::shared_ptr<ScanSpec> FilterGenerator::makeScanSpec(
-    SubfieldFilters filters) {
+    const SubfieldFilters& filters) {
   auto spec = std::make_shared<ScanSpec>("root");
   spec->addAllChildFields(*rowType_);
-
-  for (auto& pair : filters) {
-    auto fieldSpec = spec->getOrCreateChild(pair.first);
-    fieldSpec->addFilter(*pair.second);
-  }
+  addToScanSpec(filters, *spec);
   return spec;
+}
+
+void FilterGenerator::addToScanSpec(
+    const SubfieldFilters& filters,
+    ScanSpec& spec) {
+  for (auto& pair : filters) {
+    spec.getOrCreateChild(pair.first)->addFilter(*pair.second);
+  }
 }
 
 SubfieldFilters FilterGenerator::makeSubfieldFilters(
@@ -443,6 +454,240 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
   }
 
   return filters;
+}
+
+namespace {
+
+void pruneRandomSubfield(
+    Subfield& subfield,
+    const Type& type,
+    ScanSpec& spec,
+    memory::MemoryPool* pool,
+    folly::Random::DefaultGenerator& rng,
+    const RowTypePtr& rootType,
+    std::vector<RowVectorPtr>& batches) {
+  switch (type.kind()) {
+    case TypeKind::ROW: {
+      // Prune one of the child.
+      auto& rowType = type.asRow();
+      VELOX_CHECK_GT(rowType.size(), 0);
+      int pruned = -1;
+      if (rowType.size() > 1) {
+        pruned = folly::Random::rand32(rowType.size(), rng);
+      }
+      for (int i = 0; i < rowType.size(); ++i) {
+        auto& childType = rowType.childAt(i);
+        auto& childName = rowType.nameOf(i);
+        auto* childSpec = spec.childByName(childName);
+        if (i == pruned) {
+          childSpec->setConstantValue(
+              BaseVector::createNullConstant(childType, 1, pool));
+          for (auto& batch : batches) {
+            auto* data = getChildBySubfield(batch.get(), subfield, rootType)
+                             ->asUnchecked<RowVector>();
+            data->childAt(i) =
+                BaseVector::createNullConstant(childType, data->size(), pool);
+          }
+        } else {
+          subfield.path().push_back(
+              std::make_unique<Subfield::NestedField>(childName));
+          pruneRandomSubfield(
+              subfield, *childType, *childSpec, pool, rng, rootType, batches);
+          subfield.path().pop_back();
+        }
+      }
+      break;
+    }
+    case TypeKind::ARRAY: {
+      // Cap the max element length at the average length.
+      vector_size_t totalSize = 0;
+      int totalCount = 0;
+      for (auto& batch : batches) {
+        auto* data = getChildBySubfield(batch.get(), subfield, rootType)
+                         ->asUnchecked<ArrayVector>();
+        for (int i = 0; i < data->size(); ++i) {
+          if (!data->isNullAt(i)) {
+            totalSize += data->sizeAt(i);
+            ++totalCount;
+          }
+        }
+      }
+      int maxElementsCount = std::max(1, totalSize / totalCount);
+      for (auto& batch : batches) {
+        auto* data = getChildBySubfield(batch.get(), subfield, rootType)
+                         ->asUnchecked<ArrayVector>();
+        for (int i = 0; i < data->size(); ++i) {
+          if (!data->isNullAt(i)) {
+            auto newSize = std::min(maxElementsCount, data->sizeAt(i));
+            data->setOffsetAndSize(i, data->offsetAt(i), newSize);
+          }
+        }
+      }
+      spec.setMaxArrayElementsCount(maxElementsCount);
+      auto* elementsSpec = spec.childByName(ScanSpec::kArrayElementsFieldName);
+      subfield.path().push_back(std::make_unique<Subfield::AllSubscripts>());
+      pruneRandomSubfield(
+          subfield,
+          *type.childAt(0),
+          *elementsSpec,
+          pool,
+          rng,
+          rootType,
+          batches);
+      subfield.path().pop_back();
+      break;
+    }
+    case TypeKind::MAP: {
+      // Sample half of the keys.
+      auto& keyType = type.childAt(0);
+      bool isStringKey = keyType->isVarchar() || keyType->isVarbinary();
+      std::vector<std::string> stringKeys;
+      std::vector<int64_t> longKeys;
+      for (auto& batch : batches) {
+        auto* data = getChildBySubfield(batch.get(), subfield, rootType)
+                         ->asUnchecked<MapVector>();
+        auto& keys = data->mapKeys();
+        for (int i = 0; i < data->size(); ++i) {
+          if (data->isNullAt(i)) {
+            continue;
+          }
+          for (int j = 0; j < data->sizeAt(i); ++j) {
+            int jj = data->offsetAt(i) + j;
+            switch (keyType->kind()) {
+              case TypeKind::TINYINT:
+                longKeys.push_back(
+                    keys->asUnchecked<SimpleVector<int8_t>>()->valueAt(jj));
+                break;
+              case TypeKind::SMALLINT:
+                longKeys.push_back(
+                    keys->asUnchecked<SimpleVector<int16_t>>()->valueAt(jj));
+                break;
+              case TypeKind::INTEGER:
+                longKeys.push_back(
+                    keys->asUnchecked<SimpleVector<int32_t>>()->valueAt(jj));
+                break;
+              case TypeKind::BIGINT:
+                longKeys.push_back(
+                    keys->asUnchecked<SimpleVector<int64_t>>()->valueAt(jj));
+                break;
+              case TypeKind::VARCHAR:
+              case TypeKind::VARBINARY:
+                stringKeys.push_back(
+                    keys->asUnchecked<SimpleVector<StringView>>()->valueAt(jj));
+                break;
+              default:
+                VELOX_FAIL();
+            }
+          }
+        }
+      }
+      std::unique_ptr<Filter> filter;
+      if (isStringKey) {
+        std::shuffle(stringKeys.begin(), stringKeys.end(), rng);
+        stringKeys.resize((stringKeys.size() + 1) / 2);
+        filter = std::make_unique<BytesValues>(stringKeys, false);
+      } else {
+        std::shuffle(longKeys.begin(), longKeys.end(), rng);
+        longKeys.resize((longKeys.size() + 1) / 2);
+        filter = createBigintValues(longKeys, false);
+      }
+      for (auto& batch : batches) {
+        auto* data = getChildBySubfield(batch.get(), subfield, rootType)
+                         ->asUnchecked<MapVector>();
+        auto& keys = data->mapKeys();
+        auto indices = allocateIndices(keys->size(), pool);
+        auto* rawIndices = indices->asMutable<vector_size_t>();
+        vector_size_t offset = 0;
+        for (int i = 0; i < data->size(); ++i) {
+          if (data->isNullAt(i)) {
+            continue;
+          }
+          int newSize = 0;
+          for (int j = 0; j < data->sizeAt(i); ++j) {
+            int jj = data->offsetAt(i) + j;
+            bool passed;
+            switch (keyType->kind()) {
+              case TypeKind::TINYINT:
+                passed = applyFilter(
+                    *filter,
+                    keys->asUnchecked<SimpleVector<int8_t>>()->valueAt(jj));
+                break;
+              case TypeKind::SMALLINT:
+                passed = applyFilter(
+                    *filter,
+                    keys->asUnchecked<SimpleVector<int16_t>>()->valueAt(jj));
+                break;
+              case TypeKind::INTEGER:
+                passed = applyFilter(
+                    *filter,
+                    keys->asUnchecked<SimpleVector<int32_t>>()->valueAt(jj));
+                break;
+              case TypeKind::BIGINT:
+                passed = applyFilter(
+                    *filter,
+                    keys->asUnchecked<SimpleVector<int64_t>>()->valueAt(jj));
+                break;
+              case TypeKind::VARCHAR:
+              case TypeKind::VARBINARY:
+                passed = applyFilter(
+                    *filter,
+                    keys->asUnchecked<SimpleVector<StringView>>()->valueAt(jj));
+                break;
+              default:
+                VELOX_FAIL();
+            }
+            if (passed) {
+              rawIndices[offset + newSize++] = jj;
+            }
+          }
+          data->setOffsetAndSize(i, offset, newSize);
+          offset += newSize;
+        }
+        auto newKeys =
+            BaseVector::wrapInDictionary(nullptr, indices, offset, keys);
+        auto newValues = BaseVector::wrapInDictionary(
+            nullptr, indices, offset, data->mapValues());
+        BaseVector::flattenVector(newKeys, newKeys->size());
+        BaseVector::flattenVector(newValues, newValues->size());
+        data->setKeysAndValues(newKeys, newValues);
+      }
+      spec.childByName(ScanSpec::kMapKeysFieldName)
+          ->setFilter(std::move(filter));
+      auto* valuesSpec = spec.childByName(ScanSpec::kMapValuesFieldName);
+      subfield.path().push_back(std::make_unique<Subfield::AllSubscripts>());
+      pruneRandomSubfield(
+          subfield,
+          *type.childAt(1),
+          *valuesSpec,
+          pool,
+          rng,
+          rootType,
+          batches);
+      subfield.path().pop_back();
+      break;
+    }
+    default:
+      // Ignore non-complex types.
+      break;
+  }
+}
+
+} // namespace
+
+std::shared_ptr<ScanSpec> FilterGenerator::makeScanSpec(
+    const std::vector<std::string>& prunable,
+    std::vector<RowVectorPtr>& batches,
+    memory::MemoryPool* pool) {
+  auto root = std::make_shared<ScanSpec>("<root>");
+  root->addAllChildFields(*rowType_);
+  auto* first = batches[0].get();
+  for (auto& path : prunable) {
+    Subfield subfield(path);
+    auto* spec = root->getOrCreateChild(subfield);
+    auto type = getChildBySubfield(first, subfield, rowType_)->type();
+    pruneRandomSubfield(subfield, *type, *spec, pool, rng_, rowType_, batches);
+  }
+  return root;
 }
 
 } // namespace facebook::velox::dwio::common

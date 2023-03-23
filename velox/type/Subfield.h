@@ -207,6 +207,10 @@ class Subfield {
     return path_;
   }
 
+  std::vector<std::unique_ptr<PathElement>>& path() {
+    return path_;
+  }
+
   bool isPrefix(const Subfield& other) const {
     if (path_.size() < other.path_.size()) {
       for (int i = 0; i < path_.size(); ++i) {
