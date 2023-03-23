@@ -77,6 +77,14 @@ public class TestSimplifyRowExpressions
     }
 
     @Test
+    public void testNestedExpressions()
+    {
+        assertSimplifies(
+                "(true and coalesce(X, true) IN (true, false)) IN (true, false)",
+                "(coalesce(X, true) IN (true, false)) IN (true, false)");
+    }
+
+    @Test
     public void testExtractCommonPredicates()
     {
         assertSimplifies("TRUE", "TRUE");
@@ -85,6 +93,7 @@ public class TestSimplifyRowExpressions
         assertSimplifies("X AND Y", "X AND Y");
         assertSimplifies("X OR Y", "X OR Y");
         assertSimplifies("X AND X", "X");
+        assertSimplifies("true AND X", "X");
         assertSimplifies("X OR X", "X");
         assertSimplifies("(X OR Y) AND (X OR Y)", "X OR Y");
 
