@@ -262,7 +262,7 @@ TEST_F(ArrayIntersectTest, constant) {
       {},
       {1, -2, 4},
   });
-  testExpr(expected, "array_intersect(C0, ARRAY[1,-2,4])", {array1});
+  testExpr(expected, "array_intersect(C0, ARRAY[1,4,-2])", {array1});
   testExpr(expected, "array_intersect(ARRAY[1,-2,4], C0)", {array1});
   testExpr(
       expected, "array_intersect(ARRAY[1,1,-2,1,-2,4,1,4,4], C0)", {array1});
@@ -276,6 +276,35 @@ TEST_F(ArrayIntersectTest, constant) {
   });
   testExpr(expected, "array_intersect(C0, ARRAY[1,NULL,4])", {array1});
   testExpr(expected, "array_intersect(ARRAY[1,NULL,4], C0)", {array1});
+}
+
+// Check that results are deterministic regardless of the encoding; literals
+// (constant exprs) and regular columns should always return the same results.
+TEST_F(ArrayIntersectTest, deterministic) {
+  auto c0 = makeNullableArrayVector<int32_t>({
+      {1, -2, 3, std::nullopt, 4, 5, 6, std::nullopt},
+      {4, -2, 6, std::nullopt, 1},
+  });
+  auto c1 = makeNullableArrayVector<int32_t>({
+      {1, 4, -2},
+      {1, 4, -2},
+  });
+
+  // C0 then C1.
+  auto expectedC0C1 = makeNullableArrayVector<int32_t>({
+      {1, -2, 4},
+      {4, -2, 1},
+  });
+  testExpr(expectedC0C1, "array_intersect(C0, ARRAY[1,4,-2])", {c0});
+  testExpr(expectedC0C1, "array_intersect(C0, C1)", {c0, c1});
+
+  // C1 then C0.
+  auto expectedC1C0 = makeNullableArrayVector<int32_t>({
+      {1, 4, -2},
+      {1, 4, -2},
+  });
+  testExpr(expectedC1C0, "array_intersect(C1, C0)", {c0, c1});
+  testExpr(expectedC1C0, "array_intersect(ARRAY[1,4,-2], C0)", {c0});
 }
 
 TEST_F(ArrayIntersectTest, dictionaryEncodedElementsInConstant) {
