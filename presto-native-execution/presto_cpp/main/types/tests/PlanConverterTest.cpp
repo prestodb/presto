@@ -24,6 +24,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 namespace fs = boost::filesystem;
@@ -93,7 +94,17 @@ class PlanConverterTest : public ::testing::Test {};
 // Scan + Partial Agg + Repartitioning
 TEST_F(PlanConverterTest, scanAgg) {
   protocol::registerConnector("hive", "hive");
-  assertToVeloxQueryPlan("ScanAgg.json");
+  auto partitionedOutput = assertToVeloxQueryPlan("ScanAgg.json");
+  auto* tableScan = dynamic_cast<const core::TableScanNode*>(
+      partitionedOutput->sources()[0]->sources()[0]->sources()[0].get());
+  ASSERT_TRUE(tableScan != nullptr);
+  auto* columnHandle = dynamic_cast<const connector::hive::HiveColumnHandle*>(
+      tableScan->assignments().at("complex_type").get());
+  ASSERT_TRUE(columnHandle != nullptr);
+  auto& requiredSubfields = columnHandle->requiredSubfields();
+  ASSERT_EQ(requiredSubfields.size(), 2);
+  ASSERT_EQ(requiredSubfields[0].toString(), "complex_type[1][\"foo\"].id");
+  ASSERT_EQ(requiredSubfields[1].toString(), "complex_type[2][\"bar\"].id");
 
   protocol::registerConnector("hive-plus", "hive");
   assertToVeloxQueryPlan("ScanAggCustomConnectorId.json");

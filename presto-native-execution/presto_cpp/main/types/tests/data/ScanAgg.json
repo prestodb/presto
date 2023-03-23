@@ -44,6 +44,10 @@
                 "type":"bigint"
               },
               {
+                "name":"complex_type",
+                "type":"array(map(varchar, row(id bigint, description varchar)))"
+              },
+              {
                 "name":"comment",
                 "type":"varchar(152)"
               }
@@ -132,6 +136,11 @@
             "@type":"variable",
             "name":"regionkey",
             "type":"bigint"
+          },
+          {
+            "@type":"variable",
+            "name":"complex_type",
+            "type":"array(map(varchar, row(id bigint, description varchar)))"
           }
         ],
         "assignments":{
@@ -144,6 +153,18 @@
             "columnType":"REGULAR",
             "requiredSubfields":[
 
+            ]
+          },
+          "complex_type<array(map(varchar, row(id bigint, description varchar)))>":{
+            "@type":"hive",
+            "name":"complex_type",
+            "hiveType":"array<map<string, struct<id:bigint, description:string>>>",
+            "typeSignature":"array(map(varchar, row(id bigint, description varchar)))",
+            "hiveColumnIndex":3,
+            "columnType":"REGULAR",
+            "requiredSubfields":[
+              "complex_type[1][\"foo\"].id",
+              "complex_type[2][\"bar\"].id"
             ]
           }
         }
