@@ -105,11 +105,11 @@ public class MapAggregationFunction
         Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 GroupedAccumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType), outputType,
                 true, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }

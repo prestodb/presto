@@ -90,7 +90,8 @@ public class AccumulatorCompiler
     public static <T> Class<? extends T> generateAccumulatorClass(
             Class<T> accumulatorInterface,
             AggregationMetadata metadata,
-            DynamicClassLoader classLoader)
+            DynamicClassLoader classLoader,
+            boolean batchInput)
     {
         boolean grouped = accumulatorInterface == GroupedAccumulator.class;
 
@@ -149,7 +150,8 @@ public class AccumulatorCompiler
                 lambdaProviderFields,
                 metadata.getInputFunction(),
                 callSiteBinder,
-                grouped);
+                grouped,
+                batchInput);
         generateAddInputWindowIndex(
                 definition,
                 stateFields,
@@ -253,7 +255,8 @@ public class AccumulatorCompiler
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
-            boolean grouped)
+            boolean grouped,
+            boolean batchInput)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         if (grouped) {
@@ -302,7 +305,8 @@ public class AccumulatorCompiler
                 lambdaProviderFields,
                 masksBlock,
                 callSiteBinder,
-                grouped);
+                grouped,
+                batchInput);
 
         body.append(block);
         body.ret();
@@ -469,7 +473,8 @@ public class AccumulatorCompiler
             List<FieldDefinition> lambdaProviderFields,
             Variable masksBlock,
             CallSiteBinder callSiteBinder,
-            boolean grouped)
+            boolean grouped,
+            boolean batchInput)
     {
         // For-loop over rows
         Variable page = scope.getVariable("page");
@@ -493,6 +498,13 @@ public class AccumulatorCompiler
                 inputFunction,
                 callSiteBinder,
                 grouped);
+        if (batchInput) {
+            if (grouped) {
+                block.append(loopBody);
+                return block;
+            }
+            return (BytecodeBlock) loopBody;
+        }
 
         //  Wrap with null checks
         List<Boolean> nullable = new ArrayList<>();

@@ -110,11 +110,11 @@ public abstract class MergeStatisticalDigestFunction
         Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 GroupedAccumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         return new BuiltInAggregationFunctionImplementation(name, ImmutableList.of(type), ImmutableList.of(intermediateType), type,
                 true, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }

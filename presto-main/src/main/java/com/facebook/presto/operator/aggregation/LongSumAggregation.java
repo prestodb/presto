@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -35,6 +38,18 @@ public final class LongSumAggregation
     {
         state.setNull(false);
         state.setLong(BigintOperators.add(state.getLong(), value));
+    }
+
+    @InputFunction
+    public static void sum(@AggregationState NullableLongState state, @BlockPosition @SqlType("array(bigint)") Block value, @BlockIndex int index)
+    {
+        state.setNull(false);
+        long sum = 0;
+        Block block = value.getBlock(index);
+        for (int i = 0; i < block.getPositionCount(); ++i) {
+            sum += BigintType.BIGINT.getLong(block, i);
+        }
+        state.setLong(BigintOperators.add(state.getLong(), sum));
     }
 
     @CombineFunction

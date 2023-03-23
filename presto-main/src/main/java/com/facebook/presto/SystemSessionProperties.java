@@ -259,6 +259,8 @@ public final class SystemSessionProperties
     public static final String PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS = "prefilter_for_groupby_limit_timeout_ms";
     public static final String OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME = "optimize_join_probe_for_empty_build_runtime";
     public static final String USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS = "use_defaults_for_correlated_aggregation_pushdown_through_outer_joins";
+    public static final String BATCH_AGGREGATION_EVALUATION = "batch_aggregation_evaluation";
+    public static final String RLE_FOR_PARTIAL_AGGREGATION = "rle_for_partial_aggregation";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1392,6 +1394,16 @@ public final class SystemSessionProperties
                         featuresConfig.isOptimizeMultipleApproxPercentileOnSameFieldEnabled(),
                         false),
                 booleanProperty(
+                        BATCH_AGGREGATION_EVALUATION,
+                        "Combine individual approx_percentile calls on individual field to evaluation on an array",
+                        false,
+                        false),
+                booleanProperty(
+                        RLE_FOR_PARTIAL_AGGREGATION,
+                        "Combine individual approx_percentile calls on individual field to evaluation on an array",
+                        false,
+                        false),
+                booleanProperty(
                         NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
                         "Native Execution only. Enable simplified path in expression evaluation",
                         false,
@@ -2361,6 +2373,16 @@ public final class SystemSessionProperties
     public static boolean isCombineApproxPercentileEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD, Boolean.class);
+    }
+
+    public static boolean isBatchAggregationEvaluationEnabled(Session session)
+    {
+        return session.getSystemProperty(BATCH_AGGREGATION_EVALUATION, Boolean.class);
+    }
+
+    public static boolean isRLEForPartialAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(RLE_FOR_PARTIAL_AGGREGATION, Boolean.class);
     }
 
     public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)

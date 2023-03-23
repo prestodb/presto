@@ -114,11 +114,11 @@ public class ParametricAggregation
         Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 GroupedAccumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
 
         // Create specialized InternalAggregationFunction for Presto
         return new BuiltInAggregationFunctionImplementation(getSignature().getNameSuffix(),

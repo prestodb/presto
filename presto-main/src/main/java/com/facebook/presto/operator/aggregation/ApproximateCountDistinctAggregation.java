@@ -73,6 +73,28 @@ public final class ApproximateCountDistinctAggregation
         state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
+//    @InputFunction
+//    @TypeParameter("T")
+//    public static void input(
+//            @OperatorDependency(operator = XX_HASH_64, argumentTypes = {"T"}) MethodHandle methodHandle,
+//            @AggregationState HyperLogLogState state,
+//            @BlockPosition @SqlType("array(bigint)") Block value,
+//            @BlockIndex int index,
+//            @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+//    {
+//        HyperLogLog hll = HyperLogLogUtils.getOrCreateHyperLogLog(state, maxStandardError);
+//        state.addMemoryUsage(-hll.estimatedInMemorySize());
+//        long hash;
+//        try {
+//            hash = (long) methodHandle.invokeExact(value);
+//        }
+//        catch (Throwable t) {
+//            throw internalError(t);
+//        }
+//        hll.addHash(hash);
+//        state.addMemoryUsage(hll.estimatedInMemorySize());
+//    }
+
     @InputFunction
     @TypeParameter("T")
     public static void input(

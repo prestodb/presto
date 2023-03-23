@@ -39,22 +39,21 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata;
-import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-public class CountColumn
+public class CountColumnBlockAggregation
         extends SqlAggregationFunction
 {
-    public static final CountColumn COUNT_COLUMN = new CountColumn();
-    private static final String NAME = "count";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(CountColumn.class, "input", LongState.class, Block.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(CountColumn.class, "combine", LongState.class, LongState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(CountColumn.class, "output", LongState.class, BlockBuilder.class);
+    public static final CountColumnBlockAggregation COUNT_COLUMN_BLOCK = new CountColumnBlockAggregation();
+    private static final String NAME = "count_block";
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(CountColumnBlockAggregation.class, "input", LongState.class, Block.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(CountColumnBlockAggregation.class, "combine", LongState.class, LongState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(CountColumnBlockAggregation.class, "output", LongState.class, BlockBuilder.class);
 
-    public CountColumn()
+    public CountColumnBlockAggregation()
     {
         super(NAME,
                 ImmutableList.of(typeVariable("T")),
@@ -63,22 +62,9 @@ public class CountColumn
                 ImmutableList.of(parseTypeSignature("T")));
     }
 
-    @Override
-    public String getDescription()
-    {
-        return "Counts the non-null values";
-    }
-
-    @Override
-    public BuiltInAggregationFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
-    {
-        Type type = boundVariables.getTypeVariable("T");
-        return generateAggregation(type);
-    }
-
     private static BuiltInAggregationFunctionImplementation generateAggregation(Type type)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(CountColumn.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(CountColumnBlockAggregation.class.getClassLoader());
 
         AccumulatorStateSerializer<LongState> stateSerializer = StateCompiler.generateStateSerializer(LongState.class, classLoader);
         AccumulatorStateFactory<LongState> stateFactory = StateCompiler.generateStateFactory(LongState.class, classLoader);
@@ -101,23 +87,34 @@ public class CountColumn
         Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
-                classLoader, false);
+                classLoader, true);
         Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 GroupedAccumulator.class,
                 metadata,
-                classLoader, false);
+                classLoader, true);
         return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType), BIGINT,
                 true, false, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)
     {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type));
     }
 
-    public static void input(LongState state, Block block, int index)
+    public static void input(LongState state, Block value)
     {
-        state.setLong(state.getLong() + 1);
+        long count = 0;
+        if (value.mayHaveNull()) {
+            for (int i = 0; i < value.getPositionCount(); ++i) {
+                if (!value.isNull(i)) {
+                    count += 1;
+                }
+            }
+        }
+        else {
+            count = value.getPositionCount();
+        }
+        state.setLong(state.getLong() + count);
     }
 
     public static void combine(LongState state, LongState otherState)
@@ -128,5 +125,18 @@ public class CountColumn
     public static void output(LongState state, BlockBuilder out)
     {
         BIGINT.writeLong(out, state.getLong());
+    }
+
+    @Override
+    public String getDescription()
+    {
+        return "Count non null values";
+    }
+
+    @Override
+    public BuiltInAggregationFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
+    {
+        Type type = boundVariables.getTypeVariable("T");
+        return generateAggregation(type);
     }
 }

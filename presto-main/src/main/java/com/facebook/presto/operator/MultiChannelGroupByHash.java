@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.array.LongBigArray;
@@ -55,6 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class MultiChannelGroupByHash
         implements GroupByHash
 {
+    private static final Logger log = Logger.get(MultiChannelGroupByHash.class);
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelGroupByHash.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
     private final List<Type> types;
@@ -216,6 +218,7 @@ public class MultiChannelGroupByHash
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
         if (isRunLengthEncoded(page)) {
+            log.info("optimized for RLE");
             return new AddRunLengthEncodedPageWork(page);
         }
         if (canProcessDictionary(page)) {

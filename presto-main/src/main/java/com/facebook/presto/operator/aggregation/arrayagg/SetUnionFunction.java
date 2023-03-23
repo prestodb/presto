@@ -104,11 +104,11 @@ public class SetUnionFunction
         Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 GroupedAccumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         return new BuiltInAggregationFunctionImplementation(NAME, ImmutableList.of(elementType),
                 ImmutableList.of(stateSerializer.getSerializedType()), arrayType, true, true, metadata,
                 accumulatorClass, groupedAccumulatorClass);
