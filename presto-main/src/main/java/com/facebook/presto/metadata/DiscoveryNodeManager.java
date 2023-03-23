@@ -211,7 +211,7 @@ public final class DiscoveryNodeManager
             catch (Exception e) {
                 log.error(e, "Error polling state of nodes");
             }
-        }, 5, 5, TimeUnit.SECONDS);
+        }, 5, 1, TimeUnit.SECONDS);
         pollWorkers();
     }
 
@@ -350,6 +350,7 @@ public final class DiscoveryNodeManager
                         break;
                     case SHUTTING_DOWN:
                         shuttingDownNodesBuilder.add(node);
+                        //TODO Tell CTF to be more aggresive for shutting down nodes?
                         break;
                     default:
                         log.error("Unknown state %s for node %s", nodeState, node);

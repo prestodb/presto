@@ -309,7 +309,7 @@ public class SectionExecutionFactory
 
             if (plan.getFragment().isLeaf()) {
                 stageExecution.registerStageTaskRecoveryCallback(taskId -> {
-                    log.debug("Going to recover task - %s", taskId);
+                    log.warn("Going to recover task - %s", taskId);
                     HttpRemoteTask remoteTask = stageExecution.getAllTasks().stream()
                             .filter(task -> task.getTaskId().equals(taskId))
                             .filter(task -> task instanceof HttpRemoteTask)

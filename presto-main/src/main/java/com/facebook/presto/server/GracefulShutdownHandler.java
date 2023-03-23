@@ -15,11 +15,15 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -40,6 +44,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class GracefulShutdownHandler
@@ -57,7 +62,9 @@ public class GracefulShutdownHandler
     private final ShutdownAction shutdownAction;
     private final Duration gracePeriod;
     private final TaskExecutor taskExecutor;
-
+    private final CounterStat shutdownCounter = new CounterStat();
+    private final CounterStat gracefulShutdownCounter = new CounterStat();
+    private final TimeStat gracefulShutdownTime = new TimeStat(NANOSECONDS);
     @GuardedBy("this")
     private boolean shutdownRequested;
 
@@ -83,7 +90,7 @@ public class GracefulShutdownHandler
     public synchronized void requestShutdown()
     {
         log.warn("Shutdown requested");
-
+        shutdownCounter.update(1);
         if (isResourceManager) {
             throw new UnsupportedOperationException("Cannot shutdown resource manager");
         }
@@ -103,12 +110,13 @@ public class GracefulShutdownHandler
                 waitForQueriesToComplete();
             }
             else {
-                long timeBeforeTaskExecutorShutdown = System.currentTimeMillis();
+                long timeBeforeTaskExecutorShutdown = System.nanoTime();
                 taskExecutor.gracefulShutdown();
-                log.warn("Wait time for task TaskExecutor Shutdown -> %s", System.currentTimeMillis() - timeBeforeTaskExecutorShutdown);
-                long timeBeforeTaskCompletion = System.currentTimeMillis();
+                gracefulShutdownCounter.update(1);
+                gracefulShutdownTime.add(Duration.nanosSince(timeBeforeTaskExecutorShutdown));
+                log.warn("Wait time for task TaskExecutor Shutdown -> %s", System.nanoTime() - timeBeforeTaskExecutorShutdown);
                 waitForTasksToComplete();
-                log.warn("Wait time for task completion -> %s", System.currentTimeMillis() - timeBeforeTaskCompletion);
+                //waitForCoordinatorContinuousTaskFetcher();
                 // wait for another grace period for all task states to be observed by the coordinator
                 sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
             }
@@ -213,5 +221,26 @@ public class GracefulShutdownHandler
     public synchronized boolean isShutdownRequested()
     {
         return shutdownRequested;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getShutdownCounter()
+    {
+        return shutdownCounter;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getGracefulShutdownCounter()
+    {
+        return gracefulShutdownCounter;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getGracefulShutdownTime()
+    {
+        return gracefulShutdownTime;
     }
 }
