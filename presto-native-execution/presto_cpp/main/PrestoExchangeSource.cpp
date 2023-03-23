@@ -91,7 +91,7 @@ void PrestoExchangeSource::doRequest() {
       .method(proxygen::HTTPMethod::GET)
       .url(path)
       .header(protocol::PRESTO_MAX_SIZE_HTTP_HEADER, "32MB")
-      .send(httpClient_.get())
+      .send(httpClient_.get(), pool_)
       .via(driverCPUExecutor())
       .thenValue([path, self](std::unique_ptr<http::HttpResponse> response) {
         auto* headers = response->headers();
@@ -153,14 +153,12 @@ void PrestoExchangeSource::processDataResponse(
       }
     }
     page = std::make_unique<exec::SerializedPage>(
-        std::move(singleChain),
-        pool_,
-        [allocator = response->allocator()](folly::IOBuf& iobuf) {
+        std::move(singleChain), nullptr, [pool = pool_](folly::IOBuf& iobuf) {
           // Free the backed memory from MemoryAllocator on page dtor
           folly::IOBuf* start = &iobuf;
           auto curr = start;
           do {
-            allocator->freeBytes(curr->writableData(), curr->length());
+            pool->free(curr->writableData(), curr->length());
             curr = curr->next();
           } while (curr != start);
         });
@@ -236,7 +234,7 @@ void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
   http::RequestBuilder()
       .method(proxygen::HTTPMethod::GET)
       .url(ackPath)
-      .send(httpClient_.get())
+      .send(httpClient_.get(), pool_)
       .via(driverCPUExecutor())
       .thenValue([self](std::unique_ptr<http::HttpResponse> response) {
         VLOG(1) << "Ack " << response->headers()->getStatusCode();
@@ -255,7 +253,7 @@ void PrestoExchangeSource::abortResults() {
   http::RequestBuilder()
       .method(proxygen::HTTPMethod::DELETE)
       .url(basePath_)
-      .send(httpClient_.get())
+      .send(httpClient_.get(), pool_)
       .via(driverCPUExecutor())
       .thenValue([queue, self](std::unique_ptr<http::HttpResponse> response) {
         auto statusCode = response->headers()->getStatusCode();

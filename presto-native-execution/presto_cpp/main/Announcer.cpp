@@ -12,9 +12,11 @@
  * limitations under the License.
  */
 #include "Announcer.h"
+
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <velox/common/memory/Memory.h>
 #include "presto_cpp/external/json/json.hpp"
 #include "presto_cpp/main/http/HttpClient.h"
 
@@ -81,7 +83,7 @@ Announcer::Announcer(
     const std::string& nodeId,
     const std::string& nodeLocation,
     const std::vector<std::string>& connectorIds,
-    int frequencyMs)
+    uint64_t frequencyMs)
     : discoveryAddressLookup_(std::move(discoveryAddressLookup)),
       frequencyMs_(frequencyMs),
       announcementBody_(announcementBody(
@@ -93,6 +95,7 @@ Announcer::Announcer(
           connectorIds)),
       announcementRequest_(
           announcementRequest(address, port, nodeId, announcementBody_)),
+      pool_(velox::memory::getDefaultMemoryPool("Announcer")),
       eventBaseThread_(false /*autostart*/) {}
 
 Announcer::~Announcer() {
@@ -136,7 +139,7 @@ void Announcer::makeAnnouncement() {
     return;
   }
 
-  client_->sendRequest(announcementRequest_, announcementBody_)
+  client_->sendRequest(announcementRequest_, pool_.get(), announcementBody_)
       .via(eventBaseThread_.getEventBase())
       .thenValue([](auto response) {
         auto message = response->headers();
