@@ -179,7 +179,13 @@ class ExpressionFuzzer {
 
   void appendConjunctSignatures();
 
+  TypePtr generateRootType();
+
   RowVectorPtr generateRowVector();
+
+  /// Randomize initial result vector data to test for correct null and data
+  /// setting in functions.
+  VectorPtr generateResultVector(TypePtr vectorType);
 
   core::TypedExprPtr generateArgConstant(const TypePtr& arg);
 
@@ -220,6 +226,19 @@ class ExpressionFuzzer {
       const CallableSignature& input);
 
   core::TypedExprPtr getCallExprFromCallable(const CallableSignature& callable);
+
+  /// Executes two steps:
+  /// #1. Retries executing the expression in `plan` by wrapping it in a `try()`
+  ///     clause and expecting it not to throw an exception.
+  /// #2. Re-execute the expression only on rows that produced non-NULL values
+  ///     in the previous step.
+  ///
+  /// Throws in case any of these steps fail.
+  void retryWithTry(
+      core::TypedExprPtr plan,
+      const RowVectorPtr& rowVector,
+      const VectorPtr& resultVector,
+      const std::vector<column_index_t>& columnsToWrapInLazy);
 
   /// Return a random signature mapped to functionName in expressionToSignature_
   /// whose return type can match returnType. Return nullptr if no such

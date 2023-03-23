@@ -1054,6 +1054,77 @@ core::TypedExprPtr ExpressionFuzzer::ExprBank::getRandomExpression(
   return nullptr;
 }
 
+VectorPtr ExpressionFuzzer::generateResultVector(TypePtr vectorType) {
+  return vectorFuzzer_.coinToss(0.5) ? vectorFuzzer_.fuzzFlat(vectorType)
+                                     : nullptr;
+}
+
+TypePtr ExpressionFuzzer::generateRootType() {
+  auto chooseFromConcreteSignatures =
+      boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
+
+  chooseFromConcreteSignatures =
+      (chooseFromConcreteSignatures && !signatures_.empty()) ||
+      (!chooseFromConcreteSignatures && signatureTemplates_.empty());
+
+  if (chooseFromConcreteSignatures) {
+    // Pick a random signature to choose the root return type.
+    VELOX_CHECK(!signatures_.empty(), "No function signature available.");
+    size_t idx = boost::random::uniform_int_distribution<uint32_t>(
+        0, signatures_.size() - 1)(rng_);
+    return signatures_[idx].returnType;
+  } else {
+    // Pick a random concrete return type that can bind to the return type of
+    // a chosen signature.
+    VELOX_CHECK(
+        !signatureTemplates_.empty(), "No function signature available.");
+    size_t idx = boost::random::uniform_int_distribution<uint32_t>(
+        0, signatureTemplates_.size() - 1)(rng_);
+    ArgumentTypeFuzzer typeFuzzer{*signatureTemplates_[idx].signature, rng_};
+    return typeFuzzer.fuzzReturnType();
+  }
+}
+
+void ExpressionFuzzer::retryWithTry(
+    core::TypedExprPtr plan,
+    const RowVectorPtr& rowVector,
+    const VectorPtr& resultVector,
+    const std::vector<column_index_t>& columnsToWrapInLazy) {
+  auto tryPlan = std::make_shared<core::CallTypedExpr>(
+      plan->type(), std::vector<core::TypedExprPtr>{plan}, "try");
+
+  // The function throws if anything goes wrong.
+  auto tryResult =
+      verifier_
+          .verify(
+              tryPlan,
+              rowVector,
+              resultVector ? BaseVector::copy(*resultVector) : nullptr,
+              false, // canThrow
+              columnsToWrapInLazy)
+          .result->childAt(0);
+
+  // Re-evaluate the original expression on rows that didn't produce an
+  // error (i.e. returned non-NULL results when evaluated with TRY).
+  BufferPtr noErrorIndices = extractNonNullIndices(tryResult);
+
+  if (noErrorIndices != nullptr) {
+    auto noErrorRowVector = wrapChildren(noErrorIndices, rowVector);
+
+    LOG(INFO) << "Retrying original expression on " << noErrorRowVector->size()
+              << " rows without errors";
+
+    verifier_.verify(
+        plan,
+        noErrorRowVector,
+        resultVector ? BaseVector::copy(*resultVector)
+                           ->slice(0, noErrorRowVector->size())
+                     : nullptr,
+        false, // canThrow
+        columnsToWrapInLazy);
+  }
+}
+
 void ExpressionFuzzer::go() {
   VELOX_CHECK(
       FLAGS_steps > 0 || FLAGS_duration_sec > 0,
@@ -1067,42 +1138,13 @@ void ExpressionFuzzer::go() {
               << " (seed: " << currentSeed_ << ")";
     reset();
 
-    auto chooseFromConcreteSignatures =
-        boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
-    chooseFromConcreteSignatures =
-        (chooseFromConcreteSignatures && !signatures_.empty()) ||
-        (!chooseFromConcreteSignatures && signatureTemplates_.empty());
-    TypePtr rootType;
-    if (chooseFromConcreteSignatures) {
-      // Pick a random signature to choose the root return type.
-      VELOX_CHECK(!signatures_.empty(), "No function signature available.");
-      size_t idx = boost::random::uniform_int_distribution<uint32_t>(
-          0, signatures_.size() - 1)(rng_);
-      rootType = signatures_[idx].returnType;
-    } else {
-      // Pick a random concrete return type that can bind to the return type of
-      // a chosen signature.
-      VELOX_CHECK(
-          !signatureTemplates_.empty(), "No function signature available.");
-      size_t idx = boost::random::uniform_int_distribution<uint32_t>(
-          0, signatureTemplates_.size() - 1)(rng_);
-      ArgumentTypeFuzzer typeFuzzer{*signatureTemplates_[idx].signature, rng_};
-      rootType = typeFuzzer.fuzzReturnType();
-    }
-
     // Generate expression tree and input data vectors.
-    auto plan = generateExpression(rootType);
+    auto plan = generateExpression(generateRootType());
     auto rowVector = generateRowVector();
-
-    // Randomize initial result vector data to test for correct null and data
-    // setting in functions.
-    VectorPtr resultVector;
-    if (vectorFuzzer_.coinToss(0.5)) {
-      resultVector = vectorFuzzer_.fuzzFlat(plan->type());
-    }
-
     auto columnsToWrapInLazy = generateLazyColumnIds(rowVector, vectorFuzzer_);
+    auto resultVector = generateResultVector(plan->type());
     ResultOrError result;
+
     try {
       result = verifier_.verify(
           plan,
@@ -1120,39 +1162,7 @@ void ExpressionFuzzer::go() {
     if (result.exceptionPtr && FLAGS_retry_with_try) {
       LOG(INFO)
           << "Both paths failed with compatible exceptions. Retrying expression using try().";
-
-      auto tryPlan = std::make_shared<core::CallTypedExpr>(
-          plan->type(), std::vector<core::TypedExprPtr>{plan}, "try");
-
-      // At this point, the function throws if anything goes wrong.
-      auto tryResult =
-          verifier_
-              .verify(
-                  tryPlan,
-                  rowVector,
-                  resultVector ? BaseVector::copy(*resultVector) : nullptr,
-                  false, // canThrow
-                  columnsToWrapInLazy)
-              .result->childAt(0);
-
-      // Re-evaluate the original expression on rows that didn't produce an
-      // error (i.e. returned non-NULL results when evaluated with TRY).
-      BufferPtr noErrorIndices = extractNonNullIndices(tryResult);
-      if (noErrorIndices != nullptr) {
-        auto noErrorRowVector = wrapChildren(noErrorIndices, rowVector);
-
-        LOG(INFO) << "Retrying original expression on "
-                  << noErrorRowVector->size() << " rows without errors";
-
-        verifier_.verify(
-            plan,
-            noErrorRowVector,
-            resultVector ? BaseVector::copy(*resultVector)
-                               ->slice(0, noErrorRowVector->size())
-                         : nullptr,
-            false, // canThrow
-            columnsToWrapInLazy);
-      }
+      retryWithTry(plan, rowVector, resultVector, columnsToWrapInLazy);
     }
 
     LOG(INFO) << "==============================> Done with iteration " << i;

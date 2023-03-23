@@ -52,7 +52,7 @@ class ExpressionVerifier {
 
   // Executes an expression both using common path (all evaluation
   // optimizations) and simplified path. Additionally, a sorted list of column
-  // indices can be passed via 'columnsToWarpInLazy' which specify the
+  // indices can be passed via 'columnsToWrapInLazy' which specify the
   // columns/children in the input row vector that should be wrapped in a lazy
   // layer before running it through the common evaluation path.
   // Returns:
