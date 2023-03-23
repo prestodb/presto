@@ -280,17 +280,11 @@ LocalPartition::LocalPartition(
       partitionFunction_(
           numPartitions_ == 1
               ? nullptr
-              : planNode->partitionFunctionFactory()(numPartitions_)),
-      blockingReasons_{numPartitions_} {
+              : planNode->partitionFunctionFactory()(numPartitions_)) {
   VELOX_CHECK(numPartitions_ == 1 || partitionFunction_ != nullptr);
 
   for (auto& queue : queues_) {
     queue->addProducer();
-  }
-
-  futures_.reserve(numPartitions_);
-  for (auto i = 0; i < numPartitions_; i++) {
-    futures_.emplace_back();
   }
 }
 
@@ -346,9 +340,11 @@ void LocalPartition::addInput(RowVectorPtr input) {
   input_ = std::move(input);
 
   if (numPartitions_ == 1) {
-    blockingReasons_[0] = queues_[0]->enqueue(input_, &futures_[0]);
-    if (blockingReasons_[0] != BlockingReason::kNotBlocked) {
-      numBlockedPartitions_ = 1;
+    ContinueFuture future;
+    auto blockingReason = queues_[0]->enqueue(input_, &future);
+    if (blockingReason != BlockingReason::kNotBlocked) {
+      blockingReasons_.push_back(blockingReason);
+      futures_.push_back(std::move(future));
     }
   } else {
     partitionFunction_->partition(*input_, partitions_);
@@ -377,28 +373,20 @@ void LocalPartition::addInput(RowVectorPtr input) {
       ContinueFuture future;
       auto reason = queues_[i]->enqueue(partitionData, &future);
       if (reason != BlockingReason::kNotBlocked) {
-        blockingReasons_[numBlockedPartitions_] = reason;
-        futures_[numBlockedPartitions_] = std::move(future);
-        ++numBlockedPartitions_;
+        blockingReasons_.push_back(reason);
+        futures_.push_back(std::move(future));
       }
     }
   }
 }
 
 BlockingReason LocalPartition::isBlocked(ContinueFuture* future) {
-  if (numBlockedPartitions_) {
-    --numBlockedPartitions_;
-    *future = std::move(futures_[numBlockedPartitions_]);
-    return blockingReasons_[numBlockedPartitions_];
-  }
-
-  if (noMoreInput_) {
-    for (const auto& queue : queues_) {
-      auto reason = queue->isFinished(future);
-      if (reason != BlockingReason::kNotBlocked) {
-        return reason;
-      }
-    }
+  if (!futures_.empty()) {
+    auto blockingReason = blockingReasons_.front();
+    *future = folly::collectAll(futures_.begin(), futures_.end()).unit();
+    futures_.clear();
+    blockingReasons_.clear();
+    return blockingReason;
   }
 
   return BlockingReason::kNotBlocked;
@@ -412,14 +400,8 @@ void LocalPartition::noMoreInput() {
 }
 
 bool LocalPartition::isFinished() {
-  if (numBlockedPartitions_ || !noMoreInput_) {
+  if (!futures_.empty() || !noMoreInput_) {
     return false;
-  }
-
-  for (const auto& queue : queues_) {
-    if (!queue->isFinished()) {
-      return false;
-    }
   }
 
   return true;

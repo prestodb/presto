@@ -183,19 +183,11 @@ class LocalPartition : public Operator {
 
   bool isFinished() override;
 
-  void close() override {
-    Operator::close();
-    for (auto& queue : queues_) {
-      queue->close();
-    }
-  }
-
  private:
   const std::vector<std::shared_ptr<LocalExchangeQueue>> queues_;
   const size_t numPartitions_;
   std::unique_ptr<core::PartitionFunction> partitionFunction_;
 
-  uint32_t numBlockedPartitions_{0};
   std::vector<BlockingReason> blockingReasons_;
   std::vector<ContinueFuture> futures_;
 
