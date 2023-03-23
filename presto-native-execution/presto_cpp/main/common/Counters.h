@@ -221,4 +221,23 @@ constexpr folly::StringPiece kCounterSsdCacheCumulativeCachedBytes{
     "presto_cpp.ssd_cache_cumulative_cached_bytes"};
 constexpr folly::StringPiece kCounterSsdCacheCachedBytes{
     "presto_cpp.ssd_cache_cached_bytes"};
+
+// ================== HiveConnector Counters ==================
+// Format template strings use 'constexpr std::string_view' to be 'fmt::format'
+// compatible.
+constexpr std::string_view kCounterHiveFileHandleCacheNumElementsFormat{
+    "presto_cpp.{}.hive_file_handle_cache_num_elements"};
+constexpr std::string_view kCounterHiveFileHandleCachePinnedSizeFormat{
+    "presto_cpp.{}.hive_file_handle_cache_pinned_size"};
+constexpr std::string_view kCounterHiveFileHandleCacheCurSizeFormat{
+    "presto_cpp.{}.hive_file_handle_cache_cur_size"};
+constexpr std::string_view kCounterHiveFileHandleCacheNumAccumulativeHitsFormat{
+    "presto_cpp.{}.hive_file_handle_cache_num_accumulative_hits"};
+constexpr std::string_view
+    kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat{
+        "presto_cpp.{}.hive_file_handle_cache_num_accumulative_lookups"};
+constexpr std::string_view kCounterHiveFileHandleCacheNumHitsFormat{
+    "presto_cpp.{}.hive_file_handle_cache_num_hits"};
+constexpr std::string_view kCounterHiveFileHandleCacheNumLookupsFormat{
+    "presto_cpp.{}.hive_file_handle_cache_num_lookups"};
 } // namespace facebook::presto
