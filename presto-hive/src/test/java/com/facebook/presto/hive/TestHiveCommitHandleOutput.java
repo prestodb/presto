@@ -449,8 +449,7 @@ public class TestHiveCommitHandleOutput
             super(
                     new HiveHdfsConfiguration(
                             new HdfsConfigurationInitializer(new HiveClientConfig(), new MetastoreClientConfig()),
-                            ImmutableSet.of(),
-                            new HiveClientConfig()),
+                            ImmutableSet.of()),
                     new MetastoreClientConfig(),
                     new NoHdfsAuthentication());
             this.files = ImmutableList.copyOf(files);

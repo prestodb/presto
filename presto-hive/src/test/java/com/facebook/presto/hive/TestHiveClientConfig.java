@@ -170,7 +170,6 @@ public class TestHiveClientConfig
                 .setThriftProtocol(Protocol.BINARY)
                 .setThriftBufferSize(new DataSize(128, BYTE))
                 .setReadNullMaskedParquetEncryptedValue(false)
-                .setCopyOnFirstWriteConfigurationEnabled(true)
                 .setPartitionFilteringFromMetastoreEnabled(true));
     }
 
@@ -300,7 +299,6 @@ public class TestHiveClientConfig
                 .put("hive.internal-communication.thrift-transport-protocol", "COMPACT")
                 .put("hive.internal-communication.thrift-transport-buffer-size", "256B")
                 .put("hive.read-null-masked-parquet-encrypted-value-enabled", "true")
-                .put("hive.copy-on-first-write-configuration-enabled", "false")
                 .put("hive.partition-filtering-from-metastore-enabled", "false")
                 .build();
 
@@ -426,7 +424,6 @@ public class TestHiveClientConfig
                 .setThriftProtocol(Protocol.COMPACT)
                 .setThriftBufferSize(new DataSize(256, BYTE))
                 .setReadNullMaskedParquetEncryptedValue(true)
-                .setCopyOnFirstWriteConfigurationEnabled(false)
                 .setPartitionFilteringFromMetastoreEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
