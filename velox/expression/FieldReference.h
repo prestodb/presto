@@ -23,13 +23,13 @@ class FieldReference : public SpecialForm {
  public:
   FieldReference(
       TypePtr type,
-      std::vector<ExprPtr>&& inputs,
+      const std::vector<ExprPtr>& inputs,
       const std::string& field)
       : SpecialForm(
             std::move(type),
-            std::move(inputs),
+            inputs,
             field,
-            true /* supportsFlatNoNullsFastPath */,
+            inputs.empty() ? true : false,
             false /* trackCpuUsage */),
         field_(field) {}
 

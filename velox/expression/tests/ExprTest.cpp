@@ -2811,6 +2811,15 @@ TEST_F(ExprTest, flatNoNullsFastPath) {
   ASSERT_EQ(1, exprSet->exprs().size());
   ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
       << exprSet->toString();
+
+  // Field dereference.
+  exprSet = compileExpression("a", rowType);
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath());
+
+  exprSet = compileExpression("a.c0", ROW({"a"}, {ROW({"c0"}, {INTEGER()})}));
+  ASSERT_EQ(1, exprSet->exprs().size());
+  ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath());
 }
 
 TEST_F(ExprTest, commonSubExpressionWithEncodedInput) {
