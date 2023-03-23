@@ -16,7 +16,7 @@
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/lib/http/connpool/SessionPool.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
-#include <velox/common/memory/MemoryAllocator.h>
+#include <velox/common/memory/MemoryPool.h>
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "velox/common/base/Exceptions.h"
 
@@ -24,9 +24,12 @@ namespace facebook::presto::http {
 
 class HttpResponse {
  public:
-  explicit HttpResponse(std::unique_ptr<proxygen::HTTPMessage> headers)
-      : headers_(std::move(headers)),
-        allocator_(velox::memory::MemoryAllocator::getInstance()) {}
+  HttpResponse(
+      std::unique_ptr<proxygen::HTTPMessage> headers,
+      velox::memory::MemoryPool* pool)
+      : headers_(std::move(headers)), pool_(pool) {
+    VELOX_CHECK_NOT_NULL(pool_);
+  }
 
   ~HttpResponse();
 
@@ -49,15 +52,11 @@ class HttpResponse {
     return std::move(bodyChain_);
   }
 
-  velox::memory::MemoryAllocator* FOLLY_NONNULL allocator() {
-    return allocator_;
-  }
-
   std::string dumpBodyChain() const;
 
  private:
   const std::unique_ptr<proxygen::HTTPMessage> headers_;
-  velox::memory::MemoryAllocator* FOLLY_NONNULL const allocator_;
+  velox::memory::MemoryPool* const pool_;
 
   std::vector<std::unique_ptr<folly::IOBuf>> bodyChain_;
 };
@@ -78,6 +77,7 @@ class HttpClient {
   // TODO Avoid copy by using IOBuf for body
   folly::SemiFuture<std::unique_ptr<HttpResponse>> sendRequest(
       const proxygen::HTTPMessage& request,
+      velox::memory::MemoryPool* pool,
       const std::string& body = "");
 
  private:
@@ -116,11 +116,12 @@ class RequestBuilder {
   }
 
   folly::SemiFuture<std::unique_ptr<HttpResponse>> send(
-      HttpClient* FOLLY_NONNULL client,
+      HttpClient* client,
+      velox::memory::MemoryPool* pool,
       const std::string& body = "") {
     header(proxygen::HTTP_HEADER_CONTENT_LENGTH, std::to_string(body.size()));
     headers_.ensureHostHeader();
-    return client->sendRequest(headers_, body);
+    return client->sendRequest(headers_, pool, body);
   }
 
  private:
