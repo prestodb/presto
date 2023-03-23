@@ -6410,6 +6410,14 @@ public abstract class AbstractTestQueries
         assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") == -1);
     }
 
+    @Test
+    public void testNestedExpressions()
+    {
+        assertQuery(
+                "SELECT (true and coalesce(X, true) IN (true, false)) IN (true, false) FROM (VALUES true) T(X)",
+                "SELECT true");
+    }
+
     @DataProvider(name = "use_default_literal_coalesce")
     public static Object[][] useDefaultLiteralCoalesce()
     {
