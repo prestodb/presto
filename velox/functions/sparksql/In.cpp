@@ -103,7 +103,7 @@ struct InFunctionOuter {
     }
 
    private:
-    Set<TInput> elements_;
+    Set<arg_type<TInput>> elements_;
     bool hasNull_{false};
   };
 
@@ -127,7 +127,7 @@ void registerIn(const std::string& prefix) {
   registerInFn<float>(prefix);
   registerInFn<double>(prefix);
   registerInFn<bool>(prefix);
-  registerInFn<StringView>(prefix);
+  registerInFn<Varchar>(prefix);
   registerInFn<Timestamp>(prefix);
   registerInFn<Date>(prefix);
 }
