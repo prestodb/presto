@@ -74,12 +74,6 @@ public final class ClickHouseColumnHandle
             ClickHouseColumnType type)
     {
         this(null, variable.getName(), toMappingDefaultJdbcHandle(variable.getType()), variable.getType(), true, type);
-//        this.connectorId = null;
-//        this.columnName = requireNonNull(variable.getName(), "columnName is null");
-//        this.clickHouseTypeHandle = requireNonNull(toMappingDefaultJdbcHandle(variable.getType()), "clickHouseTypeHandle is null");
-//        this.columnType = requireNonNull(variable.getType(), "columnType is null");
-//        this.nullable = true;
-//        this.type = type;
     }
 
     public ClickHouseColumnHandle(
@@ -88,12 +82,6 @@ public final class ClickHouseColumnHandle
             ClickHouseColumnType type)
     {
         this(null, columnName, toMappingDefaultJdbcHandle(columnType), columnType, true, type);
-//        this.connectorId = null;
-//        this.columnName = requireNonNull(columnName, "columnName is null");
-//        this.clickHouseTypeHandle = requireNonNull(toMappingDefaultJdbcHandle(columnType), "clickHouseTypeHandle is null");
-//        this.columnType = requireNonNull(columnType, "columnType is null");
-//        this.nullable = true;
-//        this.type = type;
     }
 
     @JsonCreator
@@ -106,10 +94,8 @@ public final class ClickHouseColumnHandle
             @JsonProperty("type") ClickHouseColumnType type)
     {
         this.connectorId = connectorId;
-        //this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.clickHouseTypeHandle = clickHouseTypeHandle;
-        //this.clickHouseTypeHandle = requireNonNull(clickHouseTypeHandle, "clickHouseTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
         this.type = type;
