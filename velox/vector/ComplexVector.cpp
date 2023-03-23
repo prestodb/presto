@@ -139,6 +139,9 @@ void RowVector::copy(
     vector_size_t targetIndex,
     vector_size_t sourceIndex,
     vector_size_t count) {
+  if (count == 0) {
+    return;
+  }
   SelectivityVector rows(targetIndex + count);
   rows.setValidRange(0, targetIndex, false);
   rows.updateBounds();
@@ -431,6 +434,9 @@ void ArrayVectorBase::copyRangesImpl(
   vector_size_t childSize = targetValues->get()->size();
   if (ranges.size() == 1 && ranges.back().count == 1) {
     auto& range = ranges.back();
+    if (range.count == 0) {
+      return;
+    }
     VELOX_DCHECK(BaseVector::length_ >= range.targetIndex + range.count);
     // Fast path if we're just copying a single array.
     if (source->isNullAt(range.sourceIndex)) {
@@ -461,6 +467,9 @@ void ArrayVectorBase::copyRangesImpl(
     std::vector<CopyRange> outRanges;
     vector_size_t totalCount = 0;
     for (auto& range : ranges) {
+      if (range.count == 0) {
+        continue;
+      }
       VELOX_DCHECK(BaseVector::length_ >= range.targetIndex + range.count);
       totalCount += range.count;
     }

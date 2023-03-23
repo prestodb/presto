@@ -227,6 +227,9 @@ class FlatVector final : public SimpleVector<T> {
       vector_size_t targetIndex,
       vector_size_t sourceIndex,
       vector_size_t count) override {
+    if (count == 0) {
+      return;
+    }
     copyValuesAndNulls(source, targetIndex, sourceIndex, count);
   }
 

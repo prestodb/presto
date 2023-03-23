@@ -2087,3 +2087,36 @@ TEST_F(VectorTest, createVectorWithNullType) {
           pool(), nullptr, nullptr, 100, nullptr, nullptr, nullptr, nullptr),
       kErrorMessage);
 }
+
+TEST_F(VectorTest, testCopyWithZeroCount) {
+  auto runTest = [&](const VectorPtr& vector) {
+    // We pass invalid targetIndex and sourceIndex and expect the
+    // function not to throw since count is 0.
+    ASSERT_NO_THROW(
+        vector->copy(vector.get(), vector->size() + 1, vector->size() + 1, 0));
+
+    BaseVector::CopyRange range{vector->size() + 1, vector->size() + 1, 0};
+    ASSERT_NO_THROW(vector->copyRanges(vector.get(), folly::Range(&range, 1)));
+
+    ASSERT_NO_THROW(vector->copyRanges(
+        vector.get(), std::vector<BaseVector::CopyRange>{range, range, range}));
+  };
+
+  // Flat.
+  runTest(makeFlatVector<bool>({1, 0, 1, 1}));
+  runTest(makeFlatVector<StringView>({"s"_sv}));
+  runTest(makeFlatVector<int32_t>({1, 2}));
+
+  // Complex types.
+  runTest(makeArrayVector<int32_t>(
+      1, [](auto) { return 10; }, [](auto i) { return i; }));
+
+  runTest(makeMapVector<int32_t, float>(
+      1,
+      [](auto) { return 10; },
+      [](auto i) { return i; },
+      [](auto i) { return i; }));
+
+  runTest(
+      makeRowVector({makeFlatVector<int32_t>(1, [](auto i) { return i; })}));
+}

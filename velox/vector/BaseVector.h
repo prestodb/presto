@@ -402,6 +402,9 @@ class BaseVector {
       vector_size_t targetIndex,
       vector_size_t sourceIndex,
       vector_size_t count) {
+    if (count == 0) {
+      return;
+    }
     CopyRange range{sourceIndex, targetIndex, count};
     copyRanges(source, folly::Range(&range, 1));
   }
