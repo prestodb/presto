@@ -88,7 +88,8 @@ class ISerializable {
   template <
       typename T,
       typename = std::enable_if_t<std::is_base_of_v<ISerializable, T>>>
-  static folly::dynamic serialize(std::shared_ptr<const T> serializable) {
+  static folly::dynamic serialize(
+      const std::shared_ptr<const T>& serializable) {
     return serializable->serialize();
   }
 
@@ -103,11 +104,15 @@ class ISerializable {
       typename T,
       typename = std::enable_if_t<
           is_any_of<T, int64_t, double, std::string, bool>::value>>
-  static folly::dynamic serialize(T val) {
+  static folly::dynamic serialize(const T& val) {
     return val;
   }
 
   static folly::dynamic serialize(int32_t val) {
+    return folly::dynamic{(int64_t)val};
+  }
+
+  static folly::dynamic serialize(uint32_t val) {
     return folly::dynamic{(int64_t)val};
   }
 

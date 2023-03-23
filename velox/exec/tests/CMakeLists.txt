@@ -43,6 +43,7 @@ add_executable(
   ParseTypeSignatureTest.cpp
   PartitionedOutputBufferManagerTest.cpp
   PlanBuilderTest.cpp
+  PlanNodeSerdeTest.cpp
   PlanNodeToStringTest.cpp
   PrintPlanWithStatsTest.cpp
   RoundRobinPartitionFunctionTest.cpp
