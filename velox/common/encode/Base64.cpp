@@ -168,6 +168,11 @@ void Base64::encode(const char* data, size_t len, char* output) {
   encodeImpl(folly::StringPiece(data, len), kBase64Charset, true, output);
 }
 
+// static
+void Base64::encodeUrl(const char* data, size_t len, char* output) {
+  encodeImpl(folly::StringPiece(data, len), kBase64UrlCharset, true, output);
+}
+
 template <class T>
 /* static */ void Base64::encodeImpl(
     const T& data,

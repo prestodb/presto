@@ -260,6 +260,17 @@ struct FromBase64Function {
 };
 
 template <typename T>
+struct ToBase64UrlFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varbinary>& input) {
+    stringImpl::toBase64Url(result, input);
+  }
+};
+
+template <typename T>
 struct UrlEncodeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
