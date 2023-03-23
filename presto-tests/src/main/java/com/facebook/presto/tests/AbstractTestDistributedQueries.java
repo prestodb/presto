@@ -1249,7 +1249,7 @@ public abstract class AbstractTestDistributedQueries
         }
 
         MaterializedResult countStarQuery = computeActual(session, "select count(t.m1) from (SELECT l.* FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)) t");
-        assertEquals((Long) countStarQuery.getOnlyValue(), 60175);
+        assertEquals((Long) countStarQuery.getOnlyValue(), Long.valueOf(60175L));
     }
 
     private String sanitizePlan(String explain)
