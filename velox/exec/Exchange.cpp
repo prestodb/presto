@@ -376,8 +376,7 @@ RowVectorPtr Exchange::getOutput() {
   {
     auto lockedStats = stats_.wlock();
     lockedStats->rawInputBytes += rawInputBytes;
-    lockedStats->inputPositions += result_->size();
-    lockedStats->inputBytes += result_->retainedSize();
+    lockedStats->addInputVector(result_->estimateFlatSize(), result_->size());
   }
 
   if (inputStream_->atEnd()) {

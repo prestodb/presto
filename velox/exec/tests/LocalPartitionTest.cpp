@@ -46,17 +46,17 @@ class LocalPartitionTest : public HiveConnectorTestBase {
     return filePaths;
   }
 
-  static RowTypePtr getRowType(const RowVectorPtr& rowVector) {
-    return std::dynamic_pointer_cast<const RowType>(rowVector->type());
-  }
-
   void verifyExchangeSourceOperatorStats(
       const std::shared_ptr<exec::Task>& task,
-      int expectedPositions) {
+      int expectedPositions,
+      int expectedVectors) {
     auto stats = task->taskStats().pipelineStats[0].operatorStats.front();
     ASSERT_EQ(stats.inputPositions, expectedPositions);
-    ASSERT_EQ(stats.outputPositions, expectedPositions);
+    ASSERT_EQ(stats.inputVectors, expectedVectors);
     ASSERT_TRUE(stats.inputBytes > 0);
+
+    ASSERT_EQ(stats.outputPositions, stats.inputPositions);
+    ASSERT_EQ(stats.outputVectors, stats.inputVectors);
     ASSERT_EQ(stats.inputBytes, stats.outputBytes);
   }
 
@@ -108,11 +108,11 @@ TEST_F(LocalPartitionTest, gather) {
                 .planNode();
 
   auto task = assertQuery(op, "SELECT 300, -71, 152");
-  verifyExchangeSourceOperatorStats(task, 300);
+  verifyExchangeSourceOperatorStats(task, 300, 3);
 
   auto filePaths = writeToFiles(vectors);
 
-  auto rowType = getRowType(vectors[0]);
+  auto rowType = asRowType(vectors[0]->type());
 
   std::vector<core::PlanNodeId> scanNodeIds;
 
@@ -140,7 +140,7 @@ TEST_F(LocalPartitionTest, gather) {
   }
 
   task = queryBuilder.assertResults("SELECT 300, -71, 152");
-  verifyExchangeSourceOperatorStats(task, 300);
+  verifyExchangeSourceOperatorStats(task, 300, 3);
 }
 
 TEST_F(LocalPartitionTest, partition) {
@@ -152,7 +152,7 @@ TEST_F(LocalPartitionTest, partition) {
 
   auto filePaths = writeToFiles(vectors);
 
-  auto rowType = getRowType(vectors[0]);
+  auto rowType = asRowType(vectors[0]->type());
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
@@ -187,7 +187,7 @@ TEST_F(LocalPartitionTest, partition) {
 
   auto task =
       queryBuilder.assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
-  verifyExchangeSourceOperatorStats(task, 300);
+  verifyExchangeSourceOperatorStats(task, 300, 6);
 }
 
 TEST_F(LocalPartitionTest, maxBufferSizeGather) {
@@ -221,7 +221,7 @@ TEST_F(LocalPartitionTest, maxBufferSizeGather) {
                   .config(core::QueryConfig::kMaxLocalExchangeBufferSize, "100")
                   .assertResults("SELECT 2100, -71, 228");
 
-  verifyExchangeSourceOperatorStats(task, 2100);
+  verifyExchangeSourceOperatorStats(task, 2100, 21);
 }
 
 TEST_F(LocalPartitionTest, maxBufferSizePartition) {
@@ -235,7 +235,7 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
 
   auto filePaths = writeToFiles(vectors);
 
-  auto rowType = getRowType(vectors[0]);
+  auto rowType = asRowType(vectors[0]->type());
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
@@ -270,13 +270,13 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
 
   auto task =
       queryBuilder.assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
-  verifyExchangeSourceOperatorStats(task, 2100);
+  verifyExchangeSourceOperatorStats(task, 2100, 42);
 
   // Re-run with higher memory limit (enough to hold ~10 vectors at a time).
   queryBuilder.config(core::QueryConfig::kMaxLocalExchangeBufferSize, "10240");
 
   task = queryBuilder.assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
-  verifyExchangeSourceOperatorStats(task, 2100);
+  verifyExchangeSourceOperatorStats(task, 2100, 42);
 }
 
 TEST_F(LocalPartitionTest, multipleExchanges) {
@@ -297,7 +297,7 @@ TEST_F(LocalPartitionTest, multipleExchanges) {
 
   auto filePaths = writeToFiles(vectors);
 
-  auto rowType = getRowType(vectors[0]);
+  auto rowType = asRowType(vectors[0]->type());
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   std::vector<core::PlanNodeId> scanNodeIds;
@@ -360,7 +360,7 @@ TEST_F(LocalPartitionTest, earlyCompletion) {
 
   auto task = assertQuery(plan, "VALUES (3), (4)");
 
-  verifyExchangeSourceOperatorStats(task, 100);
+  verifyExchangeSourceOperatorStats(task, 100, 1);
 
   // Make sure there is only one reference to Task left, i.e. no Driver is
   // blocked forever.

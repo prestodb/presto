@@ -158,8 +158,7 @@ class MergeExchangeSource : public MergeSource {
           &data);
 
       auto lockedStats = mergeExchange_->stats().wlock();
-      lockedStats->inputPositions += data->size();
-      lockedStats->inputBytes += data->retainedSize();
+      lockedStats->addInputVector(data->estimateFlatSize(), data->size());
     }
 
     // Since VectorStreamGroup::read() may cause inputStream to be at end,

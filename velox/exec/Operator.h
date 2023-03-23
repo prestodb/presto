@@ -154,6 +154,18 @@ struct OperatorStats {
         planNodeId(std::move(_planNodeId)),
         operatorType(std::move(_operatorType)) {}
 
+  void addInputVector(uint64_t bytes, uint64_t positions) {
+    inputBytes += bytes;
+    inputPositions += positions;
+    inputVectors += 1;
+  }
+
+  void addOutputVector(uint64_t bytes, uint64_t positions) {
+    outputBytes += bytes;
+    outputPositions += positions;
+    outputVectors += 1;
+  }
+
   void addRuntimeStat(const std::string& name, const RuntimeCounter& value);
   void add(const OperatorStats& other);
   void clear();

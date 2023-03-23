@@ -254,8 +254,7 @@ RowVectorPtr LocalExchange::getOutput() {
   }
   if (data != nullptr) {
     auto lockedStats = stats_.wlock();
-    lockedStats->inputPositions += data->size();
-    lockedStats->inputBytes += data->estimateFlatSize();
+    lockedStats->addInputVector(data->estimateFlatSize(), data->size());
   }
   return data;
 }
@@ -328,8 +327,7 @@ wrapChildren(const RowVectorPtr& input, vector_size_t size, BufferPtr indices) {
 void LocalPartition::addInput(RowVectorPtr input) {
   {
     auto lockedStats = stats_.wlock();
-    lockedStats->outputBytes += input->estimateFlatSize();
-    lockedStats->outputPositions += input->size();
+    lockedStats->addOutputVector(input->estimateFlatSize(), input->size());
   }
 
   // Lazy vectors must be loaded or processed.

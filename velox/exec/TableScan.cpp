@@ -166,8 +166,7 @@ RowVectorPtr TableScan::getOutput() {
       auto data = dataOptional.value();
       if (data) {
         if (data->size() > 0) {
-          lockedStats->inputPositions += data->size();
-          lockedStats->inputBytes += data->retainedSize();
+          lockedStats->addInputVector(data->estimateFlatSize(), data->size());
           return data;
         }
         continue;
