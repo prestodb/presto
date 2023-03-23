@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -107,8 +108,10 @@ import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
+import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toBoundType;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toWindowType;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
@@ -120,6 +123,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER
 import static com.facebook.presto.sql.tree.IntervalLiteral.IntervalField.DAY;
 import static com.facebook.presto.sql.tree.IntervalLiteral.IntervalField.YEAR;
 import static com.facebook.presto.sql.tree.IntervalLiteral.Sign.POSITIVE;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.GROUPS;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.ROWS;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -135,7 +139,7 @@ import static java.util.Objects.requireNonNull;
 class QueryPlanner
 {
     private final Analysis analysis;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap;
     private final Metadata metadata;
@@ -145,7 +149,7 @@ class QueryPlanner
 
     QueryPlanner(
             Analysis analysis,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,
@@ -377,13 +381,13 @@ class QueryPlanner
         Assignments.Builder projections = Assignments.builder();
         for (Expression expression : expressions) {
             if (expression instanceof SymbolReference) {
-                VariableReferenceExpression variable = variableAllocator.toVariableReference(expression);
+                VariableReferenceExpression variable = toVariableReference(variableAllocator, expression);
                 projections.put(variable, castToRowExpression(expression));
                 outputTranslations.put(expression, variable);
                 continue;
             }
 
-            VariableReferenceExpression variable = variableAllocator.newVariable(expression, analysis.getTypeWithCoercions(expression));
+            VariableReferenceExpression variable = newVariable(variableAllocator, expression, analysis.getTypeWithCoercions(expression));
             projections.put(variable, castToRowExpression(subPlan.rewrite(expression)));
             outputTranslations.put(expression, variable);
         }
@@ -399,7 +403,7 @@ class QueryPlanner
      *
      * @return the new subplan and a mapping of each expression to the symbol representing the coercion or an existing symbol if a coercion wasn't needed
      */
-    public static PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, Metadata metadata)
+    public static PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Metadata metadata)
     {
         Assignments.Builder assignments = Assignments.builder();
         assignments.putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), x -> castToRowExpression(asSymbolReference(x)))));
@@ -408,7 +412,7 @@ class QueryPlanner
             Type coercion = analysis.getCoercion(expression);
             if (coercion != null) {
                 Type type = analysis.getType(expression);
-                VariableReferenceExpression variable = variableAllocator.newVariable(expression, coercion);
+                VariableReferenceExpression variable = newVariable(variableAllocator, expression, coercion);
                 assignments.put(variable, castToRowExpression(new Cast(
                         subPlan.rewrite(expression),
                         coercion.getTypeSignature().toString(),
@@ -435,7 +439,7 @@ class QueryPlanner
         for (Expression expression : expressions) {
             Type type = analysis.getType(expression);
             Type coercion = analysis.getCoercion(expression);
-            VariableReferenceExpression variable = variableAllocator.newVariable(expression, firstNonNull(coercion, type));
+            VariableReferenceExpression variable = newVariable(variableAllocator, expression, firstNonNull(coercion, type));
             Expression rewritten = subPlan.rewrite(expression);
             if (coercion != null) {
                 rewritten = new Cast(
@@ -463,11 +467,11 @@ class QueryPlanner
                 // If this is an identity projection, no need to rewrite it
                 // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
                 // don't have a corresponding analysis, so the code below doesn't work for them
-                projections.put(variableAllocator.toVariableReference(expression), castToRowExpression(expression));
+                projections.put(toVariableReference(variableAllocator, expression), castToRowExpression(expression));
                 continue;
             }
 
-            VariableReferenceExpression variable = variableAllocator.newVariable(expression, analysis.getType(expression));
+            VariableReferenceExpression variable = newVariable(variableAllocator, expression, analysis.getType(expression));
             Expression rewritten = subPlan.rewrite(expression);
             projections.put(variable, castToRowExpression(rewritten));
             translations.put(expression, variable);
@@ -556,7 +560,7 @@ class QueryPlanner
 
         for (Expression expression : groupByExpressions) {
             VariableReferenceExpression input = subPlan.translate(expression);
-            VariableReferenceExpression output = variableAllocator.newVariable(expression, analysis.getTypeWithCoercions(expression), "gid");
+            VariableReferenceExpression output = newVariable(variableAllocator, expression, analysis.getTypeWithCoercions(expression), "gid");
             groupingTranslations.put(expression, output);
             groupingSetMappings.put(output, input);
         }
@@ -625,7 +629,7 @@ class QueryPlanner
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression rewritten = argumentTranslations.rewrite(aggregate);
-            VariableReferenceExpression newVariable = variableAllocator.newVariable(rewritten, analysis.getType(aggregate));
+            VariableReferenceExpression newVariable = newVariable(variableAllocator, rewritten, analysis.getType(aggregate));
 
             // TODO: this is a hack, because we apply coercions to the output of expressions, rather than the arguments to expressions.
             // Therefore we can end up with this implicit cast, and have to move it into a post-projection
@@ -645,7 +649,7 @@ class QueryPlanner
                                     analysis.getType(aggregate),
                                     rewrittenFunction.getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
                             rewrittenFunction.getFilter().map(OriginalExpressionUtils::castToRowExpression),
-                            rewrittenFunction.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, variableAllocator.getTypes())),
+                            rewrittenFunction.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, TypeProvider.viewOf(variableAllocator.getVariables()))),
                             rewrittenFunction.isDistinct(),
                             Optional.empty()));
         }
@@ -763,7 +767,7 @@ class QueryPlanner
         for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
             Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, descriptor, analysis.getColumnReferenceFields(), groupIdVariable);
             Type coercion = analysis.getCoercion(groupingOperation);
-            VariableReferenceExpression variable = variableAllocator.newVariable(rewritten, analysis.getTypeWithCoercions(groupingOperation));
+            VariableReferenceExpression variable = newVariable(variableAllocator, rewritten, analysis.getTypeWithCoercions(groupingOperation));
             if (coercion != null) {
                 rewritten = new Cast(
                         rewritten,
@@ -865,7 +869,7 @@ class QueryPlanner
                 frameEnd = plan.getFrameBoundSymbol();
                 sortKeyCoercedForFrameEndComparison = plan.getSortKeyCoercedForFrameBoundComparison();
             }
-            else if (window.getFrame().isPresent() && window.getFrame().get().getType() == ROWS) {
+            else if (window.getFrame().isPresent() && (window.getFrame().get().getType() == ROWS || window.getFrame().get().getType() == GROUPS)) {
                 frameStart = window.getFrame().get().getStart().getValue().map(coercions::get);
                 frameEnd = window.getFrame().get().getEnd().flatMap(FrameBound::getValue).map(coercions::get);
             }
@@ -921,7 +925,7 @@ class QueryPlanner
             }
 
             Type returnType = analysis.getType(windowFunction);
-            VariableReferenceExpression newVariable = variableAllocator.newVariable(rewritten, returnType);
+            VariableReferenceExpression newVariable = newVariable(variableAllocator, rewritten, returnType);
             outputTranslations.put(windowFunction, newVariable);
 
             // TODO: replace arguments with RowExpression once we introduce subquery expression for RowExpression (#12745).
@@ -982,7 +986,7 @@ class QueryPlanner
 
         // First, append filter to validate offset values. They mustn't be negative or null.
         VariableReferenceExpression offsetSymbol = coercions.get(frameOffset.get());
-        Expression zeroOffset = zeroOfType(variableAllocator.getTypes().get(offsetSymbol));
+        Expression zeroOffset = zeroOfType(TypeProvider.viewOf(variableAllocator.getVariables()).get(offsetSymbol));
         FunctionHandle fail = metadata.getFunctionAndTypeManager().resolveFunction(Optional.empty(), Optional.empty(), QualifiedObjectName.valueOf("presto.default.fail"), fromTypes(VARCHAR));
         Expression predicate = new IfExpression(
                 new ComparisonExpression(
@@ -1019,7 +1023,7 @@ class QueryPlanner
                         expectedType.getTypeSignature().toString(),
                         false,
                         metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
-                sortKeyCoercedForFrameBoundCalculation = variableAllocator.newVariable(cast, expectedType);
+                sortKeyCoercedForFrameBoundCalculation = newVariable(variableAllocator, cast, expectedType);
                 sortKeyCoercions.put(expectedType, sortKeyCoercedForFrameBoundCalculation);
                 subPlan = subPlan.withNewRoot(new ProjectNode(
                         idAllocator.getNextId(),
@@ -1041,7 +1045,7 @@ class QueryPlanner
                 ImmutableList.of(
                         new SymbolReference(sortKeyCoercedForFrameBoundCalculation.getName()),
                         new SymbolReference(offsetSymbol.getName())));
-        VariableReferenceExpression frameBoundVariable = variableAllocator.newVariable(functionCall, metadata.getFunctionAndTypeManager().getType(functionMetadata.getReturnType()));
+        VariableReferenceExpression frameBoundVariable = newVariable(variableAllocator, functionCall, metadata.getFunctionAndTypeManager().getType(functionMetadata.getReturnType()));
         subPlan = subPlan.withNewRoot(new ProjectNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
@@ -1065,7 +1069,7 @@ class QueryPlanner
                         expectedType.getTypeSignature().toString(),
                         false,
                         metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
-                VariableReferenceExpression castSymbol = variableAllocator.newVariable(cast, expectedType);
+                VariableReferenceExpression castSymbol = newVariable(variableAllocator, cast, expectedType);
                 sortKeyCoercions.put(expectedType, castSymbol);
                 subPlan = subPlan.withNewRoot(new ProjectNode(
                         idAllocator.getNextId(),

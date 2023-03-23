@@ -32,7 +32,6 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -90,7 +89,7 @@ class Util
     /**
      * @return If the node has outputs not in permittedOutputs, returns an identity projection containing only those node outputs also in permittedOutputs.
      */
-    public static Optional<PlanNode> restrictOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<VariableReferenceExpression> permittedOutputs, boolean useRowExpression)
+    public static Optional<PlanNode> restrictOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<VariableReferenceExpression> permittedOutputs)
     {
         List<VariableReferenceExpression> restrictedOutputs = node.getOutputVariables().stream()
                 .filter(permittedOutputs::contains)
@@ -105,7 +104,7 @@ class Util
                         node.getSourceLocation(),
                         idAllocator.getNextId(),
                         node,
-                        useRowExpression ? identityAssignments(restrictedOutputs) : identityAssignmentsAsSymbolReferences(restrictedOutputs),
+                        identityAssignments(restrictedOutputs),
                         LOCAL));
     }
 
@@ -129,7 +128,7 @@ class Util
 
         for (int i = 0; i < node.getSources().size(); ++i) {
             PlanNode oldChild = node.getSources().get(i);
-            Optional<PlanNode> newChild = restrictOutputs(idAllocator, oldChild, permittedChildOutputs.get(i), false);
+            Optional<PlanNode> newChild = restrictOutputs(idAllocator, oldChild, permittedChildOutputs.get(i));
             rewroteChildren |= newChild.isPresent();
             newChildrenBuilder.add(newChild.orElse(oldChild));
         }

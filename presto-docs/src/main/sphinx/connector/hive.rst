@@ -487,7 +487,16 @@ Enabling S3 Select Pushdown
 You can enable S3 Select Pushdown using the ``s3_select_pushdown_enabled``
 Hive session property or using the ``hive.s3select-pushdown.enabled``
 configuration property. The session property will override the config
-property, allowing you enable or disable on a per-query basis.
+property, allowing you enable or disable on a per-query basis. Non-filtering
+queries (``SELECT * FROM table``) are not pushed down to S3 Select,
+as they retrieve the entire object content.
+
+For uncompressed files, using supported formats and SerDes,
+S3 Select scans ranges of bytes in parallel.
+The scan range requests run across the byte ranges of the internal
+Hive splits for the query fragments pushed down to S3 Select.
+Parallelization is controlled by the existing ``hive.max-split-size``
+property.
 
 Understanding and Tuning the Maximum Connections
 ################################################

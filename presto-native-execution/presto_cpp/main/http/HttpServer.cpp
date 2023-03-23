@@ -11,10 +11,61 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/http/filters/AccessLogFilter.h"
 
 namespace facebook::presto::http {
+
+void sendOkResponse(proxygen::ResponseHandler* downstream) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "OK")
+      .sendWithEOM();
+}
+
+void sendOkResponse(proxygen::ResponseHandler* downstream, const json& body) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "OK")
+      .header(
+          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationJson)
+      .body(body.dump())
+      .sendWithEOM();
+}
+
+void sendOkResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "OK")
+      .header(
+          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationJson)
+      .body(body)
+      .sendWithEOM();
+}
+
+void sendOkThriftResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "OK")
+      .header(
+          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationThrift)
+      .body(body)
+      .sendWithEOM();
+}
+
+void sendErrorResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& error,
+    uint16_t status) {
+  static const size_t kMaxStatusSize = 1024;
+
+  proxygen::ResponseBuilder(downstream)
+      .status(status, error.substr(0, kMaxStatusSize))
+      .body(error)
+      .sendWithEOM();
+}
 
 HttpServer::HttpServer(
     const folly::SocketAddress& httpAddress,
@@ -115,9 +166,18 @@ void HttpServer::start(
   options.threads = httpExecThreads_;
   options.idleTimeout = std::chrono::milliseconds(60'000);
   options.enableContentCompression = false;
-  options.handlerFactories = proxygen::RequestHandlerChain()
-                                 .addThen(std::move(handlerFactory_))
-                                 .build();
+
+  if (SystemConfig::instance()->enableHttpAccessLog()) {
+    options.handlerFactories = proxygen::RequestHandlerChain()
+                                   .addThen<filters::AccessLogFilterFactory>()
+                                   .addThen(std::move(handlerFactory_))
+                                   .build();
+  } else {
+    options.handlerFactories = proxygen::RequestHandlerChain()
+                                   .addThen(std::move(handlerFactory_))
+                                   .build();
+  }
+
   // Increase the default flow control to 1MB/10MB
   options.initialReceiveWindow = uint32_t(1 << 20);
   options.receiveStreamWindowSize = uint32_t(1 << 20);

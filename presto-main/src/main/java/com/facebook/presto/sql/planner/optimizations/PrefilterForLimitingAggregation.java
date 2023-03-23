@@ -16,8 +16,10 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -31,7 +33,6 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -40,6 +41,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -55,7 +57,9 @@ import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
 import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
 import static com.facebook.presto.sql.planner.PlannerUtils.createMapType;
 import static com.facebook.presto.sql.planner.PlannerUtils.getHashExpression;
+import static com.facebook.presto.sql.planner.PlannerUtils.getTableScanNodeWithOnlyFilterAndProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.projectExpressions;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.isAllLowCardinalityGroupByKeys;
 import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.typeConvert;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
@@ -84,9 +88,11 @@ public class PrefilterForLimitingAggregation
         implements PlanOptimizer
 {
     private final Metadata metadata;
-    public PrefilterForLimitingAggregation(Metadata metadata)
+    private final StatsCalculator statsCalculator;
+    public PrefilterForLimitingAggregation(Metadata metadata, StatsCalculator statsCalculator)
     {
         this.metadata = metadata;
+        this.statsCalculator = statsCalculator;
     }
 
     @Override
@@ -94,12 +100,12 @@ public class PrefilterForLimitingAggregation
             PlanNode plan,
             Session session,
             TypeProvider types,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector)
     {
         if (SystemSessionProperties.isPrefilterForGroupbyLimit(session)) {
-            return SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata, types, idAllocator, variableAllocator), plan);
+            return SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata, types, statsCalculator, idAllocator, variableAllocator), plan);
         }
 
         return plan;
@@ -111,19 +117,22 @@ public class PrefilterForLimitingAggregation
         private final Session session;
         private final Metadata metadata;
         private final TypeProvider types;
+        private final StatsCalculator statsCalculator;
         private final PlanNodeIdAllocator idAllocator;
-        private final PlanVariableAllocator variableAllocator;
+        private final VariableAllocator variableAllocator;
 
         private Rewriter(
                 Session session,
                 Metadata metadata,
                 TypeProvider types,
+                StatsCalculator statsCalculator,
                 PlanNodeIdAllocator idAllocator,
-                PlanVariableAllocator variableAllocator)
+                VariableAllocator variableAllocator)
         {
             this.session = session;
             this.metadata = metadata;
             this.types = types;
+            this.statsCalculator = statsCalculator;
             this.idAllocator = idAllocator;
             this.variableAllocator = variableAllocator;
         }
@@ -137,8 +146,8 @@ public class PrefilterForLimitingAggregation
         @Override
         public PlanNode visitLimit(LimitNode limitNode, RewriteContext<Void> context)
         {
-            PlanNode source = limitNode.getSource();
-            AggregationNode aggregationNode;
+            PlanNode source = rewriteWith(this, limitNode.getSource());
+            AggregationNode aggregationNode = null;
 
             if (source instanceof ProjectNode && ((ProjectNode) source).getSource() instanceof AggregationNode) {
                 aggregationNode = (AggregationNode) ((ProjectNode) source).getSource();
@@ -146,25 +155,27 @@ public class PrefilterForLimitingAggregation
             else if (source instanceof AggregationNode) {
                 aggregationNode = (AggregationNode) source;
             }
-            else {
-                return limitNode;
+
+            if (aggregationNode != null &&
+                    !aggregationNode.getGroupingKeys().isEmpty()) {
+                Optional<TableScanNode> scanNode = getTableScanNodeWithOnlyFilterAndProject(aggregationNode.getSource());
+                // Since we duplicate the source of the aggregation - we want to restrict it to simple scan/filter/project
+                // so we can do this opportunistic optimization without too much latency/cpu overhead to support common BI usecases
+                if (scanNode.isPresent() &&
+                        !isAllLowCardinalityGroupByKeys(aggregationNode, scanNode.get(), session, statsCalculator, types, limitNode.getCount())) {
+                    PlanNode rewrittenAggregation = addPrefilter(aggregationNode, limitNode.getCount());
+                    if (rewrittenAggregation != aggregationNode) {
+                        if (source == aggregationNode) {
+                            return replaceChildren(limitNode, ImmutableList.of(rewrittenAggregation));
+                        }
+
+                        return replaceChildren(limitNode, ImmutableList.of(replaceChildren(source, ImmutableList.of(rewrittenAggregation))));
+                    }
+                }
             }
 
-            if (!aggregationNode.getGroupingKeys().isEmpty() && isScanFilterProject(aggregationNode.getSource())) {
-                PlanNode rewrittenAggregation = addPrefilter(aggregationNode, limitNode.getCount());
-                if (rewrittenAggregation == aggregationNode) {
-                    return limitNode;
-                }
-
-                PlanNode newLimitNode;
-                if (source == aggregationNode) {
-                    newLimitNode = replaceChildren(limitNode, ImmutableList.of(rewrittenAggregation));
-                }
-                else {
-                    newLimitNode = replaceChildren(limitNode, ImmutableList.of(replaceChildren(source, ImmutableList.of(rewrittenAggregation))));
-                }
-
-                return newLimitNode;
+            if (source == limitNode.getSource()) {
+                return replaceChildren(limitNode, ImmutableList.of(source));
             }
 
             return limitNode;
@@ -178,7 +189,8 @@ public class PrefilterForLimitingAggregation
             }
 
             PlanNode originalSource = aggregationNode.getSource();
-            PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, keys, ImmutableMap.of());
+            PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, keys, new HashMap<>());
+            // TODO(kaikalur): See if timetout can be done in a cleaner way in the middle tier
             DistinctLimitNode timedDistinctLimitNode = new DistinctLimitNode(
                     Optional.empty(),
                     idAllocator.getNextId(),
@@ -194,7 +206,7 @@ public class PrefilterForLimitingAggregation
             RowExpression rightHashExpression = getHashExpression(functionAndTypeManager, timedDistinctLimitNode.getOutputVariables()).get();
 
             Type mapType = createMapType(functionAndTypeManager, BIGINT, BOOLEAN);
-            PlanNode rightProjectNode = projectExpressions(timedDistinctLimitNode, idAllocator, variableAllocator, ImmutableList.of(rightHashExpression, constant(TRUE, BOOLEAN)));
+            PlanNode rightProjectNode = projectExpressions(timedDistinctLimitNode, idAllocator, variableAllocator, ImmutableList.of(rightHashExpression, constant(TRUE, BOOLEAN)), ImmutableList.of());
 
             VariableReferenceExpression mapAggVariable = variableAllocator.newVariable("expr", mapType);
             PlanNode crossJoinRhs = addAggregation(rightProjectNode, functionAndTypeManager, idAllocator, variableAllocator, "MAP_AGG", mapType, ImmutableList.of(), mapAggVariable, rightProjectNode.getOutputVariables().get(0), rightProjectNode.getOutputVariables().get(1));
@@ -247,21 +259,6 @@ public class PrefilterForLimitingAggregation
                     LOCAL);
 
             return replaceChildren(aggregationNode, ImmutableList.of(filteredSource));
-        }
-
-        private static boolean isScanFilterProject(PlanNode source)
-        {
-            if (source instanceof FilterNode) {
-                return isScanFilterProject(((FilterNode) source).getSource());
-            }
-            if (source instanceof ProjectNode) {
-                return isScanFilterProject(((ProjectNode) source).getSource());
-            }
-            if (source instanceof TableScanNode) {
-                return true;
-            }
-
-            return false;
         }
     }
 }

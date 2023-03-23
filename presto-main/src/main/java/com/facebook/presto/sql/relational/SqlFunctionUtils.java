@@ -17,6 +17,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -27,7 +28,7 @@ import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
@@ -65,7 +66,7 @@ public final class SqlFunctionUtils
             FunctionMetadata functionMetadata,
             SqlInvokedScalarFunctionImplementation implementation,
             FunctionAndTypeResolver functionAndTypeResolver,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             SqlFunctionProperties sqlFunctionProperties,
             List<Expression> arguments)
     {
@@ -86,7 +87,7 @@ public final class SqlFunctionUtils
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             List<RowExpression> arguments)
     {
-        PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
         Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, functionAndTypeResolver, variableAllocator);
         Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeResolver, variableAllocator, sqlFunctionProperties, argumentVariables);
 
@@ -115,7 +116,7 @@ public final class SqlFunctionUtils
             FunctionMetadata functionMetadata,
             SqlInvokedScalarFunctionImplementation implementation,
             FunctionAndTypeResolver functionAndTypeResolver,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             SqlFunctionProperties sqlFunctionProperties,
             Map<String, VariableReferenceExpression> argumentVariables)
     {
@@ -157,7 +158,7 @@ public final class SqlFunctionUtils
         return new SqlParser().createReturn(functionImplementation.getImplementation(), parsingOptions).getExpression();
     }
 
-    private static Map<String, VariableReferenceExpression> allocateFunctionArgumentVariables(FunctionMetadata functionMetadata, FunctionAndTypeResolver functionAndTypeResolver, PlanVariableAllocator variableAllocator)
+    private static Map<String, VariableReferenceExpression> allocateFunctionArgumentVariables(FunctionMetadata functionMetadata, FunctionAndTypeResolver functionAndTypeResolver, VariableAllocator variableAllocator)
     {
         List<String> argumentNames = functionMetadata.getArgumentNames().get();
         List<Type> argumentTypes = functionMetadata.getArgumentTypes().stream().map(functionAndTypeResolver::getType).collect(toImmutableList());
@@ -169,7 +170,7 @@ public final class SqlFunctionUtils
         return builder.build();
     }
 
-    private static Expression rewriteLambdaExpression(Expression sqlFunction, Map<String, VariableReferenceExpression> arguments, ExpressionAnalysis functionAnalysis, PlanVariableAllocator variableAllocator)
+    private static Expression rewriteLambdaExpression(Expression sqlFunction, Map<String, VariableReferenceExpression> arguments, ExpressionAnalysis functionAnalysis, VariableAllocator variableAllocator)
     {
         Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = functionAnalysis.getLambdaArgumentReferences();
         Map<NodeRef<Expression>, Type> expressionTypes = functionAnalysis.getExpressionTypes();
@@ -177,7 +178,7 @@ public final class SqlFunctionUtils
         Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> variables = expressionTypes.entrySet().stream()
                 .filter(entry -> entry.getKey().getNode() instanceof LambdaArgumentDeclaration)
                 .distinct()
-                .collect(toImmutableMap(entry -> NodeRef.of((LambdaArgumentDeclaration) entry.getKey().getNode()), entry -> variableAllocator.newVariable(((LambdaArgumentDeclaration) entry.getKey().getNode()).getName(), entry.getValue(), "lambda")));
+                .collect(toImmutableMap(entry -> NodeRef.of((LambdaArgumentDeclaration) entry.getKey().getNode()), entry -> PlannerUtils.newVariable(variableAllocator, ((LambdaArgumentDeclaration) entry.getKey().getNode()).getName(), entry.getValue(), "lambda")));
 
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Map<NodeRef<Identifier>, LambdaArgumentDeclaration>>()
         {

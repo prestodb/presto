@@ -73,7 +73,7 @@ public class JdbcPageSink
     public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
     {
         try {
-            connection = jdbcClient.getConnection(JdbcIdentity.from(session), handle);
+            connection = jdbcClient.getConnection(session, JdbcIdentity.from(session), handle);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -81,7 +81,7 @@ public class JdbcPageSink
 
         try {
             connection.setAutoCommit(false);
-            statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle));
+            statement = connection.prepareStatement(jdbcClient.buildInsertSql(session, handle));
         }
         catch (SQLException e) {
             closeWithSuppression(connection, e);

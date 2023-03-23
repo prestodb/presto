@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -67,6 +68,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLoca
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.subQueryNotSupportedError;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
+import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -84,7 +86,7 @@ import static java.util.Objects.requireNonNull;
 class SubqueryPlanner
 {
     private final Analysis analysis;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap;
     private final Metadata metadata;
@@ -92,7 +94,7 @@ class SubqueryPlanner
 
     SubqueryPlanner(
             Analysis analysis,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,
@@ -205,7 +207,7 @@ class SubqueryPlanner
 
         VariableReferenceExpression rewrittenValue = subPlan.translate(inPredicate.getValue());
         InPredicate inPredicateSubqueryExpression = new InPredicate(new SymbolReference(inPredicate.getLocation(), rewrittenValue.getName()), valueList);
-        VariableReferenceExpression inPredicateSubqueryVariable = variableAllocator.newVariable(inPredicateSubqueryExpression, BOOLEAN);
+        VariableReferenceExpression inPredicateSubqueryVariable = newVariable(variableAllocator, inPredicateSubqueryExpression, BOOLEAN);
 
         subPlan.getTranslations().put(inPredicate, inPredicateSubqueryVariable);
 
@@ -261,7 +263,7 @@ class SubqueryPlanner
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         subqueryNode,
-                        ImmutableList.copyOf(VariablesExtractor.extractUnique(correlation.values(), variableAllocator.getTypes())),
+                        ImmutableList.copyOf(VariablesExtractor.extractUnique(correlation.values(), TypeProvider.viewOf(variableAllocator.getVariables()))),
                         type,
                         subQueryNotSupportedError(query, "Given correlated subquery")));
     }
@@ -303,6 +305,7 @@ class SubqueryPlanner
 
         VariableReferenceExpression exists = variableAllocator.newVariable(getSourceLocation(existsPredicate), "exists", BOOLEAN);
         subPlan.getTranslations().put(existsPredicate, exists);
+        // TODO: Convert directly into a RowExpression once we remove OriginalExpression
         ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(BooleanLiteral.TRUE_LITERAL);
         return appendApplyNode(
                 subPlan,
@@ -400,7 +403,7 @@ class SubqueryPlanner
                 createSymbolReference(subPlan.translate(quantifiedComparison.getValue())),
                 createSymbolReference(subqueryPlan.translate(quantifiedSubquery)));
 
-        VariableReferenceExpression coercedQuantifiedComparisonVariable = variableAllocator.newVariable(coercedQuantifiedComparison, BOOLEAN);
+        VariableReferenceExpression coercedQuantifiedComparisonVariable = newVariable(variableAllocator, coercedQuantifiedComparison, BOOLEAN);
         subPlan.getTranslations().put(quantifiedComparison, coercedQuantifiedComparisonVariable);
 
         return appendApplyNode(
@@ -460,7 +463,7 @@ class SubqueryPlanner
                         root,
                         subqueryNode,
                         subqueryAssignments,
-                        ImmutableList.copyOf(VariablesExtractor.extractUnique(correlation.values(), variableAllocator.getTypes())),
+                        ImmutableList.copyOf(VariablesExtractor.extractUnique(correlation.values(), TypeProvider.viewOf(variableAllocator.getVariables()))),
                         subQueryNotSupportedError(subquery, "Given correlated subquery"),
                         mayParticipateInAntiJoin));
     }

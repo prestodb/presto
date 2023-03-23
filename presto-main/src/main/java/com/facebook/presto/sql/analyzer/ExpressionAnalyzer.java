@@ -182,6 +182,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
+import static com.facebook.presto.sql.tree.WindowFrame.Type.GROUPS;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.ROWS;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
@@ -988,6 +989,28 @@ public class ExpressionAnalyzer
                         if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
                             Expression endValue = frame.getEnd().get().getValue().get();
                             analyzeFrameRangeOffset(endValue, frame.getEnd().get().getType(), context, window);
+                        }
+                    }
+                    else if (frame.getType() == GROUPS) {
+                        if (frame.getStart().getValue().isPresent()) {
+                            if (!window.getOrderBy().isPresent()) {
+                                throw new SemanticException(MISSING_ORDER_BY, window, "Window frame of type GROUPS PRECEDING or FOLLOWING requires ORDER BY");
+                            }
+                            Expression startValue = frame.getStart().getValue().get();
+                            Type type = process(startValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw new SemanticException(TYPE_MISMATCH, node, "Window frame GROUPS start value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
+                        }
+                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
+                            if (!window.getOrderBy().isPresent()) {
+                                throw new SemanticException(MISSING_ORDER_BY, window, "Window frame of type GROUPS PRECEDING or FOLLOWING requires ORDER BY");
+                            }
+                            Expression endValue = frame.getEnd().get().getValue().get();
+                            Type type = process(endValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw new SemanticException(TYPE_MISMATCH, node, "Window frame GROUPS end value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
                         }
                     }
                     else {
@@ -1872,7 +1895,13 @@ public class ExpressionAnalyzer
         analysis.addFunctionHandles(resolvedFunctions);
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
-        analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), analyzer.getTableColumnAndSubfieldReferences(), analyzer.getTableColumnAndSubfieldReferencesForAccessControl());
+        analysis.addTableColumnAndSubfieldReferences(
+                accessControl,
+                session.getIdentity(),
+                session.getTransactionId(),
+                session.getAccessControlContext(),
+                analyzer.getTableColumnAndSubfieldReferences(),
+                analyzer.getTableColumnAndSubfieldReferencesForAccessControl());
 
         return new ExpressionAnalysis(
                 expressionTypes,

@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -58,24 +58,24 @@ public class StatisticAggregations
         return groupingVariables;
     }
 
-    public Parts splitIntoPartialAndFinal(PlanVariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
+    public Parts splitIntoPartialAndFinal(VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
     {
         return split(variableAllocator, functionAndTypeManager, false);
     }
 
-    public Parts splitIntoPartialAndIntermediate(PlanVariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
+    public Parts splitIntoPartialAndIntermediate(VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
     {
         return split(variableAllocator, functionAndTypeManager, true);
     }
 
-    private Parts split(PlanVariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager, boolean intermediate)
+    private Parts split(VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager, boolean intermediate)
     {
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> finalOrIntermediateAggregations = ImmutableMap.builder();
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> partialAggregations = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
-            JavaAggregationFunctionImplementation function = functionAndTypeManager.getJavaAggregateFunctionImplementation(functionHandle);
+            AggregationFunctionImplementation function = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
 
             // create partial aggregation
             VariableReferenceExpression partialVariable = variableAllocator.newVariable(entry.getValue().getCall().getSourceLocation(), functionAndTypeManager.getFunctionMetadata(functionHandle).getName().getObjectName(), function.getIntermediateType());

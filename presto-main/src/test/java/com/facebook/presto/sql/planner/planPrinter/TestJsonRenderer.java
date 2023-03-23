@@ -20,6 +20,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -30,7 +31,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.Serialization;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata;
@@ -55,7 +56,7 @@ public class TestJsonRenderer
     private static final PlanBuilder PLAN_BUILDER = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), dummyMetadata());
     private static final VariableReferenceExpression COLUMN_VARIABLE = new VariableReferenceExpression(Optional.empty(), "column", VARCHAR);
     private static final ColumnHandle COLUMN_HANDLE = new TestingMetadata.TestingColumnHandle("column");
-    private static final PlanVariableAllocator VARIABLE_ALLOCATOR = new PlanVariableAllocator();
+    private static final VariableAllocator VARIABLE_ALLOCATOR = new VariableAllocator();
     private static final JsonRenderer JSON_RENDERER = new JsonRenderer(FUNCTION_AND_TYPE_MANAGER);
     private static final TableHandle TABLE_HANDLE_WITH_LAYOUT = new TableHandle(
             new ConnectorId("testConnector"),
@@ -84,7 +85,7 @@ public class TestJsonRenderer
     {
         return new PlanRepresentation(
                 root,
-                VARIABLE_ALLOCATOR.getTypes(),
+                TypeProvider.viewOf(VARIABLE_ALLOCATOR.getVariables()),
                 Optional.empty(),
                 Optional.empty());
     }

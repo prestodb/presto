@@ -16,12 +16,13 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -65,7 +66,7 @@ public class InlineSqlFunctions
                         context.getSession(),
                         metadata,
                         sqlParser,
-                        context.getVariableAllocator().getTypes(),
+                        TypeProvider.viewOf(context.getVariableAllocator().getVariables()),
                         expression,
                         emptyMap(),
                         context.getWarningCollector()));
@@ -86,7 +87,7 @@ public class InlineSqlFunctions
     {
         private InlineSqlFunctionsRewriter() {}
 
-        public static Expression rewrite(Expression expression, Session session, Metadata metadata, PlanVariableAllocator variableAllocator, Map<NodeRef<Expression>, Type> expressionTypes)
+        public static Expression rewrite(Expression expression, Session session, Metadata metadata, VariableAllocator variableAllocator, Map<NodeRef<Expression>, Type> expressionTypes)
         {
             if (isInlineSqlFunctions(session)) {
                 return ExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata, variableAllocator, expressionTypes), expression);
@@ -99,10 +100,10 @@ public class InlineSqlFunctions
         {
             private final Session session;
             private final Metadata metadata;
-            private final PlanVariableAllocator variableAllocator;
+            private final VariableAllocator variableAllocator;
             private final Map<NodeRef<Expression>, Type> expressionTypes;
 
-            public Visitor(Session session, Metadata metadata, PlanVariableAllocator variableAllocator, Map<NodeRef<Expression>, Type> expressionTypes)
+            public Visitor(Session session, Metadata metadata, VariableAllocator variableAllocator, Map<NodeRef<Expression>, Type> expressionTypes)
             {
                 this.session = requireNonNull(session, "session is null");
                 this.metadata = requireNonNull(metadata, "metadata is null");

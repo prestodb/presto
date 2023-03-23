@@ -36,14 +36,15 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
@@ -130,7 +131,7 @@ public class LegacySqlQueryScheduler
     private final List<PlanOptimizer> runtimePlanOptimizers;
     private final WarningCollector warningCollector;
     private final PlanNodeIdAllocator idAllocator;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final SectionExecutionFactory sectionExecutionFactory;
     private final RemoteTaskFactory remoteTaskFactory;
     private final SplitSourceFactory splitSourceFactory;
@@ -163,7 +164,7 @@ public class LegacySqlQueryScheduler
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
             SqlParser sqlParser,
@@ -212,7 +213,7 @@ public class LegacySqlQueryScheduler
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
             SqlParser sqlParser,
@@ -578,7 +579,7 @@ public class LegacySqlQueryScheduler
                 .forEach(currentSubPlan -> {
                     Optional<PlanFragment> newPlanFragment = performRuntimeOptimizations(currentSubPlan);
                     if (newPlanFragment.isPresent()) {
-                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, variableAllocator.getTypes(), warningCollector);
+                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, TypeProvider.viewOf(variableAllocator.getVariables()), warningCollector);
                         oldToNewFragment.put(currentSubPlan.getFragment(), newPlanFragment.get());
                     }
                 });
@@ -607,7 +608,7 @@ public class LegacySqlQueryScheduler
         PlanFragment fragment = subPlan.getFragment();
         PlanNode newRoot = fragment.getRoot();
         for (PlanOptimizer optimizer : runtimePlanOptimizers) {
-            newRoot = optimizer.optimize(newRoot, session, variableAllocator.getTypes(), variableAllocator, idAllocator, warningCollector);
+            newRoot = optimizer.optimize(newRoot, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
         }
         if (newRoot != fragment.getRoot()) {
             StatsAndCosts estimatedStatsAndCosts = fragment.getStatsAndCosts();

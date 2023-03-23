@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
@@ -115,6 +116,11 @@ public class TestOptimizeMixedDistinctAggregations
     private void assertUnitPlan(String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
+                new IterativeOptimizer(
+                        new RuleStatsRecorder(),
+                        getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getEstimatedExchangesCostCalculator(),
+                        new TranslateExpressions(getMetadata(), new SqlParser()).rules()),
                 new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),

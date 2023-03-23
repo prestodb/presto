@@ -62,6 +62,8 @@ import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
+import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -6241,6 +6243,11 @@ public abstract class AbstractTestQueries
 
         String multipleJoin = "SELECT o.orderkey, l.partkey, p.name FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey LEFT JOIN part p ON l.partkey=p.partkey";
         assertQuery(enableRandomize, multipleJoin, getSession(), multipleJoin);
+
+        Session enableKeyFromOuterJoin = Session.builder(getSession())
+                .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY, "key_from_outer_join")
+                .build();
+        assertQuery(enableKeyFromOuterJoin, multipleJoin, getSession(), multipleJoin);
     }
 
     @Test
@@ -6394,5 +6401,69 @@ public abstract class AbstractTestQueries
         assertQuery(prefilter, "select count(1) from (select count(custkey), orderkey from orders group by orderkey limit 100000)", "values 15000");
         assertQuery(prefilter, "select count(1) from (select count(custkey), orderkey from orders group by orderkey limit 4)", "select 4");
         assertQuery(prefilter, "select count(1) from (select count(comment), orderstatus from (select upper(comment) comment, upper(orderstatus) orderstatus from orders) group by orderstatus limit 100000)", "values 3");
+    }
+
+    @Test
+    public void testPrefilterGroupByLimitNotFiredForLowCardinalityKeys()
+    {
+        Session prefilter = Session.builder(getSession())
+                .setSystemProperty("prefilter_for_groupby_limit", "true")
+                .build();
+
+        MaterializedResult plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderstatus from orders group by orderstatus limit 1000");
+        assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") == -1);
+        plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderkey from orders group by orderkey limit 100000");
+        assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") == -1);
+    }
+
+    @Test
+    public void testNestedExpressions()
+    {
+        assertQuery(
+                "SELECT (true and coalesce(X, true) IN (true, false)) IN (true, false) FROM (VALUES true) T(X)",
+                "SELECT true");
+    }
+
+    @DataProvider(name = "use_default_literal_coalesce")
+    public static Object[][] useDefaultLiteralCoalesce()
+    {
+        return new Object[][] {
+                {true},
+                {false}
+        };
+    }
+
+    @Test(dataProvider = "use_default_literal_coalesce")
+    public void testCoalesceWithDefaultsForPushingAggregationThroughOuterJoins(boolean useDefaultLiteralCoalesce)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS, Boolean.toString(useDefaultLiteralCoalesce))
+                .build();
+
+        // Queries that will use the default literal optimization
+        assertQuery(session,
+                "select count(*) from nation n where (select count(*) from customer c where n.nationkey=c.nationkey)>0",
+                "select 25");
+
+        assertQuery(session,
+                "select count(*) from nation n where (select count(name) from customer c where n.nationkey=c.nationkey)>0",
+                "select 25");
+
+        assertQuery(session,
+                "select count(*) from nation n where (select max(custkey) from customer c where n.nationkey=c.nationkey)>0",
+                "select 25");
+
+        assertQuery(session, "select count(*) from nation n where (select sum(custkey) from customer c where n.nationkey=c.nationkey)>0",
+                "select 25");
+
+        // Queries that will perform a cross join to compute the aggregation over nulls
+        // approx_distinct and max_by return true for isCalledOnNullInput
+        assertQuery(session,
+                "select count(*) from nation n where (select approx_distinct(custkey) from customer c where n.nationkey=c.nationkey)>0",
+                "select 25");
+
+        assertQuery(session,
+                "select count(*) from nation n where (select max_by(custkey, c.name) from customer c where n.nationkey=c.nationkey)>2000",
+                "select 0");
     }
 }

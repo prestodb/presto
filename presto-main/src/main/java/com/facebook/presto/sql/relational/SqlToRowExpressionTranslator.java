@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.CharType;
@@ -29,7 +30,9 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.ExistsExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.QuantifiedComparisonExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -54,6 +57,7 @@ import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.EnumLiteral;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -133,6 +137,8 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.relational.Expressions.field;
+import static com.facebook.presto.sql.relational.Expressions.inSubquery;
+import static com.facebook.presto.sql.relational.Expressions.quantifiedComparison;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
@@ -675,10 +681,33 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
+        protected RowExpression visitExists(ExistsPredicate existsPredicate, Void context)
+        {
+            RowExpression subquery = process(existsPredicate.getSubquery(), context);
+            return new ExistsExpression(subquery.getSourceLocation(), subquery);
+        }
+
+        @Override
+        protected RowExpression visitQuantifiedComparisonExpression(com.facebook.presto.sql.tree.QuantifiedComparisonExpression expression, Void context)
+        {
+            return quantifiedComparison(
+                    OperatorType.valueOf(expression.getOperator().name()),
+                    QuantifiedComparisonExpression.Quantifier.valueOf(expression.getQuantifier().name()),
+                    process(expression.getValue(), context),
+                    process(expression.getSubquery(), context));
+        }
+
+        @Override
         protected RowExpression visitInPredicate(InPredicate node, Void context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
             RowExpression value = process(node.getValue(), context);
+            if (!(node.getValueList() instanceof InListExpression)) {
+                RowExpression subquery = process(node.getValueList(), context);
+                checkArgument(value instanceof VariableReferenceExpression, "Unexpected expression: %s", value);
+                checkArgument(subquery instanceof VariableReferenceExpression, "Unexpected expression: %s", subquery);
+                return inSubquery((VariableReferenceExpression) value, (VariableReferenceExpression) subquery);
+            }
             InListExpression values = (InListExpression) node.getValueList();
 
             if (values.getValues().size() == 1) {

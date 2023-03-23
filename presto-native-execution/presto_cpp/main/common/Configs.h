@@ -89,6 +89,7 @@ class SystemConfig : public ConfigBase {
       "task.concurrent-lifespans-per-task"};
   static constexpr std::string_view kHttpExecThreads{"http_exec_threads"};
   static constexpr std::string_view kNumIoThreads{"num-io-threads"};
+  static constexpr std::string_view kNumQueryThreads{"num-query-threads"};
   static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
   static constexpr std::string_view kSpillerSpillPath =
       "experimental.spiller-spill-path";
@@ -109,6 +110,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kLocalShuffleMaxPartitionBytes{
       "shuffle.local.max-partition-bytes"};
   static constexpr std::string_view kShuffleName{"shuffle.name"};
+  static constexpr std::string_view kHttpEnableAccessLog{
+      "http-server.enable-access-log"};
   // Most server nodes today (May 2022) have at least 16 cores.
   // Setting the default maximum drivers per task to this value will
   // provide a better off-shelf experience.
@@ -130,6 +133,7 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kEnableVeloxExprSetLoggingDefault = false;
   static constexpr bool kUseMmapArenaDefault = false;
   static constexpr bool kUseMmapAllocatorDefault{true};
+  static constexpr bool kHttpEnableAccessLogDefault = false;
 
   static SystemConfig* instance();
 
@@ -147,7 +151,10 @@ class SystemConfig : public ConfigBase {
 
   int32_t httpExecThreads() const;
 
+  // Process-wide number of query execution threads
   int32_t numIoThreads() const;
+
+  int32_t numQueryThreads() const;
 
   int32_t numSpillThreads() const;
 
@@ -176,6 +183,8 @@ class SystemConfig : public ConfigBase {
   int32_t mmapArenaCapacityRatio() const;
 
   bool useMmapAllocator() const;
+
+  bool enableHttpAccessLog() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

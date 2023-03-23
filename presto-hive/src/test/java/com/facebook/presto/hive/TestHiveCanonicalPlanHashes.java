@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
+import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -168,7 +169,7 @@ public class TestHiveCanonicalPlanHashes
         PlanNode plan = plan(sql, session).getRoot();
         ObjectMapper objectMapper = createObjectMapper();
         assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
-        return objectMapper.writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy, objectMapper).get());
+        return objectMapper.writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy, objectMapper, session).get());
     }
 
     private List<PlanNode> getStatsEquivalentPlanHashes(String sql)
@@ -188,6 +189,7 @@ public class TestHiveCanonicalPlanHashes
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, "true")
+                .setSystemProperty(USE_PERFECTLY_CONSISTENT_HISTORIES, "true")
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
     }

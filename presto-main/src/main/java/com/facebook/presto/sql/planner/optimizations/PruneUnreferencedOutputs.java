@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -36,7 +37,6 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -110,7 +110,7 @@ public class PruneUnreferencedOutputs
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -124,9 +124,9 @@ public class PruneUnreferencedOutputs
     private static class Rewriter
             extends SimplePlanRewriter<Set<VariableReferenceExpression>>
     {
-        private final PlanVariableAllocator variableAllocator;
+        private final VariableAllocator variableAllocator;
 
-        public Rewriter(PlanVariableAllocator variableAllocator)
+        public Rewriter(VariableAllocator variableAllocator)
         {
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         }
@@ -199,7 +199,7 @@ public class PruneUnreferencedOutputs
             if (node.getFilter().isPresent()) {
                 if (isExpression(node.getFilter().get())) {
                     expectedFilterInputs = ImmutableSet.<VariableReferenceExpression>builder()
-                            .addAll(VariablesExtractor.extractUnique(castToExpression(node.getFilter().get()), variableAllocator.getTypes()))
+                            .addAll(VariablesExtractor.extractUnique(castToExpression(node.getFilter().get()), TypeProvider.viewOf(variableAllocator.getVariables())))
                             .addAll(context.get())
                             .build();
                 }
@@ -300,7 +300,7 @@ public class PruneUnreferencedOutputs
         {
             Set<VariableReferenceExpression> filterSymbols;
             if (isExpression(node.getFilter())) {
-                filterSymbols = VariablesExtractor.extractUnique(castToExpression(node.getFilter()), variableAllocator.getTypes());
+                filterSymbols = VariablesExtractor.extractUnique(castToExpression(node.getFilter()), TypeProvider.viewOf(variableAllocator.getVariables()));
             }
             else {
                 filterSymbols = VariablesExtractor.extractUnique(node.getFilter());
@@ -384,7 +384,7 @@ public class PruneUnreferencedOutputs
 
                 if (context.get().contains(variable)) {
                     Aggregation aggregation = entry.getValue();
-                    expectedInputs.addAll(extractAggregationUniqueVariables(aggregation, variableAllocator.getTypes()));
+                    expectedInputs.addAll(extractAggregationUniqueVariables(aggregation, TypeProvider.viewOf(variableAllocator.getVariables())));
                     aggregation.getMask().ifPresent(expectedInputs::add);
                     aggregations.put(variable, aggregation);
                 }
@@ -439,7 +439,7 @@ public class PruneUnreferencedOutputs
                 VariableReferenceExpression variable = entry.getKey();
                 WindowNode.Function function = entry.getValue();
                 if (context.get().contains(variable)) {
-                    expectedInputs.addAll(WindowNodeUtil.extractWindowFunctionUniqueVariables(function, variableAllocator.getTypes()));
+                    expectedInputs.addAll(WindowNodeUtil.extractWindowFunctionUniqueVariables(function, TypeProvider.viewOf(variableAllocator.getVariables())));
                     functionsBuilder.put(variable, entry.getValue());
                 }
             }
@@ -489,7 +489,7 @@ public class PruneUnreferencedOutputs
             Set<VariableReferenceExpression> expectedInputs;
             if (isExpression(node.getPredicate())) {
                 expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
-                        .addAll(VariablesExtractor.extractUnique(castToExpression(node.getPredicate()), variableAllocator.getTypes()))
+                        .addAll(VariablesExtractor.extractUnique(castToExpression(node.getPredicate()), TypeProvider.viewOf(variableAllocator.getVariables())))
                         .addAll(context.get())
                         .build();
             }
@@ -585,7 +585,7 @@ public class PruneUnreferencedOutputs
             node.getAssignments().forEach((variable, expression) -> {
                 if (context.get().contains(variable)) {
                     if (isExpression(expression)) {
-                        expectedInputs.addAll(VariablesExtractor.extractUnique(castToExpression(expression), variableAllocator.getTypes()));
+                        expectedInputs.addAll(VariablesExtractor.extractUnique(castToExpression(expression), TypeProvider.viewOf(variableAllocator.getVariables())));
                     }
                     else {
                         expectedInputs.addAll(VariablesExtractor.extractUnique(expression));
@@ -712,7 +712,7 @@ public class PruneUnreferencedOutputs
                 expectedInputs.addAll(aggregations.getGroupingVariables());
                 aggregations.getAggregations()
                         .values()
-                        .forEach(aggregation -> expectedInputs.addAll(extractAggregationUniqueVariables(aggregation, variableAllocator.getTypes())));
+                        .forEach(aggregation -> expectedInputs.addAll(extractAggregationUniqueVariables(aggregation, TypeProvider.viewOf(variableAllocator.getVariables()))));
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new TableWriterNode(
@@ -875,7 +875,7 @@ public class PruneUnreferencedOutputs
                 RowExpression expression = entry.getValue();
                 if (context.get().contains(output)) {
                     if (isExpression(expression)) {
-                        subqueryAssignmentsVariablesBuilder.addAll(VariablesExtractor.extractUnique(castToExpression(expression), variableAllocator.getTypes()));
+                        subqueryAssignmentsVariablesBuilder.addAll(VariablesExtractor.extractUnique(castToExpression(expression), TypeProvider.viewOf(variableAllocator.getVariables())));
                     }
                     else {
                         subqueryAssignmentsVariablesBuilder.addAll(VariablesExtractor.extractUnique(expression));
@@ -888,7 +888,7 @@ public class PruneUnreferencedOutputs
             PlanNode subquery = context.rewrite(node.getSubquery(), subqueryAssignmentsVariables);
 
             // prune not used correlation symbols
-            Set<VariableReferenceExpression> subquerySymbols = VariablesExtractor.extractUnique(subquery, variableAllocator.getTypes());
+            Set<VariableReferenceExpression> subquerySymbols = VariablesExtractor.extractUnique(subquery, TypeProvider.viewOf(variableAllocator.getVariables()));
             List<VariableReferenceExpression> newCorrelation = node.getCorrelation().stream()
                     .filter(subquerySymbols::contains)
                     .collect(toImmutableList());
@@ -924,7 +924,7 @@ public class PruneUnreferencedOutputs
             }
 
             // prune not used correlation symbols
-            Set<VariableReferenceExpression> subqueryVariables = VariablesExtractor.extractUnique(subquery, variableAllocator.getTypes());
+            Set<VariableReferenceExpression> subqueryVariables = VariablesExtractor.extractUnique(subquery, TypeProvider.viewOf(variableAllocator.getVariables()));
             List<VariableReferenceExpression> newCorrelation = node.getCorrelation().stream()
                     .filter(subqueryVariables::contains)
                     .collect(toImmutableList());

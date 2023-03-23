@@ -159,6 +159,7 @@ public class NativeExecutionTask
     {
         taskInfoFetcher.stop();
         taskResultFetcher.stop();
+        workerClient.abortResults();
     }
 
     private CompletableFuture<Void> sendUpdateRequest()

@@ -14,15 +14,25 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlInfo;
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.AnalyzerContext;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.QueryAnalyzer;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.parser.ParsingOptions;
+
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.SystemSessionProperties.isLogFormattedQueryEnabled;
@@ -31,6 +41,7 @@ import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer.getBuiltInAnalyzerContext;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static com.google.common.base.Preconditions.checkState;
 
 public class AnalyzerUtil
 {
@@ -69,13 +80,69 @@ public class AnalyzerUtil
                 .build();
     }
 
-    public static AnalyzerContext getAnalyzerContext(QueryAnalyzer queryAnalyzer, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Session session)
+    public static AnalyzerContext getAnalyzerContext(
+            QueryAnalyzer queryAnalyzer,
+            MetadataResolver metadataResolver,
+            PlanNodeIdAllocator idAllocator,
+            VariableAllocator variableAllocator,
+            Session session)
     {
         // TODO: Remove this hack once inbuilt query analyzer is moved to presto-analyzer
         if (queryAnalyzer instanceof BuiltInQueryAnalyzer) {
-            return getBuiltInAnalyzerContext(idAllocator, variableAllocator, session);
+            return getBuiltInAnalyzerContext(metadataResolver, idAllocator, variableAllocator, session);
         }
 
-        return new AnalyzerContext(idAllocator, variableAllocator);
+        return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator);
+    }
+
+    public static void checkAccessPermissions(AccessControlReferences accessControlReferences)
+    {
+        // Table checks
+        checkAccessPermissionsForTable(accessControlReferences);
+        // Table Column checks
+        checkAccessPermissionsForColumns(accessControlReferences);
+    }
+
+    private static void checkAccessPermissionsForColumns(AccessControlReferences accessControlReferences)
+    {
+        accessControlReferences.getTableColumnAndSubfieldReferencesForAccessControl()
+                .forEach((accessControlInfo, tableColumnReferences) ->
+                        tableColumnReferences.forEach((tableName, columns) -> {
+                            Optional<TransactionId> transactionId = accessControlInfo.getTransactionId();
+                            checkState(transactionId.isPresent(), "transactionId is not present");
+                            accessControlInfo.getAccessControl().checkCanSelectFromColumns(
+                                    transactionId.get(),
+                                    accessControlInfo.getIdentity(),
+                                    accessControlInfo.getAccessControlContext(),
+                                    tableName,
+                                    columns);
+                        }));
+    }
+
+    private static void checkAccessPermissionsForTable(AccessControlReferences accessControlReferences)
+    {
+        accessControlReferences.getTableReferences().forEach((accessControlRole, accessControlInfoForTables) -> accessControlInfoForTables.forEach(accessControlInfoForTable -> {
+            AccessControlInfo accessControlInfo = accessControlInfoForTable.getAccessControlInfo();
+            AccessControl accessControl = accessControlInfo.getAccessControl();
+            QualifiedObjectName tableName = accessControlInfoForTable.getTableName();
+            Identity identity = accessControlInfo.getIdentity();
+            Optional<TransactionId> transactionId = accessControlInfo.getTransactionId();
+            checkState(transactionId.isPresent(), "transactionId is not present");
+            AccessControlContext accessControlContext = accessControlInfo.getAccessControlContext();
+
+            switch (accessControlRole) {
+                case TABLE_CREATE:
+                    accessControl.checkCanCreateTable(transactionId.get(), identity, accessControlContext, tableName);
+                    break;
+                case TABLE_INSERT:
+                    accessControl.checkCanInsertIntoTable(transactionId.get(), identity, accessControlContext, tableName);
+                    break;
+                case TABLE_DELETE:
+                    accessControl.checkCanDeleteFromTable(transactionId.get(), identity, accessControlContext, tableName);
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unsupported access control role found: " + accessControlRole);
+            }
+        }));
     }
 }

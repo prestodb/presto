@@ -144,8 +144,8 @@ include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
 
 find_package(Protobuf REQUIRED)
 
-find_path(OPT_OPENSSL_DIR NAMES opt/openssl)
-set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/opt/openssl")
+find_path(OPT_OPENSSL_DIR NAMES opt/openssl@1.1)
+set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/opt/openssl@1.1")
 find_package(OpenSSL REQUIRED)
 
 find_library(LIBSODIUM_LIBRARY NAMES sodium)
@@ -171,11 +171,14 @@ include_directories(velox/velox/external/xxhash)
 include_directories(${VELOX_ROOT})
 include_directories(${CMAKE_BINARY_DIR})
 
+# set this for backwards compatibility, will be overwritten in velox/
+set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
+
 add_subdirectory(velox)
 
 if(PRESTO_ENABLE_TESTING)
   include(CTest) # include after project() but before add_subdirectory()
-  include_directories(velox/third_party/googletest/googletest/include)
+  include_directories(${VELOX_GTEST_INCUDE_DIR})
 else()
   add_definitions(-DVELOX_DISABLE_GOOGLETEST)
 endif()

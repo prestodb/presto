@@ -22,12 +22,13 @@ import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult;
@@ -124,13 +125,13 @@ public class TestJoinEnumerator
     private Rule.Context createContext()
     {
         PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
-        PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
         CachingStatsProvider statsProvider = new CachingStatsProvider(
                 queryRunner.getStatsCalculator(),
                 Optional.empty(),
                 noLookup(),
                 queryRunner.getDefaultSession(),
-                variableAllocator.getTypes());
+                TypeProvider.viewOf(variableAllocator.getVariables()));
         CachingCostProvider costProvider = new CachingCostProvider(
                 queryRunner.getCostCalculator(),
                 statsProvider,
@@ -152,7 +153,7 @@ public class TestJoinEnumerator
             }
 
             @Override
-            public PlanVariableAllocator getVariableAllocator()
+            public VariableAllocator getVariableAllocator()
             {
                 return variableAllocator;
             }

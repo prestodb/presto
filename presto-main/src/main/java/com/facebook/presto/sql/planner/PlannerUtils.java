@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
@@ -37,8 +38,14 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -53,7 +60,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -65,6 +74,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.forEachPair;
+import static java.util.Arrays.asList;
 
 public class PlannerUtils
 {
@@ -152,11 +162,14 @@ public class PlannerUtils
         return Optional.of(result);
     }
 
-    public static PlanNode projectExpressions(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, List<? extends RowExpression> expressions)
+    public static PlanNode projectExpressions(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator, List<? extends RowExpression> expressions, List<VariableReferenceExpression> variableMap)
     {
         Assignments.Builder assignments = Assignments.builder();
+        checkArgument(variableMap.isEmpty() || variableMap.size() == expressions.size());
+        int i = 0;
         for (RowExpression expression : expressions) {
-            assignments.put(variableAllocator.newVariable("expr", expression.getType()), expression);
+            VariableReferenceExpression variable = variableMap.isEmpty() ? variableAllocator.newVariable(expression) : variableMap.get(i++);
+            assignments.put(variable, expression);
         }
 
         return new ProjectNode(
@@ -212,44 +225,67 @@ public class PlannerUtils
                     Optional.empty()),
                 planNodeIdAllocator,
                 variableAllocator,
-                ImmutableList.of(resultVariable));
+                ImmutableList.of(resultVariable),
+                ImmutableList.of());
     }
 
     private static PlanNode cloneFilterNode(FilterNode filterNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> variablesToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)
     {
         PlanNode newSource = clonePlanNode(filterNode.getSource(), session, metadata, planNodeIdAllocator, variablesToKeep, varMap);
-
         return new FilterNode(
                 filterNode.getSourceLocation(),
                 idAllocator.getNextId(),
                 newSource,
-                filterNode.getPredicate());
+                RowExpressionVariableInliner.inlineVariables(varMap, filterNode.getPredicate()));
     }
 
     private static PlanNode cloneProjectNode(ProjectNode projectNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)
     {
         PlanNode newSource = clonePlanNode(projectNode.getSource(), session, metadata, planNodeIdAllocator, fieldsToKeep, varMap);
 
+        Assignments.Builder newAssignments = Assignments.builder();
+
+        for (Map.Entry<VariableReferenceExpression, RowExpression> entry : projectNode.getAssignments().entrySet()) {
+            VariableReferenceExpression var = entry.getKey();
+            if (!varMap.containsKey(var)) {
+                varMap.put(var, var);
+            }
+            newAssignments.put(varMap.getOrDefault(var, var), RowExpressionVariableInliner.inlineVariables(varMap, entry.getValue()));
+        }
+
         return new ProjectNode(
                 idAllocator.getNextId(),
                 newSource,
-                projectNode.getAssignments());
+                newAssignments.build());
     }
 
     private static TableScanNode cloneTableScan(TableScanNode scanNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
     {
         Map<VariableReferenceExpression, ColumnHandle> assignments = scanNode.getAssignments();
-
         TableLayout scanLayout = metadata.getLayout(session, scanNode.getTable());
+
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
+
+        ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignmentsBuilder = ImmutableMap.builder();
+
+        for (VariableReferenceExpression var : scanNode.getOutputVariables()) {
+            VariableReferenceExpression newVar = varMap.getOrDefault(var, var);
+            outputVariablesBuilder.add(newVar);
+            assignmentsBuilder.put(newVar, assignments.get(var));
+            varMap.putIfAbsent(var, newVar);
+        }
+
+        List<VariableReferenceExpression> newOutputVariables = outputVariablesBuilder.build();
+        ImmutableMap<VariableReferenceExpression, ColumnHandle> newAssignments = assignmentsBuilder.build();
 
         return new TableScanNode(
                 scanNode.getSourceLocation(),
                 planNodeIdAllocator.getNextId(),
                 scanLayout.getNewTableHandle(),
-                scanNode.getOutputVariables(),
-                scanNode.getAssignments(),
+                newOutputVariables,
+                newAssignments,
                 scanNode.getTableConstraints(),
-                scanNode.getCurrentConstraint(),
+                scanLayout.getPredicate(),
                 scanNode.getEnforcedConstraint());
     }
 
@@ -273,5 +309,95 @@ public class PlannerUtils
     public static String getPlanString(PlanNode planNode, Session session, TypeProvider types, Metadata metadata)
     {
         return PlanPrinter.textLogicalPlan(planNode, types, StatsAndCosts.empty(), metadata.getFunctionAndTypeManager(), session, 0);
+    }
+
+    private static String getNameHint(Expression expression)
+    {
+        String nameHint = "expr";
+        if (expression instanceof Identifier) {
+            nameHint = ((Identifier) expression).getValue();
+        }
+        else if (expression instanceof FunctionCall) {
+            nameHint = ((FunctionCall) expression).getName().getSuffix();
+        }
+        else if (expression instanceof SymbolReference) {
+            nameHint = ((SymbolReference) expression).getName();
+        }
+        else if (expression instanceof GroupingOperation) {
+            nameHint = "grouping";
+        }
+        return nameHint;
+    }
+
+    public static VariableReferenceExpression newVariable(VariableAllocator variableAllocator, Expression expression, Type type, String suffix)
+    {
+        return variableAllocator.newVariable(getSourceLocation(expression), getNameHint(expression), type, suffix);
+    }
+
+    public static VariableReferenceExpression newVariable(VariableAllocator variableAllocator, Expression expression, Type type)
+    {
+        return variableAllocator.newVariable(getSourceLocation(expression), getNameHint(expression), type, null);
+    }
+
+    public static VariableReferenceExpression newVariable(VariableAllocator variableAllocator, Field field)
+    {
+        return variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), field.getName().orElse("field"), field.getType(), null);
+    }
+
+    public static VariableReferenceExpression newVariable(VariableAllocator variableAllocator, Optional<SourceLocation> sourceLocation, Field field)
+    {
+        return variableAllocator.newVariable(sourceLocation, field.getName().orElse("field"), field.getType(), null);
+    }
+
+    public static VariableReferenceExpression toVariableReference(VariableAllocator variableAllocator, Expression expression)
+    {
+        checkArgument(expression instanceof SymbolReference, "Unexpected expression: " + expression);
+        String name = ((SymbolReference) expression).getName();
+        return variableAllocator.getVariableReferenceExpression(getSourceLocation(expression), name);
+    }
+
+    public static Optional<TableScanNode> getTableScanNodeWithOnlyFilterAndProject(PlanNode source)
+    {
+        if (source instanceof FilterNode) {
+            return getTableScanNodeWithOnlyFilterAndProject(((FilterNode) source).getSource());
+        }
+        if (source instanceof ProjectNode) {
+            return getTableScanNodeWithOnlyFilterAndProject(((ProjectNode) source).getSource());
+        }
+        if (source instanceof TableScanNode) {
+            return Optional.of((TableScanNode) source);
+        }
+
+        return Optional.empty();
+    }
+
+    public static boolean isFilterAboveTableScan(PlanNode node)
+    {
+        return node instanceof FilterNode && ((FilterNode) node).getSource() instanceof TableScanNode;
+    }
+
+    public static boolean isProjectAboveTableScan(PlanNode node)
+    {
+        return node instanceof ProjectNode && ((ProjectNode) node).getSource() instanceof TableScanNode;
+    }
+
+    public static boolean isScanFilterProject(PlanNode node)
+    {
+        return node instanceof TableScanNode ||
+            node instanceof ProjectNode && isScanFilterProject(((ProjectNode) node).getSource()) ||
+                node instanceof FilterNode && isScanFilterProject(((FilterNode) node).getSource());
+    }
+
+    public static CallExpression equalityPredicate(FunctionResolution functionResolution, RowExpression leftExpr, RowExpression rightExpr)
+    {
+        return new CallExpression(EQUAL.name(),
+                functionResolution.comparisonFunction(ComparisonExpression.Operator.EQUAL, BOOLEAN, BOOLEAN),
+                BOOLEAN,
+                asList(leftExpr, rightExpr));
+    }
+
+    public static RowExpression coalesce(List<RowExpression> expressions)
+    {
+        return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, expressions.get(0).getType(), expressions);
     }
 }

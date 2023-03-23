@@ -14,6 +14,7 @@
 
 package com.facebook.presto.hudi;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
@@ -21,8 +22,9 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.hudi.split.HudiSplitWeightProvider;
-import com.facebook.presto.hudi.split.SizeBasedSplitWeightProvider;
+import com.facebook.presto.hudi.split.ForHudiBackgroundSplitLoader;
+import com.facebook.presto.hudi.split.ForHudiSplitAsyncQueue;
+import com.facebook.presto.hudi.split.ForHudiSplitSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -30,40 +32,34 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
-import org.apache.hudi.common.fs.FSUtils;
-import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
+import org.apache.hudi.common.util.HoodieTimer;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_INVALID_METADATA;
 import static com.facebook.presto.hudi.HudiMetadata.fromDataColumns;
-import static com.facebook.presto.hudi.HudiMetadata.toMetastoreContext;
-import static com.facebook.presto.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
-import static com.facebook.presto.hudi.HudiSessionProperties.getStandardSplitWeightSize;
+import static com.facebook.presto.hudi.HudiSessionProperties.getMaxOutstandingSplits;
 import static com.facebook.presto.hudi.HudiSessionProperties.isHudiMetadataTableEnabled;
-import static com.facebook.presto.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hudi.common.table.view.FileSystemViewManager.createInMemoryFileSystemViewWithTimeline;
@@ -71,19 +67,30 @@ import static org.apache.hudi.common.table.view.FileSystemViewManager.createInMe
 public class HudiSplitManager
         implements ConnectorSplitManager
 {
+    private static final Logger log = Logger.get(HudiSplitManager.class);
+
     private final HdfsEnvironment hdfsEnvironment;
     private final HudiTransactionManager hudiTransactionManager;
     private final HudiPartitionManager hudiPartitionManager;
+    private final ExecutorService asyncQueueExecutor;
+    private final ScheduledExecutorService splitLoaderExecutorService;
+    private final ExecutorService splitGeneratorExecutorService;
 
     @Inject
     public HudiSplitManager(
             HdfsEnvironment hdfsEnvironment,
             HudiTransactionManager hudiTransactionManager,
-            HudiPartitionManager hudiPartitionManager)
+            HudiPartitionManager hudiPartitionManager,
+            @ForHudiSplitAsyncQueue ExecutorService asyncQueueExecutor,
+            @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService,
+            @ForHudiBackgroundSplitLoader ExecutorService splitGeneratorExecutorService)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hudiTransactionManager = requireNonNull(hudiTransactionManager, "hudiTransactionManager is null");
         this.hudiPartitionManager = requireNonNull(hudiPartitionManager, "hudiPartitionManager is null");
+        this.asyncQueueExecutor = requireNonNull(asyncQueueExecutor, "asyncQueueExecutor is null");
+        this.splitLoaderExecutorService = requireNonNull(splitLoaderExecutorService, "splitLoaderExecutorService is null");
+        this.splitGeneratorExecutorService = requireNonNull(splitGeneratorExecutorService, "splitGeneratorExecutorService is null");
     }
 
     @Override
@@ -93,13 +100,14 @@ public class HudiSplitManager
             ConnectorTableLayoutHandle layoutHandle,
             SplitSchedulingContext splitSchedulingContext)
     {
-        HudiSplitWeightProvider splitWeightProvider = createSplitWeightProvider(session);
         ExtendedHiveMetastore metastore = ((HudiMetadata) hudiTransactionManager.get(transaction)).getMetastore();
         HudiTableLayoutHandle layout = (HudiTableLayoutHandle) layoutHandle;
         HudiTableHandle table = layout.getTable();
 
         // Retrieve and prune partitions
+        HoodieTimer timer = new HoodieTimer().startTimer();
         List<String> partitions = hudiPartitionManager.getEffectivePartitions(session, metastore, table.getSchemaName(), table.getTableName(), layout.getTupleDomain());
+        log.debug("Took %d ms to get %d partitions", timer.endTimer(), partitions.size());
         if (partitions.isEmpty()) {
             return new FixedSplitSource(ImmutableList.of());
         }
@@ -118,21 +126,17 @@ public class HudiSplitManager
         HoodieLocalEngineContext engineContext = new HoodieLocalEngineContext(conf);
         HoodieTableFileSystemView fsView = createInMemoryFileSystemViewWithTimeline(engineContext, metaClient, metadataConfig, timeline);
 
-        // Construct Presto splits
-        Path tablePath = new Path(table.getPath());
-        MetastoreContext metastoreContext = toMetastoreContext(session);
-        ImmutableList.Builder<HudiSplit> builder = ImmutableList.builder();
-        for (String partitionName : partitions) {
-            HudiPartition hudiPartition = getHudiPartition(metastore, metastoreContext, layout, partitionName);
-            Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
-            String relativePartitionPath = FSUtils.getRelativePartitionPath(tablePath, partitionPath);
-            fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, timestamp, false)
-                    .map(fileSlice -> createHudiSplit(table, fileSlice, timestamp, hudiPartition, splitWeightProvider))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .forEach(builder::add);
-        }
-        return new FixedSplitSource(builder.build());
+        return new HudiSplitSource(
+                session,
+                metastore,
+                layout,
+                fsView,
+                partitions,
+                timestamp,
+                asyncQueueExecutor,
+                splitLoaderExecutorService,
+                splitGeneratorExecutorService,
+                getMaxOutstandingSplits(session));
     }
 
     private ExtendedFileSystem getFileSystem(ConnectorSession session, HudiTableHandle table)
@@ -151,35 +155,7 @@ public class HudiSplitManager
         }
     }
 
-    private Optional<HudiSplit> createHudiSplit(
-            HudiTableHandle table,
-            FileSlice slice,
-            String timestamp,
-            HudiPartition partition,
-            HudiSplitWeightProvider splitWeightProvider)
-    {
-        HudiFile hudiFile = slice.getBaseFile().map(f -> new HudiFile(f.getPath(), 0, f.getFileLen())).orElse(null);
-        if (null == hudiFile && table.getTableType() == HudiTableType.COW) {
-            return Optional.empty();
-        }
-        List<HudiFile> logFiles = slice.getLogFiles()
-                .map(logFile -> new HudiFile(logFile.getPath().toString(), 0, logFile.getFileSize()))
-                .collect(toImmutableList());
-        long sizeInBytes = hudiFile != null ? hudiFile.getLength()
-                : (logFiles.size() > 0 ? logFiles.stream().map(HudiFile::getLength).reduce(0L, Long::sum) : 0L);
-
-        return Optional.of(new HudiSplit(
-                table,
-                timestamp,
-                partition,
-                Optional.ofNullable(hudiFile),
-                logFiles,
-                ImmutableList.of(),
-                NodeSelectionStrategy.NO_PREFERENCE,
-                splitWeightProvider.calculateSplitWeight(sizeInBytes)));
-    }
-
-    private static HudiPartition getHudiPartition(ExtendedHiveMetastore metastore, MetastoreContext context, HudiTableLayoutHandle tableLayout, String partitionName)
+    public static HudiPartition getHudiPartition(ExtendedHiveMetastore metastore, MetastoreContext context, HudiTableLayoutHandle tableLayout, String partitionName)
     {
         String databaseName = tableLayout.getTable().getSchemaName();
         String tableName = tableLayout.getTable().getTableName();
@@ -209,15 +185,5 @@ public class HudiSplitManager
         Streams.forEachPair(partitionColumns.stream(), partitionValues.stream(),
                 (column, value) -> builder.put(column.getName(), value));
         return builder.build();
-    }
-
-    private static HudiSplitWeightProvider createSplitWeightProvider(ConnectorSession session)
-    {
-        if (isSizeBasedSplitWeightsEnabled(session)) {
-            DataSize standardSplitWeightSize = getStandardSplitWeightSize(session);
-            double minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
-            return new SizeBasedSplitWeightProvider(minimumAssignedSplitWeight, standardSplitWeightSize);
-        }
-        return HudiSplitWeightProvider.uniformStandardWeightProvider();
     }
 }

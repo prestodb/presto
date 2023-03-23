@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -91,7 +91,7 @@ public class OptimizeMixedDistinctAggregations
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isOptimizeDistinctAggregationEnabled(session)) {
             return SimplePlanRewriter.rewriteWith(new Optimizer(idAllocator, variableAllocator, metadata, functionResolution), plan, Optional.empty());
@@ -104,11 +104,11 @@ public class OptimizeMixedDistinctAggregations
             extends SimplePlanRewriter<Optional<AggregateInfo>>
     {
         private final PlanNodeIdAllocator idAllocator;
-        private final PlanVariableAllocator variableAllocator;
+        private final VariableAllocator variableAllocator;
         private final Metadata metadata;
         private final StandardFunctionResolution functionResolution;
 
-        private Optimizer(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, Metadata metadata, StandardFunctionResolution functionResolution)
+        private Optimizer(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Metadata metadata, StandardFunctionResolution functionResolution)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
@@ -463,7 +463,7 @@ public class OptimizeMixedDistinctAggregations
                     // Now the aggregation should happen over the duplicate symbol added before
                     List<RowExpression> arguments;
                     if (!duplicatedDistinctVariable.equals(distinctVariable) &&
-                            extractVariables(entry.getValue().getArguments(), variableAllocator.getTypes()).contains(distinctVariable)) {
+                            extractVariables(entry.getValue().getArguments(), TypeProvider.viewOf(variableAllocator.getVariables())).contains(distinctVariable)) {
                         ImmutableList.Builder<RowExpression> argumentsBuilder = ImmutableList.builder();
                         for (RowExpression argument : aggregation.getArguments()) {
                             if (argument instanceof VariableReferenceExpression && argument.equals(distinctVariable)) {

@@ -351,9 +351,4 @@ public class TestQueryResource
         assertEquals(running, expectedRunning);
         assertEquals(queued, expectedQueued);
     }
-
-    private String getResourceFilePath(String fileName)
-    {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
-    }
 }

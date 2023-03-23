@@ -300,6 +300,11 @@ public class PlanBuilder
         return new SampleNode(source.getSourceLocation(), idAllocator.getNextId(), source, sampleRatio, type);
     }
 
+    public ProjectNode project(PlanNode source, Assignments assignments)
+    {
+        return new ProjectNode(idAllocator.getNextId(), source, assignments);
+    }
+
     public ProjectNode project(Assignments assignments, PlanNode source)
     {
         return new ProjectNode(idAllocator.getNextId(), source, assignments);
@@ -414,7 +419,12 @@ public class PlanBuilder
 
         public AggregationBuilder addAggregation(VariableReferenceExpression output, RowExpression expression)
         {
-            return addAggregation(output, expression, Optional.empty(), Optional.empty(), false, Optional.empty());
+            return addAggregation(output, expression, false);
+        }
+
+        public AggregationBuilder addAggregation(VariableReferenceExpression output, RowExpression expression, boolean isDistinct)
+        {
+            return addAggregation(output, expression, Optional.empty(), Optional.empty(), isDistinct, Optional.empty());
         }
 
         public AggregationBuilder addAggregation(

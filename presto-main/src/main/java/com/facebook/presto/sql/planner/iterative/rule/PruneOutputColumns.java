@@ -27,6 +27,10 @@ public class PruneOutputColumns
 {
     private static final Pattern<OutputNode> PATTERN = output();
 
+    public PruneOutputColumns()
+    {
+    }
+
     @Override
     public Pattern<OutputNode> getPattern()
     {

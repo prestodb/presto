@@ -34,7 +34,10 @@ public class TestHudiConfig
                 .setMetadataTableEnabled(false)
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setStandardSplitWeightSize(new DataSize(128, MEGABYTE))
-                .setMinimumAssignedSplitWeight(0.05));
+                .setMinimumAssignedSplitWeight(0.05)
+                .setMaxOutstandingSplits(1000)
+                .setSplitLoaderParallelism(4)
+                .setSplitGeneratorParallelism(4));
     }
 
     @Test
@@ -45,13 +48,19 @@ public class TestHudiConfig
                 .put("hudi.size-based-split-weights-enabled", "false")
                 .put("hudi.standard-split-weight-size", "500MB")
                 .put("hudi.minimum-assigned-split-weight", "0.1")
+                .put("hudi.max-outstanding-splits", "300")
+                .put("hudi.split-loader-parallelism", "2")
+                .put("hudi.split-generator-parallelism", "8")
                 .build();
 
         HudiConfig expected = new HudiConfig()
                 .setMetadataTableEnabled(true)
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setStandardSplitWeightSize(new DataSize(500, MEGABYTE))
-                .setMinimumAssignedSplitWeight(0.1);
+                .setMinimumAssignedSplitWeight(0.1)
+                .setMaxOutstandingSplits(300)
+                .setSplitLoaderParallelism(2)
+                .setSplitGeneratorParallelism(8);
 
         assertFullMapping(properties, expected);
     }

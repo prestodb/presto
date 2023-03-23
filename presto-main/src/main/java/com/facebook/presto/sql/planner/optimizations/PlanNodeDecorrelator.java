@@ -14,6 +14,8 @@
 
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.expressions.LogicalRowExpressions;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -21,15 +23,14 @@ import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -43,11 +44,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
+import static com.facebook.presto.sql.relational.Expressions.isComparison;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -55,14 +57,16 @@ import static java.util.Objects.requireNonNull;
 public class PlanNodeDecorrelator
 {
     private final PlanNodeIdAllocator idAllocator;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final Lookup lookup;
+    private final LogicalRowExpressions logicalRowExpressions;
 
-    public PlanNodeDecorrelator(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, Lookup lookup)
+    public PlanNodeDecorrelator(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Lookup lookup, LogicalRowExpressions logicalRowExpressions)
     {
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
+        this.logicalRowExpressions = requireNonNull(logicalRowExpressions, "logicalRowExpressions is null");
     }
 
     public Optional<DecorrelatedNode> decorrelateFilters(PlanNode node, List<VariableReferenceExpression> correlation)
@@ -118,24 +122,24 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            Expression predicate = castToExpression(node.getPredicate());
-            Map<Boolean, List<Expression>> predicates = ExpressionUtils.extractConjuncts(predicate).stream()
+            RowExpression predicate = node.getPredicate();
+            Map<Boolean, List<RowExpression>> predicates = logicalRowExpressions.extractConjuncts(predicate).stream()
                     .collect(Collectors.partitioningBy(PlanNodeDecorrelator.DecorrelatingVisitor.this::isCorrelated));
-            List<Expression> correlatedPredicates = ImmutableList.copyOf(predicates.get(true));
-            List<Expression> uncorrelatedPredicates = ImmutableList.copyOf(predicates.get(false));
+            List<RowExpression> correlatedPredicates = ImmutableList.copyOf(predicates.get(true));
+            List<RowExpression> uncorrelatedPredicates = ImmutableList.copyOf(predicates.get(false));
 
             DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
             FilterNode newFilterNode = new FilterNode(
                     node.getSourceLocation(),
                     idAllocator.getNextId(),
                     childDecorrelationResult.node,
-                    castToRowExpression(ExpressionUtils.combineConjuncts(uncorrelatedPredicates)));
+                    logicalRowExpressions.combineConjuncts(uncorrelatedPredicates));
 
-            Set<VariableReferenceExpression> variablesToPropagate = Sets.difference(VariablesExtractor.extractUnique(correlatedPredicates, variableAllocator.getTypes()), ImmutableSet.copyOf(correlation));
+            Set<VariableReferenceExpression> variablesToPropagate = Sets.difference(VariablesExtractor.extractUnique(correlatedPredicates), ImmutableSet.copyOf(correlation));
             return Optional.of(new DecorrelationResult(
                     newFilterNode,
                     Sets.union(childDecorrelationResult.variablesToPropagate, variablesToPropagate),
-                    ImmutableList.<Expression>builder()
+                    ImmutableList.<RowExpression>builder()
                             .addAll(childDecorrelationResult.correlatedPredicates)
                             .addAll(correlatedPredicates)
                             .build(),
@@ -266,7 +270,7 @@ public class PlanNodeDecorrelator
 
             Assignments assignments = Assignments.builder()
                     .putAll(node.getAssignments())
-                    .putAll(identitiesAsSymbolReferences(variablesToAdd))
+                    .putAll(identityAssignments(variablesToAdd))
                     .build();
 
             return Optional.of(new DecorrelationResult(
@@ -277,19 +281,23 @@ public class PlanNodeDecorrelator
                     childDecorrelationResult.atMostSingleRow));
         }
 
-        private Multimap<VariableReferenceExpression, VariableReferenceExpression> extractCorrelatedSymbolsMapping(List<Expression> correlatedConjuncts)
+        private Multimap<VariableReferenceExpression, VariableReferenceExpression> extractCorrelatedSymbolsMapping(List<RowExpression> correlatedConjuncts)
         {
             ImmutableMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> mapping = ImmutableMultimap.builder();
-            for (Expression conjunct : correlatedConjuncts) {
-                if (!(conjunct instanceof ComparisonExpression)) {
+            for (RowExpression conjunct : correlatedConjuncts) {
+                if (!(conjunct instanceof CallExpression)) {
                     continue;
                 }
+                CallExpression comparison = (CallExpression) conjunct;
+                if (!isComparison(comparison)) {
+                    continue;
+                }
+                checkArgument(comparison.getArguments().size() == 2, "Unexpected comparison function: %s", comparison);
 
-                ComparisonExpression comparison = (ComparisonExpression) conjunct;
                 // handle coercions and non-direct column references
-                if (comparison.getOperator().equals(EQUAL)) {
-                    List<VariableReferenceExpression> left = extractUniqueExpression(comparison.getLeft());
-                    List<VariableReferenceExpression> right = extractUniqueExpression(comparison.getRight());
+                if (comparison.getFunctionHandle().getName().equals(EQUAL.getFunctionName().toString())) {
+                    List<VariableReferenceExpression> left = extractUniqueExpression(comparison.getArguments().get(0));
+                    List<VariableReferenceExpression> right = extractUniqueExpression(comparison.getArguments().get(1));
 
                     for (VariableReferenceExpression leftVariableExpression : left) {
                         for (VariableReferenceExpression rightVariableExpression : right) {
@@ -307,14 +315,14 @@ public class PlanNodeDecorrelator
             return mapping.build();
         }
 
-        private List<VariableReferenceExpression> extractUniqueExpression(Expression expression)
+        private List<VariableReferenceExpression> extractUniqueExpression(RowExpression expression)
         {
-            return VariablesExtractor.extractUnique(expression, variableAllocator.getTypes()).stream().collect(toImmutableList());
+            return VariablesExtractor.extractUnique(expression).stream().collect(toImmutableList());
         }
 
-        private boolean isCorrelated(Expression expression)
+        private boolean isCorrelated(RowExpression expression)
         {
-            return correlation.stream().anyMatch(VariablesExtractor.extractUnique(expression, variableAllocator.getTypes())::contains);
+            return correlation.stream().anyMatch(VariablesExtractor.extractUnique(expression)::contains);
         }
     }
 
@@ -322,7 +330,7 @@ public class PlanNodeDecorrelator
     {
         final PlanNode node;
         final Set<VariableReferenceExpression> variablesToPropagate;
-        final List<Expression> correlatedPredicates;
+        final List<RowExpression> correlatedPredicates;
 
         // mapping from correlated symbols to their uncorrelated equivalence
         final Multimap<VariableReferenceExpression, VariableReferenceExpression> correlatedVariablesMapping;
@@ -332,7 +340,7 @@ public class PlanNodeDecorrelator
         DecorrelationResult(
                 PlanNode node,
                 Set<VariableReferenceExpression> variablesToPropagate,
-                List<Expression> correlatedPredicates,
+                List<RowExpression> correlatedPredicates,
                 Multimap<VariableReferenceExpression, VariableReferenceExpression> correlatedVariablesMapping,
                 boolean atMostSingleRow)
         {
@@ -361,7 +369,7 @@ public class PlanNodeDecorrelator
     }
 
     private Optional<DecorrelatedNode> decorrelatedNode(
-            List<Expression> correlatedPredicates,
+            List<RowExpression> correlatedPredicates,
             PlanNode node,
             List<VariableReferenceExpression> correlation)
     {
@@ -374,27 +382,27 @@ public class PlanNodeDecorrelator
 
     private boolean containsCorrelation(PlanNode node, List<VariableReferenceExpression> correlation)
     {
-        return Sets.union(VariablesExtractor.extractUnique(node, lookup, variableAllocator.getTypes()), VariablesExtractor.extractOutputVariables(node, lookup)).stream().anyMatch(correlation::contains);
+        return Sets.union(VariablesExtractor.extractUnique(node, lookup, TypeProvider.viewOf(variableAllocator.getVariables())), VariablesExtractor.extractOutputVariables(node, lookup)).stream().anyMatch(correlation::contains);
     }
 
     public static class DecorrelatedNode
     {
-        private final List<Expression> correlatedPredicates;
+        private final List<RowExpression> correlatedPredicates;
         private final PlanNode node;
 
-        public DecorrelatedNode(List<Expression> correlatedPredicates, PlanNode node)
+        public DecorrelatedNode(List<RowExpression> correlatedPredicates, PlanNode node)
         {
             requireNonNull(correlatedPredicates, "correlatedPredicates is null");
             this.correlatedPredicates = ImmutableList.copyOf(correlatedPredicates);
             this.node = requireNonNull(node, "node is null");
         }
 
-        public Optional<Expression> getCorrelatedPredicates()
+        public Optional<RowExpression> getCorrelatedPredicates()
         {
             if (correlatedPredicates.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(ExpressionUtils.and(correlatedPredicates));
+            return Optional.of(and(correlatedPredicates));
         }
 
         public PlanNode getNode()

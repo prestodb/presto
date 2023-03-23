@@ -1114,7 +1114,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         }
     }
 
-    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle, TypeManager typeManager)
     {
         checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
         Signature signature = ((BuiltInFunctionHandle) functionHandle).getSignature();

@@ -25,12 +25,16 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
+import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
@@ -55,6 +59,11 @@ public class PlanFragmenterUtils
     public static final int ROOT_FRAGMENT_ID = 0;
     public static final String TOO_MANY_STAGES_MESSAGE = "If the query contains multiple DISTINCTs, please set the 'use_mark_distinct' session property to false. " +
             "If the query contains multiple CTEs that are referenced more than once, please create temporary table(s) for one or more of the CTEs.";
+    private static final Set<Class> PLAN_NODES_WITH_COORDINATOR_ONLY_DISTRIBUTION = ImmutableSet.of(
+            ExplainAnalyzeNode.class,
+            StatisticsWriterNode.class,
+            TableFinishNode.class,
+            MetadataDeleteNode.class);
 
     private PlanFragmenterUtils() {}
 
@@ -77,9 +86,10 @@ public class PlanFragmenterUtils
             NodePartitioningManager nodePartitioningManager,
             Session session,
             boolean forceSingleNode,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PartitioningHandle partitioningHandle)
     {
-        subPlan = reassignPartitioningHandleIfNecessary(metadata, session, subPlan);
+        subPlan = reassignPartitioningHandleIfNecessary(metadata, session, subPlan, partitioningHandle);
         if (!forceSingleNode) {
             // grouped execution is not supported for SINGLE_DISTRIBUTION
             subPlan = analyzeGroupedExecution(session, subPlan, false, metadata, nodePartitioningManager);
@@ -181,9 +191,9 @@ public class PlanFragmenterUtils
         return root instanceof OutputNode && getOnlyElement(root.getSources()) instanceof TableFinishNode;
     }
 
-    private static SubPlan reassignPartitioningHandleIfNecessary(Metadata metadata, Session session, SubPlan subPlan)
+    private static SubPlan reassignPartitioningHandleIfNecessary(Metadata metadata, Session session, SubPlan subPlan, PartitioningHandle partitioningHandle)
     {
-        return reassignPartitioningHandleIfNecessaryHelper(metadata, session, subPlan, subPlan.getFragment().getPartitioning());
+        return reassignPartitioningHandleIfNecessaryHelper(metadata, session, subPlan, partitioningHandle);
     }
 
     private static SubPlan reassignPartitioningHandleIfNecessaryHelper(Metadata metadata, Session session, SubPlan subPlan, PartitioningHandle newOutputPartitioningHandle)
@@ -276,5 +286,10 @@ public class PlanFragmenterUtils
     public static boolean isRootFragment(PlanFragment fragment)
     {
         return fragment.getId().getId() == ROOT_FRAGMENT_ID;
+    }
+
+    public static boolean isCoordinatorOnlyDistribution(PlanNode planNode)
+    {
+        return PLAN_NODES_WITH_COORDINATOR_ONLY_DISTRIBUTION.contains(planNode.getClass());
     }
 }

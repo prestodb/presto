@@ -147,7 +147,7 @@ public class QueryBuilder
                     .append(Joiner.on(" AND ").join(clauses));
         }
         sql.append(String.format("/* %s : %s */", session.getUser(), session.getQueryId()));
-        PreparedStatement statement = client.getPreparedStatement(connection, sql.toString());
+        PreparedStatement statement = client.getPreparedStatement(session, connection, sql.toString());
 
         for (int i = 0; i < accumulator.size(); i++) {
             TypeAndValue typeAndValue = accumulator.get(i);

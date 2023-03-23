@@ -85,6 +85,12 @@ public abstract class AbstractMinMaxByNAggregationFunction
         return generateAggregation(valueType, keyType);
     }
 
+    @Override
+    public boolean isCalledOnNullInput()
+    {
+        return true;
+    }
+
     public static void input(BlockComparator comparator, Type valueType, Type keyType, MinMaxByNState state, Block value, Block key, int blockIndex, long n)
     {
         TypedKeyValueHeap heap = state.getTypedKeyValueHeap();

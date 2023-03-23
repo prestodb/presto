@@ -18,6 +18,7 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -25,7 +26,6 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
 import com.facebook.presto.sql.planner.assertions.Matcher;
@@ -110,7 +110,7 @@ public class TestDruidPlanOptimizer
     public void testUnionAll()
     {
         PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
-        PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
 
         AggregationNode aggregationOne = simpleAggregationSum(planBuilder, tableScan(planBuilder, druidTableOne, city, fare), variableAllocator, ImmutableList.of(city), fare);
         AggregationNode aggregationTwo = simpleAggregationSum(planBuilder, tableScan(planBuilder, druidTableTwo, city, fare), variableAllocator, ImmutableList.of(city), fare);
@@ -144,10 +144,10 @@ public class TestDruidPlanOptimizer
     {
         DruidQueryGenerator druidQueryGenerator = new DruidQueryGenerator(functionAndTypeManager, functionAndTypeManager, standardFunctionResolution);
         DruidPlanOptimizer optimizer = new DruidPlanOptimizer(druidQueryGenerator, functionAndTypeManager, new RowExpressionDeterminismEvaluator(functionAndTypeManager), functionAndTypeManager, standardFunctionResolution);
-        return optimizer.optimize(originalPlan, defaultSessionHolder.getConnectorSession(), new PlanVariableAllocator(), planBuilder.getIdAllocator());
+        return optimizer.optimize(originalPlan, defaultSessionHolder.getConnectorSession(), new VariableAllocator(), planBuilder.getIdAllocator());
     }
 
-    private AggregationNode simpleAggregationSum(PlanBuilder pb, PlanNode source, PlanVariableAllocator variableAllocator, List<DruidColumnHandle> groupByColumns, DruidColumnHandle sumColumn)
+    private AggregationNode simpleAggregationSum(PlanBuilder pb, PlanNode source, VariableAllocator variableAllocator, List<DruidColumnHandle> groupByColumns, DruidColumnHandle sumColumn)
     {
         return new AggregationNode(
                 source.getSourceLocation(),

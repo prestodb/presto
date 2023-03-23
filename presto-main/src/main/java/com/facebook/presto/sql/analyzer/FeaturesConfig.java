@@ -89,6 +89,7 @@ public class FeaturesConfig
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
+    private boolean usePerfectlyConsistentHistories;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -195,6 +196,7 @@ public class FeaturesConfig
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
+    private boolean optimizePayloadJoins;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
@@ -240,12 +242,14 @@ public class FeaturesConfig
     private boolean nativeExecutionEnabled;
     private String nativeExecutionExecutablePath = "./presto_server";
     private boolean randomizeOuterJoinNullKey;
+    private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
     private boolean isOptimizeConditionalAggregationEnabled;
     private boolean isRemoveRedundantDistinctAggregationEnabled = true;
     private boolean inPredicatesAsInnerJoinsEnabled;
     private double pushAggregationBelowJoinByteReductionThreshold = 1;
     private boolean prefilterForGroupbyLimit;
-
+    private boolean isOptimizeJoinProbeWithEmptyBuildRuntime;
+    private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -327,6 +331,13 @@ public class FeaturesConfig
         FILTER_WITH_IF, // Rewrites AGG(IF(condition, expr)) to AGG(IF(condition, expr)) FILTER (WHERE condition).
         UNWRAP_IF_SAFE, // Rewrites AGG(IF(condition, expr)) to AGG(expr) FILTER (WHERE condition) if it is safe to do so.
         UNWRAP_IF // Rewrites AGG(IF(condition, expr)) to AGG(expr) FILTER (WHERE condition).
+    }
+
+    public enum RandomizeOuterJoinNullKeyStrategy
+    {
+        DISABLED,
+        KEY_FROM_OUTER_JOIN, // Enabled only when join keys are from output of outer joins
+        ALWAYS
     }
 
     public double getCpuCostWeight()
@@ -766,6 +777,18 @@ public class FeaturesConfig
     public FeaturesConfig setTrackHistoryBasedPlanStatistics(boolean trackHistoryBasedPlanStatistics)
     {
         this.trackHistoryBasedPlanStatistics = trackHistoryBasedPlanStatistics;
+        return this;
+    }
+
+    public boolean isUsePerfectlyConsistentHistories()
+    {
+        return usePerfectlyConsistentHistories;
+    }
+
+    @Config("optimizer.use-perfectly-consistent-histories")
+    public FeaturesConfig setUsePerfectlyConsistentHistories(boolean usePerfectlyConsistentHistories)
+    {
+        this.usePerfectlyConsistentHistories = usePerfectlyConsistentHistories;
         return this;
     }
 
@@ -1829,6 +1852,11 @@ public class FeaturesConfig
         return optimizeNullsInJoin;
     }
 
+    public boolean isOptimizePayloadJoins()
+    {
+        return optimizePayloadJoins;
+    }
+
     @Config("optimize-nulls-in-join")
     public FeaturesConfig setOptimizeNullsInJoin(boolean optimizeNullsInJoin)
     {
@@ -2278,6 +2306,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public RandomizeOuterJoinNullKeyStrategy getRandomizeOuterJoinNullKeyStrategy()
+    {
+        return randomizeOuterJoinNullKeyStrategy;
+    }
+
+    @Config("optimizer.randomize-outer-join-null-key-strategy")
+    @ConfigDescription("When to apply randomization to null keys in outer join")
+    public FeaturesConfig setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy)
+    {
+        this.randomizeOuterJoinNullKeyStrategy = randomizeOuterJoinNullKeyStrategy;
+        return this;
+    }
+
     public boolean isOptimizeConditionalAggregationEnabled()
     {
         return isOptimizeConditionalAggregationEnabled;
@@ -2340,6 +2381,32 @@ public class FeaturesConfig
     public FeaturesConfig setPrefilterForGroupbyLimit(boolean prefilterForGroupbyLimit)
     {
         this.prefilterForGroupbyLimit = prefilterForGroupbyLimit;
+        return this;
+    }
+
+    public boolean isOptimizeJoinProbeForEmptyBuildRuntimeEnabled()
+    {
+        return isOptimizeJoinProbeWithEmptyBuildRuntime;
+    }
+
+    @Config("optimizer.optimize-probe-for-empty-build-runtime")
+    @ConfigDescription("Optimize join probe at runtime if build side is empty")
+    public FeaturesConfig setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(boolean isOptimizeJoinProbeWithEmptyBuildRuntime)
+    {
+        this.isOptimizeJoinProbeWithEmptyBuildRuntime = isOptimizeJoinProbeWithEmptyBuildRuntime;
+        return this;
+    }
+
+    public boolean isUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins()
+    {
+        return useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins;
+    }
+
+    @Config("optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins")
+    @ConfigDescription("Enable using defaults for well-defined aggregation functions when pushing them through outer joins")
+    public FeaturesConfig setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins)
+    {
+        this.useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins;
         return this;
     }
 }

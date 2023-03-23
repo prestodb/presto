@@ -22,12 +22,12 @@ import java.io.IOException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
-public class EncryptionTestFile
+public class TestFile
 {
     private final String fileName;
     private final SimpleGroup[] fileContent;
 
-    public EncryptionTestFile(String fileName, SimpleGroup[] fileContent)
+    public TestFile(String fileName, SimpleGroup[] fileContent)
     {
         checkArgument(!isNullOrEmpty(fileName), "file name cannot be null or empty");
         this.fileName = fileName;

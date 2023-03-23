@@ -31,6 +31,7 @@ public class S3SelectLineRecordReaderProvider
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             String ionSqlQuery,
             PrestoS3ClientFactory s3ClientFactory,
@@ -38,9 +39,9 @@ public class S3SelectLineRecordReaderProvider
     {
         switch (dataType) {
             case CSV:
-                return Optional.of(new S3SelectCsvRecordReader(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory));
+                return Optional.of(new S3SelectCsvRecordReader(configuration, clientConfig, path, start, length, fileSize, schema, ionSqlQuery, s3ClientFactory));
             case JSON:
-                return Optional.of(new S3SelectJsonRecordReader(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory));
+                return Optional.of(new S3SelectJsonRecordReader(configuration, clientConfig, path, start, length, fileSize, schema, ionSqlQuery, s3ClientFactory));
             default:
                 // return empty if data type is not returned by the serDeMapper or unrecognizable by the LineRecordReader
                 return Optional.empty();

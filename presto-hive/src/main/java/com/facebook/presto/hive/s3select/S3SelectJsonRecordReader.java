@@ -33,11 +33,12 @@ public class S3SelectJsonRecordReader
             Path path,
             long start,
             long length,
+            long fileSize,
             Properties schema,
             String ionSqlQuery,
             PrestoS3ClientFactory s3ClientFactory)
     {
-        super(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory);
+        super(configuration, clientConfig, path, start, length, fileSize, schema, ionSqlQuery, s3ClientFactory);
     }
 
     @Override

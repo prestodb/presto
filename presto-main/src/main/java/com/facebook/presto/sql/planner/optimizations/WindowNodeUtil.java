@@ -31,6 +31,7 @@ import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FO
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.GROUPS;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.ROWS;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -48,6 +49,8 @@ public final class WindowNodeUtil
                 return RANGE;
             case ROWS:
                 return ROWS;
+            case GROUPS:
+                return GROUPS;
             default:
                 throw new UnsupportedOperationException(format("unrecognized window frame type %s", type));
         }

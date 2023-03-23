@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
+import java.util.List;
 import java.util.Optional;
 
 @JsonTypeInfo(
@@ -55,6 +56,8 @@ public abstract class RowExpression
     }
 
     public abstract Type getType();
+
+    public abstract List<RowExpression> getChildren();
 
     @Override
     public abstract boolean equals(Object other);

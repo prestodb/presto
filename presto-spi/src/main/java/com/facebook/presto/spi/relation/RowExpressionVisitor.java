@@ -13,17 +13,62 @@
  */
 package com.facebook.presto.spi.relation;
 
+import static java.lang.String.format;
+
 public interface RowExpressionVisitor<R, C>
 {
-    R visitCall(CallExpression call, C context);
+    default R visitExpression(RowExpression expression, C context)
+    {
+        throw new UnsupportedOperationException(format("Unimplemented RowExpression visitor for %s", expression.getClass()));
+    }
 
-    R visitInputReference(InputReferenceExpression reference, C context);
+    default R visitCall(CallExpression call, C context)
+    {
+        return visitExpression(call, context);
+    }
 
-    R visitConstant(ConstantExpression literal, C context);
+    default R visitInputReference(InputReferenceExpression reference, C context)
+    {
+        return visitExpression(reference, context);
+    }
 
-    R visitLambda(LambdaDefinitionExpression lambda, C context);
+    default R visitConstant(ConstantExpression literal, C context)
+    {
+        return visitExpression(literal, context);
+    }
 
-    R visitVariableReference(VariableReferenceExpression reference, C context);
+    default R visitLambda(LambdaDefinitionExpression lambda, C context)
+    {
+        return visitExpression(lambda, context);
+    }
 
-    R visitSpecialForm(SpecialFormExpression specialForm, C context);
+    default R visitVariableReference(VariableReferenceExpression reference, C context)
+    {
+        return visitExpression(reference, context);
+    }
+
+    default R visitSpecialForm(SpecialFormExpression specialForm, C context)
+    {
+        return visitExpression(specialForm, context);
+    }
+
+    default R visitIntermediateFormExpression(IntermediateFormExpression intermediateFormExpression, C context)
+    {
+        return visitExpression(intermediateFormExpression, context);
+    }
+
+    default R visitInSubqueryExpression(InSubqueryExpression inSubqueryRowExpression, C context)
+    {
+        return visitIntermediateFormExpression(inSubqueryRowExpression, context);
+    }
+
+    default R visitQuantifiedComparisonExpression(QuantifiedComparisonExpression quantifiedComparisonRowExpression, C context)
+    {
+        return visitIntermediateFormExpression(quantifiedComparisonRowExpression, context);
+    }
+
+    default R visitExistsExpression(ExistsExpression existsRowExpression, C context)
+    {
+        return visitIntermediateFormExpression(existsRowExpression, context);
+    }
 }

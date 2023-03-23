@@ -34,6 +34,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -83,6 +84,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
+import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -117,7 +119,7 @@ public abstract class BasePlanFragmenter
     private final Session session;
     private final Metadata metadata;
     private final PlanNodeIdAllocator idAllocator;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final StatsAndCosts statsAndCosts;
     private final PlanChecker planChecker;
     private final WarningCollector warningCollector;
@@ -133,7 +135,7 @@ public abstract class BasePlanFragmenter
             WarningCollector warningCollector,
             SqlParser sqlParser,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator,
+            VariableAllocator variableAllocator,
             Set<PlanNodeId> outputTableWriterNodeIds)
     {
         this.session = requireNonNull(session, "session is null");
@@ -211,28 +213,28 @@ public abstract class BasePlanFragmenter
     @Override
     public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<FragmentProperties> context)
     {
-        context.get().setCoordinatorOnlyDistribution();
+        context.get().setCoordinatorOnlyDistribution(node);
         return context.defaultRewrite(node, context.get());
     }
 
     @Override
     public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<FragmentProperties> context)
     {
-        context.get().setCoordinatorOnlyDistribution();
+        context.get().setCoordinatorOnlyDistribution(node);
         return context.defaultRewrite(node, context.get());
     }
 
     @Override
     public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<FragmentProperties> context)
     {
-        context.get().setCoordinatorOnlyDistribution();
+        context.get().setCoordinatorOnlyDistribution(node);
         return context.defaultRewrite(node, context.get());
     }
 
     @Override
     public PlanNode visitMetadataDelete(MetadataDeleteNode node, RewriteContext<FragmentProperties> context)
     {
-        context.get().setCoordinatorOnlyDistribution();
+        context.get().setCoordinatorOnlyDistribution(node);
         return context.defaultRewrite(node, context.get());
     }
 
@@ -381,7 +383,7 @@ public abstract class BasePlanFragmenter
         FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(
                 Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
                 write.getOutputVariables()));
-        writeProperties.setCoordinatorOnlyDistribution();
+        writeProperties.setCoordinatorOnlyDistribution(write);
 
         List<SubPlan> children = ImmutableList.of(buildSubPlan(write, writeProperties, context));
         context.get().addChildren(children);
@@ -707,8 +709,11 @@ public abstract class BasePlanFragmenter
                     this.partitioningHandle));
         }
 
-        public FragmentProperties setCoordinatorOnlyDistribution()
+        public FragmentProperties setCoordinatorOnlyDistribution(PlanNode node)
         {
+            checkArgument(isCoordinatorOnlyDistribution(node),
+                    "PlanNode type %s doesn't support COORDINATOR_DISTRIBUTION", node.getClass());
+
             if (partitioningHandle.isPresent() && partitioningHandle.get().isCoordinatorOnly()) {
                 // already single node distribution
                 return this;

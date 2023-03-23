@@ -172,6 +172,36 @@ public class HiveFileSystemTestUtils
         }
     }
 
+    public static int getSplitsCount(SchemaTableName tableName,
+            HiveTransactionManager transactionManager,
+            HiveClientConfig config,
+            HiveMetadataFactory metadataFactory,
+            ConnectorSplitManager splitManager)
+    {
+        ConnectorMetadata metadata = null;
+        ConnectorSession session = null;
+        ConnectorSplitSource splitSource = null;
+
+        try (Transaction transaction = newTransaction(transactionManager, metadataFactory.get())) {
+            metadata = transaction.getMetadata();
+            session = newSession(config);
+
+            ConnectorTableHandle table = getTableHandle(metadata, tableName, session);
+            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+            TableHandle tableHandle = new TableHandle(new ConnectorId(tableName.getSchemaName()), table, transaction.getTransactionHandle(), Optional.of(layoutHandle));
+
+            metadata.beginQuery(session);
+            splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle.getLayout().get(), SPLIT_SCHEDULING_CONTEXT);
+
+            return getAllSplits(splitSource).size();
+        }
+        finally {
+            cleanUpQuery(metadata, session);
+            closeQuietly(splitSource);
+        }
+    }
+
     public static Transaction newTransaction(HiveTransactionManager transactionManager, HiveMetadata hiveMetadata)
     {
         return new HiveTransaction(transactionManager, hiveMetadata);

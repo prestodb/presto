@@ -14,12 +14,16 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.plan.Assignments;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
+import com.facebook.presto.spi.relation.ExistsExpression;
+import com.facebook.presto.spi.relation.InSubqueryExpression;
+import com.facebook.presto.spi.relation.QuantifiedComparisonExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class ApplyNodeUtil
@@ -29,15 +33,25 @@ public final class ApplyNodeUtil
     public static void verifySubquerySupported(Assignments assignments)
     {
         checkArgument(
-                assignments.getExpressions().stream().map(OriginalExpressionUtils::castToExpression).allMatch(ApplyNodeUtil::isSupportedSubqueryExpression),
-                "Unexpected expression used for subquery expression");
+                assignments.getExpressions().stream().allMatch(ApplyNodeUtil::isSupportedSubqueryExpression),
+                "Unexpected expression used for subquery expression: %s", assignments.getExpressions());
     }
 
-    public static boolean isSupportedSubqueryExpression(Expression expression)
+    private static boolean isSupportedSubqueryExpression(RowExpression expression)
+    {
+        if (isExpression(expression)) {
+            return isSupportedSubqueryExpression(castToExpression(expression));
+        }
+        return expression instanceof InSubqueryExpression ||
+                expression instanceof QuantifiedComparisonExpression ||
+                expression instanceof ExistsExpression;
+    }
+
+    private static boolean isSupportedSubqueryExpression(Expression expression)
     {
         // TODO: add RowExpression support
         return expression instanceof InPredicate ||
                 expression instanceof ExistsPredicate ||
-                expression instanceof QuantifiedComparisonExpression;
+                expression instanceof com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
     }
 }

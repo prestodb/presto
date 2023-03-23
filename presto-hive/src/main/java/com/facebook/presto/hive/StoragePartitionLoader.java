@@ -300,14 +300,13 @@ public class StoragePartitionLoader
         if (shouldUseFileSplitsFromInputFormat(inputFormat, directoryLister)) {
             return handleGetSplitsFromInputFormat(configuration, path, schema, inputFormat, stopped, hiveSplitSource, splitFactory);
         }
+
         // Streaming aggregation works at the granularity of individual files
-        // S3 Select pushdown works at the granularity of individual S3 objects,
         // Partial aggregation pushdown works at the granularity of individual files
         // therefore we must not split files when either is enabled.
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
         boolean splittable = isFileSplittable(session) &&
                 !isOrderBasedExecutionEnabled(session) &&
-                !s3SelectPushdownEnabled &&
                 !partialAggregationsPushedDown &&
                 getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
 

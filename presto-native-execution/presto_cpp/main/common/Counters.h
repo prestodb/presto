@@ -63,6 +63,29 @@ constexpr folly::StringPiece kCounterNumBlockedDrivers{
 // PartitionedOutputBufferManager
 constexpr folly::StringPiece kCounterTotalPartitionedOutputBuffer{
     "presto_cpp.num_partitioned_output_buffer"};
+// Latency in millisecond of the get data call of a
+// PartitionedOutputBufferManager.
+constexpr folly::StringPiece kCounterPartitionedOutputBufferGetDataLatencyMs{
+    "presto_cpp.partitioned_output_buffer_get_data_latency_ms"};
+
+// ================== OS Counters =================
+
+// User CPU time of the presto_server process in microsecond since the process
+// start.
+constexpr folly::StringPiece kCounterCumulativeUserCpuTimeMicros{
+    "presto_cpp.cumulative_user_cpu_time_micros"};
+// System CPU time of the presto_server process in microsecond since the process
+// start.
+constexpr folly::StringPiece kCounterCumulativeSystemCpuTimeMicros{
+    "presto_cpp.cumulative_system_cpu_time_micros"};
+// Total number of soft page faults of the presto_server process in microsecond
+// since the process start.
+constexpr folly::StringPiece kCounterNumCumulativeSoftPageFaults{
+    "presto_cpp.num_cumulative_soft_page_faults"};
+// Total number of hard page faults of the presto_server process in microsecond
+// since the process start.
+constexpr folly::StringPiece kCounterNumCumulativeHardPageFaults{
+    "presto_cpp.num_cumulative_hard_page_faults"};
 
 // ================== Memory Counters =================
 
@@ -174,4 +197,28 @@ constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeAllocClocks{
 // entries, since last counter retrieval
 constexpr folly::StringPiece kCounterMemoryCacheNumAllocClocks{
     "presto_cpp.memory_cache_num_alloc_clocks"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeReadEntries{
+    "presto_cpp.ssd_cache_cumulative_read_entries"};
+constexpr folly::StringPiece kCounterSsdCacheReadEntries{
+    "presto_cpp.ssd_cache_read_entries"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeReadBytes{
+    "presto_cpp.ssd_cache_cumulative_read_bytes"};
+constexpr folly::StringPiece kCounterSsdCacheReadBytes{
+    "presto_cpp.ssd_cache_read_bytes"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeWrittenEntries{
+    "presto_cpp.ssd_cache_cumulative_written_entries"};
+constexpr folly::StringPiece kCounterSsdCacheWrittenEntries{
+    "presto_cpp.ssd_cache_written_entries"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeWrittenBytes{
+    "presto_cpp.ssd_cache_cumulative_written_bytes"};
+constexpr folly::StringPiece kCounterSsdCacheWrittenBytes{
+    "presto_cpp.ssd_cache_written_bytes"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeCachedEntries{
+    "presto_cpp.ssd_cache_cumulative_cached_entries"};
+constexpr folly::StringPiece kCounterSsdCacheCachedEntries{
+    "presto_cpp.ssd_cache_cached_entries"};
+constexpr folly::StringPiece kCounterSsdCacheCumulativeCachedBytes{
+    "presto_cpp.ssd_cache_cumulative_cached_bytes"};
+constexpr folly::StringPiece kCounterSsdCacheCachedBytes{
+    "presto_cpp.ssd_cache_cached_bytes"};
 } // namespace facebook::presto

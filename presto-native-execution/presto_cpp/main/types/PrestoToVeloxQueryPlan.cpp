@@ -1957,10 +1957,6 @@ core::ExecutionStrategy toStrategy(protocol::StageExecutionStrategy strategy) {
 
     case protocol::StageExecutionStrategy::
         FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION:
-      VELOX_UNSUPPORTED(
-          "FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION "
-          "Stage Execution Strategy is not supported");
-
     case protocol::StageExecutionStrategy::
         DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION:
       return core::ExecutionStrategy::kGrouped;
@@ -1987,6 +1983,12 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   planFragment.numSplitGroups = descriptor.totalLifespans;
   for (const auto& planNodeId : descriptor.groupedExecutionScanNodes) {
     planFragment.groupedExecutionLeafNodeIds.emplace(planNodeId);
+  }
+  if (planFragment.executionStrategy == core::ExecutionStrategy::kGrouped) {
+    VELOX_CHECK(
+        !planFragment.groupedExecutionLeafNodeIds.empty(),
+        "groupedExecutionScanNodes cannot be empty if stage execution strategy "
+        "is grouped execution");
   }
 
   if (auto output = std::dynamic_pointer_cast<const protocol::OutputNode>(
@@ -2221,17 +2223,13 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
       partitionedOutputNode->sources().back(),
       partitionedOutputNode->partitionFunctionFactory());
 
-  auto localPartitionNode = std::make_shared<core::LocalPartitionNode>(
-      "shuffle-gather",
-      core::LocalPartitionNode::Type::kGather,
-      nullptr,
-      std::vector<core::PlanNodePtr>{partitionAndSerializeNode});
-
   auto shuffleWriteNode = std::make_shared<operators::ShuffleWriteNode>(
       "root",
       shuffleName_,
       std::move(*serializedShuffleWriteInfo_),
-      std::move(localPartitionNode));
+      core::LocalPartitionNode::gather(
+          "shuffle-gather",
+          std::vector<core::PlanNodePtr>{partitionAndSerializeNode}));
 
   // For presto_cpp, the last node must be the PartitionedOutputNode in order to
   // get the output (e.g actual data or metadata) and send back to coordinator.

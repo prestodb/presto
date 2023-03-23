@@ -23,6 +23,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -76,6 +77,7 @@ public class TestFeaturesConfig
                 .setMaxReorderedJoins(9)
                 .setUseHistoryBasedPlanStatistics(false)
                 .setTrackHistoryBasedPlanStatistics(false)
+                .setUsePerfectlyConsistentHistories(false)
                 .setRedistributeWrites(true)
                 .setScaleWriters(false)
                 .setWriterMinSize(new DataSize(32, MEGABYTE))
@@ -211,11 +213,14 @@ public class TestFeaturesConfig
                 .setNativeExecutionEnabled(false)
                 .setNativeExecutionExecutablePath("./presto_server")
                 .setRandomizeOuterJoinNullKeyEnabled(false)
+                .setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy.DISABLED)
                 .setOptimizeConditionalAggregationEnabled(false)
                 .setRemoveRedundantDistinctAggregationEnabled(true)
                 .setInPredicatesAsInnerJoinsEnabled(false)
                 .setPushAggregationBelowJoinByteReductionThreshold(1)
-                .setPrefilterForGroupbyLimit(false));
+                .setPrefilterForGroupbyLimit(false)
+                .setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(false)
+                .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(true));
     }
 
     @Test
@@ -264,6 +269,7 @@ public class TestFeaturesConfig
                 .put("optimizer.max-reordered-joins", "5")
                 .put("optimizer.use-history-based-plan-statistics", "true")
                 .put("optimizer.track-history-based-plan-statistics", "true")
+                .put("optimizer.use-perfectly-consistent-histories", "true")
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "true")
                 .put("writer-min-size", "42GB")
@@ -377,11 +383,14 @@ public class TestFeaturesConfig
                 .put("native-execution-enabled", "true")
                 .put("native-execution-executable-path", "/bin/echo")
                 .put("optimizer.randomize-outer-join-null-key", "true")
+                .put("optimizer.randomize-outer-join-null-key-strategy", "key_from_outer_join")
                 .put("optimizer.optimize-conditional-aggregation-enabled", "true")
                 .put("optimizer.remove-redundant-distinct-aggregation-enabled", "false")
                 .put("optimizer.in-predicates-as-inner-joins-enabled", "true")
                 .put("optimizer.push-aggregation-below-join-byte-reduction-threshold", "0.9")
                 .put("optimizer.prefilter-for-groupby-limit", "true")
+                .put("optimizer.optimize-probe-for-empty-build-runtime", "true")
+                .put("optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -417,6 +426,7 @@ public class TestFeaturesConfig
                 .setMaxReorderedJoins(5)
                 .setUseHistoryBasedPlanStatistics(true)
                 .setTrackHistoryBasedPlanStatistics(true)
+                .setUsePerfectlyConsistentHistories(true)
                 .setRedistributeWrites(false)
                 .setScaleWriters(true)
                 .setWriterMinSize(new DataSize(42, GIGABYTE))
@@ -541,11 +551,14 @@ public class TestFeaturesConfig
                 .setNativeExecutionEnabled(true)
                 .setNativeExecutionExecutablePath("/bin/echo")
                 .setRandomizeOuterJoinNullKeyEnabled(true)
+                .setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy.KEY_FROM_OUTER_JOIN)
                 .setOptimizeConditionalAggregationEnabled(true)
                 .setRemoveRedundantDistinctAggregationEnabled(false)
                 .setInPredicatesAsInnerJoinsEnabled(true)
                 .setPushAggregationBelowJoinByteReductionThreshold(0.9)
-                .setPrefilterForGroupbyLimit(true);
+                .setPrefilterForGroupbyLimit(true)
+                .setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(true)
+                .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(false);
         assertFullMapping(properties, expected);
     }
 

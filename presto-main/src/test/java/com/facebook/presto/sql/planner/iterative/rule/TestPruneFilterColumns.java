@@ -27,7 +27,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -70,9 +70,9 @@ public class TestPruneFilterColumns
         VariableReferenceExpression a = planBuilder.variable("a");
         VariableReferenceExpression b = planBuilder.variable("b");
         return planBuilder.project(
-                identityAssignmentsAsSymbolReferences(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
+                identityAssignments(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.filter(
-                        planBuilder.expression("b > 5"),
+                        planBuilder.rowExpression("b > 5"),
                         planBuilder.values(a, b)));
     }
 }

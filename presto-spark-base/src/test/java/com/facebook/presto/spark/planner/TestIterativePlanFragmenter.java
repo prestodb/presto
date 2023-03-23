@@ -52,6 +52,7 @@ import com.facebook.presto.spark.planner.IterativePlanFragmenter.PlanAndFragment
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -70,7 +71,6 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmenter;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -378,7 +378,7 @@ public class TestIterativePlanFragmenter
         StatsCalculator statsCalculator = (node, sourceStats, lookup, session, types) -> PlanNodeStatsEstimate.unknown();
         CostCalculator costCalculatorUsingExchanges = new CostCalculatorUsingExchanges(new TaskCountEstimator(() -> 1));
         IterativeOptimizer optimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculatorUsingExchanges, new TranslateExpressions(metadata, new SqlParser()).rules());
-        return optimizer.optimize(planNode, session, typeProvider, new PlanVariableAllocator(typeProvider.allVariables()), new PlanNodeIdAllocator(), WarningCollector.NOOP);
+        return optimizer.optimize(planNode, session, typeProvider, new VariableAllocator(typeProvider.allVariables()), new PlanNodeIdAllocator(), WarningCollector.NOOP);
     }
 
     private SubPlan getFullFragmentedPlan(Plan plan)

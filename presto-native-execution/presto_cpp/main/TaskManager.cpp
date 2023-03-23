@@ -143,12 +143,13 @@ void getData(
     return;
   }
 
+  int64_t startMs = getCurrentTimeMs();
   auto bufferFound = bufferManager.getData(
       taskId,
       bufferId,
       maxSize.getValue(protocol::DataUnit::BYTE),
       token,
-      [taskId = taskId, bufferId = bufferId, promiseHolder](
+      [taskId = taskId, bufferId = bufferId, promiseHolder, startMs](
           std::vector<std::unique_ptr<folly::IOBuf>> pages,
           int64_t sequence) mutable {
         bool complete = pages.empty();
@@ -184,6 +185,10 @@ void getData(
         result->data = std::move(iobuf);
 
         promiseHolder->promise.setValue(std::move(result));
+
+        REPORT_ADD_STAT_VALUE(
+            kCounterPartitionedOutputBufferGetDataLatencyMs,
+            getCurrentTimeMs() - startMs);
       });
 
   if (!bufferFound) {
@@ -851,6 +856,7 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
     int64_t lo;
     int64_t hi;
   };
+
   union UuidParse {
     boost::uuids::uuid uuid;
     UuidSplit split;

@@ -89,6 +89,7 @@ import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
+import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
@@ -106,7 +107,7 @@ public class LogicalPlanner
 {
     private final PlanNodeIdAllocator idAllocator;
     private final Session session;
-    private final PlanVariableAllocator variableAllocator;
+    private final VariableAllocator variableAllocator;
     private final Metadata metadata;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
 
@@ -119,11 +120,8 @@ public class LogicalPlanner
         this.session = requireNonNull(session, "session is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        requireNonNull(variableAllocator, "variableAllocator is null");
-        checkState(variableAllocator instanceof PlanVariableAllocator, "variableAllocator should be instance of PlanVariableAllocator");
+        this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
 
-        // TODO: We should cleanup redundancy between VariableAllocator and PlanVariableAllocator.
-        this.variableAllocator = (PlanVariableAllocator) variableAllocator;
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(this.variableAllocator, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
     }
 
@@ -186,7 +184,7 @@ public class LogicalPlanner
         RelationPlan underlyingPlan = planStatementWithoutOutput(analysis, statement.getStatement());
         PlanNode root = underlyingPlan.getRoot();
         Scope scope = analysis.getScope(statement);
-        VariableReferenceExpression outputVariable = variableAllocator.newVariable(scope.getRelationType().getFieldByIndex(0));
+        VariableReferenceExpression outputVariable = newVariable(variableAllocator, scope.getRelationType().getFieldByIndex(0));
         root = new ExplainAnalyzeNode(getSourceLocation(statement), idAllocator.getNextId(), root, outputVariable, statement.isVerbose());
         return new RelationPlan(root, scope, ImmutableList.of(outputVariable));
     }
@@ -528,7 +526,7 @@ public class LogicalPlanner
         return columns.build();
     }
 
-    private static Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> buildLambdaDeclarationToVariableMap(Analysis analysis, PlanVariableAllocator variableAllocator)
+    private static Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> buildLambdaDeclarationToVariableMap(Analysis analysis, VariableAllocator variableAllocator)
     {
         Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> resultMap = new LinkedHashMap<>();
         for (Entry<NodeRef<Expression>, Type> entry : analysis.getTypes().entrySet()) {
@@ -539,7 +537,7 @@ public class LogicalPlanner
             if (resultMap.containsKey(lambdaArgumentDeclaration)) {
                 continue;
             }
-            resultMap.put(lambdaArgumentDeclaration, variableAllocator.newVariable(lambdaArgumentDeclaration.getNode(), entry.getValue()));
+            resultMap.put(lambdaArgumentDeclaration, newVariable(variableAllocator, lambdaArgumentDeclaration.getNode(), entry.getValue()));
         }
         return resultMap;
     }

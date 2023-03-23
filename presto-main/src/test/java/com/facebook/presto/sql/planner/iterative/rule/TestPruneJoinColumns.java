@@ -33,7 +33,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestPruneJoinColumns
@@ -94,7 +94,7 @@ public class TestPruneJoinColumns
         VariableReferenceExpression rightValue = p.variable("rightValue");
         List<VariableReferenceExpression> outputs = ImmutableList.of(leftKey, leftValue, rightKey, rightValue);
         return p.project(
-                identityAssignmentsAsSymbolReferences(
+                identityAssignments(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

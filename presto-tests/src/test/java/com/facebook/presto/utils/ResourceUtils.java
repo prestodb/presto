@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.utils;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+
 public class ResourceUtils
 {
     private ResourceUtils()
@@ -21,6 +27,16 @@ public class ResourceUtils
 
     public static String getResourceFilePath(String fileName)
     {
-        return ResourceUtils.class.getClassLoader().getResource(fileName).getPath();
+        try {
+            File resourceFile = File.createTempFile("presto-tests", null);
+            resourceFile.deleteOnExit();
+
+            Files.copy(ResourceUtils.class.getClassLoader().getResourceAsStream(fileName), resourceFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+            return resourceFile.toPath().toString();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

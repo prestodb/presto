@@ -52,6 +52,8 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
+import com.facebook.presto.spark.execution.NativeExecutionModule;
+import com.facebook.presto.spark.execution.TestNativeExecutionModule;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -73,6 +75,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.Module;
 import io.airlift.tpch.TpchTable;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
@@ -250,6 +253,14 @@ public class PrestoSparkQueryRunner
         configProperties.put("task.concurrency", Integer.toString(TASK_CONCURRENCY));
         configProperties.putAll(additionalConfigProperties);
 
+        ImmutableList.Builder<Module> additionalModules = ImmutableList.builder();
+        additionalModules.add(new PrestoSparkLocalMetadataStorageModule());
+        if (Boolean.valueOf(System.getProperty("NATIVE_INTERACTIVE_DEBUG"))) {
+            additionalModules.add(new TestNativeExecutionModule());
+        }
+        else {
+            additionalModules.add(new NativeExecutionModule());
+        }
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
                 DRIVER,
                 configProperties.build(),
@@ -260,7 +271,7 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 new SqlParserOptions(),
-                ImmutableList.of(new PrestoSparkLocalMetadataStorageModule()),
+                additionalModules.build(),
                 true);
 
         Injector injector = injectorFactory.create();

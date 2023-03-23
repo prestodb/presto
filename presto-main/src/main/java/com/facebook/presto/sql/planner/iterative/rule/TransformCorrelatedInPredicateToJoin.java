@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -24,8 +24,10 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.InSubqueryExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -36,25 +38,12 @@ import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.IsNotNullPredicate;
-import com.facebook.presto.sql.tree.IsNullPredicate;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.SearchedCaseExpression;
-import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.Nullable;
+import com.google.common.graph.SuccessorsFunction;
+import com.google.common.graph.Traverser;
 
 import java.util.List;
 import java.util.Optional;
@@ -62,19 +51,23 @@ import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.and;
+import static com.facebook.presto.expressions.LogicalRowExpressions.or;
 import static com.facebook.presto.matching.Pattern.nonEmpty;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
-import static com.facebook.presto.sql.ExpressionUtils.and;
-import static com.facebook.presto.sql.ExpressionUtils.or;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.searchedCaseExpression;
+import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -105,7 +98,7 @@ public class TransformCorrelatedInPredicateToJoin
     private static final Pattern<ApplyNode> PATTERN = applyNode()
             .with(nonEmpty(correlation()));
 
-    private final StandardFunctionResolution functionResolution;
+    private final FunctionResolution functionResolution;
 
     public TransformCorrelatedInPredicateToJoin(FunctionAndTypeManager functionAndTypeManager)
     {
@@ -126,12 +119,11 @@ public class TransformCorrelatedInPredicateToJoin
         if (subqueryAssignments.size() != 1) {
             return Result.empty();
         }
-        Expression assignmentExpression = castToExpression(getOnlyElement(subqueryAssignments.getExpressions()));
-        if (!(assignmentExpression instanceof InPredicate)) {
+        RowExpression assignmentExpression = getOnlyElement(subqueryAssignments.getExpressions());
+        if (!(assignmentExpression instanceof InSubqueryExpression)) {
             return Result.empty();
         }
-
-        InPredicate inPredicate = (InPredicate) assignmentExpression;
+        InSubqueryExpression inPredicate = (InSubqueryExpression) assignmentExpression;
         VariableReferenceExpression inPredicateOutputVariable = getOnlyElement(subqueryAssignments.getVariables());
 
         return apply(apply, inPredicate, inPredicateOutputVariable, context.getLookup(), context.getIdAllocator(), context.getVariableAllocator());
@@ -139,13 +131,13 @@ public class TransformCorrelatedInPredicateToJoin
 
     private Result apply(
             ApplyNode apply,
-            InPredicate inPredicate,
+            InSubqueryExpression inPredicate,
             VariableReferenceExpression inPredicateOutputVariable,
             Lookup lookup,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator)
+            VariableAllocator variableAllocator)
     {
-        Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation(), variableAllocator.getTypes())
+        Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation(), TypeProvider.viewOf(variableAllocator.getVariables()))
                 .decorrelate(apply.getSubquery());
 
         if (!decorrelated.isPresent()) {
@@ -165,13 +157,13 @@ public class TransformCorrelatedInPredicateToJoin
 
     private PlanNode buildInPredicateEquivalent(
             ApplyNode apply,
-            InPredicate inPredicate,
+            InSubqueryExpression inPredicate,
             VariableReferenceExpression inPredicateOutputVariable,
             Decorrelated decorrelated,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator)
+            VariableAllocator variableAllocator)
     {
-        Expression correlationCondition = and(decorrelated.getCorrelatedPredicates());
+        RowExpression correlationCondition = and(decorrelated.getCorrelatedPredicates());
         PlanNode decorrelatedBuildSource = decorrelated.getDecorrelatedNode();
 
         AssignUniqueId probeSide = new AssignUniqueId(
@@ -185,34 +177,38 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 decorrelatedBuildSource,
                 Assignments.builder()
-                        .putAll(identitiesAsSymbolReferences(decorrelatedBuildSource.getOutputVariables()))
-                        .put(buildSideKnownNonNull, castToRowExpression(bigint(0)))
+                        .putAll(identityAssignments(decorrelatedBuildSource.getOutputVariables()))
+                        .put(buildSideKnownNonNull, constant(0L, BIGINT))
                         .build());
 
-        checkArgument(inPredicate.getValue() instanceof SymbolReference, "Unexpected expression: %s", inPredicate.getValue());
-        SymbolReference probeSideSymbolReference = (SymbolReference) inPredicate.getValue();
-        checkArgument(inPredicate.getValueList() instanceof SymbolReference, "Unexpected expression: %s", inPredicate.getValueList());
-        SymbolReference buildSideSymbolReference = (SymbolReference) inPredicate.getValueList();
+        VariableReferenceExpression probeSideSymbolReference = inPredicate.getValue();
+        VariableReferenceExpression buildSideSymbolReference = inPredicate.getSubquery();
 
-        Expression joinExpression = and(
-                or(
-                        new IsNullPredicate(probeSideSymbolReference),
-                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, probeSideSymbolReference, buildSideSymbolReference),
-                        new IsNullPredicate(buildSideSymbolReference)),
+        RowExpression isProbeSideNull = specialForm(probeSideSymbolReference.getSourceLocation(), IS_NULL, BOOLEAN, probeSideSymbolReference);
+        RowExpression isBuildSideNull = specialForm(buildSideSymbolReference.getSourceLocation(), IS_NULL, BOOLEAN, buildSideSymbolReference);
+        RowExpression comparison = call(
+                ComparisonExpression.Operator.EQUAL.name(),
+                functionResolution.comparisonFunction(ComparisonExpression.Operator.EQUAL, probeSideSymbolReference.getType(), buildSideSymbolReference.getType()),
+                BOOLEAN,
+                probeSideSymbolReference,
+                buildSideSymbolReference);
+
+        RowExpression joinExpression = and(
+                or(isProbeSideNull, comparison, isBuildSideNull),
                 correlationCondition);
 
         JoinNode leftOuterJoin = leftOuterJoin(idAllocator, probeSide, buildSide, joinExpression);
 
-        VariableReferenceExpression countMatchesVariable = variableAllocator.newVariable(getSourceLocation(buildSideSymbolReference.getLocation()), "countMatches", BIGINT);
-        VariableReferenceExpression countNullMatchesVariable = variableAllocator.newVariable(getSourceLocation(buildSideSymbolReference.getLocation()), "countNullMatches", BIGINT);
+        VariableReferenceExpression countMatchesVariable = variableAllocator.newVariable(buildSideSymbolReference.getSourceLocation(), "countMatches", BIGINT);
+        VariableReferenceExpression countNullMatchesVariable = variableAllocator.newVariable(buildSideSymbolReference.getSourceLocation(), "countNullMatches", BIGINT);
 
-        Expression matchCondition = and(
-                new IsNotNullPredicate(probeSideSymbolReference),
-                new IsNotNullPredicate(buildSideSymbolReference));
+        RowExpression matchCondition = and(
+                isNotNull(probeSideSymbolReference),
+                isNotNull(buildSideSymbolReference));
 
-        Expression nullMatchCondition = and(
-                new IsNotNullPredicate(createSymbolReference(buildSideKnownNonNull)),
-                new NotExpression(matchCondition));
+        RowExpression nullMatchCondition = and(
+                isNotNull(buildSideKnownNonNull),
+                not(matchCondition));
 
         AggregationNode aggregation = new AggregationNode(
                 apply.getSourceLocation(),
@@ -229,21 +225,36 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.empty());
 
         // TODO since we care only about "some count > 0", we could have specialized node instead of leftOuterJoin that does the job without materializing join results
-        SearchedCaseExpression inPredicateEquivalent = new SearchedCaseExpression(
+        RowExpression inPredicateEquivalent = searchedCaseExpression(
                 ImmutableList.of(
-                        new WhenClause(isGreaterThan(countMatchesVariable, 0), booleanConstant(true)),
-                        new WhenClause(isGreaterThan(countNullMatchesVariable, 0), booleanConstant(null))),
-                Optional.of(booleanConstant(false)));
+                        specialForm(WHEN, BOOLEAN, isGreaterThan(countMatchesVariable, 0), TRUE_CONSTANT),
+                        specialForm(WHEN, BOOLEAN, isGreaterThan(countNullMatchesVariable, 0), new ConstantExpression(null, BOOLEAN))),
+                Optional.of(FALSE_CONSTANT));
         return new ProjectNode(
                 idAllocator.getNextId(),
                 aggregation,
                 Assignments.builder()
-                        .putAll(identitiesAsSymbolReferences(apply.getInput().getOutputVariables()))
-                        .put(inPredicateOutputVariable, castToRowExpression(inPredicateEquivalent))
+                        .putAll(identityAssignments(apply.getInput().getOutputVariables()))
+                        .put(inPredicateOutputVariable, inPredicateEquivalent)
                         .build());
     }
 
-    private static JoinNode leftOuterJoin(PlanNodeIdAllocator idAllocator, AssignUniqueId probeSide, ProjectNode buildSide, Expression joinExpression)
+    private RowExpression isNotNull(RowExpression expression)
+    {
+        return not(specialForm(IS_NULL, BOOLEAN, ImmutableList.of(expression)));
+    }
+
+    private RowExpression not(RowExpression expression)
+    {
+        return call(
+                expression.getSourceLocation(),
+                "not",
+                functionResolution.notFunction(),
+                BOOLEAN,
+                expression);
+    }
+
+    private static JoinNode leftOuterJoin(PlanNodeIdAllocator idAllocator, AssignUniqueId probeSide, ProjectNode buildSide, RowExpression joinExpression)
     {
         return new JoinNode(
                 probeSide.getSourceLocation(),
@@ -256,47 +267,36 @@ public class TransformCorrelatedInPredicateToJoin
                         .addAll(probeSide.getOutputVariables())
                         .addAll(buildSide.getOutputVariables())
                         .build(),
-                Optional.of(castToRowExpression(joinExpression)),
+                Optional.of(joinExpression),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of());
     }
 
-    private AggregationNode.Aggregation countWithFilter(Expression condition)
+    private AggregationNode.Aggregation countWithFilter(RowExpression condition)
     {
         return new AggregationNode.Aggregation(
                 new CallExpression(
-                        getSourceLocation(condition),
+                        condition.getSourceLocation(),
                         "count",
                         functionResolution.countFunction(),
                         BIGINT,
                         ImmutableList.of()),
-                Optional.of(castToRowExpression(condition)),
+                Optional.of(condition),
                 Optional.empty(),
                 false,
                 Optional.empty()); /* mask */
     }
 
-    private static Expression isGreaterThan(VariableReferenceExpression variable, long value)
+    private RowExpression isGreaterThan(VariableReferenceExpression variable, long value)
     {
-        return new ComparisonExpression(
-                ComparisonExpression.Operator.GREATER_THAN,
-                createSymbolReference(variable),
-                bigint(value));
-    }
-
-    private static Expression bigint(long value)
-    {
-        return new Cast(new LongLiteral(String.valueOf(value)), BIGINT.toString());
-    }
-
-    private static Expression booleanConstant(@Nullable Boolean value)
-    {
-        if (value == null) {
-            return new Cast(new NullLiteral(), BOOLEAN.toString());
-        }
-        return new BooleanLiteral(value.toString());
+        return call(
+                ComparisonExpression.Operator.GREATER_THAN.name(),
+                functionResolution.comparisonFunction(ComparisonExpression.Operator.GREATER_THAN, BIGINT, BIGINT),
+                BOOLEAN,
+                variable,
+                constant(value, BIGINT));
     }
 
     private static class DecorrelatingVisitor
@@ -333,13 +333,14 @@ public class TransformCorrelatedInPredicateToJoin
 
                 // Pull up all symbols used by a filter (except correlation)
                 decorrelated.getCorrelatedPredicates().stream()
-                        .flatMap(AstUtils::preOrder)
-                        .filter(SymbolReference.class::isInstance)
-                        .map(SymbolReference.class::cast)
-                        .map(symbolReference -> new VariableReferenceExpression(getSourceLocation(symbolReference), symbolReference.getName(), types.get(symbolReference)))
+                        .flatMap(expression -> stream(
+                                Traverser.forTree((SuccessorsFunction<RowExpression>) RowExpression::getChildren)
+                                        .depthFirstPreOrder(expression)))
+                        .filter(VariableReferenceExpression.class::isInstance)
+                        .map(VariableReferenceExpression.class::cast)
                         .filter(variable -> !correlation.contains(variable))
-                        .map(AssignmentUtils::identityAsSymbolReference)
-                        .forEach(assignments::put);
+                        .map(AssignmentUtils::identityAssignments)
+                        .forEach(assignments::putAll);
 
                 return new Decorrelated(
                         decorrelated.getCorrelatedPredicates(),
@@ -356,10 +357,10 @@ public class TransformCorrelatedInPredicateToJoin
             Optional<Decorrelated> result = decorrelate(node.getSource());
             return result.map(decorrelated ->
                     new Decorrelated(
-                            ImmutableList.<Expression>builder()
+                            ImmutableList.<RowExpression>builder()
                                     .addAll(decorrelated.getCorrelatedPredicates())
                                     // No need to retain uncorrelated conditions, predicate push down will push them back
-                                    .add(castToExpression(node.getPredicate()))
+                                    .add(node.getPredicate())
                                     .build(),
                             decorrelated.getDecorrelatedNode()));
         }
@@ -393,16 +394,16 @@ public class TransformCorrelatedInPredicateToJoin
 
     private static class Decorrelated
     {
-        private final List<Expression> correlatedPredicates;
+        private final List<RowExpression> correlatedPredicates;
         private final PlanNode decorrelatedNode;
 
-        public Decorrelated(List<Expression> correlatedPredicates, PlanNode decorrelatedNode)
+        public Decorrelated(List<RowExpression> correlatedPredicates, PlanNode decorrelatedNode)
         {
             this.correlatedPredicates = ImmutableList.copyOf(requireNonNull(correlatedPredicates, "correlatedPredicates is null"));
             this.decorrelatedNode = requireNonNull(decorrelatedNode, "decorrelatedNode is null");
         }
 
-        public List<Expression> getCorrelatedPredicates()
+        public List<RowExpression> getCorrelatedPredicates()
         {
             return correlatedPredicates;
         }

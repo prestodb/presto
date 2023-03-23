@@ -24,6 +24,7 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.LogicalProperties;
 import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -214,7 +214,7 @@ public class RuleAssert
 
     private RuleApplication applyRule()
     {
-        PlanVariableAllocator variableAllocator = new PlanVariableAllocator(types.allVariables());
+        VariableAllocator variableAllocator = new VariableAllocator(types.allVariables());
         Memo memo = new Memo(idAllocator, plan, logicalPropertiesProvider);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
@@ -236,7 +236,7 @@ public class RuleAssert
             result = rule.apply(match.value(), match.captures(), context);
         }
 
-        return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getVariableAllocator().getTypes(), memo, result);
+        return new RuleApplication(context.getLookup(), context.getStatsProvider(), TypeProvider.viewOf(context.getVariableAllocator().getVariables()), memo, result);
     }
 
     private String formatPlan(PlanNode plan, TypeProvider types)
@@ -260,12 +260,12 @@ public class RuleAssert
     private PlanNode translateExpressions(PlanNode node, TypeProvider typeProvider)
     {
         IterativeOptimizer optimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculator, new TranslateExpressions(metadata, new SqlParser()).rules());
-        return optimizer.optimize(node, session, typeProvider, new PlanVariableAllocator(typeProvider.allVariables()), idAllocator, WarningCollector.NOOP);
+        return optimizer.optimize(node, session, typeProvider, new VariableAllocator(typeProvider.allVariables()), idAllocator, WarningCollector.NOOP);
     }
 
-    private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, PlanVariableAllocator variableAllocator, Memo memo, Lookup lookup, Session session)
+    private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, VariableAllocator variableAllocator, Memo memo, Lookup lookup, Session session)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, variableAllocator.getTypes());
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, TypeProvider.viewOf(variableAllocator.getVariables()));
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
         LogicalPropertiesProvider logicalPropertiesProvider = new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()));
 
@@ -284,7 +284,7 @@ public class RuleAssert
             }
 
             @Override
-            public PlanVariableAllocator getVariableAllocator()
+            public VariableAllocator getVariableAllocator()
             {
                 return variableAllocator;
             }

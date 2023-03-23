@@ -203,7 +203,7 @@ public class TestMySqlFunctionNamespaceManager
         assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*function 'unittest\\.memory\\.power_tower\\(x double\\):double:1 \\{RETURN pow\\(x, x\\)\\} \\(SQL, DETERMINISTIC, CALLED_ON_NULL_INPUT\\)' is already versioned")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*function 'unittest\\.memory\\.power_tower\\(x double\\):double:1 \\[SCALAR] \\{RETURN pow\\(x, x\\)\\} \\(SQL, DETERMINISTIC, CALLED_ON_NULL_INPUT\\)' is already versioned")
     public void testCreateFunctionFailedVersioned()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"), true);

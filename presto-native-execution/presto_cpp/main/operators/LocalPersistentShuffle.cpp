@@ -91,18 +91,19 @@ void LocalPersistentShuffleWriter::collect(
     int32_t partition,
     std::string_view data) {
   auto& buffer = inProgressPartitions_[partition];
+  const auto size = data.size();
 
   // Check if there is enough space in the buffer.
   if ((buffer != nullptr) &&
-      (inProgressSizes_[partition] + data.size() + sizeof(size_t) >=
-       buffer->capacity())) {
+      (inProgressSizes_[partition] + size >= buffer->capacity())) {
     storePartitionBlock(partition);
+    // NOTE: the referenced 'buffer' will be reset in storePartitionBlock.
   }
 
   // Allocate buffer if needed.
   if (buffer == nullptr) {
     buffer = AlignedBuffer::allocate<char>(
-        std::max((uint64_t)data.size(), maxBytesPerPartition_), pool_);
+        std::max((uint64_t)size, maxBytesPerPartition_), pool_);
     inProgressSizes_[partition] = 0;
     inProgressPartitions_[partition] = buffer;
   }
@@ -111,12 +112,9 @@ void LocalPersistentShuffleWriter::collect(
   auto rawBuffer = buffer->asMutable<char>();
   auto offset = inProgressSizes_[partition];
 
-  *(size_t*)(rawBuffer + offset) = data.size();
+  ::memcpy(rawBuffer + offset, data.data(), size);
 
-  offset += sizeof(size_t);
-  ::memcpy(rawBuffer + offset, data.data(), data.size());
-
-  inProgressSizes_[partition] += sizeof(size_t) + data.size();
+  inProgressSizes_[partition] += size;
 }
 
 void LocalPersistentShuffleWriter::noMoreData(bool success) {

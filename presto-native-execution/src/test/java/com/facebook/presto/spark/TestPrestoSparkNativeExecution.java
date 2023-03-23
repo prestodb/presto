@@ -35,6 +35,19 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+/**
+ * Tests can be running in Interactive Debugging Mode. Interactive Debugging Mode allows you to have an easier debugging
+ * experience by allowing Spark side not launching its own native process, but instead communicating with an already
+ * launched native process. This gives developers flexibility to hookup any IDEs or debuggers with the native process.
+ * Following environment variables are needed in order to enable this mode:
+ *
+ * - NATIVE_INTERACTIVE_DEBUG
+ *   - Setting this to "true" will enable interactive debugging session. This means Spark will talk to an already
+ *     launched native process instead of launching its own.
+ * - NATIVE_PORT
+ *   - This is the port your externally launched native process listens to. It is used to tell Spark where to send
+ *     requests. If not set it is by default 7777.
+ */
 public class TestPrestoSparkNativeExecution
         extends AbstractTestQueryFramework
 {

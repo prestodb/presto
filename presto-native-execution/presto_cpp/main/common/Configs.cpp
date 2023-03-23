@@ -78,6 +78,11 @@ int32_t SystemConfig::numIoThreads() const {
   return opt.value_or(kNumIoThreadsDefault);
 }
 
+int32_t SystemConfig::numQueryThreads() const {
+  auto opt = optionalProperty<int32_t>(std::string(kNumQueryThreads));
+  return opt.value_or(std::thread::hardware_concurrency() * 4);
+}
+
 int32_t SystemConfig::numSpillThreads() const {
   auto opt = optionalProperty<int32_t>(std::string(kNumSpillThreads));
   return opt.hasValue() ? opt.value() : std::thread::hardware_concurrency();
@@ -147,6 +152,11 @@ int32_t SystemConfig::mmapArenaCapacityRatio() const {
 bool SystemConfig::useMmapAllocator() const {
   auto opt = optionalProperty<bool>(std::string(kUseMmapAllocator));
   return opt.value_or(kUseMmapAllocatorDefault);
+}
+
+bool SystemConfig::enableHttpAccessLog() const {
+  auto opt = optionalProperty<bool>(std::string(kHttpEnableAccessLog));
+  return opt.value_or(kHttpEnableAccessLogDefault);
 }
 
 NodeConfig* NodeConfig::instance() {

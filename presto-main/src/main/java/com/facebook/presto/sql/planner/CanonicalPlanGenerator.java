@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.GroupingSetDescriptor;
@@ -77,7 +79,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.usePerfectlyConsistentHistories;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.DEFAULT;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
@@ -101,21 +105,23 @@ public class CanonicalPlanGenerator
         extends InternalPlanVisitor<Optional<PlanNode>, CanonicalPlanGenerator.Context>
 {
     private final PlanNodeIdAllocator planNodeidAllocator = new PlanNodeIdAllocator();
-    private final PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
+    private final VariableAllocator variableAllocator = new VariableAllocator();
     // TODO: DEFAULT strategy has a very different canonicalizaiton implementation, refactor it into a separate class.
     private final PlanCanonicalizationStrategy strategy;
     private final ObjectMapper objectMapper;
+    private final Session session;
 
-    public CanonicalPlanGenerator(PlanCanonicalizationStrategy strategy, ObjectMapper objectMapper)
+    public CanonicalPlanGenerator(PlanCanonicalizationStrategy strategy, ObjectMapper objectMapper, Session session)
     {
         this.strategy = requireNonNull(strategy, "strategy is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.session = requireNonNull(session, "session is null");
     }
 
-    public static Optional<CanonicalPlanFragment> generateCanonicalPlanFragment(PlanNode root, PartitioningScheme partitioningScheme, ObjectMapper objectMapper)
+    public static Optional<CanonicalPlanFragment> generateCanonicalPlanFragment(PlanNode root, PartitioningScheme partitioningScheme, ObjectMapper objectMapper, Session session)
     {
         Context context = new Context();
-        Optional<PlanNode> canonicalPlan = root.accept(new CanonicalPlanGenerator(PlanCanonicalizationStrategy.DEFAULT, objectMapper), context);
+        Optional<PlanNode> canonicalPlan = root.accept(new CanonicalPlanGenerator(PlanCanonicalizationStrategy.DEFAULT, objectMapper, session), context);
         if (!context.getExpressions().keySet().containsAll(partitioningScheme.getOutputLayout())) {
             return Optional.empty();
         }
@@ -123,9 +129,9 @@ public class CanonicalPlanGenerator
     }
 
     // Returns `CanonicalPlan`. If we encounter a `PlanNode` with unimplemented canonicalization, we return `Optional.empty()`
-    public static Optional<CanonicalPlan> generateCanonicalPlan(PlanNode root, PlanCanonicalizationStrategy strategy, ObjectMapper objectMapper)
+    public static Optional<CanonicalPlan> generateCanonicalPlan(PlanNode root, PlanCanonicalizationStrategy strategy, ObjectMapper objectMapper, Session session)
     {
-        Optional<PlanNode> canonicalPlanNode = root.accept(new CanonicalPlanGenerator(strategy, objectMapper), new CanonicalPlanGenerator.Context());
+        Optional<PlanNode> canonicalPlanNode = root.accept(new CanonicalPlanGenerator(strategy, objectMapper, session), new CanonicalPlanGenerator.Context());
         return canonicalPlanNode.map(planNode -> new CanonicalPlan(planNode, strategy));
     }
 
@@ -968,10 +974,14 @@ public class CanonicalPlanGenerator
             return sourcesByTables;
         }
 
+        if (!usePerfectlyConsistentHistories(session)) {
+            return Optional.of(IntStream.range(0, sources.size()).boxed().collect(toImmutableList()));
+        }
+
         // We canonicalize each source independently, and use its representation to order sources.
         Multimap<String, Integer> sourceToPosition = TreeMultimap.create();
         for (int i = 0; i < sources.size(); ++i) {
-            Optional<CanonicalPlan> canonicalSource = generateCanonicalPlan(sources.get(i), strategy, objectMapper);
+            Optional<CanonicalPlan> canonicalSource = generateCanonicalPlan(sources.get(i), strategy, objectMapper, session);
             if (!canonicalSource.isPresent()) {
                 return Optional.empty();
             }
