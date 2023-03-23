@@ -159,20 +159,4 @@ void InputStream::logRead(uint64_t offset, uint64_t length, LogType purpose) {
       0, "readFully", getLength(), 0, 0, offset, length, purpose, 1, 0);
 }
 
-uint64_t ReferenceableInputStream::getPreloadLength() const {
-  return autoPreloadLength_;
-}
-
-void ReferenceableInputStream::setPreloadLength(uint64_t length) {
-  autoPreloadLength_ = length;
-}
-
-bool ReferenceableInputStream::getPrefetching() {
-  return prefetching_;
-}
-
-void ReferenceableInputStream::setPrefetching(bool pf) {
-  prefetching_ = pf;
-}
-
 } // namespace facebook::velox::dwio::common

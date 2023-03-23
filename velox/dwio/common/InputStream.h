@@ -189,31 +189,4 @@ class ReadFileInputStream final : public InputStream {
   std::shared_ptr<velox::ReadFile> readFile_;
 };
 
-class ReferenceableInputStream : public InputStream {
- private:
-  uint64_t autoPreloadLength_;
-  bool prefetching_;
-
- public:
-  explicit ReferenceableInputStream(
-      const std::string& /* UNUSED*/,
-      const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
-      IoStatistics* FOLLY_NULLABLE stats = nullptr)
-      : InputStream("ReferenceablelnputStream", metricsLog, stats),
-        autoPreloadLength_(0),
-        prefetching_(false) {}
-  virtual ~ReferenceableInputStream() = default;
-  virtual uint64_t getPreloadLength() const;
-  virtual void setPreloadLength(uint64_t length);
-  virtual void preload(uint64_t, uint64_t, LogType) {}
-  virtual bool getPrefetching();
-  virtual void setPrefetching(bool pf);
-  virtual const void* FOLLY_NULLABLE readReference(
-      void* FOLLY_NONNULL buf,
-      uint64_t length,
-      uint64_t offset,
-      LogType) = 0;
-  virtual const void* FOLLY_NULLABLE
-  readReferenceOnly(uint64_t length, uint64_t offset, LogType) = 0;
-};
 } // namespace facebook::velox::dwio::common

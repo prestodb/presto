@@ -38,7 +38,6 @@ add_library(
   InputStream.cpp
   IntDecoder.cpp
   IoStatistics.cpp
-  MemoryInputStream.cpp
   MetadataFilter.cpp
   Options.cpp
   Range.cpp
