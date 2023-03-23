@@ -23,6 +23,7 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/Driver.h"
 
 #include <sys/resource.h>
@@ -42,11 +43,13 @@ static constexpr size_t kOsPeriodGlobalCounters{2'000'000}; // 2 seconds
 PeriodicTaskManager::PeriodicTaskManager(
     folly::CPUThreadPoolExecutor* driverCPUExecutor,
     folly::IOThreadPoolExecutor* httpExecutor,
-    TaskManager* taskManager)
+    TaskManager* taskManager,
+    std::vector<std::shared_ptr<velox::connector::Connector>> connectors)
     : driverCPUExecutor_(driverCPUExecutor),
       httpExecutor_(httpExecutor),
       taskManager_(taskManager),
-      memoryManager_(velox::memory::MemoryManager::getInstance()) {}
+      memoryManager_(velox::memory::MemoryManager::getInstance()),
+      connectors_(connectors) {}
 
 void PeriodicTaskManager::start() {
   // Add new functions here.
@@ -286,6 +289,84 @@ void PeriodicTaskManager::start() {
         },
         std::chrono::microseconds{kCachePeriodGlobalCounters},
         "cache_counters");
+  }
+
+  for (auto connector : connectors_) {
+    static std::unordered_map<std::string, int64_t> oldValues;
+    // Export HiveConnector stats
+    if (auto hiveConnector =
+            std::dynamic_pointer_cast<velox::connector::hive::HiveConnector>(
+                connector)) {
+      auto connectorId = hiveConnector->connectorId();
+      const auto kNumElementsMetricName = fmt::format(
+          kCounterHiveFileHandleCacheNumElementsFormat, connectorId);
+      const auto kPinnedSizeMetricName =
+          fmt::format(kCounterHiveFileHandleCachePinnedSizeFormat, connectorId);
+      const auto kCurSizeMetricName =
+          fmt::format(kCounterHiveFileHandleCacheCurSizeFormat, connectorId);
+      const auto kNumAccumulativeHitsMetricName = fmt::format(
+          kCounterHiveFileHandleCacheNumAccumulativeHitsFormat, connectorId);
+      const auto kNumAccumulativeLookupsMetricName = fmt::format(
+          kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat, connectorId);
+
+      const auto kNumHitsMetricName =
+          fmt::format(kCounterHiveFileHandleCacheNumHitsFormat, connectorId);
+      oldValues[kNumHitsMetricName] = 0;
+      const auto kNumLookupsMetricName =
+          fmt::format(kCounterHiveFileHandleCacheNumLookupsFormat, connectorId);
+      oldValues[kNumLookupsMetricName] = 0;
+
+      // Exporting metrics types here since the metrics key is dynamic
+      REPORT_ADD_STAT_EXPORT_TYPE(
+          kNumElementsMetricName, facebook::velox::StatType::AVG);
+      REPORT_ADD_STAT_EXPORT_TYPE(
+          kPinnedSizeMetricName, facebook::velox::StatType::AVG);
+      REPORT_ADD_STAT_EXPORT_TYPE(
+          kCurSizeMetricName, facebook::velox::StatType::AVG);
+      REPORT_ADD_STAT_EXPORT_TYPE(
+          kNumAccumulativeHitsMetricName, facebook::velox::StatType::AVG);
+      REPORT_ADD_STAT_EXPORT_TYPE(
+          kNumAccumulativeLookupsMetricName, facebook::velox::StatType::AVG);
+      REPORT_ADD_STAT_EXPORT_TYPE(
+          kNumHitsMetricName, facebook::velox::StatType::AVG);
+      REPORT_ADD_STAT_EXPORT_TYPE(
+          kNumLookupsMetricName, facebook::velox::StatType::AVG);
+
+      scheduler_.addFunction(
+          [hiveConnector,
+           connectorId,
+           kNumElementsMetricName,
+           kPinnedSizeMetricName,
+           kCurSizeMetricName,
+           kNumAccumulativeHitsMetricName,
+           kNumAccumulativeLookupsMetricName,
+           kNumHitsMetricName,
+           kNumLookupsMetricName]() {
+            auto fileHandleCacheStats = hiveConnector->fileHandleCacheStats();
+            REPORT_ADD_STAT_VALUE(
+                kNumElementsMetricName, fileHandleCacheStats.numElements);
+            REPORT_ADD_STAT_VALUE(
+                kPinnedSizeMetricName, fileHandleCacheStats.pinnedSize);
+            REPORT_ADD_STAT_VALUE(
+                kCurSizeMetricName, fileHandleCacheStats.curSize);
+            REPORT_ADD_STAT_VALUE(
+                kNumAccumulativeHitsMetricName, fileHandleCacheStats.numHits);
+            REPORT_ADD_STAT_VALUE(
+                kNumAccumulativeLookupsMetricName,
+                fileHandleCacheStats.numLookups);
+            REPORT_ADD_STAT_VALUE(
+                kNumHitsMetricName,
+                fileHandleCacheStats.numHits - oldValues[kNumHitsMetricName]);
+            oldValues[kNumHitsMetricName] = fileHandleCacheStats.numHits;
+            REPORT_ADD_STAT_VALUE(
+                kNumLookupsMetricName,
+                fileHandleCacheStats.numLookups -
+                    oldValues[kNumLookupsMetricName]);
+            oldValues[kNumLookupsMetricName] = fileHandleCacheStats.numLookups;
+          },
+          std::chrono::microseconds{kCachePeriodGlobalCounters},
+          fmt::format("{}.hive_connector_counters", connectorId));
+    }
   }
 
   scheduler_.addFunction(

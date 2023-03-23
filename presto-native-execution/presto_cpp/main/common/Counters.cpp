@@ -151,6 +151,16 @@ void registerPrestoCppCounters() {
       kCounterSsdCacheCumulativeCachedBytes, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSsdCacheCachedBytes, facebook::velox::StatType::AVG);
+  // NOTE: Metrics type exporting for file handle cache counters are in
+  // PeriodicTaskManager because they have dynamic names. The following counters
+  // have their type exported there:
+  // [
+  //  kCounterHiveFileHandleCacheNumElementsFormat,
+  //  kCounterHiveFileHandleCachePinnedSizeFormat,
+  //  kCounterHiveFileHandleCacheCurSizeFormat,
+  //  kCounterHiveFileHandleCacheNumAccumulativeHitsFormat,
+  //  kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat
+  // ]
 }
 
 } // namespace facebook::presto
