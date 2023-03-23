@@ -145,10 +145,6 @@
             <outputDirectory>plugin/sqlserver</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>${project.build.directory}/dependency/presto-raptor-${project.version}</directory>
-            <outputDirectory>plugin/raptor</outputDirectory>
-        </fileSet>
-        <fileSet>
             <directory>${project.build.directory}/dependency/presto-redis-${project.version}</directory>
             <outputDirectory>plugin/redis</outputDirectory>
         </fileSet>
