@@ -48,6 +48,7 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -111,6 +112,7 @@ public final class GraphvizPrinter
         SORT,
         SAMPLE,
         MARK_DISTINCT,
+        NATIVE_EXECUTION,
         TABLE_WRITER,
         TABLE_WRITER_MERGE,
         TABLE_FINISH,
@@ -136,6 +138,7 @@ public final class GraphvizPrinter
             .put(NodeType.WINDOW, "darkolivegreen4")
             .put(NodeType.UNION, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
+            .put(NodeType.NATIVE_EXECUTION, "grey")
             .put(NodeType.TABLE_WRITER, "cyan")
             .put(NodeType.TABLE_WRITER_MERGE, "cyan4")
             .put(NodeType.TABLE_FINISH, "hotpink")
@@ -323,6 +326,13 @@ public final class GraphvizPrinter
         {
             printNode(node, format("MarkDistinct[%s]", node.getMarkerVariable()), format("%s => %s", node.getDistinctVariables(), node.getMarkerVariable()), NODE_COLORS.get(NodeType.MARK_DISTINCT));
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitNativeExecution(NativeExecutionNode node, Void context)
+        {
+            printNode(node, "NativeExecution", NODE_COLORS.get(NodeType.NATIVE_EXECUTION));
+            return null;
         }
 
         @Override
