@@ -44,7 +44,7 @@ class HttpServer;
 namespace proxygen {
 class HTTPMessage;
 class ResponseHandler;
-}
+} // namespace proxygen
 
 namespace facebook::presto::protocol {
 struct MemoryInfo;

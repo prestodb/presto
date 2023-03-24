@@ -53,8 +53,9 @@ std::string SystemConfig::prestoVersion() const {
   return requiredProperty(std::string(kPrestoVersion));
 }
 
-std::string SystemConfig::discoveryUri() const {
-  return requiredProperty(std::string(kDiscoveryUri));
+std::optional<std::string> SystemConfig::discoveryUri() const {
+  return static_cast<std::optional<std::string>>(
+      optionalProperty<std::string>(std::string(kDiscoveryUri)));
 }
 
 int32_t SystemConfig::maxDriversPerTask() const {
