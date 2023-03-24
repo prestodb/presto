@@ -341,6 +341,51 @@ TEST_F(AverageAggregationTest, avgDecimal) {
       {"avg(c0)"},
       {},
       {makeRowVector({makeShortDecimalFlatVector({3'000}, DECIMAL(10, 1))})});
+
+  // Decimal average aggregation with multiple groups.
+  auto inputRows = {
+      makeRowVector(
+          {makeNullableFlatVector<int32_t>({1, 1}),
+           makeShortDecimalFlatVector({37220, 53450}, DECIMAL(5, 2))}),
+      makeRowVector(
+          {makeNullableFlatVector<int32_t>({2, 2}),
+           makeShortDecimalFlatVector({10410, 9250}, DECIMAL(5, 2))}),
+      makeRowVector(
+          {makeNullableFlatVector<int32_t>({3, 3}),
+           makeShortDecimalFlatVector({-12783, 0}, DECIMAL(5, 2))}),
+      makeRowVector(
+          {makeNullableFlatVector<int32_t>({1, 2}),
+           makeShortDecimalFlatVector({23178, 41093}, DECIMAL(5, 2))}),
+      makeRowVector(
+          {makeNullableFlatVector<int32_t>({2, 3}),
+           makeShortDecimalFlatVector({-10023, 5290}, DECIMAL(5, 2))}),
+  };
+
+  auto expectedResult = {
+      makeRowVector(
+          {makeNullableFlatVector<int32_t>({1}),
+           makeShortDecimalFlatVector({37949}, DECIMAL(5, 2))}),
+      makeRowVector(
+          {makeNullableFlatVector<int32_t>({2}),
+           makeShortDecimalFlatVector({12683}, DECIMAL(5, 2))}),
+      makeRowVector(
+          {makeNullableFlatVector<int32_t>({3}),
+           makeShortDecimalFlatVector({-2498}, DECIMAL(5, 2))})};
+
+  testAggregations(inputRows, {"c0"}, {"avg(c1)"}, expectedResult);
+}
+
+TEST_F(AverageAggregationTest, avgDecimalWithMultipleRowVectors) {
+  auto inputRows = {
+      makeRowVector({makeShortDecimalFlatVector({100, 200}, DECIMAL(5, 2))}),
+      makeRowVector({makeShortDecimalFlatVector({300, 400}, DECIMAL(5, 2))}),
+      makeRowVector({makeShortDecimalFlatVector({500, 600}, DECIMAL(5, 2))}),
+  };
+
+  auto expectedResult = {
+      makeRowVector({makeShortDecimalFlatVector({350}, DECIMAL(5, 2))})};
+
+  testAggregations(inputRows, {}, {"avg(c0)"}, expectedResult);
 }
 
 TEST_F(AverageAggregationTest, constantVectorOverflow) {

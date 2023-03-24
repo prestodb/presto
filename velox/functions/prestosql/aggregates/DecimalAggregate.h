@@ -190,6 +190,7 @@ class DecimalAggregate : public exec::Aggregate {
         auto serializedAccumulator =
             intermediateFlatVector->valueAt(decodedIndex);
         rows.applyToSelected([&](vector_size_t i) {
+          clearNull(groups[i]);
           auto accumulator = decimalAccumulator(groups[i]);
           accumulator->mergeWith(serializedAccumulator);
         });
@@ -208,6 +209,7 @@ class DecimalAggregate : public exec::Aggregate {
       });
     } else {
       rows.applyToSelected([&](vector_size_t i) {
+        clearNull(groups[i]);
         auto decodedIndex = decodedPartial_.index(i);
         auto serializedAccumulator =
             intermediateFlatVector->valueAt(decodedIndex);
@@ -231,6 +233,9 @@ class DecimalAggregate : public exec::Aggregate {
         auto decodedIndex = decodedPartial_.index(0);
         auto serializedAccumulator =
             intermediateFlatVector->valueAt(decodedIndex);
+        if (rows.hasSelections()) {
+          clearNull(group);
+        }
         rows.applyToSelected([&](vector_size_t i) {
           mergeAccumulators(group, serializedAccumulator);
         });
@@ -240,12 +245,16 @@ class DecimalAggregate : public exec::Aggregate {
         if (decodedPartial_.isNullAt(i)) {
           return;
         }
+        clearNull(group);
         auto decodedIndex = decodedPartial_.index(i);
         auto serializedAccumulator =
             intermediateFlatVector->valueAt(decodedIndex);
         mergeAccumulators(group, serializedAccumulator);
       });
     } else {
+      if (rows.hasSelections()) {
+        clearNull(group);
+      }
       rows.applyToSelected([&](vector_size_t i) {
         auto decodedIndex = decodedPartial_.index(i);
         auto serializedAccumulator =
