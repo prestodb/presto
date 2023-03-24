@@ -39,6 +39,20 @@ TEST(SuccinctPrinterTest, testSuccinctNanos) {
   EXPECT_EQ(succinctNanos(867'661'789'000'000), "10d 1h 1m 2s");
 }
 
+TEST(SuccinctPrinterTest, testSuccinctMicros) {
+  EXPECT_EQ(succinctMicros(123), "123us");
+  EXPECT_EQ(succinctMicros(1'000), "1.00ms");
+  EXPECT_EQ(succinctMicros(1'234), "1.23ms");
+  EXPECT_EQ(succinctMicros(59'990), "59.99ms");
+  EXPECT_EQ(succinctMicros(60'499), "60.50ms");
+  EXPECT_EQ(succinctMicros(61'000), "61.00ms");
+  EXPECT_EQ(succinctMicros(3'599'456), "3.60s");
+  EXPECT_EQ(succinctMicros(3'600'000), "3.60s");
+  EXPECT_EQ(succinctMicros(86'399'498), "1m 26s");
+  EXPECT_EQ(succinctMicros(86'400'123), "1m 26s");
+  EXPECT_EQ(succinctMicros(867'661'789), "14m 28s");
+}
+
 TEST(SuccinctPrinterTest, testSuccinctMillis) {
   EXPECT_EQ(succinctMillis(123), "123ms");
   EXPECT_EQ(succinctMillis(1'000), "1.00s");

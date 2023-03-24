@@ -123,6 +123,10 @@ std::string succinctMillis(uint64_t duration, int precision) {
   return succinctDuration(duration, 2, precision);
 }
 
+std::string succinctMicros(uint64_t duration, int precision) {
+  return succinctDuration(duration, 1, precision);
+}
+
 std::string succinctNanos(uint64_t duration, int precision) {
   return succinctDuration(duration, 0, precision);
 }

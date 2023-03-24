@@ -25,6 +25,12 @@ namespace facebook::velox {
 /// The default precision is 2 decimal digits.
 std::string succinctNanos(uint64_t duration, int precision = 2);
 
+/// Match the input duration in microseconds to the most appropriate unit and
+/// return a string value. Possible returned time units are microseconds(us),
+/// milliseconds(ms), seconds(s), minutes(m), hours(h), days(d). The default
+/// precision is 2 decimal digits.
+std::string succinctMicros(uint64_t duration, int precision = 2);
+
 /// Match the input duration in milliseconds to the most appropriate unit and
 /// return a string value. Possible units are milliseconds(ms), seconds(s),
 /// minutes(m), hours(h), days(d). The default precision is 2 decimal digits.
