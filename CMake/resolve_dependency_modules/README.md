@@ -29,3 +29,7 @@ Ideally all patches should be upstream when possible and removed once merged.
 - Update the template with the correct package name and download url/repo etc., set any necessary package options
 - Try to build and make necessary changes
   - Repeat until success :D (Feel free to raise and issue for review & support)
+
+## Specify a custom url/file path for an offline build
+
+Set environment variables `VELOX_<PACKAGE>_URL` to specify a custom dependency url or local tar file path, an optional sha256 checksum can be provided as `VELOX_<PACKAGE>_SHA256`.

@@ -13,19 +13,16 @@
 # limitations under the License.
 include_guard(GLOBAL)
 
-if(DEFINED ENV{VELOX_ICU4C_URL})
-  set(ICU4C_SOURCE_URL "$ENV{VELOX_ICU4C_URL}")
-else()
-  set(VELOX_ICU4C_BUILD_VERSION 72)
-  string(
-    CONCAT ICU4C_SOURCE_URL
-           "https://github.com/unicode-org/icu/releases/download/"
-           "release-${VELOX_ICU4C_BUILD_VERSION}-1/"
-           "icu4c-${VELOX_ICU4C_BUILD_VERSION}_1-src.tgz")
+set(VELOX_ICU4C_BUILD_VERSION 72)
+set(VELOX_ICU4C_BUILD_SHA256_CHECKSUM
+    a2d2d38217092a7ed56635e34467f92f976b370e20182ad325edea6681a71d68)
+string(
+  CONCAT VELOX_ICU4C_SOURCE_URL
+         "https://github.com/unicode-org/icu/releases/download/"
+         "release-${VELOX_ICU4C_BUILD_VERSION}-1/"
+         "icu4c-${VELOX_ICU4C_BUILD_VERSION}_1-src.tgz")
 
-  set(VELOX_ICU4C_BUILD_SHA256_CHECKSUM
-      a2d2d38217092a7ed56635e34467f92f976b370e20182ad325edea6681a71d68)
-endif()
+resolve_dependency_url(ICU4C)
 
 message(STATUS "Building ICU4C from source")
 
@@ -50,8 +47,8 @@ set(ICU_LIBRARIES ${ICU_DIR}/lib)
 # We can not use FetchContent as ICU does not use cmake
 ExternalProject_Add(
   ICU
-  URL ${ICU4C_SOURCE_URL}
-  URL_HASH SHA256=${VELOX_ICU4C_BUILD_SHA256_CHECKSUM}
+  URL ${VELOX_ICU4C_SOURCE_URL}
+  URL_HASH ${VELOX_ICU4C_BUILD_SHA256_CHECKSUM}
   SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/icu-src
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/icu-bld
   CONFIGURE_COMMAND <SOURCE_DIR>/source/configure --prefix=${ICU_DIR}

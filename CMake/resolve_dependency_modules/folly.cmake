@@ -13,16 +13,14 @@
 # limitations under the License.
 include_guard(GLOBAL)
 
-if(DEFINED ENV{VELOX_FOLLY_URL})
-  set(FOLLY_SOURCE_URL "$ENV{VELOX_FOLLY_URL}")
-else()
-  set(VELOX_FOLLY_BUILD_VERSION v2022.11.14.00)
-  set(FOLLY_SOURCE_URL
-      "https://github.com/facebook/folly/archive/${VELOX_FOLLY_BUILD_VERSION}.tar.gz"
-  )
-  set(VELOX_FOLLY_BUILD_SHA256_CHECKSUM
-      b249436cb61b6dfd5288093565438d8da642b07ae021191a4042b221bc1bdc0e)
-endif()
+set(VELOX_FOLLY_BUILD_VERSION v2022.11.14.00)
+set(VELOX_FOLLY_BUILD_SHA256_CHECKSUM
+    b249436cb61b6dfd5288093565438d8da642b07ae021191a4042b221bc1bdc0e)
+set(VELOX_FOLLY_SOURCE_URL
+    "https://github.com/facebook/folly/archive/${VELOX_FOLLY_BUILD_VERSION}.tar.gz"
+)
+
+resolve_dependency_url(FOLLY)
 
 message(STATUS "Building Folly from source")
 # FOLLY_CXX_FLAGS is used internally on folly to define some extra
@@ -52,8 +50,8 @@ endif()
 
 FetchContent_Declare(
   folly
-  URL ${FOLLY_SOURCE_URL}
-  URL_HASH SHA256=${VELOX_FOLLY_BUILD_SHA256_CHECKSUM}
+  URL ${VELOX_FOLLY_SOURCE_URL}
+  URL_HASH ${VELOX_FOLLY_BUILD_SHA256_CHECKSUM}
   PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/folly/folly-no-export.patch
                 ${glog_patch})
 

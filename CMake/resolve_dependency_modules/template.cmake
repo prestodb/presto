@@ -13,20 +13,18 @@
 # limitations under the License.
 include_guard(GLOBAL)
 
-if(DEFINED ENV{VELOX_<PACKAGE>_URL})
-  set(VELOX_<PACKAGE>_SOURCE_URL "$ENV{VELOX_<PACKAGE>_URL}")
-else()
-  set(VELOX_<PACKAGE>_VERSION x.y.z)
-  set(VELOX_<PACKAGE>_SOURCE_URL "") # ideally don't use github archive links as
-                                     # they are not guranteed to be hash stable
-  # release artifacts are tough (except the auto generated ones)
-  set(VELOX_<PACKAGE>_BUILD_SHA256_CHECKSUM 123)
-endif()
+set(VELOX_<PACKAGE>_VERSION x.y.z)
+# release artifacts are tough (except the auto generated ones)
+set(VELOX_<PACKAGE>_BUILD_SHA256_CHECKSUM 123)
+set(VELOX_<PACKAGE>_SOURCE_URL "") # ideally don't use github archive links as
+                                   # they are not guranteed to be hash stable
+
+resolve_dependency_url(<PACKAGE>)
 
 message(STATUS "Building <PACKAGE> from source")
 FetchContent_Declare(
   <package>
   URL ${VELOX_<PACKAGE>_SOURCE_URL}
-  URL_HASH SHA256=${VELOX_<PACKAGE>_BUILD_SHA256_CHECKSUM})
+  URL_HASH ${VELOX_<PACKAGE>_BUILD_SHA256_CHECKSUM})
 
 FetchContent_MakeAvailable(<package>)

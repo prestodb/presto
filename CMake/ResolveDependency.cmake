@@ -129,3 +129,20 @@ function(list_subdirs var dir)
       ${dirs}
       PARENT_SCOPE)
 endfunction()
+
+# Set custom source url with a optional sha256 checksum.
+macro(resolve_dependency_url dependency_name)
+  # Prepend prefix for default checksum.
+  string(PREPEND VELOX_${dependency_name}_BUILD_SHA256_CHECKSUM "SHA256=")
+
+  set_with_default(
+    VELOX_${dependency_name}_SOURCE_URL VELOX_${dependency_name}_URL
+    ${VELOX_${dependency_name}_SOURCE_URL})
+  if(DEFINED ENV{VELOX_${dependency_name}_URL})
+    set_with_default(VELOX_${dependency_name}_BUILD_SHA256_CHECKSUM
+                     VELOX_${dependency_name}_SHA256 "")
+    if(DEFINED ENV{VELOX_${dependency_name}_SHA256})
+      string(PREPEND VELOX_${dependency_name}_BUILD_SHA256_CHECKSUM "SHA256=")
+    endif()
+  endif()
+endmacro()
