@@ -143,7 +143,7 @@ class SystemConfig : public ConfigBase {
 
   std::string prestoVersion() const;
 
-  std::string discoveryUri() const;
+  std::optional<std::string> discoveryUri() const;
 
   int32_t maxDriversPerTask() const;
 

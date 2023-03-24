@@ -200,17 +200,20 @@ void PrestoServer::run() {
       servicePort,
       address_);
 
-  Announcer announcer(
-      address_,
-      servicePort,
-      discoveryAddressLookup(),
-      nodeVersion_,
-      environment_,
-      nodeId_,
-      nodeLocation_,
-      catalogNames,
-      30'000 /*milliseconds*/);
-  announcer.start();
+  std::unique_ptr<Announcer> announcer;
+  if (auto discoveryAddressLookupFunc = discoveryAddressLookup()) {
+    announcer = std::make_unique<Announcer>(
+        address_,
+        servicePort,
+        discoveryAddressLookupFunc,
+        nodeVersion_,
+        environment_,
+        nodeId_,
+        nodeLocation_,
+        catalogNames,
+        30'000 /*milliseconds*/);
+    announcer->start();
+  }
 
   httpServer_ =
       std::make_unique<http::HttpServer>(socketAddress, httpExecThreads);
@@ -458,8 +461,16 @@ void PrestoServer::stop() {
 }
 
 std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
+  // Check if discovery URI is specified. Presto-on-Spark doesn't specify it.
+  auto discoveryUri = SystemConfig::instance()->discoveryUri();
+  if (!discoveryUri.has_value()) {
+    LOG(INFO)
+        << "STARTUP: Discovery URI is not specified - will not run Announcer.";
+    return nullptr;
+  }
+
   try {
-    auto uri = folly::Uri(SystemConfig::instance()->discoveryUri());
+    auto uri = folly::Uri(discoveryUri.value());
 
     return [uri]() {
       return folly::SocketAddress(uri.hostname(), uri.port(), true);
