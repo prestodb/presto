@@ -138,37 +138,6 @@ class ExpressionFuzzer {
     std::unordered_map<std::string, ExprUsageStats>& exprNameToStats_;
   };
 
-  // Central point for failure exit.
-  void errorExit(const std::string& message);
-
-  // Tries subexpressions of [plan until finding the minimal failing subtree.
-  void drilldown(
-      core::TypedExprPtr plan,
-      const RowVectorPtr& rowVector,
-      const std::vector<column_index_t>& columnsToWrapInLazy);
-
-  // Verifies children of 'plan'. If all succeed, sets minimalFound to
-  // true and reruns 'plan' wth and without lazy vectors. Set
-  // breakpoint inside this to debug failures.
-  void drilldownRecursive(
-      core::TypedExprPtr plan,
-      const RowVectorPtr& rowVector,
-      const std::vector<column_index_t>& columnsToWrapInLazy,
-      bool& minimalFound);
-  // Tries 'plan' against 'rowVector' with and without pre-existing contents in
-  // result vector.
-  bool tryExpr(
-      core::TypedExprPtr plan,
-      const RowVectorPtr& rowVector,
-      const std::vector<column_index_t>& columnsToWrapInLazy);
-
-  // Tries 'plan' against 'rowVector' with results set to 'results'.
-  bool tryWithResult(
-      core::TypedExprPtr plan,
-      const RowVectorPtr& rowVector,
-      const std::vector<column_index_t>& columnsToWrapInLazy,
-      VectorPtr result);
-
   const std::string kTypeParameterName = "T";
 
   enum ArgumentKind { kArgConstant = 0, kArgColumn = 1, kArgExpression = 2 };
