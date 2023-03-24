@@ -47,7 +47,7 @@ public class OrcFileWriterConfig
     private DataSize stringStatisticsLimit = OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
     private DataSize maxCompressionBufferSize = OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
     private StreamLayoutType streamLayoutType = BY_COLUMN_SIZE;
-    private boolean isDwrfStripeCacheEnabled;
+    private boolean isDwrfStripeCacheEnabled = true;
     private DataSize dwrfStripeCacheMaxSize = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
     private DwrfStripeCacheMode dwrfStripeCacheMode = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MODE;
     private int compressionLevel = DEFAULT_COMPRESSION_LEVEL;
