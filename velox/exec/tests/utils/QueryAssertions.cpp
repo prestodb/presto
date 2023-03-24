@@ -110,6 +110,10 @@ template <>
   auto offset = arrayVector->offsetAt(arrayRow);
   auto size = arrayVector->sizeAt(arrayRow);
 
+  if (size == 0) {
+    return ::duckdb::Value::EMPTYLIST(duckdb::fromVeloxType(elements->type()));
+  }
+
   std::vector<::duckdb::Value> array;
   array.reserve(size);
   for (auto i = 0; i < size; i++) {
