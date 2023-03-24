@@ -160,7 +160,7 @@ void PrestoExchangeSource::processDataResponse(
           folly::IOBuf* start = &iobuf;
           auto curr = start;
           do {
-            allocator->freeBytes(curr->writableData(), curr->length());
+            allocator->freeBytes(curr->writableData(), curr->capacity());
             curr = curr->next();
           } while (curr != start);
         });

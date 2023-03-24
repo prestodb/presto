@@ -60,6 +60,9 @@ class HttpResponse {
   velox::memory::MemoryAllocator* FOLLY_NONNULL const allocator_;
 
   std::vector<std::unique_ptr<folly::IOBuf>> bodyChain_;
+
+  // Allocated capacity of IOBufs in 'bodyChain'.
+  int64_t bodyChainBytes_{0};
 };
 
 // HttpClient uses proxygen::SessionPool which must be destructed on the
