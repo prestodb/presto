@@ -26,6 +26,7 @@ public class MySqlSourceQueryConfig
 {
     private String database;
     private String tableName = "verifier_queries";
+    private String snapshotTableName = "verifier_snapshots";
     private List<String> suites = ImmutableList.of();
     private int maxQueriesPerSuite = 100_000;
 
@@ -52,6 +53,19 @@ public class MySqlSourceQueryConfig
     public MySqlSourceQueryConfig setTableName(String tableName)
     {
         this.tableName = tableName;
+        return this;
+    }
+
+    @NotNull
+    public String getSnapshotTableName()
+    {
+        return snapshotTableName;
+    }
+
+    @Config("snapshot-table-name")
+    public MySqlSourceQueryConfig setSnapshotTableName(String snapshotTabaleName)
+    {
+        this.snapshotTableName = snapshotTabaleName;
         return this;
     }
 

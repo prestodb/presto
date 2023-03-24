@@ -34,11 +34,15 @@ import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriteConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriterFactory;
 import com.facebook.presto.verifier.rewrite.VerificationQueryRewriterFactory;
+import com.facebook.presto.verifier.source.SnapshotQueryConsumer;
+import com.facebook.presto.verifier.source.SnapshotQuerySupplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import org.testng.annotations.AfterClass;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
@@ -49,6 +53,8 @@ import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
 import static com.facebook.presto.verifier.VerifierTestUtil.createChecksumValidator;
 import static com.facebook.presto.verifier.VerifierTestUtil.createTypeManager;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
+import static com.facebook.presto.verifier.source.AbstractJdbiSnapshotQuerySupplier.VERIFIER_SNAPSHOT_KEY_PATTERN;
+import static java.lang.String.format;
 
 public abstract class AbstractVerificationTest
 {
@@ -59,6 +65,11 @@ public abstract class AbstractVerificationTest
     protected static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
     protected static final String CONTROL_TABLE_PREFIX = "tmp_verifier_c";
     protected static final String TEST_TABLE_PREFIX = "tmp_verifier_t";
+
+    protected static VerificationSettings concurrentControlAndTestSettings;
+    protected static VerificationSettings skipControlSettings;
+    protected static VerificationSettings saveSnapshotSettings;
+    protected static VerificationSettings queryBankModeSettings;
 
     private final StandaloneQueryRunner queryRunner;
 
@@ -76,6 +87,16 @@ public abstract class AbstractVerificationTest
                 .setRequiredConfigurationProperties(ImmutableMap.of("too-many-open-partitions.failure-resolver.enabled", "false"))
                 .initialize();
         this.failureResolverManagerFactory = injector.getInstance(FailureResolverManagerFactory.class);
+
+        concurrentControlAndTestSettings = new VerificationSettings();
+        concurrentControlAndTestSettings.concurrentControlAndTest = Optional.of(true);
+        skipControlSettings = new VerificationSettings();
+        skipControlSettings.skipControl = Optional.of(true);
+        saveSnapshotSettings = new VerificationSettings();
+        saveSnapshotSettings.runningMode = Optional.of("query-bank");
+        saveSnapshotSettings.saveSnapshot = Optional.of(true);
+        queryBankModeSettings = new VerificationSettings();
+        queryBankModeSettings.runningMode = Optional.of("query-bank");
     }
 
     @AfterClass
@@ -106,6 +127,11 @@ public abstract class AbstractVerificationTest
     protected Optional<VerifierQueryEvent> runExplain(String controlQuery, String testQuery)
     {
         return verify(getSourceQuery(controlQuery, testQuery), true, Optional.empty(), Optional.empty());
+    }
+
+    protected Optional<VerifierQueryEvent> runExplain(String controlQuery, String testQuery, VerificationSettings settings)
+    {
+        return verify(getSourceQuery(controlQuery, testQuery), true, Optional.empty(), Optional.of(settings));
     }
 
     protected Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery)
@@ -160,6 +186,8 @@ public abstract class AbstractVerificationTest
         verificationSettings.ifPresent(settings -> {
             settings.concurrentControlAndTest.ifPresent(verifierConfig::setConcurrentControlAndTest);
             settings.skipControl.ifPresent(verifierConfig::setSkipControl);
+            settings.runningMode.ifPresent(verifierConfig::setRunningMode);
+            settings.saveSnapshot.ifPresent(verifierConfig::setSaveSnapshot);
         });
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> getPrestoAction(Optional.of(sourceQuery.getControlConfiguration())));
@@ -179,7 +207,10 @@ public abstract class AbstractVerificationTest
                 verifierConfig,
                 typeManager,
                 determinismAnalyzerConfig);
-        return verificationFactory.get(sourceQuery, Optional.empty()).run().getEvent();
+        return verificationFactory.get(sourceQuery, Optional.empty(),
+                MockSnapshotSupplierAndConsumer.getMockSnapshotSupplierAndConsumer(),
+                MockSnapshotSupplierAndConsumer.getMockSnapshotSupplierAndConsumer().get()
+                ).run().getEvent();
     }
 
     public static class VerificationSettings
@@ -188,9 +219,37 @@ public abstract class AbstractVerificationTest
         {
             concurrentControlAndTest = Optional.empty();
             skipControl = Optional.empty();
+            runningMode = Optional.empty();
+            saveSnapshot = Optional.empty();
         }
 
         Optional<Boolean> concurrentControlAndTest;
         Optional<Boolean> skipControl;
+        Optional<String> runningMode;
+        Optional<Boolean> saveSnapshot;
+    }
+
+    public static class MockSnapshotSupplierAndConsumer
+            implements SnapshotQuerySupplier, SnapshotQueryConsumer
+    {
+        private static MockSnapshotSupplierAndConsumer mockSnapshotSupplierAndConsumer = new MockSnapshotSupplierAndConsumer();
+        private Map<String, SnapshotQuery> snapshots = new HashMap<>();
+        @Override
+        public Map<String, SnapshotQuery> get()
+        {
+            return snapshots;
+        }
+
+        @Override
+        public void accept(SnapshotQuery snapshot)
+        {
+            String key = format(VERIFIER_SNAPSHOT_KEY_PATTERN, snapshot.getSuite(), snapshot.getName(), snapshot.isExplain());
+            snapshots.put(key, snapshot);
+        }
+
+        public static MockSnapshotSupplierAndConsumer getMockSnapshotSupplierAndConsumer()
+        {
+            return mockSnapshotSupplierAndConsumer;
+        }
     }
 }

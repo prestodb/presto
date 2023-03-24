@@ -25,6 +25,7 @@ import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.C
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.ROW_COUNT_MISMATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.SCHEMA_MISMATCH;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.SNAPSHOT_DOES_NOT_EXIST;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -38,6 +39,7 @@ public class DataMatchResult
         SCHEMA_MISMATCH,
         ROW_COUNT_MISMATCH,
         COLUMN_MISMATCH,
+        SNAPSHOT_DOES_NOT_EXIST,
     }
 
     private final MatchType matchType;
@@ -99,7 +101,7 @@ public class DataMatchResult
         StringBuilder message = new StringBuilder()
                 .append(matchType.name().replace("_", " "))
                 .append('\n');
-        if (matchType == SCHEMA_MISMATCH) {
+        if (matchType == SCHEMA_MISMATCH || matchType == SNAPSHOT_DOES_NOT_EXIST) {
             return message.toString();
         }
 

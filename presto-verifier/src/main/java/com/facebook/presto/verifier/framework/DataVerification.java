@@ -25,18 +25,28 @@ import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.facebook.presto.verifier.source.SnapshotQueryConsumer;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.SNAPSHOT_DOES_NOT_EXIST;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.match;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_CHECKSUM;
+import static com.facebook.presto.verifier.framework.VerifierConfig.QUERY_BANK_MODE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
+import static com.facebook.presto.verifier.source.AbstractJdbiSnapshotQuerySupplier.VERIFIER_SNAPSHOT_KEY_PATTERN;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DataVerification
@@ -59,9 +69,11 @@ public class DataVerification
             VerifierConfig verifierConfig,
             TypeManager typeManager,
             ChecksumValidator checksumValidator,
-            ListeningExecutorService executor)
+            ListeningExecutorService executor,
+            SnapshotQueryConsumer snapshotQueryConsumer,
+            Map<String, SnapshotQuery> snapshotQueries)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig, executor);
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig, executor, snapshotQueryConsumer, snapshotQueries);
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
         this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
@@ -91,23 +103,54 @@ public class DataVerification
             ChecksumQueryContext controlChecksumQueryContext,
             ChecksumQueryContext testChecksumQueryContext)
     {
-        List<Column> controlColumns = getColumns(getHelperAction(), typeManager, control.getObjectName());
         List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getObjectName());
-
-        Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns);
         Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getObjectName(), testColumns);
-
-        controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
         testChecksumQueryContext.setChecksumQuery(formatSql(testChecksumQuery));
 
-        QueryResult<ChecksumResult> controlChecksum = callAndConsume(
-                () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
-                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlChecksumQueryContext::setChecksumQueryId));
+        List<Column> controlColumns = null;
+        ChecksumResult controlChecksumResult = null;
+
+        if (isControlEnabled()) {
+            controlColumns = getColumns(getHelperAction(), typeManager, control.getObjectName());
+            Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns);
+            controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
+
+            QueryResult<ChecksumResult> controlChecksum = callAndConsume(
+                    () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
+                    stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlChecksumQueryContext::setChecksumQueryId));
+            controlChecksumResult = getOnlyElement(controlChecksum.getResults());
+
+            if (saveSnapshot) {
+                String snapshot = ChecksumResult.toJson(controlChecksumResult);
+
+                snapshotQueryConsumer.accept(new SnapshotQuery(getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain, snapshot));
+                return new DataMatchResult(
+                        MATCH,
+                        Optional.empty(),
+                        OptionalLong.empty(),
+                        OptionalLong.empty(),
+                        ImmutableList.of());
+            }
+        }
+        else if (QUERY_BANK_MODE.equals(runningMode)) {
+            controlColumns = testColumns;
+            String key = format(VERIFIER_SNAPSHOT_KEY_PATTERN, getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain);
+            SnapshotQuery snapshotQuery = snapshotQueries.get(key);
+            if (snapshotQuery != null) {
+                String snapshotJson = snapshotQuery.getSnapshot();
+                controlChecksumResult = ChecksumResult.fromJson(snapshotJson);
+            }
+            else {
+                return new DataMatchResult(SNAPSHOT_DOES_NOT_EXIST, Optional.empty(), OptionalLong.empty(), OptionalLong.empty(), Collections.emptyList());
+            }
+        }
+
         QueryResult<ChecksumResult> testChecksum = callAndConsume(
                 () -> getHelperAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
                 stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testChecksumQueryContext::setChecksumQueryId));
+        ChecksumResult testChecksumResult = getOnlyElement(testChecksum.getResults());
 
-        return match(checksumValidator, controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));
+        return match(checksumValidator, controlColumns, testColumns, controlChecksumResult, testChecksumResult);
     }
 
     @Override

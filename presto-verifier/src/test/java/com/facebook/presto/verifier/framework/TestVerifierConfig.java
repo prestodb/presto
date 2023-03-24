@@ -48,7 +48,9 @@ public class TestVerifierConfig
                 .setSkipControl(false)
                 .setSkipChecksum(false)
                 .setExplain(false)
-                .setConcurrentControlAndTest(false));
+                .setConcurrentControlAndTest(false)
+                .setRunningMode("control-test")
+                .setSaveSnapshot(false));
     }
 
     @Test
@@ -76,6 +78,8 @@ public class TestVerifierConfig
                 .put("skip-checksum", "true")
                 .put("explain", "true")
                 .put("concurrent-control-and-test", "true")
+                .put("running-mode", "query-bank")
+                .put("save-snapshot", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setWhitelist("a,b,c")
@@ -98,7 +102,9 @@ public class TestVerifierConfig
                 .setSkipControl(true)
                 .setSkipChecksum(true)
                 .setExplain(true)
-                .setConcurrentControlAndTest(true);
+                .setConcurrentControlAndTest(true)
+                .setRunningMode("query-bank")
+                .setSaveSnapshot(true);
 
         assertFullMapping(properties, expected);
     }

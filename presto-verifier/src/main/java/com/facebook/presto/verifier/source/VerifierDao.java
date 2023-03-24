@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.source;
 
+import com.facebook.presto.verifier.framework.SnapshotQuery;
 import com.facebook.presto.verifier.framework.SourceQuery;
 import org.jdbi.v3.sqlobject.config.RegisterColumnMapper;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
@@ -26,7 +27,7 @@ import java.util.List;
 @RegisterColumnMapper(StringToStringMapColumnMapper.class)
 public interface VerifierDao
 {
-    @SqlUpdate("CREATE TABLE verifier_queries (\n" +
+    @SqlUpdate("CREATE TABLE <table_name> (\n" +
             "  id int(11) unsigned NOT NULL PRIMARY KEY AUTO_INCREMENT,\n" +
             "  suite varchar(256) NOT NULL,\n" +
             "  name varchar(256) DEFAULT NULL,\n" +
@@ -72,4 +73,54 @@ public interface VerifierDao
             @Define("table_name") String tableName,
             @Bind("suite") String suite,
             @Bind("limit") int limit);
+
+    @SqlUpdate("CREATE TABLE <table_name> (\n" +
+            "  id int(11) unsigned NOT NULL PRIMARY KEY AUTO_INCREMENT,\n" +
+            "  suite varchar(256) NOT NULL,\n" +
+            "  name varchar(256) NOT NULL DEFAULT '.',  -- default to '.' to make UNIQUE constraint happy if name is not provided.\n" +
+            "  is_explain BOOLEAN NOT NULL DEFAULT false,\n" +
+            "  snapshot json NOT NULL,\n" +
+            "  updated_at datetime NOT NULL DEFAULT now(),\n" +
+            "  UNIQUE(suite, name, is_explain)\n" +
+            ")")
+    void createVerifierSnapshotsTable(@Define("table_name") String tableName);
+
+    @SqlQuery("SELECT\n" +
+            "  suite,\n" +
+            "  name,\n" +
+            "  is_explain,\n" +
+            "  snapshot\n" +
+            "FROM <table_name>\n" +
+            "WHERE\n" +
+            "  suite  = :suite\n" +
+            "ORDER BY\n" +
+            "  id\n" +
+            "LIMIT\n" +
+            "  :limit")
+    @RegisterConstructorMapper(SnapshotQuery.class)
+    List<SnapshotQuery> getSnapshotQueries(
+            @Define("table_name") String tableName,
+            @Bind("suite") String suite,
+            @Bind("limit") int limit);
+
+    @SqlUpdate("INSERT INTO <table_name>\n" +
+            "  (suite,\n" +
+            "  name,\n" +
+            "  is_explain,\n" +
+            "  snapshot,\n" +
+            "  updated_at)\n" +
+            "VALUES(:suite,\n" +
+            "  :name,\n" +
+            "  :is_explain,\n" +
+            "  :snapshot,\n" +
+            "  now())\n" +
+            "ON DUPLICATE KEY UPDATE\n" +
+            "  snapshot = :snapshot,\n" +
+            "  updated_at = now()")
+    void saveSnapShot(
+            @Define("table_name") String tableName,
+            @Bind("suite") String suite,
+            @Bind("name") String name,
+            @Bind("is_explain") boolean explain,
+            @Bind("snapshot") String snapshot);
 }
