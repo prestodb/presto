@@ -22,6 +22,8 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <typeindex>
+#include <typeinfo>
 #include <utility>
 
 #include "velox/expression/ComplexViewTypes.h"
@@ -697,7 +699,7 @@ struct VectorReader<Generic<T>> {
   // Those two variables are mutated by the GenericView during cast operations,
   // and are shared across GenericViews constructed by the reader.
   mutable std::array<std::shared_ptr<void>, 3> castReaders_;
-  mutable TypePtr castType_ = nullptr;
+  mutable std::optional<const std::type_info*> castType_ = std::nullopt;
 };
 
 template <typename T>

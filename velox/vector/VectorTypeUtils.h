@@ -109,7 +109,7 @@ struct KindToFlatVector<TypeKind::OPAQUE> {
 
 template <typename T>
 struct TypeToFlatVector {
-  using type = typename KindToFlatVector<CppToType<T>::typeKind>::type;
+  using type = typename KindToFlatVector<SimpleTypeTrait<T>::typeKind>::type;
 };
 
 } // namespace velox
