@@ -36,7 +36,7 @@ public class TestOrcCacheConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(OrcCacheConfig.class)
                 .setFileTailCacheEnabled(false)
-                .setFileTailCacheSize(new DataSize(0, BYTE))
+                .setFileTailCacheSize(new DataSize(1, MEGABYTE))
                 .setFileTailCacheTtlSinceLastAccess(new Duration(0, SECONDS))
                 .setStripeMetadataCacheEnabled(false)
                 .setStripeFooterCacheSize(new DataSize(0, BYTE))
@@ -46,7 +46,7 @@ public class TestOrcCacheConfig
                 .setRowGroupIndexCacheEnabled(false)
                 .setRowGroupIndexCacheSize(new DataSize(0, BYTE))
                 .setRowGroupIndexCacheTtlSinceLastAccess(new Duration(0, SECONDS))
-                .setDwrfStripeCacheEnabled(false)
+                .setDwrfStripeCacheEnabled(true)
                 .setExpectedFileTailSize(new DataSize(EXPECTED_FOOTER_SIZE_IN_BYTES, BYTE)));
     }
 
@@ -65,7 +65,7 @@ public class TestOrcCacheConfig
                 .put("orc.row-group-index-cache-enabled", "true")
                 .put("orc.row-group-index-cache-size", "4GB")
                 .put("orc.row-group-index-cache-ttl-since-last-access", "5m")
-                .put("orc.dwrf-stripe-cache-enabled", "true")
+                .put("orc.dwrf-stripe-cache-enabled", "false")
                 .put("orc.expected-file-tail-size", "8MB")
                 .build();
 
@@ -81,7 +81,7 @@ public class TestOrcCacheConfig
                 .setRowGroupIndexCacheEnabled(true)
                 .setRowGroupIndexCacheSize(new DataSize(4, GIGABYTE))
                 .setRowGroupIndexCacheTtlSinceLastAccess(new Duration(5, MINUTES))
-                .setDwrfStripeCacheEnabled(true)
+                .setDwrfStripeCacheEnabled(false)
                 .setExpectedFileTailSize(new DataSize(8, MEGABYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);
