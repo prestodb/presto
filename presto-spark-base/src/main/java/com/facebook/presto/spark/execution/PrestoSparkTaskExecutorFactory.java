@@ -842,26 +842,16 @@ public class PrestoSparkTaskExecutorFactory
                 .mapToLong(split -> split.getSequenceId())
                 .max()
                 .ifPresent(id -> nextSplitId.set(id + 1));
-        shuffleReadInfos.forEach((planNodeId, info) ->
-                result.add(new ScheduledSplit(nextSplitId.getAndIncrement(), planNodeId, new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(
-                        new Location(format("batch://%s?shuffleInfo=%s", taskId, shuffleInfoTranslator.createSerializedReadInfo(info))),
-                        taskId)))));
-
-        List<TaskSource> nativeExecutionSources = taskSources.stream().filter(taskSource -> taskSource.getPlanNodeId().equals(root)).collect(Collectors.toList());
-        checkState(nativeExecutionSources.size() <= 1, "At most 1 taskSource is expected for NativeExecutionNode but got %s", nativeExecutionSources.size());
-        if (!nativeExecutionSources.isEmpty()) {
-            // Append the shuffle splits with original splits
-            TaskSource nativeExecutionSource = nativeExecutionSources.get(0);
-            result.addAll(nativeExecutionSource.getSplits());
-        }
-
-        TaskSource newTaskSource = new TaskSource(root.getId(), result.build(), ImmutableSet.of(Lifespan.taskWide()), true);
         ImmutableList.Builder<TaskSource> newTaskSources = ImmutableList.builder();
-        // Combine the shuffle read taskSource and original sources
-        newTaskSources.add(newTaskSource)
-                .addAll(taskSources.stream()
-                        .filter(taskSource -> !taskSource.getPlanNodeId().equals(root))
-                        .collect(Collectors.toList()));
+        log.info("Populating shuffleReadInfoSplits");
+        shuffleReadInfos.forEach((planNodeId, info) -> {
+            ScheduledSplit split = new ScheduledSplit(nextSplitId.getAndIncrement(), planNodeId, new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(
+                    new Location(format("batch://%s?shuffleInfo=%s", taskId, shuffleInfoTranslator.createSerializedReadInfo(info))),
+                    taskId)));
+            TaskSource source = new TaskSource(planNodeId, ImmutableSet.of(split), ImmutableSet.of(Lifespan.taskWide()), true);
+            newTaskSources.add(source);
+            log.info("Added shuffle taskSource=%s", source);
+        });
         return newTaskSources.build();
     }
 
