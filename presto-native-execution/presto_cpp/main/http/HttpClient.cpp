@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/http/HttpClient.h"
+#include <velox/common/base/BitUtil.h>
 #include <velox/common/base/Exceptions.h>
 
 namespace facebook::presto::http {
@@ -41,22 +42,44 @@ HttpResponse::~HttpResponse() {
   // Clear out any leftover iobufs if not consumed.
   for (auto& buf : bodyChain_) {
     if (buf) {
-      allocator_->freeBytes(buf->writableData(), buf->length());
+      allocator_->freeBytes(buf->writableData(), buf->capacity());
     }
   }
 }
 
 void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
+  constexpr size_t kExchangeMaxChunk = 64 << 10;
+  constexpr size_t kExchangeMinChunk = 4 << 10;
   VELOX_CHECK(!iobuf->isChained());
   uint64_t dataLength = iobuf->length();
+  auto dataStart = iobuf->data();
 
-  void* buf = allocator_->allocateBytes(dataLength);
+  if (!bodyChain_.empty()) {
+    auto tail = bodyChain_.back().get();
+    auto space = tail->tailroom();
+    auto copySize = std::min<size_t>(space, dataLength);
+    memcpy(tail->writableTail(), dataStart, copySize);
+    tail->append(copySize);
+    dataLength -= copySize;
+    if (dataLength == 0) {
+      return;
+    }
+    dataStart += copySize;
+  }
+  size_t roundedSize = std::min(
+      kExchangeMaxChunk,
+      velox::bits::nextPowerOfTwo(velox::bits::roundUp(
+          dataLength + bodyChainBytes_, kExchangeMinChunk)));
+
+  void* buf = allocator_->allocateBytes(roundedSize);
   if (buf == nullptr) {
     VELOX_FAIL(
         "Cannot spare enough system memory to receive more HTTP response.");
   }
-  memcpy(buf, iobuf->data(), dataLength);
-  bodyChain_.emplace_back(folly::IOBuf::wrapBuffer(buf, dataLength));
+  bodyChainBytes_ += roundedSize;
+  memcpy(buf, dataStart, dataLength);
+  bodyChain_.emplace_back(folly::IOBuf::wrapBuffer(buf, roundedSize));
+  bodyChain_.back()->trimEnd(roundedSize - dataLength);
 }
 
 std::string HttpResponse::dumpBodyChain() const {
