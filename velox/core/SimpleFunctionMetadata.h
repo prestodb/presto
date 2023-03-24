@@ -191,16 +191,14 @@ struct TypeAnalysis {
   void run(TypeAnalysisResults& results) {
     // This should only handle primitives and OPAQUE.
     static_assert(
-        SimpleTypeTrait<T>::isPrimitiveType ||
-        SimpleTypeTrait<T>::typeKind == TypeKind::OPAQUE);
+        CppToType<T>::isPrimitiveType ||
+        CppToType<T>::typeKind == TypeKind::OPAQUE);
     results.stats.concreteCount++;
-    if (isDecimalKind(SimpleTypeTrait<T>::typeKind)) {
-      results.out << detail::strToLowerCopy(
-                         std::string(SimpleTypeTrait<T>::name))
+    if (isDecimalKind(CppToType<T>::typeKind)) {
+      results.out << detail::strToLowerCopy(std::string(CppToType<T>::name))
                   << "(" << kPrecisionVariable << "," << kScaleVariable << ")";
     } else {
-      results.out << detail::strToLowerCopy(
-          std::string(SimpleTypeTrait<T>::name));
+      results.out << detail::strToLowerCopy(std::string(CppToType<T>::name));
     }
   }
 };

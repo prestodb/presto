@@ -1026,11 +1026,11 @@ class GenericView {
   GenericView(
       const DecodedVector& decoded,
       std::array<std::shared_ptr<void>, 3>& castReaders,
-      std::optional<const std::type_info*>& castTypeInfo,
+      TypePtr& castType,
       vector_size_t index)
       : decoded_(decoded),
         castReaders_(castReaders),
-        castTypeInfo_(castTypeInfo),
+        castType_(castType),
         index_(index) {}
 
   uint64_t hash() const {
@@ -1064,8 +1064,9 @@ class GenericView {
     VELOX_DCHECK(
         CastTypeChecker<ToType>::check(type()),
         fmt::format(
-            "castTo type is not compatible with type of vector, vector type is {}",
-            type()->toString()));
+            "castTo type is not compatible with type of vector, vector type is {}, casted to type is {}",
+            type()->toString(),
+            CppToType<ToType>::create()->toString()));
 
     // TODO: We can distinguish if this is a null-free or not null-free
     // generic. And based on that determine if we want to call operator[] or
@@ -1102,18 +1103,17 @@ class GenericView {
         // This is basically Array<Any>, Map<Any,Any>, Row<Any....>.
         return ensureReaderImpl<B, 1>();
       } else {
-        auto* requestedTypeId = &typeid(B);
-        if (castTypeInfo_.has_value()) {
+        auto requestedType = CppToType<B>::create();
+        if (castType_) {
           VELOX_USER_CHECK(
-              std::type_index(**castTypeInfo_) ==
-                  std::type_index(*requestedTypeId),
+              castType_->operator==(*requestedType),
               fmt::format(
                   "Not allowed to cast to the two types {} and {} within the same batch."
                   "Consider creating a new type set to allow it.",
-                  typeid(B).name(),
-                  castTypeInfo_.value()->name()));
+                  castType_->toString(),
+                  requestedType->toString()));
         } else {
-          castTypeInfo_ = {requestedTypeId};
+          castType_ = std::move(requestedType);
         }
         return ensureReaderImpl<B, 2>();
       }
@@ -1133,7 +1133,7 @@ class GenericView {
 
   const DecodedVector& decoded_;
   std::array<std::shared_ptr<void>, 3>& castReaders_;
-  std::optional<const std::type_info*>& castTypeInfo_;
+  TypePtr& castType_;
   vector_size_t index_;
 };
 
