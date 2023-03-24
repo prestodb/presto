@@ -24,6 +24,7 @@ import org.apache.spark.shuffle.sort.BypassMergeSortShuffleHandle;
 import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,21 +38,26 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 /**
- * Following program argument is needed to run Spark native tests.
+ * Following JVM argument is needed to run Spark native tests.
  *
- * - PRESTO_SERVER (-DPRESTO_SERVER=/path/to/native/process/bin)
- *   - This tells Spark where to find the Presto native binary to launch native process. Set it in
- *     program arguments like -DPRESTO_SERVER=/path/to/native/process/bin
+ * - PRESTO_SERVER
+ *   - This tells Spark where to find the Presto native binary to launch the process.
+ *      Example: -DPRESTO_SERVER=/path/to/native/process/bin
  *
- * Tests can be running in Interactive Debugging Mode. Interactive Debugging Mode allows you to have an easier debugging
- * experience by allowing Spark side not launching its own native process, but instead communicating with an already
- * launched native process. This gives developers flexibility to hookup any IDEs or debuggers with the native process.
- * Following JVM argument is needed in order to enable this mode:
+ * - DATA_DIR
+ *   - Optional path to store TPC-H tables used in the test. If this directory is empty, it will be
+ *     populated. If tables already exists, they will be reused.
  *
- * - NATIVE_PORT (-DNATIVE_PORT=<port>)
+ * Tests can be running in Interactive Debugging Mode that allows for easier debugging
+ * experience. Instead of launching its own native process, the test will connect to an existing
+ * native process. This gives developers flexibility to connect IDEA and debuggers to the native process.
+ * Enable this mode by setting NATIVE_PORT JVM argument.
+ *
+ * - NATIVE_PORT
  *   - This is the port your externally launched native process listens to. It is used to tell Spark where to send
- *     requests. This port number has to be the same as to which your externally launched process listens. Set it in
- *     program arguments like -DNATIVE_PORT=7777. When this is set, PRESTO_SERVER is not required.
+ *     requests. This port number has to be the same as to which your externally launched process listens.
+ *     Example: -DNATIVE_PORT=7777.
+ *     When NATIVE_PORT is specified, PRESTO_SERVER argument is not requires and is ignored if specified.
  */
 public class TestPrestoSparkNativeExecution
         extends AbstractTestQueryFramework
@@ -75,12 +81,16 @@ public class TestPrestoSparkNativeExecution
         Map<String, String> configs = new HashMap<>();
         // prevent to use the default Prestissimo config files since the Presto-Spark will generate the configs on-the-fly.
         configs.put("catalog.config-dir", "/");
-        return PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner(configs);
+
+        String dataDirectory = System.getProperty("DATA_DIR");
+
+        return PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner(configs, Optional.ofNullable(dataDirectory).map(Paths::get));
     }
 
     @Test
     public void testNativeExecutionWithProjection()
     {
+        assertQuerySucceeds("DROP TABLE IF EXISTS test_order");
         assertUpdate("CREATE TABLE test_order WITH (format = 'DWRF') as SELECT orderkey, custkey FROM orders LIMIT 100", 100);
 
         Session session = Session.builder(getNativeSession())
