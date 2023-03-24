@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include <velox/expression/VectorReaders.h>
-#include <velox/vector/ComplexVector.h>
-#include <velox/vector/DecodedVector.h>
-#include <velox/vector/SelectivityVector.h>
-#include <cstdint>
+#include "velox/expression/VectorReaders.h"
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/type/Type.h"
+#include "velox/vector/ComplexVector.h"
+#include "velox/vector/DecodedVector.h"
+#include "velox/vector/SelectivityVector.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox::exec;
@@ -651,6 +651,60 @@ TEST_F(GenericWriterTest, handleMisuse) {
     rowVector->setNull(0, true);
     test::assertEqualVectors(rowVector, result);
   }
+}
+
+template <typename T>
+struct SubscriptSimpleFunc {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  bool call(
+      out_type<Generic<T1>>& out,
+      const arg_type<Array<Generic<T1>>>& input,
+      int64_t index) {
+    if (!input[index - 1].has_value()) {
+      return false;
+    }
+
+    out.copy_from(input[index - 1].value());
+    return true;
+  }
+};
+
+TEST_F(GenericWriterTest, copyFromGeneric) {
+  facebook::velox::functions::prestosql::registerGeneralFunctions();
+  registerFunction<
+      SubscriptSimpleFunc,
+      Generic<T1>,
+      Array<Generic<T1>>,
+      int64_t>({"subscript_simple"});
+
+  // Generate input data.
+  VectorFuzzer::Options opts;
+  opts.vectorSize = 10;
+  opts.nullRatio = 0;
+  opts.containerLength = 10;
+  opts.containerVariableLength = false;
+  VectorFuzzer fuzzer(opts, pool());
+  std::vector<int64_t> v;
+  for (int i = 0; i < 10; i++) {
+    v.push_back(i + 1);
+  }
+  auto indicesVector = makeFlatVector<int64_t>(v);
+
+  auto test = [&](const TypePtr& type) {
+    auto input = fuzzer.fuzzFlat(ARRAY(type));
+    auto result1 = evaluate(
+        "subscript_simple(c0, c1)", makeRowVector({input, indicesVector}));
+    auto result2 =
+        evaluate("subscript(c0, c1)", makeRowVector({input, indicesVector}));
+    test::assertEqualVectors(result1, result2);
+  };
+  test(INTEGER());
+  test(ARRAY(INTEGER()));
+  test(VARCHAR());
+  test(MAP(INTEGER(), INTEGER()));
+  test(MAP(INTEGER(), ARRAY(INTEGER())));
+  // Rows not supported yet.
+  EXPECT_ANY_THROW(test(ROW({INTEGER()})));
 }
 
 } // namespace

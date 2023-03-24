@@ -557,7 +557,9 @@ struct VectorWriter<Generic<T>> : public VectorWriterBase {
     if (!isSet) {
       commitNull();
     } else {
-      VELOX_CHECK(castWriter_);
+      VELOX_DCHECK(
+          castWriter_,
+          "Impossible to commit a non-null value if generic writer was never casted");
       castWriter_->commit(isSet);
     }
   }
@@ -578,6 +580,10 @@ class DynamicRowWriter {
  public:
   using child_writer_t = GenericWriter;
   using writers_t = std::vector<std::shared_ptr<VectorWriter<Any, void>>>;
+
+  column_index_t size() const {
+    return childrenCount_;
+  }
 
   void set_null_at(column_index_t index) {
     VELOX_USER_CHECK_LT(

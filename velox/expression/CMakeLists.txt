@@ -36,7 +36,8 @@ add_library(
   VectorFunction.cpp
   SimpleFunctionRegistry.cpp
   SwitchExpr.cpp
-  TryExpr.cpp)
+  TryExpr.cpp
+  GenericWriter.cpp)
 
 target_link_libraries(
   velox_expression velox_core velox_vector velox_common_base

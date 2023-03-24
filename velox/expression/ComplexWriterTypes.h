@@ -780,6 +780,8 @@ class GenericWriter {
     return vector_->type();
   }
 
+  void copy_from(const GenericView& view);
+
   template <typename ToType>
   typename VectorWriter<ToType, void>::exec_out_t& castTo() {
     VELOX_USER_CHECK(
