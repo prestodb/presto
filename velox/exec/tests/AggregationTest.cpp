@@ -848,8 +848,11 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
 
     auto tempDirectory = exec::test::TempDirectoryPath::create();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    queryCtx->pool()->setMemoryUsageTracker(
-        velox::memory::MemoryUsageTracker::create(kMaxBytes));
+    queryCtx->testingOverrideMemoryPool(
+        memory::getProcessDefaultMemoryManager().getPool(
+            queryCtx->queryId(),
+            memory::MemoryPool::Kind::kAggregate,
+            kMaxBytes));
     auto results = AssertQueryBuilder(
                        PlanBuilder()
                            .values(batches)
@@ -954,8 +957,11 @@ DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
 
     auto tempDirectory = exec::test::TempDirectoryPath::create();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    queryCtx->pool()->setMemoryUsageTracker(
-        velox::memory::MemoryUsageTracker::create(kMaxBytes));
+    queryCtx->testingOverrideMemoryPool(
+        memory::getProcessDefaultMemoryManager().getPool(
+            queryCtx->queryId(),
+            memory::MemoryPool::Kind::kAggregate,
+            kMaxBytes));
 
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Spiller",
@@ -1075,8 +1081,11 @@ TEST_F(AggregationTest, spillWithNonSpillingPartition) {
 
   auto tempDirectory = exec::test::TempDirectoryPath::create();
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  queryCtx->pool()->setMemoryUsageTracker(
-      velox::memory::MemoryUsageTracker::create(kMaxBytes));
+  queryCtx->testingOverrideMemoryPool(
+      memory::getProcessDefaultMemoryManager().getPool(
+          queryCtx->queryId(),
+          memory::MemoryPool::Kind::kAggregate,
+          kMaxBytes));
 
   auto task =
       AssertQueryBuilder(PlanBuilder()

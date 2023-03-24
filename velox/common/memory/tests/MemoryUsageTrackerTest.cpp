@@ -23,6 +23,8 @@
 #include "velox/common/memory/MemoryUsageTracker.h"
 #include "velox/common/testutil/TestValue.h"
 
+DECLARE_bool(velox_memory_leak_check_enabled);
+
 using namespace ::testing;
 using namespace ::facebook::velox::memory;
 using namespace ::facebook::velox;
@@ -335,6 +337,18 @@ TEST_F(MemoryUsageTrackerTest, reserveAndUpdate) {
 
   // Free the pending reserved bytes before destruction.
   child->update(-child->usedReservationBytes());
+}
+
+TEST_F(MemoryUsageTrackerTest, memoryLeakCheck) {
+  gflags::FlagSaver flagSaver;
+  constexpr int64_t kMaxSize = 1 << 30; // 1GB
+  auto parent = MemoryUsageTracker::create(kMaxSize);
+  auto child = parent->addChild(true);
+  child->update(1000);
+  FLAGS_velox_memory_leak_check_enabled = true;
+  ASSERT_DEATH(child.reset(), "");
+  FLAGS_velox_memory_leak_check_enabled = false;
+  child.reset();
 }
 
 namespace {

@@ -430,8 +430,11 @@ TEST_F(OrderByTest, spill) {
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   constexpr int64_t kMaxBytes = 20LL << 20; // 20 MB
-  queryCtx->pool()->setMemoryUsageTracker(
-      memory::MemoryUsageTracker::create(kMaxBytes));
+  queryCtx->testingOverrideMemoryPool(
+      memory::getProcessDefaultMemoryManager().getPool(
+          queryCtx->queryId(),
+          memory::MemoryPool::Kind::kAggregate,
+          kMaxBytes));
   // Set 'kSpillableReservationGrowthPct' to an extreme large value to trigger
   // disk spilling by failed memory growth reservation.
   queryCtx->setConfigOverridesUnsafe({
@@ -480,11 +483,13 @@ TEST_F(OrderByTest, spillWithMemoryLimit) {
                       {1'000'000'000, false}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-
     auto tempDirectory = exec::test::TempDirectoryPath::create();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    queryCtx->pool()->setMemoryUsageTracker(
-        memory::MemoryUsageTracker::create(kMaxBytes));
+    queryCtx->testingOverrideMemoryPool(
+        memory::getProcessDefaultMemoryManager().getPool(
+            queryCtx->queryId(),
+            memory::MemoryPool::Kind::kAggregate,
+            kMaxBytes));
     auto results =
         AssertQueryBuilder(
             PlanBuilder()

@@ -194,20 +194,6 @@ class Writer : public WriterBase {
       const WriterContext& context,
       size_t nextWriteSize) const;
 
-  // TODO: Remove this api next.
-  void setMemoryUsageTracker(
-      const std::shared_ptr<velox::memory::MemoryUsageTracker>& tracker) {
-    getContext()
-        .getMemoryPool(velox::dwrf::MemoryUsageCategory::DICTIONARY)
-        .setMemoryUsageTracker(tracker->addChild());
-    getContext()
-        .getMemoryPool(velox::dwrf::MemoryUsageCategory::GENERAL)
-        .setMemoryUsageTracker(tracker->addChild());
-    getContext()
-        .getMemoryPool(velox::dwrf::MemoryUsageCategory::OUTPUT_STREAM)
-        .setMemoryUsageTracker(tracker->addChild());
-  }
-
   // protected:
   bool overMemoryBudget(const WriterContext& context, size_t writeLength) const;
 

@@ -16,6 +16,8 @@
 
 #include "velox/common/memory/Memory.h"
 
+DECLARE_bool(velox_memory_leak_check_enabled);
+
 namespace facebook::velox::memory {
 namespace {
 #define VELOX_MEM_MANAGER_CAP_EXCEEDED(cap)                         \
@@ -42,7 +44,9 @@ MemoryManager::MemoryManager(const Options& options)
           MemoryPool::Kind::kAggregate,
           nullptr,
           nullptr,
-          MemoryPool::Options{alignment_, memoryQuota_})},
+          // NOTE: the default root memory pool has no quota limit, and it is
+          // used for system usage in production such as disk spilling.
+          MemoryPool::Options{alignment_, kMaxMemory})},
       deprecatedDefaultLeafPool_(defaultRoot_->addChild(
           kDefaultLeafName.str(),
           MemoryPool::Kind::kLeaf)) {
@@ -59,10 +63,13 @@ MemoryManager::~MemoryManager() {
       numPools(),
       toString());
 
-  auto currentBytes = getTotalBytes();
-  if (currentBytes > 0) {
-    VELOX_MEM_LOG(WARNING) << "Leaked total memory of " << currentBytes
-                           << " bytes.";
+  if (FLAGS_velox_memory_leak_check_enabled) {
+    const auto currentBytes = getTotalBytes();
+    VELOX_CHECK_EQ(
+        currentBytes,
+        0,
+        "Leaked total memory of {}",
+        succinctBytes(currentBytes));
   }
 }
 

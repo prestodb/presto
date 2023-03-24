@@ -20,6 +20,8 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/common/testutil/TestValue.h"
 
+DECLARE_bool(velox_memory_leak_check_enabled);
+
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
@@ -32,15 +34,13 @@ std::shared_ptr<MemoryUsageTracker> MemoryUsageTracker::create(
 }
 
 MemoryUsageTracker::~MemoryUsageTracker() {
-  VELOX_DCHECK_EQ(usedReservationBytes_, 0);
-  if (usedReservationBytes_ != 0) {
-    VELOX_MEM_LOG(ERROR) << "used reservation is not zero " << toString();
+  if (FLAGS_velox_memory_leak_check_enabled) {
+    VELOX_CHECK(
+        (usedReservationBytes_ == 0) && (reservationBytes_ == 0) &&
+            (grantedReservationBytes_ == 0) && (minReservationBytes_ == 0),
+        "Bad tracker state: {}",
+        toString());
   }
-  VELOX_CHECK(
-      (reservationBytes_ == 0) && (grantedReservationBytes_ == 0) &&
-          (minReservationBytes_ == 0),
-      "Bad tracker state: {}",
-      toString());
 }
 
 void MemoryUsageTracker::update(int64_t size) {

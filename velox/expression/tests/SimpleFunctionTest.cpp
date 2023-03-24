@@ -891,7 +891,6 @@ TEST_F(SimpleFunctionTest, cseDisabledFuncWithInput) {
 
 TEST_F(SimpleFunctionTest, reuseArgVector) {
   std::mt19937 rng;
-  pool_->setMemoryUsageTracker(tracker_->addChild());
 
   vector_size_t size = 256;
   auto data = makeRowVector({

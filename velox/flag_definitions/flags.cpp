@@ -88,3 +88,10 @@ DEFINE_string(
     "expression evaluation. Specifies the directory to use for storing the "
     "vectors and expression SQL strings. This flag is ignored if "
     "velox_save_input_on_expression_any_failure_path is set.");
+
+// TODO: deprecate this once all the memory leak issues have been fixed in
+// existing meta internal use cases.
+DEFINE_bool(
+    velox_memory_leak_check_enabled,
+    true,
+    "If true, check fails on any memory leaks in memory pool and memory manager");

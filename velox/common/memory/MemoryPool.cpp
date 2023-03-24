@@ -19,6 +19,8 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/memory/Memory.h"
 
+DECLARE_bool(velox_memory_leak_check_enabled);
+
 namespace facebook::velox::memory {
 namespace {
 #define VELOX_MEM_MANAGER_CAP_EXCEEDED(cap)                         \
@@ -124,9 +126,6 @@ std::shared_ptr<MemoryPool> MemoryPool::addChild(
       name,
       toString());
   auto child = genChild(shared_from_this(), name, kind);
-  if (auto tracker = getMemoryUsageTracker()) {
-    child->setMemoryUsageTracker(tracker->addChild(kind == Kind::kLeaf));
-  }
   children_.emplace(name, child);
   return child;
 }
@@ -170,24 +169,26 @@ MemoryPoolImpl::MemoryPoolImpl(
     DestructionCallback destructionCb,
     const Options& options)
     : MemoryPool{name, kind, parent, options},
+      memoryUsageTracker_(
+          parent_ == nullptr ? MemoryUsageTracker::create(options.capacity)
+                             : parent->getMemoryUsageTracker()->addChild(
+                                   kind == MemoryPool::Kind::kLeaf)),
       memoryManager_{memoryManager},
       allocator_{&memoryManager_->getAllocator()},
       destructionCb_(std::move(destructionCb)),
       localMemoryUsage_{} {}
 
 MemoryPoolImpl::~MemoryPoolImpl() {
-  if (const auto& tracker = getMemoryUsageTracker()) {
-    // TODO: change to check reserved bytes which including the unused
-    // reservation.
-    auto remainingBytes = tracker->currentBytes();
+  if (FLAGS_velox_memory_leak_check_enabled) {
+    const auto remainingBytes = memoryUsageTracker_->currentBytes();
     VELOX_CHECK_EQ(
         0,
         remainingBytes,
         "Memory pool {} should be destroyed only after all allocated memory has been freed. Remaining bytes allocated: {}, cumulative bytes allocated: {}, number of allocations: {}",
         name(),
         remainingBytes,
-        tracker->cumulativeBytes(),
-        tracker->numAllocs());
+        memoryUsageTracker_->cumulativeBytes(),
+        memoryUsageTracker_->numAllocs());
   }
   if (destructionCb_ != nullptr) {
     destructionCb_(this);
@@ -356,20 +357,6 @@ std::string MemoryPoolImpl::toString() const {
       MemoryAllocator::kindString(allocator_->kind()));
 }
 
-void MemoryPoolImpl::setMemoryUsageTracker(
-    const std::shared_ptr<MemoryUsageTracker>& tracker) {
-  const auto currentBytes = getCurrentBytes();
-  if (memoryUsageTracker_) {
-    if (currentBytes != 0) {
-      memoryUsageTracker_->update(-currentBytes);
-    }
-  }
-  memoryUsageTracker_ = tracker;
-  if (currentBytes != 0) {
-    memoryUsageTracker_->update(currentBytes);
-  }
-}
-
 const std::shared_ptr<MemoryUsageTracker>&
 MemoryPoolImpl::getMemoryUsageTracker() const {
   return memoryUsageTracker_;
@@ -436,9 +423,7 @@ void MemoryPoolImpl::updateSubtreeMemoryUsage(
 void MemoryPoolImpl::reserve(int64_t size) {
   checkMemoryAllocation();
 
-  if (memoryUsageTracker_) {
-    memoryUsageTracker_->update(size);
-  }
+  memoryUsageTracker_->update(size);
   localMemoryUsage_.incrementCurrentBytes(size);
 
   bool success = memoryManager_->reserve(size);
@@ -457,8 +442,6 @@ void MemoryPoolImpl::release(int64_t size) {
 
   memoryManager_->release(size);
   localMemoryUsage_.incrementCurrentBytes(-size);
-  if (memoryUsageTracker_) {
-    memoryUsageTracker_->update(-size);
-  }
+  memoryUsageTracker_->update(-size);
 }
 } // namespace facebook::velox::memory

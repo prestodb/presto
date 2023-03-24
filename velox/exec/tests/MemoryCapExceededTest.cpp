@@ -67,8 +67,11 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
                   .orderBy({"c0"}, false)
                   .planNode();
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  queryCtx->pool()->setMemoryUsageTracker(
-      velox::memory::MemoryUsageTracker::create(kMaxBytes));
+  queryCtx->testingOverrideMemoryPool(
+      memory::getProcessDefaultMemoryManager().getPool(
+          queryCtx->queryId(),
+          memory::MemoryPool::Kind::kAggregate,
+          kMaxBytes));
   CursorParameters params;
   params.planNode = plan;
   params.queryCtx = queryCtx;
@@ -111,8 +114,11 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
                   .singleAggregation({"c0"}, {"sum(c1)"})
                   .planNode();
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  queryCtx->pool()->setMemoryUsageTracker(
-      velox::memory::MemoryUsageTracker::create(kMaxBytes));
+  queryCtx->testingOverrideMemoryPool(
+      memory::getProcessDefaultMemoryManager().getPool(
+          queryCtx->queryId(),
+          memory::MemoryPool::Kind::kAggregate,
+          kMaxBytes));
 
   const int32_t numDrivers = 10;
   CursorParameters params;

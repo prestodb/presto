@@ -216,14 +216,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Returns the peak memory usage of this memory pool.
   virtual int64_t getMaxBytes() const = 0;
 
-  /// Tracks memory usage from leaf nodes to root and updates immediately
-  /// with atomic operations.
-  /// Unlike pool's getCurrentBytes(), getMaxBytes(), trace's API's returns
-  /// the aggregated usage of subtree. See 'ScopedChildUsageTest' for
-  /// difference in their behavior.
-  virtual void setMemoryUsageTracker(
-      const std::shared_ptr<MemoryUsageTracker>& tracker) = 0;
-
   /// Returns the memory usage tracker associated with this memory pool.
   virtual const std::shared_ptr<MemoryUsageTracker>& getMemoryUsageTracker()
       const = 0;
@@ -340,9 +332,6 @@ class MemoryPoolImpl : public MemoryPool {
 
   int64_t getMaxBytes() const override;
 
-  void setMemoryUsageTracker(
-      const std::shared_ptr<MemoryUsageTracker>& tracker) override;
-
   const std::shared_ptr<MemoryUsageTracker>& getMemoryUsageTracker()
       const override;
   int64_t updateSubtreeMemoryUsage(int64_t size) override;
@@ -382,13 +371,13 @@ class MemoryPoolImpl : public MemoryPool {
       std::function<void(const MemoryUsage&)> visitor) const;
   void updateSubtreeMemoryUsage(std::function<void(MemoryUsage&)> visitor);
 
+  const std::shared_ptr<MemoryUsageTracker> memoryUsageTracker_;
   MemoryManager* const memoryManager_;
   MemoryAllocator* const allocator_;
   const DestructionCallback destructionCb_;
 
   // Memory allocated attributed to the memory node.
   MemoryUsage localMemoryUsage_;
-  std::shared_ptr<MemoryUsageTracker> memoryUsageTracker_;
   mutable folly::SharedMutex subtreeUsageMutex_;
   MemoryUsage subtreeMemoryUsage_;
 };

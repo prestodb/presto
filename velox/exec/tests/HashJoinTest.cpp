@@ -388,12 +388,6 @@ class HashJoinBuilder {
     return *this;
   }
 
-  HashJoinBuilder& tracker(
-      const std::shared_ptr<memory::MemoryUsageTracker>& tracker) {
-    tracker_ = tracker;
-    return *this;
-  }
-
   HashJoinBuilder& injectSpill(bool injectSpill) {
     injectSpill_ = injectSpill;
     return *this;
@@ -599,9 +593,6 @@ class HashJoinBuilder {
       auto configCopy = configs_;
       queryCtx->setConfigOverridesUnsafe(std::move(configCopy));
     }
-    if (tracker_ != nullptr) {
-      queryCtx->pool()->setMemoryUsageTracker(tracker_);
-    }
     builder.queryCtx(queryCtx);
 
     SCOPED_TRACE(
@@ -667,7 +658,6 @@ class HashJoinBuilder {
 
   SplitInput inputSplits_;
   core::PlanNodePtr planNode_;
-  std::shared_ptr<memory::MemoryUsageTracker> tracker_;
   std::unordered_map<std::string, std::string> configs_;
 
   JoinResultsVerifier testVerifier_{};
@@ -3396,9 +3386,7 @@ TEST_F(HashJoinTest, memory) {
                         .singleAggregation({}, {"sum(k1)", "sum(k2)"})
                         .planNode();
   params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
-  auto tracker = memory::MemoryUsageTracker::create();
-  params.queryCtx->pool()->setMemoryUsageTracker(tracker);
-
+  auto tracker = params.queryCtx->pool()->getMemoryUsageTracker();
   auto [taskCursor, rows] = readCursor(params, [](Task*) {});
   EXPECT_GT(3'500, tracker->numAllocs());
   EXPECT_GT(7'500'000, tracker->cumulativeBytes());
@@ -4441,10 +4429,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, buildReservationReleaseCheck) {
   params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
   // NOTE: the spilling setup is to trigger memory reservation code path which
   // only gets executed when spilling is enabled. We don't care about if
-  // spilling is really triggered in test or not so set the max memory limit to
-  // avoid any memory reservation related errors.
-  auto tracker = memory::MemoryUsageTracker::create();
-  params.queryCtx->pool()->setMemoryUsageTracker(tracker);
+  // spilling is really triggered in test or not.
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   params.spillDirectory = spillDirectory->path;
   params.queryCtx->setConfigOverridesUnsafe(

@@ -48,10 +48,7 @@ void assertCopyableVector(const VectorPtr& vector);
 
 class VectorTestBase {
  protected:
-  VectorTestBase() {
-    pool_->parent()->setMemoryUsageTracker(tracker_);
-    pool_->setMemoryUsageTracker(tracker_->addChild());
-  }
+  VectorTestBase() = default;
 
   ~VectorTestBase();
 
@@ -739,12 +736,10 @@ class VectorTestBase {
     return pool_.get();
   }
 
-  std::shared_ptr<memory::MemoryUsageTracker> tracker_{
-      memory::MemoryUsageTracker::create()};
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
-  velox::test::VectorMaker vectorMaker_{pool_.get()};
   std::shared_ptr<memory::MemoryPool> rootPool_{
       memory::getProcessDefaultMemoryManager().getPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addChild("leaf")};
+  velox::test::VectorMaker vectorMaker_{pool_.get()};
   std::shared_ptr<folly::Executor> executor_{
       std::make_shared<folly::CPUThreadPoolExecutor>(
           std::thread::hardware_concurrency())};

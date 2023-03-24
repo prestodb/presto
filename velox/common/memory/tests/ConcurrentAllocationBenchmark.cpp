@@ -38,10 +38,6 @@ DEFINE_uint32(
     num_runs,
     32,
     "The number of benchmark runs and reports the average results");
-DEFINE_bool(
-    enable_memory_usage_tracker,
-    true,
-    "If true, set memory usage tracker in the memory pool to measure the memory usage track cost");
 
 using namespace facebook::velox;
 using namespace facebook::velox::memory;
@@ -62,9 +58,6 @@ class MemoryOperator {
             fmt::format("MemoryOperator{}", poolId_++),
             MemoryPool::Kind::kLeaf)) {
     rng_.seed(1234);
-    if (FLAGS_enable_memory_usage_tracker) {
-      pool_->setMemoryUsageTracker(tracker->addChild());
-    }
   }
 
   ~MemoryOperator() = default;

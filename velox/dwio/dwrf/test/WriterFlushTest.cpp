@@ -130,12 +130,6 @@ class MockMemoryPool : public velox::memory::MemoryPool {
         name, kind, parent, memoryUsageTracker_->maxMemory());
   }
 
-  void setMemoryUsageTracker(
-      const std::shared_ptr<velox::memory::MemoryUsageTracker>& tracker)
-      override {
-    memoryUsageTracker_ = tracker;
-  }
-
   const std::shared_ptr<velox::memory::MemoryUsageTracker>&
   getMemoryUsageTracker() const override {
     return memoryUsageTracker_;
