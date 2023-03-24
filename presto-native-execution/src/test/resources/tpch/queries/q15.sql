@@ -9,8 +9,8 @@ select
 from
     lineitem
 where
-    shipdate >= date '1996-01-01'
-    and shipdate < date '1996-01-01' + interval '3' month
+    shipdate >= '1996-01-01'
+    and cast(shipdate as date) < date '1996-01-01' + interval '3' month
 group by suppkey
 )
 
