@@ -83,6 +83,7 @@ import org.apache.spark.SparkContext;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
@@ -165,7 +166,12 @@ public class PrestoSparkQueryRunner
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner()
     {
-        return createHivePrestoSparkQueryRunner(getTables());
+        return createHivePrestoSparkQueryRunner(getTables(), Optional.empty());
+    }
+
+    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Optional<Path> dataDirectory)
+    {
+        return createHivePrestoSparkQueryRunner(getTables(), dataDirectory);
     }
 
     public static PrestoSparkQueryRunner createSpilledHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables)
@@ -173,14 +179,19 @@ public class PrestoSparkQueryRunner
         return createSpilledHivePrestoSparkQueryRunner(tables, ImmutableMap.of());
     }
 
-    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Map<String, String> additionalConfigProperties)
+    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Map<String, String> additionalConfigProperties, Optional<Path> dataDirectory)
     {
-        return createHivePrestoSparkQueryRunner(getTables(), additionalConfigProperties);
+        return createHivePrestoSparkQueryRunner(getTables(), additionalConfigProperties, dataDirectory);
     }
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables)
     {
-        return createHivePrestoSparkQueryRunner(tables, ImmutableMap.of());
+        return createHivePrestoSparkQueryRunner(tables, ImmutableMap.of(), Optional.empty());
+    }
+
+    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Optional<Path> dataDirectory)
+    {
+        return createHivePrestoSparkQueryRunner(tables, ImmutableMap.of(), dataDirectory);
     }
 
     public static PrestoSparkQueryRunner createSpilledHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> additionalConfigProperties)
@@ -192,12 +203,17 @@ public class PrestoSparkQueryRunner
         properties.put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
         properties.put("experimental.spiller-threads", Integer.toString(NODE_COUNT * TASK_CONCURRENCY));
         properties.putAll(additionalConfigProperties);
-        return createHivePrestoSparkQueryRunner(tables, properties);
+        return createHivePrestoSparkQueryRunner(tables, properties, Optional.empty());
     }
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> additionalConfigProperties)
     {
-        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive", additionalConfigProperties);
+        return createHivePrestoSparkQueryRunner(tables, additionalConfigProperties, Optional.empty());
+    }
+
+    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> additionalConfigProperties, Optional<Path> dataDirectory)
+    {
+        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive", additionalConfigProperties, dataDirectory);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
         if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
             metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("tpch"));
@@ -241,7 +257,7 @@ public class PrestoSparkQueryRunner
         log.info("Imported %s rows for %s in %s", rows, tableName, nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
-    public PrestoSparkQueryRunner(String defaultCatalog, Map<String, String> additionalConfigProperties)
+    public PrestoSparkQueryRunner(String defaultCatalog, Map<String, String> additionalConfigProperties, Optional<Path> dataDirectory)
     {
         setupLogging();
 
@@ -305,11 +321,16 @@ public class PrestoSparkQueryRunner
 
         // Install Hive Plugin
         File baseDir;
-        try {
-            baseDir = createTempDirectory("PrestoTest").toFile();
+        if (dataDirectory.isPresent()) {
+            baseDir = dataDirectory.get().toFile();
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+        else {
+            try {
+                baseDir = createTempDirectory("PrestoTest").toFile();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
 
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
@@ -318,7 +339,9 @@ public class PrestoSparkQueryRunner
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
         this.metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("hive_test"));
+        if (!metastore.getDatabase(METASTORE_CONTEXT, "hive_test").isPresent()) {
+            metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("hive_test"));
+        }
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
