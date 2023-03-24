@@ -95,7 +95,10 @@ public class VerifierTestUtil
     {
         TestingMySqlServer mySqlServer = new TestingMySqlServer("testuser", "testpass", ImmutableList.of(XDB), MY_SQL_OPTIONS);
         try (Handle handle = getHandle(mySqlServer)) {
-            handle.attach(VerifierDao.class).createVerifierQueriesTable(new MySqlSourceQueryConfig().getTableName());
+            MySqlSourceQueryConfig config = new MySqlSourceQueryConfig();
+            VerifierDao verifierDao = handle.attach(VerifierDao.class);
+            verifierDao.createVerifierQueriesTable(config.getTableName());
+            verifierDao.createVerifierSnapshotsTable(config.getSnapshotTableName());
         }
         return mySqlServer;
     }

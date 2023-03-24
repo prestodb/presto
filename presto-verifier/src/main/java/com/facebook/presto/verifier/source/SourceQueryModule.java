@@ -50,6 +50,8 @@ public class SourceQueryModule
         if (MYSQL_SOURCE_QUERY_SUPPLIER.equals(sourceQuerySupplierType)) {
             configBinder(binder).bindConfig(MySqlSourceQueryConfig.class, SOURCE_QUERY_CONFIG_PREFIX);
             binder.bind(SourceQuerySupplier.class).to(MySqlSourceQuerySupplier.class).in(SINGLETON);
+            binder.bind(SnapshotQuerySupplier.class).to(MysqlSnapshotQuerySupplier.class).in(SINGLETON);
+            binder.bind(SnapshotQueryConsumer.class).to(MysqlSnapshotQueryConsumer.class).in(SINGLETON);
         }
 
         if (PRESTO_QUERY_SOURCE_QUERY_SUPPLIER.equals(sourceQuerySupplierType)) {

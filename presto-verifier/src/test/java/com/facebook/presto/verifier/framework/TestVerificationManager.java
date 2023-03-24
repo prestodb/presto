@@ -33,6 +33,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -210,6 +211,8 @@ public class TestVerificationManager
     {
         return new VerificationManager(
                 () -> sourceQueries,
+                (snapshot) -> {},
+                () -> Collections.emptyMap(),
                 new VerificationFactory(
                         SQL_PARSER,
                         (sourceQuery, verificationContext) -> new QueryActions(prestoAction, prestoAction, prestoAction),

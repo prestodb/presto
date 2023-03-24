@@ -19,7 +19,6 @@ import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -52,21 +51,9 @@ import static org.testng.Assert.assertTrue;
 public class TestDataVerification
         extends AbstractVerificationTest
 {
-    private static VerificationSettings concurrentControlAndTestSettings;
-    private static VerificationSettings skipControlSettings;
-
     public TestDataVerification()
             throws Exception
     {
-    }
-
-    @BeforeClass
-    public static void beforeClass()
-    {
-        concurrentControlAndTestSettings = new VerificationSettings();
-        concurrentControlAndTestSettings.concurrentControlAndTest = Optional.of(true);
-        skipControlSettings = new VerificationSettings();
-        skipControlSettings.skipControl = Optional.of(true);
     }
 
     @Test
@@ -355,6 +342,18 @@ public class TestDataVerification
         Optional<VerifierQueryEvent> event = verify(sourceQuery, false);
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Test
+    public void testRunningInQueryBankMode()
+    {
+        Optional<VerifierQueryEvent> event = runVerification("SELECT ARRAY[ROW(1, 'a'), ROW(2, 'b')]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, 'b')]", saveSnapshotSettings);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
+
+        event = runVerification("SELECT ARRAY[ROW(1, 'a'), ROW(2, 'b')]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, 'b')]", queryBankModeSettings);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
     }
 
     private void assertEvent(

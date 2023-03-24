@@ -14,7 +14,18 @@
 package com.facebook.presto.verifier.checksum;
 
 import com.facebook.presto.common.type.SqlVarbinary;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.google.common.base.Suppliers;
 
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -22,6 +33,7 @@ import java.sql.Types;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -30,6 +42,14 @@ import static java.util.Objects.requireNonNull;
 
 public class ChecksumResult
 {
+    private static final Supplier<ObjectMapper> OBJECT_MAPPER_SUPPLIER = Suppliers.memoize(
+            () -> {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.WRAPPER_ARRAY);
+                return mapper;
+            });
+    private static final String ROW_COUNT = "rowCount";
+    private static final String CHECKSUMS = "checksums";
     private final long rowCount;
     private final Map<String, Object> checksums;
 
@@ -48,6 +68,11 @@ public class ChecksumResult
     public long getRowCount()
     {
         return rowCount;
+    }
+
+    public Map<String, Object> getChecksums()
+    {
+        return checksums;
     }
 
     public Object getChecksum(String columnName)
@@ -85,5 +110,81 @@ public class ChecksumResult
             }
         }
         return Optional.of(new ChecksumResult(rowCount, checksums));
+    }
+
+    public static String toJson(ChecksumResult checksumResult)
+    {
+        requireNonNull(checksumResult, "checksumResult is null");
+        try {
+            String json = OBJECT_MAPPER_SUPPLIER.get()
+                    .writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(checksumResult);
+            return json;
+        }
+        catch (JsonProcessingException exception) {
+            throw new RuntimeException(exception);
+        }
+    }
+
+    public static ChecksumResult fromJson(String json)
+    {
+        try {
+            ObjectMapper objectMapper = OBJECT_MAPPER_SUPPLIER.get();
+            SimpleModule module = new SimpleModule();
+            module.addDeserializer(ChecksumResult.class, new ChecksumResultDeserializer());
+            module.addDeserializer(SqlVarbinary.class, new SqlVarbinaryDeserializer());
+            objectMapper.registerModule(module);
+
+            ChecksumResult checksumResult = objectMapper.readValue(json, ChecksumResult.class);
+
+            return checksumResult;
+        }
+        catch (JsonProcessingException exception) {
+            throw new RuntimeException(exception);
+        }
+    }
+
+    static class SqlVarbinaryDeserializer
+            extends StdDeserializer<SqlVarbinary>
+    {
+        public SqlVarbinaryDeserializer()
+        {
+            this(null);
+        }
+
+        public SqlVarbinaryDeserializer(Class<?> vc)
+        {
+            super(vc);
+        }
+
+        @Override
+        public SqlVarbinary deserialize(JsonParser jp, DeserializationContext ctxt)
+                throws IOException
+        {
+            JsonNode node = jp.getCodec().readTree(jp);
+            return new SqlVarbinary(jp.getCodec().treeToValue(node, byte[].class));
+        }
+    }
+
+    static class ChecksumResultDeserializer
+            extends StdDeserializer<ChecksumResult>
+    {
+        public ChecksumResultDeserializer()
+        {
+            this(null);
+        }
+
+        public ChecksumResultDeserializer(Class<?> vc)
+        {
+            super(vc);
+        }
+
+        @Override
+        public ChecksumResult deserialize(JsonParser jp, DeserializationContext ctxt)
+                throws IOException
+        {
+            JsonNode node = jp.getCodec().readTree(jp);
+            return new ChecksumResult(node.get(ROW_COUNT).asLong(), jp.getCodec().treeToValue(node.get(CHECKSUMS), Map.class));
+        }
     }
 }

@@ -48,12 +48,49 @@ Next, create a ``config.properties`` file:
     test.application-name=verifier-test
     test-id=1
 
+Verifier can run in either ``query-bank`` or ``control-test`` mode by setting configuration
+``running-mode``.
+
+* ``control-test``: this is the default mode. Both the control query and the test query are
+  executed and their result checksums are compared.
+
+* ``query-bank``: in this mode, the control query is skipped and the comparison is done between
+  a saved snapshot result and the test result.
+
+Create a ``verifier_snapshots`` table:
+
+.. code-block:: sql
+
+    CREATE TABLE verifier_snapshots (
+        id int(11) unsigned NOT NULL PRIMARY KEY AUTO_INCREMENT,
+        suite varchar(256) NOT NULL,
+        name varchar(256) NOT NULL DEFAULT '.',
+        is_explain BOOLEAN NOT NULL DEFAULT false,
+        snapshot json NOT NULL,
+        updated_at datetime NOT NULL DEFAULT now(),
+        UNIQUE(suite, name, is_explain));
+
 Download :maven_download:`verifier` and rename it to ``verifier.jar``. To run the Verifier:
 
 .. code-block:: none
 
     java -Xmx1G -jar verifier.jar verify config.properties
 
+Before running in ``query-bank`` mode, snapshots must be saved. Add configurations:
+
+.. code-block:: none
+
+    running-mode=query-bank
+    save-snapshot=true
+
+Run the verifier and the snapshots will be saved to the table ``verifier_snapshots``.
+
+To run in ``query-bank`` mode, set ``save-snapshot=false`` or just delete it:
+
+.. code-block:: none
+
+    running-mode=query-bank
+    #save-snapshot=true
 
 Verifier Procedures
 -------------------
@@ -67,8 +104,8 @@ The following steps summarize the workflow of Verifier.
    * Applies overrides to the catalog, schema, username, and password of each query.
    * Filters queries according to whitelist and blacklist. Whitelist is applied before blacklist.
    * Filters out queries with invalid syntax.
-   * Filters out queries not supported for validation. ``Select``, ``Insert``, and
-     ``CreateTableAsSelect`` are supported.
+   * Filters out queries not supported for validation. ``Select``, ``Insert``,
+     ``CreateTableAsSelect``, ``create table`` and ``create view`` are supported.
 
 * **Query rewriting**
     * Rewrites queries before execution to ensure that production data is not modified.
@@ -80,7 +117,8 @@ The following steps summarize the workflow of Verifier.
 
 * **Query Execution**
     * Conceptually, Verifier is configured with a control cluster and a test cluster. However, they
-      may be pointed to the same Presto cluster for certain tests.
+      may be pointed to the same Presto cluster for certain tests. In ``Query-bank`` mode, the control
+      cluster is skipped and a saved snapshot is used instead.
     * For each source query, executes the following queries in order.
         * Control setup queries
         * Control query
@@ -98,7 +136,11 @@ The following steps summarize the workflow of Verifier.
 * **Results Comparison**
     * For ``Select``, ``Insert``, and ``CreateTableAsSelect`` queries, results are written into
       temporary tables.
-    * Constructs and runs the checksum queries for both control and test.
+    * Constructs and runs the checksum queries for both control and test. If running in
+      ``query-bank`` mode, Control checksums will be restored from snapshots saved in ``mysql``
+      database.
+    * Control checksums will be saved to ``mysql`` database if configuration ``save-snapshot`` is
+      set to ``true``.
     * Verifies table schema and row count are the same for the control and the test result table.
     * Verifies checksums are matching for each column. See `Column Checksums`_ for special handling
       of different column types.
@@ -241,6 +283,9 @@ Name                                        Description
 ``absolute-error-margin``                   Floating point averages that are below this threshold are treated as ``0``.
 ``run-teardown-on-result-mismatch``         Whether to run teardown query in case of result mismatch.
 ``verification-resubmission.limit``         A limit on how many times a source query can be re-submitted for verification.
+``running-mode``                            Set to ``query-bank`` to make the Verifier run in ``query-bank`` mode. Supports
+                                            ``query-bank`` and ``control-test``. Defaults to ``control-test``.
+``save-snapshot``                           Set to ``true`` to save checksums to ``mysql`` database.
 =========================================== ===============================================================================
 
 
