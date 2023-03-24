@@ -275,10 +275,11 @@ void MemoryPoolImpl::allocateNonContiguous(
   if (!allocator_->allocateNonContiguous(
           numPages,
           out,
-          [this](int64_t allocBytes, bool preAllocate) {
-            if (memoryUsageTracker_ != nullptr) {
-              memoryUsageTracker_->update(
-                  preAllocate ? allocBytes : -allocBytes);
+          [this](int64_t allocBytes, bool preAlloc) {
+            if (preAlloc) {
+              reserve(allocBytes);
+            } else {
+              release(allocBytes);
             }
           },
           minSizeClass)) {
@@ -296,9 +297,7 @@ void MemoryPoolImpl::freeNonContiguous(Allocation& allocation) {
 
   const int64_t freedBytes = allocator_->freeNonContiguous(allocation);
   VELOX_CHECK(allocation.empty());
-  if (memoryUsageTracker_ != nullptr) {
-    memoryUsageTracker_->update(-freedBytes);
-  }
+  release(freedBytes);
 }
 
 MachinePageCount MemoryPoolImpl::largestSizeClass() const {
@@ -317,8 +316,10 @@ void MemoryPoolImpl::allocateContiguous(
 
   if (!allocator_->allocateContiguous(
           numPages, nullptr, out, [this](int64_t allocBytes, bool preAlloc) {
-            if (memoryUsageTracker_) {
-              memoryUsageTracker_->update(preAlloc ? allocBytes : -allocBytes);
+            if (preAlloc) {
+              reserve(allocBytes);
+            } else {
+              release(allocBytes);
             }
           })) {
     VELOX_CHECK(out.empty());
@@ -336,9 +337,7 @@ void MemoryPoolImpl::freeContiguous(ContiguousAllocation& allocation) {
   const int64_t bytesToFree = allocation.size();
   allocator_->freeContiguous(allocation);
   VELOX_CHECK(allocation.empty());
-  if (memoryUsageTracker_ != nullptr) {
-    memoryUsageTracker_->update(-bytesToFree);
-  }
+  release(bytesToFree);
 }
 
 int64_t MemoryPoolImpl::getCurrentBytes() const {

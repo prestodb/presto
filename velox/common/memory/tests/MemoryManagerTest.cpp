@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/base/VeloxException.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/Memory.h"
 
 using namespace ::testing;
@@ -387,6 +388,77 @@ TEST(MemoryManagerTest, concurrentPoolAccess) {
   pools.clear();
   ASSERT_EQ(manager.numPools(), 0);
 }
+
+TEST(MemoryManagerTest, quotaEnforcement) {
+  struct {
+    int64_t memoryQuotaBytes;
+    int64_t smallAllocationBytes;
+    int64_t largeAllocationPages;
+    bool expectedMemoryExceedError;
+
+    std::string debugString() const {
+      return fmt::format(
+          "memoryQuotaBytes:{} smallAllocationBytes:{} largeAllocationPages:{} expectedMemoryExceedError:{}",
+          succinctBytes(memoryQuotaBytes),
+          succinctBytes(smallAllocationBytes),
+          largeAllocationPages,
+          expectedMemoryExceedError);
+    }
+  } testSettings[] = {
+      {2 << 20, 1 << 20, 256, false},
+      {2 << 20, 1 << 20, 512, true},
+      {2 << 20, 2 << 20, 256, true},
+      {2 << 20, 3 << 20, 0, true},
+      {2 << 20, 0, 768, true}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    std::vector<bool> contiguousAllocations = {false, true};
+    for (const auto& contiguousAlloc : contiguousAllocations) {
+      SCOPED_TRACE(fmt::format("contiguousAlloc {}", contiguousAlloc));
+      const int alignment = 32;
+      IMemoryManager::Options options;
+      options.alignment = alignment;
+      options.capacity = testData.memoryQuotaBytes;
+      MemoryManager manager{options};
+      auto pool = manager.getPool("quotaEnforcement", MemoryPool::Kind::kLeaf);
+      void* smallBuffer{nullptr};
+      if (testData.smallAllocationBytes != 0) {
+        if ((testData.largeAllocationPages == 0) &&
+            testData.expectedMemoryExceedError) {
+          VELOX_ASSERT_THROW(pool->allocate(testData.smallAllocationBytes), "");
+          continue;
+        }
+        smallBuffer = pool->allocate(testData.smallAllocationBytes);
+      }
+      if (contiguousAlloc) {
+        ContiguousAllocation contiguousAllocation;
+        if (testData.expectedMemoryExceedError) {
+          VELOX_ASSERT_THROW(
+              pool->allocateContiguous(
+                  testData.largeAllocationPages, contiguousAllocation),
+              "");
+        } else {
+          pool->allocateContiguous(
+              testData.largeAllocationPages, contiguousAllocation);
+        }
+      } else {
+        Allocation allocation;
+        if (testData.expectedMemoryExceedError) {
+          VELOX_ASSERT_THROW(
+              pool->allocateNonContiguous(
+                  testData.largeAllocationPages, allocation),
+              "");
+        } else {
+          pool->allocateNonContiguous(
+              testData.largeAllocationPages, allocation);
+        }
+      }
+      pool->free(smallBuffer, testData.smallAllocationBytes);
+    }
+  }
+}
+
 } // namespace memory
 } // namespace velox
 } // namespace facebook
