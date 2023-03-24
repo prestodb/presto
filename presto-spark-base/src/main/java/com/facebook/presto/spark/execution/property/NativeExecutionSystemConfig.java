@@ -37,7 +37,6 @@ public class NativeExecutionSystemConfig
     private static final String SHUTDOWN_ONSET_SEC = "shutdown-onset-sec";
     private static final String SYSTEM_MEMORY_GB = "system-memory-gb";
     private static final String TASK_MAX_DRIVERS_PER_TASK = "task.max-drivers-per-task";
-    private static final String DISCOVERY_URI = "discovery.uri";
     private static final String SHUFFLE_NAME = "shuffle.name";
 
     private boolean enableSerializedPageChecksum = true;
@@ -52,7 +51,6 @@ public class NativeExecutionSystemConfig
     private int concurrentLifespansPerTask = 5;
     private int maxDriversPerTask = 15;
     private String prestoVersion = "dummy.presto.version";
-    private String discoveryUri = "http://127.0.0.1";
     private String shuffleName = "local";
 
     public Map<String, String> getAllProperties()
@@ -70,7 +68,6 @@ public class NativeExecutionSystemConfig
                 .put(SHUTDOWN_ONSET_SEC, String.valueOf(getShutdownOnsetSec()))
                 .put(SYSTEM_MEMORY_GB, String.valueOf(getSystemMemoryGb()))
                 .put(TASK_MAX_DRIVERS_PER_TASK, String.valueOf(getMaxDriversPerTask()))
-                .put(DISCOVERY_URI, getDiscoveryUri())
                 .put(SHUFFLE_NAME, getShuffleName())
                 .build();
     }
@@ -193,18 +190,6 @@ public class NativeExecutionSystemConfig
     public int getSystemMemoryGb()
     {
         return systemMemoryGb;
-    }
-
-    @Config(DISCOVERY_URI)
-    public NativeExecutionSystemConfig setDiscoveryUri(String discoveryUri)
-    {
-        this.discoveryUri = discoveryUri;
-        return this;
-    }
-
-    public String getDiscoveryUri()
-    {
-        return discoveryUri;
     }
 
     @Config(CONCURRENT_LIFESPANS_PER_TASK)
