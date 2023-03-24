@@ -22,9 +22,11 @@ import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.facebook.presto.verifier.source.SnapshotQueryConsumer;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -54,9 +56,11 @@ public class CreateTableVerification
             SqlExceptionClassifier exceptionClassifier,
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
-            ListeningExecutorService executor)
+            ListeningExecutorService executor,
+            SnapshotQueryConsumer snapshotQueryConsumer,
+            Map<String, SnapshotQuery> snapshotQueries)
     {
-        super(sqlParser, queryActions, sourceQuery, exceptionClassifier, verificationContext, verifierConfig, SHOW_CREATE_TABLE_CONVERTER, executor);
+        super(sqlParser, queryActions, sourceQuery, exceptionClassifier, verificationContext, verifierConfig, SHOW_CREATE_TABLE_CONVERTER, executor, snapshotQueryConsumer, snapshotQueries);
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
     }
 

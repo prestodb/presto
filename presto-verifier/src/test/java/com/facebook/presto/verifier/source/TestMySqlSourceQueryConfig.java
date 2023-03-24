@@ -30,6 +30,7 @@ public class TestMySqlSourceQueryConfig
         assertRecordedDefaults(recordDefaults(MySqlSourceQueryConfig.class)
                 .setDatabase(null)
                 .setTableName("verifier_queries")
+                .setSnapshotTableName("verifier_snapshots")
                 .setSuites("")
                 .setMaxQueriesPerSuite(100_000));
     }
@@ -40,12 +41,14 @@ public class TestMySqlSourceQueryConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("database", "jdbc://127.0.0.1:8001")
                 .put("table-name", "query_source")
+                .put("snapshot-table-name", "verifier_snaphots")
                 .put("suites", "test1,test2")
                 .put("max-queries-per-suite", "50")
                 .build();
         MySqlSourceQueryConfig expected = new MySqlSourceQueryConfig()
                 .setDatabase("jdbc://127.0.0.1:8001")
                 .setTableName("query_source")
+                .setSnapshotTableName("verifier_snaphots")
                 .setSuites("test1,test2")
                 .setMaxQueriesPerSuite(50);
 

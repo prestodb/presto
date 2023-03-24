@@ -24,11 +24,13 @@ import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.resolver.FailureResolverManagerFactory;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.facebook.presto.verifier.rewrite.QueryRewriterFactory;
+import com.facebook.presto.verifier.source.SnapshotQueryConsumer;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
@@ -74,7 +76,10 @@ public class VerificationFactory
         this.determinismAnalyzerConfig = requireNonNull(determinismAnalyzerConfig, "determinismAnalyzerConfig is null");
     }
 
-    public Verification get(SourceQuery sourceQuery, Optional<VerificationContext> existingContext)
+    public Verification get(SourceQuery sourceQuery,
+                            Optional<VerificationContext> existingContext,
+                            SnapshotQueryConsumer snapshotQueryConsumer,
+                            Map<String, SnapshotQuery> snapshotQueries)
     {
         QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getQuery(CONTROL), PARSING_OPTIONS));
         VerificationContext verificationContext = existingContext.map(VerificationContext::createForResubmission)
@@ -89,7 +94,9 @@ public class VerificationFactory
                     verificationContext,
                     verifierConfig,
                     sqlParser,
-                    executor);
+                    executor,
+                    snapshotQueryConsumer,
+                    snapshotQueries);
         }
 
         QueryRewriter queryRewriter = queryRewriterFactory.create(queryActions.getHelperAction());
@@ -116,7 +123,9 @@ public class VerificationFactory
                         verifierConfig,
                         typeManager,
                         checksumValidator,
-                        executor);
+                        executor,
+                        snapshotQueryConsumer,
+                        snapshotQueries);
             case CREATE_VIEW:
                 return new CreateViewVerification(
                         sqlParser,
@@ -126,7 +135,9 @@ public class VerificationFactory
                         exceptionClassifier,
                         verificationContext,
                         verifierConfig,
-                        executor);
+                        executor,
+                        snapshotQueryConsumer,
+                        snapshotQueries);
             case CREATE_TABLE:
                 return new CreateTableVerification(
                         sqlParser,
@@ -136,7 +147,9 @@ public class VerificationFactory
                         exceptionClassifier,
                         verificationContext,
                         verifierConfig,
-                        executor);
+                        executor,
+                        snapshotQueryConsumer,
+                        snapshotQueries);
             default:
                 throw new IllegalStateException(format("Unsupported query type: %s", queryType));
         }
