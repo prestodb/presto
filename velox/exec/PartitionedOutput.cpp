@@ -117,7 +117,7 @@ PartitionedOutput::PartitionedOutput(
       partitionFunction_(
           numDestinations_ == 1
               ? nullptr
-              : planNode->partitionFunctionFactory()(numDestinations_)),
+              : planNode->partitionFunctionSpec().create(numDestinations_)),
       outputChannels_(calculateOutputChannels(
           planNode->inputType(),
           planNode->outputType(),

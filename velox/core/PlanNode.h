@@ -872,8 +872,43 @@ class PartitionFunction {
       std::vector<uint32_t>& partitions) = 0;
 };
 
+/// Factory class for creating PartitionFunction instances.
+class PartitionFunctionSpec {
+ public:
+  virtual std::unique_ptr<PartitionFunction> create(
+      int numPartitions) const = 0;
+
+  virtual ~PartitionFunctionSpec() = default;
+};
+
+using PartitionFunctionSpecPtr = std::shared_ptr<PartitionFunctionSpec>;
+
+class GatherPartitionFunctionSpec : public PartitionFunctionSpec {
+ public:
+  std::unique_ptr<PartitionFunction> create(
+      int /* numPartitions */) const override {
+    VELOX_UNREACHABLE();
+  }
+};
+
+/// TODO Remove once Prestissimo is updated.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 using PartitionFunctionFactory =
     std::function<std::unique_ptr<PartitionFunction>(int numPartitions)>;
+
+class LegacyPartitionFunctionSpec : public PartitionFunctionSpec {
+ public:
+  LegacyPartitionFunctionSpec(PartitionFunctionFactory factory)
+      : factory_{std::move(factory)} {}
+
+  std::unique_ptr<PartitionFunction> create(int numPartitions) const override {
+    return factory_(numPartitions);
+  };
+
+ private:
+  const PartitionFunctionFactory factory_;
+};
+#endif
 
 /// Partitions data using specified partition function. The number of partitions
 /// is determined by the parallelism of the upstream pipeline. Can be used to
@@ -894,12 +929,12 @@ class LocalPartitionNode : public PlanNode {
   LocalPartitionNode(
       const PlanNodeId& id,
       Type type,
-      PartitionFunctionFactory partitionFunctionFactory,
+      PartitionFunctionSpecPtr partitionFunctionSpec,
       std::vector<PlanNodePtr> sources)
       : PlanNode(id),
         type_{type},
         sources_{std::move(sources)},
-        partitionFunctionFactory_{std::move(partitionFunctionFactory)} {
+        partitionFunctionSpec_{std::move(partitionFunctionSpec)} {
     VELOX_CHECK_GT(
         sources_.size(),
         0,
@@ -914,15 +949,28 @@ class LocalPartitionNode : public PlanNode {
     }
   }
 
+  /// TODO Remove once Prestissimo is updated.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  LocalPartitionNode(
+      const PlanNodeId& id,
+      Type type,
+      PartitionFunctionFactory partitionFunctionFactory,
+      std::vector<PlanNodePtr> sources)
+      : LocalPartitionNode(
+            id,
+            type,
+            std::make_shared<LegacyPartitionFunctionSpec>(
+                std::move(partitionFunctionFactory)),
+            std::move(sources)) {}
+#endif
+
   static std::shared_ptr<LocalPartitionNode> gather(
       const PlanNodeId& id,
       std::vector<PlanNodePtr> sources) {
     return std::make_shared<LocalPartitionNode>(
         id,
         Type::kGather,
-        [](auto /*numPartitions*/) -> std::unique_ptr<PartitionFunction> {
-          VELOX_UNREACHABLE();
-        },
+        std::make_shared<GatherPartitionFunctionSpec>(),
         std::move(sources));
   }
 
@@ -938,8 +986,8 @@ class LocalPartitionNode : public PlanNode {
     return sources_;
   }
 
-  const PartitionFunctionFactory& partitionFunctionFactory() const {
-    return partitionFunctionFactory_;
+  const PartitionFunctionSpec& partitionFunctionSpec() const {
+    return *partitionFunctionSpec_;
   }
 
   std::string_view name() const override {
@@ -955,7 +1003,7 @@ class LocalPartitionNode : public PlanNode {
 
   const Type type_;
   const std::vector<PlanNodePtr> sources_;
-  const PartitionFunctionFactory partitionFunctionFactory_;
+  const PartitionFunctionSpecPtr partitionFunctionSpec_;
 };
 
 class PartitionedOutputNode : public PlanNode {
@@ -966,7 +1014,7 @@ class PartitionedOutputNode : public PlanNode {
       int numPartitions,
       bool broadcast,
       bool replicateNullsAndAny,
-      PartitionFunctionFactory partitionFunctionFactory,
+      PartitionFunctionSpecPtr partitionFunctionSpec,
       RowTypePtr outputType,
       PlanNodePtr source)
       : PlanNode(id),
@@ -975,7 +1023,7 @@ class PartitionedOutputNode : public PlanNode {
         numPartitions_(numPartitions),
         broadcast_(broadcast),
         replicateNullsAndAny_(replicateNullsAndAny),
-        partitionFunctionFactory_(std::move(partitionFunctionFactory)),
+        partitionFunctionSpec_(std::move(partitionFunctionSpec)),
         outputType_(std::move(outputType)) {
     VELOX_CHECK(numPartitions > 0, "numPartitions must be greater than zero");
     if (numPartitions == 1) {
@@ -990,6 +1038,34 @@ class PartitionedOutputNode : public PlanNode {
     }
   }
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  PartitionedOutputNode(
+      const PlanNodeId& id,
+      const std::vector<TypedExprPtr>& keys,
+      int numPartitions,
+      bool broadcast,
+      bool replicateNullsAndAny,
+      PartitionFunctionFactory partitionFunctionFactory,
+      RowTypePtr outputType,
+      PlanNodePtr source)
+      : PartitionedOutputNode(
+            id,
+            keys,
+            numPartitions,
+            broadcast,
+            replicateNullsAndAny,
+            std::make_shared<LegacyPartitionFunctionSpec>(
+                std::move(partitionFunctionFactory)),
+            std::move(outputType),
+            std::move(source)) {}
+
+  PartitionFunctionFactory partitionFunctionFactory() const {
+    return [this](int numPartitions) {
+      return partitionFunctionSpec_->create(numPartitions);
+    };
+  }
+#endif
+
   static std::shared_ptr<PartitionedOutputNode> broadcast(
       const PlanNodeId& id,
       int numPartitions,
@@ -1002,9 +1078,7 @@ class PartitionedOutputNode : public PlanNode {
         numPartitions,
         true,
         false,
-        [](auto /*numPartitions*/) -> std::unique_ptr<PartitionFunction> {
-          VELOX_UNREACHABLE();
-        },
+        std::make_shared<GatherPartitionFunctionSpec>(),
         std::move(outputType),
         std::move(source));
   }
@@ -1018,9 +1092,7 @@ class PartitionedOutputNode : public PlanNode {
         1,
         false,
         false,
-        [](auto /*numPartitions*/) -> std::unique_ptr<PartitionFunction> {
-          VELOX_UNREACHABLE();
-        },
+        std::make_shared<GatherPartitionFunctionSpec>(),
         std::move(outputType),
         std::move(source));
   }
@@ -1057,8 +1129,8 @@ class PartitionedOutputNode : public PlanNode {
     return replicateNullsAndAny_;
   }
 
-  const PartitionFunctionFactory& partitionFunctionFactory() const {
-    return partitionFunctionFactory_;
+  const PartitionFunctionSpec& partitionFunctionSpec() const {
+    return *partitionFunctionSpec_;
   }
 
   std::string_view name() const override {
@@ -1077,7 +1149,7 @@ class PartitionedOutputNode : public PlanNode {
   const int numPartitions_;
   const bool broadcast_;
   const bool replicateNullsAndAny_;
-  const PartitionFunctionFactory partitionFunctionFactory_;
+  const PartitionFunctionSpecPtr partitionFunctionSpec_;
   const RowTypePtr outputType_;
 };
 

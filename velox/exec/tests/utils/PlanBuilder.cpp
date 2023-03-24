@@ -737,25 +737,37 @@ PlanBuilder& PlanBuilder::assignUniqueId(
 }
 
 namespace {
-core::PartitionFunctionFactory createPartitionFunctionFactory(
+class HashPartitionFunctionSpec : public core::PartitionFunctionSpec {
+ public:
+  HashPartitionFunctionSpec(
+      RowTypePtr inputType,
+      std::vector<column_index_t> keys)
+      : inputType_{inputType}, keys_{keys} {}
+
+  std::unique_ptr<core::PartitionFunction> create(
+      int numPartitions) const override {
+    return std::make_unique<exec::HashPartitionFunction>(
+        numPartitions, inputType_, keys_);
+  }
+
+ private:
+  const RowTypePtr inputType_;
+  const std::vector<column_index_t> keys_;
+};
+
+core::PartitionFunctionSpecPtr createPartitionFunctionSpec(
     const RowTypePtr& inputType,
     const std::vector<std::string>& keys) {
   if (keys.empty()) {
-    return
-        [](auto /*numPartitions*/) -> std::unique_ptr<core::PartitionFunction> {
-          VELOX_UNREACHABLE();
-        };
+    return std::make_shared<core::GatherPartitionFunctionSpec>();
   } else {
     std::vector<column_index_t> keyIndices;
     keyIndices.reserve(keys.size());
     for (const auto& key : keys) {
       keyIndices.push_back(inputType->getChildIdx(key));
     }
-    return [inputType, keyIndices](
-               auto numPartitions) -> std::unique_ptr<core::PartitionFunction> {
-      return std::make_unique<exec::HashPartitionFunction>(
-          numPartitions, inputType, keyIndices);
-    };
+    return std::make_shared<HashPartitionFunctionSpec>(
+        inputType, std::move(keyIndices));
   }
 }
 
@@ -798,7 +810,7 @@ core::PlanNodePtr createLocalPartitionNode(
     const std::vector<std::string>& keys,
     const std::vector<core::PlanNodePtr>& sources) {
   auto partitionFunctionFactory =
-      createPartitionFunctionFactory(sources[0]->outputType(), keys);
+      createPartitionFunctionSpec(sources[0]->outputType(), keys);
   return std::make_shared<core::LocalPartitionNode>(
       planNodeId,
       keys.empty() ? core::LocalPartitionNode::Type::kGather
@@ -824,7 +836,7 @@ PlanBuilder& PlanBuilder::partitionedOutput(
       ? planNode_->outputType()
       : extract(planNode_->outputType(), outputLayout);
   auto partitionFunctionFactory =
-      createPartitionFunctionFactory(planNode_->outputType(), keys);
+      createPartitionFunctionSpec(planNode_->outputType(), keys);
   planNode_ = std::make_shared<core::PartitionedOutputNode>(
       nextPlanNodeId(),
       exprs(keys),
@@ -861,18 +873,23 @@ PlanBuilder& PlanBuilder::localPartition(const std::vector<std::string>& keys) {
 }
 
 namespace {
-core::PlanNodePtr createLocalPartitionRoundRobinNode(
-    const core::PlanNodeId& planNodeId,
-    const std::vector<core::PlanNodePtr>& sources) {
-  auto partitionFunctionFactory = [](auto numPartitions) {
+
+class RoundRobinPartitionFunctionSpec : public core::PartitionFunctionSpec {
+ public:
+  std::unique_ptr<core::PartitionFunction> create(
+      int numPartitions) const override {
     return std::make_unique<velox::exec::RoundRobinPartitionFunction>(
         numPartitions);
   };
+};
 
+core::PlanNodePtr createLocalPartitionRoundRobinNode(
+    const core::PlanNodeId& planNodeId,
+    const std::vector<core::PlanNodePtr>& sources) {
   return std::make_shared<core::LocalPartitionNode>(
       planNodeId,
       core::LocalPartitionNode::Type::kRepartition,
-      partitionFunctionFactory,
+      std::make_shared<RoundRobinPartitionFunctionSpec>(),
       sources);
 }
 } // namespace

@@ -279,7 +279,8 @@ LocalPartition::LocalPartition(
       partitionFunction_(
           numPartitions_ == 1
               ? nullptr
-              : planNode->partitionFunctionFactory()(numPartitions_)) {
+              : planNode->partitionFunctionSpec().create(numPartitions_)),
+      blockingReasons_{numPartitions_} {
   VELOX_CHECK(numPartitions_ == 1 || partitionFunction_ != nullptr);
 
   for (auto& queue : queues_) {
