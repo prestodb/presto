@@ -11,28 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class OutputNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final List<String> columnNames;
@@ -61,17 +58,19 @@ public class OutputNode
 
         requireNonNull(source, "source is null");
         requireNonNull(columnNames, "columnNames is null");
-        Preconditions.checkArgument(columnNames.size() == outputVariables.size(), "columnNames and assignments sizes don't match");
+        if (columnNames.size() != outputVariables.size()) {
+            throw new IllegalArgumentException("columnNames and assignments sizes don't match");
+        }
 
         this.source = source;
         this.columnNames = columnNames;
-        this.outputVariables = ImmutableList.copyOf(outputVariables);
+        this.outputVariables = unmodifiableList(outputVariables);
     }
 
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return unmodifiableList(Collections.singletonList(source));
     }
 
     @Override
@@ -94,7 +93,7 @@ public class OutputNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitOutput(this, context);
     }
@@ -102,7 +101,10 @@ public class OutputNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new OutputNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), columnNames, outputVariables);
+        if (newChildren.size() != 1) {
+            throw new IllegalArgumentException("new children size must be one.");
+        }
+        return new OutputNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), columnNames, outputVariables);
     }
 
     @Override
