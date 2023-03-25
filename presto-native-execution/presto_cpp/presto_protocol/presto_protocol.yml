@@ -181,7 +181,6 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/connector/ConnectorTransactionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/DistinctLimitNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/ConstantExpression.java
-  - presto-raptor/src/main/java/com/facebook/presto/raptor/metadata/Distribution.java
   - presto-common/src/main/java/com/facebook/presto/common/predicate/Domain.java
   - presto-main/src/main/java/com/facebook/presto/operator/DriverStats.java
   - presto-hive/src/main/java/com/facebook/presto/hive/DwrfEncryptionMetadata.java
