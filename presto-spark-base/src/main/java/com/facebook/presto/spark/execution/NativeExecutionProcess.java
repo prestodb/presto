@@ -16,8 +16,6 @@ package com.facebook.presto.spark.execution;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.server.RequestErrorTracker;
@@ -50,7 +48,6 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_BINARY_NOT_EXIST;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
@@ -65,7 +62,8 @@ public class NativeExecutionProcess
     private static final String WORKER_NODE_CONFIG_FILE = "/node.properties";
     private static final String WORKER_CONNECTOR_CONFIG_FILE = "/catalog/";
 
-    private final Session session;
+    private final String executablePath;
+    private final String catalogName;
     private final PrestoSparkHttpServerClient serverClient;
     private final URI location;
     private final int port;
@@ -78,8 +76,9 @@ public class NativeExecutionProcess
     private Process process;
 
     public NativeExecutionProcess(
-            Session session,
+            String executablePath,
             URI uri,
+            String catalogName,
             HttpClient httpClient,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
@@ -89,8 +88,9 @@ public class NativeExecutionProcess
             throws IOException
     {
         this.port = getAvailableTcpPort();
-        this.session = requireNonNull(session, "session is null");
+        this.executablePath = requireNonNull(executablePath, "executablePath is null");
         this.location = getBaseUriWithPort(requireNonNull(uri, "uri is null"), getPort());
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.serverClient = new PrestoSparkHttpServerClient(
                 this.httpClient,
@@ -115,7 +115,6 @@ public class NativeExecutionProcess
     public void start()
             throws ExecutionException, InterruptedException, IOException
     {
-        String executablePath = getProcessWorkingPath(SystemSessionProperties.getNativeExecutionExecutablePath(session));
         String configPath = Paths.get(getProcessWorkingPath("./"), String.valueOf(port)).toAbsolutePath().toString();
 
         populateConfigurationFiles(configPath);
@@ -187,12 +186,6 @@ public class NativeExecutionProcess
         return port;
     }
 
-    private String getNativeExecutionCatalogName(Session session)
-    {
-        checkArgument(session.getCatalog().isPresent(), "Catalog isn't set in the session.");
-        return session.getCatalog().get();
-    }
-
     private void populateConfigurationFiles(String configBasePath)
             throws IOException
     {
@@ -204,7 +197,7 @@ public class NativeExecutionProcess
         workerProperty.populateAllProperties(
                 Paths.get(configBasePath, WORKER_CONFIG_FILE),
                 Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
-                Paths.get(configBasePath, format("%s%s.properties", WORKER_CONNECTOR_CONFIG_FILE, getNativeExecutionCatalogName(session))));
+                Paths.get(configBasePath, format("%s%s.properties", WORKER_CONNECTOR_CONFIG_FILE, catalogName)));
     }
 
     private void doGetServerInfo(SettableFuture<ServerInfo> future)

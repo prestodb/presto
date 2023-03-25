@@ -55,9 +55,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.presto.SystemSessionProperties.getNativeExecutionExecutablePath;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -187,14 +189,21 @@ public class NativeExecutionOperator
     {
         try {
             this.process = processFactory.createNativeExecutionProcess(
-                    operatorContext.getSession(),
-                    URI.create(NATIVE_EXECUTION_SERVER_URI));
+                    getNativeExecutionExecutablePath(operatorContext.getSession()),
+                    URI.create(NATIVE_EXECUTION_SERVER_URI),
+                    getNativeExecutionCatalogName(operatorContext.getSession()));
             log.info("Starting native execution process of task" + getOperatorContext().getDriverContext().getTaskId().toString());
             process.start();
         }
         catch (ExecutionException | InterruptedException | IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private String getNativeExecutionCatalogName(Session session)
+    {
+        checkArgument(session.getCatalog().isPresent(), "Catalog isn't set in the session.");
+        return session.getCatalog().get();
     }
 
     private void createTask()

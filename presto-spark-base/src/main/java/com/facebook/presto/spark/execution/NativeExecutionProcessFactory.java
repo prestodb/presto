@@ -15,7 +15,6 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
@@ -67,21 +66,24 @@ public class NativeExecutionProcessFactory
     }
 
     public NativeExecutionProcess createNativeExecutionProcess(
-            Session session,
-            URI location)
+            String executablePath,
+            URI location,
+            String catalogName)
     {
-        return createNativeExecutionProcess(session, location, MAX_ERROR_DURATION);
+        return createNativeExecutionProcess(executablePath, location, catalogName, MAX_ERROR_DURATION);
     }
 
     public NativeExecutionProcess createNativeExecutionProcess(
-            Session session,
+            String executablePath,
             URI location,
+            String catalogName,
             Duration maxErrorDuration)
     {
         try {
             return new NativeExecutionProcess(
-                    session,
+                    executablePath,
                     location,
+                    catalogName,
                     httpClient,
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
