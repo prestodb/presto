@@ -12,8 +12,7 @@ metadata:
       {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- with .Values.service.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
+  annotations: {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   type: {{ .Values.service.type }}
