@@ -478,7 +478,7 @@ void KeyNode<StringView>::fillKeysVector(
   auto& flatVec = static_cast<FlatVector<StringView>&>(*vector);
   buffer->fillKey(ordinal_, [&](auto data, auto size) {
     const_cast<StringView*>(flatVec.rawValues())[offset] =
-        StringView{data, size};
+        StringView{data, static_cast<int32_t>(size)};
   });
 }
 

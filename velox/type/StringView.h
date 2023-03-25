@@ -55,8 +55,9 @@ struct StringView {
     memset(this, 0, sizeof(StringView));
   }
 
-  StringView(const char* data, size_t len) : size_(len) {
-    VELOX_DCHECK(data || size_ == 0);
+  StringView(const char* data, int32_t len) : size_(len) {
+    VELOX_CHECK_GE(len, 0);
+    VELOX_DCHECK(data || len == 0);
     if (isInline()) {
       // Zero the inline part.
       // this makes sure that inline strings can be compared for equality with 2

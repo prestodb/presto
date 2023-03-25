@@ -321,7 +321,7 @@ void ApproxMostFrequentStreamSummary<T, A>::mergeSerialized(const char* other) {
     auto v = values[i];
     if constexpr (std::is_same_v<T, StringView>) {
       if (!v.isInline()) {
-        v = {other, v.size()};
+        v = {other, static_cast<int32_t>(v.size())};
         other += v.size();
       }
     }

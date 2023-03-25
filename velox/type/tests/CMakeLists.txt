@@ -110,3 +110,16 @@ target_link_libraries(
   gtest_main
   gflags::gflags
   glog::glog)
+
+add_executable(velox_string_view_benchmark StringViewBenchmark.cpp)
+
+target_link_libraries(
+  velox_string_view_benchmark
+  velox_type
+  ${FOLLY}
+  ${FOLLY_BENCHMARK}
+  ${DOUBLE_CONVERSION}
+  gtest
+  gtest_main
+  gflags::gflags
+  glog::glog)

@@ -333,7 +333,9 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
       if constexpr (std::is_same_v<T, StringView>) {
         strKey = keyNodes_[k].key.get();
         if (!strKey.isInline()) {
-          strKey = {&rawStrKeyBuffer[strKeySize], strKey.size()};
+          strKey = {
+              &rawStrKeyBuffer[strKeySize],
+              static_cast<int32_t>(strKey.size())};
           strKeySize += strKey.size();
         }
       }

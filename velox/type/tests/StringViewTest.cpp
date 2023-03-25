@@ -151,3 +151,8 @@ TEST(StringView, implicitConstructionAndConversion) {
   };
   testOptionalConversion("literal");
 }
+
+TEST(StringView, negativeSizes) {
+  EXPECT_THROW(StringView("abc", -10), VeloxException);
+  EXPECT_NO_THROW(StringView(nullptr, 0));
+}

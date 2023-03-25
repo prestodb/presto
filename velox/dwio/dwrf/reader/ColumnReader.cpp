@@ -1333,7 +1333,7 @@ void StringDictionaryColumnReader::readFlatVector(
                             strData,
                             strLen) ||
             hasStrideDict;
-        dataPtr[i] = StringView{strData, static_cast<uint32_t>(strLen)};
+        dataPtr[i] = StringView{strData, static_cast<int32_t>(strLen)};
       }
     }
   } else {
@@ -1349,7 +1349,7 @@ void StringDictionaryColumnReader::readFlatVector(
                           strData,
                           strLen) ||
           hasStrideDict;
-      dataPtr[i] = StringView{strData, static_cast<uint32_t>(strLen)};
+      dataPtr[i] = StringView{strData, static_cast<int32_t>(strLen)};
     }
   }
   std::vector<BufferPtr> stringBuffers = {dictionaryBlob};
