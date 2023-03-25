@@ -81,11 +81,12 @@ class MemoryUsageTracker
   };
 
   /// Function to increase a MemoryUsageTracker's limits. This is called when an
-  /// allocation would exceed the tracker's size limit. The usage in 'tracker'
-  /// at the time of call is as if the allocation had succeeded.
-  /// If this returns true, this must set the limits to be >= the usage in
-  /// 'tracker'. If this returns false, this should not modify 'tracker'. The
-  /// caller will revert the allocation that invoked this and signal an error.
+  /// allocation would exceed the tracker's size limit. If this returns true, it
+  /// ensures at the call return time point the tracker has sufficient capacity
+  /// to satisfy the usage request of 'size'. GrowCallback either bumps up the
+  /// limit or reclaims the memory usage in 'tracker' through techniques such as
+  /// spilling. If this returns false, this should not modify 'tracker', and the
+  /// caller will throw a memory limit exceeding error.
   ///
   /// This may be called on one tracker from several threads. This is
   /// responsible for serializing these. When this is called, the 'tracker's
@@ -136,14 +137,14 @@ class MemoryUsageTracker
 
   /// Returns the current memory usage.
   int64_t currentBytes() const {
-    return leafTracker_ ? usedReservationBytes_ : reservationBytes_;
+    std::lock_guard<std::mutex> l(mutex_);
+    return currentBytesLocked();
   }
 
   /// Returns the unused reservations in bytes.
   int64_t availableReservation() const {
-    return !leafTracker_
-        ? 0
-        : std::max<int64_t>(0, reservationBytes_ - usedReservationBytes_);
+    std::lock_guard<std::mutex> l(mutex_);
+    return availableReservationLocked();
   }
 
   /// Returns the number of allocations.
@@ -158,6 +159,7 @@ class MemoryUsageTracker
   ///
   /// TODO: deprecate this API and get peak bytes through stats().
   int64_t peakBytes() const {
+    std::lock_guard<std::mutex> l(mutex_);
     return peakBytes_;
   }
 
@@ -166,17 +168,20 @@ class MemoryUsageTracker
   ///
   /// TODO: deprecate this API and get cumulative bytes through stats().
   int64_t cumulativeBytes() const {
+    std::lock_guard<std::mutex> l(mutex_);
     return cumulativeBytes_;
   }
 
   /// Returns the total memory reservation size including unused reservation.
   int64_t reservedBytes() const {
+    std::lock_guard<std::mutex> l(mutex_);
     return reservationBytes_;
   }
 
   /// Returns the actual used memory reservation size which is only meaningful
   /// for a leaf memory tracker.
   int64_t usedReservationBytes() const {
+    std::lock_guard<std::mutex> l(mutex_);
     return usedReservationBytes_;
   }
 
@@ -211,7 +216,10 @@ class MemoryUsageTracker
   /// Returns the stats of this memory usage tracker.
   Stats stats() const;
 
-  std::string toString() const;
+  std::string toString() const {
+    std::lock_guard<std::mutex> l(mutex_);
+    return toStringLocked();
+  }
 
   void testingUpdateMaxMemory(int64_t maxMemory) {
     if (parent_ != nullptr) {
@@ -249,16 +257,34 @@ class MemoryUsageTracker
   void reserve(uint64_t size, bool reserveOnly);
   void release(uint64_t size);
 
-  void maybeUpdatePeakBytes(int64_t newPeak);
+  void maybeUpdatePeakBytesLocked(int64_t newPeak);
 
   // Increments the reservation and checks against limits at root tracker. Calls
   // root tracker's 'growCallback_' if it is set and limit exceeded. Should be
-  // called without holding 'mutex_'. This throws if a limit is exceeded and
-  // there is no corresponding GrowCallback or the GrowCallback fails.
-  void incrementReservation(uint64_t size);
+  // called without holding 'mutex_'. This function returns true if reservation
+  // succeeds. It returns false if there is concurrent reservation increment
+  // requests and need a retry from the leaf memory usage tracker. The function
+  // throws if a limit is exceeded and there is no corresponding GrowCallback or
+  // the GrowCallback fails.
+  bool incrementReservation(uint64_t size);
+
+  // Tries to increment the reservation 'size' if it is within the limit and
+  // returns true, otherwise the function returns false.
+  bool maybeIncrementReservation(uint64_t size);
+  bool maybeIncrementReservationLocked(uint64_t size);
 
   //  Decrements the reservation in 'this' and parents.
   void decrementReservation(uint64_t size) noexcept;
+
+  int64_t currentBytesLocked() const {
+    return leafTracker_ ? usedReservationBytes_ : reservationBytes_;
+  }
+
+  int64_t availableReservationLocked() const {
+    return !leafTracker_
+        ? 0
+        : std::max<int64_t>(0, reservationBytes_ - usedReservationBytes_);
+  }
 
   // Returns the needed reservation size. If there is sufficient unused memory
   // reservation, this function returns zero.
@@ -283,52 +309,37 @@ class MemoryUsageTracker
     return bits::roundUp(size, 8 * kMB);
   }
 
-  void checkNonNegativeSizes(const char* FOLLY_NONNULL message) const;
+  std::string toStringLocked() const;
 
   void sanityCheckLocked() const;
 
   const std::shared_ptr<MemoryUsageTracker> parent_;
   const bool leafTracker_;
 
-  // Serializes updates on 'grantedReservationBytes_', 'usedReservationBytes_'
+  // Serializes updates on 'reservationBytes_', 'usedReservationBytes_'
   // and 'minReservationBytes_' to make reservation decision on a consistent
-  // read/write of those counters. incrementReservation()/decrementReservation()
-  // work based on atomic 'reservationBytes_' without mutex as children updating
-  // the same parent do not have to be serialized.
-  std::mutex mutex_;
+  // read/write of those counters. It also serializes the updates to stats
+  // counters such as 'peakBytes_' and 'cumulativeBytes_'.
+  mutable std::mutex mutex_;
 
   // The memory limit in bytes to enforce.
   int64_t maxMemory_;
 
-  std::atomic<int64_t> peakBytes_{0};
-  std::atomic<int64_t> cumulativeBytes_{0};
+  int64_t peakBytes_{0};
+  int64_t cumulativeBytes_{0};
 
   // The number of reservation bytes propagated up to the parent for memory
   // limit check at the root tracker.
-  std::atomic<int64_t> reservationBytes_{0};
-
-  // The number of granted reservation bytes which is maintained at the leaf
-  // tracker and protected by mutex for consistent memory reservation/release
-  // decisions.
-  //
-  // NOTE: after making memory reservation decision, we first try to propagate
-  // 'reservationBytes_' increment up to the root tracker without mutex. If the
-  // increment succeeds, then update 'grantedReservationBytes_',
-  // 'usedReservationBytes_' and 'minReservationBytes_' accordingly with mutex.
-  // Correspondingly, a memory release first updates 'grantedReservationBytes_',
-  // 'usedReservationBytes_' and 'minReservationBytes_' under mutex, and then
-  // propagates the 'reservationBytes_' decrement up to the root tracker without
-  // mutex.
-  std::atomic<int64_t> grantedReservationBytes_{0};
+  int64_t reservationBytes_{0};
 
   // The number of used reservation bytes which is maintained at the leaf
   // tracker and protected by mutex for consistent memory reservation/release
   // decisions.
-  std::atomic<int64_t> usedReservationBytes_{0};
+  int64_t usedReservationBytes_{0};
 
   // Minimum amount of reserved memory in bytes to hold until explicit
   // release().
-  std::atomic<int64_t> minReservationBytes_{0};
+  int64_t minReservationBytes_{0};
 
   GrowCallback growCallback_{};
 

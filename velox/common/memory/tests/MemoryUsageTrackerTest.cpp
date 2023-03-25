@@ -78,11 +78,11 @@ TEST_F(MemoryUsageTrackerTest, stats) {
       "peakBytes:9437184 cumulativeBytes:9437184 numAllocs:2 numFrees:1 numReserves:0 numReleases:0 numCollisions:0 numChildren:0");
   ASSERT_EQ(
       child->toString(),
-      "<tracker used 1000B available 1023.02KB limit 1.00GB reservation [used 1000B, granted 1.00MB, reserved 1.00MB, min 0B] counters [allocs 2, frees 1, reserves 0, releases 0, collisions 0, children 0])>");
+      "<tracker used 1000B available 1023.02KB limit 1.00GB reservation [used 1000B, reserved 1.00MB, min 0B] counters [allocs 2, frees 1, reserves 0, releases 0, collisions 0, children 0])>");
   child->update(-1000);
   ASSERT_EQ(
       child->toString(),
-      "<tracker used 0B available 0B limit 1.00GB reservation [used 0B, granted 0B, reserved 0B, min 0B] counters [allocs 2, frees 2, reserves 0, releases 0, collisions 0, children 0])>");
+      "<tracker used 0B available 0B limit 1.00GB reservation [used 0B, reserved 0B, min 0B] counters [allocs 2, frees 2, reserves 0, releases 0, collisions 0, children 0])>");
 }
 
 TEST_F(MemoryUsageTrackerTest, update) {
@@ -353,32 +353,32 @@ TEST_F(MemoryUsageTrackerTest, memoryLeakCheck) {
 
 namespace {
 // Model implementation of a GrowCallback.
-bool grow(int64_t /*size*/, int64_t hardLimit, MemoryUsageTracker& tracker) {
+bool grow(int64_t size, int64_t hardLimit, MemoryUsageTracker& tracker) {
   static std::mutex mutex;
   // The calls from different threads on the same tracker must be serialized.
   std::lock_guard<std::mutex> l(mutex);
   // The total includes the allocation that exceeded the limit. This function's
-  // job is to raise the limit to >= current.
+  // job is to raise the limit to >= current + size.
   auto current = tracker.reservedBytes();
   auto limit = tracker.maxMemory();
-  if (current <= limit) {
+  if (current + size <= limit) {
     // No need to increase. It could be another thread already
     // increased the cap far enough while this thread was waiting to
     // enter the lock_guard.
     return true;
   }
-  if (current > hardLimit) {
+  if (current + size > hardLimit) {
     // The caller will revert the allocation that called this and signal an
     // error.
     return false;
   }
   // We set the new limit to be the requested size.
-  tracker.testingUpdateMaxMemory(current);
+  tracker.testingUpdateMaxMemory(current + size);
   return true;
 }
 } // namespace
 
-TEST_F(MemoryUsageTrackerTest, grow) {
+DEBUG_ONLY_TEST_F(MemoryUsageTrackerTest, grow) {
   constexpr int64_t kMB = 1 << 20;
   auto parent = MemoryUsageTracker::create(10 * kMB);
 
@@ -395,16 +395,35 @@ TEST_F(MemoryUsageTrackerTest, grow) {
       }),
       VeloxRuntimeError);
 
-  child->update(10 * kMB);
-  ASSERT_EQ(parent->currentBytes(), 10 * kMB);
-  ASSERT_EQ(child->maxMemory(), 10 * kMB);
+  {
+    child->update(10 * kMB);
+    const MemoryUsageTracker::Stats stats = child->stats();
+    ASSERT_EQ(stats.numCollisions, 0);
+  }
+  {
+    std::atomic<bool> injectOnce{true};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::memory::MemoryUsageTracker::incrementReservation::AfterGrowCallback",
+        std::function<void(MemoryUsageTracker*)>(
+            [&](MemoryUsageTracker* /*unused*/) {
+              if (injectOnce.exchange(false)) {
+                child->update(10 * kMB);
+              }
+            }));
+    child->update(10 * kMB);
+    const MemoryUsageTracker::Stats stats = child->stats();
+    ASSERT_EQ(stats.numCollisions, 1);
+  }
+
+  ASSERT_EQ(parent->currentBytes(), 32 * kMB);
+  ASSERT_EQ(child->maxMemory(), 32 * kMB);
   ASSERT_THROW(child->update(100 * kMB), VeloxRuntimeError);
-  ASSERT_EQ(child->currentBytes(), 10 * kMB);
+  ASSERT_EQ(child->currentBytes(), 30 * kMB);
   // The parent failed to increase limit, the child'd limit should be unchanged.
-  ASSERT_EQ(child->maxMemory(), 10 * kMB);
-  ASSERT_EQ(parent->maxMemory(), 10 * kMB);
+  ASSERT_EQ(child->maxMemory(), 32 * kMB);
+  ASSERT_EQ(parent->maxMemory(), 32 * kMB);
   ASSERT_THROW(child->update(100 * kMB);, VeloxException);
-  ASSERT_EQ(child->currentBytes(), 10 * kMB);
+  ASSERT_EQ(child->currentBytes(), 30 * kMB);
 
   // We pass the parent limit but fail te child limit. leaves a raised
   // limit on the parent. Rolling back the increment of parent limit
@@ -412,11 +431,11 @@ TEST_F(MemoryUsageTrackerTest, grow) {
   // time. Lowering a tracker's limits requires stopping the threads
   // that may be using the tracker.  Expected uses have one level of
   // trackers with a limit but we cover this for documentation.
-  parentLimit = 176 * kMB;
+  parentLimit = 192 * kMB;
   child->update(160 * kMB);
-  ASSERT_EQ(child->currentBytes(), 170 * kMB);
-  ASSERT_EQ(child->reservedBytes(), 176 * kMB);
-  ASSERT_EQ(parent->currentBytes(), 176 * kMB);
+  ASSERT_EQ(child->currentBytes(), 190 * kMB);
+  ASSERT_EQ(child->reservedBytes(), 192 * kMB);
+  ASSERT_EQ(parent->currentBytes(), 192 * kMB);
   // The parent limit got set to 170, rounded up to 176.
   ASSERT_EQ(parent->maxMemory(), parentLimit);
   ASSERT_EQ(child->maxMemory(), parentLimit);
@@ -679,7 +698,7 @@ TEST_F(MemoryUsageTrackerTest, concurrentAllocates) {
   SCOPED_TESTVALUE_SET(
       "facebook::velox::memory::MemoryUsageTracker::reserve",
       std::function<void(MemoryUsageTracker*)>(
-          [&](MemoryUsageTracker* dummy) { barrier.wait(); }));
+          [&](MemoryUsageTracker* /*unused*/) { barrier.wait(); }));
   // NOTE: the allocation sizes are chosen based on the memory thresholds
   // defined in quantizedSize().
   //

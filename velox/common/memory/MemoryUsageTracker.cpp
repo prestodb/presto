@@ -37,7 +37,7 @@ MemoryUsageTracker::~MemoryUsageTracker() {
   if (FLAGS_velox_memory_leak_check_enabled) {
     VELOX_CHECK(
         (usedReservationBytes_ == 0) && (reservationBytes_ == 0) &&
-            (grantedReservationBytes_ == 0) && (minReservationBytes_ == 0),
+            (minReservationBytes_ == 0),
         "Bad tracker state: {}",
         toString());
   }
@@ -78,11 +78,10 @@ void MemoryUsageTracker::reserve(uint64_t size, bool reserveOnly) {
   for (;; ++numAttempts) {
     {
       std::lock_guard<std::mutex> l(mutex_);
-      grantedReservationBytes_ += increment;
       increment = reservationSizeLocked(size);
       if (increment == 0) {
         if (reserveOnly) {
-          minReservationBytes_ = grantedReservationBytes_.load();
+          minReservationBytes_ = reservationBytes_;
         } else {
           usedReservationBytes_ += size;
         }
@@ -124,22 +123,24 @@ void MemoryUsageTracker::release(uint64_t size) {
       minReservationBytes_ = 0;
     } else {
       usedReservationBytes_ -= size;
-      const int64_t newUsed = usedReservationBytes_;
-      const int64_t newCap = std::max(minReservationBytes_.load(), newUsed);
+      const int64_t newCap =
+          std::max(minReservationBytes_, usedReservationBytes_);
       newQuantized = quantizedSize(newCap);
     }
-    freeable = grantedReservationBytes_ - newQuantized;
+    freeable = reservationBytes_ - newQuantized;
     if (freeable > 0) {
-      grantedReservationBytes_ = newQuantized;
+      reservationBytes_ = newQuantized;
     }
     sanityCheckLocked();
   }
   if (freeable > 0) {
-    decrementReservation(freeable);
+    // NOTE: we can only release memory from a leaf memory usage tracker.
+    VELOX_DCHECK_NOT_NULL(parent_);
+    parent_->decrementReservation(freeable);
   }
 }
 
-void MemoryUsageTracker::incrementReservation(uint64_t size) {
+bool MemoryUsageTracker::incrementReservation(uint64_t size) {
   VELOX_CHECK_GT(size, 0);
 
   // Update parent first. If one of the ancestor's limits are exceeded, it will
@@ -148,7 +149,9 @@ void MemoryUsageTracker::incrementReservation(uint64_t size) {
   // makeMemoryCapExceededMessage_ is set.
   if (parent_ != nullptr) {
     try {
-      parent_->incrementReservation(size);
+      if (!parent_->incrementReservation(size)) {
+        return false;
+      }
     } catch (const VeloxRuntimeError& e) {
       if (makeMemoryCapExceededMessage_ == nullptr) {
         throw;
@@ -159,28 +162,53 @@ void MemoryUsageTracker::incrementReservation(uint64_t size) {
     }
   }
 
-  const auto newUsage =
-      reservationBytes_.fetch_add(size, std::memory_order_relaxed) + size;
-  VELOX_DCHECK(parent_ == nullptr || growCallback_ == nullptr);
-  // Enforce the limit.
-  if (parent_ == nullptr && newUsage > maxMemory_) {
-    if ((growCallback_ == nullptr) || !growCallback_(size, *this)) {
-      // Exceeded the limit.  revert the change to current usage.
-      decrementReservation(size);
-      checkNonNegativeSizes("after exceeding cap");
-      auto errorMessage = fmt::format(
-          MEM_CAP_EXCEEDED_ERROR_FORMAT,
-          succinctBytes(maxMemory_),
-          succinctBytes(size));
-      if (makeMemoryCapExceededMessage_) {
-        errorMessage += ". " + makeMemoryCapExceededMessage_(*this);
-      }
-      VELOX_MEM_CAP_EXCEEDED(errorMessage);
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    if (maybeIncrementReservationLocked(size)) {
+      return true;
     }
   }
-  cumulativeBytes_ += size;
-  maybeUpdatePeakBytes(newUsage);
-  checkNonNegativeSizes("after update");
+  VELOX_CHECK_NULL(parent_);
+
+  if ((growCallback_ != nullptr) && growCallback_(size, *this)) {
+    TestValue::adjust(
+        "facebook::velox::memory::MemoryUsageTracker::incrementReservation::AfterGrowCallback",
+        this);
+    // NOTE: the memory reservation might still fail even if the memory grow
+    // callback succeeds. The reason is that we don't hold the root tracker's
+    // mutex lock while running the grow callback. Therefore, there is a
+    // possibility in theory that a concurrent memory reservation request
+    // might steal away the increased memory capacity after the grow callback
+    // finishes and before we increase the reservation. If it happens, we can
+    // simply fall back to retry the memory reservation from the leaf track
+    // which should happen rarely.
+    return maybeIncrementReservation(size);
+  }
+
+  std::lock_guard<std::mutex> l(mutex_);
+  auto errorMessage = fmt::format(
+      MEM_CAP_EXCEEDED_ERROR_FORMAT,
+      succinctBytes(maxMemory_),
+      succinctBytes(size));
+  if (makeMemoryCapExceededMessage_) {
+    errorMessage += ". " + makeMemoryCapExceededMessage_(*this);
+  }
+  VELOX_MEM_CAP_EXCEEDED(errorMessage);
+}
+
+bool MemoryUsageTracker::maybeIncrementReservation(uint64_t size) {
+  std::lock_guard<std::mutex> l(mutex_);
+  return maybeIncrementReservationLocked(size);
+}
+
+bool MemoryUsageTracker::maybeIncrementReservationLocked(uint64_t size) {
+  if (parent_ != nullptr || (reservationBytes_ + size <= maxMemory_)) {
+    reservationBytes_ += size;
+    cumulativeBytes_ += size;
+    maybeUpdatePeakBytesLocked(reservationBytes_);
+    return true;
+  }
+  return false;
 }
 
 void MemoryUsageTracker::decrementReservation(uint64_t size) noexcept {
@@ -189,20 +217,18 @@ void MemoryUsageTracker::decrementReservation(uint64_t size) noexcept {
   if (parent_ != nullptr) {
     parent_->decrementReservation(size);
   }
+  std::lock_guard<std::mutex> l(mutex_);
   reservationBytes_ -= size;
+  VELOX_CHECK_GE(reservationBytes_, 0, "decrement reservation size {}", size);
 }
 
 void MemoryUsageTracker::sanityCheckLocked() const {
   VELOX_CHECK(
-      (grantedReservationBytes_ >= usedReservationBytes_) &&
-          (grantedReservationBytes_ >= minReservationBytes_),
+      (reservationBytes_ >= usedReservationBytes_) &&
+          (reservationBytes_ >= minReservationBytes_) &&
+          (usedReservationBytes_ >= 0),
       "Bad tracker state: {}",
-      toString());
-  VELOX_DCHECK_GE(usedReservationBytes_, 0);
-  if (usedReservationBytes_ < 0) {
-    VELOX_MEM_LOG_EVERY_MS(ERROR, 1000)
-        << "used reservation is negative " << toString();
-  }
+      toStringLocked());
 }
 
 bool MemoryUsageTracker::maybeReserve(uint64_t increment) {
@@ -219,27 +245,18 @@ bool MemoryUsageTracker::maybeReserve(uint64_t increment) {
   return true;
 }
 
-void MemoryUsageTracker::maybeUpdatePeakBytes(int64_t newPeak) {
-  int64_t oldPeak = peakBytes_;
-  while (oldPeak < newPeak &&
-         !peakBytes_.compare_exchange_weak(oldPeak, newPeak)) {
-    oldPeak = peakBytes_;
-  }
+void MemoryUsageTracker::maybeUpdatePeakBytesLocked(int64_t newPeak) {
+  peakBytes_ = std::max(peakBytes_, newPeak);
 }
 
-void MemoryUsageTracker::checkNonNegativeSizes(const char* errmsg) const {
-  VELOX_CHECK_GE(reservationBytes_, 0, "Negative reservations: {}", toString());
-}
-
-std::string MemoryUsageTracker::toString() const {
+std::string MemoryUsageTracker::toStringLocked() const {
   std::stringstream out;
-  out << "<tracker used " << succinctBytes(currentBytes()) << " available "
-      << succinctBytes(availableReservation());
+  out << "<tracker used " << succinctBytes(currentBytesLocked())
+      << " available " << succinctBytes(availableReservationLocked());
   if (maxMemory() != kMaxMemory) {
     out << " limit " << succinctBytes(maxMemory());
   }
   out << " reservation [used " << succinctBytes(usedReservationBytes_)
-      << ", granted " << succinctBytes(grantedReservationBytes_)
       << ", reserved " << succinctBytes(reservationBytes_) << ", min "
       << succinctBytes(minReservationBytes_);
   out << "] counters [allocs " << numAllocs_ << ", frees " << numFrees_
@@ -251,12 +268,11 @@ std::string MemoryUsageTracker::toString() const {
 }
 
 int64_t MemoryUsageTracker::reservationSizeLocked(int64_t size) {
-  const int64_t neededSize =
-      size - (grantedReservationBytes_ - usedReservationBytes_);
+  const int64_t neededSize = size - (reservationBytes_ - usedReservationBytes_);
   if (neededSize <= 0) {
     return 0;
   }
-  return roundedDelta(grantedReservationBytes_, neededSize);
+  return roundedDelta(reservationBytes_, neededSize);
 }
 
 std::string MemoryUsageTracker::Stats::toString() const {
@@ -273,6 +289,7 @@ std::string MemoryUsageTracker::Stats::toString() const {
 }
 
 MemoryUsageTracker::Stats MemoryUsageTracker::stats() const {
+  std::lock_guard<std::mutex> l(mutex_);
   Stats stats;
   stats.peakBytes = peakBytes_;
   stats.cumulativeBytes = cumulativeBytes_;
