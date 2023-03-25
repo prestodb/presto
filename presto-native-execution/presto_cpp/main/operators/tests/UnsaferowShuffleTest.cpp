@@ -610,7 +610,8 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
   opts.dictionaryHasNulls = false;
   opts.stringVariableLength = true;
   // UnsafeRows use microseconds to store timestamp.
-  opts.useMicrosecondPrecisionTimestamp = true;
+  opts.timestampPrecision =
+      VectorFuzzer::Options::TimestampPrecision::kMicroSeconds;
   opts.stringLength = 100;
   opts.containerLength = 10;
 
