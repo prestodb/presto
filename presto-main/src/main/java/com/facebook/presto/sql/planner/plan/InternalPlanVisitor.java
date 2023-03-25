@@ -27,11 +27,6 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitOutput(OutputNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitSample(SampleNode node, C context)
     {
         return visitPlan(node, context);
