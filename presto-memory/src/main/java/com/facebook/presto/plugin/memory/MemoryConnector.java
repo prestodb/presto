@@ -73,4 +73,10 @@ public class MemoryConnector
     {
         return pageSinkProvider;
     }
+
+    @Override
+    public boolean isSingleStatementWritesOnly()
+    {
+        return false;
+    }
 }

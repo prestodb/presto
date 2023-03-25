@@ -69,12 +69,6 @@ public class CassandraConnector
     }
 
     @Override
-    public boolean isSingleStatementWritesOnly()
-    {
-        return true;
-    }
-
-    @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
         return metadata;

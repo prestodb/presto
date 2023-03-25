@@ -28,6 +28,7 @@ import java.util.Optional;
 import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.fail;
 
 public class TestHiveConnectorFactory
@@ -44,6 +45,20 @@ public class TestHiveConnectorFactory
         assertCreateConnectorFails("abc::", "metastoreUri scheme must be thrift: abc::");
         assertCreateConnectorFails("", "metastoreUris must specify at least one URI");
         assertCreateConnectorFails("thrift://localhost:1234,thrift://test-1", "metastoreUri port is missing: thrift://test-1");
+    }
+
+    @Test
+    public void testSingleStatementWritesOnly()
+    {
+        HiveConnectorFactory connectorFactory = new HiveConnectorFactory(
+                "hive-test",
+                HiveConnector.class.getClassLoader(),
+                Optional.empty());
+        Map<String, String> config = ImmutableMap.<String, String>builder()
+                .put("hive.metastore.uri", "thrift://localhost:1234")
+                .build();
+        Connector connector = connectorFactory.create("hive-test", config, new TestingConnectorContext());
+        assertFalse(connector.isSingleStatementWritesOnly());
     }
 
     private static void assertCreateConnector(String metastoreUri)
