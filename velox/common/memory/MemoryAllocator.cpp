@@ -141,12 +141,6 @@ class MallocAllocator : public MemoryAllocator {
 
   void* allocateZeroFilled(uint64_t bytes) override;
 
-  void* reallocateBytes(
-      void* p,
-      int64_t size,
-      int64_t newSize,
-      uint16_t alignment) override;
-
   void freeBytes(void* p, uint64_t bytes) noexcept override;
 
   MachinePageCount numAllocated() const override {
@@ -388,31 +382,6 @@ void* MallocAllocator::allocateZeroFilled(uint64_t bytes) {
   return result;
 }
 
-void* MallocAllocator::reallocateBytes(
-    void* p,
-    int64_t size,
-    int64_t newSize,
-    uint16_t alignment) {
-  VELOX_CHECK_GT(newSize, 0);
-  alignmentCheck(newSize, alignment);
-
-  void* newPtr = nullptr;
-  if (alignment <= kMinAlignment) {
-    newPtr = ::realloc(p, newSize);
-  } else {
-    newPtr = ::aligned_alloc(alignment, newSize);
-    if (newPtr != nullptr) {
-      ::memcpy(newPtr, p, std::min(size, newSize));
-      freeBytes(p, size);
-    }
-  }
-  if (FOLLY_UNLIKELY(newPtr == nullptr)) {
-    VELOX_MEM_LOG(ERROR) << "Failed to reallocateBytes " << newSize << " bytes "
-                         << " with " << size << " old bytes";
-  }
-  return newPtr;
-}
-
 void MallocAllocator::freeBytes(void* p, uint64_t bytes) noexcept {
   ::free(p); // NOLINT
 }
@@ -488,20 +457,6 @@ void* MemoryAllocator::allocateZeroFilled(uint64_t bytes) {
                          << " bytes";
   }
   return result;
-}
-
-void* MemoryAllocator::reallocateBytes(
-    void* p,
-    int64_t size,
-    int64_t newSize,
-    uint16_t alignment) {
-  auto* newPtr = allocateBytes(newSize, alignment);
-  if (p == nullptr) {
-    return newPtr;
-  }
-  ::memcpy(newPtr, p, std::min(size, newSize));
-  freeBytes(p, size);
-  return newPtr;
 }
 
 Stats Stats::operator-(const Stats& other) const {

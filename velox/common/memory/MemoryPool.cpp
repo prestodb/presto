@@ -239,12 +239,10 @@ void* MemoryPoolImpl::reallocate(
     int64_t newSize) {
   checkMemoryAllocation();
 
-  auto alignedSize = sizeAlign(size);
-  auto alignedNewSize = sizeAlign(newSize);
-  const int64_t difference = alignedNewSize - alignedSize;
-  reserve(difference);
-  void* newP =
-      allocator_->reallocateBytes(p, alignedSize, alignedNewSize, alignment_);
+  const auto alignedSize = sizeAlign(size);
+  const auto alignedNewSize = sizeAlign(newSize);
+  reserve(alignedNewSize);
+  void* newP = allocator_->allocateBytes(alignedNewSize, alignment_);
   if (FOLLY_UNLIKELY(newP == nullptr)) {
     free(p, alignedSize);
     release(alignedNewSize);
@@ -255,6 +253,12 @@ void* MemoryPoolImpl::reallocate(
         size,
         toString()));
   }
+  VELOX_CHECK_NOT_NULL(newP);
+  if (p == nullptr) {
+    return newP;
+  }
+  ::memcpy(newP, p, std::min(size, newSize));
+  free(p, alignedSize);
   return newP;
 }
 

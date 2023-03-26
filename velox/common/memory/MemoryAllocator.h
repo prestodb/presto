@@ -267,19 +267,6 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// Allocates a zero-filled contiguous bytes.
   virtual void* allocateZeroFilled(uint64_t bytes);
 
-  /// Allocates 'newSize' contiguous bytes. If 'p' is not null, this function
-  /// copies std::min(size, newSize) bytes from 'p' to the newly allocated
-  /// buffer and free 'p' after that. If 'alignment' is not kMinAlignment, then
-  /// newSize must be a multiple of 'alignment'.
-  ///
-  /// NOTE: 'alignment' must be power of two and in range of [kMinAlignment,
-  /// kMaxAlignment].
-  virtual void* reallocateBytes(
-      void* p,
-      int64_t size,
-      int64_t newSize,
-      uint16_t alignment = kMinAlignment);
-
   /// Frees contiguous memory allocated by allocateBytes, allocateZeroFilled,
   /// reallocateBytes.
   virtual void freeBytes(void* p, uint64_t size) noexcept = 0;

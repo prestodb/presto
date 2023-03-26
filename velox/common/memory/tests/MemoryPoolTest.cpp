@@ -380,11 +380,11 @@ TEST_P(MemoryPoolTest, ReallocTestSameSize) {
 
   void* anotherChunk = pool->reallocate(oneChunk, kChunkSize, kChunkSize);
   ASSERT_EQ(kChunkSize, pool->getCurrentBytes());
-  ASSERT_EQ(kChunkSize, pool->getMaxBytes());
+  ASSERT_EQ(2 * kChunkSize, pool->getMaxBytes());
 
   pool->free(anotherChunk, kChunkSize);
   ASSERT_EQ(0, pool->getCurrentBytes());
-  ASSERT_EQ(kChunkSize, pool->getMaxBytes());
+  ASSERT_EQ(2 * kChunkSize, pool->getMaxBytes());
 }
 
 TEST_P(MemoryPoolTest, ReallocTestHigher) {
@@ -401,11 +401,11 @@ TEST_P(MemoryPoolTest, ReallocTestHigher) {
 
   void* threeChunks = pool->reallocate(oneChunk, kChunkSize, 3 * kChunkSize);
   EXPECT_EQ(3 * kChunkSize, pool->getCurrentBytes());
-  EXPECT_EQ(3 * kChunkSize, pool->getMaxBytes());
+  EXPECT_EQ(4 * kChunkSize, pool->getMaxBytes());
 
   pool->free(threeChunks, 3 * kChunkSize);
   EXPECT_EQ(0, pool->getCurrentBytes());
-  EXPECT_EQ(3 * kChunkSize, pool->getMaxBytes());
+  EXPECT_EQ(4 * kChunkSize, pool->getMaxBytes());
 }
 
 TEST_P(MemoryPoolTest, ReallocTestLower) {
@@ -421,11 +421,11 @@ TEST_P(MemoryPoolTest, ReallocTestLower) {
 
   void* oneChunk = pool->reallocate(threeChunks, 3 * kChunkSize, kChunkSize);
   EXPECT_EQ(kChunkSize, pool->getCurrentBytes());
-  EXPECT_EQ(3 * kChunkSize, pool->getMaxBytes());
+  EXPECT_EQ(4 * kChunkSize, pool->getMaxBytes());
 
   pool->free(oneChunk, kChunkSize);
   EXPECT_EQ(0, pool->getCurrentBytes());
-  EXPECT_EQ(3 * kChunkSize, pool->getMaxBytes());
+  EXPECT_EQ(4 * kChunkSize, pool->getMaxBytes());
 }
 
 TEST_P(MemoryPoolTest, allocateZeroFilled) {
