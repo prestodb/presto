@@ -407,7 +407,8 @@ void PrestoServer::initializeAsyncCache() {
         systemConfig->asyncCacheSsdPath(),
         asyncCacheSsdGb << 30,
         kNumSsdShards,
-        cacheExecutor_.get());
+        cacheExecutor_.get(),
+        systemConfig->asyncCacheSsdCheckpointGb() << 30);
   }
   const auto memoryBytes = memoryGb << 30;
 

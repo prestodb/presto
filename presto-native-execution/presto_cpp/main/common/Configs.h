@@ -96,6 +96,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
+  static constexpr std::string_view kAsyncCacheSsdCheckpointGb{
+      "async-cache-ssd-checkpoint-gb"};
   static constexpr std::string_view kAsyncCacheSsdPath{"async-cache-ssd-path"};
   static constexpr std::string_view kEnableSerializedPageChecksum{
       "enable-serialized-page-checksum"};
@@ -125,6 +127,7 @@ class SystemConfig : public ConfigBase {
   static constexpr int32_t kMmapArenaCapacityRatioDefault = 10;
   static constexpr uint64_t kLocalShuffleMaxPartitionBytesDefault = 1 << 15;
   static constexpr uint64_t kAsyncCacheSsdGbDefault = 0;
+  static constexpr uint64_t kAsyncCacheSsdCheckpointGbDefault = 0;
   static constexpr std::string_view kAsyncCacheSsdPathDefault{
       "/mnt/flash/async_cache."};
   static constexpr std::string_view kShuffleNameDefault{""};
@@ -165,6 +168,8 @@ class SystemConfig : public ConfigBase {
   int32_t systemMemoryGb() const;
 
   uint64_t asyncCacheSsdGb() const;
+
+  uint64_t asyncCacheSsdCheckpointGb() const;
 
   uint64_t localShuffleMaxPartitionBytes() const;
 
