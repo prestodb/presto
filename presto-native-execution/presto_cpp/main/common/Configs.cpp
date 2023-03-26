@@ -109,6 +109,12 @@ uint64_t SystemConfig::asyncCacheSsdGb() const {
   return opt.value_or(kAsyncCacheSsdGbDefault);
 }
 
+uint64_t SystemConfig::asyncCacheSsdCheckpointGb() const {
+  auto opt =
+      optionalProperty<uint64_t>(std::string(kAsyncCacheSsdCheckpointGb));
+  return opt.value_or(kAsyncCacheSsdCheckpointGbDefault);
+}
+
 uint64_t SystemConfig::localShuffleMaxPartitionBytes() const {
   auto opt =
       optionalProperty<uint32_t>(std::string(kLocalShuffleMaxPartitionBytes));
