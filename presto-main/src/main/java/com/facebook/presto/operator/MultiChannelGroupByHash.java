@@ -251,14 +251,15 @@ public class MultiChannelGroupByHash
     public Work<GroupByIdBlock> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        if (isRunLengthEncoded(page)) {
-            return new GetRunLengthEncodedGroupIdsWork(page);
-        }
-        if (canProcessDictionary(page)) {
-            return new GetDictionaryGroupIdsWork(page);
-        }
-
-        return new GetNonDictionaryGroupIdsWork(page);
+        return new GetRunLengthEncodedGroupIdsWork(page);
+//        if (isRunLengthEncoded(page)) {
+//            return new GetRunLengthEncodedGroupIdsWork(page);
+//        }
+//        if (canProcessDictionary(page)) {
+//            return new GetDictionaryGroupIdsWork(page);
+//        }
+//
+//        return new GetNonDictionaryGroupIdsWork(page);
     }
 
     @Override

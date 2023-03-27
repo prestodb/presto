@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation.builder;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.GroupByHash;
@@ -398,7 +399,12 @@ public class InMemoryHashAggregationBuilder
         public void processPage(GroupByIdBlock groupIds, Page page)
         {
             if (step.isInputRaw()) {
-                aggregation.addInput(groupIds, page);
+                if (groupIds.isRunLengthBlock()) {
+                    aggregation.addInputBlock(groupIds, page);
+                }
+                else {
+                    aggregation.addInput(groupIds, page);
+                }
             }
             else {
                 aggregation.addIntermediate(groupIds, page.getBlock(intermediateChannel));
