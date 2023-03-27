@@ -1232,17 +1232,28 @@ PlanNodePtr MergeExchangeNode::create(
 
 void LocalPartitionNode::addDetails(std::stringstream& stream) const {
   stream << typeName(type_);
+  if (type_ != Type::kGather) {
+    stream << " " << partitionFunctionSpec_->toString();
+  }
 }
 
 folly::dynamic LocalPartitionNode::serialize() const {
-  VELOX_NYI();
+  auto obj = PlanNode::serialize();
+  obj["type"] = typeName(type_);
+  obj["partitionFunctionSpec"] = partitionFunctionSpec_->serialize();
+  return obj;
 }
 
 // static
 PlanNodePtr LocalPartitionNode::create(
-    const folly::dynamic& /* obj */,
-    void* /* context */) {
-  VELOX_NYI();
+    const folly::dynamic& obj,
+    void* context) {
+  return std::make_shared<LocalPartitionNode>(
+      deserializePlanNodeId(obj),
+      typeFromName(obj["type"].asString()),
+      ISerializable::deserialize<PartitionFunctionSpec>(
+          obj["partitionFunctionSpec"]),
+      deserializeSources(obj, context));
 }
 
 // static
@@ -1307,14 +1318,30 @@ void PartitionedOutputNode::addDetails(std::stringstream& stream) const {
 }
 
 folly::dynamic PartitionedOutputNode::serialize() const {
-  VELOX_NYI();
+  auto obj = PlanNode::serialize();
+  obj["broadcast"] = broadcast_;
+  obj["numPartitions"] = numPartitions_;
+  obj["keys"] = ISerializable::serialize(keys_);
+  obj["replicateNullsAndAny"] = replicateNullsAndAny_;
+  obj["partitionFunctionSpec"] = partitionFunctionSpec_->serialize();
+  obj["outputType"] = outputType_->serialize();
+  return obj;
 }
 
 // static
 PlanNodePtr PartitionedOutputNode::create(
-    const folly::dynamic& /* obj */,
-    void* /* context */) {
-  VELOX_NYI();
+    const folly::dynamic& obj,
+    void* context) {
+  return std::make_shared<PartitionedOutputNode>(
+      deserializePlanNodeId(obj),
+      ISerializable::deserialize<std::vector<ITypedExpr>>(obj["keys"], context),
+      obj["numPartitions"].asInt(),
+      obj["broadcast"].asBool(),
+      obj["replicateNullsAndAny"].asBool(),
+      ISerializable::deserialize<PartitionFunctionSpec>(
+          obj["partitionFunctionSpec"], context),
+      deserializeRowType(obj["outputType"]),
+      deserializeSingleSource(obj, context));
 }
 
 void TopNNode::addDetails(std::stringstream& stream) const {
@@ -1514,6 +1541,8 @@ void PlanNode::registerSerDe() {
   registry.Register("UnnestNode", UnnestNode::create);
   registry.Register("ValuesNode", ValuesNode::create);
   registry.Register("WindowNode", WindowNode::create);
+  registry.Register(
+      "GatherPartitionFunctionSpec", GatherPartitionFunctionSpec::deserialize);
 }
 
 folly::dynamic PlanNode::serialize() const {

@@ -36,6 +36,7 @@ class PlanNodeSerdeTest : public testing::Test,
     Type::registerSerDe();
     core::PlanNode::registerSerDe();
     core::ITypedExpr::registerSerDe();
+    PlanBuilder::registerSerDe();
 
     data_ = {makeRowVector({
         makeFlatVector<int64_t>({1, 2, 3}),
@@ -122,6 +123,14 @@ TEST_F(PlanNodeSerdeTest, groupId) {
                   .values({data_})
                   .groupId({{"c0"}, {"c0", "c1"}}, {"c2"})
                   .planNode();
+  testSerde(plan);
+}
+
+TEST_F(PlanNodeSerdeTest, localPartition) {
+  auto plan = PlanBuilder().values({data_}).localPartition({}).planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder().values({data_}).localPartition({"c0", "c1"}).planNode();
   testSerde(plan);
 }
 
@@ -219,6 +228,21 @@ TEST_F(PlanNodeSerdeTest, orderBy) {
              .orderBy({"c0", "c1 DESC NULLS FIRST"}, false)
              .planNode();
 
+  testSerde(plan);
+}
+
+TEST_F(PlanNodeSerdeTest, partitionedOutput) {
+  auto plan =
+      PlanBuilder().values({data_}).partitionedOutputBroadcast().planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder().values({data_}).partitionedOutput({"c0"}, 50).planNode();
+  testSerde(plan);
+
+  plan = PlanBuilder()
+             .values({data_})
+             .partitionedOutput({"c0"}, 50, {"c1", {"c2"}, "c0"})
+             .planNode();
   testSerde(plan);
 }
 

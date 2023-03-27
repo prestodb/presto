@@ -750,6 +750,26 @@ class HashPartitionFunctionSpec : public core::PartitionFunctionSpec {
         numPartitions, inputType_, keys_);
   }
 
+  std::string toString() const override {
+    return fmt::format("HASH({})", folly::join(", ", keys_));
+  }
+
+  folly::dynamic serialize() const override {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["name"] = "HashPartitionFunctionSpec";
+    obj["inputType"] = inputType_->serialize();
+    obj["keys"] = ISerializable::serialize(keys_);
+    return obj;
+  }
+
+  static core::PartitionFunctionSpecPtr deserialize(
+      const folly::dynamic& obj,
+      void* /* context */) {
+    return std::make_shared<HashPartitionFunctionSpec>(
+        ISerializable::deserialize<RowType>(obj["inputType"]),
+        ISerializable::deserialize<std::vector<column_index_t>>(obj["keys"]));
+  }
+
  private:
   const RowTypePtr inputType_;
   const std::vector<column_index_t> keys_;
@@ -880,7 +900,23 @@ class RoundRobinPartitionFunctionSpec : public core::PartitionFunctionSpec {
       int numPartitions) const override {
     return std::make_unique<velox::exec::RoundRobinPartitionFunction>(
         numPartitions);
-  };
+  }
+
+  std::string toString() const override {
+    return "ROUND ROBIN";
+  }
+
+  folly::dynamic serialize() const override {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["name"] = fmt::format("RoundRobinPartitionFunctionSpec");
+    return obj;
+  }
+
+  static core::PartitionFunctionSpecPtr deserialize(
+      const folly::dynamic& /* obj */,
+      void* /* context */) {
+    return std::make_shared<RoundRobinPartitionFunctionSpec>();
+  }
 };
 
 core::PlanNodePtr createLocalPartitionRoundRobinNode(
@@ -1410,5 +1446,16 @@ core::TypedExprPtr PlanBuilder::inferTypes(
     const std::shared_ptr<const core::IExpr>& untypedExpr) {
   return core::Expressions::inferTypes(
       untypedExpr, planNode_->outputType(), pool_);
+}
+
+// static
+void PlanBuilder::registerSerDe() {
+  auto& registry = DeserializationWithContextRegistryForSharedPtr();
+
+  registry.Register(
+      "HashPartitionFunctionSpec", HashPartitionFunctionSpec::deserialize);
+  registry.Register(
+      "RoundRobinPartitionFunctionSpec",
+      RoundRobinPartitionFunctionSpec::deserialize);
 }
 } // namespace facebook::velox::exec::test

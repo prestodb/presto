@@ -873,21 +873,39 @@ class PartitionFunction {
 };
 
 /// Factory class for creating PartitionFunction instances.
-class PartitionFunctionSpec {
+class PartitionFunctionSpec : public ISerializable {
  public:
   virtual std::unique_ptr<PartitionFunction> create(
       int numPartitions) const = 0;
 
   virtual ~PartitionFunctionSpec() = default;
+
+  virtual std::string toString() const = 0;
 };
 
-using PartitionFunctionSpecPtr = std::shared_ptr<PartitionFunctionSpec>;
+using PartitionFunctionSpecPtr = std::shared_ptr<const PartitionFunctionSpec>;
 
 class GatherPartitionFunctionSpec : public PartitionFunctionSpec {
  public:
   std::unique_ptr<PartitionFunction> create(
       int /* numPartitions */) const override {
     VELOX_UNREACHABLE();
+  }
+
+  std::string toString() const override {
+    return "gather";
+  }
+
+  folly::dynamic serialize() const override {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["name"] = "GatherPartitionFunctionSpec";
+    return obj;
+  }
+
+  static PartitionFunctionSpecPtr deserialize(
+      const folly::dynamic& /* obj */,
+      void* /* context */) {
+    return std::make_shared<GatherPartitionFunctionSpec>();
   }
 };
 
@@ -904,6 +922,14 @@ class LegacyPartitionFunctionSpec : public PartitionFunctionSpec {
   std::unique_ptr<PartitionFunction> create(int numPartitions) const override {
     return factory_(numPartitions);
   };
+
+  std::string toString() const override {
+    return "legacy";
+  }
+
+  folly::dynamic serialize() const override {
+    VELOX_UNSUPPORTED();
+  }
 
  private:
   const PartitionFunctionFactory factory_;
@@ -935,13 +961,15 @@ class LocalPartitionNode : public PlanNode {
         type_{type},
         sources_{std::move(sources)},
         partitionFunctionSpec_{std::move(partitionFunctionSpec)} {
-    VELOX_CHECK_GT(
+    VELOX_USER_CHECK_GT(
         sources_.size(),
         0,
         "Local repartitioning node requires at least one source");
 
+    VELOX_USER_CHECK_NOT_NULL(partitionFunctionSpec_);
+
     for (auto i = 1; i < sources_.size(); ++i) {
-      VELOX_CHECK(
+      VELOX_USER_CHECK(
           *sources_[i]->outputType() == *sources_[0]->outputType(),
           "All sources of the LocalPartitionedNode must have the same output type: {} vs. {}.",
           sources_[i]->outputType()->toString(),
