@@ -81,10 +81,12 @@ public class TestPrestoSparkNativeExecution
     @Test
     public void testNativeExecutionWithProjection()
     {
-        assertUpdate("CREATE TABLE test_order WITH (format = 'DWRF') as SELECT orderkey, custkey FROM orders LIMIT 100", 100);
+        assertUpdate("CREATE TABLE test_order WITH (format = 'DWRF') as SELECT orderkey, custkey FROM orders", 15000);
 
         Session session = Session.builder(getNativeSession())
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
+                .setSystemProperty("spark_initial_partition_count", "1")
+                .setSystemProperty("spark_partition_count_auto_tune_enabled", "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                 .setCatalogSessionProperty("hive", PUSHDOWN_FILTER_ENABLED, "true")
                 .build();

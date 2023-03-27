@@ -43,11 +43,12 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -94,7 +95,8 @@ public class NativeExecutionOperator
     private NativeExecutionProcess process;
     private NativeExecutionTask task;
     private CompletableFuture<Void> taskStatusFuture;
-    private TaskSource taskSource;
+    private List<TaskSource> taskSources;
+
     private boolean finished;
 
     public NativeExecutionOperator(
@@ -116,6 +118,7 @@ public class NativeExecutionOperator
         this.serde = requireNonNull(serde, "serde is null");
         this.processFactory = requireNonNull(processFactory, "processFactory is null");
         this.taskFactory = requireNonNull(taskFactory, "taskFactory is null");
+        this.taskSources = new ArrayList<>();
     }
 
     @Override
@@ -199,7 +202,6 @@ public class NativeExecutionOperator
 
     private void createTask()
     {
-        checkState(taskSource != null, "taskSource is null");
         checkState(taskStatusFuture == null, "taskStatusFuture has already been set");
         checkState(task == null, "task has already been set");
         checkState(process != null, "process is null");
@@ -208,7 +210,7 @@ public class NativeExecutionOperator
                 uriBuilderFrom(URI.create(NATIVE_EXECUTION_SERVER_URI)).port(process.getPort()).build(),
                 operatorContext.getDriverContext().getTaskId(),
                 planFragment,
-                ImmutableList.of(taskSource),
+                taskSources,
                 tableWriteInfo,
                 shuffleWriteInfo);
     }
@@ -243,13 +245,12 @@ public class NativeExecutionOperator
     public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit split)
     {
         requireNonNull(split, "split is null");
-        checkState(this.taskSource == null, "NativeEngine operator split already set");
 
         if (finished) {
             return Optional::empty;
         }
 
-        this.taskSource = new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true);
+        taskSources.add(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
 
         Object splitInfo = split.getSplit().getInfo();
         Map<String, String> infoMap = split.getSplit().getInfoMap();

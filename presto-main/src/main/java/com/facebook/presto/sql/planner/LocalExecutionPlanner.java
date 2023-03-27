@@ -188,6 +188,7 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
+import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -314,6 +315,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARB
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
@@ -651,7 +653,9 @@ public class LocalExecutionPlanner
                 .map(LocalPlannerAware.class::cast)
                 .forEach(LocalPlannerAware::localPlannerComplete);
 
-        return new LocalExecutionPlan(context.getDriverFactories(), planFragment.getTableScanSchedulingOrder(), planFragment.getStageExecutionDescriptor());
+        // Find all nativeExecutionNode if exists
+        List<PlanNodeId> nativeNodes = searchFrom(plan).where(NativeExecutionNode.class::isInstance).findAll().stream().map(PlanNode::getId).collect(Collectors.toList());
+        return new LocalExecutionPlan(context.getDriverFactories(), planFragment.getTableScanSchedulingOrder(), nativeNodes, planFragment.getStageExecutionDescriptor());
     }
 
     private static void addLookupOuterDrivers(LocalExecutionPlanContext context)
@@ -843,12 +847,20 @@ public class LocalExecutionPlanner
     {
         private final List<DriverFactory> driverFactories;
         private final List<PlanNodeId> tableScanSourceOrder;
+        private final List<PlanNodeId> nativeExecutionSourceOrder;
         private final StageExecutionDescriptor stageExecutionDescriptor;
 
         public LocalExecutionPlan(List<DriverFactory> driverFactories, List<PlanNodeId> tableScanSourceOrder, StageExecutionDescriptor stageExecutionDescriptor)
         {
+            this(driverFactories, tableScanSourceOrder, ImmutableList.of(), stageExecutionDescriptor);
+        }
+
+        public LocalExecutionPlan(
+                List<DriverFactory> driverFactories, List<PlanNodeId> tableScanSourceOrder, List<PlanNodeId> nativeExecutionSourceOrder, StageExecutionDescriptor stageExecutionDescriptor)
+        {
             this.driverFactories = ImmutableList.copyOf(requireNonNull(driverFactories, "driverFactories is null"));
             this.tableScanSourceOrder = ImmutableList.copyOf(requireNonNull(tableScanSourceOrder, "tableScanSourceOrder is null"));
+            this.nativeExecutionSourceOrder = ImmutableList.copyOf(requireNonNull(nativeExecutionSourceOrder, "nativeExecutionSourceOrder is null"));
             this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
         }
 
@@ -860,6 +872,11 @@ public class LocalExecutionPlanner
         public List<PlanNodeId> getTableScanSourceOrder()
         {
             return tableScanSourceOrder;
+        }
+
+        public List<PlanNodeId> getNativeExecutionSourceOrder()
+        {
+            return nativeExecutionSourceOrder;
         }
 
         public StageExecutionDescriptor getStageExecutionDescriptor()

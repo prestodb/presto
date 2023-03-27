@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -55,6 +56,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getInitialSplitsPerNode;
 import static com.facebook.presto.SystemSessionProperties.getMaxDriversPerTask;
@@ -92,6 +94,7 @@ public class PrestoSparkTaskExecution
     private final SplitMonitor splitMonitor;
 
     private final List<PlanNodeId> schedulingOrder;
+    private final List<PlanNodeId> nativeExecutionSourceSchedulingOrder;
     private final Map<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle;
     private final List<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle;
 
@@ -123,12 +126,17 @@ public class PrestoSparkTaskExecution
 
         // index driver factories
         schedulingOrder = localExecutionPlan.getTableScanSourceOrder();
+        nativeExecutionSourceSchedulingOrder = localExecutionPlan.getNativeExecutionSourceOrder();
         Set<PlanNodeId> tableScanSources = ImmutableSet.copyOf(schedulingOrder);
+        Set<PlanNodeId> nativeExecutionSources = ImmutableSet.copyOf(nativeExecutionSourceSchedulingOrder);
         ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle = ImmutableMap.builder();
         ImmutableList.Builder<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle = ImmutableList.builder();
         for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
             Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
             if (sourceId.isPresent() && tableScanSources.contains(sourceId.get())) {
+                driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
+            }
+            else if (sourceId.isPresent() && nativeExecutionSources.contains(sourceId.get())) {
                 driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
             }
             else {
@@ -142,7 +150,7 @@ public class PrestoSparkTaskExecution
         this.driverRunnerFactoriesWithSplitLifeCycle = driverRunnerFactoriesWithSplitLifeCycle.build();
         this.driverRunnerFactoriesWithTaskLifeCycle = driverRunnerFactoriesWithTaskLifeCycle.build();
 
-        checkArgument(this.driverRunnerFactoriesWithSplitLifeCycle.keySet().equals(tableScanSources),
+        checkArgument(this.driverRunnerFactoriesWithSplitLifeCycle.keySet().equals(Sets.union(tableScanSources, nativeExecutionSources)),
                 "Fragment is partitioned, but not all partitioned drivers were found");
 
         taskHandle = createTaskHandle(taskStateMachine, taskContext, localExecutionPlan, taskExecutor, isNativeTask);
@@ -184,6 +192,7 @@ public class PrestoSparkTaskExecution
 
         scheduleDriversForTaskLifeCycle();
         scheduleDriversForSplitLifeCycle(sources);
+        scheduleDriversForNativeExecutionSplitLifeCycle(sources);
         checkTaskCompletion();
     }
 
@@ -192,7 +201,7 @@ public class PrestoSparkTaskExecution
         List<DriverSplitRunner> runners = new ArrayList<>();
         for (DriverSplitRunnerFactory driverRunnerFactory : driverRunnerFactoriesWithTaskLifeCycle) {
             for (int i = 0; i < driverRunnerFactory.getDriverInstances().orElse(1); i++) {
-                runners.add(driverRunnerFactory.createDriverRunner(null));
+                runners.add(driverRunnerFactory.createDriverRunner((ScheduledSplit) null));
             }
         }
         enqueueDriverSplitRunner(true, runners);
@@ -202,14 +211,34 @@ public class PrestoSparkTaskExecution
         }
     }
 
-    private synchronized void scheduleDriversForSplitLifeCycle(List<TaskSource> sources)
+    private ListMultimap<PlanNodeId, ScheduledSplit> getScheduleSplits(List<TaskSource> sources)
     {
-        checkArgument(sources.stream().allMatch(TaskSource::isNoMoreSplits), "All task sources are expected to be final");
-
         ListMultimap<PlanNodeId, ScheduledSplit> splits = ArrayListMultimap.create();
         for (TaskSource taskSource : sources) {
             splits.putAll(taskSource.getPlanNodeId(), taskSource.getSplits());
         }
+
+        return splits;
+    }
+
+    private synchronized void scheduleDriversForNativeExecutionSplitLifeCycle(List<TaskSource> sources)
+    {
+        checkArgument(sources.stream().allMatch(TaskSource::isNoMoreSplits), "All task sources are expected to be final");
+
+        ListMultimap<PlanNodeId, ScheduledSplit> splits = getScheduleSplits(sources);
+
+        for (PlanNodeId planNodeId : nativeExecutionSourceSchedulingOrder) {
+            DriverSplitRunnerFactory driverSplitRunnerFactory = driverRunnerFactoriesWithSplitLifeCycle.get(planNodeId);
+            List<ScheduledSplit> planNodeSplits = splits.get(planNodeId);
+            scheduleNativeExecutionSource(driverSplitRunnerFactory, planNodeSplits);
+        }
+    }
+
+    private synchronized void scheduleDriversForSplitLifeCycle(List<TaskSource> sources)
+    {
+        checkArgument(sources.stream().allMatch(TaskSource::isNoMoreSplits), "All task sources are expected to be final");
+
+        ListMultimap<PlanNodeId, ScheduledSplit> splits = getScheduleSplits(sources);
 
         for (PlanNodeId planNodeId : schedulingOrder) {
             DriverSplitRunnerFactory driverSplitRunnerFactory = driverRunnerFactoriesWithSplitLifeCycle.get(planNodeId);
@@ -228,6 +257,19 @@ public class PrestoSparkTaskExecution
             // create a new driver for the split
             runners.add(factory.createDriverRunner(scheduledSplit));
         }
+        enqueueDriverSplitRunner(false, runners.build());
+
+        factory.noMoreDriverRunner();
+    }
+
+    private synchronized void scheduleNativeExecutionSource(DriverSplitRunnerFactory factory, List<ScheduledSplit> splits)
+    {
+        factory.splitsAdded(splits.size(), SplitWeight.rawValueSum(splits, scheduledSplit -> scheduledSplit.getSplit().getSplitWeight()));
+
+        // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
+        ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builder();
+        // create a new driver for the splits
+        runners.add(factory.createDriverRunner(ImmutableSet.copyOf(splits)));
         enqueueDriverSplitRunner(false, runners.build());
 
         factory.noMoreDriverRunner();
@@ -341,23 +383,28 @@ public class PrestoSparkTaskExecution
 
         public DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit)
         {
+            return createDriverRunner(partitionedSplit != null ? ImmutableSet.of(partitionedSplit) : ImmutableSet.of());
+        }
+
+        public DriverSplitRunner createDriverRunner(Set<ScheduledSplit> partitionedSplits)
+        {
             checkState(!noMoreDriverRunner.get(), "Cannot create driver for pipeline: %s", pipelineContext.getPipelineId());
             pendingCreation.incrementAndGet();
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
-            long splitWeight = partitionedSplit == null ? 0 : partitionedSplit.getSplit().getSplitWeight().getRawValue();
+            long splitWeight = partitionedSplits.isEmpty() ? 0 : partitionedSplits.iterator().next().getSplit().getSplitWeight().getRawValue();
             DriverContext driverContext = pipelineContext.addDriverContext(splitWeight, Lifespan.taskWide(), driverFactory.getFragmentResultCacheContext());
-            return new DriverSplitRunner(this, driverContext, partitionedSplit);
+            return new DriverSplitRunner(this, driverContext, partitionedSplits);
         }
 
-        public Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
+        public Driver createDriver(DriverContext driverContext, Set<ScheduledSplit> partitionedSplits)
         {
             Driver driver = driverFactory.createDriver(driverContext);
-            if (partitionedSplit != null) {
+            if (partitionedSplits != null && !partitionedSplits.isEmpty()) {
                 boolean isNativeExecutionEnabled = isNativeExecutionEnabled(driver.getDriverContext().getSession());
-                PlanNodeId sourceNodeId = isNativeExecutionEnabled ? driver.getSourceId().get() : partitionedSplit.getPlanNodeId();
+                PlanNodeId sourceNodeId = isNativeExecutionEnabled ? driver.getSourceId().get() : partitionedSplits.iterator().next().getPlanNodeId();
                 // TableScanOperator requires partitioned split to be added before the first call to process
-                driver.updateSource(new TaskSource(sourceNodeId, ImmutableSet.of(partitionedSplit), true));
+                driver.updateSource(new TaskSource(sourceNodeId, partitionedSplits, true));
             }
 
             verify(pendingCreation.get() > 0, "pendingCreation is expected to be greater than zero");
@@ -417,17 +464,21 @@ public class PrestoSparkTaskExecution
         @GuardedBy("this")
         private boolean closed;
 
-        @Nullable
-        private final ScheduledSplit partitionedSplit;
+        private final Set<ScheduledSplit> partitionedSplits;
 
         @GuardedBy("this")
         private Driver driver;
 
         private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
+            this(driverSplitRunnerFactory, driverContext, partitionedSplit != null ? ImmutableSet.of(partitionedSplit) : ImmutableSet.of());
+        }
+
+        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable Set<ScheduledSplit> partitionedSplits)
+        {
             this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverFactory is null");
             this.driverContext = requireNonNull(driverContext, "driverContext is null");
-            this.partitionedSplit = partitionedSplit;
+            this.partitionedSplits = partitionedSplits;
         }
 
         public synchronized DriverContext getDriverContext()
@@ -459,7 +510,7 @@ public class PrestoSparkTaskExecution
                 }
 
                 if (this.driver == null) {
-                    this.driver = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplit);
+                    this.driver = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplits);
                 }
 
                 driver = this.driver;
@@ -471,7 +522,8 @@ public class PrestoSparkTaskExecution
         @Override
         public String getInfo()
         {
-            return (partitionedSplit == null) ? "" : partitionedSplit.getSplit().getInfo().toString();
+            return (partitionedSplits == null || partitionedSplits.isEmpty()) ?
+                    "" : partitionedSplits.stream().map(split -> split.getSplit().getInfo().toString()).collect(Collectors.joining(" "));
         }
 
         @Override

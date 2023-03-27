@@ -182,7 +182,7 @@ public abstract class BasePlanFragmenter
         // Only delegate non-coordinatorOnly plan fragment to native engine
         if (isNativeExecutionEnabled(session) && !properties.getPartitioningHandle().isCoordinatorOnly()) {
             root = new NativeExecutionNode(root);
-            schedulingOrder = scheduleOrder(root);
+            schedulingOrder = ImmutableList.of();
         }
 
         PlanFragment fragment = new PlanFragment(
