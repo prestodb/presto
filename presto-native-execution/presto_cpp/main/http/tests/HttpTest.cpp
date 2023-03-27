@@ -13,10 +13,12 @@
  */
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
+#include <velox/common/memory/Memory.h>
 #include "presto_cpp/main/http/HttpClient.h"
 #include "presto_cpp/main/http/HttpServer.h"
 
 using namespace facebook::presto;
+using namespace facebook::velox::memory;
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
@@ -72,14 +74,14 @@ void blackhole(
     std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
     proxygen::ResponseHandler* downstream) {}
 
-std::string bodyAsString(http::HttpResponse& response) {
+std::string bodyAsString(http::HttpResponse& response, MemoryPool* pool) {
   std::ostringstream oss;
   auto iobufs = response.consumeBody();
   for (auto& body : iobufs) {
     oss << std::string((const char*)body->data(), body->length());
-    response.allocator()->freeBytes(body->writableData(), body->length());
+    pool->free(body->writableData(), body->length());
   }
-  EXPECT_EQ(response.allocator()->numAllocated(), 0);
+  EXPECT_EQ(pool->getCurrentBytes(), 0);
   return oss.str();
 }
 
@@ -135,16 +137,18 @@ class HttpClientFactory {
   std::unique_ptr<std::thread> eventBaseThread_;
 };
 
-folly::SemiFuture<std::unique_ptr<http::HttpResponse>> sendGet(
-    http::HttpClient* client,
-    const std::string& url) {
+folly::SemiFuture<std::unique_ptr<http::HttpResponse>>
+sendGet(http::HttpClient* client, const std::string& url, MemoryPool* pool) {
   return http::RequestBuilder()
       .method(proxygen::HTTPMethod::GET)
       .url(url)
-      .send(client);
+
+      .send(client, pool);
 }
 
 TEST(HttpTest, basic) {
+  auto memoryPool = getProcessDefaultMemoryManager().getPool(
+      "basic", MemoryPool::Kind::kLeaf);
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
   server->registerGet("/ping", ping);
@@ -160,36 +164,36 @@ TEST(HttpTest, basic) {
       clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
 
   {
-    auto response = sendGet(client.get(), "/ping").get();
+    auto response = sendGet(client.get(), "/ping", memoryPool.get()).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
 
-    response = sendGet(client.get(), "/echo/good-morning").get();
+    response = sendGet(client.get(), "/echo/good-morning", memoryPool.get()).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
-    ASSERT_EQ(bodyAsString(*response), "/echo/good-morning");
+    ASSERT_EQ(bodyAsString(*response, memoryPool.get()), "/echo/good-morning");
 
     response = http::RequestBuilder()
                    .method(proxygen::HTTPMethod::POST)
                    .url("/echo")
-                   .send(client.get(), "Good morning!")
+                   .send(client.get(), memoryPool.get(), "Good morning!")
                    .get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
-    ASSERT_EQ(bodyAsString(*response), "Good morning!");
+    ASSERT_EQ(bodyAsString(*response, memoryPool.get()), "Good morning!");
 
-    response = sendGet(client.get(), "/wrong/path").get();
+    response = sendGet(client.get(), "/wrong/path", memoryPool.get()).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpNotFound);
 
-    auto tryResponse = sendGet(client.get(), "/blackhole").getTry();
+    auto tryResponse = sendGet(client.get(), "/blackhole", memoryPool.get()).getTry();
     ASSERT_TRUE(tryResponse.hasException());
     auto httpException = dynamic_cast<proxygen::HTTPException*>(
         tryResponse.tryGetExceptionObject());
     ASSERT_EQ(httpException->getProxygenError(), proxygen::kErrorTimeout);
 
-    response = sendGet(client.get(), "/ping").get();
+    response = sendGet(client.get(), "/ping", memoryPool.get()).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
   }
   wrapper.stop();
 
-  auto tryResponse = sendGet(client.get(), "/ping").getTry();
+  auto tryResponse = sendGet(client.get(), "/ping", memoryPool.get()).getTry();
   ASSERT_TRUE(tryResponse.hasException());
 
   auto socketException = dynamic_cast<folly::AsyncSocketException*>(
@@ -198,6 +202,9 @@ TEST(HttpTest, basic) {
 }
 
 TEST(HttpTest, serverRestart) {
+  auto memoryPool = getProcessDefaultMemoryManager().getPool(
+      "basic", MemoryPool::Kind::kLeaf);
+
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
   server->registerGet("/ping", ping);
@@ -209,7 +216,7 @@ TEST(HttpTest, serverRestart) {
   auto client =
       clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
 
-  auto response = sendGet(client.get(), "/ping").get();
+  auto response = sendGet(client.get(), "/ping", memoryPool.get()).get();
   ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
 
   wrapper->stop();
@@ -223,7 +230,7 @@ TEST(HttpTest, serverRestart) {
   serverAddress = wrapper->start().get();
   client =
       clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
-  response = sendGet(client.get(), "/ping").get();
+  response = sendGet(client.get(), "/ping", memoryPool.get()).get();
   ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
   wrapper->stop();
 }
@@ -306,6 +313,9 @@ http::EndpointRequestHandlerFactory asyncMsg(
 } // namespace
 
 TEST(HttpTest, asyncRequests) {
+  auto memoryPool = getProcessDefaultMemoryManager().getPool(
+      "basic", MemoryPool::Kind::kLeaf);
+
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
 
@@ -322,7 +332,7 @@ TEST(HttpTest, asyncRequests) {
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
   request->requestPromise = std::move(reqPromise);
 
-  auto responseFuture = sendGet(client.get(), "/async/msg");
+  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool.get());
 
   // Wait until the request reaches to the server.
   std::move(reqFuture).wait();
@@ -331,13 +341,16 @@ TEST(HttpTest, asyncRequests) {
   }
   auto response = std::move(responseFuture).get();
   ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
-  ASSERT_EQ(bodyAsString(*response), "Success");
+  ASSERT_EQ(bodyAsString(*response, memoryPool.get()), "Success");
 
   ASSERT_EQ(request->requestStatus, kStatusValid);
   wrapper.stop();
 }
 
 TEST(HttpTest, timedOutRequests) {
+  auto memoryPool = getProcessDefaultMemoryManager().getPool(
+      "basic", MemoryPool::Kind::kLeaf);
+
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
 
@@ -356,13 +369,13 @@ TEST(HttpTest, timedOutRequests) {
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
   request->requestPromise = std::move(reqPromise);
 
-  auto responseFuture = sendGet(client.get(), "/async/msg");
+  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool.get());
 
   // Wait until the request reaches to the server.
   std::move(reqFuture).wait();
   auto response = std::move(responseFuture).get();
   ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
-  ASSERT_EQ(bodyAsString(*response), "Timedout");
+  ASSERT_EQ(bodyAsString(*response, memoryPool.get()), "Timedout");
 
   ASSERT_EQ(request->requestStatus, kStatusValid);
   wrapper.stop();
@@ -371,6 +384,9 @@ TEST(HttpTest, timedOutRequests) {
 // TODO: Enabled it when fixed.
 // Disabled it, while we are investigating and fixing this test failure.
 TEST(HttpTest, DISABLED_outstandingRequests) {
+  auto memoryPool = getProcessDefaultMemoryManager().getPool(
+      "basic", MemoryPool::Kind::kLeaf);
+
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
   auto request = std::make_shared<AsyncMsgRequestState>();
@@ -388,7 +404,7 @@ TEST(HttpTest, DISABLED_outstandingRequests) {
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
   request->requestPromise = std::move(reqPromise);
 
-  auto responseFuture = sendGet(client.get(), "/async/msg");
+  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool.get());
 
   // Wait until the request reaches to the server.
   std::move(reqFuture).wait();

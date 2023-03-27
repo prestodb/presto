@@ -255,7 +255,7 @@ public class PrestoSparkQueryRunner
 
         ImmutableList.Builder<Module> additionalModules = ImmutableList.builder();
         additionalModules.add(new PrestoSparkLocalMetadataStorageModule());
-        if (Boolean.valueOf(System.getProperty("NATIVE_INTERACTIVE_DEBUG"))) {
+        if (System.getProperty("NATIVE_PORT") != null) {
             additionalModules.add(new TestNativeExecutionModule());
         }
         else {

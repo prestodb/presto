@@ -130,7 +130,6 @@ public class HiveExternalWorkerQueryRunner
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .put("regex-library", "RE2J")
                         .put("offset-clause-enabled", "true")
-                        .put("deprecated.legacy-date-timestamp-to-varchar-coercion", "true")
                         // By default, Presto will expand some functions into its SQL equivalent (e.g. array_duplicates()).
                         // With Velox, we do not want Presto to replace the function with its SQL equivalent.
                         // To achieve that, we set inline-sql-functions to false.

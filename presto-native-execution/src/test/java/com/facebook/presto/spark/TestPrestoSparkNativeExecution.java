@@ -31,22 +31,27 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_EXECUTABLE_PATH;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 /**
+ * Following program argument is needed to run Spark native tests.
+ *
+ * - PRESTO_SERVER (-DPRESTO_SERVER=/path/to/native/process/bin)
+ *   - This tells Spark where to find the Presto native binary to launch native process. Set it in
+ *     program arguments like -DPRESTO_SERVER=/path/to/native/process/bin
+ *
  * Tests can be running in Interactive Debugging Mode. Interactive Debugging Mode allows you to have an easier debugging
  * experience by allowing Spark side not launching its own native process, but instead communicating with an already
  * launched native process. This gives developers flexibility to hookup any IDEs or debuggers with the native process.
- * Following environment variables are needed in order to enable this mode:
+ * Following JVM argument is needed in order to enable this mode:
  *
- * - NATIVE_INTERACTIVE_DEBUG
- *   - Setting this to "true" will enable interactive debugging session. This means Spark will talk to an already
- *     launched native process instead of launching its own.
- * - NATIVE_PORT
+ * - NATIVE_PORT (-DNATIVE_PORT=<port>)
  *   - This is the port your externally launched native process listens to. It is used to tell Spark where to send
- *     requests. If not set it is by default 7777.
+ *     requests. This port number has to be the same as to which your externally launched process listens. Set it in
+ *     program arguments like -DNATIVE_PORT=7777. When this is set, PRESTO_SERVER is not required.
  */
 public class TestPrestoSparkNativeExecution
         extends AbstractTestQueryFramework
@@ -54,9 +59,18 @@ public class TestPrestoSparkNativeExecution
     private static final String SPARK_SHUFFLE_MANAGER = "spark.shuffle.manager";
     private static final String FALLBACK_SPARK_SHUFFLE_MANAGER = "spark.fallback.shuffle.manager";
 
+    protected Session getNativeSession()
+    {
+        Session.SessionBuilder sessionBuilder = Session.builder(getSession())
+                .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true");
+        if (System.getProperty("NATIVE_PORT") == null) {
+            sessionBuilder.setSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, requireNonNull(System.getProperty("PRESTO_SERVER"), "Native worker binary path is missing. Add -DPRESTO_SERVER=/path/to/native/process/bin to your JVM arguments."));
+        }
+        return sessionBuilder.build();
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
-            throws Exception
     {
         Map<String, String> configs = new HashMap<>();
         // prevent to use the default Prestissimo config files since the Presto-Spark will generate the configs on-the-fly.
@@ -69,12 +83,7 @@ public class TestPrestoSparkNativeExecution
     {
         assertUpdate("CREATE TABLE test_order WITH (format = 'DWRF') as SELECT orderkey, custkey FROM orders LIMIT 100", 100);
 
-        String prestoServerPath = System.getProperty("PRESTO_SERVER");
-        assertNotNull(prestoServerPath, "PRESTO_SERVER is not set in the system properties.");
-
-        Session session = Session.builder(getSession())
-                .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")
-                .setSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, prestoServerPath)
+        Session session = Session.builder(getNativeSession())
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                 .setCatalogSessionProperty("hive", PUSHDOWN_FILTER_ENABLED, "true")
@@ -97,8 +106,7 @@ public class TestPrestoSparkNativeExecution
     @Test(priority = 2, dependsOnMethods = "testNativeExecutionWithProjection")
     public void testNativeExecutionShuffleManager()
     {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")
+        Session session = Session.builder(getNativeSession())
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                 .build();

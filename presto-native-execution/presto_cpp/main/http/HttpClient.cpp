@@ -40,22 +40,17 @@ HttpClient::~HttpClient() {
 HttpResponse::~HttpResponse() {
   // Clear out any leftover iobufs if not consumed.
   for (auto& buf : bodyChain_) {
-    if (buf) {
-      allocator_->freeBytes(buf->writableData(), buf->length());
+    if (buf != nullptr) {
+      pool_->free(buf->writableData(), buf->length());
     }
   }
 }
 
 void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
   VELOX_CHECK(!iobuf->isChained());
-  uint64_t dataLength = iobuf->length();
-
-  void* buf = allocator_->allocateBytes(dataLength);
-  if (buf == nullptr) {
-    VELOX_FAIL(
-        "Cannot spare enough system memory to receive more HTTP response.");
-  }
-  memcpy(buf, iobuf->data(), dataLength);
+  const uint64_t dataLength = iobuf->length();
+  void* buf = pool_->allocate(dataLength);
+  ::memcpy(buf, iobuf->data(), dataLength);
   bodyChain_.emplace_back(folly::IOBuf::wrapBuffer(buf, dataLength));
 }
 
@@ -73,8 +68,13 @@ std::string HttpResponse::dumpBodyChain() const {
 
 class ResponseHandler : public proxygen::HTTPTransactionHandler {
  public:
-  ResponseHandler(const proxygen::HTTPMessage& request, const std::string& body)
-      : request_(request), body_(body) {}
+  ResponseHandler(
+      const proxygen::HTTPMessage& request,
+      velox::memory::MemoryPool* pool,
+      const std::string& body)
+      : request_(request), body_(body), pool_(pool) {
+    VELOX_CHECK_NOT_NULL(pool_);
+  }
 
   folly::SemiFuture<std::unique_ptr<HttpResponse>> initialize(
       std::shared_ptr<ResponseHandler> self) {
@@ -92,7 +92,7 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
-    response_ = std::make_unique<HttpResponse>(std::move(msg));
+    response_ = std::make_unique<HttpResponse>(std::move(msg), pool_);
   }
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
@@ -138,6 +138,7 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
  private:
   const proxygen::HTTPMessage request_;
   const std::string body_;
+  velox::memory::MemoryPool* const pool_;
   std::unique_ptr<HttpResponse> response_;
   folly::Promise<std::unique_ptr<HttpResponse>> promise_;
   std::shared_ptr<ResponseHandler> self_;
@@ -188,8 +189,9 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
 
 folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
     const proxygen::HTTPMessage& request,
+    velox::memory::MemoryPool* pool,
     const std::string& body) {
-  auto responseHandler = std::make_shared<ResponseHandler>(request, body);
+  auto responseHandler = std::make_shared<ResponseHandler>(request, pool, body);
   auto future = responseHandler->initialize(responseHandler);
 
   eventBase_->runInEventBaseThreadAlwaysEnqueue([this, responseHandler]() {

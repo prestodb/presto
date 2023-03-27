@@ -27,6 +27,8 @@ import java.net.URI;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * This is a testing class that essentially does nothing. Its mere purpose is to disable the launching and killing of
  * native process by native execution. Instead it allows the native execution to reuse the same externally launched
@@ -36,7 +38,6 @@ public class DetachedNativeExecutionProcess
         extends NativeExecutionProcess
 {
     private static final Logger log = Logger.get(DetachedNativeExecutionProcess.class);
-    private static final int DEFAULT_PORT = 7777;
 
     public DetachedNativeExecutionProcess(
             Session session,
@@ -76,10 +77,7 @@ public class DetachedNativeExecutionProcess
     @Override
     public int getPort()
     {
-        String configuredPort = System.getProperty("NATIVE_PORT");
-        if (configuredPort != null) {
-            return Integer.valueOf(configuredPort);
-        }
-        return DEFAULT_PORT;
+        String configuredPort = requireNonNull(System.getProperty("NATIVE_PORT"), "NATIVE_PORT not set for interactive debugging");
+        return Integer.valueOf(configuredPort);
     }
 }
