@@ -3552,3 +3552,21 @@ TEST_F(ExprTest, peelingWithSmallerConstantInput) {
   auto result = evaluate("coalesce(c0, c1)", makeRowVector({d0, c1}));
   assertEqualVectors(c1, result);
 }
+
+TEST_F(ExprTest, ifWithLazyNulls) {
+  // Makes a null-propagating switch. Evaluates it so that null propagation
+  // masks out errors.
+  constexpr int32_t kSize = 100;
+  const char* kExpr =
+      "CASE WHEN 10 % (c0 - 2) < 0 then c0 + c1 when 10 % (c0 - 4) = 3 then c0 + c1 * 2 else c0 + c1 end";
+  auto c0 = makeFlatVector<int64_t>(kSize, [](auto row) { return row % 10; });
+  auto c1 = makeFlatVector<int64_t>(
+      kSize,
+      [](auto row) { return row; },
+      [](auto row) { return row % 10 == 2 || row % 10 == 4; });
+
+  auto result = evaluate(kExpr, makeRowVector({c0, c1}));
+  auto resultFromLazy =
+      evaluate(kExpr, makeRowVector({c0, wrapInLazyDictionary(c1)}));
+  assertEqualVectors(result, resultFromLazy);
+}

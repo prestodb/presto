@@ -16,6 +16,7 @@
 #include "velox/expression/SwitchExpr.h"
 #include "velox/expression/BooleanMix.h"
 #include "velox/expression/ConstantExpr.h"
+#include "velox/expression/FieldReference.h"
 #include "velox/expression/ScopedVarSetter.h"
 
 namespace facebook::velox::exec {
@@ -63,7 +64,23 @@ void SwitchExpr::evalSpecialForm(
 
   // SWITCH: fix finalSelection at "rows" unless already fixed
   ScopedFinalSelectionSetter scopedFinalSelectionSetter(context, &rows);
-
+  if (propagatesNulls_) {
+    // If propagates nulls, we load lazies before conditions so that we can
+    // avoid errors for null rows. Null propagation is on only if all thens and
+    // else load access the same vectors, so there is no extra loading.
+    DecodedVector decoded;
+    auto& remaining = *remainingRows.get();
+    for (const auto& field : distinctFields_) {
+      context.ensureFieldLoaded(field->index(context), remaining);
+      const auto& vector = context.getField(field->index(context));
+      if (vector->mayHaveNulls()) {
+        decoded.decode(*vector, remaining);
+        addNulls(remaining, decoded.nulls(), context, type(), result);
+        remaining.deselectNulls(
+            decoded.nulls(), remaining.begin(), remaining.end());
+      }
+    }
+  }
   for (auto i = 0; i < numCases_; i++) {
     if (!remainingRows.get()->hasSelections()) {
       break;
