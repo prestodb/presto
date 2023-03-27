@@ -329,7 +329,7 @@ hmacMd5(TOutString& output, const TInString& key, const TInString& data) {
 }
 
 template <typename TOutString, typename TInString>
-FOLLY_ALWAYS_INLINE bool toHex(TOutString& output, const TInString& input) {
+FOLLY_ALWAYS_INLINE void toHex(TOutString& output, const TInString& input) {
   static const char* const kHexTable =
       "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
       "202122232425262728292A2B2C2D2E2F303132333435363738393A3B3C3D3E3F"
@@ -351,8 +351,6 @@ FOLLY_ALWAYS_INLINE bool toHex(TOutString& output, const TInString& input) {
     resultBuffer[i * 2] = kHexTable[inputBuffer[i] * 2];
     resultBuffer[i * 2 + 1] = kHexTable[inputBuffer[i] * 2 + 1];
   }
-
-  return true;
 }
 
 FOLLY_ALWAYS_INLINE static uint8_t fromHex(char c) {
@@ -376,7 +374,7 @@ FOLLY_ALWAYS_INLINE unsigned char toHex(unsigned char c) {
 }
 
 template <typename TOutString, typename TInString>
-FOLLY_ALWAYS_INLINE bool fromHex(TOutString& output, const TInString& input) {
+FOLLY_ALWAYS_INLINE void fromHex(TOutString& output, const TInString& input) {
   VELOX_USER_CHECK_EQ(
       input.size() % 2,
       0,
@@ -393,19 +391,16 @@ FOLLY_ALWAYS_INLINE bool fromHex(TOutString& output, const TInString& input) {
     resultBuffer[i] =
         (fromHex(inputBuffer[i * 2]) << 4) | fromHex(inputBuffer[i * 2 + 1]);
   }
-
-  return true;
 }
 
 template <typename TOutString, typename TInString>
-FOLLY_ALWAYS_INLINE bool toBase64(TOutString& output, const TInString& input) {
+FOLLY_ALWAYS_INLINE void toBase64(TOutString& output, const TInString& input) {
   output.resize(encoding::Base64::calculateEncodedSize(input.size()));
   encoding::Base64::encode(input.data(), input.size(), output.data());
-  return true;
 }
 
 template <typename TOutString, typename TInString>
-FOLLY_ALWAYS_INLINE bool fromBase64(
+FOLLY_ALWAYS_INLINE void fromBase64(
     TOutString& output,
     const TInString& input) {
   try {
@@ -416,7 +411,6 @@ FOLLY_ALWAYS_INLINE bool fromBase64(
   } catch (const encoding::Base64Exception& e) {
     VELOX_USER_FAIL(e.what());
   }
-  return true;
 }
 
 template <typename TOutString, typename TInString>
@@ -443,7 +437,7 @@ FOLLY_ALWAYS_INLINE void charEscape(unsigned char c, char* output) {
 ///    as the string ``%XX`` where ``XX`` is the uppercase hexadecimal
 ///    value of the UTF-8 byte.
 template <typename TOutString, typename TInString>
-FOLLY_ALWAYS_INLINE bool urlEscape(TOutString& output, const TInString& input) {
+FOLLY_ALWAYS_INLINE void urlEscape(TOutString& output, const TInString& input) {
   auto inputSize = input.size();
   output.reserve(inputSize * 3);
 
@@ -466,11 +460,10 @@ FOLLY_ALWAYS_INLINE bool urlEscape(TOutString& output, const TInString& input) {
     }
   }
   output.resize(outIndex);
-  return true;
 }
 
 template <typename TOutString, typename TInString>
-FOLLY_ALWAYS_INLINE bool urlUnescape(
+FOLLY_ALWAYS_INLINE void urlUnescape(
     TOutString& output,
     const TInString& input) {
   auto inputSize = input.size();
@@ -505,7 +498,6 @@ FOLLY_ALWAYS_INLINE bool urlUnescape(
     }
   }
   output.resize(outputBuffer - output.data());
-  return true;
 }
 
 // Presto supports both ascii whitespace and unicode line separator \u2028.
