@@ -22,116 +22,85 @@ namespace facebook::velox::window::test {
 
 namespace {
 
-class RankTest : public WindowTestBase {
- protected:
-  explicit RankTest(const std::string& rankFunction)
-      : rankFunction_(rankFunction) {}
+static const std::vector<std::string> kRankFunctions = {
+    std::string("rank()"),
+    std::string("dense_rank()"),
+    std::string("percent_rank()"),
+    std::string("cume_dist()"),
+    std::string("row_number()")};
 
-  void testWindowFunction(
-      const std::vector<RowVectorPtr>& vectors,
-      const std::vector<std::string>& overClauses) {
-    WindowTestBase::testWindowFunction(vectors, rankFunction_, overClauses);
+// The RankTestBase class is used to instantiate parameterized window
+// function tests. The parameters are based on the function being tested
+// and a specific over clause. The window function is tested for the over
+// clause and all combinations of frame clauses. Doing so amortizes the
+// input vector and DuckDB table construction once across all the frame clauses
+// for a (function, over clause) combination.
+struct RankTestParam {
+  const std::string function;
+  const std::string overClause;
+};
+
+class RankTestBase : public WindowTestBase {
+ protected:
+  explicit RankTestBase(const RankTestParam& testParam)
+      : function_(testParam.function), overClause_(testParam.overClause) {}
+
+  void testWindowFunction(const std::vector<RowVectorPtr>& vectors) {
+    WindowTestBase::testWindowFunction(vectors, function_, {overClause_});
   }
 
-  const std::string rankFunction_;
+  const std::string function_;
+  const std::string overClause_;
 };
 
-class MultiRankTest : public RankTest,
-                      public testing::WithParamInterface<std::string> {
+std::vector<RankTestParam> getRankTestParams() {
+  std::vector<RankTestParam> params;
+  for (auto function : kRankFunctions) {
+    for (auto overClause : kOverClauses) {
+      params.push_back({function, overClause});
+    }
+  }
+  return params;
+}
+
+class RankTest : public RankTestBase,
+                 public testing::WithParamInterface<RankTestParam> {
  public:
-  MultiRankTest() : RankTest(GetParam()) {}
+  RankTest() : RankTestBase(GetParam()) {}
 };
 
-TEST_P(MultiRankTest, basic) {
-  testWindowFunction({makeSimpleVector(50)}, kBasicOverClauses);
+// Tests all functions with a dataset with uniform distribution of partitions.
+TEST_P(RankTest, basic) {
+  testWindowFunction({makeSimpleVector(50)});
 }
 
-TEST_P(MultiRankTest, basicWithSortOrder) {
-  testWindowFunction({makeSimpleVector(50)}, kSortOrderBasedOverClauses);
+// Tests all functions with a dataset with all rows in a single partition.
+TEST_P(RankTest, singlePartition) {
+  testWindowFunction({makeSinglePartitionVector(50)});
 }
 
-TEST_P(MultiRankTest, singlePartition) {
-  // Test all input rows in a single partition.
-  testWindowFunction({makeSinglePartitionVector(1000)}, kBasicOverClauses);
-}
-
-TEST_P(MultiRankTest, singlePartitionWithSortOrder) {
-  // Test all input rows in a single partition.
+// Tests all functions with a dataset with all rows in a single partition,
+// but in 2 input vectors.
+TEST_P(RankTest, multiInput) {
   testWindowFunction(
-      {makeSinglePartitionVector(500)}, kSortOrderBasedOverClauses);
+      {makeSinglePartitionVector(50), makeSinglePartitionVector(75)});
 }
 
-TEST_P(MultiRankTest, multiInput) {
-  // Double the input rows so that partitioning and ordering over multiple
-  // input groups are exercised.
-  testWindowFunction(
-      {makeSinglePartitionVector(250), makeSinglePartitionVector(250)},
-      kBasicOverClauses);
+// Tests all functions with a dataset in which all partitions have a single row.
+TEST_P(RankTest, singleRowPartitions) {
+  testWindowFunction({makeSingleRowPartitionsVector(50)});
 }
 
-TEST_P(MultiRankTest, multiInputWithSortOrder) {
-  // Double the input rows so that partitioning and ordering over multiple
-  // input groups are exercised.
-  testWindowFunction(
-      {makeSimpleVector(250), makeSimpleVector(250)},
-      kSortOrderBasedOverClauses);
+// Tests all functions with a dataset with randomly generated data.
+TEST_P(RankTest, randomInput) {
+  testWindowFunction({makeRandomInputVector(20), makeRandomInputVector(30)});
 }
 
-TEST_P(MultiRankTest, singleRowPartitions) {
-  testWindowFunction({makeSingleRowPartitionsVector(50)}, kBasicOverClauses);
-}
-
-TEST_P(MultiRankTest, singleRowPartitionsWithSortOrder) {
-  testWindowFunction(
-      {makeSingleRowPartitionsVector(50)}, kSortOrderBasedOverClauses);
-}
-
-TEST_P(MultiRankTest, randomInput) {
-  auto vectors = makeFuzzVectors(
-      ROW({"c0", "c1", "c2", "c3"}, {BIGINT(), VARCHAR(), INTEGER(), BIGINT()}),
-      10,
-      2,
-      0.3);
-  createDuckDbTable(vectors);
-
-  std::vector<std::string> overClauses = {
-      "partition by c0 order by c1, c2, c3",
-      "partition by c1 order by c0, c2, c3",
-      "partition by c0 order by c1 desc, c2, c3",
-      "partition by c1 order by c0 desc, c2, c3",
-      "partition by c0 order by c1 desc nulls first, c2, c3",
-      "partition by c1 order by c0 nulls first, c2, c3",
-      "partition by c0 order by c1",
-      "partition by c0 order by c2",
-      "partition by c0 order by c3",
-      "partition by c1 order by c0 desc",
-      "partition by c0, c1 order by c2, c3",
-      "partition by c0, c1 order by c2, c3 nulls first",
-      "partition by c0, c1 order by c2",
-      "partition by c0, c1 order by c2 nulls first",
-      "partition by c0, c1 order by c2 desc",
-      "partition by c0, c1 order by c2 desc nulls first",
-      "order by c0, c1, c2, c3",
-      "order by c0, c1 nulls first, c2, c3",
-      "order by c0, c1 desc nulls first, c2, c3",
-      "order by c0 nulls first, c1 nulls first, c2, c3",
-      "order by c0 nulls first, c1 desc nulls first, c2, c3",
-      "order by c0 desc nulls first, c1 nulls first, c2, c3",
-      "order by c0 desc nulls first, c1 desc nulls first, c2, c3",
-      "partition by c0, c1, c2, c3",
-  };
-
-  testWindowFunction(vectors, overClauses);
-}
-
+// Run above tests for all combinations of rank function and over clauses.
 VELOX_INSTANTIATE_TEST_SUITE_P(
+    RankTestInstantiation,
     RankTest,
-    MultiRankTest,
-    testing::ValuesIn(
-        {std::string("rank()"),
-         std::string("dense_rank()"),
-         std::string("percent_rank()"),
-         std::string("cume_dist()")}));
+    testing::ValuesIn(getRankTestParams()));
 
 }; // namespace
 }; // namespace facebook::velox::window::test

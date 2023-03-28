@@ -18,7 +18,6 @@ add_executable(
   NthValueTest.cpp
   NtileTest.cpp
   RankTest.cpp
-  RowNumberTest.cpp
   SimpleAggregatesTest.cpp
   WindowFunctionRegTest.cpp
   WindowTestBase.cpp)

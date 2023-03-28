@@ -23,7 +23,15 @@ namespace {
 
 class NtileTest : public WindowTestBase {
  protected:
-  void testWindowFunction(
+  void testNtile(const std::vector<RowVectorPtr>& vectors) {
+    // Tests ntile with constant value arguments.
+    testNtileWithConstants(vectors, kOverClauses);
+    // Tests ntile with a column.
+    WindowTestBase::testWindowFunction(vectors, "ntile(c2)", kOverClauses);
+  }
+
+ private:
+  void testNtileWithConstants(
       const std::vector<RowVectorPtr>& vectors,
       const std::vector<std::string>& overClauses) {
     // These invocations of ntile check the following cases :
@@ -36,57 +44,32 @@ class NtileTest : public WindowTestBase {
           vectors, fmt::format("ntile({})", i), overClauses);
     }
   }
-
-  RowVectorPtr makeSimpleVector(vector_size_t size) {
-    return makeRowVector({
-        makeFlatVector<int64_t>(size, [](auto row) { return row % 5 + 1; }),
-        makeFlatVector<int64_t>(
-            size, [](auto row) { return row % 7 + 1; }, nullEvery(15)),
-        makeFlatVector<int64_t>(size, [](auto row) { return row % 11; }),
-    });
-  }
 };
 
+// Tests ntile with uniformly distributed data.
 TEST_F(NtileTest, basic) {
-  NtileTest::testWindowFunction({makeSimpleVector(50)}, kBasicOverClauses);
+  testNtile({makeSimpleVector(50)});
 }
 
-TEST_F(NtileTest, basicWithSortOrders) {
-  NtileTest::testWindowFunction(
-      {makeSimpleVector(50)}, kSortOrderBasedOverClauses);
-}
-
-TEST_F(NtileTest, columnBasic) {
-  auto vector = NtileTest::makeSimpleVector(100);
-  WindowTestBase::testWindowFunction({vector}, "ntile(c0)", kBasicOverClauses);
-}
-
-TEST_F(NtileTest, columnBasicWithSortOrders) {
-  auto vector = NtileTest::makeSimpleVector(100);
-  WindowTestBase::testWindowFunction(
-      {vector}, "ntile(c0)", kSortOrderBasedOverClauses);
-}
-
+// Tests ntile with a dataset with all rows in a single partition.
 TEST_F(NtileTest, singlePartition) {
-  NtileTest::testWindowFunction(
-      {makeSinglePartitionVector(75)}, kBasicOverClauses);
+  testNtile({makeSinglePartitionVector(75)});
 }
 
-TEST_F(NtileTest, singlePartitionWithSortOrders) {
-  NtileTest::testWindowFunction(
-      {makeSinglePartitionVector(50)}, kSortOrderBasedOverClauses);
-}
-
+// Test ntile with a dataset with all rows in a single partition but in
+// 2 input vectors.
 TEST_F(NtileTest, multiInput) {
-  NtileTest::testWindowFunction(
-      {makeSinglePartitionVector(100), makeSinglePartitionVector(75)},
-      kBasicOverClauses);
+  testNtile({makeSinglePartitionVector(50), makeSinglePartitionVector(75)});
 }
 
-TEST_F(NtileTest, multiInputWithSortOrders) {
-  NtileTest::testWindowFunction(
-      {makeSinglePartitionVector(75), makeSinglePartitionVector(50)},
-      kSortOrderBasedOverClauses);
+// Tests ntile with a dataset in which all partitions have a single row.
+TEST_F(NtileTest, singleRowPartitions) {
+  testNtile({makeSingleRowPartitionsVector(50)});
+}
+
+// Tests ntile with a dataset with random values.
+TEST_F(NtileTest, randomInput) {
+  testNtile({makeRandomInputVector(20)});
 }
 
 TEST_F(NtileTest, errorCases) {

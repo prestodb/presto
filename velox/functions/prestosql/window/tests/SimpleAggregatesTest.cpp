@@ -30,118 +30,96 @@ static const std::vector<std::string> kAggregateFunctions = {
     std::string("avg(c2)"),
     std::string("sum(1)")};
 
-struct TestParam {
-  const std::string aggregateFunction;
-  const std::string frameClause;
+// This AggregateWindowTestBase class is used to instantiate parameterized
+// aggregate window function tests. The parameters are (function, over clause).
+// The window function is tested for the over clause and all combinations of
+// frame clauses. Doing so helps to construct input vectors and DuckDB table
+// only once for the (function, over clause) combination over all frame clauses.
+struct AggregateWindowTestParam {
+  const std::string function;
+  const std::string overClause;
 };
 
-std::vector<TestParam> getTestParams(
-    const std::vector<std::string>& frameClauses) {
-  std::vector<TestParam> params;
-  for (auto aggregateFunction : kAggregateFunctions) {
-    for (auto frameClause : frameClauses) {
-      params.push_back({aggregateFunction, frameClause});
+class AggregateWindowTestBase : public WindowTestBase {
+ protected:
+  explicit AggregateWindowTestBase(const AggregateWindowTestParam& testParam)
+      : function_(testParam.function), overClause_(testParam.overClause) {}
+
+  void testWindowFunction(const std::vector<RowVectorPtr>& vectors) {
+    WindowTestBase::testWindowFunction(
+        vectors, function_, {overClause_}, kFrameClauses);
+  }
+
+  const std::string function_;
+  const std::string overClause_;
+};
+
+std::vector<AggregateWindowTestParam> getAggregateTestParams() {
+  std::vector<AggregateWindowTestParam> params;
+  for (auto function : kAggregateFunctions) {
+    for (auto overClause : kOverClauses) {
+      params.push_back({function, overClause});
     }
   }
   return params;
 }
 
-class SimpleAggregatesTest : public WindowTestBase {
- protected:
-  SimpleAggregatesTest(const TestParam& testParam)
-      : function_(testParam.aggregateFunction),
-        frameClause_(testParam.frameClause) {}
-
-  RowVectorPtr makeBasicVectors(vector_size_t size) {
-    return makeRowVector({
-        makeFlatVector<int32_t>(size, [](auto row) { return row % 10; }),
-        // These columns are used for k PRECEDING/FOLLOWING frame bounds. So
-        // they should have values >= 1.
-        makeFlatVector<int64_t>(size, [](auto row) { return row % 7 + 1; }),
-        makeFlatVector<int64_t>(size, [](auto row) { return row + 1; }),
-    });
-  }
-
-  RowVectorPtr makeSinglePartitionVector(vector_size_t size) {
-    return makeRowVector({
-        makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),
-        // These columns are used for k PRECEDING/FOLLOWING frame bounds. So
-        // they should have values >= 1.
-        makeFlatVector<int64_t>(size, [](auto row) { return row % 50 + 1; }),
-        makeFlatVector<int64_t>(size, [](auto row) { return row + 1; }),
-    });
-  }
-
-  void testWindowFunction(
-      const std::vector<RowVectorPtr>& vectors,
-      const std::vector<std::string>& overClauses) {
-    WindowTestBase::testWindowFunction(
-        vectors, function_, overClauses, frameClause_);
-  }
-
-  const std::string function_;
-  const std::string frameClause_;
-};
-
-class MultiAggregatesTest : public SimpleAggregatesTest,
-                            public testing::WithParamInterface<TestParam> {
+class SimpleAggregatesTest
+    : public AggregateWindowTestBase,
+      public testing::WithParamInterface<AggregateWindowTestParam> {
  public:
-  MultiAggregatesTest() : SimpleAggregatesTest(GetParam()) {}
+  SimpleAggregatesTest() : AggregateWindowTestBase(GetParam()) {}
 };
 
-TEST_P(MultiAggregatesTest, basic) {
-  SimpleAggregatesTest::testWindowFunction(
-      {makeBasicVectors(10)}, kBasicOverClauses);
+// Tests function with a dataset with uniform partitions.
+TEST_P(SimpleAggregatesTest, basic) {
+  testWindowFunction({makeSimpleVector(10)});
 }
 
-TEST_P(MultiAggregatesTest, basicWithSortOrders) {
-  SimpleAggregatesTest::testWindowFunction(
-      {makeBasicVectors(10)}, kSortOrderBasedOverClauses);
+// Tests function with a dataset with a single partition containing all the
+// rows.
+TEST_P(SimpleAggregatesTest, singlePartition) {
+  testWindowFunction({makeSinglePartitionVector(100)});
 }
 
-TEST_P(MultiAggregatesTest, singlePartition) {
-  // Test all input rows in a single partition.
-  SimpleAggregatesTest::testWindowFunction(
-      {makeSinglePartitionVector(100)}, kBasicOverClauses);
-}
-
-TEST_P(MultiAggregatesTest, singlePartitionWithSortOrders) {
-  SimpleAggregatesTest::testWindowFunction(
-      {makeSinglePartitionVector(100)}, kSortOrderBasedOverClauses);
-}
-
-TEST_P(MultiAggregatesTest, randomInput) {
-  auto size = 50;
-  std::vector<VectorPtr> vectors;
-  // Columns c1, c2 are used for k PRECEDING/FOLLOWING frame bounds. So they
-  // should have values >= 1.
-  auto input = makeRowVector(
-      {makeFlatFuzzVector(BIGINT(), size),
-       makeFlatVector<int64_t>(size, [](auto row) { return row % 5 + 1; }),
-       makeFlatVector<int64_t>(size, [](auto row) { return row + 1; }),
-       makeFlatFuzzVector(INTEGER(), size),
-       makeFlatFuzzVector(BIGINT(), size)});
-
-  createDuckDbTable({input});
-  // Add columns c3, c4 in sort order in overClauses to impose a deterministic
-  // output row order in the tests.
+// Tests function with a dataset with a single partition but 2 input row
+// vectors.
+TEST_P(SimpleAggregatesTest, multiInput) {
   testWindowFunction(
-      {input}, addSuffixToClauses(", c3, c4", kBasicOverClauses));
+      {makeSinglePartitionVector(250), makeSinglePartitionVector(50)});
 }
 
+// Tests function with a dataset where all partitions have a single row.
+TEST_P(SimpleAggregatesTest, singleRowPartitions) {
+  testWindowFunction({makeSingleRowPartitionsVector(50)});
+}
+
+// Tests function with a randomly generated input dataset.
+TEST_P(SimpleAggregatesTest, randomInput) {
+  testWindowFunction({makeRandomInputVector(50)});
+}
+
+// Instantiate all the above tests for each combination of aggregate function
+// and over clause.
 VELOX_INSTANTIATE_TEST_SUITE_P(
+    AggregatesTestInstantiation,
     SimpleAggregatesTest,
-    MultiAggregatesTest,
-    testing::ValuesIn(getTestParams(kFrameClauses)));
+    testing::ValuesIn(getAggregateTestParams()));
 
 class StringAggregatesTest : public WindowTestBase {};
 
+// Test for an aggregate function with strings that needs out of line storage.
 TEST_F(StringAggregatesTest, nonFixedWidthAggregate) {
-  auto vectors = makeFuzzVectors(
-      ROW({"c0", "c1", "c2"}, {BIGINT(), SMALLINT(), VARCHAR()}), 10, 2);
-  createDuckDbTable(vectors);
-  testWindowFunction(vectors, "min(c2)", kBasicOverClauses);
-  testWindowFunction(vectors, "max(c2)", kSortOrderBasedOverClauses);
+  auto size = 10;
+  auto input = {makeRowVector({
+      makeRandomInputVector(BIGINT(), size, 0.2),
+      makeRandomInputVector(SMALLINT(), size, 0.2),
+      makeRandomInputVector(VARCHAR(), size, 0.3),
+      makeRandomInputVector(VARCHAR(), size, 0.3),
+  })};
+
+  testWindowFunction(input, "min(c2)", kOverClauses);
+  testWindowFunction(input, "max(c2)", kOverClauses);
 }
 
 }; // namespace
