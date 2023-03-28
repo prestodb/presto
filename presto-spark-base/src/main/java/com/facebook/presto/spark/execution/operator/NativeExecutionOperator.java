@@ -169,7 +169,9 @@ public class NativeExecutionOperator
                     return processResult(page.get());
                 }
                 else {
-                    finished = true;
+                    if (taskInfo.isPresent() && taskInfo.get().getTaskStatus().getState().isDone()) {
+                        finished = true;
+                    }
                     return null;
                 }
             }
@@ -222,10 +224,7 @@ public class NativeExecutionOperator
     }
 
     @Override
-    public void finish()
-    {
-        finished = true;
-    }
+    public void finish() {}
 
     @Override
     public boolean isFinished()
