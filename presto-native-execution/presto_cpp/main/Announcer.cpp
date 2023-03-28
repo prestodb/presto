@@ -147,6 +147,8 @@ void Announcer::makeAnnouncement() {
           LOG(WARNING) << "Announcement failed: HTTP "
                        << message->getStatusCode() << " - "
                        << response->dumpBodyChain();
+        } else if (response->hasError()) {
+          LOG(ERROR) << "Announcement failed: " << response->error();
         } else {
           LOG(INFO) << "Announcement succeeded: " << message->getStatusCode();
         }

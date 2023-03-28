@@ -13,11 +13,14 @@
  */
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
+#include <velox/common/base/VeloxException.h>
+#include <velox/common/base/tests/GTestUtils.h>
 #include <velox/common/memory/Memory.h>
 #include "presto_cpp/main/http/HttpClient.h"
 #include "presto_cpp/main/http/HttpServer.h"
 
 using namespace facebook::presto;
+using namespace facebook::velox;
 using namespace facebook::velox::memory;
 
 int main(int argc, char** argv) {
@@ -75,6 +78,7 @@ void blackhole(
     proxygen::ResponseHandler* downstream) {}
 
 std::string bodyAsString(http::HttpResponse& response, MemoryPool* pool) {
+  EXPECT_FALSE(response.hasError());
   std::ostringstream oss;
   auto iobufs = response.consumeBody();
   for (auto& body : iobufs) {
@@ -142,13 +146,14 @@ sendGet(http::HttpClient* client, const std::string& url, MemoryPool* pool) {
   return http::RequestBuilder()
       .method(proxygen::HTTPMethod::GET)
       .url(url)
-
       .send(client, pool);
 }
 
 TEST(HttpTest, basic) {
+  auto rootTracker = MemoryUsageTracker::create();
   auto memoryPool = getProcessDefaultMemoryManager().getPool(
       "basic", MemoryPool::Kind::kLeaf);
+  memoryPool->setMemoryUsageTracker(rootTracker->addChild());
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
   server->registerGet("/ping", ping);
@@ -167,7 +172,8 @@ TEST(HttpTest, basic) {
     auto response = sendGet(client.get(), "/ping", memoryPool.get()).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
 
-    response = sendGet(client.get(), "/echo/good-morning", memoryPool.get()).get();
+    response =
+        sendGet(client.get(), "/echo/good-morning", memoryPool.get()).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
     ASSERT_EQ(bodyAsString(*response, memoryPool.get()), "/echo/good-morning");
 
@@ -182,7 +188,8 @@ TEST(HttpTest, basic) {
     response = sendGet(client.get(), "/wrong/path", memoryPool.get()).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpNotFound);
 
-    auto tryResponse = sendGet(client.get(), "/blackhole", memoryPool.get()).getTry();
+    auto tryResponse =
+        sendGet(client.get(), "/blackhole", memoryPool.get()).getTry();
     ASSERT_TRUE(tryResponse.hasException());
     auto httpException = dynamic_cast<proxygen::HTTPException*>(
         tryResponse.tryGetExceptionObject());
@@ -201,9 +208,45 @@ TEST(HttpTest, basic) {
   ASSERT_EQ(socketException->getType(), folly::AsyncSocketException::NOT_OPEN);
 }
 
+TEST(HttpTest, httpResponseAllocationFailure) {
+  const int64_t memoryCapBytes = 1 << 10;
+  auto rootTracker = MemoryUsageTracker::create(memoryCapBytes);
+  auto rootPool = getProcessDefaultMemoryManager().getPool(
+      "httpResponseAllocationFailure",
+      MemoryPool::Kind::kAggregate,
+      memoryCapBytes);
+  rootPool->setMemoryUsageTracker(rootTracker);
+  auto leafPool = rootPool->addChild("httpResponseAllocationFailure");
+  auto server =
+      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  server->registerGet(R"(/echo.*)", echo);
+  server->registerPost(R"(/echo.*)", echo);
+
+  HttpServerWrapper wrapper(std::move(server));
+  auto serverAddress = wrapper.start().get();
+
+  HttpClientFactory clientFactory;
+  auto client =
+      clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
+
+  {
+    const std::string echoMessage(memoryCapBytes * 4, 'C');
+    auto response =
+        sendGet(
+            client.get(), fmt::format("/echo/{}", echoMessage), leafPool.get())
+            .get();
+    ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
+    ASSERT_TRUE(response->hasError());
+    VELOX_ASSERT_THROW(response->consumeBody(), "");
+  }
+  wrapper.stop();
+}
+
 TEST(HttpTest, serverRestart) {
+  auto rootTracker = MemoryUsageTracker::create();
   auto memoryPool = getProcessDefaultMemoryManager().getPool(
-      "basic", MemoryPool::Kind::kLeaf);
+      "serverRestart", MemoryPool::Kind::kLeaf);
+  memoryPool->setMemoryUsageTracker(rootTracker->addChild());
 
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
@@ -313,8 +356,10 @@ http::EndpointRequestHandlerFactory asyncMsg(
 } // namespace
 
 TEST(HttpTest, asyncRequests) {
+  auto rootTracker = MemoryUsageTracker::create();
   auto memoryPool = getProcessDefaultMemoryManager().getPool(
-      "basic", MemoryPool::Kind::kLeaf);
+      "asyncRequests", MemoryPool::Kind::kLeaf);
+  memoryPool->setMemoryUsageTracker(rootTracker->addChild());
 
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
@@ -348,8 +393,10 @@ TEST(HttpTest, asyncRequests) {
 }
 
 TEST(HttpTest, timedOutRequests) {
+  auto rootTracker = MemoryUsageTracker::create();
   auto memoryPool = getProcessDefaultMemoryManager().getPool(
-      "basic", MemoryPool::Kind::kLeaf);
+      "timedOutRequests", MemoryPool::Kind::kLeaf);
+  memoryPool->setMemoryUsageTracker(rootTracker->addChild());
 
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
@@ -384,8 +431,10 @@ TEST(HttpTest, timedOutRequests) {
 // TODO: Enabled it when fixed.
 // Disabled it, while we are investigating and fixing this test failure.
 TEST(HttpTest, DISABLED_outstandingRequests) {
+  auto rootTracker = MemoryUsageTracker::create();
   auto memoryPool = getProcessDefaultMemoryManager().getPool(
-      "basic", MemoryPool::Kind::kLeaf);
+      "DISABLED_outstandingRequests", MemoryPool::Kind::kLeaf);
+  memoryPool->setMemoryUsageTracker(rootTracker->addChild());
 
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));

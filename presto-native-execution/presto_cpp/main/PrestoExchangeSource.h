@@ -38,6 +38,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   void close() override;
 
+  int testingFailedAttempts() const {
+    return failedAttempts_;
+  }
+
  private:
   void request() override;
 
@@ -45,7 +49,14 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   void processDataResponse(std::unique_ptr<http::HttpResponse> response);
 
-  void processDataError(const std::string& path, const std::string& error);
+  /// If 'retry' is true, then retry the http request failure until reaches the
+  /// retry limit, otherwise just set exchange source error without retry. As
+  /// for now, we don't retry on the request failure which is caused by the
+  /// memory allocation failure for the http response data.
+  void processDataError(
+      const std::string& path,
+      const std::string& error,
+      bool retry = true);
 
   void acknowledgeResults(int64_t ackSequence);
 
@@ -57,6 +68,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const std::string basePath_;
   const std::string host_;
   const uint16_t port_;
+
   std::unique_ptr<http::HttpClient> httpClient_;
   int failedAttempts_;
   std::atomic_bool closed_{false};

@@ -103,6 +103,8 @@ void PrestoExchangeSource::doRequest() {
                   "Received HTTP {} {}",
                   headers->getStatusCode(),
                   headers->getStatusMessage()));
+        } else if (response->hasError()) {
+          self->processDataError(path, response->error(), false);
         } else {
           self->processDataResponse(std::move(response));
         }
@@ -206,9 +208,10 @@ void PrestoExchangeSource::processDataResponse(
 
 void PrestoExchangeSource::processDataError(
     const std::string& path,
-    const std::string& error) {
-  failedAttempts_++;
-  if (failedAttempts_ < 3) {
+    const std::string& error,
+    bool retry) {
+  ++failedAttempts_;
+  if (retry && failedAttempts_ < 3) {
     VLOG(1) << "Failed to fetch data from " << host_ << ":" << port_ << " "
             << path << " - Retrying: " << error;
 
