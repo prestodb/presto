@@ -87,13 +87,6 @@ class Base64 {
   static std::string decode_url(folly::StringPiece text);
 
   /*
-   * Take str and writes the encoded string to out.
-   */
-  static uint32_t base64_encode_string(
-      const std::string& str,
-      std::string& out);
-
-  /*
    * Take str(base64 encoded string) and writes the decoded string to out.
    */
   static void base64_decode_string(const std::string& str, std::string& out);
