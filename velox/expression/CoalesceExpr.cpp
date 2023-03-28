@@ -58,6 +58,11 @@ void CoalesceExpr::evalSpecialForm(
 
     if (!result->mayHaveNulls()) {
       // No nulls left.
+      return;
+    }
+
+    if (context.errors()) {
+      context.deselectErrors(*activeRows);
     }
 
     decodedVector.get()->decode(*result, *activeRows);

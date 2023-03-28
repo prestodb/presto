@@ -21,6 +21,7 @@
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/vector/ConstantVector.h"
+#include "velox/vector/tests/TestingAlwaysThrowsFunction.h"
 
 namespace facebook::velox {
 
@@ -331,5 +332,37 @@ TEST_F(TryExprTest, nonDefaultNulls) {
   auto commonResult = evaluate<SimpleVector<bool>>(
       "try(distinct_from(10::INTEGER, codepoint(c0)))", input);
   assertEqualVectors(expected, commonResult);
+}
+
+TEST_F(TryExprTest, coalesce) {
+  registerFunction<TestingAlwaysThrowsFunction, bool, bool>({"always_throws"});
+  auto data = makeRowVector(
+      {makeNullableFlatVector<bool>({true, true, std::nullopt}),
+       makeFlatVector<double>({1.1, 2.2, 3.3}),
+       makeFlatVector<double>({1.1, 2.1, 3.1}),
+       makeNullableFlatVector<bool>({false, false, std::nullopt}),
+       makeNullableFlatVector<bool>(
+           {std::nullopt, std::nullopt, std::nullopt})});
+
+  // Test Conjunct with pre-existing errors in Coalesce. Pre-existing error
+  // should be preserved.
+  auto result = evaluate(
+      "try(coalesce(always_throws(c0), is_nan(c1) or is_nan(c2)))", data);
+  auto expected =
+      makeNullableFlatVector<bool>({std::nullopt, std::nullopt, false});
+  assertEqualVectors(expected, result);
+
+  // Test Coalesce over two Conjuncts on the same rows where the first Conjunct
+  // throws. The errors from the first Conjunct should be preserved.
+  result = evaluate(
+      "try(coalesce(always_throws(c0) or always_throws(c3), is_nan(c1) or is_nan(c2)))",
+      data);
+  assertEqualVectors(expected, result);
+
+  // Test Coalesce in Conjunct on rows that has pre-existing errors. Coalesce
+  // should be evaluated on these rows and these rows should not throw.
+  result = evaluate("always_throws(c0) or coalesce(c4, is_finite(c1))", data);
+  expected = makeFlatVector<bool>({true, true, true});
+  assertEqualVectors(expected, result);
 }
 } // namespace facebook::velox
