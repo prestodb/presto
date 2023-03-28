@@ -66,6 +66,7 @@ BIGINT, REAL, DOUBLE or VARCHAR is supported. Casting to ARRAY and MAP is
 supported when the element type of the array is one of the supported types, or
 when the key type of the map is BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT,
 REAL, DOUBLE, or VARCHAR and value type of the map is one of the supported types.
+When casting from JSON to ROW, both JSON array and JSON object are supported.
 Behaviors of the casts are shown with the examples below:
 
 ::
@@ -80,6 +81,8 @@ Behaviors of the casts are shown with the examples below:
     SELECT CAST(JSON '[1,null,456]' AS ARRAY(INTEGER)); -- [1, NULL, 456]
     SELECT CAST(JSON '[[1,23],[456]]' AS ARRAY(ARRAY(INTEGER))); -- [[1, 23], [456]]
     SELECT CAST(JSON '{"k1":1,"k2":23,"k3":456}' AS MAP(VARCHAR, INTEGER)); -- {k1=1, k2=23, k3=456}
+    SELECT CAST(JSON '{"v1":123,"v2":"abc","v3":true}' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=abc, v3=true}
+    SELECT CAST(JSON '[123,"abc",true]' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=abc, v3=true}
 
 Notice that casting a JSON text to VARCHAR does not turn the JSON text into
 a plain string as is. Instead, it returns the VARCHAR string represented by
@@ -153,9 +156,8 @@ JSON Functions
         SELECT json_size('{"x": [1, 2, 3]}', '$.x'); -- 3
         SELECT json_size('{"x": {"a": 1, "b": 2}}', '$.x.a'); -- 0
 
-============
 JSON Vectors
-============
+------------
 
 There are a number of Presto JSON functions expecting JSON-typed inputs or
 returning JSON-typed outputs. Hence, developers who use the Velox library may
