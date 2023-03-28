@@ -1157,6 +1157,10 @@ class PartitionedOutputNode : public PlanNode {
     return replicateNullsAndAny_;
   }
 
+  const PartitionFunctionSpecPtr& partitionFunctionSpecPtr() const {
+    return partitionFunctionSpec_;
+  }
+
   const PartitionFunctionSpec& partitionFunctionSpec() const {
     return *partitionFunctionSpec_;
   }
