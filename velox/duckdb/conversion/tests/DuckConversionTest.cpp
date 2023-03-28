@@ -120,6 +120,13 @@ TEST(DuckConversionTest, types) {
   testRoundTrip(REAL());
   testRoundTrip(DOUBLE());
 
+  testRoundTrip(TIMESTAMP());
+  testRoundTrip(DATE());
+  testRoundTrip(INTERVAL_DAY_TIME());
+
+  testRoundTrip(LONG_DECIMAL(22, 5));
+  testRoundTrip(SHORT_DECIMAL(16, 8));
+
   testRoundTrip(ARRAY(BIGINT()));
   testRoundTrip(MAP(VARCHAR(), REAL()));
   testRoundTrip(ROW(
