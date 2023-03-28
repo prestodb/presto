@@ -22,14 +22,20 @@ namespace facebook::velox::exec {
 
 namespace {
 
-// Base case for primitives
-template <TypeKind T>
-void copy_from_internal(GenericWriter& out, const GenericView& in) {
-  // Maybe we should print a warning asking the user to have a fast path
-  // specialization for primitives and not to use this?.
-  using native_t = typename TypeTraits<T>::NativeType;
-  out.castTo<native_t>() = in.castTo<native_t>();
-}
+template <TypeKind kind>
+struct KindToSimpleType {
+  using type = typename TypeTraits<kind>::NativeType;
+};
+
+template <>
+struct KindToSimpleType<TypeKind::VARCHAR> {
+  using type = Varchar;
+};
+
+template <>
+struct KindToSimpleType<TypeKind::VARBINARY> {
+  using type = Varbinary;
+};
 
 // Fast path when array elements are primitives.
 template <TypeKind T>
@@ -39,9 +45,33 @@ void copy_from_internal_array_fast(GenericWriter& out, const GenericView& in) {
     VELOX_UNREACHABLE(
         "Element type for fast path of copy_from must be primitive.");
   } else {
-    using native_t = typename TypeTraits<T>::NativeType;
-    out.castTo<Array<native_t>>().copy_from(in.castTo<Array<native_t>>());
+    using simple_element_t = typename KindToSimpleType<T>::type;
+    out.castTo<Array<simple_element_t>>().copy_from(
+        in.castTo<Array<simple_element_t>>());
   }
+}
+
+// Base case for primitives.
+template <TypeKind T>
+void copy_from_internal(GenericWriter& out, const GenericView& in) {
+  // Maybe we should print a warning asking the user to have a fast path
+  // specialization for primitives and not to use this?.
+  using simple_element_t = typename KindToSimpleType<T>::type;
+  out.castTo<simple_element_t>() = in.castTo<simple_element_t>();
+}
+
+template <>
+void copy_from_internal<TypeKind::VARBINARY>(
+    GenericWriter& out,
+    const GenericView& in) {
+  out.castTo<Varbinary>().copy_from(in.castTo<Varbinary>());
+}
+
+template <>
+void copy_from_internal<TypeKind::VARCHAR>(
+    GenericWriter& out,
+    const GenericView& in) {
+  out.castTo<Varchar>().copy_from(in.castTo<Varchar>());
 }
 
 template <>

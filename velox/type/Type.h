@@ -1567,6 +1567,100 @@ struct CustomType {
   CustomType() {}
 };
 
+struct Varbinary {
+ private:
+  Varbinary() {}
+};
+struct Varchar {
+ private:
+  Varchar() {}
+};
+
+template <typename T>
+struct SimpleTypeTrait {};
+
+template <>
+struct SimpleTypeTrait<int64_t> : public TypeTraits<TypeKind::BIGINT> {};
+
+template <>
+struct SimpleTypeTrait<int32_t> : public TypeTraits<TypeKind::INTEGER> {};
+
+template <>
+struct SimpleTypeTrait<int16_t> : public TypeTraits<TypeKind::SMALLINT> {};
+
+template <>
+struct SimpleTypeTrait<int8_t> : public TypeTraits<TypeKind::TINYINT> {};
+
+template <>
+struct SimpleTypeTrait<float> : public TypeTraits<TypeKind::REAL> {};
+
+template <>
+struct SimpleTypeTrait<double> : public TypeTraits<TypeKind::DOUBLE> {};
+
+template <>
+struct SimpleTypeTrait<bool> : public TypeTraits<TypeKind::BOOLEAN> {};
+
+template <>
+struct SimpleTypeTrait<Varchar> : public TypeTraits<TypeKind::VARCHAR> {};
+
+template <>
+struct SimpleTypeTrait<Varbinary> : public TypeTraits<TypeKind::VARBINARY> {};
+
+template <>
+struct SimpleTypeTrait<Timestamp> : public TypeTraits<TypeKind::TIMESTAMP> {};
+
+template <>
+struct SimpleTypeTrait<Date> : public TypeTraits<TypeKind::DATE> {};
+
+template <>
+struct SimpleTypeTrait<IntervalDayTime>
+    : public TypeTraits<TypeKind::INTERVAL_DAY_TIME> {};
+
+template <typename T>
+struct SimpleTypeTrait<Generic<T>> {
+  static constexpr TypeKind typeKind = TypeKind::UNKNOWN;
+  static constexpr bool isPrimitiveType = false;
+  static constexpr bool isFixedWidth = false;
+};
+
+template <typename T>
+struct SimpleTypeTrait<std::shared_ptr<T>>
+    : public TypeTraits<TypeKind::OPAQUE> {};
+
+template <typename KEY, typename VAL>
+struct SimpleTypeTrait<Map<KEY, VAL>> : public TypeTraits<TypeKind::MAP> {};
+
+template <typename ELEMENT>
+struct SimpleTypeTrait<Array<ELEMENT>> : public TypeTraits<TypeKind::ARRAY> {};
+
+template <typename... T>
+struct SimpleTypeTrait<Row<T...>> : public TypeTraits<TypeKind::ROW> {};
+
+template <>
+struct SimpleTypeTrait<DynamicRow> : public TypeTraits<TypeKind::ROW> {};
+
+template <>
+struct SimpleTypeTrait<UnscaledShortDecimal>
+    : public TypeTraits<TypeKind::SHORT_DECIMAL> {};
+
+template <>
+struct SimpleTypeTrait<UnscaledLongDecimal>
+    : public TypeTraits<TypeKind::LONG_DECIMAL> {};
+
+// T is also a simple type that represent the physical type of the custom type.
+template <typename T>
+struct SimpleTypeTrait<CustomType<T>>
+    : public SimpleTypeTrait<typename T::type> {
+  using physical_t = SimpleTypeTrait<typename T::type>;
+  static constexpr TypeKind typeKind = physical_t::typeKind;
+  static constexpr bool isPrimitiveType = physical_t::isPrimitiveType;
+  static constexpr bool isFixedWidth = physical_t::isFixedWidth;
+
+  // This is different than the physical type name.
+  static constexpr char* name = T::typeName;
+};
+
+// TODO: move cppToType testing utilities.
 template <typename T>
 struct CppToType {};
 
@@ -1577,14 +1671,6 @@ struct CppToTypeBase : public TypeTraits<KIND> {
   }
 };
 
-struct Varbinary {
- private:
-  Varbinary() {}
-};
-struct Varchar {
- private:
-  Varchar() {}
-};
 template <>
 struct CppToType<int64_t> : public CppToTypeBase<TypeKind::BIGINT> {};
 
