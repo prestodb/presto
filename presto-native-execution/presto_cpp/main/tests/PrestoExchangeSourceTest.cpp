@@ -21,10 +21,12 @@
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/MmapAllocator.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
+using namespace facebook::velox::memory;
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
@@ -453,4 +455,41 @@ TEST_F(PrestoExchangeSourceTest, failedProducer) {
   serverWrapper.stop();
 
   EXPECT_THROW(waitForNextPage(queue), std::runtime_error);
+}
+
+TEST_F(PrestoExchangeSourceTest, exceedingMemoryCapacityForHttpResponse) {
+  const int64_t memoryCapBytes = 1 << 10;
+  auto rootTracker = MemoryUsageTracker::create(memoryCapBytes);
+  auto rootPool = getProcessDefaultMemoryManager().getPool(
+      "httpResponseAllocationFailure",
+      MemoryPool::Kind::kAggregate,
+      memoryCapBytes);
+  rootPool->setMemoryUsageTracker(rootTracker);
+  auto leafPool = rootPool->addChild("exceedingMemoryCapacityForHttpResponse");
+
+  auto producer = std::make_unique<Producer>();
+
+  auto producerServer =
+      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  producer->registerEndpoints(producerServer.get());
+
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+
+  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  queue->addSourceLocked();
+  queue->noMoreSources();
+  auto exchangeSource = std::make_shared<PrestoExchangeSource>(
+      makeProducerUri(producerAddress), 3, queue, leafPool.get());
+
+  requestNextPage(queue, exchangeSource);
+  const std::string largePayload(2 * memoryCapBytes, 'L');
+
+  producer->enqueue(largePayload);
+  ASSERT_ANY_THROW(waitForNextPage(queue));
+  producer->noMoreData();
+  // Verify that we never retry on memory allocation failure of the http
+  // response data but just fails the query.
+  ASSERT_EQ(exchangeSource->testingFailedAttempts(), 1);
+  ASSERT_EQ(leafPool->getCurrentBytes(), 0);
 }

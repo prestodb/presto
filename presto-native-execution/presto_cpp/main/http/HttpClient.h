@@ -22,6 +22,7 @@
 
 namespace facebook::presto::http {
 
+/// NOTE: this class is not thread safe.
 class HttpResponse {
  public:
   HttpResponse(
@@ -33,31 +34,66 @@ class HttpResponse {
 
   ~HttpResponse();
 
-  proxygen::HTTPMessage* FOLLY_NONNULL headers() {
+  proxygen::HTTPMessage* headers() {
     return headers_.get();
   }
 
-  // Appends payload to the body of this HttpResponse.
+  /// Appends payload to the body of this HttpResponse.
   void append(std::unique_ptr<folly::IOBuf>&& iobuf);
 
-  // Returns true if the body of this HttpResponse is empty.
+  /// Indicates if this http response has error occurred. If it has error, we
+  /// will skip the rest of http response data processing.
+  ///
+  /// NOTE: a http client might append the payload more than once if the
+  /// response payload is too big.
+  bool hasError() const {
+    return !error_.empty();
+  }
+
+  /// Returns http response error string if error occurred during the http
+  /// response data processing.
+  ///
+  /// NOTE: the error is only set when append() fails to allocate memory.
+  const std::string& error() const {
+    return error_;
+  }
+
+  /// Returns true if the body of this HttpResponse is empty.
   bool empty() const {
     return bodyChain_.empty();
   }
 
-  // Consumes the response body. The caller is responsible for freeing the
-  // backed memory of this IOBuf from MappedMemory. Otherwise it could lead to
-  // memory leak.
+  /// Consumes the response body. The caller is responsible for freeing the
+  /// backed memory of this IOBuf from MappedMemory. Otherwise it could lead to
+  /// memory leak.
   std::vector<std::unique_ptr<folly::IOBuf>> consumeBody() {
+    VELOX_CHECK(!hasError());
     return std::move(bodyChain_);
   }
 
   std::string dumpBodyChain() const;
 
  private:
+  // Invoked to set the error on the first encountered 'exception'.
+  void setError(const std::exception& exception) {
+    VELOX_CHECK(!hasError())
+    error_ = exception.what();
+    freeBuffers();
+  }
+
+  void freeBuffers() {
+    for (auto& iobuf : bodyChain_) {
+      if (iobuf != nullptr) {
+        pool_->free(iobuf->writableData(), iobuf->length());
+      }
+    }
+    bodyChain_.clear();
+  }
+
   const std::unique_ptr<proxygen::HTTPMessage> headers_;
   velox::memory::MemoryPool* const pool_;
 
+  std::string error_{};
   std::vector<std::unique_ptr<folly::IOBuf>> bodyChain_;
 };
 
