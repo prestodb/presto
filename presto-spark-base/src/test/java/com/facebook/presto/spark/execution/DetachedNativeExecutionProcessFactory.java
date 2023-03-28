@@ -15,9 +15,7 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.google.inject.Inject;
@@ -39,7 +37,6 @@ public class DetachedNativeExecutionProcessFactory
     private final HttpClient httpClient;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
-    private final TaskManagerConfig taskManagerConfig;
     private final WorkerProperty<?, ?, ?> workerProperty;
 
     @Inject
@@ -48,40 +45,40 @@ public class DetachedNativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            TaskManagerConfig taskManagerConfig,
             WorkerProperty<?, ?, ?> workerProperty)
     {
-        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, taskManagerConfig, workerProperty);
+        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, workerProperty);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
-        this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
 
     @Override
     public NativeExecutionProcess createNativeExecutionProcess(
-            Session session,
-            URI location)
+            String executablePath,
+            URI location,
+            String catalogName)
     {
-        return createNativeExecutionProcess(session, location, new Duration(2, TimeUnit.MINUTES));
+        return createNativeExecutionProcess(executablePath, location, catalogName, new Duration(2, TimeUnit.MINUTES));
     }
 
     @Override
     public NativeExecutionProcess createNativeExecutionProcess(
-            Session session,
+            String executablePath,
             URI location,
+            String catalogName,
             Duration maxErrorDuration)
     {
         try {
             return new DetachedNativeExecutionProcess(
-                    session,
+                    executablePath,
                     location,
+                    catalogName,
                     httpClient,
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
                     maxErrorDuration,
-                    taskManagerConfig,
                     workerProperty);
         }
         catch (IOException e) {

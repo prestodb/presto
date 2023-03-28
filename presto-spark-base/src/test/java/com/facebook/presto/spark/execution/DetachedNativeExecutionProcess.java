@@ -16,9 +16,7 @@ package com.facebook.presto.spark.execution;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import io.airlift.units.Duration;
 
@@ -30,8 +28,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This is a testing class that essentially does nothing. Its mere purpose is to disable the launching and killing of
- * native process by native execution. Instead it allows the native execution to reuse the same externally launched
+ * This is a testing class that essentially does nothing. Its mere, purpose is to disable the launching and killing of
+ * native process by native execution. Instead, it allows the native execution to reuse the same externally launched
  * process over and over again.
  */
 public class DetachedNativeExecutionProcess
@@ -40,22 +38,22 @@ public class DetachedNativeExecutionProcess
     private static final Logger log = Logger.get(DetachedNativeExecutionProcess.class);
 
     public DetachedNativeExecutionProcess(
-            Session session,
+            String executablePath,
             URI uri,
+            String catalogName,
             HttpClient httpClient,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
-            TaskManagerConfig taskManagerConfig,
             WorkerProperty<?, ?, ?> workerProperty) throws IOException
     {
-        super(session,
+        super(executablePath,
                 uri,
+                catalogName,
                 httpClient,
                 errorRetryScheduledExecutor,
                 serverInfoCodec,
                 maxErrorDuration,
-                taskManagerConfig,
                 workerProperty);
     }
 

@@ -76,7 +76,9 @@ public class HttpNativeExecutionTaskInfoFetcher
                             @Override
                             public void onSuccess(BaseResponse<TaskInfo> result)
                             {
-                                log.debug("TaskInfoCallback success %s", result.getValue().getTaskId());
+                                TaskInfo taskInfoResult = result.getValue();
+                                log.info("TaskInfoCallback success taskId=%s, taskStatus=%s, bufferState=%s",
+                                        taskInfoResult.getTaskId(), taskInfoResult.getTaskStatus(), taskInfoResult.getOutputBuffers().getState());
                                 taskInfo.set(result.getValue());
                             }
 

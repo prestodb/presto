@@ -30,7 +30,6 @@ import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.SplitOperatorInfo;
 import com.facebook.presto.spark.execution.NativeExecutionProcess;
-import com.facebook.presto.spark.execution.NativeExecutionProcessFactory;
 import com.facebook.presto.spark.execution.NativeExecutionTask;
 import com.facebook.presto.spark.execution.NativeExecutionTaskFactory;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -46,15 +45,12 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.io.IOException;
-import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
@@ -79,7 +75,6 @@ public class NativeExecutionOperator
         implements SourceOperator
 {
     private static final Logger log = Logger.get(NativeExecutionOperator.class);
-    private static final String NATIVE_EXECUTION_SERVER_URI = "http://127.0.0.1";
 
     private final PlanNodeId sourceId;
     private final OperatorContext operatorContext;
@@ -88,10 +83,9 @@ public class NativeExecutionOperator
     private final TableWriteInfo tableWriteInfo;
     private final Optional<String> shuffleWriteInfo;
     private final PagesSerde serde;
-    private final NativeExecutionProcessFactory processFactory;
+    private final NativeExecutionProcess nativeExecutionProcess;
     private final NativeExecutionTaskFactory taskFactory;
 
-    private NativeExecutionProcess process;
     private NativeExecutionTask task;
     private CompletableFuture<Void> taskStatusFuture;
     private TaskSource taskSource;
@@ -103,7 +97,7 @@ public class NativeExecutionOperator
             PlanFragment planFragment,
             TableWriteInfo tableWriteInfo,
             PagesSerde serde,
-            NativeExecutionProcessFactory processFactory,
+            NativeExecutionProcess nativeExecutionProcess,
             NativeExecutionTaskFactory taskFactory,
             Optional<String> shuffleWriteInfo)
     {
@@ -114,7 +108,7 @@ public class NativeExecutionOperator
         this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
         this.shuffleWriteInfo = requireNonNull(shuffleWriteInfo, "shuffleWriteInfo is null");
         this.serde = requireNonNull(serde, "serde is null");
-        this.processFactory = requireNonNull(processFactory, "processFactory is null");
+        this.nativeExecutionProcess = requireNonNull(nativeExecutionProcess, "processFactory is null");
         this.taskFactory = requireNonNull(taskFactory, "taskFactory is null");
     }
 
@@ -146,13 +140,13 @@ public class NativeExecutionOperator
     @Override
     public Page getOutput()
     {
+        log.info("getOutput: Calling getOutput");
         if (finished) {
+            log.info("getOutput: finished. returning null");
             return null;
         }
 
-        if (process == null) {
-            createProcess();
-            checkState(process != null, "process is null");
+        if (task == null) {
             createTask();
             checkState(task != null, "task is null");
             taskStatusFuture = task.start();
@@ -169,6 +163,7 @@ public class NativeExecutionOperator
                     return processResult(page.get());
                 }
                 else {
+                    log.info("Did not get a page. finished.currentVale=%s. Setting finished=true and returning null", finished);
                     finished = true;
                     return null;
                 }
@@ -183,29 +178,14 @@ public class NativeExecutionOperator
         }
     }
 
-    private void createProcess()
-    {
-        try {
-            this.process = processFactory.createNativeExecutionProcess(
-                    operatorContext.getSession(),
-                    URI.create(NATIVE_EXECUTION_SERVER_URI));
-            log.info("Starting native execution process of task" + getOperatorContext().getDriverContext().getTaskId().toString());
-            process.start();
-        }
-        catch (ExecutionException | InterruptedException | IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private void createTask()
     {
         checkState(taskSource != null, "taskSource is null");
         checkState(taskStatusFuture == null, "taskStatusFuture has already been set");
         checkState(task == null, "task has already been set");
-        checkState(process != null, "process is null");
         this.task = taskFactory.createNativeExecutionTask(
                 operatorContext.getSession(),
-                uriBuilderFrom(URI.create(NATIVE_EXECUTION_SERVER_URI)).port(process.getPort()).build(),
+                nativeExecutionProcess.getLocation(),
                 operatorContext.getDriverContext().getTaskId(),
                 planFragment,
                 ImmutableList.of(taskSource),
@@ -224,7 +204,6 @@ public class NativeExecutionOperator
     @Override
     public void finish()
     {
-        finished = true;
     }
 
     @Override
@@ -277,10 +256,6 @@ public class NativeExecutionOperator
         if (task != null) {
             task.stop();
         }
-        if (process != null) {
-            log.info("Closing native execution process for task " + getOperatorContext().getDriverContext().getTaskId().toString());
-            process.close();
-        }
     }
 
     public static class NativeExecutionOperatorFactory
@@ -292,7 +267,7 @@ public class NativeExecutionOperator
         private final TableWriteInfo tableWriteInfo;
         private final Optional<String> shuffleWriteInfo;
         private final PagesSerdeFactory serdeFactory;
-        private final NativeExecutionProcessFactory processFactory;
+        private final NativeExecutionProcess nativeExecutionProcess;
         private final NativeExecutionTaskFactory taskFactory;
         private boolean closed;
 
@@ -302,7 +277,7 @@ public class NativeExecutionOperator
                 PlanFragment planFragment,
                 TableWriteInfo tableWriteInfo,
                 PagesSerdeFactory serdeFactory,
-                NativeExecutionProcessFactory processFactory,
+                NativeExecutionProcess nativeExecutionProcess,
                 NativeExecutionTaskFactory taskFactory,
                 Optional<String> shuffleWriteInfo)
         {
@@ -312,7 +287,7 @@ public class NativeExecutionOperator
             this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
             this.shuffleWriteInfo = requireNonNull(shuffleWriteInfo, "shuffleWriteInfo is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
-            this.processFactory = requireNonNull(processFactory, "processFactory is null");
+            this.nativeExecutionProcess = requireNonNull(nativeExecutionProcess, "processFactory is null");
             this.taskFactory = requireNonNull(taskFactory, "taskFactory is null");
         }
 
@@ -333,7 +308,7 @@ public class NativeExecutionOperator
                     planFragment,
                     tableWriteInfo,
                     serdeFactory.createPagesSerde(),
-                    processFactory,
+                    nativeExecutionProcess,
                     taskFactory,
                     shuffleWriteInfo);
         }
@@ -357,14 +332,14 @@ public class NativeExecutionOperator
         private final Session session;
         private final Optional<String> shuffleWriteInfo;
         private final BlockEncodingSerde blockEncodingSerde;
-        private final NativeExecutionProcessFactory processFactory;
+        private final NativeExecutionProcess nativeExecutionProcess;
         private final NativeExecutionTaskFactory taskFactory;
 
         public NativeExecutionOperatorTranslator(
                 Session session,
                 PlanFragment fragment,
                 BlockEncodingSerde blockEncodingSerde,
-                NativeExecutionProcessFactory processFactory,
+                NativeExecutionProcess nativeExecutionProcess,
                 NativeExecutionTaskFactory taskFactory,
                 Optional<String> shuffleWriteInfo)
         {
@@ -372,7 +347,7 @@ public class NativeExecutionOperator
             this.session = requireNonNull(session, "session is null");
             this.shuffleWriteInfo = requireNonNull(shuffleWriteInfo, "shuffleWriteInfo is null");
             this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-            this.processFactory = requireNonNull(processFactory, "processFactory is null");
+            this.nativeExecutionProcess = nativeExecutionProcess;
             this.taskFactory = requireNonNull(taskFactory, "taskFactory is null");
         }
 
@@ -389,7 +364,7 @@ public class NativeExecutionOperator
                         fragment.withSubPlan(((NativeExecutionNode) node).getSubPlan()),
                         context.getTableWriteInfo(),
                         new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session), isExchangeChecksumEnabled(session)),
-                        processFactory,
+                        nativeExecutionProcess,
                         taskFactory,
                         shuffleWriteInfo);
                 return Optional.of(

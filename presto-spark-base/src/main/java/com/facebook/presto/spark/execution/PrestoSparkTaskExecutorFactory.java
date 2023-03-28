@@ -127,6 +127,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -181,7 +182,8 @@ public class PrestoSparkTaskExecutorFactory
         implements IPrestoSparkTaskExecutorFactory
 {
     private static final Logger log = Logger.get(PrestoSparkTaskExecutorFactory.class);
-
+    private static final String NATIVE_EXECUTION_SERVER_URI = "http://127.0.0.1";
+    private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "./sapphire_cpp";
     private final SessionPropertyManager sessionPropertyManager;
     private final BlockEncodingManager blockEncodingManager;
     private final FunctionAndTypeManager functionAndTypeManager;
@@ -219,9 +221,10 @@ public class PrestoSparkTaskExecutorFactory
     private final AtomicBoolean memoryRevokePending = new AtomicBoolean();
     private final AtomicBoolean memoryRevokeRequestInProgress = new AtomicBoolean();
     private final BlockEncodingSerde blockEncodingSerde;
-    private final NativeExecutionProcessFactory processFactory;
     private final NativeExecutionTaskFactory taskFactory;
     private final PrestoSparkShuffleInfoTranslator shuffleInfoTranslator;
+    private final NativeExecutionProcessFactory nativeExecutionProcessFactory;
+    private NativeExecutionProcess nativeExecutionProcess;
 
     @Inject
     public PrestoSparkTaskExecutorFactory(
@@ -250,7 +253,8 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingSerde blockEncodingSerde,
             NativeExecutionProcessFactory processFactory,
             NativeExecutionTaskFactory taskFactory,
-            PrestoSparkShuffleInfoTranslator shuffleInfoTranslator)
+            PrestoSparkShuffleInfoTranslator shuffleInfoTranslator,
+            NativeExecutionProcessFactory nativeExecutionProcessFactory)
     {
         this(
                 sessionPropertyManager,
@@ -282,7 +286,8 @@ public class PrestoSparkTaskExecutorFactory
                 blockEncodingSerde,
                 processFactory,
                 taskFactory,
-                shuffleInfoTranslator);
+                shuffleInfoTranslator,
+                nativeExecutionProcessFactory);
     }
 
     public PrestoSparkTaskExecutorFactory(
@@ -315,7 +320,8 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingSerde blockEncodingSerde,
             NativeExecutionProcessFactory processFactory,
             NativeExecutionTaskFactory taskFactory,
-            PrestoSparkShuffleInfoTranslator shuffleInfoTranslator)
+            PrestoSparkShuffleInfoTranslator shuffleInfoTranslator,
+            NativeExecutionProcessFactory nativeExecutionProcessFactory)
     {
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
@@ -345,9 +351,30 @@ public class PrestoSparkTaskExecutorFactory
         this.storageBasedBroadcastJoinStorage = requireNonNull(storageBasedBroadcastJoinStorage, "storageBasedBroadcastJoinStorage is null");
         this.prestoSparkBroadcastTableCacheManager = requireNonNull(prestoSparkBroadcastTableCacheManager, "prestoSparkBroadcastTableCacheManager is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.processFactory = requireNonNull(processFactory, "processFactory is null");
         this.taskFactory = requireNonNull(taskFactory, "taskFactory is null");
         this.shuffleInfoTranslator = requireNonNull(shuffleInfoTranslator, "shuffleInfoFactory is null");
+        this.nativeExecutionProcessFactory = nativeExecutionProcessFactory;
+    }
+
+    private void createAndStartNativeExecutionProcess(Session session)
+    {
+        if (nativeExecutionProcess != null) {
+            log.info("NativeExecutionProcess already exists");
+            return;
+        }
+
+        try {
+            // create the CPP sidecar process if it doesn't exist.
+            // We create this when the first task is scheduled
+            nativeExecutionProcess = nativeExecutionProcessFactory.createNativeExecutionProcess(
+                NATIVE_EXECUTION_EXECUTABLE_PATH,
+                URI.create(NATIVE_EXECUTION_SERVER_URI),
+                    getNativeExecutionCatalogName(session));
+            nativeExecutionProcess.start();
+        }
+        catch (ExecutionException | InterruptedException | IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -377,6 +404,12 @@ public class PrestoSparkTaskExecutorFactory
         }
     }
 
+    private String getNativeExecutionCatalogName(Session session)
+    {
+        checkArgument(session.getCatalog().isPresent(), "Catalog isn't set in the session.");
+        return session.getCatalog().get();
+    }
+
     public <T extends PrestoSparkTaskOutput> IPrestoSparkTaskExecutor<T> doCreate(
             int partitionId,
             int attemptNumber,
@@ -397,6 +430,10 @@ public class PrestoSparkTaskExecutorFactory
                 extraAuthenticators.build());
         PlanFragment fragment = taskDescriptor.getFragment();
         StageId stageId = new StageId(session.getQueryId(), fragment.getId().getId());
+
+        if (isNativeExecutionEnabled(session) && !fragment.getPartitioning().isCoordinatorOnly()) {
+            createAndStartNativeExecutionProcess(session);
+        }
 
         // Clear the cache if the cache does not have broadcast table for current stageId.
         // We will only cache 1 HT at any time. If the stageId changes, we will drop the old cached HT
@@ -594,7 +631,7 @@ public class PrestoSparkTaskExecutorFactory
                         session,
                         fragment,
                         blockEncodingSerde,
-                        processFactory,
+                        nativeExecutionProcess,
                         taskFactory,
                         shuffleWriteInfo.map(shuffleInfoTranslator::createSerializedWriteInfo))));
 
@@ -626,6 +663,8 @@ public class PrestoSparkTaskExecutorFactory
         }
         taskExecution.start(taskSources);
 
+        // wait until successfull launch of task
+
         return new PrestoSparkTaskExecutor<>(
                 taskContext,
                 taskStateMachine,
@@ -638,6 +677,14 @@ public class PrestoSparkTaskExecutorFactory
                 outputBuffer,
                 tempStorage,
                 tempDataOperationContext);
+    }
+
+    @Override
+    public void stop()
+    {
+        if (nativeExecutionProcess != null) {
+            nativeExecutionProcess.close();
+        }
     }
 
     public boolean isMemoryRevokePending(TaskContext taskContext)

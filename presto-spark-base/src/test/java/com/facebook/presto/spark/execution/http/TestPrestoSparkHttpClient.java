@@ -767,12 +767,12 @@ public class TestPrestoSparkHttpClient
                 newSingleThreadExecutor(),
                 errorScheduler,
                 SERVER_INFO_JSON_CODEC,
-                config,
                 workerProperty);
         List<TaskSource> sources = new ArrayList<>();
         return factory.createNativeExecutionProcess(
-                testSessionBuilder().build(),
+                "",
                 BASE_URI,
+                "",
                 maxErrorDuration);
     }
 
