@@ -96,6 +96,8 @@ class PrestoServer {
 
   virtual void registerFileSystems();
 
+  virtual void registerStatsCounters();
+
   void initializeAsyncCache();
 
  protected:

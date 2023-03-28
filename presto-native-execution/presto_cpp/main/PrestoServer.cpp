@@ -35,6 +35,7 @@
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/file/FileSystems.h"
@@ -175,7 +176,7 @@ void PrestoServer::run() {
     exit(EXIT_FAILURE);
   }
 
-  registerPrestoCppCounters();
+  registerStatsCounters();
   registerFileSystems();
   registerOptionalHiveStorageAdapters();
   registerShuffleInterfaceFactories();
@@ -563,6 +564,11 @@ void PrestoServer::registerVectorSerdes() {
 
 void PrestoServer::registerFileSystems() {
   velox::filesystems::registerLocalFileSystem();
+}
+
+void PrestoServer::registerStatsCounters() {
+  registerPrestoCppCounters();
+  registerVeloxCounters();
 }
 
 std::shared_ptr<velox::connector::Connector> PrestoServer::connectorWithCache(
