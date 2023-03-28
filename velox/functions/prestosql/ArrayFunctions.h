@@ -407,14 +407,29 @@ struct ArrayFrequencyFunction {
   FOLLY_ALWAYS_INLINE void call(
       out_type<velox::Map<T, int>>& out,
       arg_type<velox::Array<T>> inputArray) {
-    folly::F14FastMap<arg_type<T>, int> frequencyCount;
+    frequencyCount_.clear();
 
     for (const auto& item : inputArray.skipNulls()) {
-      frequencyCount[item]++;
+      frequencyCount_[item]++;
     }
 
-    out.copy_from(frequencyCount);
+    // To make the output order of key value pairs deterministic (since F14
+    // does not provide ordering guarantees), we do another iteration in the
+    // input and look up element frequencies in the F14 map. To prevent
+    // duplicates in the output, we remove the keys we already added.
+    for (const auto& item : inputArray.skipNulls()) {
+      auto it = frequencyCount_.find(item);
+      if (it != frequencyCount_.end()) {
+        auto [keyWriter, valueWriter] = out.add_item();
+        keyWriter = item;
+        valueWriter = it->second;
+        frequencyCount_.erase(it);
+      }
+    }
   }
+
+ private:
+  folly::F14FastMap<arg_type<T>, int> frequencyCount_;
 };
 
 template <typename TExecParams, typename T>

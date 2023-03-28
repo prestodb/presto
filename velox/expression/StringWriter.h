@@ -108,6 +108,12 @@ class StringWriter<false /*reuseInput*/> : public UDFOutputString {
   }
 
   template <typename T>
+  void operator=(const T& input) {
+    resize(0);
+    append(input);
+  }
+
+  template <typename T>
   void append(const T& input) {
     DCHECK(!finalized_);
     auto oldSize = size();

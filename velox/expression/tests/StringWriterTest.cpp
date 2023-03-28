@@ -52,6 +52,31 @@ TEST_F(StringWriterTest, plusOperator) {
   ASSERT_EQ(vector->valueAt(0), "1 2 3 4 5 "_sv);
 }
 
+TEST_F(StringWriterTest, assignment) {
+  auto vector = makeFlatVector<StringView>(4);
+
+  auto writer0 = exec::StringWriter<>(vector.get(), 0);
+  writer0 = "string0"_sv;
+  writer0.finalize();
+
+  auto writer1 = exec::StringWriter<>(vector.get(), 1);
+  writer1 = std::string("string1");
+  writer1.finalize();
+
+  auto writer2 = exec::StringWriter<>(vector.get(), 2);
+  writer2 = std::string_view("string2");
+  writer2.finalize();
+
+  auto writer3 = exec::StringWriter<>(vector.get(), 3);
+  writer3 = folly::StringPiece("string3");
+  writer3.finalize();
+
+  ASSERT_EQ(vector->valueAt(0), "string0"_sv);
+  ASSERT_EQ(vector->valueAt(1), "string1"_sv);
+  ASSERT_EQ(vector->valueAt(2), "string2"_sv);
+  ASSERT_EQ(vector->valueAt(3), "string3"_sv);
+}
+
 TEST_F(StringWriterTest, copyFromStringView) {
   auto vector = makeFlatVector<StringView>(1);
   auto writer = exec::StringWriter<>(vector.get(), 0);

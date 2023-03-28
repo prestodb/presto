@@ -16,18 +16,21 @@
 
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::test;
+using facebook::velox::test::assertEqualVectors;
+
+namespace facebook::velox::functions::test {
 
 namespace {
+
 class ArrayFrequencyTest : public functions::test::FunctionBaseTest {
  protected:
-  void testExpr(const VectorPtr& expected, const VectorPtr& input) {
+  void testArrayFrequency(const VectorPtr& expected, const VectorPtr& input) {
     auto result =
         evaluate<BaseVector>("array_frequency(C0)", makeRowVector({input}));
     assertEqualVectors(expected, result);
   }
 };
+
 } // namespace
 
 TEST_F(ArrayFrequencyTest, integerArray) {
@@ -52,7 +55,7 @@ TEST_F(ArrayFrequencyTest, integerArray) {
        {{-1, 3}},
        {{std::numeric_limits<int64_t>::max(), 2}, {1, 2}, {0, 2}}});
 
-  testExpr(expected, array);
+  testArrayFrequency(expected, array);
 }
 
 TEST_F(ArrayFrequencyTest, integerArrayWithoutNull) {
@@ -62,7 +65,7 @@ TEST_F(ArrayFrequencyTest, integerArrayWithoutNull) {
   auto expected = makeMapVector<int64_t, int>(
       {{{1, 2}, {2, 1}, {-2, 1}}, {}, {{1, 5}, {2, 1}}});
 
-  testExpr(expected, array);
+  testArrayFrequency(expected, array);
 }
 
 TEST_F(ArrayFrequencyTest, varcharArray) {
@@ -83,7 +86,7 @@ TEST_F(ArrayFrequencyTest, varcharArray) {
        {{"hello"_sv, 1}, {"world"_sv, 1}, {"!"_sv, 2}},
        {{"helloworldhelloworld"_sv, 2}, {"!"_sv, 2}}});
 
-  testExpr(expected, array);
+  testArrayFrequency(expected, array);
 }
 
 TEST_F(ArrayFrequencyTest, varcharArrayWithoutNull) {
@@ -97,5 +100,7 @@ TEST_F(ArrayFrequencyTest, varcharArrayWithoutNull) {
        {},
        {{"helloworldhelloworld"_sv, 2}, {"!"_sv, 2}}});
 
-  testExpr(expected, array);
+  testArrayFrequency(expected, array);
 }
+
+} // namespace facebook::velox::functions::test
