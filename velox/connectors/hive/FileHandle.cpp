@@ -15,7 +15,10 @@
  */
 
 #include "velox/connectors/hive/FileHandle.h"
+#include "velox/common/base/Counters.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/time/Timer.h"
 
 #include <atomic>
 
@@ -38,13 +41,20 @@ std::string groupName(const std::string& filename) {
 
 std::unique_ptr<FileHandle> FileHandleGenerator::operator()(
     const std::string& filename) {
-  auto fileHandle = std::make_unique<FileHandle>();
-  fileHandle->file = filesystems::getFileSystem(filename, properties_)
-                         ->openFileForRead(filename);
-  fileHandle->uuid = StringIdLease(fileIds(), filename);
-  fileHandle->groupId = StringIdLease(fileIds(), groupName(filename));
-  VLOG(1) << "Generating file handle for: " << filename
-          << " uuid: " << fileHandle->uuid.id();
+  uint64_t elapsedTimeUs{0};
+  std::unique_ptr<FileHandle> fileHandle;
+  {
+    MicrosecondTimer timer(&elapsedTimeUs);
+    fileHandle = std::make_unique<FileHandle>();
+    fileHandle->file = filesystems::getFileSystem(filename, properties_)
+                           ->openFileForRead(filename);
+    fileHandle->uuid = StringIdLease(fileIds(), filename);
+    fileHandle->groupId = StringIdLease(fileIds(), groupName(filename));
+    VLOG(1) << "Generating file handle for: " << filename
+            << " uuid: " << fileHandle->uuid.id();
+  }
+  REPORT_ADD_HISTOGRAM_VALUE(
+      kCounterHiveFileHandleGenerateLatencyMs, elapsedTimeUs / 1000);
   // TODO: build the hash map/etc per file type -- presumably after reading
   // the appropriate magic number from the file, or perhaps we include the file
   // type in the file handle key.

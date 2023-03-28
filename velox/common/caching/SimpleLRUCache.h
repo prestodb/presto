@@ -13,16 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-// A simple LRU cache that allows each element to occupy an arbitrary
-// amount of space in the cache. Useful when your the size of the
-// cached elements can vary a lot; if they are all roughly the same
-// size something that only tracks the number of elements in the
-// cache like common/datastruct/LRUCacheMap.h may be better.
-//
-// Keep in mind that all the public calls modify internal structures
-// and hence require external write locks if used from multiple threads.
-
 #pragma once
 
 #include <cstdint>
@@ -36,16 +26,22 @@ namespace facebook::velox {
 
 struct SimpleLRUCacheStats {
   // Capacity of the cache.
-  int64_t maxSize{0};
+  size_t maxSize{0};
 
   // Current cache size used.
-  int64_t curSize{0};
+  size_t curSize{0};
 
   // Current cache size used by pinned entries.
-  int64_t pinnedSize{0};
+  size_t pinnedSize{0};
 
   // Total number of elements in the cache.
   size_t numElements{0};
+
+  // Total number of cache hits since server start.
+  size_t numHits{0};
+
+  // Total number of cache lookups since server start.
+  size_t numLookups{0};
 
   std::string toString() const {
     return fmt::format(
@@ -54,15 +50,28 @@ struct SimpleLRUCacheStats {
         "  curSize: {}\n"
         "  pinnedSize: {}\n"
         "  numElements: {}\n"
-        "}}",
+        "  numHits: {}\n"
+        "  numLookups: {}\n"
+        "}}\n",
         maxSize,
         curSize,
         pinnedSize,
-        numElements);
+        numElements,
+        numHits,
+        numLookups);
   }
 };
 
-// Requires that key be copyable and movable.
+/// A simple LRU cache that allows each element to occupy an arbitrary
+/// amount of space in the cache. Useful when your the size of the
+/// cached elements can vary a lot; if they are all roughly the same
+/// size something that only tracks the number of elements in the
+/// cache like common/datastruct/LRUCacheMap.h may be better.
+///
+/// NOTE:
+/// 1. NOT Thread-Safe: All the public calls modify internal structures
+/// and hence require external write locks if used from multiple threads.
+/// 2. 'Key' is required to be copyable and movable.
 template <
     typename Key,
     typename Value,
@@ -70,91 +79,94 @@ template <
     typename Hash = std::hash<Key>>
 class SimpleLRUCache {
  public:
-  // Constructs a cache of the specified size. This size can represent whatever
-  // you want -- slots, or bytes, or etc; you provide the size of each element
-  // whenever you add a new value to the cache. Note that in certain
-  // circumstances this max_size may be exceeded -- see add().
-  SimpleLRUCache(int64_t maxSize);
+  /// Constructs a cache of the specified size. This size can represent whatever
+  /// you want -- slots, or bytes, or etc; you provide the size of each element
+  /// whenever you add a new value to the cache. Note that in certain
+  /// circumstances this max_size may be exceeded -- see add().
+  explicit SimpleLRUCache(size_t maxSize);
 
-  // Frees all owned data. Check-fails if any element remains pinned.
+  /// Frees all owned data. Check-fails if any element remains pinned.
   ~SimpleLRUCache();
 
-  // Add a key-value pair that will occupy the provided size, evicting
-  // older elements repeatedly until enough room is avialable in the cache.
-  // Returns whether insertion succeeded. If it did, the cache takes
-  // ownership of |value|. Insertion will fail in two cases:
-  //   1) There isn't enough room in the cache even after all unpinned
-  //      elements are freed.
-  //   2) The key you are adding is already present in the cache. In
-  //      this case the element currently existing in the cache remains
-  //      totally unchanged.
-  //
-  // If you use size to represent in-memory size, keep in mind that the
-  // total space used per entry is roughly 2 * key_size + value_size + 30 bytes
-  // (nonexact because we use a hash map internally, so the ratio of reserved
-  // slot to used slots will vary).
-  bool add(Key key, Value* value, int64_t size);
+  /// Add a key-value pair that will occupy the provided size, evicting
+  /// older elements repeatedly until enough room is avialable in the cache.
+  /// Returns whether insertion succeeded. If it did, the cache takes
+  /// ownership of |value|. Insertion will fail in two cases:
+  ///   1) There isn't enough room in the cache even after all unpinned
+  ///      elements are freed.
+  ///   2) The key you are adding is already present in the cache. In
+  ///      this case the element currently existing in the cache remains
+  ///      totally unchanged.
+  ///
+  /// If you use size to represent in-memory size, keep in mind that the
+  /// total space used per entry is roughly 2 * key_size + value_size + 30 bytes
+  /// (nonexact because we use a hash map internally, so the ratio of reserved
+  /// slot to used slots will vary).
+  bool add(Key key, Value* value, size_t size);
 
-  // Same as add(), but the value starts pinned. Saves a map lookup if you
-  // would otherwise do add() then get(). Keep in mind that if insertion
-  // fails the key's pin count has NOT been incremented.
-  bool addPinned(Key key, Value* value, int64_t size);
+  /// Same as add(), but the value starts pinned. Saves a map lookup if you
+  /// would otherwise do add() then get(). Keep in mind that if insertion
+  /// fails the key's pin count has NOT been incremented.
+  bool addPinned(Key key, Value* value, size_t size);
 
-  // Gets an unowned pointer to the value associated with key.
-  // Returns nullptr if the key is not present in the cache.
-  // Once you are done using the returned non-null *value, you must call
-  // release with the same key you passed to get.
-  //
-  // The returned pointer is guaranteed to remain valid until release
-  // is called.
-  //
-  // Note that we return a non-const pointer, and multiple callers
-  // can lease the same object, so if you're mutating it you need
-  // to manage your own locking.
+  /// Gets an unowned pointer to the value associated with key.
+  /// Returns nullptr if the key is not present in the cache.
+  /// Once you are done using the returned non-null *value, you must call
+  /// release with the same key you passed to get.
+  ///
+  /// The returned pointer is guaranteed to remain valid until release
+  /// is called.
+  ///
+  /// Note that we return a non-const pointer, and multiple callers
+  /// can lease the same object, so if you're mutating it you need
+  /// to manage your own locking.
   Value* get(const Key& key);
 
-  // Unpins a key. You MUST call release on every key you have
-  // get'd once are you done using the value or bad things will
-  // happen (namely, memory leaks).
+  /// Unpins a key. You MUST call release on every key you have
+  /// get'd once are you done using the value or bad things will
+  /// happen (namely, memory leaks).
   void release(const Key& key);
 
-  // Total size of elements in the cache (NOT the maximum size/limit).
-  int64_t currentSize() const {
+  /// Total size of elements in the cache (NOT the maximum size/limit).
+  size_t currentSize() const {
     return curSize_;
   }
 
-  // The maximum size of the cache.
-  int64_t maxSize() const {
+  /// The maximum size of the cache.
+  size_t maxSize() const {
     return maxSize_;
   }
 
   SimpleLRUCacheStats getStats() const {
-    SimpleLRUCacheStats stats;
-    stats.numElements = elements_.size();
-    CHECK_EQ(stats.numElements, keys_.size());
-    stats.maxSize = maxSize_;
-    stats.curSize = curSize_;
-    stats.pinnedSize = pinnedSize_;
-    return stats;
+    return {
+        maxSize_,
+        curSize_,
+        pinnedSize_,
+        elements_.size(),
+        numHits_,
+        numLookups_,
+    };
   }
 
-  // Remove unpinned elements until at least size space is freed. Returns
-  // the size actually freed, which may be less than requested if the
-  // remaining are all pinned.
-  int64_t free(int64_t size);
+  /// Remove unpinned elements until at least size space is freed. Returns
+  /// the size actually freed, which may be less than requested if the
+  /// remaining are all pinned.
+  size_t free(size_t size);
 
  private:
-  bool addInternal(Key key, Value* value, int64_t size, bool pinned);
+  bool addInternal(Key key, Value* value, size_t size, bool pinned);
 
-  const int64_t maxSize_;
-  int64_t curSize_ = 0;
-  int64_t pinnedSize_ = 0;
+  const size_t maxSize_;
+  size_t curSize_{0};
+  size_t pinnedSize_{0};
+  size_t numHits_{0};
+  size_t numLookups_{0};
 
   struct Element {
     Key key;
     Value* value;
-    int size;
-    int pinCount;
+    size_t size;
+    uint32_t pinCount;
   };
   // Elements get newer as we move from elements_.begin() to elements_.end().
   std::list<Element*> elements_;
@@ -167,7 +179,7 @@ class SimpleLRUCache {
 
 template <typename Key, typename Value, typename Comparator, typename Hash>
 inline SimpleLRUCache<Key, Value, Comparator, Hash>::SimpleLRUCache(
-    int64_t maxSize)
+    size_t maxSize)
     : maxSize_(maxSize) {}
 
 template <typename Key, typename Value, typename Comparator, typename Hash>
@@ -185,7 +197,7 @@ template <typename Key, typename Value, typename Comparator, typename Hash>
 inline bool SimpleLRUCache<Key, Value, Comparator, Hash>::add(
     Key key,
     Value* value,
-    int64_t size) {
+    size_t size) {
   return addInternal(key, value, size, /*pinned=*/false);
 }
 
@@ -193,7 +205,7 @@ template <typename Key, typename Value, typename Comparator, typename Hash>
 inline bool SimpleLRUCache<Key, Value, Comparator, Hash>::addPinned(
     Key key,
     Value* value,
-    int64_t size) {
+    size_t size) {
   return addInternal(key, value, size, /*pinned=*/true);
 }
 
@@ -201,7 +213,7 @@ template <typename Key, typename Value, typename Comparator, typename Hash>
 inline bool SimpleLRUCache<Key, Value, Comparator, Hash>::addInternal(
     Key key,
     Value* value,
-    int64_t size,
+    size_t size,
     bool pinned) {
   if (keys_.find(key) != keys_.end()) {
     return false;
@@ -229,6 +241,7 @@ inline bool SimpleLRUCache<Key, Value, Comparator, Hash>::addInternal(
 template <typename Key, typename Value, typename Comparator, typename Hash>
 inline Value* SimpleLRUCache<Key, Value, Comparator, Hash>::get(
     const Key& key) {
+  ++numLookups_;
   auto it = keys_.find(key);
   if (it == keys_.end()) {
     return nullptr;
@@ -237,6 +250,7 @@ inline Value* SimpleLRUCache<Key, Value, Comparator, Hash>::get(
     pinnedSize_ += it->second->size;
   }
   it->second->pinCount++;
+  ++numHits_;
   return it->second->value;
 }
 
@@ -251,11 +265,10 @@ inline void SimpleLRUCache<Key, Value, Comparator, Hash>::release(
 }
 
 template <typename Key, typename Value, typename Comparator, typename Hash>
-inline int64_t SimpleLRUCache<Key, Value, Comparator, Hash>::free(
-    int64_t size) {
+inline size_t SimpleLRUCache<Key, Value, Comparator, Hash>::free(size_t size) {
   auto it = elements_.begin();
   auto end = elements_.end();
-  int64_t freed = 0;
+  size_t freed = 0;
   while (it != end && freed < size) {
     if ((*it)->pinCount == 0) {
       freed += (*it)->size;

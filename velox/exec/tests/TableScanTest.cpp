@@ -227,6 +227,8 @@ TEST_F(TableScanTest, connectorStats) {
   EXPECT_EQ(0, cacheStats.curSize);
   EXPECT_EQ(0, cacheStats.pinnedSize);
   EXPECT_EQ(0, cacheStats.numElements);
+  EXPECT_EQ(0, cacheStats.numHits);
+  EXPECT_EQ(0, cacheStats.numLookups);
 
   for (size_t i = 0; i < 99; i++) {
     auto vectors = makeVectors(10, 10);
@@ -240,10 +242,14 @@ TEST_F(TableScanTest, connectorStats) {
   cacheStats = hiveConnector->fileHandleCacheStats();
   EXPECT_EQ(0, cacheStats.pinnedSize);
   EXPECT_EQ(99, cacheStats.numElements);
+  EXPECT_EQ(0, cacheStats.numHits);
+  EXPECT_EQ(99, cacheStats.numLookups);
 
   cacheStats = hiveConnector->clearFileHandleCache();
   EXPECT_EQ(0, cacheStats.pinnedSize);
   EXPECT_EQ(0, cacheStats.numElements);
+  EXPECT_EQ(0, cacheStats.numHits);
+  EXPECT_EQ(99, cacheStats.numLookups);
 }
 
 TEST_F(TableScanTest, columnAliases) {

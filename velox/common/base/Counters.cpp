@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-#pragma once
-
-#include <folly/Range.h>
+#include "velox/common/base/Counters.h"
+#include "velox/common/base/StatsReporter.h"
 
 namespace facebook::velox {
 
-// Velox Counter Registration
-void registerVeloxCounters();
+void registerVeloxCounters() {
+  // Track hive handle generation latency in range of [0, 100s] and reports
+  // P50, P90, P99, and P100.
+  REPORT_ADD_HISTOGRAM_EXPORT_PERCENTILE(
+      kCounterHiveFileHandleGenerateLatencyMs, 10, 0, 100000, 50, 90, 99, 100);
+}
 
-constexpr folly::StringPiece kCounterHiveFileHandleGenerateLatencyMs{
-    "velox.hive_file_handle_generate_latency_ms"};
 } // namespace facebook::velox

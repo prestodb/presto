@@ -25,6 +25,7 @@ target_link_libraries(
 add_library(
   velox_common_base
   BitUtil.cpp
+  Counters.cpp
   Fs.cpp
   RandomUtil.cpp
   RawVector.cpp
