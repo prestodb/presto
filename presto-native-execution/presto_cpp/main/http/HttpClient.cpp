@@ -39,17 +39,24 @@ HttpClient::~HttpClient() {
 
 HttpResponse::~HttpResponse() {
   // Clear out any leftover iobufs if not consumed.
-  for (auto& buf : bodyChain_) {
-    if (buf != nullptr) {
-      pool_->free(buf->writableData(), buf->length());
-    }
-  }
+  freeBuffers();
 }
 
 void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
   VELOX_CHECK(!iobuf->isChained());
+  VELOX_CHECK(!hasError());
   const uint64_t dataLength = iobuf->length();
-  void* buf = pool_->allocate(dataLength);
+  void* buf{nullptr};
+  try {
+    buf = pool_->allocate(dataLength);
+  } catch (const velox::VeloxException& ex) {
+    // NOTE: we need to catch exception and process it later in driver execution
+    // context when processing the data response. Otherwise, the presto server
+    // process will die.
+    setError(ex);
+    return;
+  }
+  VELOX_CHECK_NOT_NULL(buf);
   ::memcpy(buf, iobuf->data(), dataLength);
   bodyChain_.emplace_back(folly::IOBuf::wrapBuffer(buf, dataLength));
 }
@@ -96,7 +103,7 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   }
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
-    if (chain) {
+    if ((chain != nullptr) && !response_->hasError()) {
       response_->append(std::move(chain));
     }
   }
