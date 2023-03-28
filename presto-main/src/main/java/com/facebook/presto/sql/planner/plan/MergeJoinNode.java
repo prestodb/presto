@@ -27,6 +27,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -155,5 +156,15 @@ public class MergeJoinNode
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitMergeJoin(this, context);
+    }
+
+    /**
+     *
+     * @param joinNode
+     * @return returns true if merge join is supported for the given join node
+     */
+    public static boolean isMergeJoinEligible(JoinNode joinNode)
+    {
+        return joinNode.getType() == INNER && !joinNode.isCrossJoin();
     }
 }

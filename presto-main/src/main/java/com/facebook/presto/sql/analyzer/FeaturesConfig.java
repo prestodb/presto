@@ -228,6 +228,8 @@ public class FeaturesConfig
     private boolean verboseRuntimeStatsEnabled;
 
     private boolean streamingForPartialAggregationEnabled;
+
+    private boolean preferSortMergeJoin;
     private boolean preferMergeJoin;
     private boolean segmentedAggregationEnabled;
 
@@ -249,6 +251,7 @@ public class FeaturesConfig
     private boolean prefilterForGroupbyLimit;
     private boolean isOptimizeJoinProbeWithEmptyBuildRuntime;
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2187,6 +2190,19 @@ public class FeaturesConfig
     public FeaturesConfig setHyperloglogStandardErrorWarningThreshold(double hyperloglogStandardErrorWarningThreshold)
     {
         this.hyperloglogStandardErrorWarningThreshold = hyperloglogStandardErrorWarningThreshold;
+        return this;
+    }
+
+    public boolean isPreferSortMergeJoin()
+    {
+        return preferSortMergeJoin;
+    }
+
+    @Config("optimizer.prefer-sort-merge-join")
+    @ConfigDescription("Prefer sort merge join for all joins. Add a sort if input is not already sorted")
+    public FeaturesConfig setPreferSortMergeJoin(boolean preferSortMergeJoin)
+    {
+        this.preferSortMergeJoin = preferSortMergeJoin;
         return this;
     }
 

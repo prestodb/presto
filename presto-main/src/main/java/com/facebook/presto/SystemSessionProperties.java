@@ -235,6 +235,8 @@ public final class SystemSessionProperties
     public static final String STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED = "streaming_for_partial_aggregation_enabled";
     public static final String MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING = "max_stage_count_for_eager_scheduling";
     public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
+
+    public static final String PREFER_SORT_MERGE_JOIN = "prefer_sort_merge_join";
     public static final String PREFER_MERGE_JOIN = "prefer_merge_join";
     public static final String SEGMENTED_AGGREGATION_ENABLED = "segmented_aggregation_enabled";
     public static final String USE_HISTORY_BASED_PLAN_STATISTICS = "use_history_based_plan_statistics";
@@ -1273,6 +1275,11 @@ public final class SystemSessionProperties
                         featuresConfig.isStreamingForPartialAggregationEnabled(),
                         false),
                 booleanProperty(
+                        PREFER_SORT_MERGE_JOIN,
+                        "Prefer sort merge join for all joins. Add a sort if input is not already sorted.",
+                        featuresConfig.isPreferSortMergeJoin(),
+                        true),
+                booleanProperty(
                         PREFER_MERGE_JOIN,
                         "Prefer merge join for sorted join inputs, e.g., tables pre-sorted, pre-partitioned by join columns." +
                                 "To make it work, the connector needs to guarantee and expose the data properties of the underlying table.",
@@ -2203,6 +2210,7 @@ public final class SystemSessionProperties
     {
         return session.getSystemProperty(OPTIMIZE_PAYLOAD_JOINS, Boolean.class);
     }
+
     public static Optional<DataSize> getTargetResultSize(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(TARGET_RESULT_SIZE, DataSize.class));
@@ -2346,6 +2354,11 @@ public final class SystemSessionProperties
     public static boolean isStreamingForPartialAggregationEnabled(Session session)
     {
         return session.getSystemProperty(STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean preferSortMergeJoin(Session session)
+    {
+        return session.getSystemProperty(PREFER_SORT_MERGE_JOIN, Boolean.class);
     }
 
     public static boolean preferMergeJoin(Session session)
