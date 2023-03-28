@@ -149,7 +149,11 @@ public class PrestoSparkHttpTaskClient
     public ListenableFuture<?> abortResults()
     {
         return httpClient.executeAsync(
-                prepareDelete().setUri(taskUri).build(),
+                prepareDelete().setUri(
+                        uriBuilderFrom(taskUri)
+                                .appendPath("/results/0")
+                                .build())
+                        .build(),
                 createStatusResponseHandler());
     }
 

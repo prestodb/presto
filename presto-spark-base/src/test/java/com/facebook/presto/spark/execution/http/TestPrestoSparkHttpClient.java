@@ -893,6 +893,18 @@ public class TestPrestoSparkHttpClient
                         }
                         else if (method.equalsIgnoreCase("DELETE")) {
                             // DELETE /v1/task/{taskId}
+                            if (Pattern.compile("\\/v1\\/task\\/[a-zA-Z0-9]+.[0-9]+.[0-9]+.[0-9]+\\/results\\/[0-9]+\\z").matcher(path).find()) {
+                                try {
+                                    future.complete(responseHandler.handle(request, responseManager.createDummyResultResponse()));
+                                }
+                                catch (Exception e) {
+                                    e.printStackTrace();
+                                    future.completeExceptionally(e);
+                                }
+                            }
+                        }
+                        else if (method.equalsIgnoreCase("DELETE")) {
+                            // DELETE /v1/task/{taskId}/results/{bufferId}
                             if (Pattern.compile("\\/v1\\/task\\/[a-zA-Z0-9]+.[0-9]+.[0-9]+.[0-9]+\\z").matcher(path).find()) {
                                 try {
                                     future.complete(responseHandler.handle(request, responseManager.createDummyResultResponse()));
