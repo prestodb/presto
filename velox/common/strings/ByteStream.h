@@ -171,7 +171,9 @@ class ByteSinkBuffer : public std::basic_streambuf<char> {
   }
 
  private:
-  int_type flush();
+  int_type flush() {
+    return 0;
+  }
 
   char putArea_[kPutAreaSize];
   ByteSink& sink_;
