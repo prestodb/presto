@@ -1226,7 +1226,7 @@ public class PlanPrinter
         @Override
         public Void visitNativeExecution(NativeExecutionNode node, Void context)
         {
-            NodeRepresentation nodeOutput = addNode(node, "NativeExecution", ImmutableList.of(node.getSubPlan()));
+            // Do not add 'node' as it shares the ID with the root node of the sub-plan.
             node.getSubPlan().accept(this, context);
 
             return null;
