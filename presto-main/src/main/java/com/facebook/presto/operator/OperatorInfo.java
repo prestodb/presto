@@ -26,6 +26,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonSubTypes({
         @JsonSubTypes.Type(value = ExchangeClientStatus.class, name = "exchangeClientStatus"),
         @JsonSubTypes.Type(value = LocalExchangeBufferInfo.class, name = "localExchangeBuffer"),
+        @JsonSubTypes.Type(value = NativeExecutionInfo.class, name = "NativeExecutionInfo"),
         @JsonSubTypes.Type(value = TableFinishInfo.class, name = "tableFinish"),
         @JsonSubTypes.Type(value = SplitOperatorInfo.class, name = "splitOperator"),
         @JsonSubTypes.Type(value = HashCollisionsInfo.class, name = "hashCollisionsInfo"),

@@ -983,10 +983,7 @@ public class PlanBuilder
 
     public NativeExecutionNode nativeExecution(PlanNode subPlan)
     {
-        return new NativeExecutionNode(
-                Optional.empty(),
-                idAllocator.getNextId(),
-                subPlan);
+        return new NativeExecutionNode(subPlan);
     }
 
     public static Expression expression(String sql)
