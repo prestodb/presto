@@ -82,7 +82,7 @@ void toThrift(
 }
 void toThrift(const protocol::HostAddress& proto, thrift::HostAddress& thrift) {
   std::vector<std::string> parts;
-  folly::split(":", proto, parts);
+  folly::split(':', proto, parts);
   if (parts.size() == 2) {
     thrift.host_ref() = parts[0];
     thrift.port_ref() = std::stoi(parts[1]);
