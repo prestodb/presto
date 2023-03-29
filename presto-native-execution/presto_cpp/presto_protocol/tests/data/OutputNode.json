@@ -1,5 +1,5 @@
 {
-  "@type": "com.facebook.presto.sql.planner.plan.OutputNode",
+  "@type": ".OutputNode",
   "id": "9",
   "source": {
     "@type": "com.facebook.presto.sql.planner.plan.ExchangeNode",

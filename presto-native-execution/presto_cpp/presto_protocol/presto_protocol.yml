@@ -119,7 +119,7 @@ AbstractClasses:
         - { name: JoinNode,                 key: com.facebook.presto.sql.planner.plan.JoinNode }
         - { name: LimitNode,                key: .LimitNode }
         - { name: SortNode,                 key: com.facebook.presto.sql.planner.plan.SortNode }
-        - { name: OutputNode,               key: com.facebook.presto.sql.planner.plan.OutputNode }
+        - { name: OutputNode,               key: .OutputNode }
         - { name: ProjectNode,              key: .ProjectNode }
         - { name: RowNumberNode,            key: com.facebook.presto.sql.planner.plan.RowNumberNode }
         - { name: RemoteSourceNode,         key: com.facebook.presto.sql.planner.plan.RemoteSourceNode }
@@ -241,7 +241,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/OrderingScheme.java
   - presto-main/src/main/java/com/facebook/presto/execution/buffer/OutputBufferInfo.java
   - presto-main/src/main/java/com/facebook/presto/execution/buffer/OutputBuffers.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/OutputNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/OutputNode.java
   - presto-main/src/main/java/com/facebook/presto/execution/buffer/PageBufferInfo.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/Parameter.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/Partitioning.java
