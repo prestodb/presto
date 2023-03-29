@@ -31,6 +31,12 @@ class ShuffleWriteNode : public velox::core::PlanNode {
         serializedShuffleWriteInfo_(serializedShuffleWriteInfo),
         sources_{std::move(source)} {}
 
+  folly::dynamic serialize() const override;
+
+  static velox::core::PlanNodePtr create(
+      const folly::dynamic& obj,
+      void* context);
+
   const velox::RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
   }

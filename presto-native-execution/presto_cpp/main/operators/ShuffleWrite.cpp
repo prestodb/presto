@@ -18,6 +18,10 @@ using namespace facebook::velox;
 
 namespace facebook::presto::operators {
 namespace {
+velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+  return obj["id"].asString();
+}
+
 class ShuffleWriteOperator : public Operator {
  public:
   ShuffleWriteOperator(
@@ -77,6 +81,26 @@ class ShuffleWriteOperator : public Operator {
   std::shared_ptr<ShuffleWriter> shuffle_;
 };
 } // namespace
+
+folly::dynamic ShuffleWriteNode::serialize() const {
+  auto obj = PlanNode::serialize();
+  obj["shuffleName"] = ISerializable::serialize<std::string>(shuffleName_);
+  obj["shuffleWriteInfo"] =
+      ISerializable::serialize<std::string>(serializedShuffleWriteInfo_);
+  obj["sources"] = ISerializable::serialize(sources_);
+  return obj;
+}
+
+velox::core::PlanNodePtr ShuffleWriteNode::create(
+    const folly::dynamic& obj,
+    void* context) {
+  return std::make_shared<ShuffleWriteNode>(
+      deserializePlanNodeId(obj),
+      ISerializable::deserialize<std::string>(obj["shuffleName"], context),
+      ISerializable::deserialize<std::string>(obj["shuffleWriteInfo"], context),
+      ISerializable::deserialize<std::vector<velox::core::PlanNode>>(
+          obj["sources"], context)[0]);
+}
 
 std::unique_ptr<Operator> ShuffleWriteTranslator::toOperator(
     DriverCtx* ctx,

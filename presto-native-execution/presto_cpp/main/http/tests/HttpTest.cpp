@@ -150,10 +150,8 @@ sendGet(http::HttpClient* client, const std::string& url, MemoryPool* pool) {
 }
 
 TEST(HttpTest, basic) {
-  auto rootTracker = MemoryUsageTracker::create();
   auto memoryPool = getProcessDefaultMemoryManager().getPool(
       "basic", MemoryPool::Kind::kLeaf);
-  memoryPool->setMemoryUsageTracker(rootTracker->addChild());
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
   server->registerGet("/ping", ping);
@@ -210,12 +208,10 @@ TEST(HttpTest, basic) {
 
 TEST(HttpTest, httpResponseAllocationFailure) {
   const int64_t memoryCapBytes = 1 << 10;
-  auto rootTracker = MemoryUsageTracker::create(memoryCapBytes);
   auto rootPool = getProcessDefaultMemoryManager().getPool(
       "httpResponseAllocationFailure",
       MemoryPool::Kind::kAggregate,
       memoryCapBytes);
-  rootPool->setMemoryUsageTracker(rootTracker);
   auto leafPool = rootPool->addChild("httpResponseAllocationFailure");
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
@@ -243,10 +239,8 @@ TEST(HttpTest, httpResponseAllocationFailure) {
 }
 
 TEST(HttpTest, serverRestart) {
-  auto rootTracker = MemoryUsageTracker::create();
   auto memoryPool = getProcessDefaultMemoryManager().getPool(
       "serverRestart", MemoryPool::Kind::kLeaf);
-  memoryPool->setMemoryUsageTracker(rootTracker->addChild());
 
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
@@ -356,10 +350,8 @@ http::EndpointRequestHandlerFactory asyncMsg(
 } // namespace
 
 TEST(HttpTest, asyncRequests) {
-  auto rootTracker = MemoryUsageTracker::create();
   auto memoryPool = getProcessDefaultMemoryManager().getPool(
       "asyncRequests", MemoryPool::Kind::kLeaf);
-  memoryPool->setMemoryUsageTracker(rootTracker->addChild());
 
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
@@ -393,10 +385,8 @@ TEST(HttpTest, asyncRequests) {
 }
 
 TEST(HttpTest, timedOutRequests) {
-  auto rootTracker = MemoryUsageTracker::create();
   auto memoryPool = getProcessDefaultMemoryManager().getPool(
       "timedOutRequests", MemoryPool::Kind::kLeaf);
-  memoryPool->setMemoryUsageTracker(rootTracker->addChild());
 
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
@@ -431,10 +421,8 @@ TEST(HttpTest, timedOutRequests) {
 // TODO: Enabled it when fixed.
 // Disabled it, while we are investigating and fixing this test failure.
 TEST(HttpTest, DISABLED_outstandingRequests) {
-  auto rootTracker = MemoryUsageTracker::create();
   auto memoryPool = getProcessDefaultMemoryManager().getPool(
       "DISABLED_outstandingRequests", MemoryPool::Kind::kLeaf);
-  memoryPool->setMemoryUsageTracker(rootTracker->addChild());
 
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));

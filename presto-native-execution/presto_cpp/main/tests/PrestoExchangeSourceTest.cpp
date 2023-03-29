@@ -459,12 +459,10 @@ TEST_F(PrestoExchangeSourceTest, failedProducer) {
 
 TEST_F(PrestoExchangeSourceTest, exceedingMemoryCapacityForHttpResponse) {
   const int64_t memoryCapBytes = 1 << 10;
-  auto rootTracker = MemoryUsageTracker::create(memoryCapBytes);
   auto rootPool = getProcessDefaultMemoryManager().getPool(
       "httpResponseAllocationFailure",
       MemoryPool::Kind::kAggregate,
       memoryCapBytes);
-  rootPool->setMemoryUsageTracker(rootTracker);
   auto leafPool = rootPool->addChild("exceedingMemoryCapacityForHttpResponse");
 
   auto producer = std::make_unique<Producer>();

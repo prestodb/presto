@@ -158,6 +158,39 @@ class TestShuffleWriter : public ShuffleWriter {
   std::shared_ptr<std::vector<std::vector<BufferPtr>>> readyPartitions_;
 };
 
+class HivePartitionFunctionSpec : public core::PartitionFunctionSpec {
+ public:
+  HivePartitionFunctionSpec(const std::vector<column_index_t>& keys)
+      : keys_{keys} {}
+
+  std::unique_ptr<core::PartitionFunction> create(
+      int numPartitions) const override {
+    return std::make_unique<connector::hive::HivePartitionFunction>(
+        numPartitions, std::vector<int>(numPartitions), keys_);
+  }
+
+  std::string toString() const override {
+    return fmt::format("HIVE({})", folly::join(", ", keys_));
+  }
+
+  folly::dynamic serialize() const override {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["name"] = "HivePartitionFunctionSpec";
+    obj["keys"] = ISerializable::serialize(keys_);
+    return obj;
+  }
+
+  static core::PartitionFunctionSpecPtr deserialize(
+      const folly::dynamic& obj,
+      void* /*context*/) {
+    return std::make_shared<HivePartitionFunctionSpec>(
+        ISerializable::deserialize<std::vector<column_index_t>>(obj["keys"]));
+  }
+
+ private:
+  const std::vector<column_index_t> keys_;
+};
+
 class TestShuffleReader : public ShuffleReader {
  public:
   TestShuffleReader(
@@ -239,18 +272,15 @@ auto addPartitionAndSerializeNode(uint32_t numPartitions) {
     std::vector<core::TypedExprPtr> keys;
     keys.push_back(
         std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0"));
-    auto outputType = source->outputType();
+    const auto outputType = source->outputType();
     return std::make_shared<PartitionAndSerializeNode>(
         nodeId,
         keys,
         numPartitions,
         ROW({"p", "d"}, {INTEGER(), VARBINARY()}),
         std::move(source),
-        [outputType, keys](int numPartitions) {
-          auto keyChannels = exec::toChannels(outputType, keys);
-          return std::make_unique<connector::hive::HivePartitionFunction>(
-              numPartitions, std::vector<int>(numPartitions), keyChannels);
-        });
+        std::make_shared<HivePartitionFunctionSpec>(
+            exec::toChannels(outputType, keys)));
   };
 }
 
@@ -746,7 +776,7 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
       "-- ShuffleWrite[] -> p:INTEGER, d:VARBINARY\n"
       ""
       "  -- LocalPartition[GATHER] -> p:INTEGER, d:VARBINARY\n"
-      "    -- PartitionAndSerialize[(c0) 4] -> p:INTEGER, d:VARBINARY\n"
+      "    -- PartitionAndSerialize[(c0) 4 HIVE(0)] -> p:INTEGER, d:VARBINARY\n"
       "      -- Values[1000 rows in 1 vectors] -> c0:INTEGER, c1:BIGINT\n");
   ASSERT_EQ(plan->toString(false, false), "-- ShuffleWrite\n");
 }
@@ -764,10 +794,10 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
 
   ASSERT_EQ(
       plan->toString(true, false),
-      "-- PartitionAndSerialize[(c0) 4] -> p:INTEGER, d:VARBINARY\n");
+      "-- PartitionAndSerialize[(c0) 4 HIVE(0)] -> p:INTEGER, d:VARBINARY\n");
   ASSERT_EQ(
       plan->toString(true, true),
-      "-- PartitionAndSerialize[(c0) 4] -> p:INTEGER, d:VARBINARY\n"
+      "-- PartitionAndSerialize[(c0) 4 HIVE(0)] -> p:INTEGER, d:VARBINARY\n"
       "  -- Values[1000 rows in 1 vectors] -> c0:INTEGER, c1:BIGINT\n");
   ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize\n");
 }
