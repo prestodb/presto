@@ -15,6 +15,7 @@
 #include "presto_cpp/main/TaskManager.h"
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <folly/container/F14Set.h>
 #include <velox/core/PlanNode.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
@@ -515,7 +516,7 @@ size_t TaskManager::cleanOldTasks() {
   // We copy task map locally to avoid locking task map for a potentially long
   // time. We also lock for 'read'.
   TaskMap taskMap;
-  std::unordered_set<protocol::TaskId> taskIdsToClean;
+  folly::F14FastSet<protocol::TaskId> taskIdsToClean;
   { taskMap = *(taskMap_.rlock()); }
 
   ZombieTaskCounts zombieTaskCounts;
