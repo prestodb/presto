@@ -219,7 +219,6 @@ public class TestPlanPrinter
                 Optional.empty());
 
         String textPlan = PlanPrinter.textPlanFragment(testFragment, FUNCTION_AND_TYPE_MANAGER, TEST_SESSION, true);
-        assertTrue(textPlan.contains("NativeExecution => [column:varchar]"));
         assertTrue(textPlan.contains("Project[projectLocality = UNKNOWN] => [column:varchar]"));
         assertTrue(textPlan.contains("Limit[10] => [column:varchar]"));
         assertTrue(

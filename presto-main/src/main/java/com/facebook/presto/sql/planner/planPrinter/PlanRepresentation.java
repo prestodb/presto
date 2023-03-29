@@ -73,6 +73,9 @@ class PlanRepresentation
 
     public void addNode(NodeRepresentation node)
     {
-        nodeInfo.put(node.getId(), node);
+        NodeRepresentation previous = nodeInfo.put(node.getId(), node);
+        if (previous != null) {
+            throw new IllegalStateException(String.format("Duplicate node ID %s: %s vs. %s", node.getId(), previous.getName(), node.getName()));
+        }
     }
 }

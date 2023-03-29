@@ -24,11 +24,11 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.NativeExecutionInfo;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.operator.SplitOperatorInfo;
 import com.facebook.presto.spark.execution.NativeExecutionProcess;
 import com.facebook.presto.spark.execution.NativeExecutionProcessFactory;
 import com.facebook.presto.spark.execution.NativeExecutionTask;
@@ -42,7 +42,6 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -50,10 +49,10 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -99,7 +98,7 @@ public class NativeExecutionOperator
     private List<TaskSource> taskSource = new ArrayList<>();
     private boolean finished;
 
-    private List<ScheduledSplit> splits = new ArrayList<>();
+    private final AtomicReference<NativeExecutionInfo> info = new AtomicReference<>(null);
 
     public NativeExecutionOperator(
             PlanNodeId sourceId,
@@ -120,6 +119,8 @@ public class NativeExecutionOperator
         this.serde = requireNonNull(serde, "serde is null");
         this.processFactory = requireNonNull(processFactory, "processFactory is null");
         this.taskFactory = requireNonNull(taskFactory, "taskFactory is null");
+
+        operatorContext.setInfoSupplier(info::get);
     }
 
     @Override
@@ -174,6 +175,7 @@ public class NativeExecutionOperator
                 }
                 else {
                     if (taskInfo.isPresent() && taskInfo.get().getTaskStatus().getState().isDone()) {
+                        info.set(new NativeExecutionInfo(ImmutableList.of(taskInfo.get().getStats())));
                         finished = true;
                     }
                     return null;
@@ -250,20 +252,8 @@ public class NativeExecutionOperator
         if (finished) {
             return Optional::empty;
         }
-        splits.add(split);
+
         taskSource.add(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
-
-        Object splitInfo = split.getSplit().getInfo();
-        Map<String, String> infoMap = split.getSplit().getInfoMap();
-
-        // TODO: The following stats reporting does not work for native execution as only the last split is supplied to operatorContext
-        // Make the implicit assumption that if infoMap is populated we can use that instead of the raw object.
-        if (infoMap != null && !infoMap.isEmpty()) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(infoMap)));
-        }
-        else if (splitInfo != null) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(splitInfo)));
-        }
 
         return Optional::empty;
     }
