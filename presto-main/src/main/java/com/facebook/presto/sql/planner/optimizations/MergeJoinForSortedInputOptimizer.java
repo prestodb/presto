@@ -29,19 +29,19 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
-import static com.facebook.presto.SystemSessionProperties.preferMergeJoin;
+import static com.facebook.presto.SystemSessionProperties.preferMergeJoinForSortedInputs;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class MergeJoinOptimizer
+public class MergeJoinForSortedInputOptimizer
         implements PlanOptimizer
 {
     private final Metadata metadata;
     private final SqlParser parser;
 
-    public MergeJoinOptimizer(Metadata metadata, SqlParser parser)
+    public MergeJoinForSortedInputOptimizer(Metadata metadata, SqlParser parser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
@@ -55,8 +55,8 @@ public class MergeJoinOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        if (isGroupedExecutionEnabled(session) && preferMergeJoin(session)) {
-            return SimplePlanRewriter.rewriteWith(new MergeJoinOptimizer.Rewriter(variableAllocator, idAllocator, metadata, session), plan, null);
+        if (isGroupedExecutionEnabled(session) && preferMergeJoinForSortedInputs(session)) {
+            return SimplePlanRewriter.rewriteWith(new MergeJoinForSortedInputOptimizer.Rewriter(variableAllocator, idAllocator, metadata, session), plan, null);
         }
         return plan;
     }
@@ -85,6 +85,8 @@ public class MergeJoinOptimizer
                 return node;
             }
 
+            // Fast path merge join optimization (no sort, no local merge)
+
             // For example: when we have a plan that looks like:
             // JoinNode
             //- TableScanA
@@ -97,8 +99,7 @@ public class MergeJoinOptimizer
             //- TableScanB
 
             // 2. If not, we don't optimize
-
-            if (isMergeJoinEligible(node.getLeft(), node.getRight(), node)) {
+            if (meetsDataRequirement(node.getLeft(), node.getRight(), node)) {
                 return new MergeJoinNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -114,7 +115,7 @@ public class MergeJoinOptimizer
             return node;
         }
 
-        private boolean isMergeJoinEligible(PlanNode left, PlanNode right, JoinNode node)
+        private boolean meetsDataRequirement(PlanNode left, PlanNode right, JoinNode node)
         {
             // Acquire data properties for both left and right side
             StreamPropertyDerivations.StreamProperties leftProperties = StreamPropertyDerivations.derivePropertiesRecursively(left, metadata, session, types, parser);
