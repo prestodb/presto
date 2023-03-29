@@ -18,29 +18,10 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox;
 
 namespace facebook::presto::operators {
-
-void PartitionAndSerializeNode::addDetails(std::stringstream& stream) const {
-  stream << "(";
-  for (auto i = 0; i < keys_.size(); ++i) {
-    const auto& expr = keys_[i];
-    if (i > 0) {
-      stream << ", ";
-    }
-    if (auto field =
-            std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(expr)) {
-      stream << field->name();
-    } else if (
-        auto constant =
-            std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr)) {
-      stream << constant->toString();
-    } else {
-      stream << expr->toString();
-    }
-  }
-  stream << ") " << numPartitions_;
-}
-
 namespace {
+velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+  return obj["id"].asString();
+}
 
 /// The output of this operator has 2 columns:
 /// (1) partition number (INTEGER);
@@ -60,7 +41,7 @@ class PartitionAndSerializeOperator : public Operator {
         numPartitions_(planNode->numPartitions()),
         partitionFunction_(
             numPartitions_ == 1 ? nullptr
-                                : planNode->partitionFunctionFactory()(
+                                : planNode->partitionFunctionFactory()->create(
                                       planNode->numPartitions())) {}
 
   bool needsInput() const override {
@@ -175,5 +156,51 @@ std::unique_ptr<Operator> PartitionAndSerializeTranslator::toOperator(
         id, ctx, partitionNode);
   }
   return nullptr;
+}
+
+void PartitionAndSerializeNode::addDetails(std::stringstream& stream) const {
+  stream << "(";
+  for (auto i = 0; i < keys_.size(); ++i) {
+    const auto& expr = keys_[i];
+    if (i > 0) {
+      stream << ", ";
+    }
+    if (auto field =
+            std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(expr)) {
+      stream << field->name();
+    } else if (
+        auto constant =
+            std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr)) {
+      stream << constant->toString();
+    } else {
+      stream << expr->toString();
+    }
+  }
+  stream << ") " << numPartitions_ << " " << partitionFunctionSpec_->toString();
+}
+
+folly::dynamic PartitionAndSerializeNode::serialize() const {
+  auto obj = PlanNode::serialize();
+  obj["keys"] = ISerializable::serialize(keys_);
+  obj["numPartitions"] = numPartitions_;
+  obj["outputType"] = outputType_->serialize();
+  obj["sources"] = ISerializable::serialize(sources_);
+  obj["partitionFunctionSpec"] = partitionFunctionSpec_->serialize();
+  return obj;
+}
+
+velox::core::PlanNodePtr PartitionAndSerializeNode::create(
+    const folly::dynamic& obj,
+    void* context) {
+  return std::make_shared<PartitionAndSerializeNode>(
+      deserializePlanNodeId(obj),
+      ISerializable::deserialize<std::vector<velox::core::ITypedExpr>>(
+          obj["keys"], context),
+      obj["numPartitions"].asInt(),
+      ISerializable::deserialize<RowType>(obj["outputType"], context),
+      ISerializable::deserialize<std::vector<velox::core::PlanNode>>(
+          obj["sources"], context)[0],
+      ISerializable::deserialize<velox::core::PartitionFunctionSpec>(
+          obj["partitionFunctionSpec"], context));
 }
 } // namespace facebook::presto::operators
