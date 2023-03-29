@@ -28,10 +28,8 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
 import java.util.List;
 
-import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.preferMergeJoin;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -55,7 +53,7 @@ public class MergeJoinOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        if (isGroupedExecutionEnabled(session) && preferMergeJoin(session)) {
+        if (preferMergeJoin(session)) {
             return SimplePlanRewriter.rewriteWith(new MergeJoinOptimizer.Rewriter(variableAllocator, idAllocator, metadata, session), plan, null);
         }
         return plan;
@@ -81,7 +79,7 @@ public class MergeJoinOptimizer
         public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
         {
             // As of now, we only support inner join for merge join
-            if (node.getType() != INNER) {
+            if (!MergeJoinNode.isMergeJoinEligible(node)) {
                 return node;
             }
 

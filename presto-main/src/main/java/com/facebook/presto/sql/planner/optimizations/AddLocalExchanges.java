@@ -25,6 +25,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -44,6 +45,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -75,6 +77,7 @@ import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEn
 import static com.facebook.presto.SystemSessionProperties.isSegmentedAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
@@ -818,6 +821,38 @@ public class AddLocalExchanges
             PlanWithProperties index = new PlanWithProperties(node.getIndexSource(), indexStreamProperties);
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(probe, index));
+        }
+
+        @Override
+        public PlanWithProperties visitMergeJoin(MergeJoinNode node, StreamPreferredProperties parentPreferences)
+        {
+            PlanWithProperties left = planAndEnforceChildren(node.getLeft(), fixedParallelism(), fixedParallelism());
+            if (!left.getProperties().isSingleStream()) {
+                List<Ordering> leftOrdering = node.getCriteria().stream()
+                        .map(criterion -> new Ordering(criterion.getLeft(), ASC_NULLS_FIRST))
+                        .collect(toImmutableList());
+                left = deriveProperties(
+                        mergingExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                left.getNode(),
+                                new OrderingScheme(leftOrdering)),
+                        left.getProperties());
+            }
+            PlanWithProperties right = planAndEnforceChildren(node.getRight(), fixedParallelism(), fixedParallelism());
+            if (!right.getProperties().isSingleStream()) {
+                List<Ordering> rightOrdering = node.getCriteria().stream()
+                        .map(criterion -> new Ordering(criterion.getRight(), ASC_NULLS_FIRST))
+                        .collect(toImmutableList());
+                right = deriveProperties(
+                        mergingExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                right.getNode(),
+                                new OrderingScheme(rightOrdering)),
+                        right.getProperties());
+            }
+            return rebaseAndDeriveProperties(node, ImmutableList.of(left, right));
         }
 
         //

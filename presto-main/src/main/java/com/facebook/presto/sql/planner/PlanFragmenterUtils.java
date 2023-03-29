@@ -45,6 +45,7 @@ import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedEx
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
+import static com.facebook.presto.sql.planner.MergeJoinWithGroupedExecutionOptimizer.optimizeMergeJoinWithGroupedExecution;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.google.common.base.Preconditions.checkState;
@@ -94,6 +95,8 @@ public class PlanFragmenterUtils
             // grouped execution is not supported for SINGLE_DISTRIBUTION
             subPlan = analyzeGroupedExecution(session, subPlan, false, metadata, nodePartitioningManager);
         }
+
+        subPlan = optimizeMergeJoinWithGroupedExecution(session, subPlan, metadata);
 
         checkState(subPlan.getFragment().getId().getId() != ROOT_FRAGMENT_ID || !isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
