@@ -93,5 +93,5 @@ DEFINE_string(
 // existing meta internal use cases.
 DEFINE_bool(
     velox_memory_leak_check_enabled,
-    true,
+    false,
     "If true, check fails on any memory leaks in memory pool and memory manager");
