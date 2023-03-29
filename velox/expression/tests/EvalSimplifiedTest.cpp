@@ -164,6 +164,54 @@ TEST_F(EvalSimplifiedTest, doubles) {
   runTest("ceil(c1) * c0", ROW({"c0", "c1"}, {DOUBLE(), DOUBLE()}));
 }
 
+TEST_F(EvalSimplifiedTest, nestedField) {
+  runTest("c0.c0", ROW({{"c0", ROW({{"c0", BIGINT()}})}}));
+  runTest(
+      "CASE WHEN c0 THEN c1 ELSE c2.c0 END",
+      ROW(
+          {{"c0", BOOLEAN()},
+           {"c1", BIGINT()},
+           {"c2", ROW({{"c0", BIGINT()}})}}));
+}
+
+TEST_F(EvalSimplifiedTest, dereference) {
+  auto testDereference = [&](const std::string& expression,
+                             const RowVectorPtr& input) {
+    SelectivityVector rows(input->size());
+    auto expr = makeTypedExpr(expression, asRowType(input->type()));
+    exec::ExprSet exprSetCommon({expr}, &execCtx_);
+    exec::ExprSetSimplified exprSetSimplified({expr}, &execCtx_);
+    compareEvals(exprSetCommon, exprSetSimplified, input, rows);
+  };
+
+  auto c0 = makeFlatVector<int64_t>({1, 2, 3, 4, 5});
+  auto c1 = makeFlatVector<double>({1.1, 2.2, 3.3, 4.4, 5.5});
+
+  // Flat input.
+  {
+    auto data = makeRowVector({c0, c1});
+    testDereference("c0.c0", makeRowVector({data}));
+    testDereference("c0.c1", makeRowVector({data}));
+  }
+
+  // Constant input.
+  {
+    auto data = makeRowVector(
+        {makeConstant<int64_t>(1, 5), makeConstant<double>(1.1, 5)});
+    testDereference("c0.c0", makeRowVector({data}));
+    testDereference("c0.c1", makeRowVector({data}));
+  }
+
+  // Dictionary input.
+  {
+    auto indices = makeIndices({4, 3, 2, 1, 0, 1, 2, 3, 4});
+    auto data = makeRowVector(
+        {wrapInDictionary(indices, c0), wrapInDictionary(indices, c1)});
+    testDereference("c0.c0", makeRowVector({data}));
+    testDereference("c0.c1", makeRowVector({data}));
+  }
+}
+
 TEST_F(EvalSimplifiedTest, propagateNulls) {
   auto rowVector = makeRowVector({
       makeFlatVector<int64_t>({1, 2, 3}),
