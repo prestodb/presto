@@ -27,6 +27,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
@@ -128,7 +129,6 @@ class CMakeBuild(build_ext):
             "-DVELOX_BUILD_PYTHON_PACKAGE=ON",
             f"-DPYTHON_EXECUTABLE={exec_path} ",
             "-DVELOX_CODEGEN_SUPPORT=OFF",
-            "-DVELOX_BUILD_MINIMAL=ON",
         ]
         build_args = []
 

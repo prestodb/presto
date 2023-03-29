@@ -152,6 +152,10 @@ class FunctionRegistry {
         : std::nullopt;
   }
 
+  void clearRegistry() {
+    registeredFunctions_.clear();
+  }
+
  private:
   template <typename T>
   static std::unique_ptr<T> CreateUdf() {

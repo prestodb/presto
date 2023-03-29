@@ -17,12 +17,18 @@ if(VELOX_BUILD_PYTHON_PACKAGE)
   include_directories(SYSTEM ${CMAKE_SOURCE_DIR})
   add_definitions(-DCREATE_PYVELOX_MODULE -DVELOX_DISABLE_GOOGLETEST)
   # Define our Python module:
-  pybind11_add_module(pyvelox MODULE pyvelox.cpp pyvelox.h)
-
+  pybind11_add_module(pyvelox MODULE pyvelox.cpp signatures.cpp)
   # Link with Velox:
   target_link_libraries(
-    pyvelox PRIVATE velox_type velox_vector velox_core velox_exec
-                    velox_functions_prestosql velox_parse_parser)
+    pyvelox
+    PRIVATE velox_type
+            velox_vector
+            velox_core
+            velox_exec
+            velox_functions_prestosql
+            velox_parse_parser
+            velox_functions_prestosql
+            velox_functions_spark)
 
   install(TARGETS pyvelox LIBRARY DESTINATION .)
 else()

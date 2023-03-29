@@ -67,4 +67,6 @@ std::shared_ptr<const Type> resolveVectorFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
+/// Clears the function registry.
+void clearFunctionRegistry();
 } // namespace facebook::velox
