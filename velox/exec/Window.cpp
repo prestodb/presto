@@ -299,11 +299,9 @@ void Window::updateKRowsFrameBounds(
 
   if (frameArg.index == kConstantChannel) {
     auto constantOffset = frameArg.constant.value();
-    std::iota(
-        rawFrameBounds,
-        rawFrameBounds + numRows,
-        startRow + (isKPreceding ? -constantOffset : constantOffset) -
-            firstPartitionRow);
+    auto startValue = startRow +
+        (isKPreceding ? -constantOffset : constantOffset) - firstPartitionRow;
+    std::iota(rawFrameBounds, rawFrameBounds + numRows, startValue);
   } else {
     windowPartition_->extractColumn(
         frameArg.index, partitionOffset_, numRows, 0, frameArg.value);
@@ -315,11 +313,12 @@ void Window::updateKRowsFrameBounds(
           offsets[i], 1, "k in frame bounds must be at least 1");
     }
 
+    // Preceding involves subtracting from the current position, while following
+    // moves ahead.
+    int precedingFactor = isKPreceding ? -1 : 1;
     for (auto i = 0; i < numRows; i++) {
       rawFrameBounds[i] = (startRow + i) +
-          (isKPreceding ? -vector_size_t(offsets[i])
-                        : vector_size_t(offsets[i])) -
-          firstPartitionRow;
+          vector_size_t(precedingFactor * offsets[i]) - firstPartitionRow;
     }
   }
 }
