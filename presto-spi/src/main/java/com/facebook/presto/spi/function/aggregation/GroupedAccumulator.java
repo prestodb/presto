@@ -31,7 +31,7 @@ public interface GroupedAccumulator
 
     void addInput(GroupByIdBlock groupIdsBlock, Page page);
 
-    default void addInputBlock(GroupByIdBlock groupByIdBlock, Page page) {
+    default void addBlockInput(GroupByIdBlock groupByIdBlock, Page page) {
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, "addInputBlock is not implemented");
     }
 
@@ -43,7 +43,7 @@ public interface GroupedAccumulator
 
     void prepareFinal();
 
-    default boolean hasBlockAddInput() {
+    default boolean hasAddBlockInput() {
         return false;
     }
 }

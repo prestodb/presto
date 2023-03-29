@@ -122,6 +122,7 @@ public class ReduceAggregationFunction
                         inputMethodHandle.type()
                                 .changeParameterType(1, inputType.getJavaType())
                                 .changeParameterType(2, stateType.getJavaType())),
+                null,
                 combineMethodHandle,
                 outputMethodHandle,
                 ImmutableList.of(stateDescriptor),
