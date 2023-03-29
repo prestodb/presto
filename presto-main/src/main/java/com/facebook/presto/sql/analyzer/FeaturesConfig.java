@@ -228,7 +228,7 @@ public class FeaturesConfig
     private boolean verboseRuntimeStatsEnabled;
 
     private boolean streamingForPartialAggregationEnabled;
-    private boolean preferMergeJoin;
+    private boolean preferMergeJoinForSortedInputs;
     private boolean segmentedAggregationEnabled;
 
     private int maxStageCountForEagerScheduling = 25;
@@ -2190,17 +2190,17 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isPreferMergeJoin()
+    public boolean isPreferMergeJoinForSortedInputs()
     {
-        return preferMergeJoin;
+        return preferMergeJoinForSortedInputs;
     }
 
-    @Config("optimizer.prefer-merge-join")
+    @Config("optimizer.prefer-merge-join-for-sorted-inputs")
     @ConfigDescription("Prefer merge join for sorted join inputs, e.g., tables pre-sorted, pre-partitioned by join columns." +
             "To make it work, the connector needs to guarantee and expose the data properties of the underlying table.")
-    public FeaturesConfig setPreferMergeJoin(boolean preferMergeJoin)
+    public FeaturesConfig setPreferMergeJoinForSortedInputs(boolean preferMergeJoinForSortedInputs)
     {
-        this.preferMergeJoin = preferMergeJoin;
+        this.preferMergeJoinForSortedInputs = preferMergeJoinForSortedInputs;
         return this;
     }
 

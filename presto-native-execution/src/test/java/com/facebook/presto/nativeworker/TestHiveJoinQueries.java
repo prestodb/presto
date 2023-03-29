@@ -127,7 +127,7 @@ public class TestHiveJoinQueries
     private Session mergeJoin()
     {
         return Session.builder(getSession())
-                .setSystemProperty("prefer_merge_join", "true")
+                .setSystemProperty("prefer_merge_join_for_sorted_inputs", "true")
                 .setCatalogSessionProperty("hive", "order_based_execution_enabled", "true")
                 .build();
     }
