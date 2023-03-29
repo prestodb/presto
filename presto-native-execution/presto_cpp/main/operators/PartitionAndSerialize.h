@@ -31,13 +31,13 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
       uint32_t numPartitions,
       velox::RowTypePtr outputType,
       velox::core::PlanNodePtr source,
-      velox::core::PartitionFunctionFactory partitionFunctionFactory)
+      velox::core::PartitionFunctionSpecPtr partitionFunctionFactory)
       : velox::core::PlanNode(id),
         keys_(std::move(keys)),
         numPartitions_(numPartitions),
         outputType_{std::move(outputType)},
         sources_({std::move(source)}),
-        partitionFunctionFactory_(std::move(partitionFunctionFactory)) {
+        partitionFunctionSpec_(std::move(partitionFunctionFactory)) {
     // Only verify output types are correct. Note column names are not enforced
     // in the following check.
     VELOX_USER_CHECK(
@@ -45,9 +45,14 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
             {"partition", "data"}, {velox::INTEGER(), velox::VARBINARY()})
             ->equivalent(*outputType_));
     VELOX_USER_CHECK_NOT_NULL(
-        partitionFunctionFactory_,
-        "Partition function factory cannot be null.");
+        partitionFunctionSpec_, "Partition function factory cannot be null.");
   }
+
+  folly::dynamic serialize() const override;
+
+  static velox::core::PlanNodePtr create(
+      const folly::dynamic& obj,
+      void* context);
 
   const velox::RowTypePtr& outputType() const override {
     return outputType_;
@@ -65,9 +70,9 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
     return numPartitions_;
   }
 
-  const velox::core::PartitionFunctionFactory& partitionFunctionFactory()
+  const velox::core::PartitionFunctionSpecPtr& partitionFunctionFactory()
       const {
-    return partitionFunctionFactory_;
+    return partitionFunctionSpec_;
   }
 
   std::string_view name() const override {
@@ -81,7 +86,7 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
   const uint32_t numPartitions_;
   const velox::RowTypePtr outputType_;
   const std::vector<velox::core::PlanNodePtr> sources_;
-  const velox::core::PartitionFunctionFactory partitionFunctionFactory_;
+  const velox::core::PartitionFunctionSpecPtr partitionFunctionSpec_;
 };
 
 class PartitionAndSerializeTranslator

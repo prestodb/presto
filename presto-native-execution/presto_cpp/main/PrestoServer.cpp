@@ -33,6 +33,7 @@
 #include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Counters.h"
@@ -281,6 +282,7 @@ void PrestoServer::run() {
       kPrestoDefaultPrefix);
   velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
   registerVectorSerdes();
+  registerPrestoPlanNodeSerDe();
 
   facebook::velox::exec::ExchangeSource::registerFactory(
       PrestoExchangeSource::createExchangeSource);

@@ -204,4 +204,5 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
   const std::shared_ptr<std::string> serializedShuffleWriteInfo_;
 };
 
+void registerPrestoPlanNodeSerDe();
 } // namespace facebook::presto
