@@ -31,8 +31,12 @@ import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.ORDER_BASED_EXECUTION_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.mergeJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -135,11 +139,11 @@ public class TestMergeJoinPlan
                     "select * from test_join_customer join test_join_order on test_join_customer.custkey = test_join_order.custkey",
                     joinPlan("test_join_customer", "test_join_order", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, true));
 
-            // When we miss grouped execution session property, we can't enable merge join
+            // We can plan merge join even if grouped execution is disabled
             assertPlan(
                     groupedExecutionDisabled(),
                     "select * from test_join_customer join test_join_order on test_join_customer.custkey = test_join_order.custkey",
-                    joinPlan("test_join_customer", "test_join_order", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, false));
+                    joinPlan("test_join_customer", "test_join_order", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, true));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_join_customer");
@@ -336,14 +340,16 @@ public class TestMergeJoinPlan
                         joinType,
                         joinClauses.build(),
                         Optional.empty(),
-                        PlanMatchPattern.tableScan(leftTableName, leftColumnReferencesBuilder.build()),
-                        PlanMatchPattern.tableScan(rightTableName, rightColumnReferencesBuilder.build()))) :
+                        exchange(LOCAL, GATHER,
+                                tableScan(leftTableName, leftColumnReferencesBuilder.build())),
+                        exchange(LOCAL, GATHER,
+                                tableScan(rightTableName, rightColumnReferencesBuilder.build())))) :
                 anyTree(join(
                         joinType,
                         joinClauses.build(),
                         Optional.empty(),
                         Optional.of(PARTITIONED),
-                        anyTree(PlanMatchPattern.tableScan(leftTableName, leftColumnReferencesBuilder.build())),
-                        anyTree(PlanMatchPattern.tableScan(rightTableName, rightColumnReferencesBuilder.build()))));
+                        anyTree(tableScan(leftTableName, leftColumnReferencesBuilder.build())),
+                        anyTree(tableScan(rightTableName, rightColumnReferencesBuilder.build()))));
     }
 }

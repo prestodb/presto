@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -37,9 +36,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_PLAN_ERROR;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_REWINDABLE_SPLIT_SOURCE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -160,15 +157,7 @@ class GroupedExecutionTagger
                     left.totalLifespans,
                     left.recoveryEligible && right.recoveryEligible);
         }
-        throw new PrestoException(
-                INVALID_PLAN_ERROR,
-                format("When grouped execution can't be enabled, merge join plan is not valid." +
-                                "%s is currently set to %s; left node grouped execution capable is %s and " +
-                                "right node grouped execution capable is %s.",
-                        GROUPED_EXECUTION,
-                        groupedExecutionEnabled,
-                        left.currentNodeCapable,
-                        right.currentNodeCapable));
+        return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
     }
 
     @Override
