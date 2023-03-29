@@ -299,7 +299,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
       }
 
       execTask = std::make_shared<exec::Task>(
-          taskId, planFragment, 0, std::move(queryCtx));
+          taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));
       maybeSetupTaskSpillDirectory(planFragment, *execTask);
 
       prestoTask->task = execTask;
