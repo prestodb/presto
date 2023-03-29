@@ -32,6 +32,7 @@ add_library(
   ElementAt.cpp
   FilterFunctions.cpp
   FromUnixTime.cpp
+  FromUtf8.cpp
   GreatestLeast.cpp
   InPredicate.cpp
   JsonFunctions.cpp
@@ -53,6 +54,7 @@ add_library(
   TransformKeys.cpp
   TransformValues.cpp
   URLFunctions.cpp
+  Utf8Utils.cpp
   VectorArithmetic.cpp
   WidthBucketArray.cpp
   Zip.cpp

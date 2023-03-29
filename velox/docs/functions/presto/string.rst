@@ -33,6 +33,18 @@ String Functions
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
+.. function:: from_utf8(binary) -> varchar
+
+    Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences
+    are replaced with the Unicode replacement character ``U+FFFD``.
+
+.. function:: from_utf8(binary, replace) -> varchar
+
+    Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences are
+    replaced with `replace`. The `replace` argument can be either Unicode code
+    point (bigint), a single character or empty string. When `replace` is an
+    empty string invalid characters are removed.
+
 .. function:: length(string) -> bigint
 
     Returns the length of ``string`` in characters.
