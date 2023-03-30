@@ -48,6 +48,8 @@ import com.google.common.collect.ImmutableSet;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -94,8 +96,10 @@ public class NativeExecutionOperator
     private NativeExecutionProcess process;
     private NativeExecutionTask task;
     private CompletableFuture<Void> taskStatusFuture;
-    private TaskSource taskSource;
+    private List<TaskSource> taskSource = new ArrayList<>();
     private boolean finished;
+
+    private List<ScheduledSplit> splits = new ArrayList<>();
 
     public NativeExecutionOperator(
             PlanNodeId sourceId,
@@ -208,7 +212,7 @@ public class NativeExecutionOperator
                 uriBuilderFrom(URI.create(NATIVE_EXECUTION_SERVER_URI)).port(process.getPort()).build(),
                 operatorContext.getDriverContext().getTaskId(),
                 planFragment,
-                ImmutableList.of(taskSource),
+                ImmutableList.copyOf(taskSource),
                 tableWriteInfo,
                 shuffleWriteInfo);
     }
@@ -243,18 +247,18 @@ public class NativeExecutionOperator
     public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit split)
     {
         requireNonNull(split, "split is null");
-        checkState(this.taskSource == null, "NativeEngine operator split already set");
 
         if (finished) {
             return Optional::empty;
         }
-
-        this.taskSource = new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true);
+        splits.add(split);
+        taskSource.add(new TaskSource(split.getPlanNodeId(), ImmutableSet.of(split), true));
 
         Object splitInfo = split.getSplit().getInfo();
         Map<String, String> infoMap = split.getSplit().getInfoMap();
 
-        //Make the implicit assumption that if infoMap is populated we can use that instead of the raw object.
+        // TODO: The following stats reporting does not work for native execution as only the last split is supplied to operatorContext
+        // Make the implicit assumption that if infoMap is populated we can use that instead of the raw object.
         if (infoMap != null && !infoMap.isEmpty()) {
             operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(infoMap)));
         }
