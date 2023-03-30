@@ -15,6 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -79,6 +80,7 @@ import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespans
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedScaleWriterProducerBuffer;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
@@ -109,6 +111,7 @@ import static java.util.stream.Collectors.toSet;
 public class SectionExecutionFactory
 {
     private static final Logger log = Logger.get(SectionExecutionFactory.class);
+    private static final String RUNTIME_STATS_RETRIED_SPLITS_PREFIX = "retried-splits-node-";
     public static final int SPLIT_RETRY_BATCH_SIZE = 100;
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
@@ -315,6 +318,7 @@ public class SectionExecutionFactory
                             .filter(task -> task instanceof HttpRemoteTask)
                             .map(task -> (HttpRemoteTask) task)
                             .collect(onlyElement());
+                    String nodeId = remoteTask.getNodeId();
 
                     List<HttpRemoteTask> httpRemoteTasks = stageExecution.getAllTasks().stream()
                             .filter(task -> !task.getTaskId().equals(taskId))
@@ -343,6 +347,9 @@ public class SectionExecutionFactory
                                 List<Split> scheduledSplit = splits.next();
                                 Multimap<PlanNodeId, Split> splitsToAdd = HashMultimap.create();
                                 splitsToAdd.putAll(planNodeId, scheduledSplit);
+                                RuntimeStats splitRetryStats = new RuntimeStats();
+                                splitRetryStats.addMetricValue(new StringBuilder(RUNTIME_STATS_RETRIED_SPLITS_PREFIX).append(nodeId).toString(), NONE, 1);
+                                session.getRuntimeStats().update(splitRetryStats);
                                 httpRemoteTask.addSplits(splitsToAdd);
                             }
                         }

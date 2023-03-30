@@ -204,7 +204,7 @@ public class TaskExecutor
                 Ticker.systemTicker());
     }
 
-    public synchronized void gracefulShutdown()
+    public void gracefulShutdown()
     {
         long shutdownStartTime = System.nanoTime();
         waitingSplits.shutDown();
@@ -216,7 +216,7 @@ public class TaskExecutor
             taskShutdownExecutor.execute(
                     () -> {
                         //wait for running splits to be over
-                        long waitTimeMillis = 10; // Wait for 10 milliseconds between checks to avoid cpu spike
+                        long waitTimeMillis = 100; // Wait for 10 milliseconds between checks to avoid cpu spike
                         long startTime = System.nanoTime();
                         while (runningSplits.size() > 0) {
                             try {
@@ -232,7 +232,7 @@ public class TaskExecutor
                         startTime = System.nanoTime();
                         while (!taskHandle.isOutputBufferEmpty()) {
                             try {
-                                log.warn("GracefulShutdown:: Waiting for output buffer to be empty for task- %s", taskHandle.getTaskId());
+                                log.warn("GracefulShutdown:: Waiting for output buffer to be empty for task- %s, outputbuffer type = %s", taskHandle.getTaskId(), taskHandle.getOutputBuffer().get().getClass());
                                 Thread.sleep(waitTimeMillis);
                             }
                             catch (InterruptedException e) {

@@ -55,7 +55,6 @@ public class WorkerModule
         binder.bind(NodeResourceStatusProvider.class).toInstance(newProxy(NodeResourceStatusProvider.class, (proxy, method, args) -> {
             return true;
         }));
-        //binder.bind(FaultInjector.class).in(Scopes.SINGLETON);
     }
 
     @Provides

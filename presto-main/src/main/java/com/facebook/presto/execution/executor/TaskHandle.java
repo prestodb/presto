@@ -225,4 +225,9 @@ public class TaskHandle
     {
         return outputBuffer.get().isAllPagesConsumed();
     }
+
+    public Optional<OutputBuffer> getOutputBuffer()
+    {
+        return outputBuffer;
+    }
 }
