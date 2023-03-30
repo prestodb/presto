@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/expression/EvalCtx.h"
@@ -116,6 +115,24 @@ void gatherCopy(
         target, targetIndex, count, sources, sourceIndices, sourceChannel);
   }
 }
+
+// We want to aggregate some operator runtime metrics per operator rather than
+// per event. This function returns true for such metrics.
+bool shouldAggregateRuntimeMetric(const std::string& name) {
+  static const folly::F14FastSet<std::string> metricNames{
+      "dataSourceWallNanos", "dataSourceLazyWallNanos", "queuedWallNanos"};
+  if (metricNames.contains(name)) {
+    return true;
+  }
+
+  // 'blocked*WallNanos'
+  if (name.size() > 16 and strncmp(name.c_str(), "blocked", 7) == 0) {
+    return true;
+  }
+
+  return false;
+}
+
 } // namespace
 
 void deselectRowsWithNulls(
@@ -354,6 +371,15 @@ void addOperatorRuntimeStats(
     VELOX_CHECK_EQ(stats.at(name).unit, value.unit);
   }
   stats.at(name).addValue(value.value);
+}
+
+void aggregateOperatorRuntimeStats(
+    std::unordered_map<std::string, RuntimeMetric>& stats) {
+  for (auto& runtimeMetric : stats) {
+    if (shouldAggregateRuntimeMetric(runtimeMetric.first)) {
+      runtimeMetric.second.aggregate();
+    }
+  }
 }
 
 } // namespace facebook::velox::exec

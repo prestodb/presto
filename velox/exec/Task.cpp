@@ -27,6 +27,7 @@
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/LocalPlanner.h"
 #include "velox/exec/Merge.h"
+#include "velox/exec/OperatorUtils.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/Task.h"
 #if CODEGEN_ENABLED == 1
@@ -1613,6 +1614,7 @@ void Task::addOperatorStats(OperatorStats& stats) {
       stats.operatorId >= 0 &&
       stats.operatorId <
           taskStats_.pipelineStats[stats.pipelineId].operatorStats.size());
+  aggregateOperatorRuntimeStats(stats.runtimeStats);
   taskStats_.pipelineStats[stats.pipelineId]
       .operatorStats[stats.operatorId]
       .add(stats);
@@ -1637,6 +1639,7 @@ TaskStats Task::taskStats() const {
 
     for (auto& op : driver->operators()) {
       auto statsCopy = op->stats(false);
+      aggregateOperatorRuntimeStats(statsCopy.runtimeStats);
       taskStats.pipelineStats[statsCopy.pipelineId]
           .operatorStats[statsCopy.operatorId]
           .add(statsCopy);

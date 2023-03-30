@@ -121,4 +121,10 @@ void addOperatorRuntimeStats(
     const std::string& name,
     const RuntimeCounter& value,
     std::unordered_map<std::string, RuntimeMetric>& stats);
+
+/// Aggregates runtime metrics we want to see per operator rather than per
+/// event.
+void aggregateOperatorRuntimeStats(
+    std::unordered_map<std::string, RuntimeMetric>& stats);
+
 } // namespace facebook::velox::exec

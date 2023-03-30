@@ -439,8 +439,8 @@ class Task : public std::enable_shared_from_this<Task> {
   /// will transition the state.
   void setAllOutputConsumed();
 
-  /// Adds 'stats' to the cumulative total stats for the operator in
-  /// the Task stats. Clears 'stats'.
+  /// Adds 'stats' to the cumulative total stats for the operator in the Task
+  /// stats. Called from Drivers upon their closure.
   void addOperatorStats(OperatorStats& stats);
 
   /// Returns kNone if no pause or terminate is requested. The thread count is
