@@ -17,9 +17,12 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskSource;
+import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -33,6 +36,7 @@ import com.facebook.presto.spark.execution.NativeExecutionProcess;
 import com.facebook.presto.spark.execution.NativeExecutionProcessFactory;
 import com.facebook.presto.spark.execution.NativeExecutionTask;
 import com.facebook.presto.spark.execution.NativeExecutionTaskFactory;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -59,6 +63,7 @@ import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -160,35 +165,49 @@ public class NativeExecutionOperator
             checkState(process != null, "process is null");
             createTask();
             checkState(task != null, "task is null");
-            taskStatusFuture = task.start();
+            TaskInfo taskInfo = task.start();
+            if (processTaskInfo(taskInfo)) {
+                return null;
+            }
         }
 
         try {
-            if (taskStatusFuture.isDone()) {
-                // Will throw exception if the  taskStatusFuture is done with error.
-                taskStatusFuture.get();
-                Optional<TaskInfo> taskInfo = task.getTaskInfo();
-                taskInfo.ifPresent(info -> info.getTaskStatus().getFailures().forEach(e -> log.error(e.toException())));
-                Optional<SerializedPage> page = task.pollResult();
-                if (page.isPresent()) {
-                    return processResult(page.get());
-                }
-                else {
-                    if (taskInfo.isPresent() && taskInfo.get().getTaskStatus().getState().isDone()) {
-                        info.set(new NativeExecutionInfo(ImmutableList.of(taskInfo.get().getStats())));
-                        finished = true;
-                    }
-                    return null;
-                }
+            Optional<SerializedPage> page = task.pollResult();
+            if (page.isPresent()) {
+                return processResult(page.get());
             }
 
-            Optional<SerializedPage> page = task.pollResult();
-            return page.map(this::processResult).orElse(null);
+            Optional<TaskInfo> taskInfo = task.getTaskInfo();
+            if (taskInfo.isPresent() && processTaskInfo(taskInfo.get())) {
+                return null;
+            }
+
+            return null;
         }
-        catch (InterruptedException | ExecutionException e) {
+        catch (InterruptedException e) {
             log.error(e);
             throw new RuntimeException(e);
         }
+    }
+
+    private boolean processTaskInfo(TaskInfo taskInfo)
+    {
+        TaskStatus taskStatus = taskInfo.getTaskStatus();
+        if (!taskStatus.getState().isDone()) {
+            return false;
+        }
+
+        if (taskStatus.getState() != TaskState.FINISHED) {
+            RuntimeException failure = taskStatus.getFailures().stream()
+                    .findFirst()
+                    .map(ExecutionFailureInfo::toException)
+                    .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
+            throw failure;
+        }
+
+        info.set(new NativeExecutionInfo(ImmutableList.of(taskInfo.getStats())));
+        finished = true;
+        return true;
     }
 
     private void createProcess()
