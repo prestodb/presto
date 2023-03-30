@@ -537,6 +537,44 @@ TEST_F(CastExprTest, mapCast) {
             [](auto row) { return row % 3 == 0 || row % 5 != 0; }),
         true);
   }
+
+  // Make sure that the output of map cast has valid(copyable) data even for
+  // non selected rows.
+  {
+    auto mapVector = vectorMaker_.mapVector<int32_t, int32_t>(
+        kVectorSize,
+        sizeAt,
+        keyAt,
+        /*valueAt*/ nullptr,
+        /*isNullAt*/ nullptr,
+        /*valueIsNullAt*/ nullEvery(1));
+
+    SelectivityVector rows(5);
+    rows.setValid(2, false);
+    mapVector->setOffsetAndSize(2, 100, 100);
+    std::vector<VectorPtr> results(1);
+
+    auto rowVector = makeRowVector({mapVector});
+    auto castExpr =
+        makeTypedExpr("c0::map(bigint, bigint)", asRowType(rowVector->type()));
+    exec::ExprSet exprSet({castExpr}, &execCtx_);
+
+    exec::EvalCtx evalCtx(&execCtx_, &exprSet, rowVector.get());
+    exprSet.eval(rows, evalCtx, results);
+    auto mapResults = results[0]->as<MapVector>();
+    auto keysSize = mapResults->mapKeys()->size();
+    auto valuesSize = mapResults->mapValues()->size();
+
+    for (int i = 0; i < mapResults->size(); i++) {
+      auto start = mapResults->offsetAt(i);
+      auto size = mapResults->sizeAt(i);
+      if (size == 0) {
+        continue;
+      }
+      VELOX_CHECK(start + size - 1 < keysSize);
+      VELOX_CHECK(start + size - 1 < valuesSize);
+    }
+  }
 }
 
 TEST_F(CastExprTest, arrayCast) {
@@ -562,6 +600,38 @@ TEST_F(CastExprTest, arrayCast) {
     auto expected = makeArrayVector<StringView>(
         kVectorSize, sizeAt, valueAtString, nullEvery(3));
     testComplexCast("c0", arrayVector, expected);
+  }
+
+  // Make sure that the output of array cast has valid(copyable) data even for
+  // non selected rows.
+  {
+    // Array with all inner elements null.
+    auto sizeAtLocal = [](vector_size_t /* row */) { return 5; };
+    auto arrayVector = vectorMaker_.arrayVector<int32_t>(
+        kVectorSize, sizeAtLocal, nullptr, nullptr, nullEvery(1));
+
+    SelectivityVector rows(5);
+    rows.setValid(2, false);
+    arrayVector->setOffsetAndSize(2, 100, 10);
+    std::vector<VectorPtr> results(1);
+
+    auto rowVector = makeRowVector({arrayVector});
+    auto castExpr =
+        makeTypedExpr("cast (c0 as bigint[])", asRowType(rowVector->type()));
+    exec::ExprSet exprSet({castExpr}, &execCtx_);
+
+    exec::EvalCtx evalCtx(&execCtx_, &exprSet, rowVector.get());
+    exprSet.eval(rows, evalCtx, results);
+    auto arrayResults = results[0]->as<ArrayVector>();
+    auto elementsSize = arrayResults->elements()->size();
+    for (int i = 0; i < arrayResults->size(); i++) {
+      auto start = arrayResults->offsetAt(i);
+      auto size = arrayResults->sizeAt(i);
+      if (size == 0) {
+        continue;
+      }
+      VELOX_CHECK(start + size - 1 < elementsSize);
+    }
   }
 }
 

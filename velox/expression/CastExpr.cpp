@@ -335,6 +335,25 @@ VectorPtr CastExpr::applyMap(
       nestedRows, elementToTopLevelRows, oldErrors);
   context.swapErrors(oldErrors);
 
+  // Returned map vector should be addressable for every element, even those
+  // that are not selected.
+  BufferPtr sizes = input->sizes();
+  if (newMapKeys->isConstantEncoding() && newMapValues->isConstantEncoding()) {
+    // We extends size since that is cheap.
+    newMapKeys->resize(input->mapKeys()->size());
+    newMapValues->resize(input->mapValues()->size());
+
+  } else if (
+      newMapKeys->size() < input->mapKeys()->size() ||
+      newMapValues->size() < input->mapValues()->size()) {
+    sizes =
+        AlignedBuffer::allocate<vector_size_t>(rows.end(), context.pool(), 0);
+    auto* inputSizes = input->rawSizes();
+    auto* rawSizes = sizes->asMutable<vector_size_t>();
+    rows.applyToSelected(
+        [&](vector_size_t row) { rawSizes[row] = inputSizes[row]; });
+  }
+
   // Assemble the output map
   return std::make_shared<MapVector>(
       context.pool(),
@@ -342,7 +361,7 @@ VectorPtr CastExpr::applyMap(
       input->nulls(),
       rows.end(),
       input->offsets(),
-      input->sizes(),
+      sizes,
       newMapKeys,
       newMapValues);
 }
@@ -380,14 +399,28 @@ VectorPtr CastExpr::applyArray(
   }
   context.swapErrors(oldErrors);
 
-  // Assemble the output array
+  // Returned array vector should be addressable for every element, even those
+  // that are not selected.
+  BufferPtr sizes = input->sizes();
+  if (newElements->isConstantEncoding()) {
+    // If the newElements we extends its size since that is cheap.
+    newElements->resize(input->elements()->size());
+  } else if (newElements->size() < input->elements()->size()) {
+    sizes =
+        AlignedBuffer::allocate<vector_size_t>(rows.end(), context.pool(), 0);
+    auto* inputSizes = input->rawSizes();
+    auto* rawSizes = sizes->asMutable<vector_size_t>();
+    rows.applyToSelected(
+        [&](vector_size_t row) { rawSizes[row] = inputSizes[row]; });
+  }
+
   return std::make_shared<ArrayVector>(
       context.pool(),
       ARRAY(toType.elementType()),
       input->nulls(),
       rows.end(),
       input->offsets(),
-      input->sizes(),
+      sizes,
       newElements);
 }
 
