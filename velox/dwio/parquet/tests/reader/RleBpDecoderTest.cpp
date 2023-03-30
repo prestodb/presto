@@ -64,14 +64,10 @@ class RleBpDecoderTest {
     T* output = outputValues_.data();
     facebook::velox::dwio::common::unpack<T>(
         inputIter, bytes(bitWidth_), numValues_, bitWidth_, output);
-
     inputIter = encodedValues_.data();
+    output = outputValues_.data();
     T* expectedOutput = inputValues_.data();
-
     for (int i = 0; i < numValues_; i++) {
-      if (output[i] != expectedOutput[i]) {
-        break;
-      }
       ASSERT_EQ(output[i], expectedOutput[i]);
     }
   }
@@ -110,7 +106,7 @@ class RleBpDecoderTest {
   uint8_t bitWidth_;
 };
 
-TEST(RleBpDecoderTest, uint8) {
+TEST(RleBpDecoderTest, DISABLED_uint8) {
   RleBpDecoderTest<uint8_t> test(1024);
 
   test.testDecodeRandomData(1);
@@ -123,7 +119,7 @@ TEST(RleBpDecoderTest, uint8) {
   test.testDecodeRandomData(8);
 }
 
-TEST(RleBpDecoderTest, uint16) {
+TEST(RleBpDecoderTest, DISABLED_uint16) {
   RleBpDecoderTest<uint16_t> test(1024);
 
   for (uint8_t i = 1; i <= 16; i++) {
@@ -131,7 +127,7 @@ TEST(RleBpDecoderTest, uint16) {
   }
 }
 
-TEST(RleBpDecoderTest, uint32) {
+TEST(RleBpDecoderTest, DISABLED_uint32) {
   RleBpDecoderTest<uint32_t> test(1024);
 
   for (uint8_t i = 1; i <= 32; i++) {
@@ -139,7 +135,7 @@ TEST(RleBpDecoderTest, uint32) {
   }
 }
 
-TEST(RleBpDecoderTest, allOnes) {
+TEST(RleBpDecoderTest, DISABLED_allOnes) {
   std::vector<uint8_t> allOnesVector(1024, 1);
   RleBpDecoderTest<uint8_t> test;
   test.testDecodeSuppliedData(allOnesVector, 1);

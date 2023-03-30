@@ -27,7 +27,7 @@ using namespace facebook::velox;
 class BitPackDecoderTest : public testing::Test {
  protected:
   void SetUp() {
-    for (int32_t i = 0; i < 100000; i++) {
+    for (int32_t i = 0; i < 100003; i++) {
       auto randomInt = folly::Random::rand64();
       randomInts_.push_back(randomInt);
     }
