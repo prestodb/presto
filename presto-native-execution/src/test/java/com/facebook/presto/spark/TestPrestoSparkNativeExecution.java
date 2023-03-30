@@ -64,6 +64,7 @@ public class TestPrestoSparkNativeExecution
 {
     private static final String SPARK_SHUFFLE_MANAGER = "spark.shuffle.manager";
     private static final String FALLBACK_SPARK_SHUFFLE_MANAGER = "spark.fallback.shuffle.manager";
+    private static final int AVAILABLE_CPU_COUNT = 16;
 
     protected Session getNativeSession()
     {
@@ -84,7 +85,7 @@ public class TestPrestoSparkNativeExecution
 
         String dataDirectory = System.getProperty("DATA_DIR");
 
-        return PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner(configs, Optional.ofNullable(dataDirectory).map(Paths::get));
+        return PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner(configs, Optional.ofNullable(dataDirectory).map(Paths::get), AVAILABLE_CPU_COUNT);
     }
 
     @Test
@@ -102,7 +103,7 @@ public class TestPrestoSparkNativeExecution
         // Reset the spark context to register the native execution shuffle manager. We want to let the query runner use the default spark shuffle
         // manager to generate the test tables and only test the new native execution shuffle manager on the test below test cases.
         PrestoSparkQueryRunner queryRunner = (PrestoSparkQueryRunner) getQueryRunner();
-        queryRunner.resetSparkContext(getNativeExecutionShuffleConfigs());
+        queryRunner.resetSparkContext(getNativeExecutionShuffleConfigs(), AVAILABLE_CPU_COUNT);
         try {
             assertQuerySucceeds(session, "SELECT * FROM test_order");
         }
@@ -125,7 +126,7 @@ public class TestPrestoSparkNativeExecution
 
         // Reset the spark context to register the native execution shuffle manager. We want to let the query runner use the default spark shuffle
         // manager to generate the test tables and only test the new native execution shuffle manager on the test below test cases.
-        queryRunner.resetSparkContext(getNativeExecutionShuffleConfigs());
+        queryRunner.resetSparkContext(getNativeExecutionShuffleConfigs(), AVAILABLE_CPU_COUNT);
         // Expecting 0 row updated since currently the NativeExecutionOperator is dummy.
         queryRunner.execute(session, "CREATE TABLE test_aggregate as SELECT  partkey, count(*) c FROM lineitem WHERE partkey % 10 = 1 GROUP BY partkey");
 
