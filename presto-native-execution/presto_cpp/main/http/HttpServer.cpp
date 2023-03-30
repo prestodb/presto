@@ -61,8 +61,17 @@ void sendErrorResponse(
     uint16_t status) {
   static const size_t kMaxStatusSize = 1024;
 
+  // Use a prefix of the 'error' as status message. Make sure it doesn't include
+  // new lines. See https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html
+
+  size_t statusSize = kMaxStatusSize;
+  auto pos = error.find('\n');
+  if (pos != std::string::npos && pos < statusSize) {
+    statusSize = pos;
+  }
+
   proxygen::ResponseBuilder(downstream)
-      .status(status, error.substr(0, kMaxStatusSize))
+      .status(status, error.substr(0, statusSize))
       .body(error)
       .sendWithEOM();
 }
