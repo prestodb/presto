@@ -15,6 +15,7 @@ package com.facebook.presto.spi.function.aggregation;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
@@ -48,6 +49,10 @@ public class GroupByIdBlock
     public long getGroupId(int position)
     {
         return BIGINT.getLong(block, position);
+    }
+
+    public boolean isRunLengthBlock() {
+        return block instanceof RunLengthEncodedBlock;
     }
 
     @Override

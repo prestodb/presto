@@ -19,6 +19,7 @@ import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationStateSerializerFactory;
+import com.facebook.presto.spi.function.BlockInputFunction;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -30,6 +31,7 @@ import javax.annotation.Nullable;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -77,9 +79,19 @@ public class AggregationFromAnnotationsParser
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                     for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
-                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
-                        ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
-                        builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
+                        List<Method> blockInputFunctions = getBlockInputFunctions(aggregationDefinition, stateClass);
+                        if (blockInputFunctions.isEmpty()) {
+                            AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, null, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                            ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
+                            builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
+                        }
+                        else {
+                            for (Method blockInputFunction : blockInputFunctions) {
+                                AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, blockInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                                ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
+                                builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
+                            }
+                        }
                     }
                 }
             }
@@ -98,8 +110,17 @@ public class AggregationFromAnnotationsParser
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             Method outputFunction = getOnlyElement(getOutputFunctions(aggregationDefinition, stateClass));
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
-                implementationsBuilder.addImplementation(implementation);
+                List<Method> blockInputFunctions = getBlockInputFunctions(aggregationDefinition, stateClass);
+                if (blockInputFunctions.isEmpty()) {
+                    AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, null, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                    implementationsBuilder.addImplementation(implementation);
+                }
+                else {
+                    for (Method blockInputFunction : blockInputFunctions) {
+                        AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, blockInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                        implementationsBuilder.addImplementation(implementation);
+                    }
+                }
             }
         }
 
@@ -204,6 +225,16 @@ public class AggregationFromAnnotationsParser
                 .collect(toImmutableList());
 
         checkArgument(!inputFunctions.isEmpty(), "Aggregation has no input functions");
+        return inputFunctions;
+    }
+
+    private static List<Method> getBlockInputFunctions(Class<?> clazz, Class<?> stateClass)
+    {
+        // Only include methods that match this state class
+        List<Method> inputFunctions = FunctionsParserHelper.findPublicStaticMethods(clazz, BlockInputFunction.class).stream()
+                .filter(method -> (method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method)] == stateClass))
+                .collect(toImmutableList());
+
         return inputFunctions;
     }
 

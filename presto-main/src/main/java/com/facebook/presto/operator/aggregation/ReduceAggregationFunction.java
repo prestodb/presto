@@ -122,6 +122,7 @@ public class ReduceAggregationFunction
                         inputMethodHandle.type()
                                 .changeParameterType(1, inputType.getJavaType())
                                 .changeParameterType(2, stateType.getJavaType())),
+                null,
                 combineMethodHandle,
                 outputMethodHandle,
                 ImmutableList.of(stateDescriptor),
@@ -131,11 +132,11 @@ public class ReduceAggregationFunction
         Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 GroupedAccumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         return new BuiltInAggregationFunctionImplementation(
                 getSignature().getNameSuffix(),
                 ImmutableList.of(inputType),

@@ -55,7 +55,12 @@ class Aggregator
     public void processPage(Page page)
     {
         if (step.isInputRaw()) {
-            aggregation.addInput(page);
+            if (aggregation.hasAddBlockInput()) {
+                aggregation.addBlockInput(page);
+            }
+            else {
+                aggregation.addInput(page);
+            }
         }
         else {
             aggregation.addIntermediate(page.getBlock(intermediateChannel));

@@ -35,6 +35,8 @@ import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nullable;
+
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
@@ -94,6 +96,8 @@ public class AggregationImplementation
     private final Class<?> definitionClass;
     private final Class<?> stateClass;
     private final MethodHandle inputFunction;
+    @Nullable
+    private final MethodHandle blockInputFunction;
     private final MethodHandle outputFunction;
     private final MethodHandle combineFunction;
     private final Optional<MethodHandle> stateSerializerFactory;
@@ -109,6 +113,7 @@ public class AggregationImplementation
             Class<?> definitionClass,
             Class<?> stateClass,
             MethodHandle inputFunction,
+            MethodHandle blockInputFunction,
             MethodHandle outputFunction,
             MethodHandle combineFunction,
             Optional<MethodHandle> stateSerializerFactory,
@@ -123,6 +128,7 @@ public class AggregationImplementation
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
         this.stateClass = requireNonNull(stateClass, "stateClass cannot be null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction cannot be null");
+        this.blockInputFunction = blockInputFunction;
         this.outputFunction = requireNonNull(outputFunction, "outputFunction cannot be null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction cannot be null");
         this.stateSerializerFactory = requireNonNull(stateSerializerFactory, "stateSerializerFactory cannot be null");
@@ -181,6 +187,12 @@ public class AggregationImplementation
         return inputDependencies;
     }
 
+    @Nullable
+    public MethodHandle getBlockInputFunction()
+    {
+        return blockInputFunction;
+    }
+
     public List<ImplementationDependency> getOutputDependencies()
     {
         return outputDependencies;
@@ -228,6 +240,8 @@ public class AggregationImplementation
         private final Class<?> aggregationDefinition;
         private final Class<?> stateClass;
         private final MethodHandle inputHandle;
+        @Nullable
+        private final MethodHandle blockInputHandle;
         private final MethodHandle outputHandle;
         private final MethodHandle combineHandle;
         private final Optional<MethodHandle> stateSerializerFactoryHandle;
@@ -252,6 +266,7 @@ public class AggregationImplementation
                 AggregationHeader header,
                 Class<?> stateClass,
                 Method inputFunction,
+                Method blockInputFunction,
                 Method outputFunction,
                 Method combineFunction,
                 Optional<Method> stateSerializerFactoryFunction)
@@ -299,6 +314,12 @@ public class AggregationImplementation
             }
 
             inputHandle = methodHandle(inputFunction);
+            if (blockInputFunction != null) {
+                blockInputHandle = methodHandle(blockInputFunction);
+            }
+            else {
+                blockInputHandle = null;
+            }
             combineHandle = methodHandle(combineFunction);
             outputHandle = methodHandle(outputFunction);
         }
@@ -318,6 +339,7 @@ public class AggregationImplementation
                     aggregationDefinition,
                     stateClass,
                     inputHandle,
+                    blockInputHandle,
                     outputHandle,
                     combineHandle,
                     stateSerializerFactoryHandle,
@@ -334,11 +356,12 @@ public class AggregationImplementation
                 AggregationHeader header,
                 Class<?> stateClass,
                 Method inputFunction,
+                Method blockInputFunction,
                 Method outputFunction,
                 Method combineFunction,
                 Optional<Method> stateSerializerFactoryFunction)
         {
-            return new Parser(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, stateSerializerFactoryFunction).get();
+            return new Parser(aggregationDefinition, header, stateClass, inputFunction, blockInputFunction, outputFunction, combineFunction, stateSerializerFactoryFunction).get();
         }
 
         private static List<ParameterType> parseParameterMetadataTypes(Method method)

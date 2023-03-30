@@ -13,17 +13,23 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockInputFunction;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.BigintOperators;
+
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 
 @AggregationFunction("sum")
 public final class LongSumAggregation
@@ -35,6 +41,51 @@ public final class LongSumAggregation
     {
         state.setNull(false);
         state.setLong(BigintOperators.add(state.getLong(), value));
+    }
+
+    @BlockInputFunction
+    public static void sum(@AggregationState NullableLongState state, @BlockPosition Block value)
+    {
+        long sum = 0;
+        boolean hasNonNull = false;
+        int positions = value.getPositionCount();
+        if (value.mayHaveNull()) {
+            int index = 0;
+            while (index < positions) {
+                while (index < positions && !value.isNull(index)) {
+                    sum += BIGINT.getLong(value, index);
+                    index++;
+                }
+                if (index > 0) {
+                    hasNonNull = true;
+                }
+                while (index < positions && value.isNull(index)) {
+                    index++;
+                }
+            }
+        }
+        else {
+            hasNonNull = true;
+            for (int i = 0; i < positions; ++i) {
+                sum += BIGINT.getLong(value, i);
+            }
+        }
+        if (hasNonNull) {
+            state.setNull(false);
+            state.setLong(BigintOperators.add(state.getLong(), sum));
+        }
+    }
+
+    @InputFunction
+    public static void sum(@AggregationState NullableLongState state, @BlockPosition @SqlType("array(bigint)") Block value, @BlockIndex int index)
+    {
+        state.setNull(false);
+        long sum = 0;
+        Block block = value.getBlock(index);
+        for (int i = 0; i < block.getPositionCount(); ++i) {
+            sum += BIGINT.getLong(block, i);
+        }
+        state.setLong(BigintOperators.add(state.getLong(), sum));
     }
 
     @CombineFunction
@@ -52,6 +103,6 @@ public final class LongSumAggregation
     @OutputFunction(StandardTypes.BIGINT)
     public static void output(@AggregationState NullableLongState state, BlockBuilder out)
     {
-        NullableLongState.write(BigintType.BIGINT, state, out);
+        NullableLongState.write(BIGINT, state, out);
     }
 }

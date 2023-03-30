@@ -170,11 +170,11 @@ public abstract class AbstractMinMaxBy
         Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 GroupedAccumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         return new BuiltInAggregationFunctionImplementation(getSignature().getNameSuffix(), inputTypes,
                 ImmutableList.of(intermediateType), valueType, true, false, metadata,
                 accumulatorClass, groupedAccumulatorClass);

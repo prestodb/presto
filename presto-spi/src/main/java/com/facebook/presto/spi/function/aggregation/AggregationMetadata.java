@@ -20,6 +20,8 @@ import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import io.airlift.slice.Slice;
 
+import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,6 +47,8 @@ public class AggregationMetadata
     private final List<ParameterMetadata> valueInputMetadata;
     private final List<Class> lambdaInterfaces;
     private final MethodHandle inputFunction;
+    @Nullable
+    private final MethodHandle blockInputFunction;
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor> accumulatorStateDescriptors;
@@ -63,6 +67,7 @@ public class AggregationMetadata
                 name,
                 valueInputMetadata,
                 inputFunction,
+                null,
                 combineFunction,
                 outputFunction,
                 accumulatorStateDescriptors,
@@ -74,6 +79,29 @@ public class AggregationMetadata
             String name,
             List<ParameterMetadata> valueInputMetadata,
             MethodHandle inputFunction,
+            MethodHandle blockInputFunction,
+            MethodHandle combineFunction,
+            MethodHandle outputFunction,
+            List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
+            Type outputType)
+    {
+        this(
+                name,
+                valueInputMetadata,
+                inputFunction,
+                blockInputFunction,
+                combineFunction,
+                outputFunction,
+                accumulatorStateDescriptors,
+                outputType,
+                Collections.emptyList());
+    }
+
+    public AggregationMetadata(
+            String name,
+            List<ParameterMetadata> valueInputMetadata,
+            MethodHandle inputFunction,
+            MethodHandle blockInputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
@@ -84,6 +112,7 @@ public class AggregationMetadata
         this.valueInputMetadata = Collections.unmodifiableList(new ArrayList<>(requireNonNull(valueInputMetadata, "valueInputMetadata is null")));
         this.name = requireNonNull(name, "name is null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
+        this.blockInputFunction = blockInputFunction;
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
@@ -117,6 +146,12 @@ public class AggregationMetadata
     public MethodHandle getInputFunction()
     {
         return inputFunction;
+    }
+
+    @Nullable
+    public MethodHandle getBlockInputFunction()
+    {
+        return blockInputFunction;
     }
 
     public MethodHandle getCombineFunction()

@@ -89,6 +89,10 @@ public class ParametricAggregation
 
         // Bind provided dependencies to aggregation method handlers
         MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), variables, functionAndTypeManager);
+        MethodHandle blockInputHandle = null;
+        if (concreteImplementation.getBlockInputFunction() != null) {
+            blockInputHandle = bindDependencies(concreteImplementation.getBlockInputFunction(), concreteImplementation.getInputDependencies(), variables, functionAndTypeManager);
+        }
         MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), variables, functionAndTypeManager);
         MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), variables, functionAndTypeManager);
 
@@ -103,6 +107,7 @@ public class ParametricAggregation
                 aggregationName,
                 parametersMetadata,
                 inputHandle,
+                blockInputHandle,
                 combineHandle,
                 outputHandle,
                 ImmutableList.of(new AccumulatorStateDescriptor(
@@ -114,11 +119,11 @@ public class ParametricAggregation
         Class<? extends Accumulator> accumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 Accumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
         Class<? extends GroupedAccumulator> groupedAccumulatorClass = AccumulatorCompiler.generateAccumulatorClass(
                 GroupedAccumulator.class,
                 metadata,
-                classLoader);
+                classLoader, false);
 
         // Create specialized InternalAggregationFunction for Presto
         return new BuiltInAggregationFunctionImplementation(getSignature().getNameSuffix(),
