@@ -65,7 +65,8 @@ public abstract class TestHiveTpchQueries
     // This test runs the 22 TPC-H queries.
 
     @Test
-    public void testSchema() {
+    public void testSchema()
+    {
         String[] names = new String[] {
                 "part",
                 "partsupp",
