@@ -213,9 +213,6 @@ void HashProbe::initializeFilter(
       filterTableProjections_.emplace_back(channelValue, filterChannel);
       names.emplace_back(tableType->nameOf(channelValue));
       types.emplace_back(tableType->childAt(channelValue));
-      if (nullAware_) {
-        filterTableProjectionMap_[channelValue] = filterChannel;
-      }
       ++filterChannel;
       continue;
     }
@@ -287,7 +284,8 @@ void HashProbe::asyncWaitForHashTable() {
   }
 
   if (hashBuildResult->hasNullKeys) {
-    if (isAntiJoin(joinType_) && nullAware_) {
+    VELOX_CHECK(nullAware_);
+    if (isAntiJoin(joinType_) && !joinNode_->filter()) {
       // Null-aware anti join with null keys on the build side without a filter
       // always returns nothing.
       // The flag must be set on the first (and only) built 'table_'.
@@ -295,12 +293,7 @@ void HashProbe::asyncWaitForHashTable() {
       noMoreInput();
       return;
     }
-
-    if (isLeftSemiProjectJoin(joinType_)) {
-      buildSideHasNullKeys_ = true;
-    } else {
-      VELOX_UNREACHABLE();
-    }
+    buildSideHasNullKeys_ = true;
   }
 
   table_ = std::move(hashBuildResult->table);
@@ -1026,64 +1019,50 @@ void HashProbe::prepareFilterRowsForNullAwareJoin(
   }
 }
 
+namespace {
+
+const uint64_t* getFlatFilterResult(VectorPtr& result) {
+  if (!result->isFlatEncoding()) {
+    return nullptr;
+  }
+  auto* flat = result->asUnchecked<FlatVector<bool>>();
+  if (!flat->mayHaveNulls()) {
+    return flat->rawValues<uint64_t>();
+  }
+  if (!flat->rawValues<uint64_t>()) {
+    return flat->rawNulls();
+  }
+  if (!result.unique()) {
+    return nullptr;
+  }
+  auto* values = flat->mutableRawValues<uint64_t>();
+  bits::andBits(values, flat->rawNulls(), 0, flat->size());
+  return values;
+}
+
+} // namespace
+
 void HashProbe::applyFilterOnTableRowsForNullAwareJoin(
     const SelectivityVector& rows,
-    bool nullKeyRowsOnly,
-    SelectivityVector& filterPassedRows) {
+    SelectivityVector& filterPassedRows,
+    std::function<int32_t(char**, int32_t)> iterator) {
   if (!rows.hasSelections()) {
     return;
   }
-  auto tableRows = table_->rows();
-  if (tableRows == nullptr) {
-    return;
-  }
-  RowContainerIterator iter;
+  auto* tableRows = table_->rows();
+  VELOX_CHECK(tableRows, "Should not move rows in hash joins");
   char* data[kBatchSize];
-  while (auto numRows = tableRows->listRows(
-             &iter, kBatchSize, RowContainer::kUnlimited, data)) {
+  while (auto numRows = iterator(data, kBatchSize)) {
     filterTableInput_->resize(numRows);
     filterTableInputRows_.resizeFill(numRows, true);
-    auto* rawNonNullRows = filterTableInputRows_.asMutableRange().bits();
-
-    for (column_index_t columnIndex = 0;
-         columnIndex < tableRows->columnTypes().size();
-         ++columnIndex) {
-      // NOTE: extracts the build side columns in 'filterTableInput_' from the
-      // table. 'filterTableInput_' has type of 'filterInputType_', and we will
-      // fill the probe side columns later before applying the filter.
-      VectorPtr columnVector;
-      auto it = filterTableProjectionMap_.find(columnIndex);
-      if (it != filterTableProjectionMap_.end()) {
-        columnVector = filterTableInput_->childAt(it->second);
-        tableRows->extractColumn(data, numRows, columnIndex, columnVector);
-      }
-      if (nullKeyRowsOnly && columnIndex < tableRows->keyTypes().size()) {
-        if (columnVector == nullptr) {
-          columnVector = BaseVector::create(
-              tableRows->keyTypes()[columnIndex], numRows, pool());
-          tableRows->extractColumn(data, numRows, columnIndex, columnVector);
-        }
-        filterInputColumnDecodedVector_.decode(
-            *columnVector, filterTableInputRows_);
-        if (filterInputColumnDecodedVector_.mayHaveNulls()) {
-          // NOTE: the true value of a raw null bit indicates non-null so we AND
-          // with the raw bit.
-          bits::andBits(
-              rawNonNullRows,
-              filterInputColumnDecodedVector_.nulls(),
-              0,
-              numRows);
-        }
-      }
+    for (auto& projection : filterTableProjections_) {
+      tableRows->extractColumn(
+          data,
+          numRows,
+          projection.inputChannel,
+          filterTableInput_->childAt(projection.outputChannel));
     }
-
-    if (nullKeyRowsOnly) {
-      bits::negate(reinterpret_cast<char*>(rawNonNullRows), numRows);
-      filterTableInputRows_.updateBounds();
-    }
-
     rows.applyToSelected([&](vector_size_t row) {
-      // Fill up 'filterTableInput_' with probe side filter columns.
       for (auto& projection : filterInputProjections_) {
         filterTableInput_->childAt(projection.outputChannel) =
             BaseVector::wrapInConstant(
@@ -1092,25 +1071,36 @@ void HashProbe::applyFilterOnTableRowsForNullAwareJoin(
       EvalCtx evalCtx(
           operatorCtx_->execCtx(), filter_.get(), filterTableInput_.get());
       filter_->eval(filterTableInputRows_, evalCtx, filterTableResult_);
-      decodedFilterTableResult_.decode(
-          *filterTableResult_[0], filterTableInputRows_);
-      const bool passed =
-          !filterTableInputRows_.testSelected([&](vector_size_t j) {
-            return decodedFilterTableResult_.isNullAt(j) ||
-                !decodedFilterTableResult_.valueAt<bool>(j);
-          });
-      if (passed) {
-        filterPassedRows.setValid(row, true);
+      if (auto* values = getFlatFilterResult(filterTableResult_[0])) {
+        if (!bits::testSetBits(
+                values, 0, numRows, [](vector_size_t) { return false; })) {
+          filterPassedRows.setValid(row, true);
+        }
+      } else {
+        decodedFilterTableResult_.decode(
+            *filterTableResult_[0], filterTableInputRows_);
+        if (decodedFilterTableResult_.isConstantMapping()) {
+          if (!decodedFilterTableResult_.isNullAt(0) &&
+              decodedFilterTableResult_.valueAt<bool>(0)) {
+            filterPassedRows.setValid(row, true);
+          }
+        } else {
+          for (vector_size_t i = 0; i < numRows; ++i) {
+            if (!decodedFilterTableResult_.isNullAt(i) &&
+                decodedFilterTableResult_.valueAt<bool>(i)) {
+              filterPassedRows.setValid(row, true);
+              break;
+            }
+          }
+        }
       }
     });
   }
-
-  filterPassedRows.updateBounds();
 }
 
 SelectivityVector HashProbe::evalFilterForNullAwareJoin(
     vector_size_t numRows,
-    const bool filterPropagateNulls) {
+    bool filterPropagateNulls) {
   auto* rawOutputProbeRowMapping =
       outputRowMapping_->asMutable<vector_size_t>();
 
@@ -1143,21 +1133,23 @@ SelectivityVector HashProbe::evalFilterForNullAwareJoin(
       crossJoinProbeRows.setValid(probeRow, true);
     }
   }
-  filterPassedRows.updateBounds();
-  nullKeyProbeRows.updateBounds();
-  crossJoinProbeRows.updateBounds();
 
-  // Skip filtering on the probe rows which have passed the filter on any one of
-  // its matched row with the build side.
-  nullKeyProbeRows.deselect(filterPassedRows);
+  if (buildSideHasNullKeys_) {
+    BaseHashTable::NullKeyRowsIterator iter;
+    nullKeyProbeRows.deselect(filterPassedRows);
+    applyFilterOnTableRowsForNullAwareJoin(
+        nullKeyProbeRows, filterPassedRows, [&](char** data, int32_t maxRows) {
+          return table_->listNullKeyRows(&iter, maxRows, data);
+        });
+  }
+  BaseHashTable::RowsIterator iter;
   crossJoinProbeRows.deselect(filterPassedRows);
-
-  // TODO: consider to combine the two filter processes into one to avoid
-  // scanning the build table twice.
   applyFilterOnTableRowsForNullAwareJoin(
-      nullKeyProbeRows, true, filterPassedRows);
-  applyFilterOnTableRowsForNullAwareJoin(
-      crossJoinProbeRows, false, filterPassedRows);
+      crossJoinProbeRows, filterPassedRows, [&](char** data, int32_t maxRows) {
+        return table_->listAllRows(
+            &iter, maxRows, RowContainer::kUnlimited, data);
+      });
+  filterPassedRows.updateBounds();
 
   return filterPassedRows;
 }

@@ -218,9 +218,9 @@ class HashTableTest : public testing::TestWithParam<bool> {
   }
 
   void copyVectorsToTable(
-      std::vector<RowVectorPtr>& batches,
+      const std::vector<RowVectorPtr>& batches,
       int32_t tableOffset,
-      HashTable<true>* table) {
+      BaseHashTable* table) {
     int32_t batchSize = batches[0]->size();
     raw_vector<uint64_t> dummy(batchSize);
     int32_t batchOffset = 0;
@@ -250,12 +250,11 @@ class HashTableTest : public testing::TestWithParam<bool> {
       for (auto i = 0; i < batch->childrenSize(); ++i) {
         decoders[i].decode(*batch->childAt(i), rows);
         if (i < numKeys) {
-          if (table->hashMode() != BaseHashTable::HashMode::kHash) {
-            auto hasher = table->hashers()[i].get();
-            if (hasher->mayUseValueIds()) {
-              hasher->decode(*batch->childAt(i), insertedRows);
-              hasher->computeValueIds(insertedRows, dummy);
-            }
+          auto hasher = table->hashers()[i].get();
+          hasher->decode(*batch->childAt(i), insertedRows);
+          if (table->hashMode() != BaseHashTable::HashMode::kHash &&
+              hasher->mayUseValueIds()) {
+            hasher->computeValueIds(insertedRows, dummy);
           }
         }
       }
@@ -287,7 +286,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
           *reinterpret_cast<char**>(newRow + nextOffset) = nullptr;
         }
         ++numInserted;
-        for (auto i = 0; i < hashers.size(); ++i) {
+        for (auto i = 0; i < batches[batchIndex]->type()->size(); ++i) {
           rowContainer->store(decoded[batchIndex][i], rowIndex, newRow, i);
         }
       }
@@ -433,6 +432,42 @@ class HashTableTest : public testing::TestWithParam<bool> {
       }
     }
     topTable_->erase(folly::Range<char**>(toErase.data(), toErase.size()));
+  }
+
+  void testListNullKeyRows(
+      const VectorPtr& keys,
+      BaseHashTable::HashMode mode) {
+    folly::F14FastSet<int> nullValues;
+    for (int i = 0; i < keys->size(); ++i) {
+      if (i % 97 == 0) {
+        keys->setNull(i, true);
+        nullValues.insert(i);
+      }
+    }
+    auto batch = vectorMaker_->rowVector(
+        {keys,
+         vectorMaker_->flatVector<int64_t>(keys->size(), folly::identity)});
+    std::vector<std::unique_ptr<VectorHasher>> hashers;
+    hashers.push_back(std::make_unique<VectorHasher>(keys->type(), 0));
+    auto table = HashTable<false>::createForJoin(
+        std::move(hashers), {BIGINT()}, true, false, pool_.get());
+    copyVectorsToTable({batch}, 0, table.get());
+    table->prepareJoinTable({}, executor_.get());
+    ASSERT_EQ(table->hashMode(), mode);
+    std::vector<char*> rows(nullValues.size());
+    BaseHashTable::NullKeyRowsIterator iter;
+    auto numRows = table->listNullKeyRows(&iter, rows.size(), rows.data());
+    ASSERT_EQ(numRows, nullValues.size());
+    auto actual =
+        BaseVector::create<FlatVector<int64_t>>(BIGINT(), numRows, pool_.get());
+    table->rows()->extractColumn(rows.data(), numRows, 1, actual);
+    for (int i = 0; i < actual->size(); ++i) {
+      auto it = nullValues.find(actual->valueAt(i));
+      ASSERT_TRUE(it != nullValues.end());
+      nullValues.erase(it);
+    }
+    ASSERT_TRUE(nullValues.empty());
+    ASSERT_EQ(0, table->listNullKeyRows(&iter, rows.size(), rows.data()));
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
@@ -715,6 +750,17 @@ TEST_P(HashTableTest, checkSizeValidation) {
   // the number of distinct entries that it stores.
   insertGroups(*vector3, *lookup, *table);
   ASSERT_EQ(table->capacity(), 512 << 10);
+}
+
+TEST_P(HashTableTest, listNullKeyRows) {
+  VectorPtr keys = vectorMaker_->flatVector<int64_t>(500, folly::identity);
+  testListNullKeyRows(keys, BaseHashTable::HashMode::kArray);
+  {
+    auto flat = vectorMaker_->flatVector<int64_t>(
+        10'000, [](auto i) { return i * 1000; });
+    keys = vectorMaker_->rowVector({flat, flat});
+  }
+  testListNullKeyRows(keys, BaseHashTable::HashMode::kHash);
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

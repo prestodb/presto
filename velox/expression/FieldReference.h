@@ -37,6 +37,10 @@ class FieldReference : public SpecialForm {
     return field_;
   }
 
+  bool isConstant() const override {
+    return SpecialForm::isConstant() && !inputs_.empty();
+  }
+
   int32_t index(const EvalCtx& context) {
     if (index_ != -1) {
       return index_;

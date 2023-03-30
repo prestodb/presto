@@ -298,6 +298,21 @@ void HashBuild::addInput(RowVectorPtr input) {
       !isRightSemiProjectJoin(joinType_) &&
       !isLeftNullAwareJoinWithFilter(joinNode_)) {
     deselectRowsWithNulls(hashers, activeRows_);
+    if (nullAware_ && !joinHasNullKeys_ &&
+        activeRows_.countSelected() < input->size()) {
+      joinHasNullKeys_ = true;
+    }
+  } else if (nullAware_ && !joinHasNullKeys_) {
+    for (auto& hasher : hashers) {
+      auto& decoded = hasher->decodedVector();
+      if (decoded.mayHaveNulls()) {
+        auto* nulls = decoded.nulls();
+        if (nulls && bits::countNulls(nulls, 0, activeRows_.end()) > 0) {
+          joinHasNullKeys_ = true;
+          break;
+        }
+      }
+    }
   }
 
   for (auto i = 0; i < dependentChannels_.size(); ++i) {
@@ -309,14 +324,11 @@ void HashBuild::addInput(RowVectorPtr input) {
     if (filterPropagatesNulls_) {
       removeInputRowsForAntiJoinFilter();
     }
-  } else if (nullAware_ && activeRows_.countSelected() < input->size()) {
-    joinHasNullKeys_ = true;
-    if (isAntiJoin(joinType_)) {
-      // Null-aware anti join with no extra filter returns no rows if build side
-      // has nulls in join keys. Hence, we can stop processing on first null.
-      noMoreInput();
-      return;
-    }
+  } else if (isAntiJoin(joinType_) && nullAware_ && joinHasNullKeys_) {
+    // Null-aware anti join with no extra filter returns no rows if build side
+    // has nulls in join keys. Hence, we can stop processing on first null.
+    noMoreInput();
+    return;
   }
 
   spillInput(input);
@@ -689,7 +701,8 @@ bool HashBuild::finishHashBuild() {
   otherTables.reserve(peers.size());
   SpillPartitionSet spillPartitions;
   Spiller::Stats spillStats;
-  if (joinHasNullKeys_ && (isAntiJoin(joinType_) && nullAware_)) {
+  if (joinHasNullKeys_ && isAntiJoin(joinType_) && nullAware_ &&
+      !joinNode_->filter()) {
     joinBridge_->setAntiJoinHasNullKeys();
   } else {
     for (auto& peer : peers) {
@@ -698,7 +711,7 @@ bool HashBuild::finishHashBuild() {
       VELOX_CHECK(build);
       if (build->joinHasNullKeys_) {
         joinHasNullKeys_ = true;
-        if (isAntiJoin(joinType_) && nullAware_) {
+        if (isAntiJoin(joinType_) && nullAware_ && !joinNode_->filter()) {
           break;
         }
       }
@@ -709,7 +722,8 @@ bool HashBuild::finishHashBuild() {
       }
     }
 
-    if (joinHasNullKeys_ && (isAntiJoin(joinType_) && nullAware_)) {
+    if (joinHasNullKeys_ && isAntiJoin(joinType_) && nullAware_ &&
+        !joinNode_->filter()) {
       joinBridge_->setAntiJoinHasNullKeys();
     } else {
       if (spiller_ != nullptr) {

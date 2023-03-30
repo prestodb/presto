@@ -328,4 +328,6 @@ int main(int argc, char** argv) {
                      *queryPlan.plan, stats, FLAGS_include_custom_stats)
               << std::endl;
   }
+  queryBuilder.reset();
+  return 0;
 }

@@ -106,6 +106,11 @@ class BaseHashTable {
     }
   };
 
+  struct NullKeyRowsIterator {
+    bool initialized = false;
+    char* nextHit;
+  };
+
   /// Takes ownership of 'hashers'. These are used to keep key-level
   /// encodings like distinct values, ranges. These are stateful for
   /// kArray and kNormalizedKey hash modes and track the data
@@ -161,6 +166,11 @@ class BaseHashTable {
       int32_t maxRows,
       uint64_t maxBytes,
       char* FOLLY_NULLABLE* FOLLY_NULLABLE rows) = 0;
+
+  /// Returns all rows with null keys.  Used by null-aware joins (e.g. anti or
+  /// left semi project).
+  virtual int32_t
+  listNullKeyRows(NullKeyRowsIterator* iter, int32_t maxRows, char** rows) = 0;
 
   virtual void prepareJoinTable(
       std::vector<std::unique_ptr<BaseHashTable>> tables,
@@ -372,6 +382,11 @@ class HashTable : public BaseHashTable {
       int32_t maxRows,
       uint64_t maxBytes,
       char* FOLLY_NULLABLE* FOLLY_NULLABLE rows) override;
+
+  int32_t listNullKeyRows(
+      NullKeyRowsIterator* iter,
+      int32_t maxRows,
+      char** rows) override;
 
   void clear() override;
 

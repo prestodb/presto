@@ -161,14 +161,14 @@ class HashProbe : public Operator {
       vector_size_t numRows,
       bool filterPropagateNulls);
 
-  // Combine the selected probe-side rows with all (nullKeyRowsOnly = false) or
-  // null-join-key (nullKeyRowsOnly = true) build side rows and evaluate the
-  // filter. Mark probe rows that pass the filter in 'filterPassedRows'. Used in
-  // null-aware join processing.
+  // Combine the selected probe-side rows with all or null-join-key (depending
+  // on the iterator) build side rows and evaluate the filter.  Mark probe rows
+  // that pass the filter in 'filterPassedRows'. Used in null-aware join
+  // processing.
   void applyFilterOnTableRowsForNullAwareJoin(
       const SelectivityVector& rows,
-      bool nullKeyRowsOnly,
-      SelectivityVector& filterPassedRows);
+      SelectivityVector& filterPassedRows,
+      std::function<int32_t(char**, int32_t)> iterator);
 
   void ensureLoadedIfNotAtEnd(column_index_t channel);
 
@@ -316,7 +316,7 @@ class HashProbe : public Operator {
   bool noInput_{true};
 
   // Indicates whether there are rows with null join keys on the build
-  // side. Used by left semi project join.
+  // side. Used by anti and left semi project join.
   bool buildSideHasNullKeys_{false};
 
   // Indicates whether there are rows with null join keys on the probe
@@ -342,7 +342,6 @@ class HashProbe : public Operator {
 
   // Maps from column index in hash table to channel in 'filterInputType_'.
   std::vector<IdentityProjection> filterTableProjections_;
-  folly::F14FastMap<column_index_t, column_index_t> filterTableProjectionMap_;
 
   // Temporary projection from probe and build for evaluating
   // 'filter_'. This can always be reused since this does not escape

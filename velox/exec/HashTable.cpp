@@ -1596,6 +1596,42 @@ int32_t HashTable<ignoreNullKeys>::listAllRows(
   return listRows<RowContainer::ProbeType::kAll>(iter, maxRows, maxBytes, rows);
 }
 
+template <>
+int32_t HashTable<false>::listNullKeyRows(
+    NullKeyRowsIterator* iter,
+    int32_t maxRows,
+    char** rows) {
+  if (!iter->initialized) {
+    VELOX_CHECK_GT(nextOffset_, 0);
+    VELOX_CHECK_EQ(hashers_.size(), 1);
+    HashLookup lookup(hashers_);
+    if (hashMode_ == HashMode::kHash) {
+      lookup.hashes.push_back(VectorHasher::kNullHash);
+    } else {
+      lookup.hashes.push_back(0);
+    }
+    lookup.rows.push_back(0);
+    lookup.hits.resize(1);
+    joinProbe(lookup);
+    iter->nextHit = lookup.hits[0];
+    iter->initialized = true;
+  }
+  int32_t numRows = 0;
+  char* hit = iter->nextHit;
+  while (numRows < maxRows && hit) {
+    rows[numRows++] = hit;
+    hit = nextRow(hit);
+  }
+  iter->nextHit = hit;
+  return numRows;
+}
+
+template <>
+int32_t
+HashTable<true>::listNullKeyRows(NullKeyRowsIterator*, int32_t, char**) {
+  VELOX_UNREACHABLE();
+}
+
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::erase(folly::Range<char**> rows) {
   auto numRows = rows.size();

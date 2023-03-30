@@ -1866,7 +1866,7 @@ TpchPlan TpchQueryBuilder::getQ21Plan() const {
               "l_suppkey_3 <> l_suppkey_1",
               {"s_name"},
               core::JoinType::kAnti,
-              true /*nullAware*/)
+              false /*nullAware*/)
           .partialAggregation({"s_name"}, {"count(1) as numwait"})
           .localPartition({})
           .finalAggregation()
