@@ -40,7 +40,7 @@ set(HOST_ENV_CMAKE
     CFLAGS="${CMAKE_C_FLAGS}"
     CXXFLAGS="${CMAKE_CXX_FLAGS}"
     LDFLAGS="${CMAKE_MODULE_LINKER_FLAGS}")
-set(ICU_DIR ${CMAKE_CURRENT_BINARY_DIR}/icu)
+set(ICU_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/icu)
 set(ICU_INCLUDE_DIRS ${ICU_DIR}/include)
 set(ICU_LIBRARIES ${ICU_DIR}/lib)
 
@@ -58,9 +58,26 @@ ExternalProject_Add(
 
 add_library(ICU::ICU UNKNOWN IMPORTED)
 add_dependencies(ICU::ICU ICU-build)
-set_target_properties(
-  ICU::ICU PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${ICU_INCLUDE_DIRS}
-                      INTERFACE_LINK_LIBRARIES ${ICU_LIBRARIES})
+
+# We have to manually create these files and folders so that the checks for the
+# files made at configure time (before icu is built) pass
+file(MAKE_DIRECTORY ${ICU_INCLUDE_DIRS})
+file(MAKE_DIRECTORY ${ICU_LIBRARIES})
+
+# Create a target for each component
+set(icu_components data i18n io uc tu test)
+
+foreach(component ${icu_components})
+  add_library(ICU::${component} SHARED IMPORTED)
+  string(CONCAT ICU_${component}_LIBRARY ${ICU_LIBRARIES} "/libicu"
+                ${component} ".so")
+  file(TOUCH ${ICU_${component}_LIBRARY})
+  set_target_properties(
+    ICU::${component}
+    PROPERTIES IMPORTED_LOCATION ${ICU_${component}_LIBRARY}
+               INTERFACE_INCLUDE_DIRECTORIES ${ICU_INCLUDE_DIRS})
+  target_link_libraries(ICU::ICU INTERFACE ICU::${component})
+endforeach()
 
 # We have to keep the FindICU.cmake in a subfolder to prevent it from overriding
 # the system provided one when ICU_SOURCE=SYSTEM

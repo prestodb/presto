@@ -257,10 +257,6 @@ if("${MAX_LINK_JOBS}")
   set(CMAKE_JOB_POOL_LINK link_job_pool)
 endif()
 
-if("${TREAT_WARNINGS_AS_ERRORS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
-endif()
-
 if("${ENABLE_ALL_WARNINGS}")
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set(KNOWN_COMPILER_SPECIFIC_WARNINGS
@@ -368,7 +364,8 @@ if(NOT ${VELOX_BUILD_MINIMAL})
   find_library(SNAPPY snappy)
 endif()
 
-find_library(RE2 re2 REQUIRED)
+set_source(re2)
+resolve_dependency(re2)
 
 if(${VELOX_BUILD_PYTHON_PACKAGE})
   set_source(pybind11)
@@ -496,6 +493,12 @@ include_directories(.)
 # TODO: Include all other installation files. For now just making sure this
 # generates an installable makefile.
 install(FILES velox/type/Type.h DESTINATION "include/velox")
+
+# Adding this down here prevents warnings in dependencies from stopping the
+# build
+if("${TREAT_WARNINGS_AS_ERRORS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+endif()
 
 add_subdirectory(third_party)
 add_subdirectory(velox)

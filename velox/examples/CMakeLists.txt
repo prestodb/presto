@@ -11,12 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-find_library(RE2 re2 REQUIRED)
 
 add_executable(velox_example_simple_functions SimpleFunctions.cpp)
 
 target_link_libraries(velox_example_simple_functions velox_functions_lib
-                      velox_core velox_expression ${RE2})
+                      velox_core velox_expression re2::re2)
 
 add_executable(velox_example_expression_eval ExpressionEval.cpp)
 

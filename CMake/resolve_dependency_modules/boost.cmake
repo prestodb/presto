@@ -16,17 +16,17 @@ include_guard(GLOBAL)
 if(DEFINED ENV{VELOX_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{VELOX_BOOST_URL}")
 else()
-  # We need to use boost > 1.70 to build it with CMake
-  set(VELOX_BOOST_BUILD_VERSION 1.80.0)
-  string(REPLACE "." "_" VELOX_BOOST_UNDERSCORE_VERSION
-                 ${VELOX_BOOST_BUILD_VERSION})
+  # We need to use boost > 1.70 to build it with CMake 1.81 was the first to be
+  # released as a github release INCLUDING the cmake files (which are not in the
+  # officale releases for some reason)
+  set(VELOX_BOOST_BUILD_VERSION 1.81.0)
   string(
     CONCAT BOOST_SOURCE_URL
-           "https://boostorg.jfrog.io/artifactory/main/release/"
-           "${VELOX_BOOST_BUILD_VERSION}/source/boost_"
-           "${VELOX_BOOST_UNDERSCORE_VERSION}.tar.gz")
+           "https://github.com/boostorg/boost/releases/download/"
+           "boost-${VELOX_BOOST_BUILD_VERSION}/"
+           "boost-${VELOX_BOOST_BUILD_VERSION}.tar.gz")
   set(VELOX_BOOST_BUILD_SHA256_CHECKSUM
-      4b2136f98bdd1f5857f1c3dea9ac2018effe65286cf251534b6ae20cc45e1847)
+      121da556b718fd7bd700b5f2e734f8004f1cfa78b7d30145471c526ba75a151c)
 endif()
 
 message(STATUS "Building boost from source")
@@ -37,21 +37,14 @@ if(NOT TARGET Threads::Threads)
   find_package(Threads REQUIRED)
 endif()
 
-# Make download progress visible
-set(fc_quiet_state ${FETCHCONTENT_QUIET})
-set(FETCHCONTENT_QUIET OFF)
-
 FetchContent_Declare(
   Boost
-  GIT_REPOSITORY https://github.com/boostorg/boost.git
-  GIT_TAG boost-1.80.0
-  GIT_SHALLOW TRUE)
-FetchContent_Populate(Boost)
+  URL ${BOOST_SOURCE_URL}
+  URL_HASH SHA256=${VELOX_BOOST_BUILD_SHA256_CHECKSUM})
 
-# Boost cmake uses the global option
 set(shared_libs ${BUILD_SHARED_LIBS})
 set(BUILD_SHARED_LIBS ON)
-add_subdirectory(${boost_SOURCE_DIR} ${boost_BINARY_DIR})
+FetchContent_MakeAvailable(Boost)
 set(BUILD_SHARED_LIBS ${shared_libs})
 
 # Manually construct include dirs. This is only necessary until we switch to
@@ -64,9 +57,11 @@ list_subdirs(numeric_subdirs ${boost_SOURCE_DIR}/libs/numeric)
 list(TRANSFORM numeric_subdirs APPEND /include)
 include_directories(${boost_INCLUDE_DIRS} ${numeric_subdirs})
 
+if(${ICU_SOURCE} STREQUAL "BUNDLED")
+  add_dependencies(boost_regex ICU ICU::i18n)
+endif()
 # This prevents system boost from leaking in
 set(Boost_NO_SYSTEM_PATHS ON)
 # We have to keep the FindBoost.cmake in an subfolder to prevent it from
 # overriding the system provided one when Boost_SOURCE=SYSTEM
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/boost)
-set(FETCHCONTENT_QUIET ${fc_quiet_state})
