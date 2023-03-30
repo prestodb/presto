@@ -776,7 +776,7 @@ class GenericWriter {
     return vector_->typeKind();
   }
 
-  const TypePtr type() const {
+  const TypePtr& type() const {
     return vector_->type();
   }
 

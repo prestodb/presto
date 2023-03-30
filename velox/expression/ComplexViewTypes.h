@@ -1053,7 +1053,7 @@ class GenericView {
     return decoded_.base()->typeKind();
   }
 
-  const TypePtr type() const {
+  const TypePtr& type() const {
     return decoded_.base()->type();
   }
 
