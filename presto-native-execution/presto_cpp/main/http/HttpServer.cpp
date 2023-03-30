@@ -176,16 +176,12 @@ void HttpServer::start(
   options.idleTimeout = std::chrono::milliseconds(60'000);
   options.enableContentCompression = false;
 
+  proxygen::RequestHandlerChain handlerFactories;
   if (SystemConfig::instance()->enableHttpAccessLog()) {
-    options.handlerFactories = proxygen::RequestHandlerChain()
-                                   .addThen<filters::AccessLogFilterFactory>()
-                                   .addThen(std::move(handlerFactory_))
-                                   .build();
-  } else {
-    options.handlerFactories = proxygen::RequestHandlerChain()
-                                   .addThen(std::move(handlerFactory_))
-                                   .build();
+    handlerFactories.addThen<filters::AccessLogFilterFactory>();
   }
+  handlerFactories.addThen(std::move(handlerFactory_));
+  options.handlerFactories = handlerFactories.build();
 
   // Increase the default flow control to 1MB/10MB
   options.initialReceiveWindow = uint32_t(1 << 20);
