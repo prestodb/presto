@@ -17,7 +17,7 @@ from
 	lineitem
 where
     cast(shipdate as date) >= date '1998-12-01' - interval '90' day
-    and shipdate <= '1998-12-01'
+    and shipdate <= date '1998-12-01'
 group by
 	returnflag,
 	linestatus

@@ -18,7 +18,7 @@ from
 where
 	c.custkey = o.custkey
 	and l.orderkey = o.orderkey
-	and o.orderdate >= '1993-10-01'
+	and o.orderdate >= date '1993-10-01'
 	and cast(o.orderdate as date) < date '1993-10-01' + interval '3' month
 	and l.returnflag = 'R'
 	and c.nationkey = n.nationkey

@@ -30,7 +30,7 @@ where
 				where
 					l.partkey = ps.partkey
 					and l.suppkey = ps.suppkey
-					and l.shipdate >= '1994-01-01'
+					and l.shipdate >= date '1994-01-01'
 					and cast(l.shipdate as date) < date('1994-01-01') + interval '1' year
 			)
 	)

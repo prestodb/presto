@@ -87,7 +87,7 @@ public class HiveExternalWorkerQueryRunner
                                 "offset-clause-enabled", "true"),
                         "sql-standard",
                         ImmutableMap.of(
-                                "hive.storage-format", "DWRF",
+                                "hive.storage-format", "PARQUET",
                                 "hive.pushdown-filter-enabled", "true"),
                         dataDirectory);
 
@@ -125,7 +125,7 @@ public class HiveExternalWorkerQueryRunner
                 ImmutableList.of(),
                 ImmutableMap.<String, String>builder()
                         .put("optimizer.optimize-hash-generation", "false")
-                        .put("parse-decimal-literals-as-double", "true")
+                        .put("parse-decimal-literals-as-double", "false")
                         .put("http-server.http.port", "8080")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .put("regex-library", "RE2J")
@@ -140,7 +140,8 @@ public class HiveExternalWorkerQueryRunner
                 "legacy",
                 ImmutableMap.of(
                         "hive.storage-format", "DWRF",
-                        "hive.pushdown-filter-enabled", "true"),
+                        "hive.pushdown-filter-enabled", "true",
+                        "hive.parquet.pushdown-filter-enabled", "true"),
                 workerCount,
                 Optional.of(Paths.get(dataDirectory)),
                 Optional.of((workerIndex, discoveryUri) -> {
@@ -204,8 +205,8 @@ public class HiveExternalWorkerQueryRunner
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
             queryRunner.execute("CREATE TABLE lineitem AS " +
                     "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
-                    "   returnflag, linestatus, cast(shipdate as varchar) as shipdate, cast(commitdate as varchar) as commitdate, " +
-                    "   cast(receiptdate as varchar) as receiptdate, shipinstruct, shipmode, comment, " +
+                    "   returnflag, linestatus, shipdate, commitdate, " +
+                    "   receiptdate, shipinstruct, shipmode, comment, " +
                     "   linestatus = 'O' as is_open, returnflag = 'R' as is_returned, " +
                     "   cast(tax as real) as tax_as_real, cast(discount as real) as discount_as_real, " +
                     "   cast(linenumber as smallint) as linenumber_as_smallint, " +
@@ -218,7 +219,7 @@ public class HiveExternalWorkerQueryRunner
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders")) {
             queryRunner.execute("CREATE TABLE orders AS " +
-                    "SELECT orderkey, custkey, orderstatus, totalprice, cast(orderdate as varchar) as orderdate, " +
+                    "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, " +
                     "   orderpriority, clerk, shippriority, comment " +
                     "FROM tpch.tiny.orders");
         }
@@ -324,8 +325,8 @@ public class HiveExternalWorkerQueryRunner
                     "with (partitioned_by = array['size']) " +
                     "as WITH part_suppliers as (SELECT part.partkey, supplier.suppkey, " +
                     "                                  array_agg(cast(row(supplier.suppkey, supplier.name, availqty, supplycost, address, nationkey, phone, acctbal) as " +
-                    "                                                 row(suppkey integer, suppname varchar(25), availqty double, suppcost double, address varchar(40), " +
-                    "                                                     nationkey integer, phone varchar(15), acctbal double))) suppliers " +
+                    "                                                 row(suppkey integer, suppname varchar(25), availqty decimal(15,2), suppcost decimal(15,2), address varchar(40), " +
+                    "                                                     nationkey integer, phone varchar(15), acctbal decimal(15,2)))) suppliers " +
                     "                            FROM tpch.tiny.part part, tpch.tiny.supplier supplier, tpch.tiny.partsupp partsupp " +
                     "                            WHERE supplier.suppkey = partsupp.suppkey and partsupp.partkey = part.partkey GROUP BY 1, 2 " +
                     "                          ), " +

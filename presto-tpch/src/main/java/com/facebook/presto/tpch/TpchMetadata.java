@@ -17,6 +17,8 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.ShortDecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ColumnHandle;
@@ -427,7 +429,10 @@ public class TpchMetadata
         if (columnType.equals(DOUBLE)) {
             return ((Number) value).doubleValue();
         }
-        throw new IllegalArgumentException("unsupported column type " + columnType);
+        if (columnType instanceof DecimalType) {
+            return ((Number) value).doubleValue();
+        }
+        throw new IllegalArgumentException("unsupported column type " + columnType + ", " + columnType.getClass() + ", value: " + value.getClass());
     }
 
     @Override
@@ -529,6 +534,8 @@ public class TpchMetadata
     public static Type getPrestoType(TpchColumn<?> column)
     {
         TpchColumnType tpchType = column.getType();
+        String columnName = column.getColumnName();
+
         switch (tpchType.getBase()) {
             case IDENTIFIER:
                 return BIGINT;
@@ -537,6 +544,30 @@ public class TpchMetadata
             case DATE:
                 return DATE;
             case DOUBLE:
+                if (columnName.equals("s_acctbal")) {
+                    return DecimalType.createDecimalType(15, 2);
+                }
+                if (columnName.equals("c_acctbal")) {
+                    return DecimalType.createDecimalType(15, 2);
+                }
+                if (columnName.equals("p_retailprice")) {
+                    return DecimalType.createDecimalType(15, 2);
+                }
+                if (columnName.equals("ps_supplycost")) {
+                    return DecimalType.createDecimalType(15, 2);
+                }
+                if (columnName.equals("o_totalprice")) {
+                    return DecimalType.createDecimalType(15, 2);
+                }
+                if (columnName.equals("l_extendedprice")) {
+                    return DecimalType.createDecimalType(15, 2);
+                }
+                if (columnName.equals("l_discount")) {
+                    return DecimalType.createDecimalType(15, 2);
+                }
+                if (columnName.equals("l_tax")) {
+                    return DecimalType.createDecimalType(15, 2);
+                }
                 return DOUBLE;
             case VARCHAR:
                 return createVarcharType((int) (long) tpchType.getPrecision().get());

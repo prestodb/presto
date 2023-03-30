@@ -15,6 +15,8 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.hive.HiveExternalWorkerQueryRunner;
 import com.facebook.presto.testing.ExpectedQueryRunner;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.io.Resources;
@@ -61,6 +63,29 @@ public abstract class TestHiveTpchQueries
     }
 
     // This test runs the 22 TPC-H queries.
+
+    @Test
+    public void testSchema() {
+        String[] names = new String[] {
+                "part",
+                "partsupp",
+                "supplier",
+                "customer",
+                "orders",
+                "lineitem",
+                "nation",
+                "region"
+        };
+
+        for (String name : names) {
+            System.out.println("== " + name + " ==");
+            MaterializedResult result = getQueryRunner().execute("describe " + name);
+            for (MaterializedRow row : result.getMaterializedRows()) {
+                System.out.println(row);
+            }
+            System.out.println();
+        }
+    }
 
     @Test
     public void testTpchQ1()
