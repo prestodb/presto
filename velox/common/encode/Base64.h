@@ -78,18 +78,13 @@ class Base64 {
 
   // compatible with www's Base64URL::encode/decode
   // TODO rename encode_url/decode_url to encodeUrl/encodeUrl.
-  static std::string encode_url(const char* data, size_t len);
-  static std::string encode_url(const folly::IOBuf* data);
-  static std::string encode_url(folly::StringPiece text);
-  static void decode_url(
+  static std::string encodeUrl(const char* data, size_t len);
+  static std::string encodeUrl(const folly::IOBuf* data);
+  static std::string encodeUrl(folly::StringPiece text);
+  static void decodeUrl(
       const std::pair<const char*, int32_t>& payload,
       std::string& output);
-  static std::string decode_url(folly::StringPiece text);
-
-  /*
-   * Take str(base64 encoded string) and writes the decoded string to out.
-   */
-  static void base64_decode_string(const std::string& str, std::string& out);
+  static std::string decodeUrl(folly::StringPiece text);
 
   static size_t
   decode(const char* src, size_t src_len, char* dst, size_t dst_len);

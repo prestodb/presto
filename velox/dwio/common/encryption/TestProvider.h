@@ -39,7 +39,7 @@ class TestEncryption {
 
   std::unique_ptr<folly::IOBuf> encrypt(folly::StringPiece input) const {
     ++count_;
-    auto encoded = velox::encoding::Base64::encode_url(input);
+    auto encoded = velox::encoding::Base64::encodeUrl(input);
     return folly::IOBuf::copyBuffer(key_ + encoded);
   }
 
@@ -47,7 +47,7 @@ class TestEncryption {
     ++count_;
     std::string key{input.begin(), key_.size()};
     DWIO_ENSURE_EQ(key_, key);
-    auto decoded = velox::encoding::Base64::decode_url(folly::StringPiece{
+    auto decoded = velox::encoding::Base64::decodeUrl(folly::StringPiece{
         input.begin() + key_.size(), input.size() - key_.size()});
     return folly::IOBuf::copyBuffer(decoded);
   }

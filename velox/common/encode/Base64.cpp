@@ -421,25 +421,25 @@ size_t Base64::decodeImpl(
   return needed;
 }
 
-std::string Base64::encode_url(folly::StringPiece text) {
+std::string Base64::encodeUrl(folly::StringPiece text) {
   return encodeImpl(text, kBase64UrlCharset, false);
 }
 
-std::string Base64::encode_url(const char* data, size_t len) {
-  return encode_url(folly::StringPiece(data, len));
+std::string Base64::encodeUrl(const char* data, size_t len) {
+  return encodeUrl(folly::StringPiece(data, len));
 }
 
-std::string Base64::encode_url(const folly::IOBuf* data) {
+std::string Base64::encodeUrl(const folly::IOBuf* data) {
   return encodeImpl(IOBufWrapper(data), kBase64UrlCharset, false);
 }
 
-std::string Base64::decode_url(folly::StringPiece encoded) {
+std::string Base64::decodeUrl(folly::StringPiece encoded) {
   std::string output;
-  Base64::decode_url(std::make_pair(encoded.data(), encoded.size()), output);
+  Base64::decodeUrl(std::make_pair(encoded.data(), encoded.size()), output);
   return output;
 }
 
-void Base64::decode_url(
+void Base64::decodeUrl(
     const std::pair<const char*, int32_t>& payload,
     std::string& output) {
   size_t out_len = (payload.second + 3) / 4 * 3;
