@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <optional>
 #include "velox/expression/VectorReaders.h"
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
@@ -475,7 +476,7 @@ TEST_F(GenericWriterTest, dynamicRow) {
 
   writer2.setOffset(0);
   auto& current2 = writer2.current();
-  ASSERT_THROW(current2.castTo<DynamicRow>(), VeloxUserError);
+  ASSERT_EQ(current2.tryCastTo<DynamicRow>(), nullptr);
 }
 
 TEST_F(GenericWriterTest, nested) {
