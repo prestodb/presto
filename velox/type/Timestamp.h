@@ -32,6 +32,7 @@ namespace facebook::velox {
 
 struct Timestamp {
  public:
+  enum class Precision : int { kMilliseconds = 3, kNanoseconds = 9 };
   constexpr Timestamp() : seconds_(0), nanos_(0) {}
   constexpr Timestamp(int64_t seconds, uint64_t nanos)
       : seconds_(seconds), nanos_(nanos) {}
@@ -143,7 +144,8 @@ struct Timestamp {
     return StringView("TODO: Implement");
   };
 
-  std::string toString() const {
+  std::string toString(
+      const Precision& precision = Precision::kNanoseconds) const {
     // mbasmanova: error: no matching function for call to 'gmtime_r'
     // mbasmanova: time_t is long not long long
     // struct tm tmValue;
@@ -160,11 +162,15 @@ struct Timestamp {
     // T - literal T
     // %T - equivalent to "%H:%M:%S" (the ISO 8601 time format)
     // so this return time in the format
-    // %Y-%m-%dT%H:%M:%S.nnnnnnnnn
+    // %Y-%m-%dT%H:%M:%S.nnnnnnnnn for nanoseconds precision, or
+    // %Y-%m-%dT%H:%M:%S.nnn for milliseconds precision
     // Note there is no Z suffix, which denotes UTC timestamp.
+    auto width = static_cast<int>(precision);
+    auto value =
+        precision == Precision::kMilliseconds ? nanos_ / 1'000'000 : nanos_;
     std::ostringstream oss;
     oss << std::put_time(bt, "%FT%T");
-    oss << '.' << std::setfill('0') << std::setw(9) << nanos_;
+    oss << '.' << std::setfill('0') << std::setw(width) << value;
 
     return oss.str();
   }
@@ -186,7 +192,7 @@ void parseTo(folly::StringPiece in, ::facebook::velox::Timestamp& out);
 
 template <typename T>
 void toAppend(const ::facebook::velox::Timestamp& value, T* result) {
-  // TODO Implement
+  result->append(value.toString());
 }
 
 } // namespace facebook::velox

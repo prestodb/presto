@@ -376,6 +376,10 @@ struct Converter<TypeKind::VARCHAR, void, TRUNCATE> {
     return folly::to<std::string>(val);
   }
 
+  static std::string cast(const Timestamp& val, bool& nullOutput) {
+    return val.toString(Timestamp::Precision::kMilliseconds);
+  }
+
   static std::string cast(const bool& val, bool& nullOutput) {
     return val ? "true" : "false";
   }

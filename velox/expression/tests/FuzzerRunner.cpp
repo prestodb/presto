@@ -91,10 +91,7 @@ getSignaturesForCast() {
   addCastFromFloatingPointSignatures("varchar", signatures);
   addCastFromVarcharSignature("varchar", signatures);
   addCastFromDateSignature("varchar", signatures);
-
-  // TODO: Enable this signature after we fix the timestamp --> varchar
-  // conversion. https://github.com/facebookincubator/velox/issues/4169.
-  // addCastFromTimestampSignature("varchar", signatures);
+  addCastFromTimestampSignature("varchar", signatures);
 
   // To timestamp type.
   addCastFromVarcharSignature("timestamp", signatures);

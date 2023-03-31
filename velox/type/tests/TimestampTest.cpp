@@ -91,5 +91,36 @@ TEST(TimestampTest, arithmeticOverflow) {
       ts2.toNanos(), "integer overflow: -9223372036854776 * 1000000000");
 }
 
+TEST(TimestampTest, toAppend) {
+  std::string tsStringZeroValue;
+  toAppend(Timestamp(0, 0), &tsStringZeroValue);
+  EXPECT_EQ("1970-01-01T00:00:00.000000000", tsStringZeroValue);
+
+  std::string tsStringCommonValue;
+  toAppend(Timestamp(946729316, 0), &tsStringCommonValue);
+  EXPECT_EQ("2000-01-01T12:21:56.000000000", tsStringCommonValue);
+
+  std::string tsStringFarInFuture;
+  toAppend(Timestamp(94668480000, 0), &tsStringFarInFuture);
+  EXPECT_EQ("4969-12-04T00:00:00.000000000", tsStringFarInFuture);
+
+  std::string tsStringWithNanos;
+  toAppend(Timestamp(946729316, 123), &tsStringWithNanos);
+  EXPECT_EQ("2000-01-01T12:21:56.000000123", tsStringWithNanos);
+
+  EXPECT_EQ(
+      "2000-01-01T00:00:00.000000000",
+      folly::to<std::string>(Timestamp(946684800, 0)));
+  EXPECT_EQ(
+      "2000-01-01T12:21:56.000000123",
+      folly::to<std::string>(Timestamp(946729316, 123)));
+  EXPECT_EQ(
+      "1970-01-01T02:01:06.000000000",
+      folly::to<std::string>(Timestamp(7266, 0)));
+  EXPECT_EQ(
+      "2000-01-01T12:21:56.129900000",
+      folly::to<std::string>(Timestamp(946729316, 129900000)));
+}
+
 } // namespace
 } // namespace facebook::velox

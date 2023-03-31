@@ -203,7 +203,7 @@ TEST_F(CastExprTest, basics) {
   testCast<bool, std::string>("string", {true, false}, {"true", "false"});
 }
 
-TEST_F(CastExprTest, timestamp) {
+TEST_F(CastExprTest, stringToTimestamp) {
   testCast<std::string, Timestamp>(
       "timestamp",
       {
@@ -220,6 +220,37 @@ TEST_F(CastExprTest, timestamp) {
           Timestamp(0, 0),
           Timestamp(946729316, 0),
           Timestamp(7200, 0),
+          std::nullopt,
+      });
+}
+
+TEST_F(CastExprTest, timestampToString) {
+  testCast<Timestamp, std::string>(
+      "string",
+      {
+          Timestamp(-946684800, 0),
+          Timestamp(-7266, 0),
+          Timestamp(0, 0),
+          Timestamp(946684800, 0),
+          Timestamp(9466848000, 0),
+          Timestamp(94668480000, 0),
+          Timestamp(946729316, 0),
+          Timestamp(946729316, 123),
+          Timestamp(946729316, 129900000),
+          Timestamp(7266, 0),
+          std::nullopt,
+      },
+      {
+          "1940-01-02T00:00:00.000",
+          "1969-12-31T21:58:54.000",
+          "1970-01-01T00:00:00.000",
+          "2000-01-01T00:00:00.000",
+          "2269-12-29T00:00:00.000",
+          "4969-12-04T00:00:00.000",
+          "2000-01-01T12:21:56.000",
+          "2000-01-01T12:21:56.000",
+          "2000-01-01T12:21:56.129",
+          "1970-01-01T02:01:06.000",
           std::nullopt,
       });
 }
