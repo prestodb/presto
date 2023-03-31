@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
+import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.hive.HiveExternalWorkerQueryRunner;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
 import com.facebook.presto.testing.ExpectedQueryRunner;
@@ -46,6 +48,7 @@ public class AbstractTestPrestoSparkQueries
                 .put("catalog.config-dir", "/")
                 .put("native-execution-enabled", "true")
                 .put("spark.initial-partition-count", "1")
+                .put("register-test-functions", "true")
                 .put("spark.partition-count-auto-tune-enabled", "false");
 
         if (System.getProperty("NATIVE_PORT") == null) {
@@ -55,9 +58,11 @@ public class AbstractTestPrestoSparkQueries
             builder.put("native-execution-executable-path", path);
         }
 
-        return PrestoSparkNativeQueryRunner.createPrestoSparkNativeQueryRunner(
+        PrestoSparkQueryRunner queryRunner = PrestoSparkNativeQueryRunner.createPrestoSparkNativeQueryRunner(
                 builder.build(),
                 getNativeExecutionShuffleConfigs());
+        setupJsonFunctionNamespaceManager(queryRunner);
+        return queryRunner;
     }
 
     @Override
@@ -94,5 +99,17 @@ public class AbstractTestPrestoSparkQueries
         sparkConfigs.put(SPARK_SHUFFLE_MANAGER, "com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager");
         sparkConfigs.put(FALLBACK_SPARK_SHUFFLE_MANAGER, "org.apache.spark.shuffle.sort.SortShuffleManager");
         return sparkConfigs.build();
+    }
+
+    private void setupJsonFunctionNamespaceManager(QueryRunner queryRunner)
+    {
+        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
+        queryRunner.loadFunctionNamespaceManager(
+                JsonFileBasedFunctionNamespaceManagerFactory.NAME,
+                "json",
+                ImmutableMap.of(
+                        "supported-function-languages", "CPP",
+                        "function-implementation-type", "CPP",
+                        "json-based-function-manager.path-to-function-definition", "src/test/resources/eq.json"));
     }
 }

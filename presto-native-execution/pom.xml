@@ -45,6 +45,11 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-function-namespace-managers</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpcds</artifactId>
             <scope>test</scope>
         </dependency>

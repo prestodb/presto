@@ -51,6 +51,7 @@ public class TestProperties
                 .setMaxDriversPerTask(15)
                 .setPrestoVersion("dummy.presto.version")
                 .setShuffleName("local")
+                .setRegisterTestFunctions(false)
                 .setEnableHttpServerAccessLog(true));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
@@ -68,6 +69,7 @@ public class TestProperties
                 .setSystemMemoryGb(40)
                 .setMaxDriversPerTask(30)
                 .setShuffleName("custom")
+                .setRegisterTestFunctions(true)
                 .setEnableHttpServerAccessLog(false);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);

@@ -32,6 +32,7 @@ public class NativeExecutionSystemConfig
     // Port on which presto-native http server should run
     private static final String HTTP_SERVER_HTTP_PORT = "http-server.http.port";
     private static final String HTTP_SERVER_REUSE_PORT = "http-server.reuse-port";
+    private static final String REGISTER_TEST_FUNCTIONS = "register-test-functions";
     // Number of I/O thread to use for serving http request on presto-native (proxygen server)
     // this excludes worker thread used by velox
     private static final String HTTP_EXEC_THREADS = "http_exec_threads";
@@ -57,6 +58,7 @@ public class NativeExecutionSystemConfig
     private int maxDriversPerTask = 15;
     private String prestoVersion = "dummy.presto.version";
     private String shuffleName = "local";
+    private boolean registerTestFunctions;
     private boolean enableHttpServerAccessLog = true;
 
     public Map<String, String> getAllProperties()
@@ -68,6 +70,7 @@ public class NativeExecutionSystemConfig
                 .put(ENABLE_VELOX_TASK_LOGGING, String.valueOf(isEnableVeloxTaskLogging()))
                 .put(HTTP_SERVER_HTTP_PORT, String.valueOf(getHttpServerPort()))
                 .put(HTTP_SERVER_REUSE_PORT, String.valueOf(isHttpServerReusePort()))
+                .put(REGISTER_TEST_FUNCTIONS, String.valueOf(isRegisterTestFunctions()))
                 .put(HTTP_EXEC_THREADS, String.valueOf(getHttpExecThreads()))
                 .put(NUM_IO_THREADS, String.valueOf(getNumIoThreads()))
                 .put(PRESTO_VERSION, getPrestoVersion())
@@ -149,6 +152,18 @@ public class NativeExecutionSystemConfig
     public boolean isHttpServerReusePort()
     {
         return httpServerReusePort;
+    }
+
+    @Config(REGISTER_TEST_FUNCTIONS)
+    public NativeExecutionSystemConfig setRegisterTestFunctions(boolean registerTestFunctions)
+    {
+        this.registerTestFunctions = registerTestFunctions;
+        return this;
+    }
+
+    public boolean isRegisterTestFunctions()
+    {
+        return registerTestFunctions;
     }
 
     @Config(HTTP_EXEC_THREADS)
