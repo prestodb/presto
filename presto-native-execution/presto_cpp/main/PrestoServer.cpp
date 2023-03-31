@@ -341,7 +341,7 @@ void PrestoServer::run() {
 
   // Start everything. After the return from the following call we are shutting
   // down.
-  httpServer_->start();
+  httpServer_->start(getHttpServerFilters());
 
   LOG(INFO) << "SHUTDOWN: Stopping all periodic tasks...";
   periodicTaskManager.stop();
@@ -493,6 +493,11 @@ std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListener() {
 std::shared_ptr<velox::exec::ExprSetListener>
 PrestoServer::getExprSetListener() {
   return nullptr;
+}
+
+std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
+PrestoServer::getHttpServerFilters() {
+  return {};
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(
