@@ -31,6 +31,7 @@ add_library(
   MapAggregateBase.h
   MapAggregateBase.cpp
   MapUnionAggregate.cpp
+  MapUnionSumAggregate.cpp
   MinMaxAggregates.cpp
   MinMaxByAggregates.cpp
   CountAggregate.cpp

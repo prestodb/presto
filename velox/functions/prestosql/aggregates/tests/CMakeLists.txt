@@ -39,6 +39,7 @@ add_executable(
   SumTest.cpp
   MapAggTest.cpp
   MapUnionAggregationTest.cpp
+  MapUnionSumTest.cpp
   ValueListTest.cpp
   VarianceAggregationTest.cpp
   MaxSizeForStatsTest.cpp)

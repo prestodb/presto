@@ -65,6 +65,7 @@ int main(int argc, char** argv) {
       {"array_agg", "array_sort({})"},
       {"map_agg", "array_sort(map_keys({}))"},
       {"map_union", "array_sort(map_keys({}))"},
+      {"map_union_sum", "array_sort(map_keys({}))"},
       {"max_by", ""},
       {"min_by", ""},
   };

@@ -110,6 +110,11 @@ Map Aggregate Functions
     If a ``key`` is found in multiple input ``maps``,
     that ``key’s`` ``value`` in the resulting ``map`` comes from an arbitrary input ``map``.
 
+.. function:: map_union_sum(map(K,V)) -> map(K,V)
+
+    Returns the union of all the input maps summing the values of matching keys in all
+    the maps. All null values in the original maps are coalesced to 0.
+
 Approximate Aggregate Functions
 -------------------------------
 
