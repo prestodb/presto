@@ -81,6 +81,7 @@ HttpServer::HttpServer(
     int httpExecThreads)
     : httpAddress_(httpAddress),
       httpExecThreads_(httpExecThreads),
+      handlerFactory_(std::make_unique<DispatchingRequestHandlerFactory>()),
       httpExecutor_{std::make_shared<folly::IOThreadPoolExecutor>(
           httpExecThreads,
           std::make_shared<folly::NamedThreadFactory>("HTTPSrvExec"))} {}
@@ -157,6 +158,7 @@ void DispatchingRequestHandlerFactory::registerEndPoint(
 }
 
 void HttpServer::start(
+    std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters,
     std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess,
     std::function<void(std::exception_ptr)> onError) {
   proxygen::HTTPServer::IPConfig cfg{
@@ -177,9 +179,19 @@ void HttpServer::start(
   options.enableContentCompression = false;
 
   proxygen::RequestHandlerChain handlerFactories;
+
+  // Register all built in filters
   if (SystemConfig::instance()->enableHttpAccessLog()) {
     handlerFactories.addThen<filters::AccessLogFilterFactory>();
   }
+
+  // Register all filters passed to the http server.
+  for (size_t i = 0; i < filters.size(); ++i) {
+    if (filters[i] != nullptr) {
+      handlerFactories.addThen(std::move(filters[i]));
+    }
+  }
+
   handlerFactories.addThen(std::move(handlerFactory_));
   options.handlerFactories = handlerFactories.build();
 

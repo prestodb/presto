@@ -20,7 +20,7 @@ folly::SemiFuture<folly::SocketAddress> HttpServerWrapper::start() {
   auto [promise, future] = folly::makePromiseContract<folly::SocketAddress>();
   promise_ = std::move(promise);
   serverThread_ = std::make_unique<std::thread>([this]() {
-    server_->start([&](proxygen::HTTPServer* httpServer) {
+    server_->start({}, [&](proxygen::HTTPServer* httpServer) {
       ASSERT_EQ(httpServer->addresses().size(), 1);
       promise_.setValue(httpServer->addresses()[0].address);
     });

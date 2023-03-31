@@ -237,6 +237,8 @@ class HttpServer {
       int httpExecThreads = 8);
 
   void start(
+      std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters =
+          {},
       std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess = nullptr,
       std::function<void(std::exception_ptr)> onError = nullptr);
 
@@ -316,8 +318,7 @@ class HttpServer {
  private:
   const folly::SocketAddress httpAddress_;
   int httpExecThreads_;
-  std::unique_ptr<DispatchingRequestHandlerFactory> handlerFactory_ =
-      std::make_unique<DispatchingRequestHandlerFactory>();
+  std::unique_ptr<DispatchingRequestHandlerFactory> handlerFactory_;
   std::unique_ptr<proxygen::HTTPServer> server_;
   std::shared_ptr<folly::IOThreadPoolExecutor> httpExecutor_;
 
