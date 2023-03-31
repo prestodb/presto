@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static com.facebook.presto.SystemSessionProperties.isOptimizeAggregationParitionedRuntimeEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -143,7 +144,7 @@ public class InMemoryHashAggregationBuilder
             if (overwriteIntermediateChannelOffset.isPresent()) {
                 overwriteIntermediateChannel = Optional.of(overwriteIntermediateChannelOffset.get() + i);
             }
-            builder.add(new Aggregator(accumulatorFactory, step, overwriteIntermediateChannel, updateMemory));
+            builder.add(new Aggregator(accumulatorFactory, step, overwriteIntermediateChannel, updateMemory, isOptimizeAggregationParitionedRuntimeEnabled(operatorContext.getSession())));
         }
         aggregators = builder.build();
     }
@@ -357,12 +358,14 @@ public class InMemoryHashAggregationBuilder
         private final GroupedAccumulator aggregation;
         private AggregationNode.Step step;
         private final int intermediateChannel;
+        private final boolean optimizeSingleGroupInputPage;
 
         private Aggregator(
                 AccumulatorFactory accumulatorFactory,
                 AggregationNode.Step step,
                 Optional<Integer> overwriteIntermediateChannel,
-                UpdateMemory updateMemory)
+                UpdateMemory updateMemory,
+                boolean optimizeSingleGroupInputPage)
         {
             if (step.isInputRaw()) {
                 this.intermediateChannel = -1;
@@ -378,6 +381,7 @@ public class InMemoryHashAggregationBuilder
                 this.aggregation = accumulatorFactory.createGroupedIntermediateAccumulator(updateMemory);
             }
             this.step = step;
+            this.optimizeSingleGroupInputPage = optimizeSingleGroupInputPage;
         }
 
         public long getEstimatedSize()
@@ -398,7 +402,7 @@ public class InMemoryHashAggregationBuilder
         public void processPage(GroupByIdBlock groupIds, Page page)
         {
             if (step.isInputRaw()) {
-                if (groupIds.isRunLengthBlock() && aggregation.hasAddBlockInput()) {
+                if (groupIds.isRunLengthBlock() && aggregation.hasAddBlockInput() && optimizeSingleGroupInputPage) {
                     aggregation.addBlockInput(groupIds, page);
                 }
                 else {
@@ -446,7 +450,7 @@ public class InMemoryHashAggregationBuilder
         for (AccumulatorFactory factory : factories) {
             // Create an aggregator just to figure out the output type
             // It is fine not to specify a memory reservation callback as it doesn't accept any input
-            types.add(new Aggregator(factory, step, Optional.empty(), UpdateMemory.NOOP).getType());
+            types.add(new Aggregator(factory, step, Optional.empty(), UpdateMemory.NOOP, true).getType());
         }
         return types.build();
     }

@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.SystemSessionProperties.isOptimizeAggregationParitionedRuntimeEnabled;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -93,6 +94,7 @@ public class StreamingAggregationOperator
     private final Step step;
     private final PagesHashStrategy pagesHashStrategy;
 
+    private final boolean optimizeSingleGroupInputPage;
     private List<Aggregator> aggregates;
     private final PageBuilder pageBuilder;
     private final Deque<Page> outputPages = new LinkedList<>();
@@ -109,6 +111,7 @@ public class StreamingAggregationOperator
         this.accumulatorFactories = requireNonNull(accumulatorFactories, "accumulatorFactories is null");
         this.step = requireNonNull(step, "step is null");
 
+        this.optimizeSingleGroupInputPage = isOptimizeAggregationParitionedRuntimeEnabled(operatorContext.getSession());
         this.aggregates = setupAggregates(step, accumulatorFactories);
         this.pageBuilder = new PageBuilder(toTypes(groupByTypes, aggregates));
         requireNonNull(joinCompiler, "joinCompiler is null");
@@ -125,7 +128,7 @@ public class StreamingAggregationOperator
     {
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
         for (AccumulatorFactory factory : accumulatorFactories) {
-            builder.add(new Aggregator(factory, step, this::updateMemoryUsage));
+            builder.add(new Aggregator(factory, step, this::updateMemoryUsage, optimizeSingleGroupInputPage));
         }
         return builder.build();
     }
