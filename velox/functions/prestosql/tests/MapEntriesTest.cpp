@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include "velox/expression/VectorFunction.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -116,4 +118,42 @@ TEST_F(MapEntriesTest, constant) {
           makeFlatVector<int64_t>({60, 70}),
       })));
   test::assertEqualVectors(expected, result);
+}
+
+TEST_F(MapEntriesTest, outputSizeIsBoundBySelectedRows) {
+  // This test makes sure that map_entries output vector size is `rows.end()`
+  // and not `rows.size()`. This is important for this function because it
+  // reuses the input vector, and the input vector is only guaranteed to be
+  // addressable for up to rows.end(). Hence this is needed for the output of
+  // this function to be addressable for all of its elements.
+
+  auto function =
+      exec::getVectorFunction("map_entries", {MAP(BIGINT(), BIGINT())}, {});
+
+  auto map = makeMapVector<int64_t, int64_t>(
+      100,
+      [](vector_size_t row) { return row % 5; },
+      [](vector_size_t row) { return row % 7; },
+      [](vector_size_t row) { return row % 11; });
+  auto rowVector = makeRowVector({map});
+
+  // Only the first 5 rows selected.
+  SelectivityVector rows(5);
+  // This is larger than input map size but rows beyond the input vector size
+  // are not selected.
+  rows.resize(1000, false);
+
+  ASSERT_EQ(rows.size(), 1000);
+  ASSERT_EQ(rows.end(), 5);
+  ASSERT_EQ(map->size(), 100);
+
+  auto typedExpr =
+      makeTypedExpr("map_entries(c0)", asRowType(rowVector->type()));
+  std::vector<VectorPtr> results(1);
+
+  exec::ExprSet exprSet({typedExpr}, &execCtx_);
+  exec::EvalCtx evalCtx(&execCtx_, &exprSet, rowVector.get());
+  exprSet.eval(rows, evalCtx, results);
+
+  ASSERT_EQ(results[0]->size(), 5);
 }

@@ -78,7 +78,7 @@ class MapEntriesFunction : public exec::VectorFunction {
         context.pool(),
         outputType,
         inputMap->nulls(),
-        rows.size(),
+        rows.end(),
         inputMap->offsets(),
         inputMap->sizes(),
         resultElements);
