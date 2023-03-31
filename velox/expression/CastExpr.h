@@ -171,6 +171,7 @@ class CastExpr : public SpecialForm {
   /// @param rows Non-null rows of the input vector.
   /// @param input The input decimal vector. It is guaranteed to be flat or
   /// constant.
+  template <typename DecimalType>
   VectorPtr applyDecimal(
       const SelectivityVector& rows,
       const BaseVector& input,

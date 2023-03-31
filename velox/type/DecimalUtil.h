@@ -80,9 +80,9 @@ class DecimalUtil {
     }
   }
 
-  template <typename TOutput>
-  inline static std::optional<TOutput> rescaleBigint(
-      const int128_t inputValue,
+  template <typename TInput, typename TOutput>
+  inline static std::optional<TOutput> rescaleInt(
+      const TInput inputValue,
       const int toPrecision,
       const int toScale) {
     static_assert(
@@ -95,16 +95,13 @@ class DecimalUtil {
     if (rescaledValue < -DecimalUtil::kPowersOfTen[toPrecision] ||
         rescaledValue > DecimalUtil::kPowersOfTen[toPrecision] || isOverflow) {
       VELOX_USER_FAIL(
-          "Cannot cast BIGINT '{}' to DECIMAL({},{})",
+          "Cannot cast {} '{}' to DECIMAL({},{})",
+          CppToType<TInput>::name,
           inputValue,
           toPrecision,
           toScale);
     }
-    if constexpr (std::is_same_v<TOutput, UnscaledShortDecimal>) {
-      return UnscaledShortDecimal(static_cast<int64_t>(rescaledValue));
-    } else {
-      return UnscaledLongDecimal(rescaledValue);
-    }
+    return TOutput(rescaledValue);
   }
 
   template <typename R, typename A, typename B>

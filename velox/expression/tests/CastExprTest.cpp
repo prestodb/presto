@@ -170,6 +170,57 @@ class CastExprTest : public functions::test::CastBaseTest {
     auto expected = makeNullableFlatVector<TTo>(expectedResult);
     assertEqualVectors(expected, result);
   }
+
+  template <typename T>
+  void testIntToDecimalCasts() {
+    // integer to short decimal
+    auto input = makeFlatVector<T>({-3, -2, -1, 0, 55, 69, 72});
+    testComplexCast(
+        "c0",
+        input,
+        makeShortDecimalFlatVector(
+            {-300, -200, -100, 0, 5'500, 6'900, 7'200}, DECIMAL(6, 2)));
+
+    // integer to long decimal
+    testComplexCast(
+        "c0",
+        input,
+        makeLongDecimalFlatVector(
+            {-30'000'000'000,
+             -20'000'000'000,
+             -10'000'000'000,
+             0,
+             550'000'000'000,
+             690'000'000'000,
+             720'000'000'000},
+            DECIMAL(20, 10)));
+
+    // Expected failures: allowed # of integers (precision - scale) in the
+    // target
+    VELOX_ASSERT_THROW(
+        testComplexCast(
+            "c0",
+            makeFlatVector<T>(std::vector<T>{std::numeric_limits<T>::min()}),
+            makeShortDecimalFlatVector({0}, DECIMAL(3, 1))),
+        fmt::format(
+            "Cannot cast {} '{}' to DECIMAL(3,1)",
+            CppToType<T>::name,
+            std::to_string(std::numeric_limits<T>::min())));
+    VELOX_ASSERT_THROW(
+        testComplexCast(
+            "c0",
+            makeFlatVector<T>(std::vector<T>{-100}),
+            makeShortDecimalFlatVector({0}, DECIMAL(17, 16))),
+        fmt::format(
+            "Cannot cast {} '-100' to DECIMAL(17,16)", CppToType<T>::name));
+    VELOX_ASSERT_THROW(
+        testComplexCast(
+            "c0",
+            makeFlatVector<T>(std::vector<T>{100}),
+            makeShortDecimalFlatVector({0}, DECIMAL(17, 16))),
+        fmt::format(
+            "Cannot cast {} '100' to DECIMAL(17,16)", CppToType<T>::name));
+  }
 };
 
 TEST_F(CastExprTest, basics) {
@@ -872,59 +923,11 @@ TEST_F(CastExprTest, decimalToDecimal) {
       "Cannot cast DECIMAL '-99999999999999999999999999999999999999' to DECIMAL(38,1)");
 }
 
-TEST_F(CastExprTest, bigintToDecimal) {
-  // bigint to short decimal
-  auto input = makeFlatVector<int64_t>({-3, -2, -1, 0, 55, 69, 72});
-  testComplexCast(
-      "c0",
-      input,
-      makeShortDecimalFlatVector(
-          {-300, -200, -100, 0, 5'500, 6'900, 7'200}, DECIMAL(6, 2)));
-
-  // bigint to long decimal
-  auto input2 = makeFlatVector<int64_t>({-3, -2, -1, 0, 55, 69, 72});
-  testComplexCast(
-      "c0",
-      input2,
-      makeLongDecimalFlatVector(
-          {-30'000'000'000,
-           -20'000'000'000,
-           -10'000'000'000,
-           0,
-           550'000'000'000,
-           690'000'000'000,
-           720'000'000'000},
-          DECIMAL(20, 10)));
-
-  // Expected failures: allowed # of integers (precision - scale) in the target
-  // value is lower than # of digits of the BIGINT value in the source value.
-  VELOX_ASSERT_THROW(
-      testComplexCast(
-          "c0",
-          makeFlatVector<int64_t>(std::vector<int64_t>{-123456789012345678}),
-          makeShortDecimalFlatVector({0}, DECIMAL(17, 1))),
-      "Cannot cast BIGINT '-123456789012345678' to DECIMAL(17,1)");
-
-  VELOX_ASSERT_THROW(
-      testComplexCast(
-          "c0",
-          makeFlatVector<int64_t>(std::vector<int64_t>{123456789012345678}),
-          makeShortDecimalFlatVector({0}, DECIMAL(17, 1))),
-      "Cannot cast BIGINT '123456789012345678' to DECIMAL(17,1)");
-
-  VELOX_ASSERT_THROW(
-      testComplexCast(
-          "c0",
-          makeFlatVector<int64_t>(std::vector<int64_t>{-100}),
-          makeShortDecimalFlatVector({0}, DECIMAL(17, 16))),
-      "Cannot cast BIGINT '-100' to DECIMAL(17,16)");
-
-  VELOX_ASSERT_THROW(
-      testComplexCast(
-          "c0",
-          makeFlatVector<int64_t>(std::vector<int64_t>{100}),
-          makeShortDecimalFlatVector({0}, DECIMAL(17, 16))),
-      "Cannot cast BIGINT '100' to DECIMAL(17,16)");
+TEST_F(CastExprTest, integerToDecimal) {
+  testIntToDecimalCasts<int8_t>();
+  testIntToDecimalCasts<int16_t>();
+  testIntToDecimalCasts<int32_t>();
+  testIntToDecimalCasts<int64_t>();
 }
 
 TEST_F(CastExprTest, castInTry) {
