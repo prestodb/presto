@@ -656,7 +656,7 @@ TEST_F(JsonCastTest, unsupportedTypes) {
   VELOX_ASSERT_THROW(
       evaluateCast<JsonNativeType>(
           MAP(VARCHAR(), BIGINT()), JSON(), makeRowVector({nullKeyMap})),
-      "Cannot cast map with null keys to JSON");
+      "Map keys cannot be null.");
 
   // Map keys cannot be complex type.
   auto arrayKeyVector = makeNullableArrayVector<int64_t>({{1}, {2}});

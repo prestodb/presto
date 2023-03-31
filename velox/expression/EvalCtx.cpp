@@ -18,6 +18,7 @@
 #include <exception>
 #include "velox/common/base/RawVector.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/PeeledEncoding.h"
 
 namespace facebook::velox::exec {
 
@@ -50,55 +51,6 @@ EvalCtx::EvalCtx(core::ExecCtx* execCtx)
   VELOX_CHECK_NOT_NULL(execCtx);
 }
 
-VectorPtr EvalCtx::applyWrapToPeeledResult(
-    const TypePtr& outputType,
-    VectorPtr peeledResult,
-    const SelectivityVector& rows) {
-  VectorPtr wrappedResult;
-  if (wrapEncoding_ == VectorEncoding::Simple::DICTIONARY) {
-    if (!peeledResult) {
-      // If all rows are null, make a constant null vector of the right type.
-      wrappedResult =
-          BaseVector::createNullConstant(outputType, rows.size(), pool());
-    } else {
-      BufferPtr nulls;
-      if (!rows.isAllSelected()) {
-        // The new base vector may be shorter than the original base vector
-        // (e.g. if positions at the end of the original vector were not
-        // selected for evaluation). In this case some original indices
-        // corresponding to non-selected rows may point past the end of the base
-        // vector. Disable these by setting corresponding positions to null.
-        nulls = AlignedBuffer::allocate<bool>(rows.size(), pool(), bits::kNull);
-        // Set the active rows to non-null.
-        rows.clearNulls(nulls);
-        if (wrapNulls_) {
-          // Add the nulls from the wrapping.
-          bits::andBits(
-              nulls->asMutable<uint64_t>(),
-              wrapNulls_->as<uint64_t>(),
-              rows.begin(),
-              rows.end());
-        }
-        // Reset nulls buffer if all positions happen to be non-null.
-        if (bits::isAllSet(
-                nulls->as<uint64_t>(), 0, rows.end(), bits::kNotNull)) {
-          nulls.reset();
-        }
-      } else {
-        nulls = wrapNulls_;
-      }
-      wrappedResult = BaseVector::wrapInDictionary(
-          std::move(nulls), wrap_, rows.end(), std::move(peeledResult));
-    }
-  } else if (wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
-    wrappedResult = BaseVector::wrapInConstant(
-        rows.size(), constantWrapIndex_, std::move(peeledResult));
-  } else {
-    VELOX_FAIL("Bad expression wrap encoding {}", wrapEncoding_);
-  }
-  return wrappedResult;
-}
-
 void EvalCtx::saveAndReset(
     ScopedContextSaver& saver,
     const SelectivityVector& rows) {
@@ -109,11 +61,8 @@ void EvalCtx::saveAndReset(
   saver.rows = &rows;
   saver.finalSelection = finalSelection_;
   saver.peeled = std::move(peeledFields_);
-  saver.wrap = std::move(wrap_);
-  saver.wrapNulls = std::move(wrapNulls_);
-  saver.constantWrapIndex = constantWrapIndex_;
-  saver.wrapEncoding = wrapEncoding_;
-  wrapEncoding_ = VectorEncoding::Simple::FLAT;
+  saver.peeledEncoding = std::move(peeledEncoding_);
+  peeledEncoding_.reset();
   saver.nullsPruned = nullsPruned_;
   nullsPruned_ = false;
   if (errors_) {
@@ -186,29 +135,19 @@ void EvalCtx::restore(ScopedContextSaver& saver) {
   nullsPruned_ = saver.nullsPruned;
   if (errors_) {
     int32_t errorSize = errors_->size();
-    // A constant wrap has no indices.
-    auto indices = wrap_ ? wrap_->as<vector_size_t>() : nullptr;
-    auto wrapNulls = wrapNulls_ ? wrapNulls_->as<uint64_t>() : nullptr;
-    saver.rows->applyToSelected([&](auto row) {
-      // A known null in the outer row masks an error.
-      if (wrapNulls && bits::isBitNull(wrapNulls, row)) {
-        return;
-      }
-      vector_size_t innerRow = indices ? indices[row] : constantWrapIndex_;
-      if (innerRow < errorSize && !errors_->isNullAt(innerRow)) {
-        addError(
-            row,
-            *std::static_pointer_cast<std::exception_ptr>(
-                errors_->valueAt(innerRow)),
-            saver.errors);
-      }
-    });
+    peeledEncoding_->applyToNonNullInnerRows(
+        *saver.rows, [&](auto outerRow, auto innerRow) {
+          if (innerRow < errorSize && !errors_->isNullAt(innerRow)) {
+            addError(
+                outerRow,
+                *std::static_pointer_cast<std::exception_ptr>(
+                    errors_->valueAt(innerRow)),
+                saver.errors);
+          }
+        });
   }
   errors_ = std::move(saver.errors);
-  wrap_ = std::move(saver.wrap);
-  wrapNulls_ = std::move(saver.wrapNulls);
-  constantWrapIndex_ = saver.constantWrapIndex;
-  wrapEncoding_ = saver.wrapEncoding;
+  peeledEncoding_ = std::move(saver.peeledEncoding);
   finalSelection_ = saver.finalSelection;
 }
 
@@ -335,4 +274,8 @@ ScopedFinalSelectionSetter::~ScopedFinalSelectionSetter() {
   *evalCtx_.mutableIsFinalSelection() = oldIsFinalSelection_;
 }
 
+VectorEncoding::Simple EvalCtx::wrapEncoding() const {
+  return !peeledEncoding_ ? VectorEncoding::Simple::FLAT
+                          : peeledEncoding_->getWrapEncoding();
+}
 } // namespace facebook::velox::exec

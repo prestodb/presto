@@ -289,6 +289,13 @@ class VectorFuzzer {
       RowVectorPtr rowVector,
       const std::vector<column_index_t>& columnsToWrapInLazy);
 
+  // Generate a random null buffer.
+  BufferPtr fuzzNulls(vector_size_t size);
+
+  // Generate a random indices buffer of 'size' with maximum possible index
+  // pointing to (baseVectorSize-1).
+  BufferPtr fuzzIndices(vector_size_t size, vector_size_t baseVectorSize);
+
  private:
   // Generates a flat vector for primitive types.
   VectorPtr fuzzFlatPrimitive(const TypePtr& type, vector_size_t size);
@@ -303,9 +310,6 @@ class VectorFuzzer {
   // flat encodings if flatEncoding is set to false, otherwise they will all be
   // flat.
   VectorPtr fuzzComplex(const TypePtr& type, vector_size_t size);
-
-  // Generate a random null buffer.
-  BufferPtr fuzzNulls(vector_size_t size);
 
   void fuzzOffsetsAndSizes(
       BufferPtr& offsets,

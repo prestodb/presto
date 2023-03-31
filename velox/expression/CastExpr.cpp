@@ -23,6 +23,7 @@
 #include <velox/common/base/VeloxException.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/CoreTypeSystem.h"
+#include "velox/expression/PeeledEncoding.h"
 #include "velox/expression/StringWriter.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
@@ -645,34 +646,25 @@ void CastExpr::apply(
   } else if (decoded->isIdentityMapping()) {
     applyPeeled(
         *nonNullRows, *decoded->base(), context, fromType, toType, localResult);
-
   } else {
     ScopedContextSaver saver;
-    LocalSelectivityVector translatedRowsHolder(*context.execCtx());
+    LocalSelectivityVector newRowsHolder(*context.execCtx());
 
-    if (decoded->isConstantMapping()) {
-      auto index = decoded->index(nonNullRows->begin());
-      singleRow(translatedRowsHolder, index);
-      context.saveAndReset(saver, *nonNullRows);
-      context.setConstantWrap(index);
-    } else {
-      translateToInnerRows(*nonNullRows, *decoded, translatedRowsHolder);
-      context.saveAndReset(saver, *nonNullRows);
-      auto wrapping = decoded->dictionaryWrapping(*input, *nonNullRows);
-      context.setDictionaryWrap(
-          std::move(wrapping.indices), std::move(wrapping.nulls));
-    }
-
+    LocalDecodedVector localDecoded(context);
+    std::vector<VectorPtr> peeledVectors;
+    auto peeledEncoding = PeeledEncoding::Peel(
+        {input}, *nonNullRows, localDecoded, true, peeledVectors);
+    VELOX_CHECK_EQ(peeledVectors.size(), 1);
+    auto newRows =
+        peeledEncoding->translateToInnerRows(*nonNullRows, newRowsHolder);
+    // Save context and set the peel.
+    context.saveAndReset(saver, *nonNullRows);
+    context.setPeeledEncoding(peeledEncoding);
     applyPeeled(
-        *translatedRowsHolder,
-        *decoded->base(),
-        context,
-        fromType,
-        toType,
-        localResult);
+        *newRows, *peeledVectors[0], context, fromType, toType, localResult);
 
-    localResult =
-        context.applyWrapToPeeledResult(toType, localResult, *nonNullRows);
+    localResult = context.getPeeledEncoding()->wrap(
+        toType, context.pool(), localResult, *nonNullRows);
   }
   context.moveOrCopyResult(localResult, rows, result);
   context.releaseVector(localResult);

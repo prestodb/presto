@@ -334,7 +334,6 @@ class Expr {
   // cardinality. Returns true if the function was called. Returns
   // false if no encodings could be peeled off.
   bool applyFunctionWithPeeling(
-      const SelectivityVector& rows,
       const SelectivityVector& applyRows,
       EvalCtx& context,
       VectorPtr& result);
@@ -466,13 +465,6 @@ class Expr {
   /// Runtime statistics. CPU time, wall time and number of processed rows.
   ExprStats stats_;
 };
-
-/// Translates row number of the outer vector into row number of the inner
-/// vector using DecodedVector.
-SelectivityVector* FOLLY_NONNULL translateToInnerRows(
-    const SelectivityVector& rows,
-    DecodedVector& decoded,
-    LocalSelectivityVector& newRowsHolder);
 
 /// Generate a selectivity vector of a single row.
 SelectivityVector* FOLLY_NONNULL

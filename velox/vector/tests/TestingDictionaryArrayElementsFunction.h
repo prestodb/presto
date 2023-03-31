@@ -37,7 +37,7 @@ class TestingDictionaryArrayElementsFunction : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     ArrayVector* array{nullptr};
-    if (args[0]->isFlatEncoding()) {
+    if (args[0]->encoding() == VectorEncoding::Simple::ARRAY) {
       array = args[0]->as<ArrayVector>();
     } else if (args[0]->isConstantEncoding()) {
       array = args[0]

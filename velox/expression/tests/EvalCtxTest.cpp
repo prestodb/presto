@@ -191,38 +191,6 @@ TEST_F(EvalCtxTest, addErrorsPreserveOldErrors) {
   ASSERT_TRUE(context.errors()->isNullAt(2));
 }
 
-/// Verify that constant wrapping is saved and restored correctly.
-TEST_F(EvalCtxTest, constantWrapSaver) {
-  EvalCtx context(&execCtx_);
-  SelectivityVector rows(10);
-
-  ASSERT_EQ(context.wrapEncoding(), VectorEncoding::Simple::FLAT);
-  {
-    ScopedContextSaver saver;
-    context.saveAndReset(saver, rows);
-
-    context.setConstantWrap(2);
-    ASSERT_EQ(context.wrapEncoding(), VectorEncoding::Simple::CONSTANT);
-
-    auto vector = makeFlatVector<int64_t>({0, 1, 2, 3, 4, 5});
-    auto wrapped = context.applyWrapToPeeledResult(BIGINT(), vector, rows);
-    ASSERT_TRUE(wrapped->isConstantEncoding());
-    ASSERT_EQ(wrapped->as<ConstantVector<int64_t>>()->valueAt(0), 2);
-
-    {
-      ScopedContextSaver innerSaver;
-      context.saveAndReset(innerSaver, rows);
-      context.setConstantWrap(10);
-    }
-    ASSERT_EQ(context.wrapEncoding(), VectorEncoding::Simple::CONSTANT);
-
-    wrapped = context.applyWrapToPeeledResult(BIGINT(), vector, rows);
-    ASSERT_TRUE(wrapped->isConstantEncoding());
-    ASSERT_EQ(wrapped->as<ConstantVector<int64_t>>()->valueAt(0), 2);
-  }
-  ASSERT_EQ(context.wrapEncoding(), VectorEncoding::Simple::FLAT);
-}
-
 TEST_F(EvalCtxTest, localSingleRow) {
   EvalCtx context(&execCtx_);
 
