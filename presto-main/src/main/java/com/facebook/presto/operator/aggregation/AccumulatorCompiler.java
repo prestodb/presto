@@ -74,6 +74,7 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -149,7 +150,24 @@ public class AccumulatorCompiler
                 lambdaProviderFields,
                 metadata.getInputFunction(),
                 callSiteBinder,
-                grouped);
+                grouped,
+                false);
+        if (metadata.getBlockInputFunction() != null) {
+            generateAddInput(
+                    definition,
+                    stateFields,
+                    inputChannelFields,
+                    maskChannelField,
+                    metadata.getBlockValueInputMetadata(),
+                    metadata.getLambdaInterfaces(),
+                    lambdaProviderFields,
+                    metadata.getBlockInputFunction(),
+                    callSiteBinder,
+                    grouped,
+                    true);
+            generateHasAddBlockInput(definition, maskChannelField);
+        }
+
         generateAddInputWindowIndex(
                 definition,
                 stateFields,
@@ -253,7 +271,8 @@ public class AccumulatorCompiler
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
-            boolean grouped)
+            boolean grouped,
+            boolean blockInput)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         if (grouped) {
@@ -262,7 +281,14 @@ public class AccumulatorCompiler
         Parameter page = arg("page", Page.class);
         parameters.add(page);
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), parameters.build());
+        MethodDefinition method;
+        if (blockInput) {
+            checkArgument(inputFunction != null);
+            method = definition.declareMethod(a(PUBLIC), "addBlockInput", type(void.class), parameters.build());
+        }
+        else {
+            method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), parameters.build());
+        }
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
@@ -292,20 +318,46 @@ public class AccumulatorCompiler
         }
         List<Variable> parameterVariables = variablesBuilder.build();
 
-        BytecodeBlock block = generateInputForLoop(
-                stateField,
-                parameterMetadatas,
-                inputFunction,
-                scope,
-                parameterVariables,
-                lambdaInterfaces,
-                lambdaProviderFields,
-                masksBlock,
-                callSiteBinder,
-                grouped);
+        BytecodeBlock block;
+        if (blockInput) {
+            block = generateBlockInputFunction(
+                    stateField,
+                    parameterMetadatas,
+                    inputFunction,
+                    scope,
+                    parameterVariables,
+                    lambdaInterfaces,
+                    lambdaProviderFields,
+                    callSiteBinder,
+                    grouped);
+        }
+        else {
+            block = generateInputForLoop(
+                    stateField,
+                    parameterMetadatas,
+                    inputFunction,
+                    scope,
+                    parameterVariables,
+                    lambdaInterfaces,
+                    lambdaProviderFields,
+                    masksBlock,
+                    callSiteBinder,
+                    grouped);
+        }
 
         body.append(block);
         body.ret();
+    }
+
+    private static void generateHasAddBlockInput(ClassDefinition definition, FieldDefinition maskChannelField)
+    {
+        MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "hasAddBlockInput", type(boolean.class), ImmutableList.of());
+        Variable thisVariable = methodDefinition.getThis();
+        methodDefinition.getBody()
+                .append(thisVariable.getField(maskChannelField))
+                .push(0)
+                .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
+                .retBoolean();
     }
 
     private static void generateAddInputWindowIndex(
@@ -486,6 +538,7 @@ public class AccumulatorCompiler
                 scope,
                 stateField,
                 positionVariable,
+                rowsVariable,
                 parameterVariables,
                 parameterMetadatas,
                 lambdaInterfaces,
@@ -565,10 +618,46 @@ public class AccumulatorCompiler
         return block;
     }
 
+    private static BytecodeBlock generateBlockInputFunction(
+            List<FieldDefinition> stateField,
+            List<ParameterMetadata> parameterMetadatas,
+            MethodHandle inputFunction,
+            Scope scope,
+            List<Variable> parameterVariables,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaProviderFields,
+            CallSiteBinder callSiteBinder,
+            boolean grouped)
+    {
+        Variable page = scope.getVariable("page");
+        Variable positionVariable = scope.declareVariable(int.class, "position");
+        Variable rowsVariable = scope.declareVariable(int.class, "rows");
+        BytecodeBlock block = new BytecodeBlock()
+                .append(page)
+                .invokeVirtual(Page.class, "getPositionCount", int.class)
+                .putVariable(rowsVariable)
+                .initializeVariable(positionVariable);
+        BytecodeNode invokeFunctionBody = generateInvokeInputFunction(
+                scope,
+                stateField,
+                positionVariable,
+                rowsVariable,
+                parameterVariables,
+                parameterMetadatas,
+                lambdaInterfaces,
+                lambdaProviderFields,
+                inputFunction,
+                callSiteBinder,
+                grouped);
+        block.append(invokeFunctionBody);
+        return block;
+    }
+
     private static BytecodeBlock generateInvokeInputFunction(
             Scope scope,
             List<FieldDefinition> stateField,
             Variable position,
+            Variable rowCount,
             List<Variable> parameterVariables,
             List<ParameterMetadata> parameterMetadatas,
             List<Class> lambdaInterfaces,
@@ -598,6 +687,9 @@ public class AccumulatorCompiler
                     break;
                 case BLOCK_INDEX:
                     block.getVariable(position);
+                    break;
+                case BLOCK_SIZE:
+                    block.getVariable(rowCount);
                     break;
                 case BLOCK_INPUT_CHANNEL:
                 case NULLABLE_BLOCK_INPUT_CHANNEL:
