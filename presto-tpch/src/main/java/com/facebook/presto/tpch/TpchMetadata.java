@@ -543,6 +543,10 @@ public class TpchMetadata
             case DATE:
                 return DATE;
             case DOUBLE:
+                if (columnName.equals("l_quantity")) {
+                    // DBGEN has l_quantity as integer, not double.
+                    return INTEGER;
+                }
                 if (columnName.equals("s_acctbal")) {
                     return DecimalType.createDecimalType(15, 2);
                 }
