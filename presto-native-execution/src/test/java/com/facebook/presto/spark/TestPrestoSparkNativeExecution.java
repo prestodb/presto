@@ -54,8 +54,10 @@ public class TestPrestoSparkNativeExecution
     @Test
     public void testMapOnlyQueries()
     {
-        assertQuery("SELECT orderkey, custkey FROM orders WHERE orderkey <= 200");
         assertQuerySucceeds("SELECT * FROM orders");
+        assertQuery("SELECT orderkey, custkey FROM orders WHERE orderkey <= 200");
+        assertQuery("SELECT nullif(orderkey, custkey) FROM orders");
+
         assertQueryFails("SELECT sequence(1, orderkey) FROM orders",
                 ".*Scalar function name not registered: presto.default.sequence.*");
         assertQueryFails("SELECT orderkey / 0 FROM orders", ".*division by zero.*");
