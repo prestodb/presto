@@ -82,7 +82,7 @@ public class HiveExternalWorkerQueryRunner
                 HiveQueryRunner.createQueryRunner(
                         ImmutableList.of(),
                         ImmutableMap.of(
-                                "parse-decimal-literals-as-double", "true",
+                                "parse-decimal-literals-as-double", "false",
                                 "regex-library", "RE2J",
                                 "offset-clause-enabled", "true"),
                         "sql-standard",
