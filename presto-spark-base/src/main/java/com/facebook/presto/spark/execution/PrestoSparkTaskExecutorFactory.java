@@ -127,6 +127,8 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -158,6 +160,7 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.getShuffleO
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getStorageBasedBroadcastJoinWriteBufferSize;
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation.WRITE;
+import static com.facebook.presto.spark.execution.NativeExecutionProcessFactory.DEFAULT_NATIVE_EXECUTION_SERVER_URI;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.getNullifyingIterator;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
@@ -181,7 +184,6 @@ public class PrestoSparkTaskExecutorFactory
         implements IPrestoSparkTaskExecutorFactory
 {
     private static final Logger log = Logger.get(PrestoSparkTaskExecutorFactory.class);
-
     private final SessionPropertyManager sessionPropertyManager;
     private final BlockEncodingManager blockEncodingManager;
     private final FunctionAndTypeManager functionAndTypeManager;
@@ -219,9 +221,10 @@ public class PrestoSparkTaskExecutorFactory
     private final AtomicBoolean memoryRevokePending = new AtomicBoolean();
     private final AtomicBoolean memoryRevokeRequestInProgress = new AtomicBoolean();
     private final BlockEncodingSerde blockEncodingSerde;
-    private final NativeExecutionProcessFactory processFactory;
     private final NativeExecutionTaskFactory taskFactory;
     private final PrestoSparkShuffleInfoTranslator shuffleInfoTranslator;
+    private final NativeExecutionProcessFactory nativeExecutionProcessFactory;
+    private NativeExecutionProcess nativeExecutionProcess;
 
     @Inject
     public PrestoSparkTaskExecutorFactory(
@@ -250,7 +253,8 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingSerde blockEncodingSerde,
             NativeExecutionProcessFactory processFactory,
             NativeExecutionTaskFactory taskFactory,
-            PrestoSparkShuffleInfoTranslator shuffleInfoTranslator)
+            PrestoSparkShuffleInfoTranslator shuffleInfoTranslator,
+            NativeExecutionProcessFactory nativeExecutionProcessFactory)
     {
         this(
                 sessionPropertyManager,
@@ -282,7 +286,8 @@ public class PrestoSparkTaskExecutorFactory
                 blockEncodingSerde,
                 processFactory,
                 taskFactory,
-                shuffleInfoTranslator);
+                shuffleInfoTranslator,
+                nativeExecutionProcessFactory);
     }
 
     public PrestoSparkTaskExecutorFactory(
@@ -315,7 +320,8 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingSerde blockEncodingSerde,
             NativeExecutionProcessFactory processFactory,
             NativeExecutionTaskFactory taskFactory,
-            PrestoSparkShuffleInfoTranslator shuffleInfoTranslator)
+            PrestoSparkShuffleInfoTranslator shuffleInfoTranslator,
+            NativeExecutionProcessFactory nativeExecutionProcessFactory)
     {
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
@@ -345,9 +351,9 @@ public class PrestoSparkTaskExecutorFactory
         this.storageBasedBroadcastJoinStorage = requireNonNull(storageBasedBroadcastJoinStorage, "storageBasedBroadcastJoinStorage is null");
         this.prestoSparkBroadcastTableCacheManager = requireNonNull(prestoSparkBroadcastTableCacheManager, "prestoSparkBroadcastTableCacheManager is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.processFactory = requireNonNull(processFactory, "processFactory is null");
         this.taskFactory = requireNonNull(taskFactory, "taskFactory is null");
         this.shuffleInfoTranslator = requireNonNull(shuffleInfoTranslator, "shuffleInfoFactory is null");
+        this.nativeExecutionProcessFactory = nativeExecutionProcessFactory;
     }
 
     @Override
@@ -397,6 +403,12 @@ public class PrestoSparkTaskExecutorFactory
                 extraAuthenticators.build());
         PlanFragment fragment = taskDescriptor.getFragment();
         StageId stageId = new StageId(session.getQueryId(), fragment.getId().getId());
+
+        if (isNativeExecutionEnabled(session) && !fragment.getPartitioning().isCoordinatorOnly()) {
+            nativeExecutionProcess = nativeExecutionProcessFactory.get(
+                    session,
+                    URI.create(DEFAULT_NATIVE_EXECUTION_SERVER_URI));
+        }
 
         // Clear the cache if the cache does not have broadcast table for current stageId.
         // We will only cache 1 HT at any time. If the stageId changes, we will drop the old cached HT
@@ -594,13 +606,15 @@ public class PrestoSparkTaskExecutorFactory
                         session,
                         fragment,
                         blockEncodingSerde,
-                        processFactory,
+                        nativeExecutionProcess,
                         taskFactory,
                         shuffleWriteInfo.map(shuffleInfoTranslator::createSerializedWriteInfo))));
 
+        CompletableFuture<?> taskFinished = new CompletableFuture<>();
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 outputBuffer.setNoMoreRows();
+                taskFinished.complete(null);
             }
         });
 
@@ -624,7 +638,19 @@ public class PrestoSparkTaskExecutorFactory
         if (totalSplitSize.isPresent()) {
             log.info("Total split size: %s bytes.", totalSplitSize.getAsLong());
         }
+        // start taskExecution
         taskExecution.start(taskSources);
+
+        //For Native task wait for remote taskExecution to complete
+        if (isNativeExecutionEnabled(session)) {
+            try {
+                log.info("Waiting for Task %s to complete", taskId);
+                taskFinished.get();
+            }
+            catch (InterruptedException | ExecutionException ex) {
+                log.error("Error in task processing");
+            }
+        }
 
         return new PrestoSparkTaskExecutor<>(
                 taskContext,
@@ -638,6 +664,14 @@ public class PrestoSparkTaskExecutorFactory
                 outputBuffer,
                 tempStorage,
                 tempDataOperationContext);
+    }
+
+    @Override
+    public void stop()
+    {
+        if (nativeExecutionProcess != null) {
+            nativeExecutionProcess.close();
+        }
     }
 
     public boolean isMemoryRevokePending(TaskContext taskContext)

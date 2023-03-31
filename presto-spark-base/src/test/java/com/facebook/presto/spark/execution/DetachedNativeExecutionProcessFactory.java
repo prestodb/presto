@@ -60,15 +60,15 @@ public class DetachedNativeExecutionProcessFactory
     }
 
     @Override
-    public NativeExecutionProcess createNativeExecutionProcess(
+    public NativeExecutionProcess get(
             Session session,
             URI location)
     {
-        return createNativeExecutionProcess(session, location, new Duration(2, TimeUnit.MINUTES));
+        return get(session, location, new Duration(2, TimeUnit.MINUTES));
     }
 
     @Override
-    public NativeExecutionProcess createNativeExecutionProcess(
+    public NativeExecutionProcess get(
             Session session,
             URI location,
             Duration maxErrorDuration)

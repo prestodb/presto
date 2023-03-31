@@ -748,7 +748,7 @@ public class TestPrestoSparkHttpClient
                 config,
                 workerProperty);
         List<TaskSource> sources = new ArrayList<>();
-        return factory.createNativeExecutionProcess(
+        return factory.get(
                 testSessionBuilder().build(),
                 BASE_URI,
                 maxErrorDuration);

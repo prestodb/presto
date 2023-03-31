@@ -167,9 +167,6 @@ public class PrestoSparkNativeExecutionShuffleManager
         public void write(Iterator<Product2<K, V>> records)
                 throws IOException
         {
-            if (records.hasNext()) {
-                throw new RuntimeException("EmptyShuffleWriter can only take empty write input.");
-            }
         }
 
         @Override

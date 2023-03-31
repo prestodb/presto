@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * This is a testing class that essentially does nothing. Its mere purpose is to disable the launching and killing of
- * native process by native execution. Instead it allows the native execution to reuse the same externally launched
+ * native process by native execution. Instead, it allows the native execution to reuse the same externally launched
  * process over and over again.
  */
 public class DetachedNativeExecutionProcess

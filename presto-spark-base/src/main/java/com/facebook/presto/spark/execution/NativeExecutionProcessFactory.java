@@ -27,6 +27,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -37,8 +38,7 @@ import static java.util.Objects.requireNonNull;
 
 public class NativeExecutionProcessFactory
 {
-    // TODO add config
-    private static final int MAX_THREADS = 1000;
+    public static final String DEFAULT_NATIVE_EXECUTION_SERVER_URI = "http://127.0.0.1";
     private static final Duration MAX_ERROR_DURATION = new Duration(2, TimeUnit.MINUTES);
 
     private final HttpClient httpClient;
@@ -47,6 +47,7 @@ public class NativeExecutionProcessFactory
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final TaskManagerConfig taskManagerConfig;
     private final WorkerProperty<?, ?, ?> workerProperty;
+    private NativeExecutionProcess nativeExecutionProcess;
 
     @Inject
     public NativeExecutionProcessFactory(
@@ -66,32 +67,37 @@ public class NativeExecutionProcessFactory
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
 
-    public NativeExecutionProcess createNativeExecutionProcess(
+    public NativeExecutionProcess get(
             Session session,
             URI location)
     {
-        return createNativeExecutionProcess(session, location, MAX_ERROR_DURATION);
+        return get(session, location, MAX_ERROR_DURATION);
     }
 
-    public NativeExecutionProcess createNativeExecutionProcess(
+    public NativeExecutionProcess get(
             Session session,
             URI location,
             Duration maxErrorDuration)
     {
         try {
-            return new NativeExecutionProcess(
-                    session,
-                    location,
-                    httpClient,
-                    errorRetryScheduledExecutor,
-                    serverInfoCodec,
-                    maxErrorDuration,
-                    taskManagerConfig,
-                    workerProperty);
+            if (nativeExecutionProcess == null) {
+                nativeExecutionProcess = new NativeExecutionProcess(
+                        session,
+                        location,
+                        httpClient,
+                        errorRetryScheduledExecutor,
+                        serverInfoCodec,
+                        maxErrorDuration,
+                        taskManagerConfig,
+                        workerProperty);
+                nativeExecutionProcess.start();
+            }
         }
-        catch (IOException e) {
+        catch (InterruptedException | ExecutionException | IOException e) {
             throw new PrestoException(NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR, format("Cannot start native process: %s", e.getMessage()), e);
         }
+
+        return nativeExecutionProcess;
     }
 
     @PreDestroy
