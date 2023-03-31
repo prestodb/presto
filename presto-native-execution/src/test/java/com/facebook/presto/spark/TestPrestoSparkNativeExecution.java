@@ -70,4 +70,14 @@ public class TestPrestoSparkNativeExecution
                 ".*Scalar function name not registered: presto.default.sequence.*");
         assertQueryFails("SELECT orderkey / 0 FROM orders", ".*division by zero.*");
     }
+
+    /**
+     * Test native execution of a cpp function declared via json file, with sample function eq() defined
+     * in src/test/resources/eq.json
+     */
+    @Test
+    public void testJsonFileBasedFunction()
+    {
+        assertQuery("SELECT json.test_schema.eq(1, linenumber) FROM lineitem", "SELECT 1 = linenumber FROM lineitem");
+    }
 }

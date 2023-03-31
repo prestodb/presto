@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
@@ -175,7 +176,10 @@ public class NativeExecutionTask
                 return response.getValue();
             }
             else {
-                throw new IllegalStateException("Create-or-update task request didn't return a result");
+                String message = String.format("Create-or-update task request didn't return a result. %s: %s",
+                        HttpStatus.fromStatusCode(response.getStatusCode()),
+                        response.getStatusMessage());
+                throw new IllegalStateException(message);
             }
         }
         catch (InterruptedException | ExecutionException e) {
