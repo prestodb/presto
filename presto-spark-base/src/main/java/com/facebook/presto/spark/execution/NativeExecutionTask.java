@@ -27,14 +27,12 @@ import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -43,11 +41,12 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEm
 import static java.util.Objects.requireNonNull;
 
 /**
- * NativeExecutionTask provide the abstraction of executing tasks via c++ worker. It is used for native execution of Presto on Spark. The plan and splits is provided at creation
+ * NativeExecutionTask provide the abstraction of executing tasks via c++ worker.
+ * It is used for native execution of Presto on Spark. The plan and splits is provided at creation
  * of NativeExecutionTask, it doesn't support adding more splits during execution.
  * <p>
  * Caller should manage the lifecycle of the task by exposed APIs. The general workflow will look like:
- * 1. Caller shall start() to start the task. The task finish signal can be told by the returned future.
+ * 1. Caller shall start() to start the task.
  * 2. Caller shall call getTaskInfo() any time to get the current task info. Until the caller calls stop(), the task info fetcher will not stop fetching task info.
  * 3. Caller shall call pollResult() continuously to poll result page from the internal buffer. The result fetcher will stop fetching more results if buffer hits its memory cap,
  * until pages are fetched by caller to reduce the buffer under its memory cap.
@@ -134,22 +133,21 @@ public class NativeExecutionTask
     }
 
     /**
-     * Starts the execution of the NativeExecutionTask. Any exceptional cases should be captured by the exception handling mechanism of CompletableFuture.
+     * Blocking call to create and start native task.
      *
-     * @return a CompletableFuture of no content to indicate the successful finish of the task.
+     * Starts background threads to fetch results and updated info.
      */
-    public CompletableFuture<Void> start()
+    public TaskInfo start()
     {
-        CompletableFuture<Void> updateFuture = sendUpdateRequest().handle((Void result, Throwable t) ->
-        {
-            if (t != null) {
-                throw new CompletionException(t.getCause());
-            }
-            taskInfoFetcher.start();
-            return null;
-        });
+        TaskInfo taskInfo = sendUpdateRequest();
 
-        return updateFuture.thenCombine(taskResultFetcher.start(), (r1, r2) -> null);
+        if (!taskInfo.getTaskStatus().getState().isDone()) {
+            log.info("Starting TaskInfoFetcher and TaskResultFetcher.");
+            taskResultFetcher.start();
+            taskInfoFetcher.start();
+        }
+
+        return taskInfo;
     }
 
     /**
@@ -162,45 +160,26 @@ public class NativeExecutionTask
         workerClient.abortResults();
     }
 
-    private CompletableFuture<Void> sendUpdateRequest()
+    private TaskInfo sendUpdateRequest()
     {
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        Futures.addCallback(
-                workerClient.updateTask(
-                        sources,
-                        planFragment,
-                        tableWriteInfo,
-                        shuffleWriteInfo,
-                        session,
-                        outputBuffers),
-                new UpdateResponseHandler(future),
-                executor);
-        return future;
-    }
-
-    private class UpdateResponseHandler
-            implements FutureCallback<BaseResponse<TaskInfo>>
-    {
-        private final CompletableFuture<Void> future;
-
-        public UpdateResponseHandler(CompletableFuture<Void> future)
-        {
-            this.future = requireNonNull(future, "future is null");
+        try {
+            ListenableFuture<BaseResponse<TaskInfo>> future = workerClient.updateTask(
+                    sources,
+                    planFragment,
+                    tableWriteInfo,
+                    shuffleWriteInfo,
+                    session,
+                    outputBuffers);
+            BaseResponse<TaskInfo> response = future.get();
+            if (response.hasValue()) {
+                return response.getValue();
+            }
+            else {
+                throw new IllegalStateException("Create-or-update task request didn't return a result");
+            }
         }
-
-        @Override
-        public void onSuccess(BaseResponse<TaskInfo> result)
-        {
-            TaskInfo value = result.getValue();
-            log.debug("success %s", value.getTaskId());
-            future.complete(null);
-        }
-
-        @Override
-        public void onFailure(Throwable t)
-        {
-            log.error("failed %s", t);
-            future.completeExceptionally(t);
+        catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
         }
     }
 }
