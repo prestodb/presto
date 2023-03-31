@@ -253,7 +253,9 @@ public class PrestoSparkRddFactory
             taskSourceRdd = Optional.empty();
         }
 
+        log.info("Checking if native execution is enabled..");
         if (isNativeExecutionEnabled(session)) {
+            log.info("Enabled. Creating PrestoSparkNativeTaskRdd");
             return JavaPairRDD.fromRDD(
                     PrestoSparkNativeTaskRdd.create(
                             sparkContext.sc(),
@@ -264,6 +266,7 @@ public class PrestoSparkRddFactory
                     classTag(outputType));
         }
         else {
+            log.info("NOT Enabled. Creating PrestoSparkTaskRdd");
             return JavaPairRDD.fromRDD(
                     PrestoSparkTaskRdd.create(
                             sparkContext.sc(),

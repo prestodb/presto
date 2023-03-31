@@ -95,6 +95,7 @@ public class PrestoSparkNativeTaskRdd<T extends PrestoSparkTaskOutput>
                 format("Unexpected partitions size. Expected: %s. Actual: %s.", expectedPartitionsSize, partitions.size()));
 
         Iterator<SerializedPrestoSparkTaskSource> taskSourceIterator;
+
         if (taskSourceRdd != null) {
             taskSourceIterator = taskSourceRdd.iterator(partitions.get(partitions.size() - 1), context);
         }

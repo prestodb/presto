@@ -116,7 +116,7 @@ public class TestPrestoSparkNativeExecution
             queryRunner.resetSparkContext();
         }
 
-        queryRunner.resetSparkContext(getNativeExecutionShuffleConfigs());
+        queryRunner.resetSparkContext(getNativeExecutionShuffleConfigs(), AVAILABLE_CPU_COUNT);
         try {
             assertQueryFails(session, "SELECT * FROM test_order LIMIT 4",
                     ".*Failure in LocalWriteFile: path .* already exists.*");

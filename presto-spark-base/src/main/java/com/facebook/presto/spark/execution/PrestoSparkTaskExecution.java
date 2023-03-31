@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.ScheduledSplit;
@@ -82,6 +83,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  */
 public class PrestoSparkTaskExecution
 {
+    private static final Logger logger = Logger.get(PrestoSparkTaskExecution.class);
     private static final int MAX_JAVA_DRIVERS_FOR_NATIVE_TASK = 1;
 
     private final TaskId taskId;
@@ -306,7 +308,9 @@ public class PrestoSparkTaskExecution
 
     private synchronized void checkTaskCompletion()
     {
+        logger.info("checkTaskCompletion.task=%s", taskId);
         if (taskStateMachine.getState().isDone()) {
+            logger.info("checkTaskCompletion.task=%s, DONE ALREADY!", taskId);
             return;
         }
 
@@ -318,10 +322,12 @@ public class PrestoSparkTaskExecution
         }
         // do we still have running tasks?
         if (remainingDrivers.get() != 0) {
+            logger.info("checkTaskCompletion.task=%s, remainingDrivers!=0", taskId);
             return;
         }
 
         // Cool! All done!
+        logger.info("checkTaskCompletion.task=%s, Marking Task as Done!", taskId);
         taskStateMachine.finished();
     }
 
