@@ -92,10 +92,12 @@ public class TestPrestoSparkNativeExecution
     public void testNativeExecutionWithProjection()
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS test_order");
-        assertUpdate("CREATE TABLE test_order WITH (format = 'DWRF') as SELECT orderkey, custkey FROM orders LIMIT 100", 100);
+        assertUpdate("CREATE TABLE test_order WITH (format = 'DWRF') as SELECT orderkey, custkey FROM orders", 15_000);
 
         Session session = Session.builder(getNativeSession())
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
+                .setSystemProperty("spark_partition_count_auto_tune_enabled", "false")
+                .setSystemProperty("spark_initial_partition_count", "1")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                 .setCatalogSessionProperty("hive", PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
@@ -105,7 +107,19 @@ public class TestPrestoSparkNativeExecution
         PrestoSparkQueryRunner queryRunner = (PrestoSparkQueryRunner) getQueryRunner();
         queryRunner.resetSparkContext(getNativeExecutionShuffleConfigs(), AVAILABLE_CPU_COUNT);
         try {
-            assertQuerySucceeds(session, "SELECT * FROM test_order");
+            assertQuerySucceeds("SELECT * FROM test_order");
+            assertQueryFails(session, "SELECT sequence(1, orderkey) FROM test_order",
+                    ".*Scalar function name not registered: presto.default.sequence.*");
+            assertQueryFails(session, "SELECT orderkey / 0 FROM test_order", ".*division by zero.*");
+        }
+        finally {
+            queryRunner.resetSparkContext();
+        }
+
+        queryRunner.resetSparkContext(getNativeExecutionShuffleConfigs(), AVAILABLE_CPU_COUNT);
+        try {
+            assertQueryFails(session, "SELECT * FROM test_order LIMIT 4",
+                    ".*Failure in LocalWriteFile: path .* already exists.*");
         }
         finally {
             queryRunner.resetSparkContext();
