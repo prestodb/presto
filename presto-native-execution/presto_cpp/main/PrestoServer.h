@@ -16,6 +16,7 @@
 #include <folly/SocketAddress.h>
 #include <folly/Synchronized.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
+#include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <velox/exec/Task.h>
 #include <velox/expression/Expr.h>
 #include "presto_cpp/main/CPUMon.h"
@@ -84,6 +85,10 @@ class PrestoServer {
   virtual std::shared_ptr<velox::exec::TaskListener> getTaskListener();
 
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
+
+  /// Invoked to get the list of filters passed to the http server.
+  virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
+  getHttpServerFilters();
 
   virtual std::vector<std::string> registerConnectors(
       const fs::path& configDirectoryPath);
