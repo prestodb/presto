@@ -215,6 +215,11 @@ bool SystemConfig::enableHttpStatsFilter() const {
   return opt.value_or(kHttpEnableStatsFilterDefault);
 }
 
+bool SystemConfig::registerTestFunctions() const {
+  auto opt = optionalProperty<bool>(std::string(kRegisterTestFunctions));
+  return opt.value_or(kRegisterTestFunctionsDefault);
+}
+
 uint64_t SystemConfig::httpMaxAllocateBytes() const {
   auto opt = optionalProperty<uint64_t>(std::string(kHttpMaxAllocateBytes));
   return opt.value_or(kHttpMaxAllocateBytesDefault);

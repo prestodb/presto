@@ -329,6 +329,10 @@ void PrestoServer::run() {
   velox::aggregate::prestosql::registerAllAggregateFunctions(
       kPrestoDefaultPrefix);
   velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
+  if (SystemConfig::instance()->registerTestFunctions()) {
+    velox::functions::prestosql::registerComparisonFunctions(
+        "json.test_schema.");
+  }
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
 
