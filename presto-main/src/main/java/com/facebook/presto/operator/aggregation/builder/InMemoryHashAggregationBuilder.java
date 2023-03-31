@@ -398,7 +398,12 @@ public class InMemoryHashAggregationBuilder
         public void processPage(GroupByIdBlock groupIds, Page page)
         {
             if (step.isInputRaw()) {
-                aggregation.addInput(groupIds, page);
+                if (groupIds.isRunLengthBlock() && aggregation.hasAddBlockInput()) {
+                    aggregation.addBlockInput(groupIds, page);
+                }
+                else {
+                    aggregation.addInput(groupIds, page);
+                }
             }
             else {
                 aggregation.addIntermediate(groupIds, page.getBlock(intermediateChannel));
