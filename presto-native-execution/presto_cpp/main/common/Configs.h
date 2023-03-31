@@ -116,6 +116,8 @@ class SystemConfig : public ConfigBase {
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatFilter{
       "http-server.enable-stats-filter"};
+  static constexpr std::string_view kRegisterTestFunctions{
+      "register-test-functions"};
   /// The options to configure the max quantized memory allocation size to store
   /// the received http response data.
   static constexpr std::string_view kHttpMaxAllocateBytes{
@@ -144,6 +146,7 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kUseMmapAllocatorDefault{true};
   static constexpr bool kHttpEnableAccessLogDefault = false;
   static constexpr bool kHttpEnableStatsFilterDefault = false;
+  static constexpr bool kRegisterTestFunctionsDefault = false;
   static constexpr uint64_t kHttpMaxAllocateBytesDefault = 64 << 10;
 
   static SystemConfig* instance();
@@ -200,6 +203,8 @@ class SystemConfig : public ConfigBase {
   bool enableHttpAccessLog() const;
 
   bool enableHttpStatsFilter() const;
+
+  bool registerTestFunctions() const;
 
   uint64_t httpMaxAllocateBytes() const;
 };
