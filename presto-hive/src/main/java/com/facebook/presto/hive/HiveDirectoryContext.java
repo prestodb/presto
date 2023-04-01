@@ -23,9 +23,10 @@ import static java.util.Objects.requireNonNull;
 public class HiveDirectoryContext
 {
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
-    private final boolean cacheable;
     private final ConnectorIdentity connectorIdentity;
     private final Map<String, String> additionalProperties;
+
+    private boolean cacheable;
 
     public HiveDirectoryContext(
             NestedDirectoryPolicy nestedDirectoryPolicy,
@@ -34,9 +35,11 @@ public class HiveDirectoryContext
             Map<String, String> additionalProperties)
     {
         this.nestedDirectoryPolicy = requireNonNull(nestedDirectoryPolicy, "nestedDirectoryPolicy is null");
-        this.cacheable = cacheable;
         this.connectorIdentity = requireNonNull(connectorIdentity, "connectorIdentity is null");
         this.additionalProperties = ImmutableMap.copyOf(requireNonNull(additionalProperties, "additionalProperties is null"));
+
+        // this can be disabled
+        this.cacheable = cacheable;
     }
 
     public NestedDirectoryPolicy getNestedDirectoryPolicy()
@@ -47,6 +50,11 @@ public class HiveDirectoryContext
     public boolean isCacheable()
     {
         return cacheable;
+    }
+
+    public void disableCaching()
+    {
+        cacheable = false;
     }
 
     public ConnectorIdentity getConnectorIdentity()
