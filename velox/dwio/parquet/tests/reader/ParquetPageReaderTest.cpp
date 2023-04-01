@@ -38,7 +38,7 @@ TEST_F(ParquetPageReaderTest, smallPage) {
   auto inputStream = std::make_unique<SeekableFileInputStream>(
       std::move(file), 0, headerSize, *defaultPool, LogType::TEST);
   auto pageReader = std::make_unique<PageReader>(
-      move(inputStream),
+      std::move(inputStream),
       *defaultPool,
       thrift::CompressionCodec::type::GZIP,
       headerSize);
@@ -66,7 +66,7 @@ TEST_F(ParquetPageReaderTest, largePage) {
   auto inputStream = std::make_unique<SeekableFileInputStream>(
       std::move(file), 0, headerSize, *defaultPool, LogType::TEST);
   auto pageReader = std::make_unique<PageReader>(
-      move(inputStream),
+      std::move(inputStream),
       *defaultPool,
       thrift::CompressionCodec::type::GZIP,
       headerSize);
@@ -99,7 +99,7 @@ TEST_F(ParquetPageReaderTest, corruptedPageHeader) {
   // purpose. This is to simulate the situation where the Parquet Page Header is
   // corrupted. And an error is expected to be thrown.
   auto pageReader = std::make_unique<PageReader>(
-      move(inputStream),
+      std::move(inputStream),
       *defaultPool,
       thrift::CompressionCodec::type::GZIP,
       headerSize);
