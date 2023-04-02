@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/http/HttpClient.h"
-#include <velox/common/base/Exceptions.h>
 
 namespace facebook::presto::http {
 HttpClient::HttpClient(
