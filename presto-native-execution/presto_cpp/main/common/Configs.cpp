@@ -166,6 +166,11 @@ bool SystemConfig::enableHttpAccessLog() const {
   return opt.value_or(kHttpEnableAccessLogDefault);
 }
 
+bool SystemConfig::enableHttpStatsFilter() const {
+  auto opt = optionalProperty<bool>(std::string(kHttpEnableStatFilter));
+  return opt.value_or(kHttpEnableStatsFilterDefault);
+}
+
 NodeConfig* NodeConfig::instance() {
   static std::unique_ptr<NodeConfig> instance = std::make_unique<NodeConfig>();
   return instance.get();
