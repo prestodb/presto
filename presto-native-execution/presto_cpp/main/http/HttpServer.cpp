@@ -14,7 +14,6 @@
 
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/common/Configs.h"
-#include "presto_cpp/main/http/filters/AccessLogFilter.h"
 
 namespace facebook::presto::http {
 
@@ -179,11 +178,6 @@ void HttpServer::start(
   options.enableContentCompression = false;
 
   proxygen::RequestHandlerChain handlerFactories;
-
-  // Register all built in filters
-  if (SystemConfig::instance()->enableHttpAccessLog()) {
-    handlerFactories.addThen<filters::AccessLogFilterFactory>();
-  }
 
   // Register all filters passed to the http server.
   for (size_t i = 0; i < filters.size(); ++i) {

@@ -114,6 +114,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kShuffleName{"shuffle.name"};
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
+  static constexpr std::string_view kHttpEnableStatFilter{
+      "http-server.enable-stats-filter"};
   // Most server nodes today (May 2022) have at least 16 cores.
   // Setting the default maximum drivers per task to this value will
   // provide a better off-shelf experience.
@@ -137,6 +139,7 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kUseMmapArenaDefault = false;
   static constexpr bool kUseMmapAllocatorDefault{true};
   static constexpr bool kHttpEnableAccessLogDefault = false;
+  static constexpr bool kHttpEnableStatsFilterDefault = false;
 
   static SystemConfig* instance();
 
@@ -190,6 +193,8 @@ class SystemConfig : public ConfigBase {
   bool useMmapAllocator() const;
 
   bool enableHttpAccessLog() const;
+
+  bool enableHttpStatsFilter() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

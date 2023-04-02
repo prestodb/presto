@@ -86,9 +86,8 @@ class PrestoServer {
 
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
 
-  /// Invoked to get the list of filters passed to the http server.
-  virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
-  getHttpServerFilters();
+  /// Returns statistics based http filter.
+  virtual std::unique_ptr<proxygen::RequestHandlerFactory> getHttpStatsFilter();
 
   virtual std::vector<std::string> registerConnectors(
       const fs::path& configDirectoryPath);
@@ -102,6 +101,10 @@ class PrestoServer {
   virtual void registerFileSystems();
 
   virtual void registerStatsCounters();
+
+  /// Invoked to get the list of filters passed to the http server.
+  std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
+  getHttpServerFilters();
 
   void initializeAsyncCache();
 

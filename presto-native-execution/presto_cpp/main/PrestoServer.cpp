@@ -28,6 +28,7 @@
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/connectors/hive/storage_adapters/FileSystems.h"
 #include "presto_cpp/main/http/HttpServer.h"
+#include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleInterface.h"
@@ -497,7 +498,26 @@ PrestoServer::getExprSetListener() {
 
 std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
 PrestoServer::getHttpServerFilters() {
-  return {};
+  std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters;
+
+  if (SystemConfig::instance()->enableHttpAccessLog()) {
+    filters.push_back(
+        std::make_unique<http::filters::AccessLogFilterFactory>());
+  }
+
+  if (SystemConfig::instance()->enableHttpStatsFilter()) {
+    auto filter = getHttpStatsFilter();
+    if (filter != nullptr) {
+      filters.push_back(std::move(filter));
+    }
+  }
+
+  return filters;
+}
+
+std::unique_ptr<proxygen::RequestHandlerFactory>
+PrestoServer::getHttpStatsFilter() {
+  return nullptr;
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(
