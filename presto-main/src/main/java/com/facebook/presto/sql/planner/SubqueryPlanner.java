@@ -28,7 +28,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -72,6 +71,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLoca
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.subQueryNotSupportedError;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
+import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -217,7 +217,7 @@ class SubqueryPlanner
 
         subPlan.getTranslations().put(inPredicate, inPredicateSubqueryVariable);
 
-        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), Assignments.of(inPredicateSubqueryVariable, toRowExpression(inPredicateSubqueryExpression, context)), correlationAllowed, mayParticipateInAntiJoin, context);
+        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), Assignments.of(inPredicateSubqueryVariable, rowExpression(inPredicateSubqueryExpression, context)), correlationAllowed, mayParticipateInAntiJoin, context);
     }
 
     private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed, SqlPlannerContext context)
@@ -416,7 +416,7 @@ class SubqueryPlanner
                 subPlan,
                 quantifiedComparison.getSubquery(),
                 subqueryPlan.getRoot(),
-                Assignments.of(coercedQuantifiedComparisonVariable, toRowExpression(coercedQuantifiedComparison, context)),
+                Assignments.of(coercedQuantifiedComparisonVariable, rowExpression(coercedQuantifiedComparison, context)),
                 correlationAllowed,
                 mayParticipateInAntiJoin,
                 context);
@@ -533,9 +533,9 @@ class SubqueryPlanner
                 .collect(toImmutableSet());
     }
 
-    private RowExpression toRowExpression(Expression expression, SqlPlannerContext context)
+    private RowExpression rowExpression(Expression expression, SqlPlannerContext context)
     {
-        return TranslateExpressions.toRowExpression(
+        return toRowExpression(
                 expression,
                 metadata,
                 session,
@@ -560,7 +560,7 @@ class SubqueryPlanner
         Map<RowExpression, RowExpression> rowExpressionMapping = mapping.entrySet().stream()
                 .collect(toImmutableMap(
                         entry -> context.getTranslatorContext().getRowExpressionMap().get(entry.getKey()),
-                        entry -> toRowExpression(entry.getValue(), context)));
+                        entry -> rowExpression(entry.getValue(), context)));
 
         return SimplePlanRewriter.rewriteWith(new ExpressionReplacer(idAllocator, rowExpressionMapping), planNode, null);
     }

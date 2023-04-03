@@ -54,6 +54,6 @@ public class TestMergeFilters
 
     private RowExpression sqlToRowExpression(String sql)
     {
-        return sqlToRowExpressionTranslator.translateAndOptimize(PlanBuilder.expression(sql), TypeProvider.copyOf(ImmutableMap.of("a", BIGINT, "b", BIGINT)));
+        return sqlToRowExpressionTranslator.translate(PlanBuilder.expression(sql), TypeProvider.copyOf(ImmutableMap.of("a", BIGINT, "b", BIGINT)));
     }
 }

@@ -243,7 +243,7 @@ public class ExpressionAnalyzer
     private final SqlFunctionProperties sqlFunctionProperties;
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private final WarningCollector warningCollector;
-    // Map to resolve type of any symbols that ExpressionAnalyzer cannot resolved within current scope.
+    // Map to resolved type of any symbols that ExpressionAnalyzer cannot resolved within current scope.
     // This contains types of variables referenced from outer scopes.
     private final Map<NodeRef<Expression>, Type> outerScopeSymbolTypes;
 

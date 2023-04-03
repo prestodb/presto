@@ -20,7 +20,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -34,7 +33,6 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 
 class Util
 {
@@ -53,21 +51,9 @@ class Util
             TypeProvider types)
     {
         Set<VariableReferenceExpression> availableInputsSet = ImmutableSet.copyOf(availableInputs);
-        Set<VariableReferenceExpression> referencedInputs;
-        if (expressions.stream().allMatch(OriginalExpressionUtils::isExpression)) {
-            // TODO remove once all pruneInputs rules are below translateExpressions.
-            referencedInputs = VariablesExtractor.extractUnique(
-                    expressions.stream().map(OriginalExpressionUtils::castToExpression).collect(toImmutableList()),
-                    types);
-        }
-        else if (expressions.stream().noneMatch(OriginalExpressionUtils::isExpression)) {
-            referencedInputs = VariablesExtractor.extractUnique(expressions);
-        }
-        else {
-            throw new IllegalStateException(format("Expressions %s contains mixed Expression and RowExpression", expressions));
-        }
-        Set<VariableReferenceExpression> prunedInputs;
-        prunedInputs = Sets.filter(availableInputsSet, referencedInputs::contains);
+        Set<VariableReferenceExpression> prunedInputs = Sets.filter(
+                availableInputsSet,
+                VariablesExtractor.extractUnique(expressions)::contains);
 
         if (prunedInputs.size() == availableInputsSet.size()) {
             return Optional.empty();

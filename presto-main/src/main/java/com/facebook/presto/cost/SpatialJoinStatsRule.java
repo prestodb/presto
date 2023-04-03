@@ -22,8 +22,6 @@ import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.spatialJoin;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.Objects.requireNonNull;
 
 public class SpatialJoinStatsRule
@@ -48,12 +46,7 @@ public class SpatialJoinStatsRule
 
         switch (node.getType()) {
             case INNER:
-                if (isExpression(node.getFilter())) {
-                    return Optional.of(statsCalculator.filterStats(crossJoinStats, castToExpression(node.getFilter()), session, types));
-                }
-                else {
-                    return Optional.of(statsCalculator.filterStats(crossJoinStats, node.getFilter(), session));
-                }
+                return Optional.of(statsCalculator.filterStats(crossJoinStats, node.getFilter(), session));
             case LEFT:
                 return Optional.of(PlanNodeStatsEstimate.unknown());
             default:
