@@ -30,12 +30,7 @@ package com.facebook.presto.spark.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.CostCalculatorUsingExchanges;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -52,7 +47,6 @@ import com.facebook.presto.spark.planner.IterativePlanFragmenter.PlanAndFragment
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -60,6 +54,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -71,17 +66,12 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmenter;
-import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tpch.TpchTableLayoutHandle;
@@ -187,7 +177,7 @@ public class TestIterativePlanFragmenter
     {
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
-        PlanNode p1 = project("p1", ts1, variable("orderkey_1", BIGINT), new SymbolReference("orderkey"));
+        PlanNode p1 = project("p1", ts1, variable("orderkey_1", BIGINT), variable("orderkey", BIGINT));
         ExchangeNode remoteExchange1 = systemPartitionedExchange(
                 new PlanNodeId("re1"),
                 REMOTE_STREAMING,
@@ -218,12 +208,11 @@ public class TestIterativePlanFragmenter
                 "orderkey_1", BIGINT,
                 "orderkey_0", BIGINT);
         TypeProvider typeProvider = TypeProvider.copyOf(types);
-        PlanNode node = translateExpression(join, typeProvider);
-        Plan plan = new Plan(node, typeProvider, StatsAndCosts.empty());
+        Plan plan = new Plan(join, typeProvider, StatsAndCosts.empty());
 
         SubPlan fullFragmentedPlan = getFullFragmentedPlan(plan);
 
-        inTransaction(session -> runTestIterativePlanFragmenter(node, plan, fullFragmentedPlan, session));
+        inTransaction(session -> runTestIterativePlanFragmenter(join, plan, fullFragmentedPlan, session));
     }
 
     private Void runTestIterativePlanFragmenter(PlanNode node, Plan plan, SubPlan fullFragmentedPlan, Session session)
@@ -318,7 +307,7 @@ public class TestIterativePlanFragmenter
                 TupleDomain.all());
     }
 
-    private PlanNode project(String id, PlanNode source, VariableReferenceExpression variable, Expression expression)
+    private PlanNode project(String id, PlanNode source, VariableReferenceExpression variable, RowExpression expression)
     {
         return new ProjectNode(
                 new PlanNodeId(id),
@@ -371,14 +360,6 @@ public class TestIterativePlanFragmenter
                 Optional.empty(),
                 Optional.of(distributionType),
                 ImmutableMap.of());
-    }
-
-    private PlanNode translateExpression(PlanNode planNode, TypeProvider typeProvider)
-    {
-        StatsCalculator statsCalculator = (node, sourceStats, lookup, session, types) -> PlanNodeStatsEstimate.unknown();
-        CostCalculator costCalculatorUsingExchanges = new CostCalculatorUsingExchanges(new TaskCountEstimator(() -> 1));
-        IterativeOptimizer optimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculatorUsingExchanges, new TranslateExpressions(metadata, new SqlParser()).rules());
-        return optimizer.optimize(planNode, session, typeProvider, new VariableAllocator(typeProvider.allVariables()), new PlanNodeIdAllocator(), WarningCollector.NOOP);
     }
 
     private SubPlan getFullFragmentedPlan(Plan plan)

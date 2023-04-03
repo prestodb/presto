@@ -33,8 +33,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -87,19 +85,10 @@ public class ExpressionMatcher
 
         for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
             RowExpression rightValue = assignment.getValue();
-            if (isExpression(rightValue)) {
-                ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-                if (verifier.process(castToExpression(rightValue), expression)) {
-                    result = Optional.of(assignment.getKey());
-                    matchesBuilder.add(castToExpression(rightValue));
-                }
-            }
-            else {
-                RowExpressionVerifier verifier = new RowExpressionVerifier(symbolAliases, metadata, session);
-                if (verifier.process(expression, rightValue)) {
-                    result = Optional.of(assignment.getKey());
-                    matchesBuilder.add(rightValue);
-                }
+            RowExpressionVerifier verifier = new RowExpressionVerifier(symbolAliases, metadata, session);
+            if (verifier.process(expression, rightValue)) {
+                result = Optional.of(assignment.getKey());
+                matchesBuilder.add(rightValue);
             }
         }
 

@@ -36,8 +36,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class AggregationNodeUtils
@@ -69,9 +67,6 @@ public class AggregationNodeUtils
 
     private static List<VariableReferenceExpression> extractAll(RowExpression expression, TypeProvider types)
     {
-        if (isExpression(expression)) {
-            return VariablesExtractor.extractAll(castToExpression(expression), types);
-        }
         return VariablesExtractor.extractAll(expression)
                 .stream()
                 .collect(toImmutableList());
