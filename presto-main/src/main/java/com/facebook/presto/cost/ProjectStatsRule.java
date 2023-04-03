@@ -25,8 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.Objects.requireNonNull;
 
 public class ProjectStatsRule
@@ -58,12 +56,7 @@ public class ProjectStatsRule
 
         for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().entrySet()) {
             RowExpression expression = entry.getValue();
-            if (isExpression(expression)) {
-                calculatedStats.addVariableStatistics(entry.getKey(), scalarStatsCalculator.calculate(castToExpression(expression), sourceStats, session, types));
-            }
-            else {
-                calculatedStats.addVariableStatistics(entry.getKey(), scalarStatsCalculator.calculate(expression, sourceStats, session));
-            }
+            calculatedStats.addVariableStatistics(entry.getKey(), scalarStatsCalculator.calculate(expression, sourceStats, session));
         }
         return Optional.of(calculatedStats.build());
     }

@@ -23,7 +23,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.Optimizer;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -33,7 +32,6 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityPro
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert.TestingStatsCalculator;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -141,7 +139,6 @@ public class OptimizerAssert
     private List<PlanOptimizer> getMinimalOptimizers()
     {
         ImmutableSet.Builder<Rule<?>> rulesBuilder = ImmutableSet.builder();
-        rulesBuilder.addAll(new TranslateExpressions(queryRunner.getMetadata(), new SqlParser()).rules());
         rulesBuilder.add(new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin());
         rulesBuilder.add(new TransformUncorrelatedInPredicateSubqueryToSemiJoin());
         rulesBuilder.add(new RemoveRedundantIdentityProjections());
@@ -154,21 +151,11 @@ public class OptimizerAssert
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
                         rules),
-                getExpressionTranslator(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
                         new SimplifyRowExpressions(metadata).rules()));
-    }
-
-    private PlanOptimizer getExpressionTranslator()
-    {
-        return new IterativeOptimizer(
-                new RuleStatsRecorder(),
-                queryRunner.getStatsCalculator(),
-                queryRunner.getCostCalculator(),
-                ImmutableSet.copyOf(new TranslateExpressions(metadata, queryRunner.getSqlParser()).rules()));
     }
 
     private <T> void inTransaction(Function<Session, T> transactionSessionConsumer)

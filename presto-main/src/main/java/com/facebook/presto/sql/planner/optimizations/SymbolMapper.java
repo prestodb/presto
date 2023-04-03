@@ -56,9 +56,6 @@ import java.util.Set;
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -126,9 +123,6 @@ public class SymbolMapper
 
     public RowExpression map(RowExpression value)
     {
-        if (isExpression(value)) {
-            return castToRowExpression(map(castToExpression(value)));
-        }
         return RowExpressionTreeRewriter.rewriteWith(new RowExpressionRewriter<Void>()
         {
             @Override

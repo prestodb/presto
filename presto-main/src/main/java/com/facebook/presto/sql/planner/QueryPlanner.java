@@ -47,7 +47,6 @@ import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
@@ -112,7 +111,8 @@ import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
 import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
-import static com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions.analyzeCallExpressionTypes;
+import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.analyzeCallExpressionTypes;
+import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toBoundType;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toWindowType;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -368,7 +368,7 @@ class QueryPlanner
         subPlan = subqueryPlanner.handleSubqueries(subPlan, rewrittenBeforeSubqueries, node, sqlPlannerContext);
         Expression rewrittenAfterSubqueries = subPlan.rewrite(predicate);
 
-        return subPlan.withNewRoot(new FilterNode(getSourceLocation(node), idAllocator.getNextId(), subPlan.getRoot(), toRowExpression(rewrittenAfterSubqueries, sqlPlannerContext)));
+        return subPlan.withNewRoot(new FilterNode(getSourceLocation(node), idAllocator.getNextId(), subPlan.getRoot(), rowExpression(rewrittenAfterSubqueries, sqlPlannerContext)));
     }
 
     private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions, RelationPlan parentRelationPlan)
@@ -384,13 +384,13 @@ class QueryPlanner
         for (Expression expression : expressions) {
             if (expression instanceof SymbolReference) {
                 VariableReferenceExpression variable = toVariableReference(variableAllocator, expression);
-                projections.put(variable, toRowExpression(expression, sqlPlannerContext));
+                projections.put(variable, rowExpression(expression, sqlPlannerContext));
                 outputTranslations.put(expression, variable);
                 continue;
             }
 
             VariableReferenceExpression variable = newVariable(variableAllocator, expression, analysis.getTypeWithCoercions(expression));
-            projections.put(variable, toRowExpression(subPlan.rewrite(expression), sqlPlannerContext));
+            projections.put(variable, rowExpression(subPlan.rewrite(expression), sqlPlannerContext));
             outputTranslations.put(expression, variable);
         }
 
@@ -415,7 +415,7 @@ class QueryPlanner
             if (coercion != null) {
                 Type type = analysis.getType(expression);
                 VariableReferenceExpression variable = newVariable(variableAllocator, expression, coercion);
-                assignments.put(variable, toRowExpression(
+                assignments.put(variable, rowExpression(
                         new Cast(
                                 subPlan.rewrite(expression),
                                 coercion.getTypeSignature().toString(),
@@ -452,7 +452,7 @@ class QueryPlanner
                         false,
                         metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(type, coercion));
             }
-            projections.put(variable, toRowExpression(rewritten, sqlPlannerContext));
+            projections.put(variable, rowExpression(rewritten, sqlPlannerContext));
             translations.put(expression, variable);
         }
 
@@ -471,13 +471,13 @@ class QueryPlanner
                 // If this is an identity projection, no need to rewrite it
                 // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
                 // don't have a corresponding analysis, so the code below doesn't work for them
-                projections.put(toVariableReference(variableAllocator, expression), toRowExpression(expression, sqlPlannerContext));
+                projections.put(toVariableReference(variableAllocator, expression), rowExpression(expression, sqlPlannerContext));
                 continue;
             }
 
             VariableReferenceExpression variable = newVariable(variableAllocator, expression, analysis.getType(expression));
             Expression rewritten = subPlan.rewrite(expression);
-            projections.put(variable, toRowExpression(rewritten, sqlPlannerContext));
+            projections.put(variable, rowExpression(rewritten, sqlPlannerContext));
             translations.put(expression, variable);
         }
 
@@ -653,7 +653,7 @@ class QueryPlanner
                                     functionHandle,
                                     analysis.getType(aggregate),
                                     callArgumentsToRowExpression(functionHandle, rewrittenFunction.getArguments())),
-                            rewrittenFunction.getFilter().map(expression -> toRowExpression(expression, sqlPlannerContext)),
+                            rewrittenFunction.getFilter().map(expression -> rowExpression(expression, sqlPlannerContext)),
                             rewrittenFunction.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, TypeProvider.viewOf(variableAllocator.getVariables()))),
                             rewrittenFunction.isDistinct(),
                             Optional.empty()));
@@ -780,7 +780,7 @@ class QueryPlanner
                         false,
                         metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
             }
-            projections.put(variable, toRowExpression(rewritten, sqlPlannerContext));
+            projections.put(variable, rowExpression(rewritten, sqlPlannerContext));
             newTranslations.put(groupingOperation, variable);
         }
 
@@ -1009,7 +1009,7 @@ class QueryPlanner
                 getSourceLocation(window),
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                toRowExpression(predicate, sqlPlannerContext)));
+                rowExpression(predicate, sqlPlannerContext)));
 
         // Then, coerce the sortKey so that we can add / subtract the offset.
         // Note: for that we cannot rely on the usual mechanism of using the coerce() method. The coerce() method can only handle one coercion for a node,
@@ -1036,7 +1036,7 @@ class QueryPlanner
                         subPlan.getRoot(),
                         Assignments.builder()
                                 .putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())))
-                                .put(sortKeyCoercedForFrameBoundCalculation, toRowExpression(cast, sqlPlannerContext))
+                                .put(sortKeyCoercedForFrameBoundCalculation, rowExpression(cast, sqlPlannerContext))
                                 .build()));
             }
         }
@@ -1057,7 +1057,7 @@ class QueryPlanner
                 subPlan.getRoot(),
                 Assignments.builder()
                         .putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())))
-                        .put(frameBoundVariable, toRowExpression(functionCall, sqlPlannerContext))
+                        .put(frameBoundVariable, rowExpression(functionCall, sqlPlannerContext))
                         .build()));
 
         // Finally, coerce the sortKey to the type of frameBound so that the operator can perform comparisons on them
@@ -1082,7 +1082,7 @@ class QueryPlanner
                         subPlan.getRoot(),
                         Assignments.builder()
                                 .putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())))
-                                .put(castSymbol, toRowExpression(cast, sqlPlannerContext))
+                                .put(castSymbol, rowExpression(cast, sqlPlannerContext))
                                 .build()));
                 sortKeyCoercedForFrameBoundComparison = Optional.of(castSymbol);
             }
@@ -1199,7 +1199,7 @@ class QueryPlanner
     private List<RowExpression> callArgumentsToRowExpression(FunctionHandle functionHandle, List<Expression> arguments)
     {
         return arguments.stream()
-                .map(expression -> TranslateExpressions.toRowExpression(
+                .map(expression -> toRowExpression(
                         expression,
                         metadata,
                         session,
@@ -1208,9 +1208,9 @@ class QueryPlanner
                 .collect(toImmutableList());
     }
 
-    private RowExpression toRowExpression(Expression expression, SqlPlannerContext context)
+    private RowExpression rowExpression(Expression expression, SqlPlannerContext context)
     {
-        return TranslateExpressions.toRowExpression(
+        return toRowExpression(
                 expression,
                 metadata,
                 session,

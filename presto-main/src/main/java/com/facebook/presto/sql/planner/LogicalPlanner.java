@@ -46,7 +46,6 @@ import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
@@ -93,6 +92,7 @@ import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
+import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
@@ -324,7 +324,7 @@ public class LogicalPlanner
             int index = columnHandles.indexOf(columns.get(column.getName()));
             if (index < 0) {
                 Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
-                assignments.put(output, toRowExpression(cast, context, analysis));
+                assignments.put(output, rowExpression(cast, context, analysis));
             }
             else {
                 VariableReferenceExpression input = plan.getVariable(index);
@@ -336,7 +336,7 @@ public class LogicalPlanner
                 }
                 else {
                     Expression cast = new Cast(createSymbolReference(input), tableType.getTypeSignature().toString());
-                    assignments.put(output, toRowExpression(cast, context, analysis));
+                    assignments.put(output, rowExpression(cast, context, analysis));
                 }
             }
         }
@@ -519,9 +519,9 @@ public class LogicalPlanner
         return new ConnectorTableMetadata(toSchemaTableName(table), columns, properties, comment);
     }
 
-    private RowExpression toRowExpression(Expression expression, SqlPlannerContext context, Analysis analysis)
+    private RowExpression rowExpression(Expression expression, SqlPlannerContext context, Analysis analysis)
     {
-        return TranslateExpressions.toRowExpression(
+        return toRowExpression(
             expression,
             metadata,
             session,
