@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +23,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.union;
@@ -41,7 +41,7 @@ public class TestPushProjectionThroughUnion
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p ->
                         p.project(
-                                assignment(p.variable("x"), new LongLiteral("3")),
+                                assignment(p.variable("x"), constant(3L, INTEGER)),
                                 p.values(p.variable("a"))))
                 .doesNotFire();
     }

@@ -31,7 +31,6 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 
 import java.util.List;
 
@@ -53,11 +52,7 @@ public final class RowExpressionFormatter
 
     public String formatRowExpression(ConnectorSession session, RowExpression expression)
     {
-        if (!OriginalExpressionUtils.isExpression(expression)) {
-            return expression.accept(new Formatter(), requireNonNull(session, "session is null"));
-        }
-
-        return "Original Expression: " + expression;
+        return expression.accept(new Formatter(), requireNonNull(session, "session is null"));
     }
 
     private List<String> formatRowExpressions(ConnectorSession session, List<RowExpression> rowExpressions)

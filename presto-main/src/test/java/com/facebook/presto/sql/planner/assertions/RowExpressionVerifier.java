@@ -161,7 +161,8 @@ final class RowExpressionVerifier
             return false;
         }
 
-        return process(expected.getInnerExpression(), ((CallExpression) actual).getArguments().get(0));
+        LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) ((CallExpression) actual).getArguments().get(0);
+        return process(expected.getInnerExpression(), lambdaExpression.getBody());
     }
 
     @Override

@@ -17,7 +17,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +42,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.single
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static java.util.Collections.emptyList;
@@ -220,7 +219,7 @@ public class TestPushAggregationThroughOuterJoin
                         .source(
                                 p.join(
                                         JoinNode.Type.LEFT,
-                                        p.project(identityAssignmentsAsSymbolReferences(p.variable("COL1", BIGINT)),
+                                        p.project(identityAssignments(p.variable("COL1", BIGINT)),
                                                 p.aggregation(builder ->
                                                         builder.singleGroupingSet(p.variable("COL1"), p.variable("unused"))
                                                                 .source(
@@ -233,7 +232,7 @@ public class TestPushAggregationThroughOuterJoin
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))
-                        .addAggregation(p.variable("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("AVG(COL2)"))
                         .singleGroupingSet(p.variable("COL1"))))
                 .doesNotFire();
     }
