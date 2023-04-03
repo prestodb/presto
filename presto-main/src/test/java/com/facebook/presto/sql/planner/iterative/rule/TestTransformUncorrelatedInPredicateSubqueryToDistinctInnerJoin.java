@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.ExistsExpression;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.tree.ExistsPredicate;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,6 +30,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.EXPLOIT_CONSTRAINTS;
 import static com.facebook.presto.SystemSessionProperties.IN_PREDICATES_AS_INNER_JOINS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -80,7 +80,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin())
                 .on(p -> p.apply(
-                        assignment(p.variable("x"), new ExistsPredicate(new LongLiteral("1"))),
+                        assignment(p.variable("x"), new ExistsExpression(Optional.empty(), TRUE_CONSTANT)),
                         emptyList(),
                         p.values(),
                         p.values()))

@@ -25,9 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -104,12 +101,7 @@ public final class SymbolAliases
         for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.getMap().entrySet()) {
             for (Map.Entry<String, SymbolReference> existingAlias : map.entrySet()) {
                 RowExpression expression = assignment.getValue();
-                if (isExpression(expression) && castToExpression(expression).equals(existingAlias.getValue())) {
-                    // Simple symbol rename
-                    updatedMap.put(existingAlias.getKey(), asSymbolReference(assignment.getKey()));
-                }
-                else if (!isExpression(expression) &&
-                        (expression instanceof VariableReferenceExpression) &&
+                if ((expression instanceof VariableReferenceExpression) &&
                         ((VariableReferenceExpression) expression).getName().equals(existingAlias.getValue().getName())) {
                     // Simple symbol rename
                     updatedMap.put(existingAlias.getKey(), createSymbolReference(assignment.getKey()));

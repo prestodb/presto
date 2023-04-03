@@ -24,13 +24,13 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
+import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static java.util.Objects.requireNonNull;
 
 class PlanBuilder
@@ -121,7 +121,7 @@ class PlanBuilder
         ImmutableMap.Builder<VariableReferenceExpression, Expression> newTranslations = ImmutableMap.builder();
         for (Expression expression : expressions) {
             VariableReferenceExpression variable = newVariable(variableAllocator, expression, getAnalysis().getTypeWithCoercions(expression));
-            projections.put(variable, toRowExpression(translations.rewrite(expression), context, session, metadata, sqlParser, analysis, variableAllocator));
+            projections.put(variable, rowExpression(translations.rewrite(expression), context, session, metadata, sqlParser, analysis, variableAllocator));
             newTranslations.put(variable, expression);
         }
         // Now append the new translations into the TranslationMap
@@ -132,9 +132,9 @@ class PlanBuilder
         return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()));
     }
 
-    private RowExpression toRowExpression(Expression expression, SqlPlannerContext context, Session session, Metadata metadata, SqlParser sqlParser, Analysis analysis, VariableAllocator variableAllocator)
+    private RowExpression rowExpression(Expression expression, SqlPlannerContext context, Session session, Metadata metadata, SqlParser sqlParser, Analysis analysis, VariableAllocator variableAllocator)
     {
-        return TranslateExpressions.toRowExpression(
+        return toRowExpression(
                 expression,
                 metadata,
                 session,

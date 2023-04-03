@@ -18,13 +18,12 @@ import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestPushLimitThroughProject
         extends BaseRuleTest
@@ -37,7 +36,7 @@ public class TestPushLimitThroughProject
                     VariableReferenceExpression a = p.variable("a");
                     return p.limit(1,
                             p.project(
-                                    assignment(a, TRUE_LITERAL),
+                                    assignment(a, TRUE_CONSTANT),
                                     p.values()));
                 })
                 .matches(
@@ -54,8 +53,8 @@ public class TestPushLimitThroughProject
                     VariableReferenceExpression a = p.variable("a");
                     return p.limit(1,
                             p.project(
-                                    assignment(a, asSymbolReference(a)),
-                                    p.values(a)));
+                                    p.values(a),
+                                    assignment(a, p.rowExpression("a"))));
                 }).doesNotFire();
     }
 }

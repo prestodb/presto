@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -27,6 +26,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.PlanNodeStatsAssertion.assertThat;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -34,7 +34,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static java.lang.Double.NaN;
 import static org.testng.Assert.assertEquals;
 
@@ -170,13 +170,13 @@ public class TestJoinStatsRule
             VariableReferenceExpression rightJoinColumn = pb.variable(RIGHT_JOIN_COLUMN);
             VariableReferenceExpression leftJoinColumn2 = pb.variable(LEFT_JOIN_COLUMN_2);
             VariableReferenceExpression rightJoinColumn2 = pb.variable(RIGHT_JOIN_COLUMN_2);
-            ComparisonExpression leftJoinColumnLessThanTen = new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, new SymbolReference(leftJoinColumn.getName()), new LongLiteral("10"));
+            RowExpression leftJoinColumnLessThanTen = pb.comparison(OperatorType.LESS_THAN, leftJoinColumn, constant(10L, INTEGER));
             return pb
                     .join(INNER, pb.values(leftJoinColumn, leftJoinColumn2),
                             pb.values(rightJoinColumn, rightJoinColumn2),
                             ImmutableList.of(new EquiJoinClause(leftJoinColumn2, rightJoinColumn2), new EquiJoinClause(leftJoinColumn, rightJoinColumn)),
                             ImmutableList.of(leftJoinColumn, leftJoinColumn2, rightJoinColumn, rightJoinColumn2),
-                            Optional.of(castToRowExpression(leftJoinColumnLessThanTen)));
+                            Optional.of(leftJoinColumnLessThanTen));
         }).withSourceStats(0, planNodeStats(LEFT_ROWS_COUNT, LEFT_JOIN_COLUMN_STATS, LEFT_JOIN_COLUMN_2_STATS))
                 .withSourceStats(1, planNodeStats(RIGHT_ROWS_COUNT, RIGHT_JOIN_COLUMN_STATS, RIGHT_JOIN_COLUMN_2_STATS))
                 .check(stats -> stats.equalTo(innerJoinStats));

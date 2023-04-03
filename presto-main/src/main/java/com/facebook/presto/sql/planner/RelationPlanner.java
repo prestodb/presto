@@ -46,7 +46,6 @@ import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.optimizations.SampleNodeUtil;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -118,6 +117,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualCompar
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
+import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -411,7 +411,7 @@ class RelationPlanner
                             .addAll(leftPlanBuilder.getRoot().getOutputVariables())
                             .addAll(rightPlanBuilder.getRoot().getOutputVariables())
                             .build(),
-                    Optional.of(toRowExpression(rewrittenFilterCondition, context)),
+                    Optional.of(rowExpression(rewrittenFilterCondition, context)),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
@@ -431,7 +431,7 @@ class RelationPlanner
             Expression postInnerJoinCriteria;
             if (!postInnerJoinConditions.isEmpty()) {
                 postInnerJoinCriteria = ExpressionUtils.and(postInnerJoinConditions);
-                root = new FilterNode(getSourceLocation(postInnerJoinCriteria), idAllocator.getNextId(), root, toRowExpression(postInnerJoinCriteria, context));
+                root = new FilterNode(getSourceLocation(postInnerJoinCriteria), idAllocator.getNextId(), root, rowExpression(postInnerJoinCriteria, context));
             }
         }
 
@@ -512,7 +512,7 @@ class RelationPlanner
             // compute the coercion for the field on the left to the common supertype of left & right
             VariableReferenceExpression leftOutput = newVariable(variableAllocator, identifier, type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
-            leftCoercions.put(leftOutput, toRowExpression(
+            leftCoercions.put(leftOutput, rowExpression(
                     new Cast(
                             identifier.getLocation(),
                             createSymbolReference(left.getVariable(leftField)),
@@ -525,7 +525,7 @@ class RelationPlanner
             // compute the coercion for the field on the right to the common supertype of left & right
             VariableReferenceExpression rightOutput = newVariable(variableAllocator, identifier, type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
-            rightCoercions.put(rightOutput, toRowExpression(
+            rightCoercions.put(rightOutput, rowExpression(
                     new Cast(
                             identifier.getLocation(),
                             createSymbolReference(right.getVariable(rightField)),
@@ -566,7 +566,7 @@ class RelationPlanner
         for (Identifier column : joinColumns) {
             VariableReferenceExpression output = newVariable(variableAllocator, column, analysis.getType(column));
             outputs.add(output);
-            assignments.put(output, toRowExpression(
+            assignments.put(output, rowExpression(
                     new CoalesceExpression(
                             column.getLocation(),
                             createSymbolReference(leftJoinColumns.get(column)),
@@ -795,7 +795,7 @@ class RelationPlanner
         }, row);
         expression = Coercer.addCoercions(expression, analysis);
         expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), expression);
-        return toRowExpression(expression, context);
+        return rowExpression(expression, context);
     }
 
     @Override
@@ -818,7 +818,7 @@ class RelationPlanner
             Type type = analysis.getType(expression);
             Expression rewritten = Coercer.addCoercions(expression, analysis);
             rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), rewritten);
-            values.add(toRowExpression(rewritten, context));
+            values.add(rowExpression(rewritten, context));
             VariableReferenceExpression input = newVariable(variableAllocator, rewritten, type);
             argumentVariables.add(new VariableReferenceExpression(getSourceLocation(rewritten), input.getName(), type));
             if (type instanceof ArrayType) {
@@ -886,13 +886,13 @@ class RelationPlanner
             if (!outputType.equals(inputVariable.getType())) {
                 Expression cast = new Cast(createSymbolReference(inputVariable), outputType.getTypeSignature().toString());
                 VariableReferenceExpression outputVariable = newVariable(variableAllocator, cast, outputType);
-                assignments.put(outputVariable, toRowExpression(cast, context));
+                assignments.put(outputVariable, rowExpression(cast, context));
                 newVariables.add(outputVariable);
             }
             else {
                 SymbolReference symbolReference = new SymbolReference(oldField.getNodeLocation(), inputVariable.getName());
                 VariableReferenceExpression outputVariable = newVariable(variableAllocator, symbolReference, outputType);
-                assignments.put(outputVariable, toRowExpression(symbolReference, context));
+                assignments.put(outputVariable, rowExpression(symbolReference, context));
                 newVariables.add(outputVariable);
             }
             newFields[i] = new Field(
@@ -1020,9 +1020,9 @@ class RelationPlanner
                 Optional.empty());
     }
 
-    private RowExpression toRowExpression(Expression expression, SqlPlannerContext context)
+    private RowExpression rowExpression(Expression expression, SqlPlannerContext context)
     {
-        return TranslateExpressions.toRowExpression(
+        return toRowExpression(
                 expression,
                 metadata,
                 session,

@@ -32,7 +32,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
@@ -107,7 +107,7 @@ public class TestIterativeOptimizer
             if (isIdentityProjection(project)) {
                 return Result.ofPlanNode(project.getSource());
             }
-            PlanNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), project, identityAssignmentsAsSymbolReferences(project.getOutputVariables()));
+            PlanNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), project, identityAssignments(project.getOutputVariables()));
             return Result.ofPlanNode(projectNode);
         }
 

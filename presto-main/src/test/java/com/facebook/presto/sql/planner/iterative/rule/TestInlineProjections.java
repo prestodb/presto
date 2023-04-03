@@ -23,9 +23,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.castToRowExpression;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 
 public class TestInlineProjections
         extends BaseRuleTest
@@ -36,22 +34,23 @@ public class TestInlineProjections
         tester().assertThat(new InlineProjections(getFunctionManager()))
                 .on(p ->
                         p.project(
+                                p.project(
+                                        p.values(p.variable("x")),
+                                        Assignments.builder()
+                                                .put(p.variable("symbol"), p.rowExpression("x"))
+                                                .put(p.variable("complex"), p.rowExpression("x * 2"))
+                                                .put(p.variable("literal"), p.rowExpression("1"))
+                                                .put(p.variable("complex_2"), p.rowExpression("x - 1"))
+                                                .build()),
                                 Assignments.builder()
-                                        .put(p.variable("identity"), castToRowExpression("symbol")) // identity
-                                        .put(p.variable("multi_complex_1"), castToRowExpression("complex + 1")) // complex expression referenced multiple times
-                                        .put(p.variable("multi_complex_2"), castToRowExpression("complex + 2")) // complex expression referenced multiple times
-                                        .put(p.variable("multi_literal_1"), castToRowExpression("literal + 1")) // literal referenced multiple times
-                                        .put(p.variable("multi_literal_2"), castToRowExpression("literal + 2")) // literal referenced multiple times
-                                        .put(p.variable("single_complex"), castToRowExpression("complex_2 + 2")) // complex expression reference only once
-                                        .put(p.variable("try"), castToRowExpression("try(complex / literal)"))
-                                        .build(),
-                                p.project(Assignments.builder()
-                                                .put(p.variable("symbol"), castToRowExpression("x"))
-                                                .put(p.variable("complex"), castToRowExpression("x * 2"))
-                                                .put(p.variable("literal"), castToRowExpression("1"))
-                                                .put(p.variable("complex_2"), castToRowExpression("x - 1"))
-                                                .build(),
-                                        p.values(p.variable("x")))))
+                                        .put(p.variable("identity"), p.rowExpression("symbol")) // identity
+                                        .put(p.variable("multi_complex_1"), p.rowExpression("complex + 1")) // complex expression referenced multiple times
+                                        .put(p.variable("multi_complex_2"), p.rowExpression("complex + 2")) // complex expression referenced multiple times
+                                        .put(p.variable("multi_literal_1"), p.rowExpression("literal + 1")) // literal referenced multiple times
+                                        .put(p.variable("multi_literal_2"), p.rowExpression("literal + 2")) // literal referenced multiple times
+                                        .put(p.variable("single_complex"), p.rowExpression("complex_2 + 2")) // complex expression reference only once
+                                        .put(p.variable("try"), p.rowExpression("try(complex / literal)"))
+                                        .build()))
                 .matches(
                         project(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
@@ -121,9 +120,9 @@ public class TestInlineProjections
         tester().assertThat(new InlineProjections(getFunctionManager()))
                 .on(p ->
                         p.project(
-                                assignment(p.variable("output"), expression("value")),
+                                assignment(p.variable("output"), p.variable("value")),
                                 p.project(
-                                        identityAssignmentsAsSymbolReferences(p.variable("value")),
+                                        identityAssignments(p.variable("value")),
                                         p.values(p.variable("value")))))
                 .doesNotFire();
     }
@@ -134,9 +133,9 @@ public class TestInlineProjections
         tester().assertThat(new InlineProjections(getFunctionManager()))
                 .on(p ->
                         p.project(
-                                identityAssignmentsAsSymbolReferences(p.variable("fromOuterScope"), p.variable("value")),
+                                identityAssignments(p.variable("fromOuterScope"), p.variable("value")),
                                 p.project(
-                                        identityAssignmentsAsSymbolReferences(p.variable("value")),
+                                        identityAssignments(p.variable("value")),
                                         p.values(p.variable("value")))))
                 .doesNotFire();
     }

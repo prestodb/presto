@@ -14,12 +14,14 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.relation.ExistsExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.tree.ExistsPredicate;
-import com.facebook.presto.sql.tree.LongLiteral;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
@@ -46,7 +48,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
-                        assignment(p.variable("x"), new ExistsPredicate(new LongLiteral("1"))),
+                        assignment(p.variable("x"), new ExistsExpression(Optional.empty(), TRUE_CONSTANT)),
                         emptyList(),
                         p.values(),
                         p.values()))

@@ -20,12 +20,11 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.offset;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.castToRowExpression;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestPushOffsetThroughProject
         extends BaseRuleTest
@@ -40,7 +39,7 @@ public class TestPushOffsetThroughProject
                     return p.offset(
                             5,
                             p.project(
-                                    Assignments.of(a, castToRowExpression(TRUE_LITERAL.toString())),
+                                    Assignments.of(a, TRUE_CONSTANT),
                                     p.values()));
                 })
                 .matches(
@@ -59,7 +58,7 @@ public class TestPushOffsetThroughProject
                     return p.offset(
                             5,
                             p.project(
-                                    Assignments.of(a, castToRowExpression(a.getName())),
+                                    Assignments.of(a, a),
                                     p.values(a)));
                 }).doesNotFire();
     }
