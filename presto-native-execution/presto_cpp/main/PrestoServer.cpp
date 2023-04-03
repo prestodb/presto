@@ -191,7 +191,7 @@ void PrestoServer::run() {
       std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
   folly::setUnsafeMutableGlobalIOExecutor(executor);
 
-  initializeAsyncCache();
+  initializeVeloxMemory();
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
 
@@ -392,7 +392,7 @@ void PrestoServer::run() {
   }
 }
 
-void PrestoServer::initializeAsyncCache() {
+void PrestoServer::initializeVeloxMemory() {
   auto nodeConfig = NodeConfig::instance();
   auto systemConfig = SystemConfig::instance();
   uint64_t memoryGb = nodeConfig->nodeMemoryGb(
@@ -411,8 +411,7 @@ void PrestoServer::initializeAsyncCache() {
         cacheExecutor_.get(),
         systemConfig->asyncCacheSsdCheckpointGb() << 30);
   }
-  const auto memoryBytes = memoryGb << 30;
-
+  const int64_t memoryBytes = memoryGb << 30;
   std::shared_ptr<memory::MemoryAllocator> allocator;
   if (systemConfig->useMmapAllocator()) {
     memory::MmapAllocator::Options options;
@@ -426,6 +425,9 @@ void PrestoServer::initializeAsyncCache() {
   cache_ = std::make_shared<cache::AsyncDataCache>(
       allocator, memoryBytes, std::move(ssd));
   memory::MemoryAllocator::setDefaultInstance(cache_.get());
+  // Set up velox memory manager.
+  memory::MemoryManager::getInstance(
+      memory::MemoryManager::Options{.capacity = memoryBytes}, true);
 }
 
 void PrestoServer::stop() {
