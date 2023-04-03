@@ -525,9 +525,9 @@ public class PrestoSparkTaskExecutorFactory
                     inputs instanceof PrestoSparkNativeTaskInputs,
                     format("PrestoSparkNativeTaskInputs is required for native execution, but %s is provided", inputs.getClass().getName()));
             PrestoSparkNativeTaskInputs nativeInputs = (PrestoSparkNativeTaskInputs) inputs;
-            fillNativeExecutionTaskInputs(fragment, nativeInputs, shuffleReadInfos);
+            fillNativeExecutionTaskInputs(fragment, session, nativeInputs, shuffleReadInfos);
             shuffleWriteInfo = needShuffleWriteInfo(nativeInputs, (NativeExecutionNode) fragment.getRoot()) ?
-                    Optional.of(shuffleInfoTranslator.createShuffleWriteInfo(nativeInputs.getShuffleWriteDescriptor().get())) : Optional.empty();
+                    Optional.of(shuffleInfoTranslator.createShuffleWriteInfo(session, nativeInputs.getShuffleWriteDescriptor().get())) : Optional.empty();
             taskSources = getNativeExecutionShuffleSources(session, taskId, fragment, shuffleReadInfos.build(), getTaskSources(serializedTaskSources));
         }
         else {
@@ -686,6 +686,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private void fillNativeExecutionTaskInputs(
             PlanFragment fragment,
+            Session session,
             PrestoSparkNativeTaskInputs inputs,
             ImmutableMap.Builder<PlanNodeId, PrestoSparkShuffleReadInfo> shuffleReadInfos)
     {
@@ -693,7 +694,7 @@ public class PrestoSparkTaskExecutorFactory
             for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
                 PrestoSparkShuffleReadDescriptor shuffleReadDescriptor = inputs.getShuffleReadDescriptors().get(sourceFragmentId.toString());
                 if (shuffleReadDescriptor != null) {
-                    shuffleReadInfos.put(remoteSource.getId(), shuffleInfoTranslator.createShuffleReadInfo(shuffleReadDescriptor));
+                    shuffleReadInfos.put(remoteSource.getId(), shuffleInfoTranslator.createShuffleReadInfo(session, shuffleReadDescriptor));
                 }
             }
         }

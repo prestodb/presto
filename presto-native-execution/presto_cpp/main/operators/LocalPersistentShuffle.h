@@ -21,21 +21,38 @@
 
 namespace facebook::presto::operators {
 
-/// LocalShuffleInfo can be used for both READ and WRITE.
-/// This struct is a 1:1 strict API mapping to
-/// presto-spark-base/src/main/java/com/facebook/presto/spark/execution/PrestoSparkLocalShuffleWriteInfo.java
-/// and
-/// presto-spark-base/src/main/java/com/facebook/presto/spark/execution/PrestoSparkLocalShuffleReadInfo.java.
-/// Please refrain changes to this API class. If any changes have to be made to
-/// this struct, one should make sure to make corresponding changes in the above
-/// Java classes and its corresponding serde functionalities.
-struct LocalShuffleInfo {
+// LocalShuffleWriteInfo is used for containing shuffle write information.
+// This struct is a 1:1 strict API mapping to
+// presto-spark-base/src/main/java/com/facebook/presto/spark/execution/PrestoSparkLocalShuffleWriteInfo.java
+// Please refrain changes to this API class. If any changes have to be made to
+// this struct, one should make sure to make corresponding changes in the above
+// Java classes and its corresponding serde functionalities.
+struct LocalShuffleWriteInfo {
   std::string rootPath;
+  std::string queryId;
   uint32_t numPartitions;
+  uint32_t shuffleId;
 
   /// Deserializes shuffle information that is used by LocalPersistentShuffle.
   /// Structures are assumed to be encoded in JSON format.
-  static LocalShuffleInfo deserialize(const std::string& info);
+  static LocalShuffleWriteInfo deserialize(const std::string& info);
+};
+
+// LocalShuffleReadInfo is used for containing shuffle read metadata
+// This struct is a 1:1 strict API mapping to
+// presto-spark-base/src/main/java/com/facebook/presto/spark/execution/PrestoSparkLocalShuffleReadInfo.java.
+// Please refrain changes to this API class. If any changes have to be made to
+// this struct, one should make sure to make corresponding changes in the above
+// Java classes and its corresponding serde functionalities.
+struct LocalShuffleReadInfo {
+  std::string rootPath;
+  std::string queryId;
+  uint32_t numPartitions;
+  std::vector<std::string> partitionIds;
+
+  /// Deserializes shuffle information that is used by LocalPersistentShuffle.
+  /// Structures are assumed to be encoded in JSON format.
+  static LocalShuffleReadInfo deserialize(const std::string& info);
 };
 
 /// This class is a persistent shuffle server that implements
@@ -57,6 +74,8 @@ class LocalPersistentShuffleWriter : public ShuffleWriter {
  public:
   LocalPersistentShuffleWriter(
       const std::string& rootPath,
+      const std::string& queryId,
+      uint32_t shuffleId,
       uint32_t numPartitions,
       uint64_t maxBytesPerPartition,
       velox::memory::MemoryPool* FOLLY_NONNULL pool);
@@ -79,6 +98,11 @@ class LocalPersistentShuffleWriter : public ShuffleWriter {
   // Deletes all the files in the root directory.
   void cleanup();
 
+  // find next available partition file name to store shuffle data
+  std::string nextAvailablePartitionFileName(
+      const std::string& root,
+      int32_t partition) const;
+
   const uint64_t maxBytesPerPartition_;
 
   velox::memory::MemoryPool* FOLLY_NONNULL pool_;
@@ -88,6 +112,8 @@ class LocalPersistentShuffleWriter : public ShuffleWriter {
   std::vector<size_t> inProgressSizes_;
   // The top directory of the shuffle files and its file system.
   std::string rootPath_;
+  std::string queryId_;
+  uint32_t shuffleId_;
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
   // Used to make sure files created by this thread have unique names.
   std::thread::id threadId_;
@@ -97,6 +123,8 @@ class LocalPersistentShuffleReader : public ShuffleReader {
  public:
   LocalPersistentShuffleReader(
       const std::string& rootPath,
+      const std::string& queryId,
+      std::vector<std::string> partitionIds_,
       const int32_t partition,
       velox::memory::MemoryPool* FOLLY_NONNULL pool);
 
@@ -104,13 +132,13 @@ class LocalPersistentShuffleReader : public ShuffleReader {
 
   velox::BufferPtr next(bool success) override;
 
-  bool readyForRead() const;
-
  private:
   // Returns all created shuffle files for 'partition_'.
   std::vector<std::string> getReadPartitionFiles() const;
 
   std::string rootPath_;
+  std::string queryId_;
+  std::vector<std::string> partitionIds_;
   int32_t partition_;
   velox::memory::MemoryPool* FOLLY_NONNULL pool_;
 
