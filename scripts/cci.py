@@ -13,11 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
+
 import os
 import sys
-import json
-
+import argparse
 import util
 
 CIRCLECI_V2 = "https://circleci.com/api/v2"
@@ -30,7 +29,7 @@ def get_circleci_token():
     if token is None:
         print(
             """
-            CIRCLECI_API_TOKEN is not set in the environment.  An API key is 
+            CIRCLECI_API_TOKEN is not set in the environment.  An API key is
             required to access CircleCi.  You can create an API token here :
 
                 https://circleci.com/account/api
@@ -80,7 +79,6 @@ def get_action_output(token, url):
 
 
 def output(args):
-
     github_upstream = util.run("git remote get-url --push upstream")[1].extract(
         r".*:(.*)[.]git"
     )

@@ -265,14 +265,6 @@ jobs:
             ccache -s
           no_output_timeout: 1h
       - run:
-          name: "Build and Test PyVelox"
-          command: |
-            conda init bash
-            source ~/.bashrc
-            conda create -y --name pyveloxenv python=3.7
-            conda activate pyveloxenv
-            LD_LIBRARY_PATH=/usr/local/lib make python-test
-      - run:
           name: "Run Unit Tests"
           command: |
             cd _build/debug && ctest -j 16 -VV --output-on-failure
@@ -338,6 +330,28 @@ jobs:
          name: "Run Example Binaries"
          command: |
            find _build/debug/velox/examples/ -maxdepth 1 -type f -executable -exec "{}" \;
+      - run:
+          name: "Build and Test PyVelox"
+          command: |
+            conda init bash
+            source ~/.bashrc
+            conda create -y --name pyveloxenv python=3.7
+            conda activate pyveloxenv
+            LD_LIBRARY_PATH=/usr/local/lib make python-test
+      - run:
+          name: "Check function signatures"
+          command: |
+            source ~/.bashrc
+            conda activate pyveloxenv
+            pip install deepdiff
+            python ./scripts/signature.py export --spark --presto /tmp/pr_signatures.json
+            cp ./scripts/signature.py /tmp/signature.py
+            git checkout main
+            LD_LIBRARY_PATH=/usr/local/lib make python-clean
+            LD_LIBRARY_PATH=/usr/local/lib make python-build
+            cp /tmp/signature.py ./scripts/signature.py
+            python ./scripts/signature.py export --spark --presto /tmp/main_signatures.json
+            python ./scripts/signature.py diff /tmp/main_signatures.json /tmp/pr_signatures.json
       - post-steps
 
   linux-build-release:
