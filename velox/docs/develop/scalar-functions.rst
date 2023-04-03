@@ -1207,7 +1207,7 @@ The map_keys function takes any map and returns an array of map keys.
 
     // map(K,V) -> array(K)
     exec::FunctionSignatureBuilder()
-      .knownTypeVariable("K)
+      .knownTypeVariable("K")
       .typeVariable("V")
       .returnType("array(K)")
       .argumentType("map(K,V)")
