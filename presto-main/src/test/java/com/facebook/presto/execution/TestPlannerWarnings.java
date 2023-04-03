@@ -29,7 +29,6 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -131,14 +130,7 @@ public class TestPlannerWarnings
                 queryRunner.getCostCalculator(),
                 ImmutableSet.copyOf(rules));
 
-        // Translate all OriginalExpression in planNodes to RowExpression so that we can do plan pattern asserting and printing on RowExpression only.
-        PlanOptimizer expressionTranslator = new IterativeOptimizer(
-                new RuleStatsRecorder(),
-                queryRunner.getStatsCalculator(),
-                queryRunner.getCostCalculator(),
-                ImmutableSet.copyOf(new TranslateExpressions(queryRunner.getMetadata(), queryRunner.getSqlParser()).rules()));
-
-        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer, expressionTranslator), Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, warningCollector);
+        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, warningCollector);
     }
 
     public static List<PrestoWarning> createTestWarnings(int numberOfWarnings)
