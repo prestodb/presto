@@ -270,6 +270,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
+    public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1440,6 +1441,11 @@ public final class SystemSessionProperties
                         featuresConfig.getNativeExecutionProgramArguments(),
                         false),
                 booleanProperty(
+                        NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
+                        "Enable reuse the native process within the same JVM",
+                        true,
+                        false),
+                booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "(Deprecated) Randomize null join key for outer join",
                         false,
@@ -2231,6 +2237,7 @@ public final class SystemSessionProperties
     {
         return session.getSystemProperty(OPTIMIZE_PAYLOAD_JOINS, Boolean.class);
     }
+
     public static Optional<DataSize> getTargetResultSize(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(TARGET_RESULT_SIZE, DataSize.class));
@@ -2464,6 +2471,11 @@ public final class SystemSessionProperties
     public static String getNativeExecutionProgramArguments(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_PROGRAM_ARGUMENTS, String.class);
+    }
+
+    public static boolean isNativeExecutionProcessReuseEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_PROCESS_REUSE_ENABLED, Boolean.class);
     }
 
     public static RandomizeOuterJoinNullKeyStrategy getRandomizeOuterJoinNullKeyStrategy(Session session)
