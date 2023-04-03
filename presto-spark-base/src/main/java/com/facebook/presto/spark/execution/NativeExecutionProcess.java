@@ -115,9 +115,13 @@ public class NativeExecutionProcess
     /**
      * Starts the external native execution process. The method will be blocked by connecting to the native process's /v1/info endpoint with backoff retries until timeout.
      */
-    public void start()
+    public synchronized void start()
             throws ExecutionException, InterruptedException, IOException
     {
+        if (process != null && process.isAlive()) {
+            return;
+        }
+
         ProcessBuilder processBuilder = new ProcessBuilder(getLaunchCommand());
         processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);

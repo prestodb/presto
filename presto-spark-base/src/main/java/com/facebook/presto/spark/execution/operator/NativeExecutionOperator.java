@@ -216,7 +216,7 @@ public class NativeExecutionOperator
     private void createProcess()
     {
         try {
-            this.process = processFactory.createNativeExecutionProcess(
+            this.process = processFactory.getNativeExecutionProcess(
                     operatorContext.getSession(),
                     URI.create(NATIVE_EXECUTION_SERVER_URI));
             log.info("Starting native execution process of task" + getOperatorContext().getDriverContext().getTaskId().toString());
@@ -292,10 +292,6 @@ public class NativeExecutionOperator
         systemMemoryContext.setBytes(0);
         if (task != null) {
             task.stop();
-        }
-        if (process != null) {
-            log.info("Closing native execution process for task " + getOperatorContext().getDriverContext().getTaskId().toString());
-            process.close();
         }
     }
 
