@@ -80,6 +80,7 @@ import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTransla
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PageDataOutput;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.security.TokenAuthenticator;
@@ -525,7 +526,7 @@ public class PrestoSparkTaskExecutorFactory
                     format("PrestoSparkNativeTaskInputs is required for native execution, but %s is provided", inputs.getClass().getName()));
             PrestoSparkNativeTaskInputs nativeInputs = (PrestoSparkNativeTaskInputs) inputs;
             fillNativeExecutionTaskInputs(fragment, nativeInputs, shuffleReadInfos);
-            shuffleWriteInfo = nativeInputs.getShuffleWriteDescriptor().isPresent() && !findTableWriteNode(fragment.getRoot()).isPresent() ?
+            shuffleWriteInfo = needShuffleWriteInfo(nativeInputs, (NativeExecutionNode) fragment.getRoot()) ?
                     Optional.of(shuffleInfoTranslator.createShuffleWriteInfo(nativeInputs.getShuffleWriteDescriptor().get())) : Optional.empty();
             taskSources = getNativeExecutionShuffleSources(session, taskId, fragment, shuffleReadInfos.build(), getTaskSources(serializedTaskSources));
         }
@@ -676,6 +677,11 @@ public class PrestoSparkTaskExecutorFactory
         }
 
         return OptionalLong.of(sum);
+    }
+
+    private boolean needShuffleWriteInfo(PrestoSparkNativeTaskInputs nativeInputs, NativeExecutionNode node)
+    {
+        return nativeInputs.getShuffleWriteDescriptor().isPresent() && !findTableWriteNode(node).isPresent() && !(node.getSubPlan() instanceof OutputNode);
     }
 
     private void fillNativeExecutionTaskInputs(
