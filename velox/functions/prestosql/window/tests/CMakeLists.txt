@@ -12,29 +12,59 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(
-  velox_windows_test
-  Main.cpp
-  NthValueTest.cpp
-  NtileTest.cpp
-  RankTest.cpp
-  SimpleAggregatesTest.cpp
-  WindowFunctionRegTest.cpp
-  WindowTestBase.cpp)
+set(CMAKE_WINDOW_TEST_LINK_LIBRARIES
+    velox_core
+    velox_exec
+    velox_exec_test_lib
+    velox_vector_fuzzer
+    velox_vector_test_lib
+    velox_window
+    gflags::gflags
+    gtest
+    gtest_main)
+
+set(CMAKE_WINDOW_TEST_MAIN_FILES Main.cpp WindowTestBase.cpp)
+
+add_executable(velox_windows_rank_test NtileTest.cpp RankTest.cpp
+                                       ${CMAKE_WINDOW_TEST_MAIN_FILES})
 
 add_test(
-  NAME velox_windows_test
-  COMMAND velox_windows_test
+  NAME velox_windows_rank_test
+  COMMAND velox_windows_rank_test
   WORKING_DIRECTORY .)
 
-target_link_libraries(
-  velox_windows_test
-  velox_core
-  velox_exec
-  velox_exec_test_lib
-  velox_vector_fuzzer
-  velox_vector_test_lib
-  velox_window
-  gflags::gflags
-  gtest
-  gtest_main)
+target_link_libraries(velox_windows_rank_test
+                      ${CMAKE_WINDOW_TEST_LINK_LIBRARIES})
+
+add_executable(velox_windows_value_test NthValueTest.cpp
+                                        ${CMAKE_WINDOW_TEST_MAIN_FILES})
+
+add_test(
+  NAME velox_windows_value_test
+  COMMAND velox_windows_value_test
+  WORKING_DIRECTORY .)
+
+target_link_libraries(velox_windows_value_test
+                      ${CMAKE_WINDOW_TEST_LINK_LIBRARIES})
+
+add_executable(velox_windows_agg_test SimpleAggregatesTest.cpp
+                                      ${CMAKE_WINDOW_TEST_MAIN_FILES})
+
+add_test(
+  NAME velox_windows_agg_test
+  COMMAND velox_windows_agg_test
+  WORKING_DIRECTORY .)
+
+target_link_libraries(velox_windows_agg_test
+                      ${CMAKE_WINDOW_TEST_LINK_LIBRARIES})
+
+add_executable(velox_windows_util_test WindowFunctionRegTest.cpp
+                                       ${CMAKE_WINDOW_TEST_MAIN_FILES})
+
+add_test(
+  NAME velox_windows_util_test
+  COMMAND velox_windows_util_test
+  WORKING_DIRECTORY .)
+
+target_link_libraries(velox_windows_util_test
+                      ${CMAKE_WINDOW_TEST_LINK_LIBRARIES})
