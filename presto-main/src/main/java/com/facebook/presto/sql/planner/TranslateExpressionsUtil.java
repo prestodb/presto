@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.iterative.rule;
+package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.FunctionType;
@@ -22,7 +22,6 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
-import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.DenyAllAccessControl;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -30,9 +29,6 @@ import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
@@ -47,20 +43,13 @@ import java.util.Map;
 import static com.facebook.presto.spi.WarningCollector.NOOP;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyMap;
 
-// TODO: This rule is only used in tests. Move util functions out and remove this rule.
-public class TranslateExpressions
-        extends RowExpressionRewriteRuleSet
+public class TranslateExpressionsUtil
 {
-    public TranslateExpressions(Metadata metadata, SqlParser sqlParser)
-    {
-        super(createRewriter(metadata, sqlParser));
-    }
+    private TranslateExpressionsUtil() {}
 
     public static RowExpression toRowExpression(Expression expression, Metadata metadata, Session session, SqlParser sqlParser, VariableAllocator variableAllocator, Analysis analysis, SqlToRowExpressionTranslator.Context context)
     {
@@ -75,7 +64,7 @@ public class TranslateExpressions
                 expression,
                 WarningCollector.NOOP,
                 analysis.getTypes()).getExpressionTypes();
-        return TranslateExpressions.toRowExpression(
+        return toRowExpression(
                 expression,
                 metadata,
                 session,
@@ -172,66 +161,5 @@ public class TranslateExpressions
                 expression,
                 emptyMap(),
                 NOOP);
-    }
-
-    private static PlanRowExpressionRewriter createRewriter(Metadata metadata, SqlParser sqlParser)
-    {
-        return new PlanRowExpressionRewriter()
-        {
-            @Override
-            public RowExpression rewrite(RowExpression expression, Rule.Context context)
-            {
-                // special treatment of the CallExpression in Aggregation
-                if (expression instanceof CallExpression && ((CallExpression) expression).getArguments().stream().anyMatch(OriginalExpressionUtils::isExpression)) {
-                    return removeOriginalExpressionArguments((CallExpression) expression, context.getSession(), context.getVariableAllocator());
-                }
-                return removeOriginalExpression(expression, context);
-            }
-
-            private RowExpression removeOriginalExpressionArguments(CallExpression callExpression, Session session, VariableAllocator variableAllocator)
-            {
-                Map<NodeRef<Expression>, Type> types = analyzeCallExpressionTypes(
-                        callExpression.getFunctionHandle(),
-                        callExpression.getArguments().stream()
-                                .filter(OriginalExpressionUtils::isExpression)
-                                .map(OriginalExpressionUtils::castToExpression)
-                                .collect(toImmutableList()),
-                        metadata,
-                        sqlParser,
-                        session,
-                        TypeProvider.viewOf(variableAllocator.getVariables()));
-                return new CallExpression(
-                        callExpression.getSourceLocation(),
-                        callExpression.getDisplayName(),
-                        callExpression.getFunctionHandle(),
-                        callExpression.getType(),
-                        callExpression.getArguments().stream()
-                                .map(expression -> removeOriginalExpression(expression, session, types))
-                                .collect(toImmutableList()));
-            }
-
-            private RowExpression removeOriginalExpression(RowExpression rowExpression, Rule.Context context)
-            {
-                if (isExpression(rowExpression)) {
-                    Expression expression = castToExpression(rowExpression);
-                    return toRowExpression(
-                            expression,
-                            metadata,
-                            context.getSession(),
-                            analyze(expression, metadata, sqlParser, context.getSession(), TypeProvider.viewOf(context.getVariableAllocator().getVariables())),
-                            new SqlToRowExpressionTranslator.Context());
-                }
-                return rowExpression;
-            }
-
-            private RowExpression removeOriginalExpression(RowExpression rowExpression, Session session, Map<NodeRef<Expression>, Type> types)
-            {
-                if (isExpression(rowExpression)) {
-                    Expression expression = castToExpression(rowExpression);
-                    return toRowExpression(expression, metadata, session, types, new SqlToRowExpressionTranslator.Context());
-                }
-                return rowExpression;
-            }
-        };
     }
 }

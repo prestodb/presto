@@ -137,6 +137,12 @@ public final class Expressions
         return call(name, functionHandle, returnType, arguments);
     }
 
+    public static CallExpression callOperator(FunctionAndTypeResolver functionAndTypeResolver, OperatorType operatorType, Type returnType, RowExpression... arguments)
+    {
+        FunctionHandle functionHandle = functionAndTypeResolver.resolveOperator(operatorType, fromTypes(Arrays.stream(arguments).map(RowExpression::getType).collect(toImmutableList())));
+        return call(operatorType.name(), functionHandle, returnType, arguments);
+    }
+
     public static RowExpression searchedCaseExpression(List<RowExpression> whenClauses, Optional<RowExpression> defaultValue)
     {
         // We rewrite this as - CASE true WHEN p1 THEN v1 WHEN p2 THEN v2 .. ELSE v END

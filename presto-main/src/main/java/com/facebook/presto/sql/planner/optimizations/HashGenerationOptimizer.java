@@ -79,7 +79,6 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -991,7 +990,6 @@ public class HashGenerationOptimizer
     {
         Map<VariableReferenceExpression, VariableReferenceExpression> outputToInput = new HashMap<>();
         for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
-            checkArgument(!isExpression(assignment.getValue()), "Cannot have OriginalExpression in assignments");
             if (assignment.getValue() instanceof VariableReferenceExpression) {
                 outputToInput.put(assignment.getKey(), (VariableReferenceExpression) assignment.getValue());
             }
