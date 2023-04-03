@@ -13,18 +13,7 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
-import org.apache.spark.SparkEnv;
-import org.apache.spark.shuffle.ShuffleHandle;
-import org.apache.spark.shuffle.sort.BypassMergeSortShuffleHandle;
-import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
-
-import java.util.Optional;
-
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 /**
  * Following JVM argument is needed to run Spark native tests.
@@ -47,6 +36,8 @@ import static org.testng.Assert.assertTrue;
  * requests. This port number has to be the same as to which your externally launched process listens.
  * Example: -DNATIVE_PORT=7777.
  * When NATIVE_PORT is specified, PRESTO_SERVER argument is not requires and is ignored if specified.
+ * <p>
+ * For test queries requiring shuffle, the disk-based local shuffle will be used.
  */
 public class TestPrestoSparkNativeExecution
         extends AbstractTestPrestoSparkQueries
@@ -57,34 +48,26 @@ public class TestPrestoSparkNativeExecution
         assertQuerySucceeds("SELECT * FROM orders");
         assertQuery("SELECT orderkey, custkey FROM orders WHERE orderkey <= 200");
         assertQuery("SELECT nullif(orderkey, custkey) FROM orders");
+        assertQuery("SELECT orderkey, custkey FROM orders ORDER BY orderkey LIMIT 4");
+    }
 
+    @Test
+    public void testAggregations()
+    {
+        assertQuery("SELECT count(*) c FROM lineitem WHERE partkey % 10 = 1 GROUP BY partkey");
+    }
+
+    @Test
+    public void testJoins()
+    {
+        assertQuery("SELECT count(*) FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
+    }
+
+    @Test
+    public void testFailures()
+    {
         assertQueryFails("SELECT sequence(1, orderkey) FROM orders",
                 ".*Scalar function name not registered: presto.default.sequence.*");
         assertQueryFails("SELECT orderkey / 0 FROM orders", ".*division by zero.*");
-        assertQueryFails("SELECT orderkey, custkey FROM orders LIMIT 4", ".*Failure in LocalWriteFile: path .* already exists.*");
-    }
-
-    // TODO: re-enable the test once the shuffle integration is ready.
-    @Ignore
-    @Test(priority = 2, dependsOnMethods = "testMapOnlyQueries")
-    public void testNativeExecutionShuffleManager()
-    {
-        PrestoSparkQueryRunner queryRunner = (PrestoSparkQueryRunner) getQueryRunner();
-
-        // Reset the spark context to register the native execution shuffle manager. We want to let the query runner use the default spark shuffle
-        // manager to generate the test tables and only test the new native execution shuffle manager on the test below test cases.
-        // Expecting 0 row updated since currently the NativeExecutionOperator is dummy.
-        queryRunner.execute("CREATE TABLE test_aggregate as SELECT  partkey, count(*) c FROM lineitem WHERE partkey % 10 = 1 GROUP BY partkey");
-
-        assertNotNull(SparkEnv.get());
-        assertTrue(SparkEnv.get().shuffleManager() instanceof PrestoSparkNativeExecutionShuffleManager);
-        PrestoSparkNativeExecutionShuffleManager shuffleManager = (PrestoSparkNativeExecutionShuffleManager) SparkEnv.get().shuffleManager();
-        Optional<ShuffleHandle> shuffleHandle = shuffleManager.getShuffleHandle(0);
-        assertTrue(shuffleHandle.isPresent());
-        assertTrue(shuffleHandle.get() instanceof BypassMergeSortShuffleHandle);
-        BypassMergeSortShuffleHandle<?, ?> bypassMergeSortShuffleHandle = (BypassMergeSortShuffleHandle<?, ?>) shuffleHandle.get();
-        int shuffleId = shuffleHandle.get().shuffleId();
-        assertEquals(0, shuffleId);
-        assertEquals(shuffleManager.getNumOfPartitions(shuffleId), bypassMergeSortShuffleHandle.numMaps());
     }
 }

@@ -23,6 +23,10 @@ void UnsafeRowExchangeSource::request() {
   std::vector<velox::ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
+    if (atEnd_) {
+      return;
+    }
+
     if (!shuffle_->hasNext()) {
       atEnd_ = true;
       queue_->enqueueLocked(nullptr, promises);

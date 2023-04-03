@@ -23,10 +23,20 @@ namespace facebook::presto::operators {
 namespace {
 inline std::string createShuffleFileName(
     const std::string& rootPath,
+    const std::string& queryId,
+    uint32_t shuffleId,
     int32_t partition,
     int fileIndex,
     const std::thread::id& id) {
-  return fmt::format("{}/{}_{}_{}.bin", rootPath, partition, fileIndex, id);
+  // Follow Spark's shuffle file name format: shuffle_shuffleId_0_reduceId
+  return fmt::format(
+      "{}/{}_shuffle_{}_0_{}_{}_{}.bin",
+      rootPath,
+      queryId,
+      shuffleId,
+      partition,
+      fileIndex,
+      id);
 }
 
 // This file is used to indicate that the shuffle system is ready to be used for
@@ -37,6 +47,8 @@ const static std::string kReadyForReadFilename = "readyForRead";
 
 LocalPersistentShuffleWriter::LocalPersistentShuffleWriter(
     const std::string& rootPath,
+    const std::string& queryId,
+    uint32_t shuffleId,
     uint32_t numPartitions,
     uint64_t maxBytesPerPartition,
     velox::memory::MemoryPool* FOLLY_NONNULL pool)
@@ -44,7 +56,9 @@ LocalPersistentShuffleWriter::LocalPersistentShuffleWriter(
       threadId_(std::this_thread::get_id()),
       pool_(pool),
       numPartitions_(numPartitions),
-      rootPath_(std::move(rootPath)) {
+      rootPath_(std::move(rootPath)),
+      shuffleId_(shuffleId),
+      queryId_(std::move(queryId)) {
   // Use resize/assign instead of resize(size, val).
   inProgressPartitions_.resize(numPartitions_);
   inProgressPartitions_.assign(numPartitions_, nullptr);
@@ -55,26 +69,27 @@ LocalPersistentShuffleWriter::LocalPersistentShuffleWriter(
 
 std::unique_ptr<velox::WriteFile>
 LocalPersistentShuffleWriter::getNextOutputFile(int32_t partition) {
-  auto fileCount = getWritePartitionFilesCount(partition);
-  const std::string filename =
-      createShuffleFileName(rootPath_, partition, fileCount, threadId_);
+  auto filename = nextAvailablePartitionFileName(rootPath_, partition);
   return fileSystem_->openFileForWrite(filename);
 }
 
-int LocalPersistentShuffleWriter::getWritePartitionFilesCount(
+std::string LocalPersistentShuffleWriter::nextAvailablePartitionFileName(
+    const std::string& root,
     int32_t partition) const {
   int fileCount = 0;
+  std::string filename;
   // TODO: consider to maintain the next to create file count in memory as we
-  // always do cleanup when switch to a new root directy path.
+  // always do cleanup when switch to a new root directory path.
   do {
-    const std::string filename =
-        createShuffleFileName(rootPath_, partition, fileCount, threadId_);
+    filename = createShuffleFileName(
+        root, queryId_, shuffleId_, partition, fileCount, threadId_);
     if (!fileSystem_->exists(filename)) {
       break;
     }
     ++fileCount;
   } while (true);
-  return fileCount;
+
+  return filename;
 }
 
 void LocalPersistentShuffleWriter::storePartitionBlock(int32_t partition) {
@@ -127,37 +142,34 @@ void LocalPersistentShuffleWriter::noMoreData(bool success) {
       storePartitionBlock(i);
     }
   }
-  // Write "ready to read" file.
-  auto readyToRead = fileSystem_->openFileForWrite(
-      fmt::format("{}/{}", rootPath_, kReadyForReadFilename));
-  readyToRead->close();
 }
 
 LocalPersistentShuffleReader::LocalPersistentShuffleReader(
     const std::string& rootPath,
+    const std::string& queryId,
+    std::vector<std::string> partitionIds,
     const int32_t partition,
     velox::memory::MemoryPool* FOLLY_NONNULL pool)
-    : rootPath_(std::move(rootPath)), partition_(partition), pool_(pool) {
+    : rootPath_(rootPath),
+      queryId_(queryId),
+      partitionIds_(std::move(partitionIds)),
+      partition_(partition),
+      pool_(pool) {
   fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
 }
 
 bool LocalPersistentShuffleReader::hasNext() {
-  while (!readyForRead()) {
-    // This sleep is only for testing purposes.
-    // For the test cases in which the shuffle reader tasks run before shuffle
-    // writer tasks finish.
-    sleep(1);
+  if (readPartitionFiles_.empty()) {
+    readPartitionFiles_ = getReadPartitionFiles();
   }
-  return readPartitionFileIndex_ < getReadPartitionFiles().size();
+
+  return readPartitionFileIndex_ < readPartitionFiles_.size();
 }
 
 BufferPtr LocalPersistentShuffleReader::next(bool success) {
   // On failure, reset the index of the files to be read.
   if (!success) {
     readPartitionFileIndex_ = 0;
-  }
-  if (readPartitionFiles_.empty()) {
-    readPartitionFiles_ = getReadPartitionFiles();
   }
 
   auto filename = readPartitionFiles_[readPartitionFileIndex_];
@@ -177,21 +189,19 @@ std::vector<std::string> LocalPersistentShuffleReader::getReadPartitionFiles()
     trimmedRootPath.erase(trimmedRootPath.length() - 1, 1);
   }
 
-  const std::string partitionFilePrefix =
-      fmt::format("{}/{}_", trimmedRootPath, partition_);
   std::vector<std::string> partitionFiles;
-  auto files = fileSystem_->list(rootPath_);
-  for (auto& file : files) {
-    if (file.find(partitionFilePrefix) == 0) {
-      partitionFiles.push_back(file);
+  for (const auto& partitionId : partitionIds_) {
+    auto prefix =
+        fmt::format("{}/{}_{}_", trimmedRootPath, queryId_, partitionId);
+    auto files = fileSystem_->list(fmt::format("{}/", rootPath_));
+    for (const auto& file : files) {
+      if (file.find(prefix) == 0) {
+        partitionFiles.push_back(file);
+      }
     }
   }
-  return partitionFiles;
-}
 
-bool LocalPersistentShuffleReader::readyForRead() const {
-  return fileSystem_->openFileForRead(
-             fmt::format("{}/{}", rootPath_, kReadyForReadFilename)) != nullptr;
+  return partitionFiles;
 }
 
 void LocalPersistentShuffleWriter::cleanup() {
@@ -204,10 +214,24 @@ void LocalPersistentShuffleWriter::cleanup() {
 using json = nlohmann::json;
 
 // static
-LocalShuffleInfo LocalShuffleInfo::deserialize(const std::string& info) {
+LocalShuffleWriteInfo LocalShuffleWriteInfo::deserialize(
+    const std::string& info) {
   const auto jsonReadInfo = json::parse(info);
-  LocalShuffleInfo shuffleInfo;
+  LocalShuffleWriteInfo shuffleInfo;
   jsonReadInfo.at("rootPath").get_to(shuffleInfo.rootPath);
+  jsonReadInfo.at("queryId").get_to(shuffleInfo.queryId);
+  jsonReadInfo.at("shuffleId").get_to(shuffleInfo.shuffleId);
+  jsonReadInfo.at("numPartitions").get_to(shuffleInfo.numPartitions);
+  return shuffleInfo;
+}
+
+LocalShuffleReadInfo LocalShuffleReadInfo::deserialize(
+    const std::string& info) {
+  const auto jsonReadInfo = json::parse(info);
+  LocalShuffleReadInfo shuffleInfo;
+  jsonReadInfo.at("rootPath").get_to(shuffleInfo.rootPath);
+  jsonReadInfo.at("queryId").get_to(shuffleInfo.queryId);
+  jsonReadInfo.at("partitionIds").get_to(shuffleInfo.partitionIds);
   jsonReadInfo.at("numPartitions").get_to(shuffleInfo.numPartitions);
   return shuffleInfo;
 }
@@ -218,10 +242,14 @@ std::shared_ptr<ShuffleReader> LocalPersistentShuffleFactory::createReader(
     velox::memory::MemoryPool* pool) {
   static const uint64_t maxBytesPerPartition =
       SystemConfig::instance()->localShuffleMaxPartitionBytes();
-  const operators::LocalShuffleInfo readInfo =
-      operators::LocalShuffleInfo::deserialize(serializedStr);
+  const operators::LocalShuffleReadInfo readInfo =
+      operators::LocalShuffleReadInfo::deserialize(serializedStr);
   return std::make_shared<operators::LocalPersistentShuffleReader>(
-      readInfo.rootPath, partition, pool);
+      readInfo.rootPath,
+      readInfo.queryId,
+      readInfo.partitionIds,
+      partition,
+      pool);
 }
 
 std::shared_ptr<ShuffleWriter> LocalPersistentShuffleFactory::createWriter(
@@ -229,10 +257,15 @@ std::shared_ptr<ShuffleWriter> LocalPersistentShuffleFactory::createWriter(
     velox::memory::MemoryPool* pool) {
   static const uint64_t maxBytesPerPartition =
       SystemConfig::instance()->localShuffleMaxPartitionBytes();
-  const operators::LocalShuffleInfo writeInfo =
-      operators::LocalShuffleInfo::deserialize(serializedStr);
+  const operators::LocalShuffleWriteInfo writeInfo =
+      operators::LocalShuffleWriteInfo::deserialize(serializedStr);
   return std::make_shared<operators::LocalPersistentShuffleWriter>(
-      writeInfo.rootPath, writeInfo.numPartitions, maxBytesPerPartition, pool);
+      writeInfo.rootPath,
+      writeInfo.queryId,
+      writeInfo.shuffleId,
+      writeInfo.numPartitions,
+      maxBytesPerPartition,
+      pool);
 }
 
 } // namespace facebook::presto::operators
