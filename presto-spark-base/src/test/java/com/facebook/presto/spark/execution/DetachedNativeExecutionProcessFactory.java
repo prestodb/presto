@@ -60,7 +60,7 @@ public class DetachedNativeExecutionProcessFactory
     }
 
     @Override
-    public NativeExecutionProcess createNativeExecutionProcess(
+    public NativeExecutionProcess getNativeExecutionProcess(
             Session session,
             URI location)
     {
