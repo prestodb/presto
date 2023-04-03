@@ -106,7 +106,7 @@ class PrestoServer {
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getHttpServerFilters();
 
-  void initializeAsyncCache();
+  void initializeVeloxMemory();
 
  protected:
   virtual std::shared_ptr<velox::connector::Connector> connectorWithCache(
