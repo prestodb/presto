@@ -622,7 +622,7 @@ void PrestoServer::populateMemAndCPUInfo() {
   auto* pool = taskResource_->getPool();
 
   // Fill global pool fields.
-  poolInfo.maxBytes = nodeMemoryGb * 1024 * 1024 * 1204;
+  poolInfo.maxBytes = nodeMemoryGb * 1024 * 1024 * 1024;
   // TODO(sperhsin): If 'current bytes' is the same as we get by summing up all
   // child contexts below, then use the one we sum up, rather than call
   // 'getCurrentBytes'.
