@@ -265,6 +265,8 @@ public class FeaturesConfig
     private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
     private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
 
+    private boolean preProcessMetadataCalls;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2241,6 +2243,19 @@ public class FeaturesConfig
     {
         this.analyzerType = analyzerType;
         return this;
+    }
+
+    @Config("pre-process-metadata-calls")
+    @ConfigDescription("Pre process metadata calls before analyzer invocation")
+    public FeaturesConfig setPreProcessMetadataCalls(boolean preProcessMetadataCalls)
+    {
+        this.preProcessMetadataCalls = preProcessMetadataCalls;
+        return this;
+    }
+
+    public boolean isPreProcessMetadataCalls()
+    {
+        return preProcessMetadataCalls;
     }
 
     public boolean isStreamingForPartialAggregationEnabled()
