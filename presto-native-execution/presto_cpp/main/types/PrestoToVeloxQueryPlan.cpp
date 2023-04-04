@@ -1088,10 +1088,8 @@ class HivePartitionFunctionSpec : public core::PartitionFunctionSpec {
   }
 
   std::string toString() const override {
-    return fmt::format(
-        "HIVE({NUM_BUCKETS {} KEYS {}})",
-        numBuckets_,
-        folly::join(", ", keyChannels_.channels));
+    return "HIVE({NUM_BUCKETS + " + std::to_string(numBuckets_) + " KEYS " +
+        folly::join(", ", keyChannels_.channels) + "})";
   }
 
   folly::dynamic serialize() const override {
