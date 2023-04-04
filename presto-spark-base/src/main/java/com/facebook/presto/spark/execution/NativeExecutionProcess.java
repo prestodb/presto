@@ -26,6 +26,7 @@ import com.facebook.presto.spark.execution.http.PrestoSparkHttpServerClient;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -39,6 +40,8 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -115,15 +118,10 @@ public class NativeExecutionProcess
     public void start()
             throws ExecutionException, InterruptedException, IOException
     {
-        String executablePath = getProcessWorkingPath(SystemSessionProperties.getNativeExecutionExecutablePath(session));
-        String configPath = Paths.get(getProcessWorkingPath("./"), String.valueOf(port)).toAbsolutePath().toString();
-
-        populateConfigurationFiles(configPath);
-        ProcessBuilder processBuilder = new ProcessBuilder(executablePath, "--v", "1", "--etc_dir", configPath);
+        ProcessBuilder processBuilder = new ProcessBuilder(getLaunchCommand());
         processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
         try {
-            log.info("Launching %s \nConfig path: %s\n", executablePath, configPath);
             process = processBuilder.start();
         }
         catch (IOException e) {
@@ -262,5 +260,31 @@ public class NativeExecutionProcess
         }
 
         return absolutePath.getAbsolutePath();
+    }
+
+    private List<String> getLaunchCommand() throws IOException
+    {
+        String executablePath = getProcessWorkingPath(SystemSessionProperties.getNativeExecutionExecutablePath(session));
+        String programArgs = SystemSessionProperties.getNativeExecutionProgramArguments(session);
+        String configPath = Paths.get(getProcessWorkingPath("./"), String.valueOf(port)).toAbsolutePath().toString();
+        ImmutableList.Builder<String> command = ImmutableList.builder();
+        List<String> argsList = Arrays.asList(programArgs.split("\\s+"));
+        boolean etcDirSet = false;
+        for (int i = 0; i < argsList.size(); i++) {
+            String arg = argsList.get(i);
+            if (arg.equals("--etc_dir")) {
+                etcDirSet = true;
+                configPath = argsList.get(i + 1);
+                break;
+            }
+        }
+        command.add(executablePath).addAll(argsList);
+        if (!etcDirSet) {
+            command.add("--etc_dir").add(configPath);
+            populateConfigurationFiles(configPath);
+        }
+        ImmutableList<String> commandList = command.build();
+        log.info("Launching native process using command: %s %s", executablePath, String.join(" ", commandList));
+        return commandList;
     }
 }
