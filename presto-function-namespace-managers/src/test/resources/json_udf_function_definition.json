@@ -9,7 +9,7 @@
                  "ARRAY<ARRAY<BOOLEAN>>",
                  "ARRAY<ARRAY<BOOLEAN>>"
             ],
-           "schema":"f3",
+           "schema":"test_schema",
            "routineCharacteristics": {
              "language":"CPP",
              "determinism":"DETERMINISTIC",
@@ -24,7 +24,7 @@
                 "ARRAY<ARRAY<BIGINT>>",
                  "ARRAY<ARRAY<BIGINT>>"
             ],
-           "schema":"f3",
+           "schema":"test_schema",
            "routineCharacteristics": {
              "language":"CPP",
              "determinism":"DETERMINISTIC",
@@ -39,7 +39,7 @@
                  "ARRAY<DOUBLE>",
                  "ARRAY<DOUBLE>"
             ],
-           "schema":"f3",
+           "schema":"test_schema",
            "routineCharacteristics": {
              "language":"CPP",
              "determinism":"DETERMINISTIC",
@@ -56,7 +56,7 @@
                  "ARRAY<map<BIGINT, DOUBLE>>",
                  "ARRAY<varchar>"
             ],
-           "schema":"f3",
+           "schema":"test_schema",
            "routineCharacteristics": {
              "language":"CPP",
              "determinism":"DETERMINISTIC",
@@ -72,7 +72,7 @@
                  "ARRAY<ARRAY<BOOLEAN>>",
                  "ARRAY<varchar>"
             ],
-           "schema":"f3",
+           "schema":"test_schema",
            "routineCharacteristics": {
              "language":"CPP",
              "determinism":"DETERMINISTIC",
@@ -88,7 +88,7 @@
       "paramTypes":[
         "int"
       ],
-      "schema":"f3",
+      "schema":"test_schema",
       "routineCharacteristics": {
         "language":"CPP",
         "determinism":"DETERMINISTIC",
@@ -102,7 +102,7 @@
       "paramTypes":[
         "double"
       ],
-      "schema":"f3",
+      "schema":"test_schema",
       "routineCharacteristics": {
         "language":"CPP",
         "determinism":"DETERMINISTIC",
@@ -118,7 +118,7 @@
       "paramTypes":[
         "int"
       ],
-      "schema":"f3",
+      "schema":"test_schema",
       "routineCharacteristics": {
         "language":"CPP",
         "determinism":"DETERMINISTIC",
@@ -136,7 +136,7 @@
       "paramTypes":[
         "double"
       ],
-      "schema":"f3",
+      "schema":"test_schema",
       "routineCharacteristics": {
         "language":"CPP",
         "determinism":"DETERMINISTIC",
