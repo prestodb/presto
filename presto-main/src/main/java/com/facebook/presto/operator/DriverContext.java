@@ -17,6 +17,7 @@ import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.TaskExecutionId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
@@ -109,6 +110,11 @@ public class DriverContext
     public TaskId getTaskId()
     {
         return pipelineContext.getTaskId();
+    }
+
+    public TaskExecutionId getTaskExecutionId()
+    {
+        return pipelineContext.getTaskExecutionId();
     }
 
     public long getSplitWeight()

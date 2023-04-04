@@ -29,6 +29,7 @@ import com.facebook.presto.execution.MemoryRevokingSchedulerUtils;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageId;
+import com.facebook.presto.execution.TaskExecutionId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -403,8 +404,10 @@ public class PrestoSparkTaskExecutorFactory
         // We will only cache 1 HT at any time. If the stageId changes, we will drop the old cached HT
         prestoSparkBroadcastTableCacheManager.removeCachedTablesForStagesOtherThan(stageId);
 
-        // TODO: include attemptId in taskId
-        TaskId taskId = new TaskId(new StageExecutionId(stageId, 0), partitionId);
+        // This is a 5 part Id (QUERYID  | STAGE_ID | STAGE_ATTEMPT_NUMBER | TASK_ID | TASK_ATTEMPT_NUMBER)
+        // Note that StageAttemptNumber API is only available since Spark 2.2.2
+        // Update this code once we upgrade spark version
+        TaskExecutionId taskExecutionId = new TaskExecutionId(new TaskId(new StageExecutionId(stageId, 0), partitionId), attemptNumber);
 
         // TODO: Remove this once we can display the plan on Spark UI.
 
@@ -442,7 +445,7 @@ public class PrestoSparkTaskExecutorFactory
                 format("%s_%s.hprof", session.getQueryId().getId(), stageId.getId())).toString();
         queryContext.setHeapDumpFilePath(heapDumpFilePath);
 
-        TaskStateMachine taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
+        TaskStateMachine taskStateMachine = new TaskStateMachine(taskExecutionId, notificationExecutor);
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
                 session,
@@ -528,7 +531,7 @@ public class PrestoSparkTaskExecutorFactory
             fillNativeExecutionTaskInputs(fragment, session, nativeInputs, shuffleReadInfos);
             shuffleWriteInfo = needShuffleWriteInfo(nativeInputs, (NativeExecutionNode) fragment.getRoot()) ?
                     Optional.of(shuffleInfoTranslator.createShuffleWriteInfo(session, nativeInputs.getShuffleWriteDescriptor().get())) : Optional.empty();
-            taskSources = getNativeExecutionShuffleSources(session, taskId, fragment, shuffleReadInfos.build(), getTaskSources(serializedTaskSources));
+            taskSources = getNativeExecutionShuffleSources(taskExecutionId, fragment, shuffleReadInfos.build(), getTaskSources(serializedTaskSources));
         }
         else {
             checkArgument(
@@ -541,7 +544,7 @@ public class PrestoSparkTaskExecutorFactory
 
         OutputBufferMemoryManager memoryManager = new OutputBufferMemoryManager(
                 sinkMaxBufferSize.toBytes(),
-                () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
+                () -> queryContext.getTaskContextByTaskId(taskExecutionId.getTaskId()).localSystemMemoryContext(),
                 notificationExecutor);
 
         Optional<OutputPartitioning> preDeterminedPartition = Optional.empty();
@@ -616,7 +619,7 @@ public class PrestoSparkTaskExecutorFactory
                 isNativeExecutionEnabled(session) && fragment.getRoot() instanceof NativeExecutionNode);
 
         log.info("Task [%s] received %d splits.",
-                taskId,
+                taskExecutionId,
                 taskSources.stream()
                         .mapToInt(taskSource -> taskSource.getSplits().size())
                         .sum());
@@ -770,15 +773,15 @@ public class PrestoSparkTaskExecutorFactory
     }
 
     private List<TaskSource> getNativeExecutionShuffleSources(
-            Session session, TaskId taskId, PlanFragment fragment, Map<PlanNodeId, PrestoSparkShuffleReadInfo> shuffleReadInfos, List<TaskSource> taskSources)
+            TaskExecutionId taskExecutionId, PlanFragment fragment, Map<PlanNodeId, PrestoSparkShuffleReadInfo> shuffleReadInfos, List<TaskSource> taskSources)
     {
         ImmutableSet.Builder<ScheduledSplit> result = ImmutableSet.builder();
         PlanNode root = fragment.getRoot();
         AtomicLong nextSplitId = new AtomicLong();
         shuffleReadInfos.forEach((planNodeId, info) ->
                 result.add(new ScheduledSplit(nextSplitId.getAndIncrement(), planNodeId, new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(
-                        new Location(format("batch://%s?shuffleInfo=%s", taskId, shuffleInfoTranslator.createSerializedReadInfo(info))),
-                        taskId)))));
+                        new Location(format("batch://%s?shuffleInfo=%s", taskExecutionId, shuffleInfoTranslator.createSerializedReadInfo(info))),
+                        taskExecutionId.getTaskId())))));
 
         List<TaskSource> nativeExecutionSources = taskSources.stream().filter(taskSource -> taskSource.getPlanNodeId().equals(root)).collect(Collectors.toList());
         checkState(nativeExecutionSources.size() <= 1, "At most 1 taskSource is expected for NativeExecutionNode but got %s", nativeExecutionSources.size());
@@ -998,7 +1001,7 @@ public class PrestoSparkTaskExecutorFactory
                 OutputBufferType outputBufferType,
                 PrestoSparkOutputBuffer<?> outputBuffer)
         {
-            TaskId taskId = taskContext.getTaskId();
+            TaskExecutionId taskExecutionId = taskContext.getTaskExecutionId();
             TaskState taskState = taskContext.getState();
             TaskStats taskStats = taskContext.getTaskStats().summarizeFinal();
 
@@ -1012,7 +1015,7 @@ public class PrestoSparkTaskExecutorFactory
                     taskInstanceId.getMostSignificantBits(),
                     STARTING_VERSION,
                     taskState,
-                    URI.create("http://fake.invalid/task/" + taskId),
+                    URI.create("http://fake.invalid/task/" + taskExecutionId),
                     taskContext.getCompletedDriverGroups(),
                     failures,
                     taskStats.getQueuedPartitionedDrivers(),
@@ -1042,7 +1045,7 @@ public class PrestoSparkTaskExecutorFactory
                     ImmutableList.of());
 
             return new TaskInfo(
-                    taskId,
+                    taskExecutionId.getTaskId(),
                     taskStatus,
                     DateTime.now(),
                     outputBufferInfo,

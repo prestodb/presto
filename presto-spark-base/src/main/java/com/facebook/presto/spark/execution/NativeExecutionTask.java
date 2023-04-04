@@ -18,7 +18,7 @@ import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskExecutionId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
@@ -71,7 +71,7 @@ public class NativeExecutionTask
     public NativeExecutionTask(
             Session session,
             URI location,
-            TaskId taskId,
+            TaskExecutionId taskExecutionId,
             PlanFragment planFragment,
             List<TaskSource> sources,
             HttpClient httpClient,
@@ -94,7 +94,7 @@ public class NativeExecutionTask
         requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         this.workerClient = new PrestoSparkHttpTaskClient(
                 requireNonNull(httpClient, "httpClient is null"),
-                taskId,
+                taskExecutionId,
                 location,
                 taskInfoCodec,
                 planFragmentCodec,

@@ -18,6 +18,7 @@ import com.facebook.airlift.stats.Distribution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.TaskExecutionId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -515,6 +516,11 @@ public class PipelineContext
             builder.accumulate(driverContextsIterator.next());
         }
         return builder.build();
+    }
+
+    public TaskExecutionId getTaskExecutionId()
+    {
+        return taskContext.getTaskExecutionId();
     }
 
     /**

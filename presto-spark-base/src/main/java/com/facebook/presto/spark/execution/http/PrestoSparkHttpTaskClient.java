@@ -21,7 +21,7 @@ import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskExecutionId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -70,7 +70,7 @@ public class PrestoSparkHttpTaskClient
     private final HttpClient httpClient;
     private final URI location;
     private final URI taskUri;
-    private final TaskId taskId;
+    private final TaskExecutionId taskExecutionId;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec;
@@ -78,7 +78,7 @@ public class PrestoSparkHttpTaskClient
 
     public PrestoSparkHttpTaskClient(
             HttpClient httpClient,
-            TaskId taskId,
+            TaskExecutionId taskExecutionId,
             URI location,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
@@ -86,12 +86,12 @@ public class PrestoSparkHttpTaskClient
             Duration infoRefreshMaxWait)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.taskId = requireNonNull(taskId, "taskId is null");
+        this.taskExecutionId = requireNonNull(taskExecutionId, "taskId is null");
         this.location = requireNonNull(location, "location is null");
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
-        this.taskUri = getTaskUri(location, taskId);
+        this.taskUri = getTaskUri(location, taskExecutionId);
         this.infoRefreshMaxWait = requireNonNull(infoRefreshMaxWait, "infoRefreshMaxWait is null");
     }
 
@@ -209,11 +209,11 @@ public class PrestoSparkHttpTaskClient
         return location;
     }
 
-    private URI getTaskUri(URI baseUri, TaskId taskId)
+    private URI getTaskUri(URI baseUri, TaskExecutionId taskExecutionId)
     {
         return uriBuilderFrom(baseUri)
                 .appendPath(TASK_URI)
-                .appendPath(taskId.toString())
+                .appendPath(taskExecutionId.toString())
                 .build();
     }
 }

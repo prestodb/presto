@@ -17,7 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskExecutionId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
@@ -73,7 +73,7 @@ public class NativeExecutionTaskFactory
     public NativeExecutionTask createNativeExecutionTask(
             Session session,
             URI location,
-            TaskId taskId,
+            TaskExecutionId taskExecutionId,
             PlanFragment fragment,
             List<TaskSource> sources,
             TableWriteInfo tableWriteInfo,
@@ -82,7 +82,7 @@ public class NativeExecutionTaskFactory
         return new NativeExecutionTask(
                 session,
                 location,
-                taskId,
+                taskExecutionId,
                 fragment,
                 sources,
                 httpClient,

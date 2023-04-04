@@ -236,7 +236,7 @@ public class NativeExecutionOperator
         this.task = taskFactory.createNativeExecutionTask(
                 operatorContext.getSession(),
                 uriBuilderFrom(URI.create(NATIVE_EXECUTION_SERVER_URI)).port(process.getPort()).build(),
-                operatorContext.getDriverContext().getTaskId(),
+                operatorContext.getDriverContext().getTaskExecutionId(),
                 planFragment,
                 ImmutableList.copyOf(taskSource),
                 tableWriteInfo,

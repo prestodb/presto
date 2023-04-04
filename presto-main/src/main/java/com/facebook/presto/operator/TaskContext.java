@@ -18,6 +18,7 @@ import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.TaskExecutionId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.TaskState;
@@ -756,5 +757,10 @@ public class TaskContext
         return searchFrom(taskPlan.get())
                 .where(node -> node.getId().equals(planNodeId) && nodeType.isInstance(node))
                 .findSingle();
+    }
+
+    public TaskExecutionId getTaskExecutionId()
+    {
+        return taskStateMachine.getTaskExecutionId();
     }
 }

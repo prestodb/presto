@@ -36,20 +36,26 @@ public class TaskStateMachine
 
     private final DateTime createdTime = DateTime.now();
 
-    private final TaskId taskId;
+    private final TaskExecutionId taskExecutionId;
     private final StateMachine<TaskState> taskState;
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
     public TaskStateMachine(TaskId taskId, Executor executor)
     {
-        this.taskId = requireNonNull(taskId, "taskId is null");
-        taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING, TERMINAL_TASK_STATES);
+        this(new TaskExecutionId(taskId, 0), executor);
+    }
+
+    public TaskStateMachine(TaskExecutionId taskExecutionId, Executor executor)
+    {
+        this.taskExecutionId = requireNonNull(taskExecutionId, "taskId is null");
+
+        taskState = new StateMachine<>("task " + taskExecutionId, executor, TaskState.RUNNING, TERMINAL_TASK_STATES);
         taskState.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
             public void stateChanged(TaskState newState)
             {
-                log.debug("Task %s is %s", taskId, newState);
+                log.debug("Task %s is %s", taskExecutionId, newState);
             }
         });
     }
@@ -61,7 +67,7 @@ public class TaskStateMachine
 
     public TaskId getTaskId()
     {
-        return taskId;
+        return taskExecutionId.getTaskId();
     }
 
     public TaskState getState()
@@ -130,9 +136,14 @@ public class TaskStateMachine
     public String toString()
     {
         return toStringHelper(this)
-                .add("taskId", taskId)
+                .add("taskExectionId", taskExecutionId)
                 .add("taskState", taskState)
                 .add("failureCauses", failureCauses)
                 .toString();
+    }
+
+    public TaskExecutionId getTaskExecutionId()
+    {
+        return taskExecutionId;
     }
 }

@@ -23,6 +23,7 @@ import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.ScheduledSplit;
+import com.facebook.presto.execution.TaskExecutionId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -132,7 +133,7 @@ public class TestPrestoSparkHttpClient
 
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 new TestingHttpClient(new TestingResponseManager(taskId.toString())),
-                taskId,
+                new TaskExecutionId(taskId, 0),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -160,7 +161,7 @@ public class TestPrestoSparkHttpClient
 
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 new TestingHttpClient(new TestingResponseManager(taskId.toString())),
-                taskId,
+                new TaskExecutionId(taskId, 0),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -176,7 +177,7 @@ public class TestPrestoSparkHttpClient
 
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 new TestingHttpClient(new TestingResponseManager(taskId.toString())),
-                taskId,
+                new TaskExecutionId(taskId, 0),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -199,7 +200,7 @@ public class TestPrestoSparkHttpClient
 
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 new TestingHttpClient(new TestingResponseManager(taskId.toString())),
-                taskId,
+                new TaskExecutionId(taskId, 0),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -223,7 +224,7 @@ public class TestPrestoSparkHttpClient
 
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 new TestingHttpClient(new TestingResponseManager(taskId.toString())),
-                taskId,
+                new TaskExecutionId(taskId, 0),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -322,7 +323,7 @@ public class TestPrestoSparkHttpClient
 
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 new TestingHttpClient(new TestingResponseManager(taskId.toString())),
-                taskId,
+                new TaskExecutionId(taskId, 0),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -394,7 +395,7 @@ public class TestPrestoSparkHttpClient
                                     }
                                 }
                             })),
-                taskId,
+                new TaskExecutionId(taskId, 0),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -488,7 +489,7 @@ public class TestPrestoSparkHttpClient
                         new TestingResponseManager(
                                 taskId.toString(),
                                 breakingLimitResponseManager)),
-                taskId,
+                new TaskExecutionId(taskId, 0),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -593,7 +594,7 @@ public class TestPrestoSparkHttpClient
                         new TestingResponseManager(
                                 taskId.toString(),
                                 timeoutResponseManager)),
-                taskId,
+                new TaskExecutionId(taskId, 0),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -630,7 +631,7 @@ public class TestPrestoSparkHttpClient
 
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 new TestingHttpClient(new TestingResponseManager(taskId.toString(), new TimeoutResponseManager(0, 10, 10))),
-                taskId,
+                new TaskExecutionId(taskId, 0),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -651,7 +652,7 @@ public class TestPrestoSparkHttpClient
         Duration fetchInterval = new Duration(1, TimeUnit.SECONDS);
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 new TestingHttpClient(new TestingResponseManager(taskId.toString())),
-                taskId,
+                new TaskExecutionId(taskId, 0),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -698,7 +699,7 @@ public class TestPrestoSparkHttpClient
             NativeExecutionTask task = taskFactory.createNativeExecutionTask(
                     testSessionBuilder().build(),
                     BASE_URI,
-                    taskId,
+                    new TaskExecutionId(taskId, 0),
                     createPlanFragment(),
                     sources,
                     new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
