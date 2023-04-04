@@ -80,6 +80,7 @@ import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespans
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedScaleWriterProducerBuffer;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
@@ -311,7 +312,7 @@ public class SectionExecutionFactory
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
             if (plan.getFragment().isLeaf()) {
-                stageExecution.registerStageTaskRecoveryCallback(taskId -> {
+                stageExecution.registerStageTaskRecoveryCallback((taskId, executionFailureInfos) -> {
                     log.warn("Going to recover task - %s", taskId);
                     HttpRemoteTask remoteTask = stageExecution.getAllTasks().stream()
                             .filter(task -> task.getTaskId().equals(taskId))
@@ -348,7 +349,13 @@ public class SectionExecutionFactory
                                 Multimap<PlanNodeId, Split> splitsToAdd = HashMultimap.create();
                                 splitsToAdd.putAll(planNodeId, scheduledSplit);
                                 RuntimeStats splitRetryStats = new RuntimeStats();
-                                splitRetryStats.addMetricValue(new StringBuilder(RUNTIME_STATS_RETRIED_SPLITS_PREFIX).append(nodeId).toString(), NONE, 1);
+                                long minTime = executionFailureInfos.stream().filter(info -> info.getFailureDetectionTimeInNanos() != null).mapToLong(info -> info.getFailureDetectionTimeInNanos()).min().orElse(Long.MAX_VALUE);
+                                if (minTime != Long.MAX_VALUE) {
+                                    splitRetryStats.addMetricValue(new StringBuilder(RUNTIME_STATS_RETRIED_SPLITS_PREFIX).append(nodeId).toString(), NANO, System.nanoTime() - minTime);
+                                }
+                                else {
+                                    splitRetryStats.addMetricValue(new StringBuilder(RUNTIME_STATS_RETRIED_SPLITS_PREFIX).append(nodeId).toString(), NONE, 1);
+                                }
                                 session.getRuntimeStats().update(splitRetryStats);
                                 httpRemoteTask.addSplits(splitsToAdd);
                             }
@@ -442,7 +449,7 @@ public class SectionExecutionFactory
                         nodeScheduler.createNodeSelector(session, connectorId, nodePredicate),
                         connectorPartitionHandles);
                 if (plan.getFragment().getStageExecutionDescriptor().isRecoverableGroupedExecution()) {
-                    stageExecution.registerStageTaskRecoveryCallback(taskId -> {
+                    stageExecution.registerStageTaskRecoveryCallback((taskId, failureInfos) -> {
                         checkArgument(taskId.getStageExecutionId().getStageId().equals(stageId), "The task did not execute this stage");
                         checkArgument(parentStageExecution.isPresent(), "Parent stage execution must exist");
                         checkArgument(parentStageExecution.get().getAllTasks().size() == 1, "Parent stage should only have one task for recoverable grouped execution");

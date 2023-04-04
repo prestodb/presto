@@ -267,7 +267,7 @@ public class SqlTaskExecution
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
                 getMaxDriversPerTask(taskContext.getSession()),
                 Optional.of(
-                        taskID -> taskStateMachine.failed(new HostShuttingDownException("killing pending tasks due to host being shutting down"))),
+                        taskID -> taskStateMachine.failed(new HostShuttingDownException("killing pending tasks due to host being shutting down", System.nanoTime()))),
                 Optional.of(outputBuffer));
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {

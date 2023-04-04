@@ -20,8 +20,16 @@ import static com.facebook.presto.spi.StandardErrorCode.HOST_SHUTTING_DOWN;
 public class HostShuttingDownException
         extends PrestoException
 {
-    public HostShuttingDownException(String message)
+    private final long shutdownTimeInNanos;
+
+    public HostShuttingDownException(String message, long shutdownTimeInNanos)
     {
         super(HOST_SHUTTING_DOWN, message);
+        this.shutdownTimeInNanos = shutdownTimeInNanos;
+    }
+
+    public long getShutdownTimeInNanos()
+    {
+        return shutdownTimeInNanos;
     }
 }
