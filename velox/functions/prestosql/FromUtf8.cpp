@@ -223,16 +223,21 @@ class FromUtf8Function : public exec::VectorFunction {
       } else {
         auto flatBase = base->asFlatVector<StringView>();
         auto stringBuffers = flatBase->stringBuffers();
-        localResult = decodedInput.wrap(
-            std::make_shared<FlatVector<StringView>>(
-                context.pool(),
-                VARCHAR(),
-                nullptr,
-                flatBase->size(),
-                flatBase->values(),
-                std::move(stringBuffers)),
-            *input,
-            rows.end());
+
+        auto values = AlignedBuffer::allocate<StringView>(
+            rows.end(), context.pool(), StringView());
+        auto* rawValues = values->asMutable<StringView>();
+        rows.applyToSelected([&](auto row) {
+          rawValues[row] = decodedInput.valueAt<StringView>(row);
+        });
+
+        localResult = std::make_shared<FlatVector<StringView>>(
+            context.pool(),
+            VARCHAR(),
+            nullptr,
+            rows.end(),
+            std::move(values),
+            std::move(stringBuffers));
       }
     }
 
