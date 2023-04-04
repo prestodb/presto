@@ -144,25 +144,32 @@ void PrestoExchangeSource::processDataResponse(
 
   std::unique_ptr<exec::SerializedPage> page;
   std::unique_ptr<folly::IOBuf> singleChain;
-  bool empty = response->empty();
+  const bool empty = response->empty();
+  int64_t totalBytes{0};
   if (!empty) {
     auto iobufs = response->consumeBody();
     for (auto& buf : iobufs) {
+      totalBytes += buf->capacity();
       if (!singleChain) {
         singleChain = std::move(buf);
       } else {
         singleChain->prev()->appendChain(std::move(buf));
       }
     }
+    PrestoExchangeSource::updateMemoryUsage(totalBytes);
+
     page = std::make_unique<exec::SerializedPage>(
         std::move(singleChain), nullptr, [pool = pool_](folly::IOBuf& iobuf) {
+          int64_t freedBytes{0};
           // Free the backed memory from MemoryAllocator on page dtor
           folly::IOBuf* start = &iobuf;
           auto curr = start;
           do {
-            pool->free(curr->writableData(), curr->length());
+            freedBytes += curr->capacity();
+            pool->free(curr->writableData(), curr->capacity());
             curr = curr->next();
           } while (curr != start);
+          PrestoExchangeSource::updateMemoryUsage(-freedBytes);
         });
   }
 
@@ -307,4 +314,21 @@ PrestoExchangeSource::createExchangeSource(
   return nullptr;
 }
 
+void PrestoExchangeSource::updateMemoryUsage(int64_t updateBytes) {
+  const int64_t newMemoryBytes =
+      currQueuedMemoryBytes().fetch_add(updateBytes) + updateBytes;
+  if (updateBytes > 0) {
+    peakQueuedMemoryBytes() =
+        std::max<int64_t>(peakQueuedMemoryBytes(), newMemoryBytes);
+  } else {
+    VELOX_CHECK_GE(currQueuedMemoryBytes(), 0);
+  }
+}
+
+void PrestoExchangeSource::getMemoryUsage(
+    int64_t& currentBytes,
+    int64_t& peakBytes) {
+  currentBytes = currQueuedMemoryBytes();
+  peakBytes = peakQueuedMemoryBytes();
+}
 } // namespace facebook::presto

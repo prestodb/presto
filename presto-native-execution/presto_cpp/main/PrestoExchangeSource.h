@@ -42,6 +42,15 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     return failedAttempts_;
   }
 
+  /// Invoked to track the node-wise memory usage queued in
+  /// PrestoExchangeSource. If 'updateBytes' > 0, then increment the usage,
+  /// otherwise decrement the usage.
+  static void updateMemoryUsage(int64_t updateBytes);
+
+  /// Invoked to get the node-wise queued memory usage from
+  /// PrestoExchangeSource.
+  static void getMemoryUsage(int64_t& currentBytes, int64_t& peakBytes);
+
  private:
   void request() override;
 
@@ -49,10 +58,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   void processDataResponse(std::unique_ptr<http::HttpResponse> response);
 
-  /// If 'retry' is true, then retry the http request failure until reaches the
-  /// retry limit, otherwise just set exchange source error without retry. As
-  /// for now, we don't retry on the request failure which is caused by the
-  /// memory allocation failure for the http response data.
+  // If 'retry' is true, then retry the http request failure until reaches the
+  // retry limit, otherwise just set exchange source error without retry. As
+  // for now, we don't retry on the request failure which is caused by the
+  // memory allocation failure for the http response data.
   void processDataError(
       const std::string& path,
       const std::string& error,
@@ -64,6 +73,19 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   // Returns a shared ptr owning the current object.
   std::shared_ptr<PrestoExchangeSource> getSelfPtr();
+
+  // Tracks the currently node-wide queued memory usage in bytes.
+  static std::atomic<int64_t>& currQueuedMemoryBytes() {
+    static std::atomic<int64_t> currQueuedMemoryBytes{0};
+    return currQueuedMemoryBytes;
+  }
+
+  // Records the node-wide peak queued memory usage in bytes.
+  // Tracks the currently node-wide queued memory usage in bytes.
+  static std::atomic<int64_t>& peakQueuedMemoryBytes() {
+    static std::atomic<int64_t> peakQueuedMemoryBytes{0};
+    return peakQueuedMemoryBytes;
+  }
 
   const std::string basePath_;
   const std::string host_;
