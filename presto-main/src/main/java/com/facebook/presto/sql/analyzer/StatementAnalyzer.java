@@ -1282,7 +1282,7 @@ class StatementAnalyzer
                 }
             }
 
-            Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadataResolver.getTableHandle(name));
+            Optional<TableHandle> tableHandle = analysis.getMetadataHandle().getTableHandle(name);
             if (!tableHandle.isPresent()) {
                 if (!metadataResolver.catalogExists(name.getCatalogName())) {
                     throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());

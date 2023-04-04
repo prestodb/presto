@@ -55,6 +55,7 @@ public class Analyzer
     private final List<Expression> parameters;
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
+    private final MetadataExtractor metadataExtractor;
 
     public Analyzer(
             Session session,
@@ -74,6 +75,7 @@ public class Analyzer
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.parameterLookup = requireNonNull(parameterLookup, "parameterLookup is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.metadataExtractor = new MetadataExtractor(session, metadata.getMetadataResolver(session));
     }
 
     public Analysis analyze(Statement statement)
@@ -93,6 +95,8 @@ public class Analyzer
     {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
+
+        metadataExtractor.populateMetadataHandle(rewrittenStatement, analysis.getMetadataHandle());
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
         analyzeForUtilizedColumns(analysis, analysis.getStatement());
