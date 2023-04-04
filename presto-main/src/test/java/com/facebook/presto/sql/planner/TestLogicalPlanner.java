@@ -1681,10 +1681,10 @@ public class TestLogicalPlanner
         this.getQueryRunner().getFunctionAndTypeManager().createFunction(SQUARE_UDF_CPP, false);
 
         assertPlan(
-                "SELECT json.f3.square(orderkey) from orders",
+                "SELECT json.test_schema.square(orderkey) from orders",
                 any(
                         project(
-                                ImmutableMap.of("out", expression("json.f3.square(orderkey)")),
+                                ImmutableMap.of("out", expression("json.test_schema.square(orderkey)")),
                                 tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))));
     }
 
@@ -1693,7 +1693,7 @@ public class TestLogicalPlanner
     {
         this.getQueryRunner().getFunctionAndTypeManager().createFunction(AVG_UDAF_CPP, false);
 
-        assertDistributedPlan("SELECT orderstatus, json.f3.avg(totalprice) FROM orders GROUP BY orderstatus",
+        assertDistributedPlan("SELECT orderstatus, json.test_schema.avg(totalprice) FROM orders GROUP BY orderstatus",
                 anyTree(
                         aggregation(
                                 ImmutableMap.of("final_result", functionCall("avg", ImmutableList.of("partial_result"))),
