@@ -240,6 +240,7 @@ public class FeaturesConfig
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
     private String nativeExecutionExecutablePath = "./presto_server";
+    private String nativeExecutionProgramArguments = "";
     private boolean randomizeOuterJoinNullKey;
     private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
     private boolean isOptimizeConditionalAggregationEnabled;
@@ -2279,6 +2280,19 @@ public class FeaturesConfig
     public String getNativeExecutionExecutablePath()
     {
         return this.nativeExecutionExecutablePath;
+    }
+
+    @Config("native-execution-program-arguments")
+    @ConfigDescription("Program arguments for native engine execution")
+    public FeaturesConfig setNativeExecutionProgramArguments(String nativeExecutionProgramArguments)
+    {
+        this.nativeExecutionProgramArguments = nativeExecutionProgramArguments;
+        return this;
+    }
+
+    public String getNativeExecutionProgramArguments()
+    {
+        return this.nativeExecutionProgramArguments;
     }
 
     public boolean isRandomizeOuterJoinNullKeyEnabled()
