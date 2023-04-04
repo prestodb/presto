@@ -246,6 +246,7 @@ import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.getHeapDumpFileDirectory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
@@ -335,6 +336,8 @@ public class LocalQueryRunner
 
     private final PlanChecker distributedPlanChecker;
     private final PlanChecker singleNodePlanChecker;
+
+    private static ExecutorService metadataExtractorExecutor = newCachedThreadPool(threadsNamed("query-execution-%s"));
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -480,7 +483,7 @@ public class LocalQueryRunner
                 new TransactionsSystemTable(metadata.getFunctionAndTypeManager(), transactionManager)),
                 ImmutableSet.of());
 
-        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.empty());
+        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.empty(), metadataExtractorExecutor);
         BuiltInAnalyzerProvider analyzerProvider = new BuiltInAnalyzerProvider(new BuiltInQueryPreparer(sqlParser), queryAnalyzer);
 
         this.pluginManager = new PluginManager(
@@ -863,7 +866,7 @@ public class LocalQueryRunner
                 dataDefinitionTask,
                 distributedPlanChecker);
 
-        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer));
+        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer), metadataExtractorExecutor);
 
         AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session);
 
@@ -1105,7 +1108,7 @@ public class LocalQueryRunner
                 dataDefinitionTask,
                 distributedPlanChecker);
 
-        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer));
+        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer), metadataExtractorExecutor);
 
         AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session);
 

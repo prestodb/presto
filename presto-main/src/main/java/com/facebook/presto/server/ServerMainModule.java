@@ -179,6 +179,9 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
+import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
+import com.facebook.presto.sql.analyzer.MetadataExtractor;
+import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -234,6 +237,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.airlift.concurrent.ConcurrentScheduledExecutor.createConcurrentScheduledExecutor;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -261,6 +265,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ServerMainModule
@@ -301,6 +306,12 @@ public class ServerMainModule
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
         sqlParserOptions.useEnhancedErrorHandler(serverConfig.isEnhancedErrorReporting());
+
+        // Metadata Extractor
+        binder.bind(ExecutorService.class).annotatedWith(ForMetadataExtractor.class)
+                .toInstance(newCachedThreadPool(threadsNamed("metadata-extractor-%s")));
+        binder.bind(MetadataExtractorMBean.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(MetadataExtractorMBean.class).as(generatedNameOf(MetadataExtractor.class));
 
         // analyzer
         binder.bind(BuiltInQueryPreparer.class).in(Scopes.SINGLETON);
