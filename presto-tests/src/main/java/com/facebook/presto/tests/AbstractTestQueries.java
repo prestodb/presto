@@ -60,6 +60,7 @@ import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
+import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_CALLS;
 import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
@@ -6629,5 +6630,57 @@ public abstract class AbstractTestQueries
 
         sql = "select o.orderkey, l.partkey, l.suppkey from lineitem l join orders o on (l.orderkey = o.orderkey or (l.partkey + l.suppkey) = o.orderkey) and l.quantity*totalprice > 1000 where l.quantity < 5 and o.totalprice < 2000";
         assertQuery(enablePushFilterOptimization, sql);
+    }
+
+    @Test
+    public void testPreProcessMetastoreCalls()
+    {
+        Session enablePreProcessMetadataCalls = Session.builder(getSession())
+                .setSystemProperty(PRE_PROCESS_METADATA_CALLS, "true")
+                .build();
+
+        String query = "SELECT name from nation";
+        assertEqualsIgnoreOrder(computeActual(enablePreProcessMetadataCalls, query), computeActual(getSession(), query));
+
+        query = "SELECT orderkey, custkey, sum(agg_price) AS outer_sum, grouping(orderkey, custkey), g " +
+                "FROM " +
+                "    (SELECT orderkey, custkey, sum(totalprice) AS agg_price, grouping(custkey, orderkey) AS g " +
+                "        FROM orders " +
+                "        GROUP BY orderkey, custkey " +
+                "        ORDER BY agg_price ASC " +
+                "        LIMIT 5) AS t " +
+                "GROUP BY GROUPING SETS ((orderkey, custkey), g) " +
+                "ORDER BY outer_sum";
+        assertEqualsIgnoreOrder(computeActual(enablePreProcessMetadataCalls, query), computeActual(getSession(), query));
+
+        query = "SELECT c.custkey, c.name, l.orderkey, p.name FROM\n" +
+                "    customer c\n" +
+                "    JOIN orders o ON c.custkey = o.custkey\n" +
+                "    JOIN lineitem l ON o.orderkey = l.orderkey\n" +
+                "    JOIN part p ON l.partkey = p.partkey\n";
+        assertEqualsIgnoreOrder(computeActual(enablePreProcessMetadataCalls, query), computeActual(getSession(), query));
+
+        query = "SELECT\n" +
+                "    c.custkey,\n" +
+                "    c.name,\n" +
+                "    o.orderkey,\n" +
+                "    o.orderdate,\n" +
+                "    l.extendedprice\n" +
+                "FROM\n" +
+                "    customer c\n" +
+                "    JOIN orders o ON c.custkey = o.custkey\n" +
+                "    JOIN lineitem l ON o.orderkey = l.orderkey\n" +
+                "    JOIN (\n" +
+                "        SELECT\n" +
+                "            orderkey,\n" +
+                "            MAX(shipdate) AS max_shipdate\n" +
+                "        FROM\n" +
+                "            lineitem\n" +
+                "        GROUP BY\n" +
+                "            orderkey\n" +
+                "    ) max_ship ON l.orderkey = max_ship.orderkey AND l.shipdate = max_ship.max_shipdate\n" +
+                "WHERE\n" +
+                "    c.nationkey = 1\n";
+        assertEqualsIgnoreOrder(computeActual(enablePreProcessMetadataCalls, query), computeActual(getSession(), query));
     }
 }

@@ -117,6 +117,6 @@ public class TestIcebergMetadataListing
     public void testTableValidation()
     {
         assertQuerySucceeds("SELECT * FROM iceberg.test_schema.iceberg_table1");
-        assertQueryFails("SELECT * FROM iceberg.test_schema.hive_table", "Not an Iceberg table: test_schema.hive_table");
+        assertQueryFails("SELECT * FROM iceberg.test_schema.hive_table", ".*Not an Iceberg table: test_schema.hive_table");
     }
 }
