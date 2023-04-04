@@ -268,12 +268,18 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     return exec::ExprSet(typedExprs, &execCtx_);
   }
 
-  std::string makeExpression(int n, RunConfig config) {
+  std::string makeExpression(int n, RunConfig config, bool withNulls) {
     switch (config) {
       case RunConfig::Basic:
-        return fmt::format(
-            "clamp(0.05::REAL * (20.5::REAL + if(floor(c0) = {}::REAL, 1::REAL, 0::REAL)), (-10.0)::REAL, 10.0::REAL)",
-            n);
+        if (withNulls) {
+          return fmt::format(
+              "clamp(0.05::REAL * (20.5::REAL + if(c0 is Null , cast (null as real), if(floor(c0) = {}::REAL, 1::REAL, 0::REAL))), (-10.0)::REAL, 10.0::REAL)",
+              n);
+        } else {
+          return fmt::format(
+              "clamp(0.05::REAL * (20.5::REAL + if(floor(c0) = {}::REAL, 1::REAL, 0::REAL)), (-10.0)::REAL, 10.0::REAL)",
+              n);
+        }
       case RunConfig::Simple:
         return fmt::format(
             "clamp(0.05::REAL * (20.5::REAL + if(simple_eq(floor(c0) ,{}::REAL), 1::REAL, 0::REAL)), (-10.0)::REAL, 10.0::REAL)",
@@ -292,15 +298,34 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     return "";
   }
 
-  std::vector<VectorPtr> evaluateOnce(RunConfig config) {
-    auto data = vectorMaker_.rowVector(
-        {vectorMaker_.flatVector<float>(kBenchmarkData)});
+  auto makeData(bool withNulls) {
+    auto scaledData = std::vector<float>();
+    scaledData.reserve(kBenchmarkData.size() * scaleFactor_);
+
+    for (int i = 0; i < scaleFactor_; i++) {
+      scaledData.insert(
+          scaledData.end(), kBenchmarkData.begin(), kBenchmarkData.end());
+    }
+
+    auto flatVector = vectorMaker_.flatVector<float>(scaledData);
+    vectorMaker_.flatVector<float>(scaledData);
+    if (withNulls) {
+      for (auto i = 0; i < flatVector->size(); i++) {
+        flatVector->setNull(i, i % 10);
+      }
+    }
+    return flatVector;
+  }
+
+  std::vector<VectorPtr> evaluateOnce(RunConfig config, bool withNulls) {
+    auto data = vectorMaker_.rowVector({makeData(withNulls)});
+
     auto exprSet = compile({
-        makeExpression(1, config),
-        makeExpression(2, config),
-        makeExpression(3, config),
-        makeExpression(4, config),
-        makeExpression(5, config),
+        makeExpression(1, config, withNulls),
+        makeExpression(2, config, withNulls),
+        makeExpression(3, config, withNulls),
+        makeExpression(4, config, withNulls),
+        makeExpression(5, config, withNulls),
     });
 
     SelectivityVector rows(data->size());
@@ -313,11 +338,16 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
   // Verify that results of the calculation using one_hot function match the
   // results when using if+floor.
   void test() {
-    auto original = evaluateOnce(RunConfig::Basic);
+    testInternal(true);
+    testInternal(false);
+  }
 
-    auto onehot = evaluateOnce(RunConfig::OneHot);
-    auto vectorAndOneHot = evaluateOnce(RunConfig::VectorAndOneHot);
-    auto allFused = evaluateOnce(RunConfig::AllFused);
+  void testInternal(bool withNulls) {
+    auto original = evaluateOnce(RunConfig::Basic, withNulls);
+
+    auto onehot = evaluateOnce(RunConfig::OneHot, withNulls);
+    auto vectorAndOneHot = evaluateOnce(RunConfig::VectorAndOneHot, withNulls);
+    auto allFused = evaluateOnce(RunConfig::AllFused, withNulls);
 
     auto checkResult = [&](auto result) {
       VELOX_CHECK_EQ(result.size(), original.size());
@@ -331,25 +361,16 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     checkResult(allFused);
   }
 
-  size_t run(RunConfig config, size_t times = 1000) {
+  size_t run(RunConfig config, bool withNulls, size_t times = 1000) {
     folly::BenchmarkSuspender suspender;
 
-    auto scaledData = std::vector<float>();
-    scaledData.reserve(kBenchmarkData.size() * scaleFactor_);
-
-    for (int i = 0; i < scaleFactor_; i++) {
-      scaledData.insert(
-          scaledData.end(), kBenchmarkData.begin(), kBenchmarkData.end());
-    }
-
-    auto data =
-        vectorMaker_.rowVector({vectorMaker_.flatVector<float>(scaledData)});
+    auto data = vectorMaker_.rowVector({makeData(withNulls)});
     auto exprSet = compile({
-        makeExpression(1, config),
-        makeExpression(2, config),
-        makeExpression(3, config),
-        makeExpression(4, config),
-        makeExpression(5, config),
+        makeExpression(1, config, withNulls),
+        makeExpression(2, config, withNulls),
+        makeExpression(3, config, withNulls),
+        makeExpression(4, config, withNulls),
+        makeExpression(5, config, withNulls),
     });
 
     SelectivityVector rows(data->size());
@@ -372,26 +393,51 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
 std::unique_ptr<PreprocBenchmark> benchmark;
 
 BENCHMARK(ifFloor) {
-  benchmark->run(RunConfig::Basic);
+  benchmark->run(RunConfig::Basic, false);
 }
 
 // Same as ifFloor, but uses non-SIMD version of the equality operation.
 BENCHMARK(ifFloorWithSimpleEq) {
-  benchmark->run(RunConfig::Simple);
+  benchmark->run(RunConfig::Simple, false);
 }
 
 // Replaces if + floor expression with a one_hot function call.
 BENCHMARK(oneHot) {
-  benchmark->run(RunConfig::OneHot);
+  benchmark->run(RunConfig::OneHot, false);
 }
 
 // Same as oneHot, but uses vector functions for plus and multiply.
 BENCHMARK(oneHotWithVectorArithmetic) {
-  benchmark->run(RunConfig::VectorAndOneHot);
+  benchmark->run(RunConfig::VectorAndOneHot, false);
 }
 
 BENCHMARK(allFused) {
-  benchmark->run(RunConfig::AllFused);
+  benchmark->run(RunConfig::AllFused, false);
+}
+
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK(ifFloorWithNulls) {
+  benchmark->run(RunConfig::Basic, true);
+}
+
+// Same as ifFloor, but uses non-SIMD version of the equality operation.
+BENCHMARK(ifFloorWithSimpleEqWithNulls) {
+  benchmark->run(RunConfig::Simple, true);
+}
+
+// Replaces if + floor expression with a one_hot function call.
+BENCHMARK(oneHotWithNulls) {
+  benchmark->run(RunConfig::OneHot, true);
+}
+
+// Same as oneHot, but uses vector functions for plus and multiply.
+BENCHMARK(oneHotWithVectorArithmeticWithNulls) {
+  benchmark->run(RunConfig::VectorAndOneHot, true);
+}
+
+BENCHMARK(allFusedWithNulls) {
+  benchmark->run(RunConfig::AllFused, true);
 }
 
 } // namespace
