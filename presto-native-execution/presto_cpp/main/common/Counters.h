@@ -114,6 +114,13 @@ constexpr folly::StringPiece kCounterMappedMemoryRawAllocBytesSizeClass{
 // largest SizeClass cannot accommodate, are counted towards this counter.
 constexpr folly::StringPiece kCounterMappedMemoryRawAllocBytesLarge{
     "presto_cpp.mapped_memory_raw_alloc_bytes_large"};
+/// Number of bytes currently queued in PrestoExchangeSource waiting for
+/// consume.
+constexpr folly::StringPiece kCounterExchangeSourceQueuedBytes{
+    "presto_cpp.exchange_source_queued_bytes"};
+/// Peak number of bytes queued in PrestoExchangeSource waiting for consume.
+constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
+    "presto_cpp.exchange_source_peak_queued_bytes"};
 
 // ================== Cache Counters ==================
 

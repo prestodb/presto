@@ -116,6 +116,10 @@ class SystemConfig : public ConfigBase {
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatFilter{
       "http-server.enable-stats-filter"};
+  /// The options to configure the max quantized memory allocation size to store
+  /// the received http response data.
+  static constexpr std::string_view kHttpMaxAllocateBytes{
+      "http-server.max-response-allocate-bytes"};
   // Most server nodes today (May 2022) have at least 16 cores.
   // Setting the default maximum drivers per task to this value will
   // provide a better off-shelf experience.
@@ -140,6 +144,7 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kUseMmapAllocatorDefault{true};
   static constexpr bool kHttpEnableAccessLogDefault = false;
   static constexpr bool kHttpEnableStatsFilterDefault = false;
+  static constexpr uint64_t kHttpMaxAllocateBytesDefault = 64 << 10;
 
   static SystemConfig* instance();
 
@@ -195,6 +200,8 @@ class SystemConfig : public ConfigBase {
   bool enableHttpAccessLog() const;
 
   bool enableHttpStatsFilter() const;
+
+  uint64_t httpMaxAllocateBytes() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

@@ -76,6 +76,10 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMappedMemoryRawAllocBytesLarge, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterExchangeSourceQueuedBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterExchangeSourcePeakQueuedBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryCacheNumEntries, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMemoryCacheNumEmptyEntries, facebook::velox::StatType::AVG);

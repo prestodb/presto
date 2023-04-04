@@ -27,10 +27,7 @@ class HttpResponse {
  public:
   HttpResponse(
       std::unique_ptr<proxygen::HTTPMessage> headers,
-      velox::memory::MemoryPool* pool)
-      : headers_(std::move(headers)), pool_(pool) {
-    VELOX_CHECK_NOT_NULL(pool_);
-  }
+      velox::memory::MemoryPool* pool);
 
   ~HttpResponse();
 
@@ -84,17 +81,23 @@ class HttpResponse {
   void freeBuffers() {
     for (auto& iobuf : bodyChain_) {
       if (iobuf != nullptr) {
-        pool_->free(iobuf->writableData(), iobuf->length());
+        pool_->free(iobuf->writableData(), iobuf->capacity());
       }
     }
     bodyChain_.clear();
   }
 
+  // Returns the next buffer allocation size given the new request 'dataLength'.
+  FOLLY_ALWAYS_INLINE size_t nextAllocationSize(uint64_t dataLength) const;
+
   const std::unique_ptr<proxygen::HTTPMessage> headers_;
   velox::memory::MemoryPool* const pool_;
+  const uint64_t minResponseAllocBytes_;
+  const uint64_t maxResponseAllocBytes_;
 
   std::string error_{};
   std::vector<std::unique_ptr<folly::IOBuf>> bodyChain_;
+  size_t bodyChainBytes_{0};
 };
 
 // HttpClient uses proxygen::SessionPool which must be destructed on the
@@ -117,9 +120,10 @@ class HttpClient {
       const std::string& body = "");
 
  private:
-  folly::EventBase* FOLLY_NONNULL eventBase_;
+  folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
   const folly::HHWheelTimer::UniquePtr timer_;
+
   std::unique_ptr<proxygen::SessionPool> sessionPool_;
 };
 

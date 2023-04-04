@@ -15,6 +15,7 @@
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/stop_watch.h>
+#include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskManager.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "velox/common/base/StatsReporter.h"
@@ -34,6 +35,9 @@ namespace facebook::presto {
 static constexpr size_t kTaskPeriodGlobalCounters{2'000'000}; // 2 seconds.
 // Every two seconds we export memory counters.
 static constexpr size_t kMemoryPeriodGlobalCounters{2'000'000}; // 2 seconds.
+// Every two seconds we export exchange source counters.
+static constexpr size_t kExchangeSourcePeriodGlobalCounters{
+    2'000'000}; // 2 seconds.
 // Every 1 minute we clean old tasks.
 static constexpr size_t kTaskPeriodCleanOldTasks{60'000'000}; // 60 seconds.
 // Every 1 minute we export cache counters.
@@ -146,6 +150,21 @@ void PeriodicTaskManager::start() {
         std::chrono::microseconds{kMemoryPeriodGlobalCounters},
         "mmap_memory_counters");
   }
+
+  // Presto exchange source memory usage update.
+  scheduler_.addFunction(
+      []() {
+        int64_t currQueuedMemoryBytes{0};
+        int64_t peakQueuedMemoryBytes{0};
+        PrestoExchangeSource::getMemoryUsage(
+            currQueuedMemoryBytes, peakQueuedMemoryBytes);
+        REPORT_ADD_STAT_VALUE(
+            kCounterExchangeSourceQueuedBytes, currQueuedMemoryBytes);
+        REPORT_ADD_STAT_VALUE(
+            kCounterExchangeSourcePeakQueuedBytes, peakQueuedMemoryBytes);
+      },
+      std::chrono::microseconds{kExchangeSourcePeriodGlobalCounters},
+      "exchange_source_counters");
 
   if (auto* asyncDataCache = dynamic_cast<velox::cache::AsyncDataCache*>(
           velox::memory::MemoryAllocator::getInstance())) {
@@ -384,9 +403,9 @@ void PeriodicTaskManager::start() {
             (int64_t)usage.ru_stime.tv_sec * 1'000'000 +
                 (int64_t)usage.ru_stime.tv_usec);
         REPORT_ADD_STAT_VALUE(
-            kCounterNumCumulativeSoftPageFaults, usage.ru_minflt)
+            kCounterNumCumulativeSoftPageFaults, usage.ru_minflt);
         REPORT_ADD_STAT_VALUE(
-            kCounterNumCumulativeHardPageFaults, usage.ru_majflt)
+            kCounterNumCumulativeHardPageFaults, usage.ru_majflt);
       },
       std::chrono::microseconds{kOsPeriodGlobalCounters},
       "os_counters");
