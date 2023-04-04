@@ -89,11 +89,14 @@ class IMemoryManager {
   /// 'name' is missing, the memory manager generates a default name internally
   /// to ensure uniqueness. If 'kind' is kAggregate, a root memory pool is
   /// created. Otherwise, a leaf memory pool is created as the child of the
-  /// memory manager's default root memory pool.
+  /// memory manager's default root memory pool. If 'kind' is kAggregate and
+  /// 'trackUsage' is true, then set the memory usage tracker in the created
+  /// memory pool.
   virtual std::shared_ptr<MemoryPool> getPool(
       const std::string& name = "",
       MemoryPool::Kind kind = MemoryPool::Kind::kAggregate,
-      int64_t maxBytes = kMaxMemory) = 0;
+      int64_t maxBytes = kMaxMemory,
+      bool trackUsage = true) = 0;
 
   /// Returns the number of alive memory pools allocated from getPool().
   ///
@@ -160,7 +163,8 @@ class MemoryManager final : public IMemoryManager {
   std::shared_ptr<MemoryPool> getPool(
       const std::string& name = "",
       MemoryPool::Kind kind = MemoryPool::Kind::kAggregate,
-      int64_t maxBytes = kMaxMemory) final;
+      int64_t maxBytes = kMaxMemory,
+      bool trackUsage = true) final;
 
   MemoryPool& deprecatedGetPool() final;
 

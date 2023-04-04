@@ -84,7 +84,8 @@ uint16_t MemoryManager::alignment() const {
 std::shared_ptr<MemoryPool> MemoryManager::getPool(
     const std::string& name,
     MemoryPool::Kind kind,
-    int64_t maxBytes) {
+    int64_t maxBytes,
+    bool trackUsage) {
   std::string poolName = name;
   if (poolName.empty()) {
     static std::atomic<int64_t> poolId{0};
@@ -98,6 +99,7 @@ std::shared_ptr<MemoryPool> MemoryManager::getPool(
   MemoryPool::Options options;
   options.alignment = alignment_;
   options.capacity = maxBytes;
+  options.trackUsage = trackUsage;
   auto pool = std::make_shared<MemoryPoolImpl>(
       this,
       poolName,

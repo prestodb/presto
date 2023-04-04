@@ -1873,6 +1873,21 @@ TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
   ASSERT_EQ(root->getChildCount(), 0);
 }
 
+TEST_P(MemoryPoolTest, usageTrackerOptionTest) {
+  auto manager = getMemoryManager(8 * GB);
+  std::vector<bool> trackUsages = {false, true};
+  for (const auto trackUsage : trackUsages) {
+    auto root = manager->getPool(
+        "usageTrackerOptionTest",
+        MemoryPool::Kind::kAggregate,
+        kMaxMemory,
+        trackUsage);
+    ASSERT_EQ(trackUsage, root->getMemoryUsageTracker() != nullptr);
+    auto child = root->addChild("usageTrackerOptionTest");
+    ASSERT_EQ(trackUsage, child->getMemoryUsageTracker() != nullptr);
+  }
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     MemoryPoolTestSuite,
     MemoryPoolTest,

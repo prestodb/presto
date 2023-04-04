@@ -105,6 +105,13 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     uint16_t alignment{MemoryAllocator::kMaxAlignment};
     /// Specifies the memory capacity of this memory pool.
     int64_t capacity{kMaxMemory};
+    /// If true, creates the memory usage tracker on constructor to track usage.
+    /// Otherwise not.
+    ///
+    /// NOTE: there are some use cases which doesn't need memory usage tracking
+    /// but sensitive to its cpu cost so we provide an options for user to turn
+    /// it off.
+    bool trackUsage{true};
   };
 
   /// Constructs a named memory pool with specified 'name', 'parent' and 'kind'.

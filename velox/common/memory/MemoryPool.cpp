@@ -31,6 +31,21 @@ namespace {
       /* isRetriable */ true,                                       \
       "Exceeded memory manager cap of {} MB",                       \
       (cap) / 1024 / 1024);
+
+std::shared_ptr<MemoryUsageTracker> createMemoryUsageTracker(
+    MemoryPool* parent,
+    MemoryPool::Kind kind,
+    const MemoryPool::Options& options) {
+  if (parent == nullptr) {
+    return options.trackUsage ? MemoryUsageTracker::create(options.capacity)
+                              : nullptr;
+  }
+  if (parent->getMemoryUsageTracker() == nullptr) {
+    return nullptr;
+  }
+  return parent->getMemoryUsageTracker()->addChild(
+      kind == MemoryPool::Kind::kLeaf);
+}
 } // namespace
 
 MemoryPool::MemoryPool(
@@ -170,16 +185,15 @@ MemoryPoolImpl::MemoryPoolImpl(
     const Options& options)
     : MemoryPool{name, kind, parent, options},
       memoryUsageTracker_(
-          parent_ == nullptr ? MemoryUsageTracker::create(options.capacity)
-                             : parent->getMemoryUsageTracker()->addChild(
-                                   kind == MemoryPool::Kind::kLeaf)),
+          createMemoryUsageTracker(parent_.get(), kind, options)),
       memoryManager_{memoryManager},
       allocator_{&memoryManager_->getAllocator()},
       destructionCb_(std::move(destructionCb)),
       localMemoryUsage_{} {}
 
 MemoryPoolImpl::~MemoryPoolImpl() {
-  if (FLAGS_velox_memory_leak_check_enabled) {
+  if (FLAGS_velox_memory_leak_check_enabled &&
+      (memoryUsageTracker_ != nullptr)) {
     const auto remainingBytes = memoryUsageTracker_->currentBytes();
     VELOX_CHECK_EQ(
         0,
@@ -427,7 +441,9 @@ void MemoryPoolImpl::updateSubtreeMemoryUsage(
 void MemoryPoolImpl::reserve(int64_t size) {
   checkMemoryAllocation();
 
-  memoryUsageTracker_->update(size);
+  if (memoryUsageTracker_ != nullptr) {
+    memoryUsageTracker_->update(size);
+  }
   localMemoryUsage_.incrementCurrentBytes(size);
 
   bool success = memoryManager_->reserve(size);
@@ -446,6 +462,8 @@ void MemoryPoolImpl::release(int64_t size) {
 
   memoryManager_->release(size);
   localMemoryUsage_.incrementCurrentBytes(-size);
-  memoryUsageTracker_->update(-size);
+  if (memoryUsageTracker_ != nullptr) {
+    memoryUsageTracker_->update(-size);
+  }
 }
 } // namespace facebook::velox::memory
