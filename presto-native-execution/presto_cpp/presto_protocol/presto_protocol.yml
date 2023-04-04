@@ -153,6 +153,7 @@ AbstractClasses:
       super: JsonEncodedSubclass
       subclasses:
         - { name: BuiltInFunctionHandle,      key: $static }
+        - { name: SqlFunctionHandle,          key: json_file }
 
 JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java
@@ -168,6 +169,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/execution/buffer/BufferInfo.java
   - presto-main/src/main/java/com/facebook/presto/execution/buffer/BufferState.java
   - presto-main/src/main/java/com/facebook/presto/metadata/BuiltInFunctionHandle.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/SqlFunctionHandle.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/BucketFunctionType.java
   - presto-hive-common/src/main/java/com/facebook/presto/hive/CacheQuotaRequirement.java
   - presto-hive-common/src/main/java/com/facebook/presto/hive/CacheQuotaScope.java
