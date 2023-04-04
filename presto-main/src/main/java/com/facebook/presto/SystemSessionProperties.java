@@ -268,6 +268,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD = "order_by_spill_memory_threshold";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
+    public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1422,6 +1423,21 @@ public final class SystemSessionProperties
                         "The native engine executable file path for native engine execution",
                         featuresConfig.getNativeExecutionExecutablePath(),
                         false),
+                stringProperty(
+                        NATIVE_EXECUTION_PROGRAM_ARGUMENTS,
+                        "Program arguments for native engine execution. The main target use case for this " +
+                        "property is to control logging levels using glog flags. E,g, to enable verbose mode, add " +
+                        "'--v 1'. More advanced glog gflags usage can be found at " +
+                        "https://rpg.ifi.uzh.ch/docs/glog.html\n" +
+                        "e.g. --vmodule=mapreduce=2,file=1,gfs*=3 --v=0\n" +
+                        "will:\n" +
+                        "\n" +
+                        "a. Print VLOG(2) and lower messages from mapreduce.{h,cc}\n" +
+                        "b. Print VLOG(1) and lower messages from file.{h,cc}\n" +
+                        "c. Print VLOG(3) and lower messages from files prefixed with \"gfs\"\n" +
+                        "d. Print VLOG(0) and lower messages from elsewhere",
+                        featuresConfig.getNativeExecutionProgramArguments(),
+                        false),
                 booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "(Deprecated) Randomize null join key for outer join",
@@ -2437,6 +2453,11 @@ public final class SystemSessionProperties
     public static String getNativeExecutionExecutablePath(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, String.class);
+    }
+
+    public static String getNativeExecutionProgramArguments(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_PROGRAM_ARGUMENTS, String.class);
     }
 
     public static RandomizeOuterJoinNullKeyStrategy getRandomizeOuterJoinNullKeyStrategy(Session session)
