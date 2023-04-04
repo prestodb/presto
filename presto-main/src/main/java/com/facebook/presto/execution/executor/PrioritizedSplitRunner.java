@@ -172,12 +172,11 @@ public class PrioritizedSplitRunner
             priority.set(taskHandle.addScheduledNanos(quantaScheduledNanos));
             lastRun.set(endNanos);
 
-            Duration wallDuration = new Duration(quantaScheduledNanos, NANOSECONDS);
             if (blocked == NOT_BLOCKED) {
-                unblockedQuantaWallTime.add(wallDuration);
+                unblockedQuantaWallTime.add(quantaScheduledNanos, NANOSECONDS);
             }
             else {
-                blockedQuantaWallTime.add(wallDuration);
+                blockedQuantaWallTime.add(quantaScheduledNanos, NANOSECONDS);
             }
 
             cpuTimeNanos.addAndGet(quantaCpuNanos);
