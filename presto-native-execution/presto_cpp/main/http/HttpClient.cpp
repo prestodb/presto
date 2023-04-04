@@ -11,6 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <velox/common/base/Exceptions.h>
+
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
 
 namespace facebook::presto::http {
@@ -36,6 +39,19 @@ HttpClient::~HttpClient() {
   }
 }
 
+HttpResponse::HttpResponse(
+    std::unique_ptr<proxygen::HTTPMessage> headers,
+    velox::memory::MemoryPool* pool)
+    : headers_(std::move(headers)),
+      pool_(pool),
+      minResponseAllocBytes_(velox::memory::AllocationTraits::pageBytes(
+          pool_->sizeClasses().front())),
+      maxResponseAllocBytes_(std::max(
+          minResponseAllocBytes_,
+          SystemConfig::instance()->httpMaxAllocateBytes())) {
+  VELOX_CHECK_NOT_NULL(pool_);
+}
+
 HttpResponse::~HttpResponse() {
   // Clear out any leftover iobufs if not consumed.
   freeBuffers();
@@ -44,10 +60,26 @@ HttpResponse::~HttpResponse() {
 void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
   VELOX_CHECK(!iobuf->isChained());
   VELOX_CHECK(!hasError());
-  const uint64_t dataLength = iobuf->length();
-  void* buf{nullptr};
+
+  uint64_t dataLength = iobuf->length();
+  auto dataStart = iobuf->data();
+  if (!bodyChain_.empty()) {
+    auto tail = bodyChain_.back().get();
+    auto space = tail->tailroom();
+    auto copySize = std::min<size_t>(space, dataLength);
+    ::memcpy(tail->writableTail(), dataStart, copySize);
+    tail->append(copySize);
+    dataLength -= copySize;
+    if (dataLength == 0) {
+      return;
+    }
+    dataStart += copySize;
+  }
+
+  const size_t roundedSize = nextAllocationSize(dataLength);
+  void* newBuf{nullptr};
   try {
-    buf = pool_->allocate(dataLength);
+    newBuf = pool_->allocate(roundedSize);
   } catch (const velox::VeloxException& ex) {
     // NOTE: we need to catch exception and process it later in driver execution
     // context when processing the data response. Otherwise, the presto server
@@ -55,9 +87,23 @@ void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
     setError(ex);
     return;
   }
-  VELOX_CHECK_NOT_NULL(buf);
-  ::memcpy(buf, iobuf->data(), dataLength);
-  bodyChain_.emplace_back(folly::IOBuf::wrapBuffer(buf, dataLength));
+  VELOX_CHECK_NOT_NULL(newBuf);
+  bodyChainBytes_ += roundedSize;
+  ::memcpy(newBuf, dataStart, dataLength);
+  bodyChain_.emplace_back(folly::IOBuf::wrapBuffer(newBuf, roundedSize));
+  bodyChain_.back()->trimEnd(roundedSize - dataLength);
+}
+
+FOLLY_ALWAYS_INLINE size_t
+HttpResponse::nextAllocationSize(uint64_t dataLength) const {
+  const size_t minAllocSize = velox::bits::nextPowerOfTwo(
+      velox::bits::roundUp(dataLength, minResponseAllocBytes_));
+  return std::max<size_t>(
+      minAllocSize,
+      std::min<size_t>(
+          maxResponseAllocBytes_,
+          velox::bits::nextPowerOfTwo(velox::bits::roundUp(
+              dataLength + bodyChainBytes_, minResponseAllocBytes_))));
 }
 
 std::string HttpResponse::dumpBodyChain() const {

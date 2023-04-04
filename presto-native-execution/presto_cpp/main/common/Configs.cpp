@@ -171,6 +171,11 @@ bool SystemConfig::enableHttpStatsFilter() const {
   return opt.value_or(kHttpEnableStatsFilterDefault);
 }
 
+uint64_t SystemConfig::httpMaxAllocateBytes() const {
+  auto opt = optionalProperty<uint64_t>(std::string(kHttpMaxAllocateBytes));
+  return opt.value_or(kHttpMaxAllocateBytesDefault);
+}
+
 NodeConfig* NodeConfig::instance() {
   static std::unique_ptr<NodeConfig> instance = std::make_unique<NodeConfig>();
   return instance.get();
