@@ -383,7 +383,7 @@ public class ExpressionEquivalence
         }
     }
 
-    private static <T> List<T> swapPair(List<T> pair)
+    public static <T> List<T> swapPair(List<T> pair)
     {
         requireNonNull(pair, "pair is null");
         checkArgument(pair.size() == 2, "Expected pair to have two elements");
