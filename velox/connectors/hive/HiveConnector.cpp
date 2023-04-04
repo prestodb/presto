@@ -347,10 +347,41 @@ HiveDataSource::HiveDataSource(
 }
 
 namespace {
+bool applyPartitionFilter(
+    TypeKind kind,
+    const std::string& partitionValue,
+    common::Filter* filter) {
+  switch (kind) {
+    case TypeKind::BIGINT:
+    case TypeKind::INTEGER:
+    case TypeKind::SMALLINT:
+    case TypeKind::TINYINT: {
+      return applyFilter(*filter, folly::to<int64_t>(partitionValue));
+    }
+    case TypeKind::REAL:
+    case TypeKind::DOUBLE: {
+      return applyFilter(*filter, folly::to<double>(partitionValue));
+    }
+    case TypeKind::BOOLEAN: {
+      return applyFilter(*filter, folly::to<bool>(partitionValue));
+    }
+    case TypeKind::VARCHAR: {
+      return applyFilter(*filter, partitionValue);
+    }
+    default:
+      VELOX_FAIL("Bad type {} for partition value: {}", kind, partitionValue);
+      break;
+  }
+}
+
 bool testFilters(
     common::ScanSpec* scanSpec,
     dwio::common::Reader* reader,
-    const std::string& filePath) {
+    const std::string& filePath,
+    const std::unordered_map<std::string, std::optional<std::string>>&
+        partitionKey,
+    std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
+        partitionKeysHandle) {
   auto totalRows = reader->numberOfRows();
   const auto& fileTypeWithId = reader->typeWithId();
   const auto& rowType = reader->rowType();
@@ -358,6 +389,14 @@ bool testFilters(
     if (child->filter()) {
       const auto& name = child->fieldName();
       if (!rowType->containsChild(name)) {
+        // If missing column is partition key.
+        auto iter = partitionKey.find(name);
+        if (iter != partitionKey.end() && iter->second.has_value()) {
+          return applyPartitionFilter(
+              partitionKeysHandle[name]->dataType()->kind(),
+              iter->second.value(),
+              child->filter());
+        }
         // Column is missing. Most likely due to schema evolution.
         if (child->filter()->isDeterministic() &&
             !child->filter()->testNull()) {
@@ -462,7 +501,12 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   }
 
   // Check filters and see if the whole split can be skipped.
-  if (!testFilters(scanSpec_.get(), reader_.get(), split_->filePath)) {
+  if (!testFilters(
+          scanSpec_.get(),
+          reader_.get(),
+          split_->filePath,
+          split_->partitionKeys,
+          partitionKeys_)) {
     emptySplit_ = true;
     ++runtimeStats_.skippedSplits;
     runtimeStats_.skippedSplitBytes += split_->length;
