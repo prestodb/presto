@@ -41,6 +41,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.EffectivePredicateExtractor;
 import com.facebook.presto.sql.planner.EqualityInference;
+import com.facebook.presto.sql.planner.InequalityInference;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
@@ -81,6 +82,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
+import static com.facebook.presto.SystemSessionProperties.shouldInferInequalityPredicates;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -435,7 +437,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputVariables());
+                            node.getLeft().getOutputVariables(),
+                            shouldInferInequalityPredicates(session));
                     leftPredicate = innerJoinPushDownResult.getLeftPredicate();
                     rightPredicate = innerJoinPushDownResult.getRightPredicate();
                     postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
@@ -446,7 +449,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputVariables());
+                            node.getLeft().getOutputVariables(),
+                            shouldInferInequalityPredicates(session));
                     leftPredicate = leftOuterJoinPushDownResult.getOuterJoinPredicate();
                     rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
                     postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
@@ -457,7 +461,8 @@ public class PredicatePushDown
                             rightEffectivePredicate,
                             leftEffectivePredicate,
                             joinPredicate,
-                            node.getRight().getOutputVariables());
+                            node.getRight().getOutputVariables(),
+                            shouldInferInequalityPredicates(session));
                     leftPredicate = rightOuterJoinPushDownResult.getInnerJoinPredicate();
                     rightPredicate = rightOuterJoinPushDownResult.getOuterJoinPredicate();
                     postJoinPredicate = rightOuterJoinPushDownResult.getPostJoinPredicate();
@@ -893,7 +898,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputVariables());
+                            node.getLeft().getOutputVariables(),
+                            shouldInferInequalityPredicates(session));
                     leftPredicate = innerJoinPushDownResult.getLeftPredicate();
                     rightPredicate = innerJoinPushDownResult.getRightPredicate();
                     postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
@@ -905,7 +911,8 @@ public class PredicatePushDown
                             leftEffectivePredicate,
                             rightEffectivePredicate,
                             joinPredicate,
-                            node.getLeft().getOutputVariables());
+                            node.getLeft().getOutputVariables(),
+                            shouldInferInequalityPredicates(session));
                     leftPredicate = leftOuterJoinPushDownResult.getOuterJoinPredicate();
                     rightPredicate = leftOuterJoinPushDownResult.getInnerJoinPredicate();
                     postJoinPredicate = leftOuterJoinPushDownResult.getPostJoinPredicate();
@@ -964,7 +971,12 @@ public class PredicatePushDown
             return variableAllocator.newVariable(expression);
         }
 
-        private OuterJoinPushDownResult processLimitedOuterJoin(RowExpression inheritedPredicate, RowExpression outerEffectivePredicate, RowExpression innerEffectivePredicate, RowExpression joinPredicate, Collection<VariableReferenceExpression> outerVariables)
+        private OuterJoinPushDownResult processLimitedOuterJoin(RowExpression inheritedPredicate,
+                RowExpression outerEffectivePredicate,
+                RowExpression innerEffectivePredicate,
+                RowExpression joinPredicate,
+                Collection<VariableReferenceExpression> outerVariables,
+                boolean inferInequalityPredicates)
         {
             checkArgument(Iterables.all(VariablesExtractor.extractUnique(outerEffectivePredicate), in(outerVariables)), "outerEffectivePredicate must only contain variables from outerVariables");
             checkArgument(Iterables.all(VariablesExtractor.extractUnique(innerEffectivePredicate), not(in(outerVariables))), "innerEffectivePredicate must not contain variables from outerVariables");
@@ -990,6 +1002,14 @@ public class PredicatePushDown
             EqualityInference.EqualityPartition equalityPartition = inheritedInference.generateEqualitiesPartitionedBy(in(outerVariables));
             RowExpression outerOnlyInheritedEqualities = logicalRowExpressions.combineConjuncts(equalityPartition.getScopeEqualities());
             EqualityInference potentialNullSymbolInference = createEqualityInference(outerOnlyInheritedEqualities, outerEffectivePredicate, innerEffectivePredicate, joinPredicate);
+
+            // Generate inequality inferences
+            if (inferInequalityPredicates) {
+                InequalityInference inequalityInference = new InequalityInference.Builder(functionAndTypeManager, expressionEquivalence, Optional.of(outerVariables))
+                        .addInequalityInferences(joinPredicate, inheritedPredicate)
+                        .build();
+                innerPushdownConjuncts.addAll(inequalityInference.inferInequalities());
+            }
 
             // See if we can push inherited predicates down
             for (RowExpression conjunct : nonInferableConjuncts(inheritedPredicate)) {
@@ -1085,7 +1105,12 @@ public class PredicatePushDown
             }
         }
 
-        private InnerJoinPushDownResult processInnerJoin(RowExpression inheritedPredicate, RowExpression leftEffectivePredicate, RowExpression rightEffectivePredicate, RowExpression joinPredicate, Collection<VariableReferenceExpression> leftVariables)
+        private InnerJoinPushDownResult processInnerJoin(RowExpression inheritedPredicate,
+                RowExpression leftEffectivePredicate,
+                RowExpression rightEffectivePredicate,
+                RowExpression joinPredicate,
+                Collection<VariableReferenceExpression> leftVariables,
+                boolean inferInequalityPredicates)
         {
             checkArgument(Iterables.all(VariablesExtractor.extractUnique(leftEffectivePredicate), in(leftVariables)), "leftEffectivePredicate must only contain variables from leftVariables");
             checkArgument(Iterables.all(VariablesExtractor.extractUnique(rightEffectivePredicate), not(in(leftVariables))), "rightEffectivePredicate must not contain variables from leftVariables");
@@ -1103,6 +1128,14 @@ public class PredicatePushDown
 
             leftEffectivePredicate = logicalRowExpressions.filterDeterministicConjuncts(leftEffectivePredicate);
             rightEffectivePredicate = logicalRowExpressions.filterDeterministicConjuncts(rightEffectivePredicate);
+
+            // Generate inequality inferences
+            if (inferInequalityPredicates) {
+                InequalityInference inequalityInference = new InequalityInference.Builder(functionAndTypeManager, expressionEquivalence, Optional.empty())
+                        .addInequalityInferences(joinPredicate, inheritedPredicate)
+                        .build();
+                joinConjuncts.addAll(inequalityInference.inferInequalities());
+            }
 
             // Generate equality inferences
             EqualityInference allInference = new EqualityInference.Builder(functionAndTypeManager)

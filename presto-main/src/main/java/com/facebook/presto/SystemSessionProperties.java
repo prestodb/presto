@@ -285,6 +285,7 @@ public final class SystemSessionProperties
     public static final String FIELD_NAMES_IN_JSON_CAST_ENABLED = "field_names_in_json_cast_enabled";
     public static final String PULL_EXPRESSION_FROM_LAMBDA_ENABLED = "pull_expression_from_lambda_enabled";
     public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
+    public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1661,6 +1662,11 @@ public final class SystemSessionProperties
                         REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION,
                         "Rewrite contant array contains to IN expression",
                         true,
+                        false),
+                booleanProperty(
+                        INFER_INEQUALITY_PREDICATES,
+                        "Infer nonequality predicates for joins",
+                        featuresConfig.getInferInequalityPredicates(),
                         false));
     }
 
@@ -2798,5 +2804,10 @@ public final class SystemSessionProperties
     public static boolean isRwriteConstantArrayContainsToInExpressionEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, Boolean.class);
+    }
+
+    public static boolean shouldInferInequalityPredicates(Session session)
+    {
+        return session.getSystemProperty(INFER_INEQUALITY_PREDICATES, Boolean.class);
     }
 }
