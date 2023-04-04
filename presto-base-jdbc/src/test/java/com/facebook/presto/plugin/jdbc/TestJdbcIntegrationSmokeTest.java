@@ -72,4 +72,14 @@ public class TestJdbcIntegrationSmokeTest
         assertUpdate("INSERT INTO test_not VALUES (5, true), (2, true), (4, false)", "VALUES(3)");
         assertQuery("SELECT col1 FROM test_not WHERE NOT(col2)", "VALUES(4)");
     }
+
+    @Test
+    public void testTruncateTableTable()
+    {
+        assertUpdate("CREATE TABLE test_truncate(col1 bigint)");
+        assertUpdate("INSERT INTO test_truncate VALUES (1), (2), (3)", "VALUES 3");
+        assertQuery("SELECT COUNT(*) FROM test_truncate", "VALUES 3");
+        assertUpdate("TRUNCATE TABLE test_truncate");
+        assertQuery("SELECT COUNT(*) FROM test_truncate", "VALUES 0");
+    }
 }
