@@ -83,6 +83,14 @@ std::string getFunctionName(const protocol::Signature& signature) {
   }
 }
 
+std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
+  // Example: "json.x4.eq;INTEGER;INTEGER".
+  const auto nameEnd = functionId.find(';');
+  // Assuming the possibility of missing ';' if there are no function arguments.
+  return nameEnd != std::string::npos ? functionId.substr(0, nameEnd)
+                                      : functionId;
+}
+
 } // namespace
 
 velox::variant VeloxExprConverter::getConstantValue(
@@ -323,49 +331,54 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
 
 TypedExprPtr VeloxExprConverter::toVeloxExpr(
     const protocol::CallExpression& pexpr) const {
-  auto handle = pexpr.functionHandle;
-  VELOX_CHECK_EQ(
-      handle->_type,
-      "$static",
-      "Unsupported function handle: {}",
-      handle->_type);
+  if (auto builtin = std::dynamic_pointer_cast<protocol::BuiltInFunctionHandle>(
+          pexpr.functionHandle)) {
+    // Handle some special parsing needed for 'like' operator signatures.
+    auto like = tryConvertLike(pexpr);
+    if (like.has_value()) {
+      return like.value();
+    }
 
-  // Handle some special parsing needed for 'like' operator signatures.
-  auto like = tryConvertLike(pexpr);
-  if (like.has_value()) {
-    return like.value();
+    // 'date' operators need to be converted to a cast expression for date.
+    auto date = tryConvertDate(pexpr);
+    if (date.has_value()) {
+      return date.value();
+    }
+
+    auto args = toVeloxExpr(pexpr.arguments);
+    auto signature = builtin->signature;
+
+    auto cast = tryConvertCast(signature, pexpr.returnType, args);
+    if (cast.has_value()) {
+      return cast.value();
+    }
+
+    auto tryExpr = tryConvertTry(signature, pexpr.returnType, args);
+    if (tryExpr.has_value()) {
+      return tryExpr.value();
+    }
+
+    auto literal =
+        tryConvertLiteralArray(signature, pexpr.returnType, args, pool_);
+    if (literal.has_value()) {
+      return literal.value();
+    }
+
+    auto returnType = parseTypeSignature(pexpr.returnType);
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(signature));
+
+  } else if (
+      auto sqlFunctionHandle =
+          std::dynamic_pointer_cast<protocol::SqlFunctionHandle>(
+              pexpr.functionHandle)) {
+    auto args = toVeloxExpr(pexpr.arguments);
+    auto returnType = parseTypeSignature(pexpr.returnType);
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
 
-  // 'date' operators need to be converted to a cast expression for date.
-  auto date = tryConvertDate(pexpr);
-  if (date.has_value()) {
-    return date.value();
-  }
-
-  auto args = toVeloxExpr(pexpr.arguments);
-  auto builtin =
-      std::static_pointer_cast<protocol::BuiltInFunctionHandle>(handle);
-  auto signature = builtin->signature;
-
-  auto cast = tryConvertCast(signature, pexpr.returnType, args);
-  if (cast.has_value()) {
-    return cast.value();
-  }
-
-  auto tryExpr = tryConvertTry(signature, pexpr.returnType, args);
-  if (tryExpr.has_value()) {
-    return tryExpr.value();
-  }
-
-  auto literal =
-      tryConvertLiteralArray(signature, pexpr.returnType, args, pool_);
-  if (literal.has_value()) {
-    return literal.value();
-  }
-
-  auto returnType = parseTypeSignature(pexpr.returnType);
-  return std::make_shared<CallTypedExpr>(
-      returnType, args, getFunctionName(signature));
+  VELOX_FAIL("Unsupported function handle: {}", pexpr.functionHandle->_type);
 }
 
 std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
