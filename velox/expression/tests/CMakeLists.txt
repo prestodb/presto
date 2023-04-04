@@ -122,6 +122,21 @@ target_link_libraries(
   velox_expression_runner_test velox_expression_runner velox_exec_test_lib
   velox_function_registry gtest gtest_main)
 
+add_executable(velox_expression_verifier_unit_test
+               ExpressionVerifierUnitTest.cpp)
+target_link_libraries(
+  velox_expression_verifier_unit_test
+  velox_expression_verifier
+  velox_file
+  velox_temp_path
+  velox_parse_expression
+  velox_parse_parser
+  velox_parse_utils
+  velox_type
+  velox_vector_test_lib
+  gtest
+  gtest_main)
+
 add_executable(velox_expression_runner_unit_test ExpressionRunnerUnitTest.cpp)
 target_link_libraries(
   velox_expression_runner_unit_test

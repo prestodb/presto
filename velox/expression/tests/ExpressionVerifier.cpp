@@ -148,9 +148,17 @@ ResultOrError ExpressionVerifier::verify(
     if (!canThrow) {
       LOG(ERROR)
           << "Common eval wasn't supposed to throw, but it did. Aborting.";
+      persistReproInfoIfNeeded(
+          rowVector, columnsToWrapInLazy, copiedResult, sql, complexConstants);
       throw;
     }
     exceptionCommonPtr = std::current_exception();
+  } catch (...) {
+    LOG(ERROR)
+        << "Common eval: Exceptions other than VeloxUserError are not allowed.";
+    persistReproInfoIfNeeded(
+        rowVector, columnsToWrapInLazy, copiedResult, sql, complexConstants);
+    throw;
   }
 
   VLOG(1) << "Starting simplified eval execution.";
@@ -164,6 +172,12 @@ ResultOrError ExpressionVerifier::verify(
     exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
   } catch (const VeloxUserError&) {
     exceptionSimplifiedPtr = std::current_exception();
+  } catch (...) {
+    LOG(ERROR)
+        << "Simplified eval: Exceptions other than VeloxUserError are not allowed.";
+    persistReproInfoIfNeeded(
+        rowVector, columnsToWrapInLazy, copiedResult, sql, complexConstants);
+    throw;
   }
 
   try {
@@ -178,10 +192,8 @@ ResultOrError ExpressionVerifier::verify(
       compareVectors(commonEvalResult.front(), simplifiedEvalResult.front());
     }
   } catch (...) {
-    if (!options_.reproPersistPath.empty() && !options_.persistAndRunOnce) {
-      persistReproInfo(
-          rowVector, columnsToWrapInLazy, copiedResult, sql, complexConstants);
-    }
+    persistReproInfoIfNeeded(
+        rowVector, columnsToWrapInLazy, copiedResult, sql, complexConstants);
     throw;
   }
 
@@ -197,6 +209,20 @@ ResultOrError ExpressionVerifier::verify(
   }
 
   return {makeRowVector(commonEvalResult[0]), nullptr};
+}
+
+void ExpressionVerifier::persistReproInfoIfNeeded(
+    const VectorPtr& inputVector,
+    const std::vector<column_index_t>& columnsToWrapInLazy,
+    const VectorPtr& resultVector,
+    const std::string& sql,
+    const std::vector<VectorPtr>& complexConstants) {
+  if (options_.reproPersistPath.empty()) {
+    LOG(INFO) << "Skipping persistence because repro path is empty.";
+  } else if (!options_.persistAndRunOnce) {
+    persistReproInfo(
+        inputVector, columnsToWrapInLazy, resultVector, sql, complexConstants);
+  }
 }
 
 void ExpressionVerifier::persistReproInfo(

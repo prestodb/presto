@@ -78,6 +78,16 @@ class ExpressionVerifier {
       const std::string& sql,
       const std::vector<VectorPtr>& complexConstants);
 
+  // Utility method that calls persistReproInfo to save data and sql if
+  // options_.reproPersistPath is set and is not persistAndRunOnce. Do nothing
+  // otherwise.
+  void persistReproInfoIfNeeded(
+      const VectorPtr& inputVector,
+      const std::vector<column_index_t>& columnsToWarpInLazy,
+      const VectorPtr& resultVector,
+      const std::string& sql,
+      const std::vector<VectorPtr>& complexConstants);
+
  private:
   core::ExecCtx* FOLLY_NONNULL execCtx_;
   const ExpressionVerifierOptions options_;
