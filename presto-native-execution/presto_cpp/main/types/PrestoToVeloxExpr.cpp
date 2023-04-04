@@ -84,7 +84,7 @@ std::string getFunctionName(const protocol::Signature& signature) {
 }
 
 std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
-  // Example: "json.f3.eq;INTEGER;INTEGER".
+  // Example: "json.x4.eq;INTEGER;INTEGER".
   const auto nameEnd = functionId.find(';');
   // Assuming the possibility of missing ';' if there are no function arguments.
   return nameEnd != std::string::npos ? functionId.substr(0, nameEnd)

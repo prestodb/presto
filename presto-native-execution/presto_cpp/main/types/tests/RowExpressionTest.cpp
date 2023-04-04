@@ -444,7 +444,7 @@ TEST_F(RowExpressionTest, call) {
         "displayName": "EQUAL",
         "functionHandle": {
           "@type": "json_file",
-          "functionId": "json.f3.eq;INTEGER;INTEGER",
+          "functionId": "json.x4.eq;INTEGER;INTEGER",
           "version": "1"
         },
         "returnType": "boolean"
@@ -453,7 +453,7 @@ TEST_F(RowExpressionTest, call) {
   };
 
   static const std::array<std::string, 2> callExprNames{
-      "presto.default.eq", "json.f3.eq"};
+      "presto.default.eq", "json.x4.eq"};
 
   for (size_t i = 0; i < 2; ++i) {
     std::shared_ptr<protocol::RowExpression> p = json::parse(jsonStrings[i]);

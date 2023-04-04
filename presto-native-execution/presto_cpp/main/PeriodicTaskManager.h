@@ -21,6 +21,10 @@ class CPUThreadPoolExecutor;
 class IOThreadPoolExecutor;
 } // namespace folly
 
+namespace facebook::velox::connector {
+class Connector;
+}
+
 namespace facebook::presto {
 
 class TaskManager;
@@ -33,7 +37,8 @@ class PeriodicTaskManager {
   explicit PeriodicTaskManager(
       folly::CPUThreadPoolExecutor* driverCPUExecutor,
       folly::IOThreadPoolExecutor* httpExecutor,
-      TaskManager* taskManager);
+      TaskManager* taskManager,
+      std::vector<std::shared_ptr<velox::connector::Connector>> connectors);
   ~PeriodicTaskManager() {
     stop();
   }
@@ -57,6 +62,7 @@ class PeriodicTaskManager {
   folly::IOThreadPoolExecutor* httpExecutor_;
   TaskManager* taskManager_;
   velox::memory::MemoryManager& memoryManager_;
+  std::vector<std::shared_ptr<velox::connector::Connector>> connectors_;
 };
 
 } // namespace facebook::presto

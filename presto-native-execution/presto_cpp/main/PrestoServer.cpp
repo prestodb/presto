@@ -332,8 +332,15 @@ void PrestoServer::run() {
   }
 
   LOG(INFO) << "STARTUP: Starting all periodic tasks...";
+  std::vector<std::shared_ptr<velox::connector::Connector>> connectors;
+  for (auto connectorId : catalogNames) {
+    connectors.emplace_back(velox::connector::getConnector(connectorId));
+  }
   PeriodicTaskManager periodicTaskManager(
-      driverCPUExecutor(), httpServer_->getExecutor(), taskManager_.get());
+      driverCPUExecutor(),
+      httpServer_->getExecutor(),
+      taskManager_.get(),
+      std::move(connectors));
   periodicTaskManager.addTask(
       [server = this]() { server->populateMemAndCPUInfo(); },
       1'000'000, // 1 second

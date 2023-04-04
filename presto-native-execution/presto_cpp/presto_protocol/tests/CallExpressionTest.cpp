@@ -94,7 +94,7 @@ TEST_F(CallExpressionTest, json_file) {
             "displayName": "sum",
             "functionHandle": {
               "@type": "json_file",
-              "functionId": "json.f3.sum;INTEGER;INTEGER",
+              "functionId": "json.x4.sum;INTEGER;INTEGER",
               "version": "1"
             },
             "returnType": "double"
@@ -123,7 +123,7 @@ TEST_F(CallExpressionTest, json_file) {
     ASSERT_EQ(p.functionHandle->_type, "json_file");
     std::shared_ptr<SqlFunctionHandle> k =
         std::static_pointer_cast<SqlFunctionHandle>(p.functionHandle);
-    ASSERT_EQ(k->functionId, "json.f3.sum;INTEGER;INTEGER");
+    ASSERT_EQ(k->functionId, "json.x4.sum;INTEGER;INTEGER");
     ASSERT_EQ(k->version, "1");
   }
 
