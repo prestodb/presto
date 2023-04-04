@@ -131,6 +131,7 @@ public class Analysis
     private final ListMultimap<NodeRef<Node>, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
     private final ListMultimap<NodeRef<Node>, QuantifiedComparisonExpression> quantifiedComparisonSubqueries = ArrayListMultimap.create();
 
+    private final MetadataHandle metadataHandle = new MetadataHandle();
     private final Map<NodeRef<Table>, TableHandle> tables = new LinkedHashMap<>();
 
     private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
@@ -502,6 +503,11 @@ public class Analysis
     public RelationType getOutputDescriptor(Node node)
     {
         return getScope(node).getRelationType();
+    }
+
+    public MetadataHandle getMetadataHandle()
+    {
+        return metadataHandle;
     }
 
     public TableHandle getTableHandle(Table table)
