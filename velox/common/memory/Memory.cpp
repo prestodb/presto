@@ -46,7 +46,10 @@ MemoryManager::MemoryManager(const Options& options)
           nullptr,
           // NOTE: the default root memory pool has no quota limit, and it is
           // used for system usage in production such as disk spilling.
-          MemoryPool::Options{alignment_, kMaxMemory})},
+          MemoryPool::Options{
+              .alignment = alignment_,
+              .capacity = kMaxMemory,
+              .trackUsage = false})},
       deprecatedDefaultLeafPool_(defaultRoot_->addChild(
           kDefaultLeafName.str(),
           MemoryPool::Kind::kLeaf)) {
