@@ -253,6 +253,7 @@ import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static com.facebook.presto.server.ServerConfig.POOL_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -682,7 +683,8 @@ public class ServerMainModule
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
                 .addProperty("resource_manager", String.valueOf(serverConfig.isResourceManager()))
                 .addProperty("catalog_server", String.valueOf(serverConfig.isCatalogServer()))
-                .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
+                .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()))
+                .addProperty(POOL_TYPE, serverConfig.getPoolType().name());
 
         RaftConfig raftConfig = buildConfigObject(RaftConfig.class);
         if (serverConfig.isResourceManager() && raftConfig.isEnabled()) {

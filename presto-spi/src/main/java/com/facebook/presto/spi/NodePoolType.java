@@ -13,29 +13,9 @@
  */
 package com.facebook.presto.spi;
 
-import java.net.URI;
-
-public interface Node
+public enum NodePoolType
 {
-    String getHost();
-
-    HostAddress getHostAndPort();
-
-    /**
-     * @deprecated Connectors should not access the HTTP endpoints of other nodes.
-     */
-    @Deprecated
-    URI getHttpUri();
-
-    String getNodeIdentifier();
-
-    String getVersion();
-
-    boolean isCoordinator();
-
-    boolean isResourceManager();
-
-    boolean isCatalogServer();
-
-    NodePoolType getPoolType();
+    INTERMEDIATE,
+    LEAF,
+    DEFAULT;
 }
