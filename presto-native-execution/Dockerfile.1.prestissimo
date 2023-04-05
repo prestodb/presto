@@ -1,0 +1,61 @@
+# prestodb/avx/centos8-prestissimo
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+ARG CPU_TARGET=avx
+ARG TARGETPLATFORM=linux/amd64
+ARG IMAGE_TAG=latest
+ARG IMAGE_REGISTRY=prestodb/${CPU_TARGET}
+ARG BUILDTIME_IMAGE=centos8-prestissimo-buildtime
+ARG RUNTIME_IMAGE=centos8-prestissimo-runtime
+FROM --platform=$TARGETPLATFORM ${IMAGE_REGISTRY}/${BUILDTIME_IMAGE}:${IMAGE_TAG} as build-stage
+
+ENV PATH=/opt/dependency/install/bin:/opt/dependency/install/bin/hadoop-2.10.1/bin:$PATH
+
+ADD ./ /opt/presto/_build/
+
+WORKDIR /opt/presto
+RUN set +u && \
+    source /opt/rh/gcc-toolset-9/enable && \
+    source /opt/presto/_build/velox/scripts/setup-helper-functions.sh && \
+    NO_SYNCH=True make --directory="/opt/presto/_build/" release \
+        PRESTO_ENABLE_PARQUET=ON \
+        PRESTO_ENABLE_S3=ON \
+        PRESTO_ENABLE_HDFS=ON \
+        PRESTO_ENABLE_TESTING=OFF \
+        TREAT_WARNINGS_AS_ERRORS=OFF \
+        NUM_THREADS=8 \
+        MAX_HIGH_MEM_JOBS=8 \
+        MAX_LINK_JOBS=8 && \
+    mv "$(find $(pwd) | grep 'presto_server$')" /opt/presto/ && \
+    chmod uga+x "/opt/presto/presto_server"
+
+#/////////////////////////////////////////////
+#          centos8-prestissimo-runtime
+#//////////////////////////////////////////////
+FROM --platform=$TARGETPLATFORM ${IMAGE_REGISTRY}/${RUNTIME_IMAGE}:${IMAGE_TAG}
+
+LABEL org.opencontainers.image.title="prestissimo"
+LABEL org.opencontainers.image.description="Prestissimo, a presto-native-execution Velox based query engine worker container for use in datalakes and benchmarking."
+LABEL org.opencontainers.image.vendor="Ahana, Intel and Meta Corporations collaboration"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.authors="milosz.linkiewicz@intel.com"
+
+COPY --chown=186:root --chmod=0775 --from=build-stage /opt/presto/presto_server /opt/presto/presto_server
+COPY --chown=186:root --chmod=0775 --from=build-stage /usr/local/lib64/lib* /usr/lib64/lib* /usr/local/lib64/
+COPY --chown=186:root --chmod=0775 --from=build-stage /usr/local/lib/lib* /usr/local/lib/
+
+USER presto
+ENTRYPOINT [ "/opt/entrypoint.sh" ]
+
+VOLUME [ "/tmp/prestissimo-worker" ]
+EXPOSE 22/tcp 8080/tcp
