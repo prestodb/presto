@@ -87,16 +87,34 @@ __attribute__((__no_sanitize__("float-divide-by-zero")))
 #endif
 #endif
 {
-  assertExpression<int32_t>("c0 / c1", {10, 11, -34}, {2, 2, 10}, {5, 5, -3});
-  assertExpression<int64_t>("c0 / c1", {10, 11, -34}, {2, 2, 10}, {5, 5, -3});
+  assertExpression<int32_t>(
+      "c0 / c1", {10, 11, -34, 0}, {2, 2, 10, -1}, {5, 5, -3, 0});
+  assertExpression<int64_t>(
+      "c0 / c1", {10, 11, -34, 0}, {2, 2, 10, -1}, {5, 5, -3, 0});
 
   assertError<int32_t>("c0 / c1", {10}, {0}, "division by zero");
   assertError<int32_t>("c0 / c1", {0}, {0}, "division by zero");
+  assertError<int32_t>(
+      "c0 / c1",
+      {std::numeric_limits<int32_t>::min()},
+      {-1},
+      "integer overflow: -2147483648 / -1");
 
   assertExpression<float>(
-      "c0 / c1", {10.5, 9.2, 0.0}, {2, 0, 0}, {5.25, kInfF, kNanF});
+      "c0 / c1",
+      {10.5, 9.2, 0.0, 0.0},
+      {2, 0, 0, -1},
+      {5.25, kInfF, kNanF, 0.0});
   assertExpression<double>(
-      "c0 / c1", {10.5, 9.2, 0.0}, {2, 0, 0}, {5.25, kInf, kNan});
+      "c0 / c1", {10.5, 9.2, 0.0, 0.0}, {2, 0, 0, -1}, {5.25, kInf, kNan, 0.0});
+}
+
+TEST_F(ArithmeticTest, multiply) {
+  assertError<int32_t>(
+      "c0 * c1",
+      {std::numeric_limits<int32_t>::min()},
+      {-1},
+      "integer overflow: -2147483648 * -1");
 }
 
 TEST_F(ArithmeticTest, mod) {

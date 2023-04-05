@@ -58,6 +58,13 @@ T checkedDivide(const T& a, const T& b) {
   if (b == 0) {
     VELOX_ARITHMETIC_ERROR("division by zero");
   }
+
+  // Type T can not represent abs(std::numeric_limits<T>::min()).
+  if constexpr (std::is_integral_v<T>) {
+    if (UNLIKELY(a == std::numeric_limits<T>::min() && b == -1)) {
+      VELOX_ARITHMETIC_ERROR("integer overflow: {} / {}", a, b);
+    }
+  }
   return a / b;
 }
 
