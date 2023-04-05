@@ -33,10 +33,13 @@ public class PrestoSparkNativeQueryRunner
     public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner(Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties)
     {
         String dataDirectory = System.getProperty("DATA_DIR");
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+
+        ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
+        configBuilder.putAll(getNativeWorkerSystemProperties()).putAll(additionalConfigProperties);
+
         PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner(
                 "hive",
-                builder.putAll(getNativeWorkerSystemProperties()).putAll(additionalConfigProperties).build(),
+                configBuilder.build(),
                 getNativeWorkerHiveProperties(),
                 additionalSparkProperties,
                 Optional.ofNullable(dataDirectory).map(Paths::get),
