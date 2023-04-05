@@ -104,9 +104,19 @@ class WindowFunction {
       HashStringAllocator* stringAllocator);
 
  protected:
+  // This utility function can be used across WindowFunctions to set NULL for
+  // rows with invalid frames in the input.
+  void setNullEmptyFramesResults(
+      const SelectivityVector& validRows,
+      vector_size_t resultOffset,
+      const VectorPtr& result);
+
   const TypePtr resultType_;
   memory::MemoryPool* pool_;
   HashStringAllocator* const stringAllocator_;
+
+  // Used for setting null for empty frames.
+  SelectivityVector invalidRows_;
 };
 
 /// Information from the Window operator that is useful for the function logic.

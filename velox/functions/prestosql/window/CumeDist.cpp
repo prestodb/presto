@@ -38,7 +38,7 @@ class CumeDistFunction : public exec::WindowFunction {
       const BufferPtr& peerGroupEnds,
       const BufferPtr& /*frameStarts*/,
       const BufferPtr& /*frameEnds*/,
-      const SelectivityVector& /*validRows*/,
+      const SelectivityVector& validRows,
       vector_size_t resultOffset,
       const VectorPtr& result) override {
     int numRows = peerGroupStarts->size() / sizeof(vector_size_t);
@@ -55,6 +55,9 @@ class CumeDistFunction : public exec::WindowFunction {
       }
       rawValues[resultOffset + i] = cumeDist_;
     }
+
+    // Set NULL values for rows with empty frames.
+    setNullEmptyFramesResults(validRows, resultOffset, result);
   }
 
  private:

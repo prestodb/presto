@@ -46,7 +46,8 @@ class RankTestBase : public WindowTestBase {
       : function_(testParam.function), overClause_(testParam.overClause) {}
 
   void testWindowFunction(const std::vector<RowVectorPtr>& vectors) {
-    WindowTestBase::testWindowFunction(vectors, function_, {overClause_});
+    WindowTestBase::testWindowFunction(
+        vectors, function_, {overClause_}, kFrameClauses);
   }
 
   const std::string function_;

@@ -70,4 +70,18 @@ std::unique_ptr<WindowFunction> WindowFunction::create(
   VELOX_USER_FAIL("Window function not registered: {}", name);
 }
 
+void WindowFunction::setNullEmptyFramesResults(
+    const SelectivityVector& validRows,
+    vector_size_t resultOffset,
+    const VectorPtr& result) {
+  if (validRows.isAllSelected()) {
+    return;
+  }
+
+  invalidRows_.resizeFill(validRows.size(), true);
+  invalidRows_.deselect(validRows);
+  invalidRows_.applyToSelected(
+      [&](auto i) { result->setNull(resultOffset + i, true); });
+}
+
 } // namespace facebook::velox::exec

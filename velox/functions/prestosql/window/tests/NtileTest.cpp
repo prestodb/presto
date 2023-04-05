@@ -27,7 +27,8 @@ class NtileTest : public WindowTestBase {
     // Tests ntile with constant value arguments.
     testNtileWithConstants(vectors, kOverClauses);
     // Tests ntile with a column.
-    WindowTestBase::testWindowFunction(vectors, "ntile(c2)", kOverClauses);
+    WindowTestBase::testWindowFunction(
+        vectors, "ntile(c2)", kOverClauses, kFrameClauses);
   }
 
  private:
@@ -41,7 +42,7 @@ class NtileTest : public WindowTestBase {
     // TODO: Add null value testing also pending issues with DuckDB.
     for (auto i = 1; i < 20; i += 3) {
       WindowTestBase::testWindowFunction(
-          vectors, fmt::format("ntile({})", i), overClauses);
+          vectors, fmt::format("ntile({})", i), overClauses, kFrameClauses);
     }
   }
 };

@@ -300,7 +300,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
     });
 
     // Set null values for empty (non valid) frames in the output block.
-    setEmptyFramesResults(validRows, resultOffset, result);
+    setNullEmptyFramesResults(validRows, resultOffset, result);
   }
 
   void simpleAggregation(
@@ -333,22 +333,9 @@ class AggregateWindowFunction : public exec::WindowFunction {
     });
 
     // Set null values for empty (non valid) frames in the output block.
-    setEmptyFramesResults(validRows, resultOffset, result);
+    setNullEmptyFramesResults(validRows, resultOffset, result);
   }
 
-  void setEmptyFramesResults(
-      const SelectivityVector& validRows,
-      vector_size_t resultOffset,
-      const VectorPtr& result) {
-    if (validRows.isAllSelected()) {
-      return;
-    }
-    // Rows with empty (not-valid) frames have nullptr in the result.
-    invalidRows_.resizeFill(validRows.size(), true);
-    invalidRows_.deselect(validRows);
-    invalidRows_.applyToSelected(
-        [&](auto i) { result->setNull(resultOffset + i, true); });
-  }
   // Aggregate function object required for this window function evaluation.
   std::unique_ptr<exec::Aggregate> aggregate_;
 
@@ -379,9 +366,6 @@ class AggregateWindowFunction : public exec::WindowFunction {
   // Stores metadata about the previous output block of the partition
   // to optimize aggregate computation and reading argument vectors.
   std::optional<FrameMetadata> previousFrameMetadata_;
-
-  // Used for setting null for empty frames.
-  SelectivityVector invalidRows_;
 };
 
 } // namespace
