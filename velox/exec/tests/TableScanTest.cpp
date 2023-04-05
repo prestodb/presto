@@ -731,11 +731,10 @@ TEST_F(TableScanTest, multipleSplits) {
 
     auto task = assertQuery(tableScanNode(), filePaths, "SELECT * FROM tmp");
     auto stats = getTableScanRuntimeStats(task);
-    auto preload = stats.at("preloadedSplits");
     if (numPrefetchSplit != 0) {
-      ASSERT_GT(preload.sum, 10);
+      ASSERT_GT(stats.at("preloadedSplits").sum, 10);
     } else {
-      ASSERT_EQ(preload.sum, 0);
+      ASSERT_EQ(stats.count("preloadedSplits"), 0);
     }
   }
 }

@@ -149,10 +149,6 @@ RowVectorPtr TableScan::getOutput() {
 
     auto dataOptional = dataSource_->next(readBatchSize_, blockingFuture_);
     checkPreload();
-    if (!dataOptional.has_value()) {
-      blockingReason_ = BlockingReason::kWaitForConnector;
-      return nullptr;
-    }
 
     {
       auto lockedStats = stats_.wlock();
@@ -161,6 +157,12 @@ RowVectorPtr TableScan::getOutput() {
           RuntimeCounter(
               (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000,
               RuntimeCounter::Unit::kNanos));
+
+      if (!dataOptional.has_value()) {
+        blockingReason_ = BlockingReason::kWaitForConnector;
+        return nullptr;
+      }
+
       lockedStats->rawInputPositions = dataSource_->getCompletedRows();
       lockedStats->rawInputBytes = dataSource_->getCompletedBytes();
       auto data = dataOptional.value();
@@ -175,15 +177,16 @@ RowVectorPtr TableScan::getOutput() {
 
     {
       auto lockedStats = stats_.wlock();
-      lockedStats->addRuntimeStat(
-          "preloadedSplits",
-          RuntimeCounter(numPreloadedSplits_, RuntimeCounter::Unit::kNone));
-      numPreloadedSplits_ = 0;
-      lockedStats->addRuntimeStat(
-          "readyPreloadedSplits",
-          RuntimeCounter(
-              numReadyPreloadedSplits_, RuntimeCounter::Unit::kNone));
-      numReadyPreloadedSplits_ = 0;
+      if (numPreloadedSplits_ > 0) {
+        lockedStats->addRuntimeStat(
+            "preloadedSplits", RuntimeCounter(numPreloadedSplits_));
+        numPreloadedSplits_ = 0;
+      }
+      if (numReadyPreloadedSplits_ > 0) {
+        lockedStats->addRuntimeStat(
+            "readyPreloadedSplits", RuntimeCounter(numReadyPreloadedSplits_));
+        numReadyPreloadedSplits_ = 0;
+      }
     }
 
     driverCtx_->task->splitFinished();
