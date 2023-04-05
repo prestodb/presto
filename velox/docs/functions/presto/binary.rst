@@ -10,6 +10,10 @@ Binary Functions
 
     Decodes binary data from the base64 encoded ``string``.
 
+.. function:: from_base64url(string) -> varbinary
+
+    Decodes ``string`` data from the base64 encoded representation using the `URL safe alphabet <https://www.rfc-editor.org/rfc/rfc4648#section-5>`_ into a varbinary. 
+
 .. function:: from_big_endian_32(varbinary) -> integer
 
     Decodes ``integer`` value from a 32-bit 2’s complement big endian ``binary``.

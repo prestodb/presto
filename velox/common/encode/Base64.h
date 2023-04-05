@@ -89,8 +89,16 @@ class Base64 {
   static size_t
   decode(const char* src, size_t src_len, char* dst, size_t dst_len);
 
- private:
+  static void decodeUrl(
+      const char* src,
+      size_t src_len,
+      char* dst,
+      size_t dst_len,
+      bool pad);
+
   constexpr static char kBase64Pad = '=';
+
+ private:
   static inline size_t countPadding(const char* src, size_t len) {
     DCHECK_GE(len, 2);
     return src[len - 1] != kBase64Pad ? 0 : src[len - 2] != kBase64Pad ? 1 : 2;
