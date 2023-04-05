@@ -89,7 +89,7 @@ Map Functions
 
     Returns top n keys in the map ``x``.
     ``n`` must be a non-negative integer
-    For bottom ``n`` keys, use the function with lambda operator to perform custom sorting
+    For bottom ``n`` keys, use the function with lambda operator to perform custom sorting. ::
 
         SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2) --- ['c', 'b']
 
@@ -105,7 +105,7 @@ Map Functions
 .. function:: map_top_n(x(K,V), n) -> map(K, V)
 
     Truncates map items. Keeps only the top N elements by value.
-    ``n`` must be a non-negative integer
+    ``n`` must be a non-negative integer. ::
 
         SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[2, 3, 1]), 2) --- {'b' -> 3, 'a' -> 2}
 
