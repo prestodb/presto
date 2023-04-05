@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.hive.HiveExternalWorkerQueryRunner;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
 import com.facebook.presto.testing.ExpectedQueryRunner;
@@ -29,12 +28,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_ENABLED;
-import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_EXECUTABLE_PATH;
-import static com.facebook.presto.SystemSessionProperties.TABLE_WRITER_MERGE_OPERATOR_ENABLED;
-import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE;
-import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_INITIAL_PARTITION_COUNT;
-import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -45,27 +38,26 @@ public class AbstractTestPrestoSparkQueries
     private static final String SPARK_SHUFFLE_MANAGER = "spark.shuffle.manager";
     private static final String FALLBACK_SPARK_SHUFFLE_MANAGER = "spark.fallback.shuffle.manager";
 
-    protected Session getNativeSession()
-    {
-        Session.SessionBuilder sessionBuilder = Session.builder(getSession())
-                .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")
-                .setSystemProperty(TABLE_WRITER_MERGE_OPERATOR_ENABLED, "false")
-                .setSystemProperty(SPARK_INITIAL_PARTITION_COUNT, "1")
-                .setSystemProperty(SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED, "false")
-                .setCatalogSessionProperty("hive", COLLECT_COLUMN_STATISTICS_ON_WRITE, "false");
-
-        if (System.getProperty("NATIVE_PORT") == null) {
-            sessionBuilder.setSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, requireNonNull(System.getProperty("PRESTO_SERVER"), "Native worker binary path is missing. Add -DPRESTO_SERVER=/path/to/native/process/bin to your JVM arguments."));
-        }
-        return sessionBuilder.build();
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
     {
-        // prevent to use the default Prestissimo config files since the Presto-Spark will generate the configs on-the-fly.
+        ImmutableMap.Builder<String, String> builder = new ImmutableMap.Builder<String, String>()
+                // Do not use default Prestissimo config files. Presto-Spark will generate the configs on-the-fly.
+                .put("catalog.config-dir", "/")
+                .put("native-execution-enabled", "true")
+                .put("spark.initial-partition-count", "1")
+                .put("spark.partition-count-auto-tune-enabled", "false");
+
+        if (System.getProperty("NATIVE_PORT") == null) {
+            String path = requireNonNull(System.getProperty("PRESTO_SERVER"),
+                    "Native worker binary path is missing. " +
+                    "Add -DPRESTO_SERVER=/path/to/native/process/bin to your JVM arguments.");
+            builder.put("native-execution-executable-path", path);
+        }
+
         return PrestoSparkNativeQueryRunner.createPrestoSparkNativeQueryRunner(
-                ImmutableMap.of("catalog.config-dir", "/"), getNativeExecutionShuffleConfigs());
+                builder.build(),
+                getNativeExecutionShuffleConfigs());
     }
 
     @Override
@@ -92,18 +84,8 @@ public class AbstractTestPrestoSparkQueries
 
     protected void assertQuery(String sql)
     {
-        assertQuery(getNativeSession(), sql, getQueryRunner().getDefaultSession(), sql);
+        super.assertQuery(sql);
         assertShuffleMetadata();
-    }
-
-    protected void assertQuerySucceeds(String sql)
-    {
-        assertQuerySucceeds(getNativeSession(), sql);
-    }
-
-    protected void assertQueryFails(String sql, String expectedMessageRegExp)
-    {
-        assertQueryFails(getNativeSession(), sql, expectedMessageRegExp);
     }
 
     protected Map<String, String> getNativeExecutionShuffleConfigs()
