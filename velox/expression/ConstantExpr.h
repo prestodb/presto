@@ -29,11 +29,8 @@ class ConstantExpr : public SpecialForm {
             false /* trackCpuUsage */),
         needToSetIsAscii_{value->type()->isVarchar()} {
     VELOX_CHECK_EQ(value->encoding(), VectorEncoding::Simple::CONSTANT);
-    sharedSubexprValues_ = std::move(value);
+    sharedConstantValue_ = std::move(value);
   }
-
-  // Do not clear sharedSubexprValues_.
-  void reset() override {}
 
   void evalSpecialForm(
       const SelectivityVector& rows,
@@ -46,7 +43,7 @@ class ConstantExpr : public SpecialForm {
       VectorPtr& result) override;
 
   const VectorPtr& value() const {
-    return sharedSubexprValues_;
+    return sharedConstantValue_;
   }
 
   std::string toString(bool recursive = true) const override;
@@ -55,6 +52,7 @@ class ConstantExpr : public SpecialForm {
       std::vector<VectorPtr>* complexConstants = nullptr) const override;
 
  private:
+  VectorPtr sharedConstantValue_;
   bool needToSetIsAscii_;
 };
 } // namespace facebook::velox::exec

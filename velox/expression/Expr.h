@@ -159,14 +159,17 @@ class Expr {
   virtual void computeMetadata();
 
   virtual void reset() {
-    if (sharedSubexprRows_) {
-      sharedSubexprRows_->clearAll();
-    }
-    if (BaseVector::isVectorWritable(sharedSubexprValues_) &&
-        sharedSubexprValues_->isFlatEncoding()) {
-      sharedSubexprValues_->resize(0);
-    } else {
-      sharedSubexprValues_ = nullptr;
+    for (auto& [_, sharedSubexprResults] : sharedSubexprResults_) {
+      auto& [sharedSubexprRows, sharedSubexprValues] = sharedSubexprResults;
+      if (sharedSubexprRows) {
+        sharedSubexprRows->clearAll();
+      }
+      if (BaseVector::isVectorWritable(sharedSubexprValues) &&
+          sharedSubexprValues->isFlatEncoding()) {
+        sharedSubexprValues->resize(0);
+      } else {
+        sharedSubexprValues = nullptr;
+      }
     }
   }
 
@@ -364,10 +367,6 @@ class Expr {
 
   /// Evaluate common sub-expression. Check if sharedSubexprValues_ already has
   /// values for all 'rows'. If not, compute missing values.
-  ///
-  /// The callers of this method must ensure that 'rows' are comparable between
-  /// invocations, i.e. take care when evaluating CSEs on lazy vectors or
-  /// vectors with encodings.
   template <typename TEval>
   void evaluateSharedSubexpr(
       const SelectivityVector& rows,
@@ -440,11 +439,16 @@ class Expr {
 
   std::vector<VectorPtr> inputValues_;
 
-  // If multiply referenced or literal, these are the values.
-  VectorPtr sharedSubexprValues_;
+  struct SharedResults {
+    // The rows for which 'sharedSubexprValues_' has a value.
+    std::unique_ptr<SelectivityVector> sharedSubexprRows_ = nullptr;
+    // If multiply referenced or literal, these are the values.
+    VectorPtr sharedSubexprValues_ = nullptr;
+  };
 
-  // The rows for which 'sharedSubexprValues_' has a value.
-  std::unique_ptr<SelectivityVector> sharedSubexprRows_;
+  // Maps the inputs referenced by distinctFields_ captuered when
+  // evaluateSharedSubexpr() is called to the cached shared results.
+  std::map<std::vector<const BaseVector*>, SharedResults> sharedSubexprResults_;
 
   VectorPtr baseDictionary_;
 

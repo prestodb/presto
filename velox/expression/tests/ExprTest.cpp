@@ -3526,3 +3526,86 @@ TEST_F(ExprTest, ifWithLazyNulls) {
       evaluate(kExpr, makeRowVector({c0, wrapInLazyDictionary(c1)}));
   assertEqualVectors(result, resultFromLazy);
 }
+
+int totalDefaultNullFunc = 0;
+template <typename T>
+struct DefaultNullFunc {
+  void call(int64_t& output, int64_t input1, int64_t input2) {
+    output = input1 + input2;
+    totalDefaultNullFunc++;
+  }
+};
+
+int totalNotDefaultNullFunc = 0;
+template <typename T>
+struct NotDefaultNullFunc {
+  bool callNullable(int64_t& output, const int64_t* input) {
+    output = totalNotDefaultNullFunc++;
+    return input;
+  }
+};
+
+TEST_F(ExprTest, commonSubExpressionWithPeeling) {
+  registerFunction<DefaultNullFunc, int64_t, int64_t, int64_t>(
+      {"default_null"});
+  registerFunction<NotDefaultNullFunc, int64_t, int64_t>({"not_default_null"});
+
+  // func1(func2(c0), c0) propagates nulls of c0. since func1 is default null.
+  std::string expr1 = "default_null(not_default_null(c0), c0)";
+  EXPECT_TRUE(propagatesNulls(parseExpression(expr1, ROW({"c0"}, {BIGINT()}))));
+
+  // func2(c0) does not propagate nulls.
+  std::string expr2 = "not_default_null(c0)";
+  EXPECT_FALSE(
+      propagatesNulls(parseExpression(expr2, ROW({"c0"}, {BIGINT()}))));
+
+  auto clearResults = [&]() {
+    totalDefaultNullFunc = 0;
+    totalNotDefaultNullFunc = 0;
+  };
+
+  // When the input does not have additional nulls, peeling happens for both
+  // expr1, and expr2 identically, hence each of them will be evaluated only
+  // once per peeled row.
+  {
+    auto data = makeRowVector({wrapInDictionary(
+        makeIndices({0, 0, 0, 1}), 4, makeFlatVector<int64_t>({1, 2, 3, 4}))});
+    auto check = [&](const std::vector<std::string>& expressions) {
+      auto result = makeRowVector(evaluateMultiple(expressions, data));
+      ASSERT_EQ(totalDefaultNullFunc, 2);
+      ASSERT_EQ(totalNotDefaultNullFunc, 2);
+      clearResults();
+    };
+    check({expr1, expr2});
+    check({expr1});
+    check({expr1, expr1, expr2});
+    check({expr2, expr1, expr2});
+  }
+
+  // When the dictionary input have additional nulls, peeling won't happen for
+  // expressions that do not propagate nulls. Hence when expr2 is reached it
+  // shall be evaluated again for all rows.
+  {
+    auto data = makeRowVector({BaseVector::wrapInDictionary(
+        makeNulls(4, nullEvery(2)),
+        makeIndices({0, 0, 0, 1}),
+        4,
+        makeFlatVector<int64_t>({1, 2, 3, 4}))});
+    {
+      auto results = makeRowVector(evaluateMultiple({expr1, expr2}, data));
+
+      ASSERT_EQ(totalDefaultNullFunc, 2);
+      // It is evaluated twice during expr1 and 4 times during expr2.
+      ASSERT_EQ(totalNotDefaultNullFunc, 6);
+      clearResults();
+    }
+    {
+      // if expr2 appears again it shall be not be re-evaluated.
+      auto results =
+          makeRowVector(evaluateMultiple({expr1, expr2, expr1, expr2}, data));
+      ASSERT_EQ(totalDefaultNullFunc, 2);
+      // It is evaluated twice during expr1 and 4 times during expr2.
+      ASSERT_EQ(totalNotDefaultNullFunc, 6);
+    }
+  }
+}
