@@ -2321,3 +2321,126 @@ TEST_F(StringFunctionsTest, concatInSwitchExpr) {
       {"This is a long sentence-zzz"_sv, "aaa-This is some other sentence"_sv});
   test::assertEqualVectors(expected, result);
 }
+
+TEST_F(StringFunctionsTest, fromBigEndian32) {
+  const auto fromBigEndian32 = [&](const std::optional<std::string>& arg) {
+    return evaluateOnce<int32_t, std::string>(
+        "from_big_endian_32(c0)", {arg}, {VARBINARY()});
+  };
+
+  EXPECT_EQ(std::nullopt, fromBigEndian32(std::nullopt));
+  EXPECT_THROW(fromBigEndian32(hexToDec("01")), VeloxUserError);
+  EXPECT_THROW(fromBigEndian32(hexToDec("0000000000000001")), VeloxUserError);
+  EXPECT_THROW(fromBigEndian32("123456789123456789"), VeloxUserError);
+  EXPECT_THROW(fromBigEndian32("ABC-+/?"), VeloxUserError);
+
+  EXPECT_EQ(0, fromBigEndian32(hexToDec("00000000")));
+  EXPECT_EQ(1, fromBigEndian32(hexToDec("00000001")));
+  EXPECT_EQ(-1, fromBigEndian32(hexToDec("FFFFFFFF")));
+  EXPECT_EQ(12345678, fromBigEndian32(hexToDec("00BC614E")));
+  EXPECT_EQ(-12345678, fromBigEndian32(hexToDec("FF439EB2")));
+  // INT_MAX.
+  EXPECT_EQ(2147483647, fromBigEndian32(hexToDec("7FFFFFFF")));
+  // INT_MIN + 1.
+  EXPECT_EQ(-2147483647, fromBigEndian32(hexToDec("80000001")));
+  // INT_MIN.
+  EXPECT_EQ(-2147483648, fromBigEndian32(hexToDec("80000000")));
+  // INT overflow.
+  EXPECT_EQ(-1, fromBigEndian32(hexToDec("FFFFFFFF")));
+  EXPECT_EQ(-8, fromBigEndian32(hexToDec("FFFFFFF8")));
+}
+
+TEST_F(StringFunctionsTest, toBigEndian32) {
+  const auto toBigEndian32 = [&](const std::optional<int32_t>& arg) {
+    return evaluateOnce<std::string, int32_t>(
+        "to_big_endian_32(c0)", {arg}, {INTEGER()});
+  };
+
+  EXPECT_EQ(std::nullopt, toBigEndian32(std::nullopt));
+
+  EXPECT_EQ(hexToDec("00000000"), toBigEndian32(0));
+  EXPECT_EQ(hexToDec("00000001"), toBigEndian32(1));
+  EXPECT_EQ(hexToDec("FFFFFFFF"), toBigEndian32(-1));
+  EXPECT_EQ(hexToDec("00BC614E"), toBigEndian32(12345678));
+  EXPECT_EQ(hexToDec("FF439EB2"), toBigEndian32(-12345678));
+  // INT_MAX.
+  EXPECT_EQ(hexToDec("7FFFFFFF"), toBigEndian32(2147483647));
+  // INT_MIN + 1.
+  EXPECT_EQ(hexToDec("80000001"), toBigEndian32(-2147483647));
+  // INT_MIN.
+  EXPECT_EQ(hexToDec("80000000"), toBigEndian32(-2147483648));
+}
+
+TEST_F(StringFunctionsTest, fromBigEndian64) {
+  const auto fromBigEndian64 = [&](const std::optional<std::string>& arg) {
+    return evaluateOnce<int64_t, std::string>(
+        "from_big_endian_64(c0)", {arg}, {VARBINARY()});
+  };
+
+  EXPECT_EQ(std::nullopt, fromBigEndian64(std::nullopt));
+  EXPECT_THROW(fromBigEndian64(hexToDec("01")), VeloxUserError);
+  EXPECT_THROW(fromBigEndian64(hexToDec("00BC614E")), VeloxUserError);
+  EXPECT_THROW(fromBigEndian64(hexToDec("000000000000000001")), VeloxUserError);
+  EXPECT_THROW(fromBigEndian64("123456789123456789"), VeloxUserError);
+  EXPECT_THROW(fromBigEndian64("ABC-+/?"), VeloxUserError);
+
+  EXPECT_EQ(0, fromBigEndian64(hexToDec("0000000000000000")));
+  EXPECT_EQ(1, fromBigEndian64(hexToDec("0000000000000001")));
+  EXPECT_EQ(-1, fromBigEndian64(hexToDec("FFFFFFFFFFFFFFFF")));
+  EXPECT_EQ(12345678, fromBigEndian64(hexToDec("0000000000BC614E")));
+  EXPECT_EQ(-12345678, fromBigEndian64(hexToDec("FFFFFFFFFF439EB2")));
+  // INT_MAX.
+  EXPECT_EQ(2147483647, fromBigEndian64(hexToDec("000000007FFFFFFF")));
+  // INT_MIN + 1.
+  EXPECT_EQ(-2147483647, fromBigEndian64(hexToDec("FFFFFFFF80000001")));
+  // INT_MIN.
+  EXPECT_EQ(-2147483648, fromBigEndian64(hexToDec("FFFFFFFF80000000")));
+  // LONG_MAX.
+  EXPECT_EQ(
+      (int64_t)9223372036854775807,
+      fromBigEndian64(hexToDec("7FFFFFFFFFFFFFFF")));
+  // LONG_MIN + 1.
+  EXPECT_EQ(
+      (int64_t)-9223372036854775807,
+      fromBigEndian64(hexToDec("8000000000000001")));
+  // LONG_MIN.
+  EXPECT_EQ(
+      (int64_t)-9223372036854775807 - 1,
+      fromBigEndian64(hexToDec("8000000000000000")));
+  // LONG overflow.
+  EXPECT_EQ(-1, fromBigEndian64(hexToDec("FFFFFFFFFFFFFFFF")));
+  EXPECT_EQ(-8, fromBigEndian64(hexToDec("FFFFFFFFFFFFFFF8")));
+}
+
+TEST_F(StringFunctionsTest, toBigEndian64) {
+  const auto toBigEndian64 = [&](const std::optional<int64_t>& arg) {
+    return evaluateOnce<std::string, int64_t>(
+        "to_big_endian_64(c0)", {arg}, {BIGINT()});
+  };
+
+  EXPECT_EQ(std::nullopt, toBigEndian64(std::nullopt));
+
+  EXPECT_EQ(hexToDec("0000000000000000"), toBigEndian64(0));
+  EXPECT_EQ(hexToDec("0000000000000001"), toBigEndian64(1));
+  EXPECT_EQ(hexToDec("FFFFFFFFFFFFFFFF"), toBigEndian64(-1));
+  EXPECT_EQ(hexToDec("0000000000BC614E"), toBigEndian64(12345678));
+  EXPECT_EQ(hexToDec("FFFFFFFFFF439EB2"), toBigEndian64(-12345678));
+  // INT_MAX.
+  EXPECT_EQ(hexToDec("000000007FFFFFFF"), toBigEndian64(2147483647));
+  // INT_MIN + 1.
+  EXPECT_EQ(hexToDec("FFFFFFFF80000001"), toBigEndian64(-2147483647));
+  // INT_MIN.
+  EXPECT_EQ(hexToDec("FFFFFFFF80000000"), toBigEndian64(-2147483648));
+  // LONG_MAX.
+  EXPECT_EQ(
+      hexToDec("7FFFFFFFFFFFFFFF"),
+      toBigEndian64((int64_t)9223372036854775807));
+  // LONG_MIN + 1.
+  EXPECT_EQ(
+      hexToDec("8000000000000001"),
+      toBigEndian64((int64_t)-9223372036854775807));
+  // LONG_MIN.
+  EXPECT_EQ(
+      hexToDec("8000000000000000"),
+      toBigEndian64((int64_t)-9223372036854775807 - 1));
+}

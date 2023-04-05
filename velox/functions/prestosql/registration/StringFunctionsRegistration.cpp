@@ -96,6 +96,15 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "regexp_replace"});
   registerFunction<Re2RegexpReplacePresto, Varchar, Varchar, Varchar, Varchar>(
       {prefix + "regexp_replace"});
+
+  registerFunction<FromBigEndian32, int32_t, Varbinary>(
+      {prefix + "from_big_endian_32"});
+  registerFunction<ToBigEndian32, Varbinary, int32_t>(
+      {prefix + "to_big_endian_32"});
+  registerFunction<FromBigEndian64, int64_t, Varbinary>(
+      {prefix + "from_big_endian_64"});
+  registerFunction<ToBigEndian64, Varbinary, int64_t>(
+      {prefix + "to_big_endian_64"});
 }
 } // namespace
 

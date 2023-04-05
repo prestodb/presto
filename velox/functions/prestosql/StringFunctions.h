@@ -507,4 +507,56 @@ struct StrLPosFunction : public StrPosFunctionBase<T, true> {};
 template <typename T>
 struct StrRPosFunction : public StrPosFunctionBase<T, false> {};
 
+template <typename T>
+struct FromBigEndian32 {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<int32_t>& result, const arg_type<Varbinary>& input) {
+    static constexpr auto kTypeLength = sizeof(int32_t);
+    VELOX_USER_CHECK_EQ(input.size(), kTypeLength, "Expected 4-byte input");
+    memcpy(&result, input.data(), kTypeLength);
+    result = folly::Endian::big(result);
+  }
+};
+
+template <typename T>
+struct ToBigEndian32 {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<Varbinary>& result, const arg_type<int32_t>& input) {
+    static constexpr auto kTypeLength = sizeof(int32_t);
+    auto value = folly::Endian::big(input);
+    result.setNoCopy(
+        StringView(reinterpret_cast<const char*>(&value), kTypeLength));
+  }
+};
+
+template <typename T>
+struct FromBigEndian64 {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<int64_t>& result, const arg_type<Varbinary>& input) {
+    static constexpr auto kTypeLength = sizeof(int64_t);
+    VELOX_USER_CHECK_EQ(input.size(), kTypeLength, "Expected 8-byte input");
+    memcpy(&result, input.data(), kTypeLength);
+    result = folly::Endian::big(result);
+  }
+};
+
+template <typename T>
+struct ToBigEndian64 {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<Varbinary>& result, const arg_type<int64_t>& input) {
+    static constexpr auto kTypeLength = sizeof(int64_t);
+    auto value = folly::Endian::big(input);
+    result.setNoCopy(
+        StringView(reinterpret_cast<const char*>(&value), kTypeLength));
+  }
+};
+
 } // namespace facebook::velox::functions
