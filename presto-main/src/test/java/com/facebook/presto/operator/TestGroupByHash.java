@@ -282,7 +282,7 @@ public class TestGroupByHash
                 });
         groupByHash.addPage(new Page(valuesBlock, hashBlock)).process();
 
-        // assert we call update memory twice every time we rehash; the rehash count = log2(length / FILL_RATIO)
+        // assert we call update memory twice every time we rehash; the rehash count = 2 * log2(length / FILL_RATIO)
         assertEquals(rehashCount.get(), 2 * log2(length / 0.75, RoundingMode.FLOOR));
     }
 
