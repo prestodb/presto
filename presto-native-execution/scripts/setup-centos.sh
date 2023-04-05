@@ -12,32 +12,26 @@
 # limitations under the License.
 
 set -ex
+export SCRIPT_DIR="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")"
 
-CPU_TARGET="${CPU_TARGET:-avx}"
-SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
+source "${SCRIPT_DIR}/../velox/scripts/setup-helper-functions.sh" || \
+source "${SCRIPT_DIR}/setup-helper-functions.sh"
 
-if [ -f "${SCRIPT_DIR}/setup-helper-functions.sh" ]; then
-  source "${SCRIPT_DIR}/setup-helper-functions.sh"
-else
-  source "${SCRIPT_DIR}/../velox/scripts/setup-helper-functions.sh"
-fi
-
-export FB_OS_VERSION="${FB_OS_VERSION:-'v2022.11.14.00'}"
-export nproc=${nproc:-$(getconf _NPROCESSORS_ONLN)}
-export CC="${CC:-'/opt/rh/gcc-toolset-9/root/bin/gcc'}"
-export CXX="${CXX:-'/opt/rh/gcc-toolset-9/root/bin/g++'}"
-export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
-
-dnf install -y maven
-dnf install -y java
+dnf install -y tar jq wget git
+dnf install -y maven java
 dnf install -y python3
 dnf install -y clang-tools-extra
-dnf install -y jq
 dnf install -y perl-XML-XPath
-# Required for Antlr4
 dnf install -y libuuid-devel
 
 python3 -m pip install regex pyyaml chevron black six
+
+export FB_OS_VERSION="${FB_OS_VERSION:-'v2022.11.14.00'}"
+export nproc="${nproc:-"$(getconf _NPROCESSORS_ONLN)"}"
+export CC="${CC:-/opt/rh/gcc-toolset-9/root/bin/gcc}"
+export CXX="${CXX:-/opt/rh/gcc-toolset-9/root/bin/g++}"
+export CPU_TARGET="${CPU_TARGET:-avx}"
+export COMPILER_FLAGS="${COMPILER_FLAGS:-"$(echo -n $(get_cxx_flags $CPU_TARGET))"}"
 
 (
   wget --max-redirect 3 https://download.libsodium.org/libsodium/releases/LATEST.tar.gz &&
@@ -59,30 +53,26 @@ python3 -m pip install regex pyyaml chevron black six
 )
 
 (
-  git clone https://github.com/facebook/folly &&
+  git clone --branch $FB_OS_VERSION https://github.com/facebook/folly &&
   cd folly &&
-  git checkout $FB_OS_VERSION &&
   cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 )
 
 (
-  git clone https://github.com/facebookincubator/fizz &&
+  git clone --branch $FB_OS_VERSION https://github.com/facebookincubator/fizz &&
   cd fizz &&
-  git checkout $FB_OS_VERSION &&
   cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON fizz
 )
 
 (
-  git clone https://github.com/facebook/wangle &&
+  git clone --branch $FB_OS_VERSION https://github.com/facebook/wangle &&
   cd wangle &&
-  git checkout $FB_OS_VERSION &&
   cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON wangle
 )
 
 (
-  git clone https://github.com/facebook/proxygen &&
+  git clone --branch $FB_OS_VERSION https://github.com/facebook/proxygen &&
   cd proxygen &&
-  git checkout $FB_OS_VERSION &&
   cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 )
 
@@ -102,9 +92,8 @@ python3 -m pip install regex pyyaml chevron black six
 )
 
 (
-  git clone https://github.com/facebook/fbthrift &&
+  git clone --branch $FB_OS_VERSION https://github.com/facebook/fbthrift &&
   cd fbthrift &&
-  git checkout $FB_OS_VERSION &&
   cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 )
 
