@@ -13,43 +13,19 @@
  */
 package com.facebook.presto.nativeworker;
 
-import com.facebook.presto.hive.HiveExternalWorkerQueryRunner;
-import com.facebook.presto.testing.ExpectedQueryRunner;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.io.Resources;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.Optional;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertNotNull;
 
 public abstract class TestHiveTpchQueries
-        extends AbstractTestQueryFramework
+        extends AbstractTestHiveQueries
 {
-    public static QueryRunner createNativeQueryRunner(boolean useThrift)
-            throws Exception
+    public TestHiveTpchQueries(boolean useThrift)
     {
-        String prestoServerPath = System.getProperty("PRESTO_SERVER");
-        String dataDirectory = System.getProperty("DATA_DIR");
-        String workerCount = System.getProperty("WORKER_COUNT");
-        int cacheMaxSize = 0;
-
-        assertNotNull(prestoServerPath);
-        assertNotNull(dataDirectory);
-
-        return HiveExternalWorkerQueryRunner.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift);
-    }
-
-    @Override
-    protected ExpectedQueryRunner createExpectedQueryRunner()
-            throws Exception
-    {
-        String dataDirectory = System.getProperty("DATA_DIR");
-        return HiveExternalWorkerQueryRunner.createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)));
+        super(useThrift);
     }
 
     private static String getTpchQuery(int q)
