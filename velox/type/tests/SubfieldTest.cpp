@@ -135,3 +135,12 @@ TEST(SubfieldTest, hash) {
   subfields.emplace("a[\"b\"]");
   EXPECT_EQ(subfields.size(), 3);
 }
+
+TEST(SubfieldTest, longSubscript) {
+  Subfield subfield("a[3309189884973035076]");
+  ASSERT_EQ(subfield.path().size(), 2);
+  auto* longSubscript =
+      dynamic_cast<const Subfield::LongSubscript*>(subfield.path()[1].get());
+  ASSERT_TRUE(longSubscript);
+  ASSERT_EQ(longSubscript->index(), 3309189884973035076);
+}
