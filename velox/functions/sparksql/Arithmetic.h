@@ -25,6 +25,26 @@
 namespace facebook::velox::functions::sparksql {
 
 template <typename T>
+struct RemainderFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool
+  call(TInput& result, const TInput a, const TInput n) {
+    if (UNLIKELY(n == 0)) {
+      return false;
+    }
+    // std::numeric_limits<int64_t>::min() % -1 could crash the program since
+    // abs(std::numeric_limits<int64_t>::min()) can not be represented in
+    // int64_t.
+    if (UNLIKELY(n == 1 || n == -1)) {
+      result = 0;
+    } else {
+      result = a % n;
+    }
+    return true;
+  }
+};
+
+template <typename T>
 struct PModFunction {
   template <typename TInput>
   FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput a, const TInput n)
@@ -34,28 +54,13 @@ struct PModFunction {
 #endif
 #endif
   {
-    if (UNLIKELY(n == 0)) {
+    TInput r;
+    bool notNull = RemainderFunction<T>().call(r, a, n);
+    if (!notNull) {
       return false;
     }
-    TInput r = a % n;
-    result = (r > 0) ? r : (r + n) % n;
-    return true;
-  }
-};
 
-template <typename T>
-struct RemainderFunction {
-  template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool
-  call(TInput& result, const TInput a, const TInput n) {
-    if (UNLIKELY(n == 0)) {
-      return false;
-    }
-    if (UNLIKELY(n == 1 || n == -1)) {
-      result = 0;
-    } else {
-      result = a % n;
-    }
+    result = (r > 0) ? r : (r + n) % n;
     return true;
   }
 };
