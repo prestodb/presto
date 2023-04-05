@@ -134,23 +134,10 @@ void TaskResource::registerUris(http::HttpServer& server) {
       });
 
   server.registerGet(
-      R"(/v1/jmx/mbean/java.lang:type=OperatingSystem/ProcessCpuTime)",
+      R"(/v1/jmx/mbean/(.+):(.+)=(.+))",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
-        return new http::CallbackRequestHandler(
-            [this](
-                proxygen::HTTPMessage* /*message*/,
-                const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-                proxygen::ResponseHandler* downstream) {
-              try {
-                sendOkResponse(
-                    downstream,
-                    std::to_string(velox::process::threadCpuNanos()));
-              } catch (const std::exception& e) {
-                sendErrorResponse(downstream, e.what());
-                return;
-              }
-            });
+        return mockJmxMbeanInfo(message, pathMatch);
       });
 }
 
@@ -559,4 +546,27 @@ proxygen::RequestHandler* TaskResource::removeRemoteSource(
         http::sendOkResponse(downstream);
       });
 }
+
+proxygen::RequestHandler* TaskResource::mockJmxMbeanInfo(
+    proxygen::HTTPMessage* /*message*/,
+    const std::vector<std::string>& pathMatch) {
+  auto subPath = pathMatch[1];
+  auto key = pathMatch[2];
+  auto category = pathMatch[3];
+
+  return new http::CallbackRequestHandler(
+      [this, subPath, key, category](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        try {
+          auto cpuTimeNanos = std::to_string(velox::process::threadCpuNanos());
+          http::sendOkResponse(downstream, cpuTimeNanos);
+        } catch (const std::exception& e) {
+          http::sendErrorResponse(downstream, e.what());
+          return;
+        }
+      });
+}
+
 } // namespace facebook::presto
