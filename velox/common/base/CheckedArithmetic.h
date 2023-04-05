@@ -66,6 +66,12 @@ T checkedModulus(const T& a, const T& b) {
   if (UNLIKELY(b == 0)) {
     VELOX_ARITHMETIC_ERROR("Cannot divide by 0");
   }
+  // std::numeric_limits<int64_t>::min() % -1 could crash the program since
+  // abs(std::numeric_limits<int64_t>::min()) can not be represented in
+  // int64_t.
+  if (b == -1) {
+    return 0;
+  }
   return (a % b);
 }
 

@@ -115,9 +115,10 @@ TEST_F(ArithmeticTest, mod) {
 }
 
 TEST_F(ArithmeticTest, modInt) {
-  std::vector<int64_t> numerInt = {9, 10, 0, -9, -10, -11};
-  std::vector<int64_t> denomInt = {3, -3, 11, -1, 199999, 77};
-  std::vector<int64_t> expectedInt = {0, 1, 0, 0, -10, -11};
+  std::vector<int64_t> numerInt = {
+      9, 10, 0, -9, -10, -11, std::numeric_limits<int64_t>::min()};
+  std::vector<int64_t> denomInt = {3, -3, 11, -1, 199999, 77, -1};
+  std::vector<int64_t> expectedInt = {0, 1, 0, 0, -10, -11, 0};
 
   assertExpression<int64_t, int64_t>(
       "mod(c0, c1)", numerInt, denomInt, expectedInt);
