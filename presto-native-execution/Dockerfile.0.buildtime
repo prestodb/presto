@@ -1,0 +1,51 @@
+# prestodb/avx/centos8-prestissimo-buildtime
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+ARG IMAGE_CACHE_REGISTRY=quay.io/centos
+FROM --platform=linux/amd64 ${IMAGE_CACHE_REGISTRY}/centos:stream8
+
+LABEL org.opencontainers.image.title="centos8-prestissimo-buildtime"
+LABEL org.opencontainers.image.description="Centos-Stream-8 based Prestissimo base image for buildtime container."
+LABEL org.opencontainers.image.vendor="Ahana, Intel and Meta Corporations collaboration"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.authors="milosz.linkiewicz@intel.com"
+
+ARG CPU_TARGET=avx
+
+SHELL ["/bin/bash", "-eEuo", "pipefail", "-c"]
+WORKDIR /opt/dependency
+
+ENV CPU_TARGET=${CPU_TARGET}
+ENV PROMPT_ALWAYS_RESPOND=n
+ENV PRESTO_HOME="/opt/presto/"
+ENV CMAKE_PREFIX_PATH="/usr/local"
+ENV DEPENDENCY_DIR="/opt/dependency"
+ENV INSTALL_PREFIX="/usr/local"
+ENV CC=/opt/rh/gcc-toolset-9/root/bin/gcc
+ENV CXX=/opt/rh/gcc-toolset-9/root/bin/g++
+ENV TZ="Europe/Warsaw"
+
+ADD velox/scripts /opt/dependency/_build/velox/scripts/
+ADD scripts /opt/dependency/_build/scripts/
+
+RUN dnf -y install make python3-devel && \
+    python3 -m pip install antlr4-tools antlr4-python3-runtime && \
+    cd _build && \
+    sed -i 's/\(.*folly.*\)/# \1/g' "/opt/dependency/_build/velox/scripts/setup-circleci.sh" && \
+    CPU_TARGET="$CPU_TARGET" bash "/opt/dependency/_build/velox/scripts/setup-circleci.sh" && \
+    CPU_TARGET="$CPU_TARGET" bash '/opt/dependency/_build/scripts/setup-centos.sh' && \
+    mkdir -p "/opt/dependency/install/bin" && \
+    cd /opt/dependency && \
+    CPU_TARGET="$CPU_TARGET" bash '/opt/dependency/_build/velox/scripts/setup-adapters.sh' && \
+    dnf clean all && \
+    rm -rf '/opt/dependency/_build' '/opt/dependency/aws-sdk-cpp'
