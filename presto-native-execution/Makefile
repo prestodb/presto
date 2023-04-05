@@ -61,18 +61,21 @@ velox-submodule:		#: Check out code for velox submodule
 
 submodules: velox-submodule
 
-cmake: submodules		#: Use CMake to create a Makefile build system
+cmake: 					#: Use CMake to create a Makefile build system. Call submodules only if NO_SYNCH is empty
+ifeq ($(strip $(NO_SYNCH)),)
+	$(MAKE) submodules
+endif
 	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(FORCE_COLOR) $(CMAKE_FLAGS) $(EXTRA_CMAKE_FLAGS)
 
 build:					#: Build the software based in BUILD_DIR and BUILD_TYPE variables
 	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j $(NUM_THREADS)
 
 debug:					#: Build with debugging symbols
-	$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug
+	$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug NO_SYNCH=$(NO_SYNCH)
 	$(MAKE) build BUILD_DIR=debug
 
 release:				#: Build the release version
-	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=Release && \
+	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=Release NO_SYNCH=$(NO_SYNCH)
 	$(MAKE) build BUILD_DIR=release
 
 unittest: debug			#: Build with debugging and run unit tests
@@ -112,6 +115,18 @@ linux-container:
 	cp scripts/setup-$(CONTAINER_NAME).sh scripts/$(CONTAINER_NAME)-container.dockfile velox/scripts/setup-helper-functions.sh /tmp/docker && \
 	cd /tmp/docker && \
 	docker build --build-arg cpu_target=$(CPU_TARGET) --tag "prestocpp/prestocpp-$(CPU_TARGET)-$(CONTAINER_NAME):$(USER)-$(shell date +%Y%m%d)" -f $(CONTAINER_NAME)-container.dockfile .
+
+centos-staging: submodules
+	rm -rf /tmp/centos-staging && \
+	mkdir -p /tmp/centos-staging && \
+	cp -a ./. /tmp/centos-staging && \
+	IMAGE_TAG="$${IMAGE_TAG:-$(USER)-$(shell date +%Y%m%d)}" && \
+	IMAGE_REGISTRY="$${IMAGE_REGISTRY:-prestodb}" && \
+	IMAGE_NAME_BUILDTIME="$${IMAGE_NAME_BUILDTIME$(CPU_TARGET)/centos8-prestissimo-buildtime}"
+	IMAGE_NAME_RUNTIME="$${IMAGE_NAME_RUNTIME:-$(CPU_TARGET)/centos8-prestissimo-runtime}"
+	docker build --build-arg CPU_TARGET=$(CPU_TARGET) --tag "$${IMAGE_REGISTRY}/$${IMAGE_NAME_BUILDTIME}:$${IMAGE_TAG}" -f Dockerfile.0.buildtime .
+	docker build --build-arg CPU_TARGET=$(CPU_TARGET) --tag "$${IMAGE_REGISTRY}/$${IMAGE_NAME_RUNTIME}:$${IMAGE_TAG}" -f Dockerfile.0.runtime .
+	docker build --build-arg CPU_TARGET=$(CPU_TARGET) --build-arg IMAGE_REGISTRY=$${IMAGE_REGISTRY} --build-arg BUILDTIME_IMAGE=$${IMAGE_NAME_BUILDTIME} --build-arg RUNTIME_IMAGE=$${IMAGE_NAME_RUNTIME} --build-arg IMAGE_TAG=$${IMAGE_TAG} --tag "$${IMAGE_REGISTRY}/$(CPU_TARGET)/prestissimo:$${IMAGE_TAG}" -f Dockerfile.1.prestissimo .
 
 runtime-container:
 	rm -rf /tmp/release-centos-dockerfile && \
