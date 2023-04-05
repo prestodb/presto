@@ -25,8 +25,13 @@ namespace facebook::velox::memory {
 MmapAllocator::MmapAllocator(const Options& options)
     : kind_(MemoryAllocator::Kind::kMmap),
       useMmapArena_(options.useMmapArena),
+      maxMallocBytes_(options.maxMallocBytes),
+      mallocReservedBytes_(
+          maxMallocBytes_ == 0
+              ? 0
+              : options.capacity * options.smallAllocationReservePct / 100),
       capacity_(bits::roundUp(
-          options.capacity / AllocationTraits::kPageSize,
+          AllocationTraits::numPages(options.capacity - mallocReservedBytes_),
           64 * sizeClassSizes_.back())) {
   for (const auto& size : sizeClassSizes_) {
     sizeClasses_.push_back(std::make_unique<SizeClass>(capacity_ / size, size));
@@ -367,7 +372,7 @@ void MmapAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
 void* MmapAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
   alignmentCheck(bytes, alignment);
 
-  if (bytes <= kMaxMallocBytes) {
+  if (useMalloc(bytes)) {
     auto* result = alignment > kMinAlignment ? ::aligned_alloc(alignment, bytes)
                                              : ::malloc(bytes);
     if (FOLLY_UNLIKELY(result == nullptr)) {
@@ -407,7 +412,7 @@ void* MmapAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
 }
 
 void MmapAllocator::freeBytes(void* p, uint64_t bytes) noexcept {
-  if (bytes <= kMaxMallocBytes) {
+  if (useMalloc(bytes)) {
     ::free(p); // NOLINT
     numMallocBytes_.fetch_sub(bytes);
     return;
@@ -880,6 +885,10 @@ bool MmapAllocator::checkConsistency() const {
                          << " errors";
   }
   return numErrors == 0;
+}
+
+bool MmapAllocator::useMalloc(uint64_t bytes) {
+  return (maxMallocBytes_ != 0) && (bytes <= maxMallocBytes_);
 }
 
 std::string MmapAllocator::toString() const {

@@ -113,6 +113,7 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
     return std::make_shared<MemoryManager>(options);
   }
 
+  const int32_t maxMallocBytes_ = 3072;
   const bool useMmap_;
   const bool useCache_;
   folly::Random::DefaultGenerator rng_;
@@ -1480,12 +1481,12 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationError) {
     }
   } testSettings[] = {// NOTE: the failure injection only applies for
                       // allocations that are not delegated to malloc.
-                      {MemoryAllocator::kMaxMallocBytes - 1, false, false},
-                      {MemoryAllocator::kMaxMallocBytes, false, false},
-                      {MemoryAllocator::kMaxMallocBytes + 1, true, false},
-                      {MemoryAllocator::kMaxMallocBytes - 1, false, true},
-                      {MemoryAllocator::kMaxMallocBytes, false, true},
-                      {MemoryAllocator::kMaxMallocBytes + 1, true, true}};
+                      {maxMallocBytes_ - 1, false, false},
+                      {maxMallocBytes_, false, false},
+                      {maxMallocBytes_ + 1, true, false},
+                      {maxMallocBytes_ - 1, false, true},
+                      {maxMallocBytes_, false, true},
+                      {maxMallocBytes_ + 1, true, true}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto manager = getMemoryManager(8 * GB);
@@ -1527,12 +1528,12 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationZeroFilledError) {
     }
   } testSettings[] = {// NOTE: the failure injection only applies for
                       // allocations that are not delegated to malloc.
-                      {MemoryAllocator::kMaxMallocBytes - 1, 1, false, false},
-                      {MemoryAllocator::kMaxMallocBytes, 1, false, false},
-                      {MemoryAllocator::kMaxMallocBytes + 1, 1, true, false},
-                      {MemoryAllocator::kMaxMallocBytes - 1, 1, false, true},
-                      {MemoryAllocator::kMaxMallocBytes, 1, false, true},
-                      {MemoryAllocator::kMaxMallocBytes + 1, 1, true, true}};
+                      {maxMallocBytes_ - 1, 1, false, false},
+                      {maxMallocBytes_, 1, false, false},
+                      {maxMallocBytes_ + 1, 1, true, false},
+                      {maxMallocBytes_ - 1, 1, false, true},
+                      {maxMallocBytes_, 1, false, true},
+                      {maxMallocBytes_ + 1, 1, true, true}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto manager = getMemoryManager(8 * GB);
@@ -1574,12 +1575,12 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapReallocateError) {
     }
   } testSettings[] = {// NOTE: the failure injection only applies for
                       // allocations that are not delegated to malloc.
-                      {MemoryAllocator::kMaxMallocBytes - 1, false, false},
-                      {MemoryAllocator::kMaxMallocBytes, false, false},
-                      {MemoryAllocator::kMaxMallocBytes + 1, true, false},
-                      {MemoryAllocator::kMaxMallocBytes - 1, false, true},
-                      {MemoryAllocator::kMaxMallocBytes, false, true},
-                      {MemoryAllocator::kMaxMallocBytes + 1, true, true}};
+                      {maxMallocBytes_ - 1, false, false},
+                      {maxMallocBytes_, false, false},
+                      {maxMallocBytes_ + 1, true, false},
+                      {maxMallocBytes_ - 1, false, true},
+                      {maxMallocBytes_, false, true},
+                      {maxMallocBytes_ + 1, true, true}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto manager = getMemoryManager(8 * GB);

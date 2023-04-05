@@ -60,6 +60,21 @@ class MmapAllocator : public MemoryAllocator {
     /// Used to determine MmapArena capacity. The ratio represents system memory
     /// capacity to single MmapArena capacity ratio.
     int32_t mmapArenaCapacityRatio = 10;
+
+    /// If not zero, reserve 'smallAllocationReservePct'% of space from
+    /// 'capacity' for ad hoc small allocations. And those allocations are
+    /// delegated to std::malloc.
+    ///
+    /// NOTE: if 'maxMallocBytes' is 0, this value will be disregarded.
+    uint32_t smallAllocationReservePct = 0;
+
+    /// The allocation threshold less than which an allocation is delegated to
+    /// std::malloc().
+    ///
+    /// NOTE: if it is zero, then we don't delegate any allocation std::malloc,
+    /// and 'smallAllocationReservePct' will be automatically set to 0
+    /// disregarding any passed in value.
+    int32_t maxMallocBytes = 3072;
   };
 
   explicit MmapAllocator(const Options& options);
@@ -97,6 +112,19 @@ class MmapAllocator : public MemoryAllocator {
         allocation.size(), [&]() { freeContiguousImpl(allocation); });
   }
 
+  /// Allocates 'bytes' contiguous bytes and returns the pointer to the first
+  /// byte. If 'bytes' is less than 'maxMallocBytes_', delegates the allocation
+  /// to malloc. If the size is above that and below the largest size classes'
+  /// size, allocates one element of the next size classes' size. If 'size' is
+  /// greater than the largest size classes' size, calls allocateContiguous().
+  /// Returns nullptr if there is no space. The amount to allocate is subject to
+  /// the size limit of 'this'. This function is not virtual but calls the
+  /// virtual functions allocateNonContiguous and allocateContiguous, which can
+  /// track sizes and enforce caps etc. If 'alignment' is not kMinAlignment,
+  /// then 'bytes' must be a multiple of 'alignment'.
+  ///
+  /// NOTE: 'alignment' must be power of two and in range of [kMinAlignment,
+  /// kMaxAlignment].
   void* allocateBytes(uint64_t bytes, uint16_t alignment) override;
 
   void freeBytes(void* p, uint64_t bytes) noexcept override;
@@ -111,6 +139,14 @@ class MmapAllocator : public MemoryAllocator {
 
   MachinePageCount capacity() const {
     return capacity_;
+  }
+
+  int32_t maxMallocBytes() const {
+    return maxMallocBytes_;
+  }
+
+  size_t mallocReservedBytes() const {
+    return mallocReservedBytes_;
   }
 
   MachinePageCount numAllocated() const override {
@@ -321,6 +357,8 @@ class MmapAllocator : public MemoryAllocator {
   // advises them away. Returns the number of pages advised away.
   MachinePageCount adviseAway(MachinePageCount target);
 
+  bool useMalloc(uint64_t bytes);
+
   const Kind kind_;
 
   // If set true, allocations larger than the largest size class size will be
@@ -338,7 +376,24 @@ class MmapAllocator : public MemoryAllocator {
   // 'numAllocated_' and 'numMapped_'. This counter is informational
   // only.
   std::atomic<MachinePageCount> numExternalMapped_{0};
-  MachinePageCount capacity_ = 0;
+
+  // Allocations smaller than 'maxMallocBytes' will be delegated to
+  // std::malloc().
+  //
+  // NOTE: if it is zero, then there is no delegation to std::malloc.
+  const int32_t maxMallocBytes_ = 0;
+
+  // Reserved capacity for small allocations made by MmapAllocator through
+  // std::malloc().
+  //
+  // TODO: we don't put limit on the ad hoc small memory allocation usage for
+  // now. Might consider to add later after analyzing memory metrics in prod if
+  // required.
+  const size_t mallocReservedBytes_ = 0;
+
+  // Capacity for allocations made by MmapAllocator excluding the ones delegated
+  // to std::malloc().
+  const MachinePageCount capacity_ = 0;
 
   std::vector<std::unique_ptr<SizeClass>> sizeClasses_;
 
