@@ -125,6 +125,10 @@ class MmapAllocator : public MemoryAllocator {
     return numExternalMapped_;
   }
 
+  uint64_t numMallocBytes() const {
+    return numMallocBytes_;
+  }
+
   Stats stats() const override {
     auto stats = stats_;
     stats.numAdvise = numAdvisedPages_;
@@ -342,6 +346,7 @@ class MmapAllocator : public MemoryAllocator {
   std::atomic<uint64_t> numAllocations_ = 0;
   std::atomic<uint64_t> numAllocatedPages_ = 0;
   std::atomic<uint64_t> numAdvisedPages_ = 0;
+  std::atomic<uint64_t> numMallocBytes_ = 0;
 
   // Allocations that are larger than largest size classes will be delegated to
   // ManagedMmapArenas, to avoid calling mmap on every allocation.

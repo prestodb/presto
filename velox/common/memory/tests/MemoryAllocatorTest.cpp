@@ -858,6 +858,7 @@ TEST_P(MemoryAllocatorTest, allocateBytes) {
   // We fill 'data' with random size allocations. Each is filled with its index
   // in 'data' cast to char.
   std::vector<folly::Range<char*>> data(kNumAllocs);
+  uint64_t expectedNumMallocBytes = 0;
   for (auto counter = 0; counter < data.size() * 4; ++counter) {
     int32_t index = folly::Random::rand32(rng) % kNumAllocs;
     int32_t bytes = sizes[folly::Random::rand32() % sizes.size()];
@@ -868,10 +869,23 @@ TEST_P(MemoryAllocatorTest, allocateBytes) {
       for (auto byte : data[index]) {
         ASSERT_EQ(expected, byte);
       }
-      instance_->freeBytes(data[index].data(), data[index].size());
+      int32_t freeSize = data[index].size();
+      instance_->freeBytes(data[index].data(), freeSize);
+      if (useMmap_ && freeSize == sizes[0]) {
+        expectedNumMallocBytes -= freeSize;
+        ASSERT_EQ(
+            expectedNumMallocBytes,
+            ((MmapAllocator*)instance_)->numMallocBytes());
+      }
     }
     data[index] = folly::Range<char*>(
         reinterpret_cast<char*>(instance_->allocateBytes(bytes)), bytes);
+    if (useMmap_ && bytes == sizes[0]) {
+      expectedNumMallocBytes += bytes;
+      ASSERT_EQ(
+          expectedNumMallocBytes,
+          ((MmapAllocator*)instance_)->numMallocBytes());
+    }
     for (auto& byte : data[index]) {
       byte = expected;
     }
@@ -879,7 +893,14 @@ TEST_P(MemoryAllocatorTest, allocateBytes) {
   ASSERT_TRUE(instance_->checkConsistency());
   for (auto& range : data) {
     if (range.data()) {
-      instance_->freeBytes(range.data(), range.size());
+      int32_t bytes = range.size();
+      instance_->freeBytes(range.data(), bytes);
+      if (useMmap_ && bytes == sizes[0]) {
+        expectedNumMallocBytes -= bytes;
+        ASSERT_EQ(
+            expectedNumMallocBytes,
+            ((MmapAllocator*)instance_)->numMallocBytes());
+      }
     }
   }
 

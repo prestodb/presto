@@ -373,6 +373,8 @@ void* MmapAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
     if (FOLLY_UNLIKELY(result == nullptr)) {
       VELOX_MEM_LOG(ERROR) << "Failed to allocateBytes " << bytes
                            << " bytes with " << alignment << " alignment";
+    } else {
+      numMallocBytes_.fetch_add(bytes);
     }
     return result;
   }
@@ -407,6 +409,7 @@ void* MmapAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
 void MmapAllocator::freeBytes(void* p, uint64_t bytes) noexcept {
   if (bytes <= kMaxMallocBytes) {
     ::free(p); // NOLINT
+    numMallocBytes_.fetch_sub(bytes);
     return;
   }
 
