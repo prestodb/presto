@@ -896,7 +896,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>units</artifactId>
-                <version>1.3</version>
+                <version>1.8</version>
             </dependency>
 
             <dependency>
