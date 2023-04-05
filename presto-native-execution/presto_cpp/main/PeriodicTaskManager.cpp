@@ -145,6 +145,13 @@ void PeriodicTaskManager::start() {
           REPORT_ADD_STAT_VALUE(
               kCounterAllocatedMemoryBytes,
               (allocator->numAllocated() * 4096l));
+          // TODO(jtan6): Remove condition after T150019700 is done
+          if (auto* mmapAllocator =
+                  dynamic_cast<velox::memory::MmapAllocator*>(allocator)) {
+            REPORT_ADD_STAT_VALUE(
+                kCounterMappedMemoryRawAllocBytesSmall,
+                (mmapAllocator->numMallocBytes()))
+          }
           // TODO(xiaoxmeng): add memory allocation size stats.
         },
         std::chrono::microseconds{kMemoryPeriodGlobalCounters},
