@@ -60,6 +60,7 @@ struct ServerOperation;
 class SignalHandler;
 class TaskManager;
 class TaskResource;
+class PeriodicTaskManager;
 
 class PrestoServer {
  public:
@@ -80,6 +81,10 @@ class PrestoServer {
   }
 
  protected:
+  /// Hook for derived PrestoServer implementations to add additional periodic
+  /// tasks.
+  virtual void addAdditionalPeriodicTasks();
+
   virtual std::function<folly::SocketAddress()> discoveryAddressLookup();
 
   virtual std::shared_ptr<velox::exec::TaskListener> getTaskListener();
@@ -149,6 +154,7 @@ class PrestoServer {
   std::atomic<NodeState> nodeState_{NodeState::ACTIVE};
   std::atomic_bool shuttingDown_{false};
   std::chrono::steady_clock::time_point start_;
+  std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
 
   // We update these members asynchronously and return in http requests w/o
   // delay.

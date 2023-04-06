@@ -336,23 +336,28 @@ void PrestoServer::run() {
   for (auto connectorId : catalogNames) {
     connectors.emplace_back(velox::connector::getConnector(connectorId));
   }
-  PeriodicTaskManager periodicTaskManager(
+
+  auto memoryAllocator = velox::memory::MemoryAllocator::getInstance();
+  periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
       driverCPUExecutor(),
       httpServer_->getExecutor(),
       taskManager_.get(),
-      std::move(connectors));
-  periodicTaskManager.addTask(
+      memoryAllocator,
+      dynamic_cast<const velox::cache::AsyncDataCache* const>(memoryAllocator),
+      velox::connector::getAllConnectors());
+  periodicTaskManager_->addTask(
       [server = this]() { server->populateMemAndCPUInfo(); },
       1'000'000, // 1 second
       "populate_mem_cpu_info");
-  periodicTaskManager.start();
+  addAdditionalPeriodicTasks();
+  periodicTaskManager_->start();
 
   // Start everything. After the return from the following call we are shutting
   // down.
   httpServer_->start(getHttpServerFilters());
 
   LOG(INFO) << "SHUTDOWN: Stopping all periodic tasks...";
-  periodicTaskManager.stop();
+  periodicTaskManager_->stop();
 
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
@@ -495,6 +500,8 @@ std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
     exit(EXIT_FAILURE);
   }
 }
+
+void PrestoServer::addAdditionalPeriodicTasks() {}
 
 std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListener() {
   return nullptr;
