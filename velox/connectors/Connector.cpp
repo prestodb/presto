@@ -74,6 +74,11 @@ std::shared_ptr<Connector> getConnector(const std::string& connectorId) {
   return it->second;
 }
 
+const std::unordered_map<std::string, std::shared_ptr<Connector>>&
+getAllConnectors() {
+  return connectors();
+}
+
 folly::Synchronized<
     std::unordered_map<std::string_view, std::weak_ptr<cache::ScanTracker>>>
     Connector::trackers_;

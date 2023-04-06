@@ -397,6 +397,10 @@ bool unregisterConnector(const std::string& connectorId);
 /// Returns a connector with specified ID. Throws if connector doesn't exist.
 std::shared_ptr<Connector> getConnector(const std::string& connectorId);
 
+/// Returns a map of all (connectorId -> connector) pairs currently registered.
+const std::unordered_map<std::string, std::shared_ptr<Connector>>&
+getAllConnectors();
+
 #define VELOX_REGISTER_CONNECTOR_FACTORY(theFactory)                      \
   namespace {                                                             \
   static bool FB_ANONYMOUS_VARIABLE(g_ConnectorFactory) =                 \
