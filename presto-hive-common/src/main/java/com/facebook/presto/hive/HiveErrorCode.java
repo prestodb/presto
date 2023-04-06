@@ -75,6 +75,7 @@ public enum HiveErrorCode
     HIVE_METASTORE_USER_ERROR(47, USER_ERROR),
     HIVE_RANGER_SERVER_ERROR(48, EXTERNAL),
     HIVE_FUNCTION_INITIALIZATION_ERROR(49, EXTERNAL),
+    HIVE_SERDE_ERROR(50, EXTERNAL),
     /**/;
 
     private final ErrorCode errorCode;

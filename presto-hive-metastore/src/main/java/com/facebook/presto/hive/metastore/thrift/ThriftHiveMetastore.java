@@ -52,7 +52,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import org.apache.avro.Schema;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.StringInternUtils;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
@@ -83,6 +86,10 @@ import org.apache.hadoop.hive.metastore.api.UniqueConstraintsResponse;
 import org.apache.hadoop.hive.metastore.api.UnknownDBException;
 import org.apache.hadoop.hive.metastore.api.UnknownTableException;
 import org.apache.hadoop.hive.metastore.api.UnlockRequest;
+import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.hive.serde2.avro.AvroObjectInspectorGenerator;
+import org.apache.hadoop.hive.serde2.avro.AvroSerdeUtils;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.thrift.TException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -93,12 +100,14 @@ import javax.inject.Inject;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -114,6 +123,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_ERROR;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
@@ -494,6 +504,35 @@ public class ThriftHiveMetastore
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    public List<FieldSchema> getAvroFields(Map<String, String> parameters)
+    {
+        Configuration conf = hdfsEnvironment.getConfiguration(hdfsContext, new Path(parameters.get(AvroSerdeUtils.SCHEMA_URL)));
+        Properties properties = new Properties();
+        properties.putAll(parameters);
+        try {
+            return retry()
+                    .stopOn(SerDeException.class, IOException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getAvroFields", stats.getGetFields().wrap(() -> {
+                        Schema schema = AvroSerdeUtils.determineSchemaOrThrowException(conf, properties);
+                        AvroObjectInspectorGenerator aoig = new AvroObjectInspectorGenerator(schema);
+                        List<String> columnNames = StringInternUtils.internStringsInList(aoig.getColumnNames());
+                        List<TypeInfo> columnTypes = aoig.getColumnTypes();
+                        List<FieldSchema> fieldSchemas = new ArrayList<>();
+                        for (int i = 0; i < columnNames.size(); i++) {
+                            fieldSchemas.add(new FieldSchema(columnNames.get(i), columnTypes.get(i).getTypeName(), null));
+                        }
+                        return fieldSchemas;
+                    }));
+        }
+        catch (SerDeException | IOException exception) {
+            throw new PrestoException(HIVE_SERDE_ERROR, "Failed to determine Avro Schema", exception);
         }
         catch (Exception e) {
             throw propagate(e);

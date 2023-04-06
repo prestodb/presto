@@ -102,7 +102,10 @@ public class BridgingHiveMetastore
     public Optional<Table> getTable(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle)
     {
         return delegate.getTable(metastoreContext, hiveTableHandle).map(table -> {
-            if (isAvroTableWithSchemaSet(table) || isCsvTable(table)) {
+            if (isAvroTableWithSchemaSet(table)) {
+                return fromMetastoreApiTable(table, delegate.getAvroFields(table.getParameters()), metastoreContext.getColumnConverter());
+            }
+            else if (isCsvTable(table)) {
                 return fromMetastoreApiTable(table, delegate.getFields(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName()).get(), metastoreContext.getColumnConverter());
             }
             return fromMetastoreApiTable(table, metastoreContext.getColumnConverter());

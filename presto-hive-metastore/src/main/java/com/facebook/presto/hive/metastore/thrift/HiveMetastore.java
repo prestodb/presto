@@ -176,6 +176,11 @@ public interface HiveMetastore
         return Optional.of(table.get().getSd().getCols());
     }
 
+    default List<FieldSchema> getAvroFields(Map<String, String> parameters)
+    {
+        return ImmutableList.of();
+    }
+
     default Optional<PrimaryKeyConstraint<String>> getPrimaryKey(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         return Optional.empty();
