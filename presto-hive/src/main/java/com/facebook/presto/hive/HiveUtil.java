@@ -417,11 +417,7 @@ public final class HiveUtil
 
     private static boolean shouldUseFileSplitsForHudi(InputFormat<?, ?> inputFormat, HoodieTableMetaClient metaClient)
     {
-        if (inputFormat instanceof HoodieParquetRealtimeInputFormat) {
-            return true;
-        }
-
-        return metaClient.getTableConfig().getBootstrapBasePath().isPresent();
+        return inputFormat instanceof HoodieParquetRealtimeInputFormat;
     }
 
     public static long parseHiveDate(String value)

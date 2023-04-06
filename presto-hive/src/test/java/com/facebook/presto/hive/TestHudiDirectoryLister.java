@@ -186,6 +186,53 @@ public class TestHudiDirectoryLister
         assertThrows(TableNotFoundException.class, () -> new HudiDirectoryLister(getHadoopConfWithCopyOnFirstWriteDisabled(), SESSION, mockTable));
     }
 
+    @Test
+    public void testDirectoryListerForBootstrappedHudiTable()
+            throws IOException
+    {
+        Table mockTable = new Table(
+                "schema",
+                "stock_ticks_bootstrap",
+                "user",
+                EXTERNAL_TABLE,
+                new Storage(fromHiveStorageFormat(PARQUET),
+                        getTableBasePath("stock_ticks_cown_bootstrap"),
+                        Optional.of(new HiveBucketProperty(
+                                ImmutableList.of(),
+                                1,
+                                ImmutableList.of(),
+                                HIVE_COMPATIBLE,
+                                Optional.empty())),
+                        false,
+                        ImmutableMap.of(),
+                        ImmutableMap.of()),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
+
+        Configuration hadoopConf = getHadoopConfWithCopyOnFirstWriteDisabled();
+        try {
+            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
+            HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
+            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            Path path = new Path(mockTable.getStorage().getLocation());
+            ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
+            Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
+                    IGNORED,
+                    false,
+                    new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
+                    ImmutableMap.of()));
+            assertTrue(fileInfoIterator.hasNext());
+            HiveFileInfo fileInfo = fileInfoIterator.next();
+            assertEquals(fileInfo.getPath().getName(), "f778bc2e-d0c5-407d-9a3a-29cdc4299766-0_0-28-26_20220310031235276.parquet");
+        }
+        finally {
+            hadoopConf = null;
+        }
+    }
+
     private static String getTableBasePath(String tableName)
     {
         return TestHudiDirectoryLister.class.getClassLoader().getResource(tableName).toString();
