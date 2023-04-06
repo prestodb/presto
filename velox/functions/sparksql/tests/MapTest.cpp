@@ -66,6 +66,13 @@ TEST_F(MapTest, DifferentTypes) {
   mapSimple("map(c0, c1)", {inputVector1, inputVector2}, false, mapVector);
 }
 
+TEST_F(MapTest, boolType) {
+  auto inputVector1 = makeNullableFlatVector<bool>({1, 1, 0});
+  auto inputVector2 = makeNullableFlatVector<bool>({0, 0, 1});
+  auto mapVector = makeMapVector<bool, bool>({{{1, 0}}, {{1, 0}}, {{0, 1}}});
+  mapSimple("map(c0, c1)", {inputVector1, inputVector2}, false, mapVector);
+}
+
 TEST_F(MapTest, Wide) {
   auto inputVector1 = makeNullableFlatVector<int64_t>({1, 2, 3});
   auto inputVector2 = makeNullableFlatVector<double>({4.0, 5.0, 6.0});

@@ -40,9 +40,8 @@ void setKeysResultTyped(
     exec::EvalCtx& context,
     const SelectivityVector& rows) {
   using T = typename KindToFlatVector<kind>::WrapperType;
-  auto flatKeys = keysResult->asFlatVector<T>()
-                      ->mutableValues(rows.size() * mapSize)
-                      ->template asMutable<T>();
+  auto flatVector = keysResult->asFlatVector<T>();
+  flatVector->resize(rows.size() * mapSize);
 
   exec::LocalDecodedVector decoded(context);
   for (vector_size_t i = 0; i < mapSize; i++) {
@@ -50,7 +49,7 @@ void setKeysResultTyped(
     // For efficiency traverse one arg at the time
     rows.applyToSelected([&](vector_size_t row) {
       VELOX_CHECK(!decoded->isNullAt(row), "Cannot use null as map key!");
-      flatKeys[row * mapSize + i] = decoded->valueAt<T>(row);
+      flatVector->set(row * mapSize + i, decoded->valueAt<T>(row));
     });
   }
 }
@@ -63,18 +62,18 @@ void setValuesResultTyped(
     exec::EvalCtx& context,
     const SelectivityVector& rows) {
   using T = typename KindToFlatVector<kind>::WrapperType;
-  auto flatValues = valuesResult->asFlatVector<T>()
-                        ->mutableValues(rows.size() * mapSize)
-                        ->template asMutable<T>();
+  auto flatVector = valuesResult->asFlatVector<T>();
+  flatVector->resize(rows.size() * mapSize);
 
   exec::LocalDecodedVector decoded(context);
   for (vector_size_t i = 0; i < mapSize; i++) {
     decoded.get()->decode(*args[i * 2 + 1], rows);
+
     rows.applyToSelected([&](vector_size_t row) {
       if (decoded->isNullAt(row)) {
-        valuesResult->asFlatVector<T>()->setNull(row * mapSize + i, true);
+        flatVector->setNull(row * mapSize + i, true);
       } else {
-        flatValues[row * mapSize + i] = decoded->valueAt<T>(row);
+        flatVector->set(row * mapSize + i, decoded->valueAt<T>(row));
       }
     });
   }
