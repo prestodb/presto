@@ -59,14 +59,14 @@ MemoryManager::MemoryManager(const Options& options)
 }
 
 MemoryManager::~MemoryManager() {
-  VELOX_CHECK_EQ(
-      numPools(),
-      0,
-      "There are {} unexpected alive memory pools allocated by user on memory manager destruction:\n{}",
-      numPools(),
-      toString());
-
   if (FLAGS_velox_memory_leak_check_enabled) {
+    VELOX_CHECK_EQ(
+        numPools(),
+        0,
+        "There are {} unexpected alive memory pools allocated by user on memory manager destruction:\n{}",
+        numPools(),
+        toString());
+
     const auto currentBytes = getTotalBytes();
     VELOX_CHECK_EQ(
         currentBytes,
