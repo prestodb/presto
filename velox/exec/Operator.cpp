@@ -299,12 +299,16 @@ void Operator::recordBlockingTime(uint64_t start, BlockingReason reason) {
       std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::high_resolution_clock::now().time_since_epoch())
           .count();
-  auto wallNanos = (now - start) * 1000;
-  stats_.wlock()->blockedWallNanos += wallNanos;
-  auto statName = fmt::format(
-      "blocked{}WallNanos", blockingReasonToString(reason).substr(1));
-  addRuntimeStat(
-      statName, RuntimeCounter(wallNanos, RuntimeCounter::Unit::kNanos));
+  const auto wallNanos = (now - start) * 1000;
+  const auto blockReason = blockingReasonToString(reason).substr(1);
+
+  auto lockedStats = stats_.wlock();
+  lockedStats->blockedWallNanos += wallNanos;
+  lockedStats->addRuntimeStat(
+      fmt::format("blocked{}WallNanos", blockReason),
+      RuntimeCounter(wallNanos, RuntimeCounter::Unit::kNanos));
+  lockedStats->addRuntimeStat(
+      fmt::format("blocked{}Times", blockReason), RuntimeCounter(1));
 }
 
 std::string Operator::toString() const {

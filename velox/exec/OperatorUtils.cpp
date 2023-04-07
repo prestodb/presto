@@ -120,7 +120,10 @@ void gatherCopy(
 // per event. This function returns true for such metrics.
 bool shouldAggregateRuntimeMetric(const std::string& name) {
   static const folly::F14FastSet<std::string> metricNames{
-      "dataSourceWallNanos", "dataSourceLazyWallNanos", "queuedWallNanos"};
+      "dataSourceWallNanos",
+      "dataSourceLazyWallNanos",
+      "queuedWallNanos",
+      "flushTimes"};
   if (metricNames.contains(name)) {
     return true;
   }

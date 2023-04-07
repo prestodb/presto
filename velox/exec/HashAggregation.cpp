@@ -182,10 +182,8 @@ void HashAggregation::addInput(RowVectorPtr input) {
         RuntimeMetric(hashTableStats.numRehashes);
     lockedStats->runtimeStats["hashtable.numDistinct"] =
         RuntimeMetric(hashTableStats.numDistinct);
-    if (hashTableStats.numTombstones != 0) {
-      lockedStats->runtimeStats["hashtable.numTombstones"] =
-          RuntimeMetric(hashTableStats.numTombstones);
-    }
+    lockedStats->runtimeStats["hashtable.numTombstones"] =
+        RuntimeMetric(hashTableStats.numTombstones);
   }
 
   // NOTE: we should not trigger partial output flush in case of global
@@ -228,6 +226,7 @@ void HashAggregation::resetPartialOutputIfNeed() {
     auto lockedStats = stats_.wlock();
     lockedStats->addRuntimeStat(
         "flushRowCount", RuntimeCounter(numOutputRows_));
+    lockedStats->addRuntimeStat("flushTimes", RuntimeCounter(1));
     lockedStats->addRuntimeStat(
         "partialAggregationPct", RuntimeCounter(aggregationPct));
   }
