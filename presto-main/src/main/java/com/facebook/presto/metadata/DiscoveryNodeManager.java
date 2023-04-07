@@ -25,7 +25,6 @@ import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
-import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeState;
@@ -408,8 +407,6 @@ public final class DiscoveryNodeManager
             List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
             nodeStateEventExecutor.submit(() -> listeners.forEach(listener -> listener.accept(allNodes)));
         }
-        long leafSize = activePools.entrySet().stream().filter(entry -> entry.getValue().equals(ServerConfig.WORKER_POOL_TYPE_LEAF)).count();
-        long intermediateSize = activePools.entrySet().stream().filter(entry -> entry.getValue().equals(ServerConfig.WORKER_POOL_TYPE_INTERMEDIATE)).count();
     }
 
     private NodeState getNodeState(InternalNode node)

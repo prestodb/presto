@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.executor.TaskExecutor;
@@ -62,6 +63,8 @@ public class GracefulShutdownHandler
     private final ShutdownAction shutdownAction;
     private final Duration gracePeriod;
     private final TaskExecutor taskExecutor;
+    private final QueryManagerConfig queryManagerConfig;
+
     private final CounterStat shutdownCounter = new CounterStat();
     private final CounterStat gracefulShutdownCounter = new CounterStat();
     private final TimeStat gracefulShutdownTime = new TimeStat(NANOSECONDS);
@@ -75,7 +78,8 @@ public class GracefulShutdownHandler
             ShutdownAction shutdownAction,
             LifeCycleManager lifeCycleManager,
             QueryManager queryManager,
-            TaskExecutor taskExecutor)
+            TaskExecutor taskExecutor,
+            QueryManagerConfig queryManagerConfig)
     {
         this.sqlTaskManager = requireNonNull(sqlTaskManager, "sqlTaskManager is null");
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
@@ -85,6 +89,7 @@ public class GracefulShutdownHandler
         this.gracePeriod = serverConfig.getGracePeriod();
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
+        this.queryManagerConfig = requireNonNull(queryManagerConfig, "taskExecutor is null");
     }
 
     public synchronized void requestShutdown()
@@ -111,7 +116,9 @@ public class GracefulShutdownHandler
             }
             else {
                 long timeBeforeTaskExecutorShutdown = System.nanoTime();
-                taskExecutor.gracefulShutdown();
+                if (queryManagerConfig.isEnableRetryForFailedSplits()) {
+                    taskExecutor.gracefulShutdown();
+                }
                 gracefulShutdownCounter.update(1);
                 gracefulShutdownTime.add(Duration.nanosSince(timeBeforeTaskExecutorShutdown));
                 log.warn("Wait time for task TaskExecutor Shutdown -> %s", System.nanoTime() - timeBeforeTaskExecutorShutdown);

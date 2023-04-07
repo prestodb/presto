@@ -216,7 +216,7 @@ public class TaskExecutor
             taskShutdownExecutor.execute(
                     () -> {
                         //wait for running splits to be over
-                        long waitTimeMillis = 100; // Wait for 10 milliseconds between checks to avoid cpu spike
+                        long waitTimeMillis = 5; // Wait for 10 milliseconds between checks to avoid cpu spike
                         long startTime = System.nanoTime();
                         while (runningSplits.size() > 0) {
                             try {

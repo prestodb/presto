@@ -32,6 +32,7 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
@@ -88,6 +89,7 @@ import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTable
 import static com.facebook.presto.server.ServerConfig.WORKER_POOL_TYPE_INTERMEDIATE;
 import static com.facebook.presto.server.ServerConfig.WORKER_POOL_TYPE_LEAF;
 import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
+import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.HOST_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
@@ -100,6 +102,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -123,6 +126,8 @@ public class SectionExecutionFactory
     private final SplitSchedulerStats schedulerStats;
     private final NodeScheduler nodeScheduler;
     private final int splitBatchSize;
+    private final InternalNodeManager nodeManager;
+    private final boolean isRetryOfFailedSplitsEnabled;
 
     @Inject
     public SectionExecutionFactory(
@@ -134,7 +139,8 @@ public class SectionExecutionFactory
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
             NodeScheduler nodeScheduler,
-            QueryManagerConfig queryManagerConfig)
+            QueryManagerConfig queryManagerConfig,
+            InternalNodeManager nodeManager)
     {
         this(
                 metadata,
@@ -145,7 +151,9 @@ public class SectionExecutionFactory
                 failureDetector,
                 schedulerStats,
                 nodeScheduler,
-                requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize());
+                requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize(),
+                queryManagerConfig.isEnableRetryForFailedSplits(),
+                nodeManager);
     }
 
     public SectionExecutionFactory(
@@ -157,7 +165,9 @@ public class SectionExecutionFactory
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
             NodeScheduler nodeScheduler,
-            int splitBatchSize)
+            int splitBatchSize,
+            boolean isRetryOfFailedSplitsEnabled,
+            InternalNodeManager nodeManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -168,6 +178,8 @@ public class SectionExecutionFactory
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
         this.splitBatchSize = splitBatchSize;
+        this.isRetryOfFailedSplitsEnabled = isRetryOfFailedSplitsEnabled;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     /**
@@ -311,18 +323,21 @@ public class SectionExecutionFactory
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, connectorId, maxTasksPerStage, nodePredicate);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
-            if (plan.getFragment().isLeaf()) {
+            if (plan.getFragment().isLeaf() && isRetryOfFailedSplitsEnabled) {
                 stageExecution.registerStageTaskRecoveryCallback((taskId, executionFailureInfos) -> {
+                    Set<String> activeNodeIDs = nodeManager.getNodes(ACTIVE).stream().map(InternalNode::getNodeIdentifier).collect(toImmutableSet());
                     log.warn("Going to recover task - %s", taskId);
                     HttpRemoteTask remoteTask = stageExecution.getAllTasks().stream()
                             .filter(task -> task.getTaskId().equals(taskId))
                             .filter(task -> task instanceof HttpRemoteTask)
                             .map(task -> (HttpRemoteTask) task)
                             .collect(onlyElement());
-                    String nodeId = remoteTask.getNodeId();
+                    String failingNodeID = remoteTask.getNodeId();
 
                     List<HttpRemoteTask> httpRemoteTasks = stageExecution.getAllTasks().stream()
                             .filter(task -> !task.getTaskId().equals(taskId))
+                            .filter(task -> !task.getNodeId().equals(failingNodeID))
+                            .filter(task -> activeNodeIDs.contains(task.getNodeId()))
                             .filter(task -> task instanceof HttpRemoteTask)
                             .map(task -> (HttpRemoteTask) task)
                             .filter(task -> task.getTaskStatus().getState() != TaskState.FAILED)
@@ -351,10 +366,10 @@ public class SectionExecutionFactory
                                 RuntimeStats splitRetryStats = new RuntimeStats();
                                 long minTime = executionFailureInfos.stream().filter(info -> info.getFailureDetectionTimeInNanos() != null).mapToLong(info -> info.getFailureDetectionTimeInNanos()).min().orElse(Long.MAX_VALUE);
                                 if (minTime != Long.MAX_VALUE) {
-                                    splitRetryStats.addMetricValue(new StringBuilder(RUNTIME_STATS_RETRIED_SPLITS_PREFIX).append(nodeId).toString(), NANO, System.nanoTime() - minTime);
+                                    splitRetryStats.addMetricValue(new StringBuilder(RUNTIME_STATS_RETRIED_SPLITS_PREFIX).append(failingNodeID).toString(), NANO, System.nanoTime() - minTime);
                                 }
                                 else {
-                                    splitRetryStats.addMetricValue(new StringBuilder(RUNTIME_STATS_RETRIED_SPLITS_PREFIX).append(nodeId).toString(), NONE, 1);
+                                    splitRetryStats.addMetricValue(new StringBuilder(RUNTIME_STATS_RETRIED_SPLITS_PREFIX).append(failingNodeID).toString(), NONE, 1);
                                 }
                                 session.getRuntimeStats().update(splitRetryStats);
                                 httpRemoteTask.addSplits(splitsToAdd);
