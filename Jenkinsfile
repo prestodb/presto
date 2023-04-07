@@ -58,6 +58,7 @@ pipeline {
 
                         echo "build prestodb source code with build version ${PRESTO_BUILD_VERSION}"
                         sh '''
+                            export MAVEN_OPTS="-Xmx1024m -XX:MaxPermSize=128m"
                             unset MAVEN_CONFIG && ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-docs'
                             tree /root/.m2/repository/com/facebook/presto/
                         '''
@@ -87,10 +88,15 @@ pipeline {
             }
 
             stages {
-                stage('Docker') {
+                stage('Setup') {
                     steps {
                         echo 'build docker image'
-                        sh 'apk update && apk add aws-cli bash git'
+                        sh 'apk update && apk add aws-cli bash git make'
+                    }
+                }
+
+                stage('Docker') {
+                    steps {
                         withCredentials([[
                                 $class:            'AmazonWebServicesCredentialsBinding',
                                 credentialsId:     "${AWS_CREDENTIAL_ID}",
@@ -114,7 +120,51 @@ pipeline {
                     }
                 }
 
-                stage('Docker Native Build') {
+                stage('Native Builder Image') {
+                    steps {
+                        script {
+                            env.NATIVE_BUILDER_IMAGE = env.AWS_ECR + "/oss-presto/presto-native-builder:${PRESTO_BUILD_VERSION}"
+                        }
+                        echo "Building ${NATIVE_BUILDER_IMAGE}"
+                        withCredentials([[
+                                $class:            'AmazonWebServicesCredentialsBinding',
+                                credentialsId:     "${AWS_CREDENTIAL_ID}",
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''#!/bin/bash -ex
+                                cd presto-native-execution/
+                                git config --global --add safe.directory ${WORKSPACE}/presto-native-execution/velox
+                                make velox-submodule
+                                docker buildx build -f Dockerfile.0.buildtime --load --platform "linux/amd64" -t "${NATIVE_BUILDER_IMAGE}-amd64" .
+                                aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
+                                docker push "${NATIVE_BUILDER_IMAGE}-amd64"
+                            '''
+                        }
+                    }
+                }
+
+                stage('Native Runtime Image') {
+                    steps {
+                        script {
+                            env.NATIVE_RUNTIME_IMAGE = env.AWS_ECR + "/oss-presto/presto-native-runtime:${PRESTO_BUILD_VERSION}"
+                        }
+                        echo "Building ${NATIVE_RUNTIME_IMAGE}"
+                        withCredentials([[
+                                $class:            'AmazonWebServicesCredentialsBinding',
+                                credentialsId:     "${AWS_CREDENTIAL_ID}",
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''#!/bin/bash -ex
+                                cd presto-native-execution/
+                                docker buildx build -f Dockerfile.0.runtime --load --platform "linux/amd64" -t "${NATIVE_RUNTIME_IMAGE}-amd64" .
+                                aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
+                                docker push "${NATIVE_RUNTIME_IMAGE}-amd64"
+                            '''
+                        }
+                    }
+                }
+
+                stage('Docker Native') {
                     steps {
                         echo "Building ${DOCKER_NATIVE_IMAGE}"
                         withCredentials([[
@@ -123,13 +173,21 @@ pipeline {
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''#!/bin/bash -ex
+                                cd presto-native-execution/
                                 aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
-                                docker buildx build -f Dockerfile-native --load --platform "linux/amd64" -t "${DOCKER_NATIVE_IMAGE}-amd64" \
-                                    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" .
+                                docker buildx build -f Dockerfile.1.prestissimo --load --platform "linux/amd64" \
+                                    -t "${DOCKER_NATIVE_IMAGE}-amd64" \
+                                    --build-arg "IMAGE_REGISTRY=${AWS_ECR}" \
+                                    --build-arg "BUILDTIME_IMAGE=oss-presto/presto-native-builder" \
+                                    --build-arg "RUNTIME_IMAGE=oss-presto/presto-native-runtime" \
+                                    --build-arg "IMAGE_TAG=${PRESTO_BUILD_VERSION}-amd64" \
+                                    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" \
+                                    .
                             '''
                         }
                     }
                 }
+
 
                 stage('Publish Docker') {
                     when {
