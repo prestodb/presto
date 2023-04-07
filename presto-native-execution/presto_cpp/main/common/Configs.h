@@ -148,6 +148,9 @@ class SystemConfig : public ConfigBase {
 
   static SystemConfig* instance();
 
+  template <typename T>
+  T veloxProperty(const std::string& kKey, const T& kDefault) const;
+
   int httpServerHttpPort() const;
 
   bool httpServerReusePort() const;

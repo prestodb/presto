@@ -73,6 +73,25 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
     configStrings.emplace(
         core::QueryConfig::kAdjustTimestampToTimezone, "true");
   }
+  configStrings[core::QueryConfig::kMaxLocalExchangeBufferSize] =
+      getConfigValue(
+          core::QueryConfig::kMaxLocalExchangeBufferSize,
+          core::QueryConfig::maxLocalExchangeBufferSize());
+
+  configStrings[core::QueryConfig::kMaxPartialAggregationMemory] =
+      getConfigValue(
+          core::QueryConfig::kMaxPartialAggregationMemory,
+          core::QueryConfig::maxPartialAggregationMemoryUsage());
+
+  configStrings[core::QueryConfig::kMaxExtendedPartialAggregationMemory] =
+      getConfigValue(
+          core::QueryConfig::kMaxExtendedPartialAggregationMemory,
+          core::QueryConfig::maxExtendedPartialAggregationMemoryUsage());
+
+  configStrings[core::QueryConfig::kAggregationSpillMemoryThreshold] =
+      getConfigValue(
+          core::QueryConfig::kAggregationSpillMemoryThreshold,
+          core::QueryConfig::aggregationSpillMemoryThreshold());
 
   std::shared_ptr<Config> config =
       std::make_shared<core::MemConfig>(configStrings);

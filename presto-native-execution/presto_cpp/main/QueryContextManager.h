@@ -20,6 +20,7 @@
 #include <memory>
 #include <unordered_map>
 
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/core/QueryCtx.h"
 
@@ -133,6 +134,15 @@ class QueryContextManager {
       std::numeric_limits<int64_t>::max();
 
  private:
+  template <typename T>
+  T getConfigValue(const std::string& kKey, const T& kDefault) const {
+    auto it = properties_.find(kKey);
+    if (it == properties_.end()) {
+      return SystemConfig::instance()->veloxProperty<T>(kKey, kDefault);
+    }
+    return it->second;
+  }
+
   int64_t getMaxMemoryPerNode(
       const std::string& property,
       int64_t defaultMaxMemoryPerNode) {
