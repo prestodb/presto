@@ -52,7 +52,9 @@ void DecodedVector::decode(
     bool loadLazy) {
   reset(end(vector.size(), rows));
   loadLazy_ = loadLazy;
-  if (loadLazy_ && (isLazyNotLoaded(vector) || vector.isLazy())) {
+  bool isTopLevelLazyAndLoaded =
+      vector.isLazy() && vector.asUnchecked<LazyVector>()->isLoaded();
+  if (isTopLevelLazyAndLoaded || (loadLazy_ && isLazyNotLoaded(vector))) {
     decode(*vector.loadedVector(), rows);
     return;
   }
@@ -169,7 +171,8 @@ void DecodedVector::combineWrappers(
     }
 
     auto encoding = values->encoding();
-    if (loadLazy_ && encoding == VectorEncoding::Simple::LAZY) {
+    if (isLazy(encoding) &&
+        (loadLazy_ || values->asUnchecked<LazyVector>()->isLoaded())) {
       values = values->loadedVector();
       encoding = values->encoding();
     }

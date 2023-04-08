@@ -593,7 +593,7 @@ TEST_F(DecodedVectorTest, dictionaryOverLazy) {
 
   // Ensure we set the baseVector_ in the DecodedVector, when decoding
   // DICT(LAZY) with loadLazy=false.
-  auto check = [&](const auto& decoded) {
+  auto checkUnloaded = [&](const auto& decoded) {
     auto base = decoded.base();
     EXPECT_NE(base, nullptr);
     // Ensure we don't load the lazy vector under dictionary.
@@ -601,14 +601,32 @@ TEST_F(DecodedVectorTest, dictionaryOverLazy) {
     EXPECT_FALSE(lazyVector2->isLoaded());
   };
 
+  auto checkLoaded = [&](const auto& decoded) {
+    // Ensure we decode past the loaded lazy layer even when loadLazy=false.
+    auto base = decoded.base();
+    EXPECT_NE(base, nullptr);
+    EXPECT_TRUE(base->isFlatEncoding());
+  };
+
   {
     SelectivityVector selection(dictionarySize);
     DecodedVector decoded(*dictionaryVector, selection, false);
-    check(decoded);
+    checkUnloaded(decoded);
   }
   {
     DecodedVector decoded(*dictionaryVector, false);
-    check(decoded);
+    checkUnloaded(decoded);
+  }
+  dictionaryVector->loadedVector();
+  EXPECT_TRUE(dictionaryVector->valueVector()->as<LazyVector>()->isLoaded());
+  {
+    SelectivityVector selection(dictionarySize);
+    DecodedVector decoded(*dictionaryVector, selection, false);
+    checkLoaded(decoded);
+  }
+  {
+    DecodedVector decoded(*dictionaryVector, false);
+    checkLoaded(decoded);
   }
 }
 

@@ -424,6 +424,32 @@ TEST_P(PeeledEncodingBasicTests, constantResize) {
       rows);
 }
 
+TEST_P(PeeledEncodingBasicTests, intermidiateLazyLayer) {
+  LocalDecodedVector localDecodedVector(execCtx_);
+  const SelectivityVector& rows = GetParam().rows;
+  // 11. Ensure peeling also removes a loaded lazy layer.
+  //    Input Vectors: Dict1(Lazy(Dict2(Flat1)))
+  //    Peeled Vectors: Flat1
+  //    Peel: Dict1(Dict2) => collapsed into one dictionary
+
+  auto input1 = fuzzer->wrapInLazyVector(
+      wrapInDictionaryLayers(flat1, {&dictWrap2, &dictWrap1}));
+  // Make sure its loaded so that peeling will go past the lazy layer.
+  input1->loadedVector();
+  std::vector<VectorPtr> peeledVectors;
+  auto peeledEncoding = PeeledEncoding::Peel(
+      {input1}, rows, localDecodedVector, true, peeledVectors);
+  ASSERT_EQ(peeledVectors.size(), 1);
+  ASSERT_EQ(
+      peeledEncoding->getWrapEncoding(), VectorEncoding::Simple::DICTIONARY);
+  ASSERT_TRUE(peeledVectors[0]->isFlatEncoding());
+  // Loading generates a new vector so we compare their contents instead.
+  LocalSelectivityVector traslatedRowsHolder(execCtx_);
+  auto translatedRows =
+      peeledEncoding->translateToInnerRows(rows, traslatedRowsHolder);
+  assertEqualVectors(peeledVectors[0], flat1, *translatedRows);
+}
+
 TEST_F(PeeledEncodingTest, peelingFails) {
   VectorFuzzer::Options options;
   options.nullRatio = 0.3;
