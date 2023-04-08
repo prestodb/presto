@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
  * - PRESTO_SERVER
  * - This tells Spark where to find the Presto native binary to launch the process.
  * Example: -DPRESTO_SERVER=/path/to/native/process/bin
+ * <br> You should use the path to PrestoSparkServer process to assure appropriate behavior for these tests.
  * <p>
  * - DATA_DIR
  * - Optional path to store TPC-H tables used in the test. If this directory is empty, it will be
