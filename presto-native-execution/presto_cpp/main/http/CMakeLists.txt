@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(presto_http HttpClient.cpp HttpServer.cpp
-                        filters/AccessLogFilter.cpp)
+                        filters/AccessLogFilter.cpp filters/StatsFilter.cpp)
 
 target_link_libraries(
   presto_http

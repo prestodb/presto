@@ -13,11 +13,6 @@
  */
 
 #include <fmt/format.h>
-#include <glog/logging.h>
-#include <proxygen/httpserver/Filters.h>
-#include <proxygen/httpserver/RequestHandlerFactory.h>
-#include <string>
-
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 
 namespace facebook::presto::http::filters {
