@@ -135,7 +135,7 @@ class QueryContextManager {
 
  private:
   template <typename T>
-  T getConfigValue(const std::string& kKey, const T& kDefault) const {
+  std::string getConfigValue(const std::string& kKey, const T& kDefault) const {
     auto it = properties_.find(kKey);
     if (it == properties_.end()) {
       return SystemConfig::instance()->veloxProperty<T>(kKey, kDefault);
