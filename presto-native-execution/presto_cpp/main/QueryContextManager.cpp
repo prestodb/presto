@@ -62,6 +62,10 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   if (auto queryCtx = lockedCache->get(queryId)) {
     return queryCtx;
   }
+  static constexpr uint64_t kMaxLocalExchangeBufferSizeDefault = 32UL << 20;
+  static constexpr uint64_t kMaxPartialAggregationMemoryDefault = 1L << 24;
+  static constexpr uint64_t kMaxExtendedPartialAggregationMemoryDefault = 1L << 24;
+  static constexpr uint64_t kkAggregationSpillMemoryThresholdDefault = 0;
 
   // If `legacy_timestamp` is true, the coordinator expects timestamp
   // conversions without a timezone to be converted to the user's
@@ -76,22 +80,22 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   configStrings[core::QueryConfig::kMaxLocalExchangeBufferSize] =
       getConfigValue(
           core::QueryConfig::kMaxLocalExchangeBufferSize,
-          core::QueryConfig::maxLocalExchangeBufferSize());
+          kMaxLocalExchangeBufferSizeDefault);
 
   configStrings[core::QueryConfig::kMaxPartialAggregationMemory] =
       getConfigValue(
           core::QueryConfig::kMaxPartialAggregationMemory,
-          core::QueryConfig::maxPartialAggregationMemoryUsage());
+          kMaxPartialAggregationMemoryDefault);
 
   configStrings[core::QueryConfig::kMaxExtendedPartialAggregationMemory] =
       getConfigValue(
           core::QueryConfig::kMaxExtendedPartialAggregationMemory,
-          core::QueryConfig::maxExtendedPartialAggregationMemoryUsage());
+          kMaxExtendedPartialAggregationMemoryDefault);
 
   configStrings[core::QueryConfig::kAggregationSpillMemoryThreshold] =
       getConfigValue(
           core::QueryConfig::kAggregationSpillMemoryThreshold,
-          core::QueryConfig::aggregationSpillMemoryThreshold());
+          kkAggregationSpillMemoryThresholdDefault);
 
   std::shared_ptr<Config> config =
       std::make_shared<core::MemConfig>(configStrings);
