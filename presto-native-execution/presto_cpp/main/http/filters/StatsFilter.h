@@ -16,13 +16,13 @@
 
 #include <proxygen/httpserver/Filters.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
+#include <time.h>
 
 namespace facebook::presto::http::filters {
 
-/// A filter that does access logging in nginx `combined` format
-class AccessLogFilter : public proxygen::Filter {
+class StatsFilter : public proxygen::Filter {
  public:
-  explicit AccessLogFilter(proxygen::RequestHandler* upstream);
+  explicit StatsFilter(proxygen::RequestHandler* upstream);
 
   void onRequest(std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override;
 
@@ -30,33 +30,13 @@ class AccessLogFilter : public proxygen::Filter {
 
   void onError(proxygen::ProxygenError err) noexcept override;
 
-  void sendHeaders(proxygen::HTTPMessage& msg) noexcept override;
-
-  void sendBody(std::unique_ptr<folly::IOBuf> body) noexcept override;
-
  private:
-  std::string getVersion(const proxygen::HTTPMessage& msg) const noexcept;
-
-  virtual void writeLog(std::string logLine) const noexcept;
-
-  std::string generateLog() const noexcept;
-
-  proxygen::TimePoint startTime_;
-  std::string method_;
-  std::string url_;
-  std::string version_;
-  std::string remoteAddr_;
-
-  uint16_t statusCode_{0};
-  size_t bytesSent_{0};
-
-  std::string httpReferer_;
-  std::string httpUserAgent_;
+  std::chrono::steady_clock::time_point startTime_;
 };
 
-class AccessLogFilterFactory : public proxygen::RequestHandlerFactory {
+class StatsFilterFactory : public proxygen::RequestHandlerFactory {
  public:
-  explicit AccessLogFilterFactory() {}
+  explicit StatsFilterFactory() {}
 
   void onServerStart(folly::EventBase* /*evb*/) noexcept override {}
 
@@ -65,7 +45,7 @@ class AccessLogFilterFactory : public proxygen::RequestHandlerFactory {
   proxygen::RequestHandler* onRequest(
       proxygen::RequestHandler* handler,
       proxygen::HTTPMessage*) noexcept override {
-    return new AccessLogFilter(handler);
+    return new StatsFilter(handler);
   }
 };
 

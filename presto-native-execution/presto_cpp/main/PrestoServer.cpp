@@ -29,6 +29,7 @@
 #include "presto_cpp/main/connectors/hive/storage_adapters/FileSystems.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
+#include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleInterface.h"
@@ -533,7 +534,7 @@ PrestoServer::getHttpServerFilters() {
 
 std::unique_ptr<proxygen::RequestHandlerFactory>
 PrestoServer::getHttpStatsFilter() {
-  return nullptr;
+  return std::make_unique<http::filters::StatsFilterFactory>();
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(
