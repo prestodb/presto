@@ -23,12 +23,18 @@ ENV PATH=/opt/dependency/install/bin:/opt/dependency/install/bin/hadoop-2.10.1/b
 ADD ./ /opt/presto/_build/
 
 WORKDIR /opt/presto
-RUN NO_SYNCH=True make --directory="/opt/presto/_build/" release \
+RUN set +u && \
+    source /opt/rh/gcc-toolset-9/enable && \
+    source /opt/presto/_build/velox/scripts/setup-helper-functions.sh && \
+    NO_SYNCH=True make --directory="/opt/presto/_build/" release \
         PRESTO_ENABLE_PARQUET=ON \
         PRESTO_ENABLE_S3=ON \
         PRESTO_ENABLE_HDFS=ON \
-        PRESTO_ENABLE_TESTING=ON \
-        TREAT_WARNINGS_AS_ERRORS=OFF && \
+        PRESTO_ENABLE_TESTING=OFF \
+        TREAT_WARNINGS_AS_ERRORS=OFF \
+        NUM_THREADS=8 \
+        MAX_HIGH_MEM_JOBS=8 \
+        MAX_LINK_JOBS=8 && \
     mv "$(find $(pwd) | grep 'presto_server$')" /opt/presto/ && \
     chmod uga+x "/opt/presto/presto_server"
 
