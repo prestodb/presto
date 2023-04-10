@@ -41,10 +41,10 @@ SystemConfig* SystemConfig::instance() {
 }
 
 template <typename T>
-T SystemConfig::veloxProperty(const std::string& kKey, const T& kDefault)
+std::string SystemConfig::veloxProperty(const std::string& kKey, const T& kDefault)
     const {
   auto opt = optionalProperty<std::string>(kKey);
-  return opt.value_or<T>(kDefault);
+  return opt.value_or(std::to_string(kDefault));
 }
 
 int SystemConfig::httpServerHttpPort() const {
