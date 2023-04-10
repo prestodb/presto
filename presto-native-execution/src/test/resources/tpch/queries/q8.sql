@@ -1,6 +1,7 @@
 -- TPC-H/TPC-R National Market Share Query (Q8)
 -- Functional Query Definition
 -- Approved February 1998
+-- Fixed date predicates as DWRF doesn't support DATE types
 select
 	o_year,
 	sum(case
@@ -31,7 +32,7 @@ from
 			and n1.regionkey = r.regionkey
 			and r.name = 'AMERICA'
 			and s.nationkey = n2.nationkey
-			and o.orderdate between '1995-01-01' and '1996-12-31'
+			and cast(o.orderdate as date) between date '1995-01-01' and date '1996-12-31'
 			and p.type = 'ECONOMY ANODIZED STEEL'
 	) as all_nations
 group by

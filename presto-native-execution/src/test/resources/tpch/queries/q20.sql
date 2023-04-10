@@ -1,6 +1,7 @@
 -- TPC-H/TPC-R Potential Part Promotion Query (Q20)
 -- Function Query Definition
 -- Approved February 1998
+-- Fixed date predicates as DWRF doesn't support DATE types
 select
 	s.name,
 	s.address
@@ -30,7 +31,7 @@ where
 				where
 					l.partkey = ps.partkey
 					and l.suppkey = ps.suppkey
-					and l.shipdate >= '1994-01-01'
+					and cast(l.shipdate as date) >= date '1994-01-01'
 					and cast(l.shipdate as date) < date('1994-01-01') + interval '1' year
 			)
 	)

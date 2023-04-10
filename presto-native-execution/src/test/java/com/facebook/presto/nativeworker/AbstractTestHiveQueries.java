@@ -26,7 +26,7 @@ import static org.testng.Assert.assertNotNull;
 public class AbstractTestHiveQueries
         extends AbstractTestQueryFramework
 {
-    private final boolean useThrift;
+    protected final boolean useThrift;
 
     protected AbstractTestHiveQueries(boolean useThrift)
     {

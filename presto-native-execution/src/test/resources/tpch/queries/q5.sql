@@ -1,6 +1,7 @@
 -- TPC-H/TPC-R Local Supplier Volume Query (Q5)
 -- Functional Query Definition
 -- Approved February 1998
+-- Fixed date predicates as DWRF doesn't support DATE types
 select
 	n.name,
 	sum(l.extendedprice * (1 - l.discount)) as revenue
@@ -19,7 +20,7 @@ where
 	and s.nationkey = n.nationkey
 	and n.regionkey = r.regionkey
 	and r.name = 'ASIA'
-        and o.orderdate >= '1994-01-01'
+        and cast(o.orderdate as date) >= date '1994-01-01'
         and cast(o.orderdate as date) < date '1994-01-01' + interval '1' year
 group by
 	n.name

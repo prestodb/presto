@@ -1,6 +1,7 @@
 -- TPC-H/TPC-R Volume Shipping Query (Q7)
 -- Functional Query Definition
 -- Approved February 1998
+-- Fixed date predicates as DWRF doesn't support DATE types
 select
 	supp_nation,
 	cust_nation,
@@ -30,7 +31,7 @@ from
 				(n1.name = 'FRANCE' and n2.name = 'GERMANY')
 				or (n1.name = 'GERMANY' and n2.name = 'FRANCE')
 			)
-			and l.shipdate between '1995-01-01' and '1996-12-31'
+			and cast(l.shipdate as date) between date '1995-01-01' and date '1996-12-31'
 	) as shipping
 group by
 	supp_nation,

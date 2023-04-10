@@ -1,6 +1,7 @@
 -- TPC-H/TPC-R Returned Item Reporting Query (Q10)
 -- Functional Query Definition
 -- Approved February 1998
+-- Fixed date predicates as DWRF doesn't support DATE types
 select
 	c.custkey,
 	c.name,
@@ -18,7 +19,7 @@ from
 where
 	c.custkey = o.custkey
 	and l.orderkey = o.orderkey
-	and o.orderdate >= '1993-10-01'
+	and cast(o.orderdate as date) >= date '1993-10-01'
 	and cast(o.orderdate as date) < date '1993-10-01' + interval '3' month
 	and l.returnflag = 'R'
 	and c.nationkey = n.nationkey

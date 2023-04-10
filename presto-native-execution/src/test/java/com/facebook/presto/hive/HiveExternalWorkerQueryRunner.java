@@ -26,6 +26,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -127,6 +128,26 @@ public class HiveExternalWorkerQueryRunner
             boolean useThrift)
             throws Exception
     {
+        return createNativeQueryRunner(
+                dataDirectory,
+                prestoServerPath,
+                workerCount,
+                cacheMaxSize,
+                useThrift,
+                getNativeWorkerSystemProperties(),
+                getNativeWorkerHiveProperties());
+    }
+
+    public static QueryRunner createNativeQueryRunner(
+            String dataDirectory,
+            String prestoServerPath,
+            Optional<Integer> workerCount,
+            int cacheMaxSize,
+            boolean useThrift,
+            Map<String, String> additionalSystemProperties,
+            Map<String, String> additionalHiveProperties)
+            throws Exception
+    {
         // Make query runner with external workers for tests
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(),
@@ -134,11 +155,13 @@ public class HiveExternalWorkerQueryRunner
                 ImmutableMap.<String, String>builder()
                         .put("http-server.http.port", "8080")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
-                        .putAll(getNativeWorkerSystemProperties())
+                        .putAll(additionalSystemProperties)
                         .build(),
                 ImmutableMap.of(),
                 "legacy",
-                getNativeWorkerHiveProperties(),
+                ImmutableMap.<String, String>builder()
+                        .putAll(additionalHiveProperties)
+                        .build(),
                 workerCount,
                 Optional.of(Paths.get(dataDirectory)),
                 Optional.of((workerIndex, discoveryUri) -> {

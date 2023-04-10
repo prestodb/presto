@@ -1,6 +1,7 @@
 -- TPC-H/TPC-R Top Supplier Query (Q15)
 -- Functional Query Definition
 -- Approved February 1998
+-- Fixed date predicates as DWRF doesn't support DATE types
 
 with revenue as (
 select
@@ -9,7 +10,7 @@ select
 from
     lineitem
 where
-    shipdate >= '1996-01-01'
+    cast(shipdate as date) >= date '1996-01-01'
     and cast(shipdate as date) < date '1996-01-01' + interval '3' month
 group by suppkey
 )
