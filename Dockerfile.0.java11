@@ -1,0 +1,39 @@
+# prestodb/centos8-presto-java11
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+ARG IMAGE_CACHE_REGISTRY=quay.io/centos
+FROM --platform=linux/amd64 ${IMAGE_CACHE_REGISTRY}/centos:stream8
+
+LABEL org.opencontainers.image.title="centos8-presto-java11"
+LABEL org.opencontainers.image.description="Centos-Stream-8 Presto-java build from source."
+LABEL org.opencontainers.image.vendor="Ahana, Intel and Meta Corporations collaboration"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.authors="milosz.linkiewicz@intel.com"
+
+ADD ./ /opt/presto/_build/
+
+SHELL ["/bin/bash", "-eEuo", "pipefail", "-c"]
+WORKDIR /opt/presto/_build
+
+RUN dnf -y install java-11-openjdk-devel && \
+    jhttp_proxy=$(echo $http_proxy | sed 's/.*\:\/\///g' | cut -d':' -f1) && \
+    jhttp_port=$(echo $http_proxy | sed 's/.*\:\/\///g' | cut -d':' -f2) && \
+    jhttps_proxy=$(echo $https_proxy | sed 's/.*\:\/\///g' | cut -d':' -f1) && \
+    jhttps_port=$(echo $https_proxy | sed 's/.*\:\/\///g' | cut -d':' -f2) && \
+    sed -i 's/<module>presto-docs<\/module>//g' pom.xml && \
+    ./mvnw -Dhttp.proxyHost=$jhttp_proxy -Dhttp.proxyPort=$jhttp_port -Dhttps.proxyHost=$jhttps_proxy -Dhttps.proxyPort=$jhttps_port clean package -DskipTests && \
+    mv $(find /opt/presto/_build/presto-cli/ -name presto-cli-*-executable.jar) /opt/presto/_build/presto-cli && \
+    mv $(find /opt/presto/_build/presto-server/ -name presto-server-*.tar.gz) /opt/presto/_build/presto-server.tar.gz
+    rm -rf /root/m2 /opt/presto/_build && \
+    dnf clean all    
