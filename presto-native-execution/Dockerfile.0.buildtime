@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+ARG TARGETPLATFORM=linux/amd64
 ARG IMAGE_CACHE_REGISTRY=quay.io/centos
-FROM --platform=linux/amd64 ${IMAGE_CACHE_REGISTRY}/centos:stream8
+FROM --platform=$TARGETPLATFORM ${IMAGE_CACHE_REGISTRY}/centos:stream8
 
 LABEL org.opencontainers.image.title="centos8-prestissimo-buildtime"
 LABEL org.opencontainers.image.description="Centos-Stream-8 based Prestissimo base image for buildtime container."
@@ -38,7 +39,8 @@ ENV TZ="Europe/Warsaw"
 ADD velox/scripts /opt/dependency/_build/velox/scripts/
 ADD scripts /opt/dependency/_build/scripts/
 
-RUN dnf -y install make python3-devel && \
+RUN dnf update -y && \
+    dnf -y install make python3-devel && \
     python3 -m pip install antlr4-tools antlr4-python3-runtime && \
     cd _build && \
     sed -i 's/\(.*folly.*\)/# \1/g' "/opt/dependency/_build/velox/scripts/setup-circleci.sh" && \
