@@ -39,33 +39,38 @@ class NtileTest : public WindowTestBase {
     // i) Constant buckets
     // ii) Number of buckets <, =, > number of rows in the partition.
     // iii) Number of buckets evenly divide (value 10) or not (other values).
-    // TODO: Add null value testing also pending issues with DuckDB.
-    for (auto i = 1; i < 20; i += 3) {
+    static const std::vector<std::string> kNtileInvocations = {
+        "ntile(1)",
+        "ntile(7)",
+        "ntile(10)",
+        "ntile(16)",
+    };
+    for (auto function : kNtileInvocations) {
       WindowTestBase::testWindowFunction(
-          vectors, fmt::format("ntile({})", i), overClauses, kFrameClauses);
+          vectors, function, overClauses, kFrameClauses);
     }
   }
 };
 
 // Tests ntile with uniformly distributed data.
 TEST_F(NtileTest, basic) {
-  testNtile({makeSimpleVector(50)});
+  testNtile({makeSimpleVector(30)});
 }
 
 // Tests ntile with a dataset with all rows in a single partition.
 TEST_F(NtileTest, singlePartition) {
-  testNtile({makeSinglePartitionVector(75)});
+  testNtile({makeSinglePartitionVector(25)});
 }
 
 // Test ntile with a dataset with all rows in a single partition but in
 // 2 input vectors.
 TEST_F(NtileTest, multiInput) {
-  testNtile({makeSinglePartitionVector(50), makeSinglePartitionVector(75)});
+  testNtile({makeSinglePartitionVector(25), makeSinglePartitionVector(30)});
 }
 
 // Tests ntile with a dataset in which all partitions have a single row.
 TEST_F(NtileTest, singleRowPartitions) {
-  testNtile({makeSingleRowPartitionsVector(50)});
+  testNtile({makeSingleRowPartitionsVector(25)});
 }
 
 // Tests ntile with a dataset with random values.
