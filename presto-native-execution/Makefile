@@ -121,12 +121,10 @@ centos-staging: submodules
 	mkdir -p /tmp/centos-staging && \
 	cp -a ./. /tmp/centos-staging && \
 	IMAGE_TAG="$${IMAGE_TAG:-$(USER)-$(shell date +%Y%m%d)}" && \
-	IMAGE_REGISTRY="$${IMAGE_REGISTRY:-prestodb}" && \
-	IMAGE_NAME_BUILDTIME="$${IMAGE_NAME_BUILDTIME$(CPU_TARGET)/centos8-prestissimo-buildtime}"
-	IMAGE_NAME_RUNTIME="$${IMAGE_NAME_RUNTIME:-$(CPU_TARGET)/centos8-prestissimo-runtime}"
-	docker build --build-arg CPU_TARGET=$(CPU_TARGET) --tag "$${IMAGE_REGISTRY}/$${IMAGE_NAME_BUILDTIME}:$${IMAGE_TAG}" -f Dockerfile.0.buildtime .
-	docker build --build-arg CPU_TARGET=$(CPU_TARGET) --tag "$${IMAGE_REGISTRY}/$${IMAGE_NAME_RUNTIME}:$${IMAGE_TAG}" -f Dockerfile.0.runtime .
-	docker build --build-arg CPU_TARGET=$(CPU_TARGET) --build-arg IMAGE_REGISTRY=$${IMAGE_REGISTRY} --build-arg BUILDTIME_IMAGE=$${IMAGE_NAME_BUILDTIME} --build-arg RUNTIME_IMAGE=$${IMAGE_NAME_RUNTIME} --build-arg IMAGE_TAG=$${IMAGE_TAG} --tag "$${IMAGE_REGISTRY}/$(CPU_TARGET)/prestissimo:$${IMAGE_TAG}" -f Dockerfile.1.prestissimo .
+	IMAGE_REGISTRY="$${IMAGE_REGISTRY:-prestodb/$(CPU_TARGET)}" && \
+	docker build --build-arg CPU_TARGET=$(CPU_TARGET) --tag "$${IMAGE_REGISTRY}/centos8-prestissimo-buildtime:$${IMAGE_TAG}" -f Dockerfile.0.buildtime .
+	docker build --build-arg CPU_TARGET=$(CPU_TARGET) --tag "$${IMAGE_REGISTRY}/centos8-prestissimo-runtime:$${IMAGE_TAG}" -f Dockerfile.0.runtime .
+	docker build --build-arg CPU_TARGET=$(CPU_TARGET) --build-arg IMAGE_REGISTRY=$${IMAGE_REGISTRY} --build-arg IMAGE_TAG=$${IMAGE_TAG} --tag "$${IMAGE_REGISTRY}/centos8-prestissimo:$${IMAGE_TAG}" -f Dockerfile.1.prestissimo .
 
 runtime-container:
 	rm -rf /tmp/release-centos-dockerfile && \
