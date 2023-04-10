@@ -41,8 +41,9 @@ SystemConfig* SystemConfig::instance() {
 }
 
 template <typename T>
-std::string SystemConfig::veloxProperty(const std::string& kKey, const T& kDefault)
-    const {
+std::string SystemConfig::veloxProperty(
+    const std::string& kKey,
+    const T& kDefault) const {
   auto opt = optionalProperty<std::string>(kKey);
   return opt.value_or(std::to_string(kDefault));
 }
