@@ -38,8 +38,6 @@ HashAggregation::HashAggregation(
       isDistinct_(aggregationNode->aggregates().empty()),
       isGlobal_(aggregationNode->groupingKeys().empty()),
       memoryTracker_(operatorCtx_->pool()->getMemoryUsageTracker()),
-      partialAggregationGoodPct_(
-          driverCtx->queryConfig().partialAggregationGoodPct()),
       maxExtendedPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxExtendedPartialAggregationMemoryUsage()),
       spillConfig_(
@@ -244,9 +242,8 @@ void HashAggregation::maybeIncreasePartialAggregationMemoryUsage(
   VELOX_DCHECK(isPartialOutput_);
   // Do not increase the aggregation memory usage further if we have already
   // achieved good aggregation ratio with the current size.
-  if (aggregationPct < partialAggregationGoodPct_ ||
-      maxPartialAggregationMemoryUsage_ >=
-          maxExtendedPartialAggregationMemoryUsage_) {
+  if (maxPartialAggregationMemoryUsage_ >=
+      maxExtendedPartialAggregationMemoryUsage_) {
     return;
   }
   const int64_t extendedPartialAggregationMemoryUsage = std::min(

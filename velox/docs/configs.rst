@@ -33,18 +33,6 @@ the value of `max_extended_partial_aggregation_memory` equals the value of
 `max_partial_aggregation_memory`. Specify higher value for `max_extended_partial_aggregation_memory`
 to enable.
 
-``partial_aggregation_reduction_ratio_threshold``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    * **Type:** ``double``
-    * **Default value:** ``0.5``
-
-Cardinality reduction threshold for partial aggregation to enable adaptive memory limit increase
-up to `max_extended_partial_aggregation_memory`. Valid values are between 0 and 1. If
-partial aggregation results reach `max_partial_aggregation_memory` limit and
-`number of result rows / number of input rows > partial_aggregation_reduction_ratio_threshold`
-the limit is automatically doubled up to `max_extended_partial_aggregation_memory`.
-
 Spilling
 --------
 

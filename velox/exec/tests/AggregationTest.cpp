@@ -695,33 +695,26 @@ TEST_F(AggregationTest, partialAggregationMemoryLimitIncrease) {
   struct {
     int64_t initialPartialMemoryLimit;
     int64_t extendedPartialMemoryLimit;
-    double partialAggregationGoodPct;
     bool expectedPartialOutputFlush;
     bool expectedPartialAggregationMemoryLimitIncrease;
 
     std::string debugString() const {
       return fmt::format(
-          "initialPartialMemoryLimit: {}, extendedPartialMemoryLimit: {}, partialAggregationGoodPct: {}, expectedPartialOutputFlush: {}, expectedPartialAggregationMemoryLimitIncrease: {}",
+          "initialPartialMemoryLimit: {}, extendedPartialMemoryLimit: {}, expectedPartialOutputFlush: {}, expectedPartialAggregationMemoryLimitIncrease: {}",
           initialPartialMemoryLimit,
           extendedPartialMemoryLimit,
-          partialAggregationGoodPct,
           expectedPartialOutputFlush,
           expectedPartialAggregationMemoryLimitIncrease);
     }
   } testSettings[] = {// Set with a large initial partial aggregation memory
                       // limit and expect no flush and memory limit bump.
-                      {kGB, kB, 100, false, false},
-                      {kGB, kB, 0.01, false, false},
-                      {kGB, 2 * kGB, 100, false, false},
-                      {kGB, 2 * kGB, 0.01, false, false},
+                      {kGB, 2 * kGB, false, false},
                       // Set with a very small initial and extended partial
                       // aggregation memory limit.
-                      {100, 100, 0.01, true, false},
-                      {100, 100, 100, true, false},
+                      {100, 100, true, false},
                       // Set with a very small initial partial aggregation
                       // memory limit but large extended memory limit.
-                      {100, kGB, 0.01, true, true},
-                      {100, kGB, 100, true, false}};
+                      {100, kGB, true, true}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
 
@@ -734,9 +727,6 @@ TEST_F(AggregationTest, partialAggregationMemoryLimitIncrease) {
                     .config(
                         QueryConfig::kMaxExtendedPartialAggregationMemory,
                         std::to_string(testData.extendedPartialMemoryLimit))
-                    .config(
-                        QueryConfig::kPartialAggregationGoodPct,
-                        std::to_string(testData.partialAggregationGoodPct))
                     .plan(PlanBuilder()
                               .values(vectors)
                               .partialAggregation({"c0"}, {})
