@@ -41,6 +41,7 @@ workflows:
       - doc-gen-job
       - linux-presto-fuzzer-run
       - linux-spark-fuzzer-run
+      - linux-spark-aggregate-fuzzer-run
       - linux-aggregate-fuzzer-run
       - linux-join-fuzzer-run
       - docker-compose-ubuntu-cpp
@@ -310,6 +311,21 @@ jobs:
       - store_artifacts:
           path: '/tmp/spark_fuzzer_repro'
       - run:
+          name: "Run Spark Aggregate Fuzzer Tests"
+          command: |
+            mkdir -p /tmp/spark_aggregate_fuzzer_repro/
+            chmod -R 777 /tmp/spark_aggregate_fuzzer_repro
+            _build/debug/velox/exec/tests/spark_aggregation_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec 60 \
+                --logtostderr=1 \
+                --minloglevel=0 \
+                --repro_persist_path=/tmp/spark_aggregate_fuzzer_repro \
+            && echo -e "\n\nSpark Aggregation Fuzzer run finished successfully."
+          no_output_timeout: 5m
+      - store_artifacts:
+          path: '/tmp/spark_aggregate_fuzzer_repro'
+      - run:
           name: "Run Aggregate Fuzzer Tests"
           # Run aggregation fuzzer using the built executable.
           command: |
@@ -467,6 +483,19 @@ jobs:
           fuzzer_exe: "_build/debug/velox/expression/tests/spark_expression_fuzzer_test"
           fuzzer_args: " --seed ${RANDOM} --duration_sec 600 --logtostderr=1 --minloglevel=0 \ 
           --repro_persist_path=/tmp/spark_fuzzer_repro"
+
+  linux-spark-aggregate-fuzzer-run:
+    executor: build
+    environment:
+      VELOX_DEPENDENCY_SOURCE: SYSTEM
+    steps:
+      - fuzzer-run:
+          fuzzer_output: "/tmp/spark_aggregate_fuzzer.log"
+          fuzzer_repro: "/tmp/spark_aggregate_fuzzer_repro"
+          fuzzer_name: "SparkAggregate"
+          fuzzer_exe: "_build/debug/velox/exec/tests/spark_aggregation_fuzzer_test"
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 600 --logtostderr=1 --minloglevel=0 \
+          --repro_persist_path=/tmp/spark_aggregate_fuzzer_repro"
 
 
   linux-aggregate-fuzzer-run:

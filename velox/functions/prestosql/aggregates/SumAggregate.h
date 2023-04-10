@@ -16,9 +16,9 @@
 #pragma once
 
 #include "velox/expression/FunctionSignature.h"
+#include "velox/functions/lib/SimpleNumericAggregate.h"
 #include "velox/functions/prestosql/CheckedArithmeticImpl.h"
 #include "velox/functions/prestosql/aggregates/DecimalAggregate.h"
-#include "velox/functions/prestosql/aggregates/SimpleNumericAggregate.h"
 
 namespace facebook::velox::aggregate::prestosql {
 

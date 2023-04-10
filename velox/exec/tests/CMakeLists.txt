@@ -141,6 +141,17 @@ target_link_libraries(
   gtest
   gtest_main)
 
+add_executable(spark_aggregation_fuzzer_test SparkAggregationFuzzerTest.cpp)
+
+target_link_libraries(
+  spark_aggregation_fuzzer_test
+  velox_aggregation_fuzzer
+  velox_functions_spark_aggregates
+  velox_window
+  velox_vector_test_lib
+  gtest
+  gtest_main)
+
 # Join Fuzzer.
 
 add_library(velox_join_fuzzer JoinFuzzer.cpp)

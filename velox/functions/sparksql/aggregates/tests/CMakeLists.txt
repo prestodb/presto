@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_functions_spark_aggregates_test LastAggregateTest.cpp
-                                                     Main.cpp)
+add_executable(velox_functions_spark_aggregates_test
+               BitwiseXorAggregationTest.cpp LastAggregateTest.cpp Main.cpp)
 
 add_test(velox_functions_spark_aggregates_test
          velox_functions_spark_aggregates_test)

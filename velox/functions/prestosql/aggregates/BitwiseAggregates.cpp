@@ -14,68 +14,19 @@
  * limitations under the License.
  */
 
-#include "velox/exec/Aggregate.h"
-#include "velox/expression/FunctionSignature.h"
+#include "velox/functions/lib/BitwiseAggregateBase.h"
+
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/aggregates/SimpleNumericAggregate.h"
 
 namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
 template <typename T>
-class BitwiseAndOrAggregate : public SimpleNumericAggregate<T, T, T> {
-  using BaseAggregate = SimpleNumericAggregate<T, T, T>;
-
- public:
-  BitwiseAndOrAggregate(TypePtr resultType, T initialValue)
-      : BaseAggregate(resultType), initialValue_(initialValue) {}
-
-  int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(T);
-  }
-
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    exec::Aggregate::setAllNulls(groups, indices);
-    for (auto i : indices) {
-      *exec::Aggregate::value<T>(groups[i]) = initialValue_;
-    }
-  }
-
-  void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
-      override {
-    BaseAggregate::doExtractValues(groups, numGroups, result, [&](char* group) {
-      return *BaseAggregate::Aggregate::template value<T>(group);
-    });
-  }
-
-  void addIntermediateResults(
-      char** groups,
-      const SelectivityVector& rows,
-      const std::vector<VectorPtr>& args,
-      bool mayPushdown) override {
-    this->addRawInput(groups, rows, args, mayPushdown);
-  }
-
-  void addSingleGroupIntermediateResults(
-      char* group,
-      const SelectivityVector& rows,
-      const std::vector<VectorPtr>& args,
-      bool mayPushdown) override {
-    this->addSingleGroupRawInput(group, rows, args, mayPushdown);
-  }
-
- protected:
-  const T initialValue_;
-};
-
-template <typename T>
-class BitwiseOrAggregate : public BitwiseAndOrAggregate<T> {
+class BitwiseOrAggregate : public BitwiseAggregateBase<T> {
  public:
   explicit BitwiseOrAggregate(TypePtr resultType)
-      : BitwiseAndOrAggregate<T>(
+      : BitwiseAggregateBase<T>(
             resultType,
             /* initialValue = */ 0) {}
 
@@ -110,10 +61,10 @@ class BitwiseOrAggregate : public BitwiseAndOrAggregate<T> {
 };
 
 template <typename T>
-class BitwiseAndAggregate : public BitwiseAndOrAggregate<T> {
+class BitwiseAndAggregate : public BitwiseAggregateBase<T> {
  public:
   explicit BitwiseAndAggregate(TypePtr resultType)
-      : BitwiseAndOrAggregate<T>(
+      : BitwiseAggregateBase<T>(
             resultType,
             /* initialValue = */ -1) {}
 
@@ -146,47 +97,6 @@ class BitwiseAndAggregate : public BitwiseAndOrAggregate<T> {
         this->initialValue_);
   }
 };
-
-template <template <typename U> class T>
-bool registerBitwise(const std::string& name) {
-  // TODO Fix the signatures to match Presto.
-  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
-  for (const auto& inputType : {"tinyint", "smallint", "integer", "bigint"}) {
-    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
-                             .returnType(inputType)
-                             .intermediateType(inputType)
-                             .argumentType(inputType)
-                             .build());
-  }
-
-  exec::registerAggregateFunction(
-      name,
-      std::move(signatures),
-      [name](
-          core::AggregationNode::Step step,
-          const std::vector<TypePtr>& argTypes,
-          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
-        VELOX_CHECK_LE(argTypes.size(), 1, "{} takes only one argument", name);
-        auto inputType = argTypes[0];
-        switch (inputType->kind()) {
-          case TypeKind::TINYINT:
-            return std::make_unique<T<int8_t>>(resultType);
-          case TypeKind::SMALLINT:
-            return std::make_unique<T<int16_t>>(resultType);
-          case TypeKind::INTEGER:
-            return std::make_unique<T<int32_t>>(resultType);
-          case TypeKind::BIGINT:
-            return std::make_unique<T<int64_t>>(resultType);
-          default:
-            VELOX_CHECK(
-                false,
-                "Unknown input type for {} aggregation {}",
-                name,
-                inputType->kindName());
-        }
-      });
-  return true;
-}
 
 } // namespace
 
