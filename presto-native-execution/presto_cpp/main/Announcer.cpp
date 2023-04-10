@@ -25,6 +25,7 @@ namespace {
 
 std::string announcementBody(
     const std::string& address,
+    bool useHttps,
     int port,
     const std::string& nodeVersion,
     const std::string& environment,
@@ -41,6 +42,8 @@ std::string announcementBody(
     connectors << connectorIds[i];
   }
 
+  auto uriScheme = useHttps ? "https" : "http";
+
   nlohmann::json body = {
       {"environment", environment},
       {"pool", "general"},
@@ -52,7 +55,8 @@ std::string announcementBody(
           {{"node_version", nodeVersion},
            {"coordinator", false},
            {"connectorIds", connectors.str()},
-           {"http", fmt::format("http://{}:{}", address, port)}}}}}}};
+           {uriScheme,
+            fmt::format("{}://{}:{}", uriScheme, address, port)}}}}}}};
   return body.dump();
 }
 
@@ -76,6 +80,7 @@ proxygen::HTTPMessage announcementRequest(
 
 Announcer::Announcer(
     const std::string& address,
+    bool useHttps,
     int port,
     std::function<folly::SocketAddress()> discoveryAddressLookup,
     const std::string& nodeVersion,
@@ -88,6 +93,7 @@ Announcer::Announcer(
       frequencyMs_(frequencyMs),
       announcementBody_(announcementBody(
           address,
+          useHttps,
           port,
           nodeVersion,
           environment,

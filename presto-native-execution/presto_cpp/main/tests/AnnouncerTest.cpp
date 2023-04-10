@@ -92,6 +92,7 @@ TEST(AnnouncerTest, basic) {
 
   Announcer announcer(
       "127.0.0.1",
+      false,
       1234,
       addressLookup,
       "testversion",

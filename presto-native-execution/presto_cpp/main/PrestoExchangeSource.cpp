@@ -307,7 +307,8 @@ PrestoExchangeSource::createExchangeSource(
     int destination,
     std::shared_ptr<exec::ExchangeQueue> queue,
     memory::MemoryPool* pool) {
-  if (strncmp(url.c_str(), "http://", 7) == 0) {
+  if (strncmp(url.c_str(), "http://", 7) == 0 ||
+      strncmp(url.c_str(), "https://", 8) == 0) {
     return std::make_unique<PrestoExchangeSource>(
         folly::Uri(url), destination, queue, pool);
   }

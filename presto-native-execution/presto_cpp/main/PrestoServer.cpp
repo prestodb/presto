@@ -63,7 +63,9 @@ using namespace facebook::velox;
 namespace {
 
 constexpr char const* kHttp = "http";
-constexpr char const* kBaseUriFormat = "http://{}:{}";
+constexpr char const* kHttps = "https";
+constexpr char const* kTaskUriFormat =
+    "{}://{}:{}"; // protocol, address and port
 constexpr char const* kConnectorName = "connector.name";
 constexpr char const* kCacheEnabled = "cache.enabled";
 constexpr char const* kCacheMaxCacheSize = "cache.max-cache-size";
@@ -155,14 +157,47 @@ PrestoServer::~PrestoServer() {}
 void PrestoServer::run() {
   auto systemConfig = SystemConfig::instance();
   auto nodeConfig = NodeConfig::instance();
-  int servicePort{0};
+  int httpPort{0};
   int httpExecThreads{0};
+
+  std::string certPath, keyPath, ciphers;
+  std::optional<int> httpsPort;
+
   try {
     systemConfig->initialize(
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
         fmt::format("{}/node.properties", configDirectoryPath_));
-    servicePort = systemConfig->httpServerHttpPort();
+
+    httpPort = systemConfig->httpServerHttpPort();
+    if (systemConfig->enableHttps()) {
+      httpsPort = systemConfig->httpServerHttpsPort();
+
+      ciphers = systemConfig->httpsSupportedCiphers();
+      if (ciphers.empty()) {
+        VELOX_USER_FAIL("Https is enabled without ciphers")
+      }
+
+      auto otpionalCertPath = systemConfig->httpsCertPath();
+      if (!otpionalCertPath.has_value()) {
+        VELOX_USER_FAIL("Https is enabled without certificate path");
+      }
+      certPath = otpionalCertPath.value();
+
+      auto optionalKeyPath = systemConfig->httpsKeyPath();
+      if (!optionalKeyPath.has_value()) {
+        VELOX_USER_FAIL("Https is enabled without key path");
+      }
+      keyPath = optionalKeyPath.value();
+
+      auto optionalClientCertPath = systemConfig->httpsClientCertAndKeyPath();
+      if (!optionalClientCertPath.has_value()) {
+        // This config is not used in server but validated here, otherwise, it
+        // will fail later in the HttpClient during query execution.
+        VELOX_USER_FAIL("Https Client Certs are not configured correctly");
+      }
+    }
+
     nodeVersion_ = systemConfig->prestoVersion();
     httpExecThreads = systemConfig->httpExecThreads();
     environment_ = nodeConfig->nodeEnvironment();
@@ -196,19 +231,20 @@ void PrestoServer::run() {
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
 
-  folly::SocketAddress socketAddress;
-  socketAddress.setFromLocalPort(servicePort);
+  folly::SocketAddress httpSocketAddress;
+  httpSocketAddress.setFromLocalPort(httpPort);
   LOG(INFO) << fmt::format(
       "STARTUP: Starting server at {}:{} ({})",
-      socketAddress.getIPAddress().str(),
-      servicePort,
+      httpSocketAddress.getIPAddress().str(),
+      httpPort,
       address_);
 
   std::unique_ptr<Announcer> announcer;
   if (auto discoveryAddressLookupFunc = discoveryAddressLookup()) {
     announcer = std::make_unique<Announcer>(
         address_,
-        servicePort,
+        httpsPort.has_value(),
+        httpsPort.has_value() ? httpsPort.value() : httpPort,
         discoveryAddressLookupFunc,
         nodeVersion_,
         environment_,
@@ -219,8 +255,17 @@ void PrestoServer::run() {
     announcer->start();
   }
 
-  httpServer_ =
-      std::make_unique<http::HttpServer>(socketAddress, httpExecThreads);
+  std::unique_ptr<http::HttpsConfig> httpsConfig;
+  if (httpsPort.has_value()) {
+    folly::SocketAddress httpsSocketAddress;
+    httpsSocketAddress.setFromLocalPort(httpsPort.value());
+
+    httpsConfig = std::make_unique<http::HttpsConfig>(
+        httpsSocketAddress, certPath, keyPath, ciphers);
+  }
+
+  httpServer_ = std::make_unique<http::HttpServer>(
+      httpSocketAddress, std::move(httpsConfig), httpExecThreads);
 
   httpServer_->registerPost(
       "/v1/memory",
@@ -299,7 +344,15 @@ void PrestoServer::run() {
 
   taskManager_ = std::make_unique<TaskManager>(
       systemConfig->values(), nodeConfig->values());
-  taskManager_->setBaseUri(fmt::format(kBaseUriFormat, address_, servicePort));
+
+  std::string taskUri;
+  if (httpsPort.has_value()) {
+    taskUri = fmt::format(kTaskUriFormat, kHttps, address_, httpsPort.value());
+  } else {
+    taskUri = fmt::format(kTaskUriFormat, kHttp, address_, httpPort);
+  }
+
+  taskManager_->setBaseUri(taskUri);
   taskManager_->setNodeId(nodeId_);
   taskResource_ = std::make_unique<TaskResource>(*taskManager_);
   taskResource_->registerUris(*httpServer_);
