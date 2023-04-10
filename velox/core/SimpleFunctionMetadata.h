@@ -614,7 +614,9 @@ class UDFHolder final
 
   static_assert(
       udf_has_call || udf_has_callNullable || udf_has_callNullFree,
-      "UDF must implement at least one of `call`, `callNullable`, or `callNullFree`");
+      "UDF must implement at least one of `call`, `callNullable`, or `callNullFree` functions.\n"
+      "This error happens also if the output and input types of the functions do not match the\n"
+      "ones used in registration.");
 
   static_assert(
       ValidateVariadicArgs<TArgs...>::value,
