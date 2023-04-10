@@ -46,18 +46,16 @@ RUN dnf update -y && \
     ln -s $(which python3) /usr/bin/python && \
     tar -xzf /opt/presto-server.tar.gz --strip-components=1 -C /opt/$PRESTO_HOME && \
     mkdir -p $PRESTO_HOME/etc/catalog /var/lib/presto/data /usr/lib/presto/utils && \
-    curl -o /usr/lib/presto/utils/jmx_prometheus_javaagent-0.18.0.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.18.0/jmx_prometheus_javaagent-0.18.0.jar
+    curl -o /usr/lib/presto/utils/jmx_prometheus_javaagent-0.18.0.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.18.0/jmx_prometheus_javaagent-0.18.0.jar && \
     echo "auth required pam_wheel.so use_uid" >> /etc/pam.d/su && \
-    useradd -r -g root --uid=${SPARK_UID} -d /opt ${SPARK_USER} && \
+    useradd -r -g root --uid=${PRESTO_UID} -d /opt ${PRESTO_USER} && \
     chgrp root /etc/passwd && \
-    chmod ug+rw /etc/passwd && \
-    chmod -R 755 /usr/lib/presto/utils/ /opt  && \
-    chmod a+x /opt/entrypoint.sh /usr/local/bin/presto-cli $PRESTO_HOME/bin/launcher  && \
-    chown -R ${SPARK_UID} /usr /opt /app && \
+    chmod -R ug+rwx /etc/passwd /usr/lib/presto/utils/ /opt /usr/local/bin/presto-cli $PRESTO_HOME/bin/launcher  && \
+    chown -R ${PRESTO_UID} /opt && \
     rm -rf /opt/presto-server.tar.gz /root/.cache
 
 SHELL ["/bin/bash", "-eEu", "-c"]
-USER ${SPARK_UID}
+USER ${PRESTO_UID}
 ENTRYPOINT ["/opt/entrypoint.sh"]
-VOLUME [ "/tmp/prestissimo-worker" ]
+VOLUME [ "/tmp/presto-worker" ]
 EXPOSE 22/tcp 8080/tcp
