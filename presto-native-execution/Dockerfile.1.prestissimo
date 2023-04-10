@@ -1,4 +1,4 @@
-# prestodb/prestissimo
+# prestodb/avx/centos8-prestissimo
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ARG CPU_TARGET=avx
+ARG TARGETPLATFORM=linux/amd64
 ARG IMAGE_TAG=latest
-ARG IMAGE_REGISTRY=prestodb
-ARG BUILDTIME_IMAGE=${CPU_TARGET}/centos8-prestissimo-buildtime
-ARG RUNTIME_IMAGE=${CPU_TARGET}/centos8-prestissimo-runtime
-FROM --platform=linux/amd64 ${IMAGE_REGISTRY}/${BUILDTIME_IMAGE}:${IMAGE_TAG} as build-stage
+ARG IMAGE_REGISTRY=prestodb/${CPU_TARGET}
+ARG BUILDTIME_IMAGE=centos8-prestissimo-buildtime
+ARG RUNTIME_IMAGE=centos8-prestissimo-runtime
+FROM --platform=$TARGETPLATFORM ${IMAGE_REGISTRY}/${BUILDTIME_IMAGE}:${IMAGE_TAG} as build-stage
 
 ENV PATH=/opt/dependency/install/bin:/opt/dependency/install/bin/hadoop-2.10.1/bin:$PATH
 
@@ -41,7 +42,7 @@ RUN set +u && \
 #/////////////////////////////////////////////
 #          centos8-prestissimo-runtime
 #//////////////////////////////////////////////
-FROM --platform=linux/amd64 ${IMAGE_REGISTRY}/${RUNTIME_IMAGE}:${IMAGE_TAG}
+FROM --platform=$TARGETPLATFORM ${IMAGE_REGISTRY}/${RUNTIME_IMAGE}:${IMAGE_TAG}
 
 LABEL org.opencontainers.image.title="prestissimo"
 LABEL org.opencontainers.image.description="Prestissimo, a presto-native-execution Velox based query engine worker container for use in datalakes and benchmarking."
@@ -49,9 +50,9 @@ LABEL org.opencontainers.image.vendor="Ahana, Intel and Meta Corporations collab
 LABEL org.opencontainers.image.version="1.0.0"
 LABEL org.opencontainers.image.authors="milosz.linkiewicz@intel.com"
 
-COPY --chown=186:186 --chmod=0755 --from=build-stage /opt/presto/presto_server /opt/presto/presto_server
-COPY --chown=186:186 --chmod=0755 --from=build-stage /usr/local/lib64/lib* /usr/lib64/lib* /usr/local/lib64/
-COPY --chown=186:186 --chmod=0755 --from=build-stage /usr/local/lib/lib* /usr/local/lib/
+COPY --chown=186:root --chmod=0775 --from=build-stage /opt/presto/presto_server /opt/presto/presto_server
+COPY --chown=186:root --chmod=0775 --from=build-stage /usr/local/lib64/lib* /usr/lib64/lib* /usr/local/lib64/
+COPY --chown=186:root --chmod=0775 --from=build-stage /usr/local/lib/lib* /usr/local/lib/
 
 USER presto
 ENTRYPOINT [ "/opt/entrypoint.sh" ]

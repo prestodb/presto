@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+ARG TARGETPLATFORM=linux/amd64
 ARG IMAGE_CACHE_REGISTRY=quay.io/centos
-FROM --platform=linux/amd64 ${IMAGE_CACHE_REGISTRY}/centos:stream8
+FROM --platform=$TARGETPLATFORM ${IMAGE_CACHE_REGISTRY}/centos:stream8
 
 LABEL org.opencontainers.image.title="centos8-prestissimo-runtime"
 LABEL org.opencontainers.image.description="Centos-Stream-8 based Prestissimo base image for runtime container."
@@ -27,16 +28,16 @@ ENV PROMPT_ALWAYS_RESPOND=n
 ENV PRESTO_HOME="/opt/presto/"
 ENV TZ="Europe/Warsaw"
 
-ADD --chown=186:186 --chmod=0755 scripts/release-centos-dockerfile/etc/ /opt/presto/etc/
-ADD --chown=186:186 --chmod=0755 scripts/release-centos-dockerfile/opt/ /opt/
+ADD --chown=186:root --chmod=0775 scripts/release-centos-dockerfile/etc/ /opt/presto/etc/
+ADD --chown=186:root --chmod=0775 scripts/release-centos-dockerfile/opt/ /opt/
 
 RUN set -exu && \
+    dnf update -y && \
     dnf -y install uuid hostname vim && \
-    useradd -r -U --uid=186 -d /opt presto && \
-    chgrp 186 /etc/passwd && \
-    chown -R 186 /opt && \
-    chmod -R ug+rw /etc/passwd /opt && \
-    chmod ug+x /opt/*.sh && \
+    mkdir -p /opt/presto/catalog && \
+    useradd -r -g root --uid=186 -d /opt presto && \
+    chgrp root /etc/passwd && \
+    chown -R 186:root /opt && \
+    chmod -R ug+rwx /etc/passwd /opt && \
     rm -rf /root/.cache /tmp && \
     dnf clean all
-
