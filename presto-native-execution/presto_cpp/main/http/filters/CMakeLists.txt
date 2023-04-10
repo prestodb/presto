@@ -9,8 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_executable(access_log_test AccessLogFilterTest.cpp)
 
-add_test(access_log_test access_log_test)
+add_library(http_filters AccessLogFilter.cpp StatsFilter.cpp)
 
-target_link_libraries(access_log_test presto_http gtest gtest_main)
+target_link_libraries(http_filters presto_common ${PROXYGEN_LIBRARIES})
