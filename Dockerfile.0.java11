@@ -34,6 +34,6 @@ RUN dnf -y install java-11-openjdk-devel && \
     sed -i 's/<module>presto-docs<\/module>//g' pom.xml && \
     ./mvnw -Dhttp.proxyHost=$jhttp_proxy -Dhttp.proxyPort=$jhttp_port -Dhttps.proxyHost=$jhttps_proxy -Dhttps.proxyPort=$jhttps_port clean package -DskipTests && \
     mv $(find /opt/presto/_build/presto-cli/ -name presto-cli-*-executable.jar) /opt/presto/presto-cli && \
-    mv $(find /opt/presto/_build/presto-server/ -name presto-server-*.tar.gz) /opt/presto/presto-server.tar.gz
+    mv $(find /opt/presto/_build/presto-server/ -name presto-server-*.tar.gz) /opt/presto/presto-server.tar.gz && \
     rm -rf /root/m2 /opt/presto/_build && \
     dnf clean all    
