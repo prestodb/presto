@@ -53,8 +53,8 @@ RUN dnf update -y && \
     chmod ug+rw /etc/passwd && \
     chmod -R 755 /usr/lib/presto/utils/ /opt  && \
     chmod a+x /opt/entrypoint.sh /usr/local/bin/presto-cli $PRESTO_HOME/bin/launcher  && \
-    chown -R ${SPARK_UID} /usr /opt /app
-    rm -rf /opt/presto-server.tar.gz /root/.cache && \
+    chown -R ${SPARK_UID} /usr /opt /app && \
+    rm -rf /opt/presto-server.tar.gz /root/.cache
 
 SHELL ["/bin/bash", "-eEu", "-c"]
 USER ${SPARK_UID}
