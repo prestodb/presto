@@ -20,6 +20,10 @@ pipeline {
                      defaultValue: false,
                      description: 'whether to publish tar and docker image even if current branch is not master'
         )
+        booleanParam(name: 'BUILD_NATIVE_BASE_IMAGES',
+                     defaultValue: false,
+                     description: 'whether to build native builder and runtime base images'
+        )
     }
 
     stages {
@@ -121,9 +125,13 @@ pipeline {
                 }
 
                 stage('Native Builder Image') {
+                    when {
+                        expression { params.BUILD_NATIVE_BASE_IMAGES }
+                    }
                     steps {
                         script {
                             env.NATIVE_BUILDER_IMAGE = env.AWS_ECR + "/oss-presto/presto-native-builder:${PRESTO_BUILD_VERSION}"
+                            env.NATIVE_BUILDER_IMAGE_LATEST = env.AWS_ECR + "/oss-presto/presto-native-builder:latest"
                         }
                         echo "Building ${NATIVE_BUILDER_IMAGE}"
                         withCredentials([[
@@ -135,8 +143,12 @@ pipeline {
                                 cd presto-native-execution/
                                 git config --global --add safe.directory ${WORKSPACE}/presto-native-execution/velox
                                 make velox-submodule
-                                docker buildx build -f Dockerfile.0.buildtime --load --platform "linux/amd64" -t "${NATIVE_BUILDER_IMAGE}-amd64" .
+                                docker buildx build -f Dockerfile.0.buildtime --load --platform "linux/amd64" \
+                                    -t "${NATIVE_BUILDER_IMAGE}-amd64" \
+                                    -t "${NATIVE_BUILDER_IMAGE_LATEST}-amd64" \
+                                    .
                                 aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
+                                docker push "${NATIVE_BUILDER_IMAGE_LATEST}-amd64"
                                 docker push "${NATIVE_BUILDER_IMAGE}-amd64"
                             '''
                         }
@@ -144,9 +156,13 @@ pipeline {
                 }
 
                 stage('Native Runtime Image') {
+                    when {
+                        expression { params.BUILD_NATIVE_BASE_IMAGES }
+                    }
                     steps {
                         script {
                             env.NATIVE_RUNTIME_IMAGE = env.AWS_ECR + "/oss-presto/presto-native-runtime:${PRESTO_BUILD_VERSION}"
+                            env.NATIVE_RUNTIME_IMAGE_LATEST = env.AWS_ECR + "/oss-presto/presto-native-runtime:latest"
                         }
                         echo "Building ${NATIVE_RUNTIME_IMAGE}"
                         withCredentials([[
@@ -156,8 +172,12 @@ pipeline {
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''#!/bin/bash -ex
                                 cd presto-native-execution/
-                                docker buildx build -f Dockerfile.0.runtime --load --platform "linux/amd64" -t "${NATIVE_RUNTIME_IMAGE}-amd64" .
+                                docker buildx build -f Dockerfile.0.runtime --load --platform "linux/amd64" \
+                                    -t "${NATIVE_RUNTIME_IMAGE}-amd64" \
+                                    -t "${NATIVE_RUNTIME_IMAGE_LATEST}-amd64" \
+                                    .
                                 aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
+                                docker push "${NATIVE_RUNTIME_IMAGE_LATEST}-amd64"
                                 docker push "${NATIVE_RUNTIME_IMAGE}-amd64"
                             '''
                         }
@@ -180,14 +200,12 @@ pipeline {
                                     --build-arg "IMAGE_REGISTRY=${AWS_ECR}" \
                                     --build-arg "BUILDTIME_IMAGE=oss-presto/presto-native-builder" \
                                     --build-arg "RUNTIME_IMAGE=oss-presto/presto-native-runtime" \
-                                    --build-arg "IMAGE_TAG=${PRESTO_BUILD_VERSION}-amd64" \
-                                    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" \
+                                    --build-arg "IMAGE_TAG=latest-amd64" \
                                     .
                             '''
                         }
                     }
                 }
-
 
                 stage('Publish Docker') {
                     when {
