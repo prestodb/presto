@@ -13,4 +13,4 @@ add_executable(access_log_test AccessLogFilterTest.cpp)
 
 add_test(access_log_test access_log_test)
 
-target_link_libraries(access_log_test presto_http gtest gtest_main)
+target_link_libraries(access_log_test presto_http gtest gtest_main ${PROXYGEN_LIBRARIES})
