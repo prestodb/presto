@@ -17,10 +17,14 @@ import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.hive.HiveExternalWorkerQueryRunner;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
+import com.facebook.presto.spark.execution.NativeExecutionModule;
+import com.facebook.presto.spark.execution.TestNativeExecutionModule;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Module;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.shuffle.ShuffleHandle;
 import org.apache.spark.shuffle.sort.BypassMergeSortShuffleHandle;
@@ -60,7 +64,8 @@ public class AbstractTestPrestoSparkQueries
 
         PrestoSparkQueryRunner queryRunner = PrestoSparkNativeQueryRunner.createPrestoSparkNativeQueryRunner(
                 builder.build(),
-                getNativeExecutionShuffleConfigs());
+                getNativeExecutionShuffleConfigs(),
+                getNativeExecutionModules());
         setupJsonFunctionNamespaceManager(queryRunner);
         return queryRunner;
     }
@@ -111,5 +116,18 @@ public class AbstractTestPrestoSparkQueries
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP",
                         "json-based-function-manager.path-to-function-definition", "src/test/resources/eq.json"));
+    }
+
+    protected ImmutableList<Module> getNativeExecutionModules()
+    {
+        ImmutableList.Builder<Module> moduleBuilder = ImmutableList.builder();
+        if (System.getProperty("NATIVE_PORT") != null) {
+            moduleBuilder.add(new TestNativeExecutionModule());
+        }
+        else {
+            moduleBuilder.add(new NativeExecutionModule());
+        }
+
+        return moduleBuilder.build();
     }
 }
