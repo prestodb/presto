@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/http/HttpServer.h"
+#include <algorithm>
 #include "presto_cpp/main/common/Configs.h"
 
 namespace facebook::presto::http {
@@ -75,10 +76,40 @@ void sendErrorResponse(
       .sendWithEOM();
 }
 
+HttpsConfig::HttpsConfig(
+    const folly::SocketAddress& httpsAddress,
+    std::string certPath,
+    std::string keyPath,
+    std::string supportedCiphers)
+    : httpsAddress_(httpsAddress),
+      certPath_(certPath),
+      keyPath_(keyPath),
+      supportedCiphers_(supportedCiphers) {
+  // Wangle separates ciphers by ":" where as in config it is ","
+  std::replace(supportedCiphers_.begin(), supportedCiphers_.end(), ',', ':');
+}
+
+proxygen::HTTPServer::IPConfig HttpsConfig::getHttpsConfig() const {
+  proxygen::HTTPServer::IPConfig ipConfig{
+      httpsAddress_, proxygen::HTTPServer::Protocol::HTTP};
+
+  wangle::SSLContextConfig sslCfg;
+  sslCfg.isDefault = true;
+  sslCfg.clientVerification =
+      folly::SSLContext::VerifyClientCertificate::DO_NOT_REQUEST;
+  sslCfg.setCertificate(certPath_, keyPath_, "");
+  sslCfg.sslCiphers = supportedCiphers_;
+
+  ipConfig.sslConfigs.push_back(sslCfg);
+  return ipConfig;
+}
+
 HttpServer::HttpServer(
     const folly::SocketAddress& httpAddress,
+    std::unique_ptr<HttpsConfig> httpsConfig,
     int httpExecThreads)
     : httpAddress_(httpAddress),
+      httpsConfig_(std::move(httpsConfig)),
       httpExecThreads_(httpExecThreads),
       handlerFactory_(std::make_unique<DispatchingRequestHandlerFactory>()),
       httpExecutor_{std::make_shared<folly::IOThreadPoolExecutor>(
@@ -160,13 +191,13 @@ void HttpServer::start(
     std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters,
     std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess,
     std::function<void(std::exception_ptr)> onError) {
-  proxygen::HTTPServer::IPConfig cfg{
+  proxygen::HTTPServer::IPConfig ipConfig{
       httpAddress_, proxygen::HTTPServer::Protocol::HTTP};
 
   if (SystemConfig::instance()->httpServerReusePort()) {
     folly::SocketOptionKey portReuseOpt = {SOL_SOCKET, SO_REUSEPORT};
-    cfg.acceptorSocketOptions.emplace();
-    cfg.acceptorSocketOptions->insert({portReuseOpt, 1});
+    ipConfig.acceptorSocketOptions.emplace();
+    ipConfig.acceptorSocketOptions->insert({portReuseOpt, 1});
   }
 
   proxygen::HTTPServerOptions options;
@@ -197,7 +228,12 @@ void HttpServer::start(
 
   server_ = std::make_unique<proxygen::HTTPServer>(std::move(options));
 
-  std::vector<proxygen::HTTPServer::IPConfig> ips{cfg};
+  std::vector<proxygen::HTTPServer::IPConfig> ips{ipConfig};
+
+  if (httpsConfig_ != nullptr) {
+    ips.push_back(httpsConfig_->getHttpsConfig());
+  }
+
   server_->bind(ips);
 
   LOG(INFO) << "STARTUP: proxygen::HTTPServer::start()";

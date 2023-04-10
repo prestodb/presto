@@ -212,7 +212,19 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
 
   void connect() {
     connector_ = std::make_unique<proxygen::HTTPConnector>(this, timer_);
-    connector_->connect(eventBase_, address_);
+    auto systemConfig = SystemConfig::instance();
+    if (systemConfig->enableHttps()) {
+      auto ciphers = systemConfig->httpsSupportedCiphers();
+      auto clientCertAndKeyPath =
+          systemConfig->httpsClientCertAndKeyPath().value();
+      auto context = std::make_shared<folly::SSLContext>();
+      context->loadCertKeyPairFromFiles(
+          clientCertAndKeyPath.c_str(), clientCertAndKeyPath.c_str());
+      context->setCiphersOrThrow(ciphers);
+      connector_->connectSSL(eventBase_, address_, context);
+    } else {
+      connector_->connect(eventBase_, address_);
+    }
   }
 
   void connectSuccess(proxygen::HTTPUpstreamSession* session) override {

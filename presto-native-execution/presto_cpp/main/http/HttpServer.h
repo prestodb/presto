@@ -17,11 +17,11 @@
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <re2/re2.h>
+#include <wangle/ssl/SSLContextConfig.h>
 #include "presto_cpp/external/json/json.hpp"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "velox/common/base/StatsReporter.h"
-#include "velox/common/time/Timer.h"
 
 namespace facebook::presto::http {
 
@@ -221,10 +221,29 @@ class DispatchingRequestHandlerFactory
       endpoints_;
 };
 
+class HttpsConfig {
+ public:
+  HttpsConfig(
+      const folly::SocketAddress& httpsAddress,
+      std::string certPath,
+      std::string keyPath,
+      std::string supportedCiphers);
+
+  proxygen::HTTPServer::IPConfig getHttpsConfig() const;
+
+ private:
+  const folly::SocketAddress httpsAddress_;
+  const std::string certPath_;
+  const std::string keyPath_;
+
+  std::string supportedCiphers_;
+};
+
 class HttpServer {
  public:
   explicit HttpServer(
       const folly::SocketAddress& httpAddress,
+      std::unique_ptr<HttpsConfig> httpsConfig = nullptr,
       int httpExecThreads = 8);
 
   void start(
@@ -308,6 +327,7 @@ class HttpServer {
 
  private:
   const folly::SocketAddress httpAddress_;
+  const std::unique_ptr<HttpsConfig> httpsConfig_;
   int httpExecThreads_;
   std::unique_ptr<DispatchingRequestHandlerFactory> handlerFactory_;
   std::unique_ptr<proxygen::HTTPServer> server_;

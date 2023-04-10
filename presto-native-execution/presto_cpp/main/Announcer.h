@@ -22,6 +22,7 @@ class Announcer {
  public:
   Announcer(
       const std::string& address,
+      bool useHttps,
       int port,
       std::function<folly::SocketAddress()> discoveryAddressLookup,
       const std::string& nodeVersion,

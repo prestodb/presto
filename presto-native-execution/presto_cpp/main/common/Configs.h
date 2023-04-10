@@ -88,6 +88,16 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
   static constexpr std::string_view kHttpExecThreads{"http_exec_threads"};
+  static constexpr std::string_view kHttpServerHttpsPort{
+      "http-server.https.port"};
+  static constexpr std::string_view kHttpServerHttpsEnabled{
+      "http-server.https.enabled"};
+  static constexpr std::string_view kHttpsSupportedCiphers{
+      "https-supported-ciphers"};
+  static constexpr std::string_view kHttpsCertPath{"https-cert-path"};
+  static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
+  static constexpr std::string_view kHttpsClientCertAndKeyPath{
+      "https-client-cert-key-path"};
   static constexpr std::string_view kNumIoThreads{"num-io-threads"};
   static constexpr std::string_view kNumQueryThreads{"num-query-threads"};
   static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
@@ -127,6 +137,9 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kHttpServerReusePortDefault = false;
   static constexpr int32_t kConcurrentLifespansPerTaskDefault = 1;
   static constexpr int32_t kHttpExecThreadsDefault = 8;
+  static constexpr bool kHttpServerHttpsEnabledDefault = false;
+  static constexpr std::string_view kHttpsSupportedCiphersDefault{
+      "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384"};
   static constexpr int32_t kNumIoThreadsDefault = 30;
   static constexpr int32_t kShutdownOnsetSecDefault = 10;
   static constexpr int32_t kSystemMemoryGbDefault = 40;
@@ -151,6 +164,18 @@ class SystemConfig : public ConfigBase {
   int httpServerHttpPort() const;
 
   bool httpServerReusePort() const;
+
+  bool enableHttps() const;
+
+  int httpServerHttpsPort() const;
+
+  std::string httpsSupportedCiphers() const;
+
+  std::optional<std::string> httpsCertPath() const;
+
+  std::optional<std::string> httpsKeyPath() const;
+
+  std::optional<std::string> httpsClientCertAndKeyPath() const;
 
   std::string prestoVersion() const;
 
