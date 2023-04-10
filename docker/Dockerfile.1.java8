@@ -1,0 +1,61 @@
+# prestodb/centos8-presto-java8
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+ARG IMAGE_TAG=latest
+ARG IMAGE_REGISTRY=prestodb
+ARG BUILDTIME_IMAGE=centos8-presto-java8
+ARG IMAGE_CACHE_REGISTRY=quay.io/centos
+
+FROM --platform=linux/amd64 ${IMAGE_REGISTRY}/${BUILDTIME_IMAGE}:${IMAGE_TAG} as build-stage
+
+FROM --platform=linux/amd64 ${IMAGE_CACHE_REGISTRY}/centos:stream8
+
+LABEL org.opencontainers.image.title="centos8-presto-java8"
+LABEL org.opencontainers.image.description="Centos-Stream-8 Presto-JAVA8 runtime."
+LABEL org.opencontainers.image.vendor="Ahana, Intel and Meta Corporations collaboration"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.authors="milosz.linkiewicz@intel.com"
+
+SHELL ["/bin/bash", "-eEuo", "pipefail", "-c"]
+WORKDIR /opt/presto-server
+
+ARG PRESTO_UID=184
+ARG PRESTO_USER=presto
+ENV PRESTO_HOME="/opt/presto-server"
+
+COPY --chown=${PRESTO_UID} --from=build-stage /opt/build/presto-server.tar.gz /opt/presto-server.tar.gz
+COPY --chown=${PRESTO_UID} --from=build-stage /opt/build/presto-cli /usr/local/bin/presto-cli
+COPY --chown=${PRESTO_UID} etc $PRESTO_HOME/etc
+COPY --chown=${PRESTO_UID} entrypoint.sh /opt
+
+RUN dnf update -y && \
+    dnf -y install java-8-openjre tar less procps python3 curl && \
+    dnf clean all && \
+    mv /etc/yum/protected.d/systemd.conf /etc/yum/protected.d/systemd.conf.bak  && \
+    ln -s $(which python3) /usr/bin/python && \
+    tar -xzf /opt/presto-server.tar.gz --strip-components=1 -C /opt/$PRESTO_HOME && \
+    mkdir -p $PRESTO_HOME/etc/catalog /var/lib/presto/data /usr/lib/presto/utils && \
+    curl -o /usr/lib/presto/utils/jmx_prometheus_javaagent-0.18.0.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.18.0/jmx_prometheus_javaagent-0.18.0.jar && \
+    echo "auth required pam_wheel.so use_uid" >> /etc/pam.d/su && \
+    useradd -r -g root --uid=${PRESTO_UID} -d /opt ${PRESTO_USER} && \
+    chgrp root /etc/passwd && \
+    chmod -R ug+rwx /etc/passwd /usr/lib/presto/utils/ /opt /usr/local/bin/presto-cli $PRESTO_HOME/bin/launcher  && \
+    chown -R ${PRESTO_UID} /opt && \
+    rm -rf /opt/presto-server.tar.gz /root/.cache
+
+SHELL ["/bin/bash", "-eEu", "-c"]
+USER ${PRESTO_UID}
+ENTRYPOINT ["/opt/entrypoint.sh"]
+VOLUME [ "/tmp/presto-worker" ]
+EXPOSE 22/tcp 8080/tcp
