@@ -14,6 +14,7 @@
 package com.facebook.presto.nativeworker;
 
 import com.google.common.io.Resources;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -159,6 +160,8 @@ public abstract class TestHiveTpchQueries
         assertQuery(getTpchQuery(16));
     }
 
+    // TODO This test is failing in CI often. The failures cannot be reproduced locally. Re-enable when failures are fixed.
+    @Ignore
     @Test
     public void testTpchQ17()
             throws Exception
