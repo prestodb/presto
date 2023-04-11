@@ -178,11 +178,11 @@ void PrestoServer::run() {
         VELOX_USER_FAIL("Https is enabled without ciphers")
       }
 
-      auto otpionalCertPath = systemConfig->httpsCertPath();
-      if (!otpionalCertPath.has_value()) {
+      auto optionalCertPath = systemConfig->httpsCertPath();
+      if (!optionalCertPath.has_value()) {
         VELOX_USER_FAIL("Https is enabled without certificate path");
       }
-      certPath = otpionalCertPath.value();
+      certPath = optionalCertPath.value();
 
       auto optionalKeyPath = systemConfig->httpsKeyPath();
       if (!optionalKeyPath.has_value()) {
@@ -194,7 +194,8 @@ void PrestoServer::run() {
       if (!optionalClientCertPath.has_value()) {
         // This config is not used in server but validated here, otherwise, it
         // will fail later in the HttpClient during query execution.
-        VELOX_USER_FAIL("Https Client Certs are not configured correctly");
+        VELOX_USER_FAIL(
+            "Https Client Certificates are not configured correctly");
       }
     }
 
