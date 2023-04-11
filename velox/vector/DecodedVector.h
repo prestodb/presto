@@ -385,6 +385,10 @@ class DecodedVector {
   // complex type.
   const void* data_ = nullptr;
 
+  // The first bit holds the value when a constant bool is decoded, and data_ in
+  // that case will refer to the address of this variable.
+  uint64_t constantBoolDataHolder_;
+
   // Null bitmask of the base vector if wrappings didn't add nulls
   // (hasExtraNulls_ is false). Otherwise, null bitmask of the base vector
   // combined with null bitmasks in all the wrappings (hasExtraNulls_ is true).

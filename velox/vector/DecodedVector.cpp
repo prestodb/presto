@@ -416,7 +416,18 @@ void DecodedVector::setBaseDataForConstant(
     });
     setFlatNulls(vector, rows);
   }
-  data_ = vector.valuesAsVoid();
+  if (vector.typeKind() == TypeKind::BOOLEAN) {
+    // When the type of the vector is bool we access the data using
+    // bits::isBitSet(reinterpret_cast<const uint64_t*>(data_), index(idx)).
+    // But vector.valuesAsVoid() returns an address to a bool variable.
+
+    constantBoolDataHolder_ =
+        vector.asUnchecked<ConstantVector<bool>>()->valueAt(0);
+
+    data_ = &constantBoolDataHolder_;
+  } else {
+    data_ = vector.valuesAsVoid();
+  }
   if (!nulls_) {
     nulls_ = vector.isNullAt(0) ? &constantNullMask_ : nullptr;
   }
