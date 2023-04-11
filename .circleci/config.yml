@@ -579,7 +579,7 @@ jobs:
             git checkout gh-pages
             cp -R velox/docs/_build/html/* docs
             git add docs
-            if [ -n "$(git status --porcelain)" ]
+            if [ -n "$(git status --porcelain --untracked-files=no)" ]
             then
               git commit -m "Update documentation"
               git push
