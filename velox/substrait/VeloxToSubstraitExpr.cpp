@@ -170,16 +170,6 @@ const ::substrait::Expression_Literal& toSubstraitNotNullLiteral(
       literalExpr->set_date(variantValue.value<TypeKind::DATE>().days());
       break;
     }
-    case velox::TypeKind::INTERVAL_DAY_TIME: {
-      ::substrait::Expression_Literal_IntervalDayToSecond*
-          sIntervalDayToSeconds = google::protobuf::Arena::CreateMessage<
-              ::substrait::Expression_Literal_IntervalDayToSecond>(&arena);
-      sIntervalDayToSeconds->set_microseconds(
-          variantValue.value<TypeKind::INTERVAL_DAY_TIME>().milliseconds() *
-          1000);
-      literalExpr->set_allocated_interval_day_to_second(sIntervalDayToSeconds);
-      break;
-    }
     case velox::TypeKind::VARCHAR: {
       auto vCharValue = variantValue.value<StringView>();
       ::substrait::Expression_Literal::VarChar* sVarChar =
@@ -312,22 +302,6 @@ toSubstraitNotNullLiteral<TypeKind::TIMESTAMP>(
   auto micros = value.getSeconds() * 1000000 + value.getNanos() / 1000;
   literalExpr->set_timestamp(micros);
   literalExpr->set_nullable(false);
-  return *literalExpr;
-}
-
-template <>
-const ::substrait::Expression_Literal&
-toSubstraitNotNullLiteral<TypeKind::INTERVAL_DAY_TIME>(
-    google::protobuf::Arena& arena,
-    const IntervalDayTime& value) {
-  ::substrait::Expression_Literal* literalExpr =
-      google::protobuf::Arena::CreateMessage<::substrait::Expression_Literal>(
-          &arena);
-  ::substrait::Expression_Literal_IntervalDayToSecond* sIntervalDayToSeconds =
-      google::protobuf::Arena::CreateMessage<
-          ::substrait::Expression_Literal_IntervalDayToSecond>(&arena);
-  sIntervalDayToSeconds->set_microseconds(value.milliseconds() * 1000);
-  literalExpr->set_allocated_interval_day_to_second(sIntervalDayToSeconds);
   return *literalExpr;
 }
 

@@ -440,7 +440,6 @@ class WriterContext : public CompressionBufferPool {
       case TypeKind::VARBINARY:
       case TypeKind::TIMESTAMP:
       case TypeKind::DATE:
-      case TypeKind::INTERVAL_DAY_TIME:
       case TypeKind::SHORT_DECIMAL:
       case TypeKind::LONG_DECIMAL:
         physicalSizeAggregators_.emplace(

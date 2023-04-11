@@ -211,25 +211,31 @@ TEST(DuckParserTest, between) {
 }
 
 TEST(DuckParserTest, interval) {
-  EXPECT_EQ("\"0 05:00:00.000\"", parseExpr("INTERVAL 5 HOURS")->toString());
-  EXPECT_EQ("\"0 00:36:00.000\"", parseExpr("INTERVAL 36 MINUTES")->toString());
-  EXPECT_EQ("\"0 00:00:07.000\"", parseExpr("INTERVAL 7 SECONDS")->toString());
-  EXPECT_EQ(
-      "\"0 00:00:00.123\"", parseExpr("INTERVAL 123 MILLISECONDS")->toString());
+  auto parseInterval = [](const std::string& sql) {
+    auto expr =
+        std::dynamic_pointer_cast<const core::ConstantExpr>(parseExpr(sql));
+    VELOX_CHECK_NOT_NULL(expr);
+
+    auto value =
+        INTERVAL_DAY_TIME()->valueToString(expr->value().value<int64_t>());
+    if (expr->alias()) {
+      return fmt::format("{} AS {}", value, expr->alias().value());
+    }
+
+    return value;
+  };
+
+  EXPECT_EQ("0 05:00:00.000", parseInterval("INTERVAL 5 HOURS"));
+  EXPECT_EQ("0 00:36:00.000", parseInterval("INTERVAL 36 MINUTES"));
+  EXPECT_EQ("0 00:00:07.000", parseInterval("INTERVAL 7 SECONDS"));
+  EXPECT_EQ("0 00:00:00.123", parseInterval("INTERVAL 123 MILLISECONDS"));
+
+  EXPECT_EQ("0 00:00:12.345", parseInterval("INTERVAL 12345 MILLISECONDS"));
+  EXPECT_EQ("0 03:25:45.678", parseInterval("INTERVAL 12345678 MILLISECONDS"));
+  EXPECT_EQ("1 03:48:20.100", parseInterval("INTERVAL 100100100 MILLISECONDS"));
 
   EXPECT_EQ(
-      "\"0 00:00:12.345\"",
-      parseExpr("INTERVAL 12345 MILLISECONDS")->toString());
-  EXPECT_EQ(
-      "\"0 03:25:45.678\"",
-      parseExpr("INTERVAL 12345678 MILLISECONDS")->toString());
-  EXPECT_EQ(
-      "\"1 03:48:20.100\"",
-      parseExpr("INTERVAL 100100100 MILLISECONDS")->toString());
-
-  EXPECT_EQ(
-      "\"0 00:00:00.011\" AS x",
-      parseExpr("INTERVAL 11 MILLISECONDS AS x")->toString());
+      "0 00:00:00.011 AS x", parseInterval("INTERVAL 11 MILLISECONDS AS x"));
 }
 
 TEST(DuckParserTest, cast) {

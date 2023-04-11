@@ -230,8 +230,10 @@ class VectorTestBase {
   //   });
   //   EXPECT_EQ(3, arrayVector->size());
   template <typename T>
-  ArrayVectorPtr makeArrayVector(const std::vector<std::vector<T>>& data) {
-    return vectorMaker_.arrayVector<T>(data);
+  ArrayVectorPtr makeArrayVector(
+      const std::vector<std::vector<T>>& data,
+      const TypePtr& elementType = CppToType<T>::create()) {
+    return vectorMaker_.arrayVector<T>(data, elementType);
   }
 
   ArrayVectorPtr makeAllNullArrayVector(

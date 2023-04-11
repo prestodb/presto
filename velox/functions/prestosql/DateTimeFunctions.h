@@ -249,6 +249,18 @@ struct DayFunction : public InitSessionTimezone<T>,
   }
 };
 
+namespace {
+
+bool isIntervalWholeDays(int64_t milliseconds) {
+  return (milliseconds % kMillisInDay) == 0;
+}
+
+int64_t intervalDays(int64_t milliseconds) {
+  return milliseconds / kMillisInDay;
+}
+
+} // namespace
+
 template <typename T>
 struct DateMinusIntervalDayTime {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -258,10 +270,10 @@ struct DateMinusIntervalDayTime {
       const arg_type<Date>& date,
       const arg_type<IntervalDayTime>& interval) {
     VELOX_USER_CHECK(
-        interval.hasWholeDays(),
+        isIntervalWholeDays(interval),
         "Cannot subtract hours, minutes, seconds or milliseconds from a date");
     result = date;
-    result.addDays(-interval.days());
+    result.addDays(-intervalDays(interval));
   }
 };
 
@@ -274,10 +286,10 @@ struct DatePlusIntervalDayTime {
       const arg_type<Date>& date,
       const arg_type<IntervalDayTime>& interval) {
     VELOX_USER_CHECK(
-        interval.hasWholeDays(),
+        isIntervalWholeDays(interval),
         "Cannot add hours, minutes, seconds or milliseconds to a date");
     result = date;
-    result.addDays(interval.days());
+    result.addDays(intervalDays(interval));
   }
 };
 

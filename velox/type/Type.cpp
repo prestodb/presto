@@ -71,7 +71,6 @@ const std::unordered_map<std::string, TypeKind>& getTypeStringMap() {
       {"VARBINARY", TypeKind::VARBINARY},
       {"TIMESTAMP", TypeKind::TIMESTAMP},
       {"DATE", TypeKind::DATE},
-      {"INTERVAL DAY TO SECOND", TypeKind::INTERVAL_DAY_TIME},
       {"SHORT_DECIMAL", TypeKind::SHORT_DECIMAL},
       {"LONG_DECIMAL", TypeKind::LONG_DECIMAL},
       {"ARRAY", TypeKind::ARRAY},
@@ -117,7 +116,6 @@ std::string mapTypeKindToName(const TypeKind& typeKind) {
       {TypeKind::VARBINARY, "VARBINARY"},
       {TypeKind::TIMESTAMP, "TIMESTAMP"},
       {TypeKind::DATE, "DATE"},
-      {TypeKind::INTERVAL_DAY_TIME, "INTERVAL DAY TO SECOND"},
       {TypeKind::SHORT_DECIMAL, "SHORT_DECIMAL"},
       {TypeKind::LONG_DECIMAL, "LONG_DECIMAL"},
       {TypeKind::ARRAY, "ARRAY"},
@@ -234,10 +232,13 @@ TypePtr Type::create(const folly::dynamic& obj) {
 
 // static
 void Type::registerSerDe() {
-  velox::DeserializationRegistryForSharedPtr().Register(
+  auto& registry = velox::DeserializationRegistryForSharedPtr();
+  registry.Register(
       Type::getClassName(),
       static_cast<std::shared_ptr<const Type> (*)(const folly::dynamic&)>(
           Type::create));
+
+  registry.Register("IntervalDayTimeType", IntervalDayTimeType::deserialize);
 }
 
 std::string ArrayType::toString() const {
@@ -686,7 +687,6 @@ KOSKI_DEFINE_SCALAR_ACCESSOR(TIMESTAMP);
 KOSKI_DEFINE_SCALAR_ACCESSOR(VARCHAR);
 KOSKI_DEFINE_SCALAR_ACCESSOR(VARBINARY);
 KOSKI_DEFINE_SCALAR_ACCESSOR(DATE);
-KOSKI_DEFINE_SCALAR_ACCESSOR(INTERVAL_DAY_TIME);
 KOSKI_DEFINE_SCALAR_ACCESSOR(UNKNOWN);
 
 #undef KOSKI_DEFINE_SCALAR_ACCESSOR
@@ -874,8 +874,6 @@ TypePtr fromKindToScalerType(TypeKind kind) {
       return DOUBLE();
     case TypeKind::DATE:
       return DATE();
-    case TypeKind::INTERVAL_DAY_TIME:
-      return INTERVAL_DAY_TIME();
     case TypeKind::UNKNOWN:
       return UNKNOWN();
     default:
@@ -934,6 +932,32 @@ void toTypeSql(const TypePtr& type, std::ostream& out) {
       }
       VELOX_UNSUPPORTED("Type is not supported: {}", type->toString());
   }
+}
+
+std::string IntervalDayTimeType::valueToString(int64_t value) const {
+  static const char* kIntervalFormat = "%d %02d:%02d:%02d.%03d";
+
+  int64_t remainMillis = value;
+  const int64_t days = remainMillis / kMillisInDay;
+  remainMillis -= days * kMillisInDay;
+  const int64_t hours = remainMillis / kMillisInHour;
+  remainMillis -= hours * kMillisInHour;
+  const int64_t minutes = remainMillis / kMillisInMinute;
+  remainMillis -= minutes * kMillisInMinute;
+  const int64_t seconds = remainMillis / kMillisInSecond;
+  remainMillis -= seconds * kMillisInSecond;
+  char buf[64];
+  snprintf(
+      buf,
+      sizeof(buf),
+      kIntervalFormat,
+      days,
+      hours,
+      minutes,
+      seconds,
+      remainMillis);
+
+  return buf;
 }
 
 namespace {

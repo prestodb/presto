@@ -354,7 +354,6 @@ TEST(VariantTest, serialize) {
   testSerDe(variant(TypeKind::VARBINARY));
   testSerDe(variant(TypeKind::TIMESTAMP));
   testSerDe(variant(TypeKind::DATE));
-  testSerDe(variant(TypeKind::INTERVAL_DAY_TIME));
   testSerDe(variant(TypeKind::ARRAY));
   testSerDe(variant(TypeKind::MAP));
   testSerDe(variant(TypeKind::ROW));
@@ -372,7 +371,6 @@ TEST(VariantTest, serialize) {
   testSerDe(variant::binary("This is a test."));
   testSerDe(variant(Date(123)));
   testSerDe(variant(Timestamp(1, 2)));
-  testSerDe(variant(IntervalDayTime(123)));
 }
 
 struct SerializableClass {

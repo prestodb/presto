@@ -18,7 +18,6 @@
 #include "velox/common/memory/ByteStream.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Date.h"
-#include "velox/type/IntervalDayTime.h"
 #include "velox/vector/BiasVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
@@ -110,8 +109,6 @@ std::string typeToEncodingName(const TypePtr& type) {
       return "LONG_ARRAY";
     case TypeKind::DATE:
       return "INT_ARRAY";
-    case TypeKind::INTERVAL_DAY_TIME:
-      return "LONG_ARRAY";
     case TypeKind::SHORT_DECIMAL:
       return "LONG_ARRAY";
     case TypeKind::LONG_DECIMAL:
@@ -262,35 +259,6 @@ void readValues<Date>(
   } else {
     for (int32_t row = 0; row < size; ++row) {
       rawValues[row] = readDate(source);
-    }
-  }
-}
-
-IntervalDayTime readIntervalDayTime(ByteStream* source) {
-  return IntervalDayTime(source->read<int64_t>());
-}
-
-template <>
-void readValues<IntervalDayTime>(
-    ByteStream* source,
-    vector_size_t size,
-    BufferPtr nulls,
-    vector_size_t nullCount,
-    BufferPtr values) {
-  auto rawValues = values->asMutable<IntervalDayTime>();
-  if (nullCount) {
-    int32_t toClear = 0;
-    bits::forEachSetBit(nulls->as<uint64_t>(), 0, size, [&](int32_t row) {
-      // Set the values between the last non-null and this to type default.
-      for (; toClear < row; ++toClear) {
-        rawValues[toClear] = IntervalDayTime();
-      }
-      rawValues[row] = readIntervalDayTime(source);
-      toClear = row + 1;
-    });
-  } else {
-    for (int32_t row = 0; row < size; ++row) {
-      rawValues[row] = readIntervalDayTime(source);
     }
   }
 }
@@ -723,7 +691,6 @@ void readColumns(
           {TypeKind::DOUBLE, &read<double>},
           {TypeKind::TIMESTAMP, &read<Timestamp>},
           {TypeKind::DATE, &read<Date>},
-          {TypeKind::INTERVAL_DAY_TIME, &read<IntervalDayTime>},
           {TypeKind::SHORT_DECIMAL, &read<UnscaledShortDecimal>},
           {TypeKind::LONG_DECIMAL, &read<UnscaledLongDecimal>},
           {TypeKind::VARCHAR, &read<StringView>},
@@ -983,13 +950,6 @@ template <>
 void VectorStream::append(folly::Range<const Date*> values) {
   for (auto& value : values) {
     appendOne(value.days());
-  }
-}
-
-template <>
-void VectorStream::append(folly::Range<const IntervalDayTime*> values) {
-  for (auto& value : values) {
-    appendOne(value.milliseconds());
   }
 }
 

@@ -64,11 +64,11 @@ class OpaqueCustomTypeRegister {
       return this == &other;
     }
 
-    std::string toString() const override {
+    const char* name() const override {
       return customTypeName;
     }
 
-    const char* name() const override {
+    std::string toString() const override {
       return customTypeName;
     }
   };

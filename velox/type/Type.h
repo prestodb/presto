@@ -37,7 +37,6 @@
 #include "velox/common/base/ClassName.h"
 #include "velox/common/serialization/Serializable.h"
 #include "velox/type/Date.h"
-#include "velox/type/IntervalDayTime.h"
 #include "velox/type/StringView.h"
 #include "velox/type/Timestamp.h"
 #include "velox/type/Tree.h"
@@ -50,7 +49,7 @@ using int128_t = __int128_t;
 
 /// Velox type system supports a small set of SQL-compatible composeable types:
 /// BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, VARCHAR,
-/// VARBINARY, TIMESTAMP, DATE, INTERVAL_DAY_TIME, ARRAY, MAP, ROW
+/// VARBINARY, TIMESTAMP, DATE, ARRAY, MAP, ROW
 ///
 /// This file has multiple C++ type definitions for each of these logical types.
 /// These logical definitions each serve slightly different purposes.
@@ -74,7 +73,6 @@ enum class TypeKind : int8_t {
   VARBINARY = 8,
   TIMESTAMP = 9,
   DATE = 10,
-  INTERVAL_DAY_TIME = 11,
   SHORT_DECIMAL = 12,
   LONG_DECIMAL = 13,
   // Enum values for ComplexTypes start after 30 to leave
@@ -279,19 +277,6 @@ struct TypeTraits<TypeKind::DATE> {
   static constexpr bool isPrimitiveType = true;
   static constexpr bool isFixedWidth = true;
   static constexpr const char* name = "DATE";
-};
-
-template <>
-struct TypeTraits<TypeKind::INTERVAL_DAY_TIME> {
-  using ImplType = ScalarType<TypeKind::INTERVAL_DAY_TIME>;
-  using NativeType = IntervalDayTime;
-  using DeepCopiedType = IntervalDayTime;
-  static constexpr uint32_t minSubTypes = 0;
-  static constexpr uint32_t maxSubTypes = 0;
-  static constexpr TypeKind typeKind = TypeKind::INTERVAL_DAY_TIME;
-  static constexpr bool isPrimitiveType = true;
-  static constexpr bool isFixedWidth = true;
-  static constexpr const char* name = "INTERVAL DAY TO SECOND";
 };
 
 template <>
@@ -569,7 +554,6 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
   VELOX_FLUENT_CAST(Varbinary, VARBINARY)
   VELOX_FLUENT_CAST(Timestamp, TIMESTAMP)
   VELOX_FLUENT_CAST(Date, DATE)
-  VELOX_FLUENT_CAST(IntervalDayTime, INTERVAL_DAY_TIME)
   VELOX_FLUENT_CAST(ShortDecimal, SHORT_DECIMAL)
   VELOX_FLUENT_CAST(LongDecimal, LONG_DECIMAL)
   VELOX_FLUENT_CAST(Array, ARRAY)
@@ -1050,7 +1034,64 @@ using TimestampType = ScalarType<TypeKind::TIMESTAMP>;
 using VarcharType = ScalarType<TypeKind::VARCHAR>;
 using VarbinaryType = ScalarType<TypeKind::VARBINARY>;
 using DateType = ScalarType<TypeKind::DATE>;
-using IntervalDayTimeType = ScalarType<TypeKind::INTERVAL_DAY_TIME>;
+
+constexpr long kMillisInSecond = 1000;
+constexpr long kMillisInMinute = 60 * kMillisInSecond;
+constexpr long kMillisInHour = 60 * kMillisInMinute;
+constexpr long kMillisInDay = 24 * kMillisInHour;
+
+/// Time interval in milliseconds.
+class IntervalDayTimeType : public BigintType {
+ private:
+  IntervalDayTimeType() = default;
+
+ public:
+  static const std::shared_ptr<const IntervalDayTimeType>& get() {
+    static const std::shared_ptr<const IntervalDayTimeType> kType{
+        new IntervalDayTimeType()};
+    return kType;
+  }
+
+  const char* name() const override {
+    return "INTERVAL DAY TO SECOND";
+  }
+
+  bool equivalent(const Type& other) const override {
+    // Pointer comparison works since this type is a singleton.
+    return this == &other;
+  }
+
+  std::string toString() const override {
+    return name();
+  }
+
+  /// Returns the interval 'value' (milliseconds) formatted as DAYS
+  /// HOURS:MINUTES:SECONDS.MILLIS. For example, 1 03:48:20.100.
+  /// TODO Figure out how to make this API generic, i.e. available via Type.
+  /// Perhaps, Type::valueToString(variant)?
+  std::string valueToString(int64_t value) const;
+
+  folly::dynamic serialize() const override {
+    folly::dynamic obj = folly::dynamic::object;
+    obj["name"] = "IntervalDayTimeType";
+    obj["type"] = name();
+    return obj;
+  }
+
+  static TypePtr deserialize(const folly::dynamic& /*obj*/) {
+    return IntervalDayTimeType::get();
+  }
+};
+
+FOLLY_ALWAYS_INLINE bool isIntervalDayTimeType(const TypePtr& type) {
+  // Pointer comparison works since this type is a singleton.
+  return IntervalDayTimeType::get() == type;
+}
+
+FOLLY_ALWAYS_INLINE std::shared_ptr<const IntervalDayTimeType>
+INTERVAL_DAY_TIME() {
+  return IntervalDayTimeType::get();
+}
 
 /// Used as T for SimpleVector subclasses that wrap another vector when
 /// the wrapped vector is of a complex type. Applies to
@@ -1202,73 +1243,64 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
       case ::facebook::velox::TypeKind::DATE: {                               \
         return TEMPLATE_FUNC<::facebook::velox::TypeKind::DATE>(__VA_ARGS__); \
       }                                                                       \
-      case ::facebook::velox::TypeKind::INTERVAL_DAY_TIME: {                  \
-        return TEMPLATE_FUNC<::facebook::velox::TypeKind::INTERVAL_DAY_TIME>( \
-            __VA_ARGS__);                                                     \
-      }                                                                       \
       default:                                                                \
         VELOX_FAIL(                                                           \
             "not a scalar type! kind: {}", mapTypeKindToName(typeKind));      \
     }                                                                         \
   }()
 
-#define VELOX_DYNAMIC_SCALAR_TEMPLATE_TYPE_DISPATCH(                      \
-    TEMPLATE_FUNC, T, typeKind, ...)                                      \
-  [&]() {                                                                 \
-    switch (typeKind) {                                                   \
-      case ::facebook::velox::TypeKind::BOOLEAN: {                        \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::BOOLEAN>(    \
-            __VA_ARGS__);                                                 \
-      }                                                                   \
-      case ::facebook::velox::TypeKind::INTEGER: {                        \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::INTEGER>(    \
-            __VA_ARGS__);                                                 \
-      }                                                                   \
-      case ::facebook::velox::TypeKind::TINYINT: {                        \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::TINYINT>(    \
-            __VA_ARGS__);                                                 \
-      }                                                                   \
-      case ::facebook::velox::TypeKind::SMALLINT: {                       \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::SMALLINT>(   \
-            __VA_ARGS__);                                                 \
-      }                                                                   \
-      case ::facebook::velox::TypeKind::BIGINT: {                         \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::BIGINT>(     \
-            __VA_ARGS__);                                                 \
-      }                                                                   \
-      case ::facebook::velox::TypeKind::REAL: {                           \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::REAL>(       \
-            __VA_ARGS__);                                                 \
-      }                                                                   \
-      case ::facebook::velox::TypeKind::DOUBLE: {                         \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::DOUBLE>(     \
-            __VA_ARGS__);                                                 \
-      }                                                                   \
-      case ::facebook::velox::TypeKind::VARCHAR: {                        \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::VARCHAR>(    \
-            __VA_ARGS__);                                                 \
-      }                                                                   \
-      case ::facebook::velox::TypeKind::VARBINARY: {                      \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::VARBINARY>(  \
-            __VA_ARGS__);                                                 \
-      }                                                                   \
-      case ::facebook::velox::TypeKind::TIMESTAMP: {                      \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::TIMESTAMP>(  \
-            __VA_ARGS__);                                                 \
-      }                                                                   \
-      case ::facebook::velox::TypeKind::DATE: {                           \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::DATE>(       \
-            __VA_ARGS__);                                                 \
-      }                                                                   \
-      case ::facebook::velox::TypeKind::INTERVAL_DAY_TIME: {              \
-        return TEMPLATE_FUNC<                                             \
-            T,                                                            \
-            ::facebook::velox::TypeKind::INTERVAL_DAY_TIME>(__VA_ARGS__); \
-      }                                                                   \
-      default:                                                            \
-        VELOX_FAIL(                                                       \
-            "not a scalar type! kind: {}", mapTypeKindToName(typeKind));  \
-    }                                                                     \
+#define VELOX_DYNAMIC_SCALAR_TEMPLATE_TYPE_DISPATCH(                     \
+    TEMPLATE_FUNC, T, typeKind, ...)                                     \
+  [&]() {                                                                \
+    switch (typeKind) {                                                  \
+      case ::facebook::velox::TypeKind::BOOLEAN: {                       \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::BOOLEAN>(   \
+            __VA_ARGS__);                                                \
+      }                                                                  \
+      case ::facebook::velox::TypeKind::INTEGER: {                       \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::INTEGER>(   \
+            __VA_ARGS__);                                                \
+      }                                                                  \
+      case ::facebook::velox::TypeKind::TINYINT: {                       \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::TINYINT>(   \
+            __VA_ARGS__);                                                \
+      }                                                                  \
+      case ::facebook::velox::TypeKind::SMALLINT: {                      \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::SMALLINT>(  \
+            __VA_ARGS__);                                                \
+      }                                                                  \
+      case ::facebook::velox::TypeKind::BIGINT: {                        \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::BIGINT>(    \
+            __VA_ARGS__);                                                \
+      }                                                                  \
+      case ::facebook::velox::TypeKind::REAL: {                          \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::REAL>(      \
+            __VA_ARGS__);                                                \
+      }                                                                  \
+      case ::facebook::velox::TypeKind::DOUBLE: {                        \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::DOUBLE>(    \
+            __VA_ARGS__);                                                \
+      }                                                                  \
+      case ::facebook::velox::TypeKind::VARCHAR: {                       \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::VARCHAR>(   \
+            __VA_ARGS__);                                                \
+      }                                                                  \
+      case ::facebook::velox::TypeKind::VARBINARY: {                     \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::VARBINARY>( \
+            __VA_ARGS__);                                                \
+      }                                                                  \
+      case ::facebook::velox::TypeKind::TIMESTAMP: {                     \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::TIMESTAMP>( \
+            __VA_ARGS__);                                                \
+      }                                                                  \
+      case ::facebook::velox::TypeKind::DATE: {                          \
+        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::DATE>(      \
+            __VA_ARGS__);                                                \
+      }                                                                  \
+      default:                                                           \
+        VELOX_FAIL(                                                      \
+            "not a scalar type! kind: {}", mapTypeKindToName(typeKind)); \
+    }                                                                    \
   }()
 
 #define VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(TEMPLATE_FUNC, typeKind, ...)   \
@@ -1333,10 +1365,6 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
       }                                                                        \
       case ::facebook::velox::TypeKind::DATE: {                                \
         return PREFIX<::facebook::velox::TypeKind::DATE> SUFFIX(__VA_ARGS__);  \
-      }                                                                        \
-      case ::facebook::velox::TypeKind::INTERVAL_DAY_TIME: {                   \
-        return PREFIX<::facebook::velox::TypeKind::INTERVAL_DAY_TIME> SUFFIX(  \
-            __VA_ARGS__);                                                      \
       }                                                                        \
       case ::facebook::velox::TypeKind::ARRAY: {                               \
         return PREFIX<::facebook::velox::TypeKind::ARRAY> SUFFIX(__VA_ARGS__); \
@@ -1434,9 +1462,6 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
       case ::facebook::velox::TypeKind::DATE: {                               \
         return CLASS<::facebook::velox::TypeKind::DATE>::FIELD;               \
       }                                                                       \
-      case ::facebook::velox::TypeKind::INTERVAL_DAY_TIME: {                  \
-        return CLASS<::facebook::velox::TypeKind::INTERVAL_DAY_TIME>::FIELD;  \
-      }                                                                       \
       case ::facebook::velox::TypeKind::ARRAY: {                              \
         return CLASS<::facebook::velox::TypeKind::ARRAY>::FIELD;              \
       }                                                                       \
@@ -1479,7 +1504,6 @@ VELOX_SCALAR_ACCESSOR(TIMESTAMP);
 VELOX_SCALAR_ACCESSOR(VARCHAR);
 VELOX_SCALAR_ACCESSOR(VARBINARY);
 VELOX_SCALAR_ACCESSOR(DATE);
-VELOX_SCALAR_ACCESSOR(INTERVAL_DAY_TIME);
 VELOX_SCALAR_ACCESSOR(UNKNOWN);
 
 template <TypeKind KIND>
@@ -1649,6 +1673,11 @@ struct CustomType {
   CustomType() {}
 };
 
+struct IntervalDayTime {
+ private:
+  IntervalDayTime() {}
+};
+
 struct Varbinary {
  private:
   Varbinary() {}
@@ -1695,8 +1724,9 @@ template <>
 struct SimpleTypeTrait<Date> : public TypeTraits<TypeKind::DATE> {};
 
 template <>
-struct SimpleTypeTrait<IntervalDayTime>
-    : public TypeTraits<TypeKind::INTERVAL_DAY_TIME> {};
+struct SimpleTypeTrait<IntervalDayTime> : public SimpleTypeTrait<int64_t> {
+  static constexpr const char* name = "INTERVAL DAY TO SECOND";
+};
 
 template <typename T>
 struct SimpleTypeTrait<Generic<T>> {
@@ -1818,10 +1848,6 @@ struct CppToType<Timestamp> : public CppToTypeBase<TypeKind::TIMESTAMP> {};
 
 template <>
 struct CppToType<Date> : public CppToTypeBase<TypeKind::DATE> {};
-
-template <>
-struct CppToType<IntervalDayTime>
-    : public CppToTypeBase<TypeKind::INTERVAL_DAY_TIME> {};
 
 template <typename T>
 struct CppToType<Generic<T>> : public CppToTypeBase<TypeKind::UNKNOWN> {};

@@ -437,8 +437,10 @@ class VectorMaker {
   /// array elements are created based on input std::vectors and are
   /// non-nullable.
   template <typename T>
-  ArrayVectorPtr arrayVector(const std::vector<std::vector<T>>& data) {
-    return arrayVectorImpl(ARRAY(CppToType<T>::create()), data);
+  ArrayVectorPtr arrayVector(
+      const std::vector<std::vector<T>>& data,
+      const TypePtr& elementType = CppToType<T>::create()) {
+    return arrayVectorImpl(ARRAY(elementType), data);
   }
 
   /// Create an ArrayVector<ROW> from nested std::vectors of Variants.

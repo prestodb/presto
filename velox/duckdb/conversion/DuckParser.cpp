@@ -187,36 +187,21 @@ std::shared_ptr<const core::ConstantExpr> tryParseInterval(
     return nullptr;
   }
 
+  int64_t multiplier;
   if (functionName == "to_hours") {
-    return std::make_shared<core::ConstantExpr>(
-        INTERVAL_DAY_TIME(),
-        variant::intervalDayTime(
-            IntervalDayTime(value.value() * 60 * 60 * 1'000)),
-        alias);
+    multiplier = 60 * 60 * 1'000;
+  } else if (functionName == "to_minutes") {
+    multiplier = 60 * 1'000;
+  } else if (functionName == "to_seconds") {
+    multiplier = 1'000;
+  } else if (functionName == "to_milliseconds") {
+    multiplier = 1;
+  } else {
+    return nullptr;
   }
 
-  if (functionName == "to_minutes") {
-    return std::make_shared<core::ConstantExpr>(
-        INTERVAL_DAY_TIME(),
-        variant::intervalDayTime(IntervalDayTime(value.value() * 60 * 1'000)),
-        alias);
-  }
-
-  if (functionName == "to_seconds") {
-    return std::make_shared<core::ConstantExpr>(
-        INTERVAL_DAY_TIME(),
-        variant::intervalDayTime(IntervalDayTime(value.value() * 1'000)),
-        alias);
-  }
-
-  if (functionName == "to_milliseconds") {
-    return std::make_shared<core::ConstantExpr>(
-        INTERVAL_DAY_TIME(),
-        variant::intervalDayTime(IntervalDayTime(value.value())),
-        alias);
-  }
-
-  return nullptr;
+  return std::make_shared<core::ConstantExpr>(
+      INTERVAL_DAY_TIME(), variant(value.value() * multiplier), alias);
 }
 
 // Parse a function call (avg(a), func(1, b), etc).

@@ -70,6 +70,9 @@ LogicalType fromVeloxType(const TypePtr& type) {
     case TypeKind::INTEGER:
       return LogicalType::INTEGER;
     case TypeKind::BIGINT:
+      if (isIntervalDayTimeType(type)) {
+        return LogicalType::INTERVAL;
+      }
       return LogicalType::BIGINT;
     case TypeKind::REAL:
       return LogicalType::FLOAT;
@@ -81,8 +84,6 @@ LogicalType fromVeloxType(const TypePtr& type) {
       return LogicalType::TIMESTAMP;
     case TypeKind::DATE:
       return LogicalType::DATE;
-    case TypeKind::INTERVAL_DAY_TIME:
-      return LogicalType::INTERVAL;
     case TypeKind::LONG_DECIMAL:
       return LogicalType::DECIMAL(
           type->asLongDecimal().precision(), type->asLongDecimal().scale());

@@ -140,10 +140,6 @@ Date randDate(FuzzerGenerator& rng) {
   return Date(rand<int32_t>(rng));
 }
 
-IntervalDayTime randIntervalDayTime(FuzzerGenerator& rng) {
-  return IntervalDayTime(rand<int64_t>(rng));
-}
-
 size_t getElementsVectorLength(
     const VectorFuzzer::Options& opts,
     vector_size_t size) {
@@ -269,9 +265,6 @@ VectorPtr fuzzConstantPrimitiveImpl(
   } else if constexpr (std::is_same_v<TCpp, Date>) {
     return std::make_shared<ConstantVector<TCpp>>(
         pool, size, false, type, randDate(rng));
-  } else if constexpr (std::is_same_v<TCpp, IntervalDayTime>) {
-    return std::make_shared<ConstantVector<TCpp>>(
-        pool, size, false, type, randIntervalDayTime(rng));
   } else if constexpr (std::is_same_v<TCpp, UnscaledShortDecimal>) {
     return std::make_shared<ConstantVector<TCpp>>(
         pool, size, false, type, randShortDecimal(type, rng));
@@ -303,8 +296,6 @@ void fuzzFlatPrimitiveImpl(
       flatVector->set(i, randTimestamp(rng, opts));
     } else if constexpr (std::is_same_v<TCpp, Date>) {
       flatVector->set(i, randDate(rng));
-    } else if constexpr (std::is_same_v<TCpp, IntervalDayTime>) {
-      flatVector->set(i, randIntervalDayTime(rng));
     } else if constexpr (std::is_same_v<TCpp, UnscaledShortDecimal>) {
       flatVector->set(i, randShortDecimal(vector->type(), rng));
     } else if constexpr (std::is_same_v<TCpp, UnscaledLongDecimal>) {

@@ -146,9 +146,12 @@ class ExprTest : public testing::Test, public VectorTestBase {
   }
 
   /// Create constant expression from a variant of primitive type.
-  std::shared_ptr<core::ConstantTypedExpr> makeConstantExpr(variant value) {
-    auto type = value.inferType();
-    return std::make_shared<core::ConstantTypedExpr>(type, std::move(value));
+  std::shared_ptr<core::ConstantTypedExpr> makeConstantExpr(
+      variant value,
+      const TypePtr& type = nullptr) {
+    auto valueType = type != nullptr ? type : value.inferType();
+    return std::make_shared<core::ConstantTypedExpr>(
+        valueType, std::move(value));
   }
 
   // Create LazyVector that produces a flat vector and asserts that is is being
@@ -2355,8 +2358,8 @@ TEST_F(ExprTest, constantToString) {
 }
 
 TEST_F(ExprTest, constantToSql) {
-  auto toSql = [&](const variant& value) {
-    exec::ExprSet exprSet({makeConstantExpr(value)}, execCtx_.get());
+  auto toSql = [&](const variant& value, const TypePtr& type = nullptr) {
+    exec::ExprSet exprSet({makeConstantExpr(value, type)}, execCtx_.get());
     auto sql = exprSet.expr(0)->toSql();
 
     auto input = makeRowVector(ROW({}), 1);
@@ -2397,9 +2400,11 @@ TEST_F(ExprTest, constantToSql) {
       "'1970-01-02T10:17:36.000123000'::TIMESTAMP");
   ASSERT_EQ(toSql(variant::null(TypeKind::TIMESTAMP)), "NULL::TIMESTAMP");
 
-  ASSERT_EQ(toSql(IntervalDayTime(123'456)), "INTERVAL 123456 MILLISECONDS");
   ASSERT_EQ(
-      toSql(variant::null(TypeKind::INTERVAL_DAY_TIME)),
+      toSql(123'456LL, INTERVAL_DAY_TIME()),
+      "'123456'::INTERVAL DAY TO SECOND");
+  ASSERT_EQ(
+      toSql(variant::null(TypeKind::BIGINT), INTERVAL_DAY_TIME()),
       "NULL::INTERVAL DAY TO SECOND");
 
   ASSERT_EQ(toSql(1.5f), "'1.5'::REAL");

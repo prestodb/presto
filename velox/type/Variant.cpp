@@ -118,20 +118,6 @@ struct VariantEquality<TypeKind::LONG_DECIMAL> {
   }
 };
 
-// interval day time
-template <>
-struct VariantEquality<TypeKind::INTERVAL_DAY_TIME> {
-  template <bool NullEqualsNull>
-  static bool equals(const variant& a, const variant& b) {
-    if (a.isNull() || b.isNull()) {
-      return evaluateNullEquality<NullEqualsNull>(a, b);
-    } else {
-      return a.value<TypeKind::INTERVAL_DAY_TIME>() ==
-          b.value<TypeKind::INTERVAL_DAY_TIME>();
-    }
-  }
-};
-
 // array
 template <>
 struct VariantEquality<TypeKind::ARRAY> {
@@ -343,10 +329,6 @@ std::string variant::toJson() const {
       auto& date = value<TypeKind::DATE>();
       return '"' + date.toString() + '"';
     }
-    case TypeKind::INTERVAL_DAY_TIME: {
-      auto& interval = value<TypeKind::INTERVAL_DAY_TIME>();
-      return '"' + interval.toString() + '"';
-    }
     case TypeKind::OPAQUE: {
       // Return expression that we can't parse back - we use toJson for
       // debugging only. Variant::serialize should actually serialize the data.
@@ -461,10 +443,6 @@ folly::dynamic variant::serialize() const {
       objValue = value<TypeKind::DATE>();
       break;
     }
-    case TypeKind::INTERVAL_DAY_TIME: {
-      objValue = value<TypeKind::INTERVAL_DAY_TIME>();
-      break;
-    }
     case TypeKind::OPAQUE: {
       serializeOpaque(variantObj, value<TypeKind::OPAQUE>());
       break;
@@ -574,10 +552,6 @@ variant variant::create(const folly::dynamic& variantobj) {
     case TypeKind::DATE: {
       return variant::create<TypeKind::DATE>(obj.asInt());
     }
-    case TypeKind::INTERVAL_DAY_TIME: {
-      return variant::create<TypeKind::INTERVAL_DAY_TIME>(
-          IntervalDayTime(obj.asInt()));
-    }
     case TypeKind::TIMESTAMP: {
       return variant::create<TypeKind::TIMESTAMP>(Timestamp(
           variantobj["seconds"].asInt(), variantobj["nanos"].asInt()));
@@ -644,10 +618,6 @@ uint64_t variant::hash() const {
     case TypeKind::DATE: {
       auto dateValue = value<TypeKind::DATE>();
       return folly::Hash{}(dateValue.days());
-    }
-    case TypeKind::INTERVAL_DAY_TIME: {
-      auto interval = value<TypeKind::INTERVAL_DAY_TIME>();
-      return folly::Hash{}(interval.milliseconds());
     }
     case TypeKind::TIMESTAMP: {
       auto timestampValue = value<TypeKind::TIMESTAMP>();

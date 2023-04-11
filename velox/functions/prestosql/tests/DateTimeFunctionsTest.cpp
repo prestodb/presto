@@ -813,17 +813,27 @@ TEST_F(DateTimeFunctionsTest, dayOfMonthDate) {
 
 TEST_F(DateTimeFunctionsTest, plusMinusDateIntervalDayTime) {
   const auto plus = [&](std::optional<Date> date,
-                        std::optional<IntervalDayTime> interval) {
-    return evaluateOnce<Date>("c0 + c1", date, interval);
+                        std::optional<int64_t> interval) {
+    return evaluateOnce<Date>(
+        "c0 + c1",
+        makeRowVector({
+            makeNullableFlatVector<Date>({date}),
+            makeNullableFlatVector<int64_t>({interval}, INTERVAL_DAY_TIME()),
+        }));
   };
   const auto minus = [&](std::optional<Date> date,
-                         std::optional<IntervalDayTime> interval) {
-    return evaluateOnce<Date>("c0 - c1", date, interval);
+                         std::optional<int64_t> interval) {
+    return evaluateOnce<Date>(
+        "c0 - c1",
+        makeRowVector({
+            makeNullableFlatVector<Date>({date}),
+            makeNullableFlatVector<int64_t>({interval}, INTERVAL_DAY_TIME()),
+        }));
   };
 
-  const IntervalDayTime oneDay(kMillisInDay * 1);
-  const IntervalDayTime tenDays(kMillisInDay * 10);
-  const IntervalDayTime partDay(kMillisInHour * 25);
+  const int64_t oneDay(kMillisInDay * 1);
+  const int64_t tenDays(kMillisInDay * 10);
+  const int64_t partDay(kMillisInHour * 25);
   const Date baseDate(20000);
   const Date baseDatePlus1(20000 + 1);
   const Date baseDatePlus10(20000 + 10);

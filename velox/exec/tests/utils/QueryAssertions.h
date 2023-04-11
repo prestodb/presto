@@ -128,13 +128,13 @@ bool waitForTaskDriversToFinish(
     uint64_t maxWaitMicros = 1'000'000);
 
 std::shared_ptr<Task> assertQuery(
-    const std::shared_ptr<const core::PlanNode>& plan,
+    const core::PlanNodePtr& plan,
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner,
     std::optional<std::vector<uint32_t>> sortingKeys = std::nullopt);
 
 std::shared_ptr<Task> assertQuery(
-    const std::shared_ptr<const core::PlanNode>& plan,
+    const core::PlanNodePtr& plan,
     std::function<void(exec::Task*)> addSplits,
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner,
@@ -148,7 +148,7 @@ std::shared_ptr<Task> assertQuery(
     std::optional<std::vector<uint32_t>> sortingKeys = std::nullopt);
 
 std::shared_ptr<Task> assertQueryReturnsEmptyResult(
-    const std::shared_ptr<const core::PlanNode>& plan);
+    const core::PlanNodePtr& plan);
 
 void assertEmptyResults(const std::vector<RowVectorPtr>& results);
 
@@ -166,7 +166,7 @@ void assertResultsOrdered(
     const std::vector<uint32_t>& sortingKeys);
 
 std::shared_ptr<Task> assertQuery(
-    const std::shared_ptr<const core::PlanNode>& plan,
+    const core::PlanNodePtr& plan,
     const std::vector<RowVectorPtr>& expectedResults);
 
 std::shared_ptr<Task> assertQuery(
@@ -174,7 +174,7 @@ std::shared_ptr<Task> assertQuery(
     const std::vector<RowVectorPtr>& expectedResults);
 
 velox::variant readSingleValue(
-    const std::shared_ptr<const core::PlanNode>& plan,
+    const core::PlanNodePtr& plan,
     int32_t maxDrivers = 1);
 
 /// assertEqualResults() has limited support for results with floating-point

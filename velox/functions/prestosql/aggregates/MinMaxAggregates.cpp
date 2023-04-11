@@ -52,17 +52,6 @@ struct MinMaxTrait<Date> {
   }
 };
 
-template <>
-struct MinMaxTrait<IntervalDayTime> {
-  static constexpr IntervalDayTime lowest() {
-    return IntervalDayTime(std::numeric_limits<int64_t>::lowest());
-  }
-
-  static constexpr IntervalDayTime max() {
-    return IntervalDayTime(std::numeric_limits<int64_t>::max());
-  }
-};
-
 template <typename T>
 class MinMaxAggregate : public SimpleNumericAggregate<T, T, T> {
   using BaseAggregate = SimpleNumericAggregate<T, T, T>;
@@ -515,8 +504,6 @@ bool registerMinMax(const std::string& name) {
             return std::make_unique<TNumeric<Timestamp>>(resultType);
           case TypeKind::DATE:
             return std::make_unique<TNumeric<Date>>(resultType);
-          case TypeKind::INTERVAL_DAY_TIME:
-            return std::make_unique<TNumeric<IntervalDayTime>>(resultType);
           case TypeKind::LONG_DECIMAL:
             return std::make_unique<TNumeric<UnscaledLongDecimal>>(resultType);
           case TypeKind::SHORT_DECIMAL:

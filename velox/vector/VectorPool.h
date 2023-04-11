@@ -63,7 +63,7 @@ class VectorPool {
   memory::MemoryPool* const pool_;
 
   static constexpr int32_t kNumCachedVectorTypes =
-      static_cast<int32_t>(TypeKind::INTERVAL_DAY_TIME) + 1;
+      static_cast<int32_t>(TypeKind::DATE) + 1;
 
   /// Caches of pre-allocated vectors indexed by typeKind.
   std::array<TypePool, kNumCachedVectorTypes> vectors_;

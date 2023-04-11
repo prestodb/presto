@@ -65,8 +65,6 @@ TEST_F(VeloxSubstraitSignatureTest, toSubstraitSignatureWithType) {
   ASSERT_EQ(toSubstraitSignature(ROW({MAP(INTEGER(), INTEGER())})), "struct");
   ASSERT_EQ(toSubstraitSignature(ROW({ROW({INTEGER()})})), "struct");
   ASSERT_EQ(toSubstraitSignature(UNKNOWN()), "u!name");
-
-  ASSERT_ANY_THROW(toSubstraitSignature(INTERVAL_DAY_TIME()));
 }
 
 TEST_F(

@@ -184,10 +184,8 @@ TEST_F(HistogramTest, groupByInterval) {
 
   auto vector1 = makeFlatVector<int32_t>(
       num, [](vector_size_t row) { return row % 3; }, nullEvery(4));
-  auto vector2 = makeFlatVector<IntervalDayTime>(
-      num,
-      [](vector_size_t row) { return IntervalDayTime(row); },
-      nullEvery(5));
+  auto vector2 = makeFlatVector<int64_t>(
+      num, [](auto row) { return row; }, nullEvery(5), INTERVAL_DAY_TIME());
 
   testHistogramWithDuck(vector1, vector2);
 }
@@ -245,10 +243,8 @@ TEST_F(HistogramTest, globalGroupByDate) {
 }
 
 TEST_F(HistogramTest, globalGroupByInterval) {
-  auto vector = makeFlatVector<IntervalDayTime>(
-      1'000,
-      [](vector_size_t row) { return IntervalDayTime(row); },
-      nullEvery(7));
+  auto vector = makeFlatVector<int64_t>(
+      1'000, [](auto row) { return row; }, nullEvery(7), INTERVAL_DAY_TIME());
 
   testGlobalHistogramWithDuck(vector);
 }

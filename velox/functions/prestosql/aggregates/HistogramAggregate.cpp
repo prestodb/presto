@@ -264,9 +264,6 @@ bool registerHistogram(const std::string& name) {
             return std::make_unique<HistogramAggregate<Timestamp>>(resultType);
           case TypeKind::DATE:
             return std::make_unique<HistogramAggregate<Date>>(resultType);
-          case TypeKind::INTERVAL_DAY_TIME:
-            return std::make_unique<HistogramAggregate<IntervalDayTime>>(
-                resultType);
           default:
             VELOX_NYI(
                 "Unknown input type for {} aggregation {}",

@@ -291,9 +291,6 @@ bool registerArbitrary(const std::string& name) {
             return std::make_unique<ArbitraryAggregate<Timestamp>>(inputType);
           case TypeKind::DATE:
             return std::make_unique<ArbitraryAggregate<Date>>(inputType);
-          case TypeKind::INTERVAL_DAY_TIME:
-            return std::make_unique<ArbitraryAggregate<IntervalDayTime>>(
-                inputType);
           case TypeKind::VARCHAR:
           case TypeKind::ARRAY:
           case TypeKind::MAP:

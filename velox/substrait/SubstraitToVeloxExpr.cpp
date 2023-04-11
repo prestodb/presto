@@ -76,15 +76,6 @@ Date getLiteralValue(const ::substrait::Expression::Literal& literal) {
   return Date(literal.date());
 }
 
-template <>
-IntervalDayTime getLiteralValue(
-    const ::substrait::Expression::Literal& literal) {
-  const auto& interval = literal.interval_day_to_second();
-  int64_t milliseconds = interval.days() * kMillisInDay +
-      interval.seconds() * kMillisInSecond + interval.microseconds() / 1000;
-  return IntervalDayTime(milliseconds);
-}
-
 ArrayVectorPtr makeArrayVector(const VectorPtr& elements) {
   BufferPtr offsets = allocateOffsets(1, elements->pool());
   BufferPtr sizes = allocateOffsets(1, elements->pool());
@@ -296,7 +287,7 @@ ArrayVectorPtr SubstraitVeloxExprConverter::literalsToArrayVector(
       return makeArrayVector(constructFlatVector<TypeKind::TIMESTAMP>(
           listLiteral, childSize, TIMESTAMP(), pool_));
     case ::substrait::Expression_Literal::LiteralTypeCase::kIntervalDayToSecond:
-      return makeArrayVector(constructFlatVector<TypeKind::INTERVAL_DAY_TIME>(
+      return makeArrayVector(constructFlatVector<TypeKind::BIGINT>(
           listLiteral, childSize, INTERVAL_DAY_TIME(), pool_));
     case ::substrait::Expression_Literal::LiteralTypeCase::kList: {
       VectorPtr elements;

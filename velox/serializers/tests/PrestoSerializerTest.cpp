@@ -227,9 +227,11 @@ TEST_F(PrestoSerializerTest, timestampWithTimeZone) {
 }
 
 TEST_F(PrestoSerializerTest, intervalDayTime) {
-  auto vector = vectorMaker_->flatVector<IntervalDayTime>(100, [](auto row) {
-    return IntervalDayTime(row + folly::Random::rand32());
-  });
+  auto vector = vectorMaker_->flatVector<int64_t>(
+      100,
+      [](auto row) { return row + folly::Random::rand32(); },
+      nullptr, // nullAt
+      INTERVAL_DAY_TIME());
 
   testRoundTrip(vector);
 

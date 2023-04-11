@@ -160,10 +160,9 @@ void validateBaseTypeAndCollectTypeParams(
       return;
     }
 
-    if (!isPositiveInteger(typeName) && !isCommonDecimalName(typeName) &&
-        !customTypeExists(typeName)) {
-      // Check to ensure base type is supported.
-      mapNameToTypeKind(typeName);
+    if (!isPositiveInteger(typeName) &&
+        !tryMapNameToTypeKind(typeName).has_value()) {
+      VELOX_USER_CHECK(hasType(typeName), "Type doesn't exist: {}", typeName);
     }
 
     // Ensure all params are similarly supported.

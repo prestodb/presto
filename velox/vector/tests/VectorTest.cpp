@@ -903,11 +903,6 @@ std::shared_ptr<void> VectorTest::testValue(int32_t i, BufferPtr& /*space*/) {
   return std::make_shared<NonPOD>(i);
 }
 
-template <>
-IntervalDayTime VectorTest::testValue(int32_t i, BufferPtr& /*space*/) {
-  return IntervalDayTime(i);
-}
-
 VectorPtr VectorTest::createMap(int32_t numRows, bool withNulls) {
   BufferPtr nulls;
   BufferPtr offsets;
@@ -972,7 +967,7 @@ TEST_F(VectorTest, createOther) {
   testFlat<TypeKind::BOOLEAN>(BOOLEAN(), vectorSize_);
   testFlat<TypeKind::TIMESTAMP>(TIMESTAMP(), vectorSize_);
   testFlat<TypeKind::DATE>(DATE(), vectorSize_);
-  testFlat<TypeKind::INTERVAL_DAY_TIME>(INTERVAL_DAY_TIME(), vectorSize_);
+  testFlat<TypeKind::BIGINT>(INTERVAL_DAY_TIME(), vectorSize_);
 }
 
 TEST_F(VectorTest, createDecimal) {
@@ -1562,7 +1557,7 @@ TEST_F(VectorCreateConstantTest, null) {
 
   testNullConstant<TypeKind::TIMESTAMP>(TIMESTAMP());
   testNullConstant<TypeKind::DATE>(DATE());
-  testNullConstant<TypeKind::INTERVAL_DAY_TIME>(INTERVAL_DAY_TIME());
+  testNullConstant<TypeKind::BIGINT>(INTERVAL_DAY_TIME());
 
   testNullConstant<TypeKind::VARCHAR>(VARCHAR());
   testNullConstant<TypeKind::VARBINARY>(VARBINARY());

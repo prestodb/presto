@@ -155,11 +155,6 @@ void appendSqlLiteral(
       out << "'" << vector.wrappedVector()->toString(vector.wrappedIndex(row))
           << "'::" << vector.type()->toString();
       break;
-    case TypeKind::INTERVAL_DAY_TIME: {
-      auto interval = vector.as<SimpleVector<IntervalDayTime>>()->valueAt(row);
-      out << "INTERVAL " << interval.milliseconds() << " MILLISECONDS";
-      break;
-    }
     case TypeKind::VARCHAR:
       appendSqlString(
           vector.wrappedVector()->toString(vector.wrappedIndex(row)), out);
