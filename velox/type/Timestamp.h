@@ -37,6 +37,9 @@ struct Timestamp {
   constexpr Timestamp(int64_t seconds, uint64_t nanos)
       : seconds_(seconds), nanos_(nanos) {}
 
+  // Returns the current unix timestamp (ms precision).
+  static Timestamp now();
+
   int64_t getSeconds() const {
     return seconds_;
   }

@@ -152,8 +152,19 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "sort_array", sortArraySignatures(), makeSortArray);
 
+  // Register date functions.
   registerFunction<YearFunction, int32_t, Timestamp>({prefix + "year"});
   registerFunction<YearFunction, int32_t, Date>({prefix + "year"});
+
+  registerFunction<UnixTimestampFunction, int64_t>({prefix + "unix_timestamp"});
+
+  registerFunction<UnixTimestampParseFunction, int64_t, Varchar>(
+      {prefix + "unix_timestamp", prefix + "to_unix_timestamp"});
+  registerFunction<
+      UnixTimestampParseWithFormatFunction,
+      int64_t,
+      Varchar,
+      Varchar>({prefix + "unix_timestamp", prefix + "to_unix_timestamp"});
 }
 
 } // namespace sparksql

@@ -35,6 +35,15 @@ inline int64_t getPrestoTZOffsetInSeconds(int16_t tzID) {
 
 } // namespace
 
+// static
+Timestamp Timestamp::now() {
+  auto now = std::chrono::system_clock::now();
+  auto epochMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                     now.time_since_epoch())
+                     .count();
+  return fromMillis(epochMs);
+}
+
 void Timestamp::toGMT(const date::time_zone& zone) {
   // Magic number -2^39 + 24*3600. This number and any number lower than that
   // will cause time_zone::to_sys() to SIGABRT. We don't want that to happen.

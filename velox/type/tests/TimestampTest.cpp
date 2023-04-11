@@ -122,5 +122,20 @@ TEST(TimestampTest, toAppend) {
       folly::to<std::string>(Timestamp(946729316, 129900000)));
 }
 
+TEST(TimestampTest, now) {
+  using namespace std::chrono;
+
+  auto now = Timestamp::now();
+
+  auto expectedEpochSecs =
+      duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+  auto expectedEpochMs =
+      duration_cast<milliseconds>(system_clock::now().time_since_epoch())
+          .count();
+
+  EXPECT_GE(expectedEpochSecs, now.getSeconds());
+  EXPECT_GE(expectedEpochMs, now.toMillis());
+}
+
 } // namespace
 } // namespace facebook::velox

@@ -18,5 +18,7 @@
 #include <string>
 
 namespace facebook::velox::functions::sparksql {
+
 void registerFunctions(const std::string& prefix);
+
 } // namespace facebook::velox::functions::sparksql
