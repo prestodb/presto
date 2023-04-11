@@ -58,10 +58,10 @@ bool SystemConfig::enableHttps() const {
   return opt.value_or(kHttpServerHttpsEnabledDefault);
 }
 
-// This config control what cipher suites are supported by Native workers for
+// This config controls what cipher suites are supported by Native workers for
 // server and client. Note Java and folly::SSLContext use different names to
 // refer to the same cipher. (guess for different name, Java specific
-// authentication,key exchange and cipher together and folly just cipher). For
+// authentication, key exchange and cipher together and folly just cipher). For
 // e.g. TLS_RSA_WITH_AES_256_GCM_SHA384 in Java and AES256-GCM-SHA384 in
 // folly::SSLContext. The ciphers need to enable worker to worker, worker to
 // coordinator and coordinator to worker communication. Have at least one cipher
