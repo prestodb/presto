@@ -179,6 +179,16 @@ sets the update mode to indicate overwriting a partition if exists.
 ``ERROR`` sets the update mode to indicate error throwing if writing
 to an existing partition.
 
+``immutable_partitions``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``bool``
+    * **Default value:** ``false``
+
+True if appending data to an existing unpartitioned table is allowed.
+Currently this configuration does not support appending to existing partitions.
+
+
 Spark-specific configuration
 ----------------------------
 

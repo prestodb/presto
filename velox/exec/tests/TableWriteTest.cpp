@@ -16,6 +16,7 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConfig.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HivePartitionUtil.h"
 #include "velox/dwio/common/DataSink.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -93,6 +94,45 @@ class TableWriteTest : public HiveConnectorTestBase {
     return getRecursiveFiles(directoryPath).size();
   }
 
+  // Helper method to return InsertTableHandle.
+  std::shared_ptr<core::InsertTableHandle> createInsertTableHandle(
+      const RowTypePtr& outputRowType,
+      const connector::hive::LocationHandle::TableType& outputTableType,
+      const std::string& outputDirectoryPath,
+      const std::vector<std::string>& partitionedBy) {
+    return std::make_shared<core::InsertTableHandle>(
+        kHiveConnectorId,
+        makeHiveInsertTableHandle(
+            outputRowType->names(),
+            outputRowType->children(),
+            partitionedBy,
+            makeLocationHandle(
+                outputDirectoryPath, std::nullopt, outputTableType)));
+  }
+
+  // Returns a table insert plan node.
+  PlanNodePtr createInsertPlan(
+      PlanBuilder& inputPlan,
+      const RowTypePtr& outputRowType,
+      const std::string& outputDirectoryPath,
+      const std::vector<std::string>& partitionedBy = {},
+      const connector::hive::LocationHandle::TableType& outputTableType =
+          connector::hive::LocationHandle::TableType::kNew,
+      const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit) {
+    return inputPlan
+        .tableWrite(
+            outputRowType->names(),
+            createInsertTableHandle(
+                outputRowType,
+                outputTableType,
+                outputDirectoryPath,
+                partitionedBy),
+            outputCommitStrategy,
+            "rows")
+        .project({"rows"})
+        .planNode();
+  }
+
   RowVectorPtr makePartitionsVector(
       RowVectorPtr input,
       const std::vector<column_index_t>& partitionChannels) {
@@ -147,6 +187,14 @@ class TableWriteTest : public HiveConnectorTestBase {
   RowTypePtr rowType_{
       ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
           {BIGINT(), INTEGER(), SMALLINT(), REAL(), DOUBLE(), VARCHAR()})};
+
+  // Returns all available table types to test insert without any
+  // partitions (used in "immutablePartitions" set of tests).
+  const std::vector<connector::hive::LocationHandle::TableType> tableTypes = {
+      // Velox does not currently support TEMPORARY table type.
+      // Once supported, it should be added to this list.
+      connector::hive::LocationHandle::TableType::kNew,
+      connector::hive::LocationHandle::TableType::kExisting};
 };
 
 // Runs a pipeline with read + filter + project (with substr) + write.
@@ -251,21 +299,8 @@ TEST_F(TableWriteTest, directReadWrite) {
   createDuckDbTable(vectors);
 
   auto outputDirectory = TempDirectoryPath::create();
-  auto plan = PlanBuilder()
-                  .tableScan(rowType_)
-                  .tableWrite(
-                      rowType_->names(),
-                      std::make_shared<core::InsertTableHandle>(
-                          kHiveConnectorId,
-                          makeHiveInsertTableHandle(
-                              rowType_->names(),
-                              rowType_->children(),
-                              {},
-                              makeLocationHandle(outputDirectory->path))),
-                      CommitStrategy::kNoCommit,
-                      "rows")
-                  .project({"rows"})
-                  .planNode();
+  auto plan = createInsertPlan(
+      PlanBuilder().tableScan(rowType_), rowType_, outputDirectory->path);
 
   assertQuery(plan, filePaths, "SELECT count(*) FROM tmp");
 
@@ -305,21 +340,8 @@ TEST_F(TableWriteTest, constantVectors) {
   createDuckDbTable({vector});
 
   auto outputDirectory = TempDirectoryPath::create();
-  auto op = PlanBuilder()
-                .values({vector})
-                .tableWrite(
-                    rowType->names(),
-                    std::make_shared<core::InsertTableHandle>(
-                        kHiveConnectorId,
-                        makeHiveInsertTableHandle(
-                            rowType->names(),
-                            rowType->children(),
-                            {},
-                            makeLocationHandle(outputDirectory->path))),
-                    CommitStrategy::kNoCommit,
-                    "rows")
-                .project({"rows"})
-                .planNode();
+  auto op = createInsertPlan(
+      PlanBuilder().values({vector}), rowType, outputDirectory->path);
 
   assertQuery(op, fmt::format("SELECT {}", size));
 
@@ -339,21 +361,13 @@ TEST_F(TableWriteTest, commitStrategies) {
   // file.
   {
     auto outputDirectory = TempDirectoryPath::create();
-    auto plan = PlanBuilder()
-                    .values(vectors)
-                    .tableWrite(
-                        rowType_->names(),
-                        std::make_shared<core::InsertTableHandle>(
-                            kHiveConnectorId,
-                            makeHiveInsertTableHandle(
-                                rowType_->names(),
-                                rowType_->children(),
-                                {},
-                                makeLocationHandle(outputDirectory->path))),
-                        CommitStrategy::kTaskCommit,
-                        "rows")
-                    .project({"rows"})
-                    .planNode();
+    auto plan = createInsertPlan(
+        PlanBuilder().values(vectors),
+        rowType_,
+        outputDirectory->path,
+        {},
+        connector::hive::LocationHandle::TableType::kNew,
+        CommitStrategy::kTaskCommit);
 
     assertQuery(plan, "SELECT count(*) FROM tmp");
 
@@ -368,21 +382,13 @@ TEST_F(TableWriteTest, commitStrategies) {
   // Test kNoCommit commit strategy writing to non-temporary files.
   {
     auto outputDirectory = TempDirectoryPath::create();
-    auto plan = PlanBuilder()
-                    .values(vectors)
-                    .tableWrite(
-                        rowType_->names(),
-                        std::make_shared<core::InsertTableHandle>(
-                            kHiveConnectorId,
-                            makeHiveInsertTableHandle(
-                                rowType_->names(),
-                                rowType_->children(),
-                                {},
-                                makeLocationHandle(outputDirectory->path))),
-                        CommitStrategy::kNoCommit,
-                        "rows")
-                    .project({"rows"})
-                    .planNode();
+    auto plan = createInsertPlan(
+        PlanBuilder().values(vectors),
+        rowType_,
+        outputDirectory->path,
+        {},
+        connector::hive::LocationHandle::TableType::kNew,
+        CommitStrategy::kNoCommit);
 
     assertQuery(plan, "SELECT count(*) FROM tmp");
 
@@ -428,21 +434,11 @@ TEST_F(TableWriteTest, multiplePartitions) {
   }
 
   auto outputDirectory = TempDirectoryPath::create();
-  auto plan = PlanBuilder()
-                  .tableScan(rowType)
-                  .tableWrite(
-                      rowType->names(),
-                      std::make_shared<core::InsertTableHandle>(
-                          kHiveConnectorId,
-                          makeHiveInsertTableHandle(
-                              rowType->names(),
-                              rowType->children(),
-                              partitionKeys,
-                              makeLocationHandle(outputDirectory->path))),
-                      CommitStrategy::kNoCommit,
-                      "rows")
-                  .project({"rows"})
-                  .planNode();
+  auto plan = createInsertPlan(
+      PlanBuilder().tableScan(rowType),
+      rowType,
+      outputDirectory->path,
+      partitionKeys);
 
   auto task = assertQuery(plan, inputFilePaths, "SELECT count(*) FROM tmp");
 
@@ -504,21 +500,11 @@ TEST_F(TableWriteTest, singlePartition) {
   }
 
   auto outputDirectory = TempDirectoryPath::create();
-  auto plan = PlanBuilder()
-                  .tableScan(rowType)
-                  .tableWrite(
-                      rowType->names(),
-                      std::make_shared<core::InsertTableHandle>(
-                          kHiveConnectorId,
-                          makeHiveInsertTableHandle(
-                              rowType->names(),
-                              rowType->children(),
-                              partitionKeys,
-                              makeLocationHandle(outputDirectory->path))),
-                      CommitStrategy::kNoCommit,
-                      "rows")
-                  .project({"rows"})
-                  .planNode();
+  auto plan = createInsertPlan(
+      PlanBuilder().tableScan(rowType),
+      rowType,
+      outputDirectory->path,
+      partitionKeys);
 
   auto task = assertQuery(plan, inputFilePaths, "SELECT count(*) FROM tmp");
 
@@ -554,21 +540,11 @@ TEST_F(TableWriteTest, maxPartitions) {
       {makeFlatVector<int64_t>(numPartitions, [&](auto row) { return row; })});
 
   auto outputDirectory = TempDirectoryPath::create();
-  auto plan = PlanBuilder()
-                  .values({vector})
-                  .tableWrite(
-                      rowType->names(),
-                      std::make_shared<core::InsertTableHandle>(
-                          kHiveConnectorId,
-                          makeHiveInsertTableHandle(
-                              rowType->names(),
-                              rowType->children(),
-                              partitionKeys,
-                              makeLocationHandle(outputDirectory->path))),
-                      CommitStrategy::kNoCommit,
-                      "rows")
-                  .project({"rows"})
-                  .planNode();
+  auto plan = createInsertPlan(
+      PlanBuilder().values({vector}),
+      rowType,
+      outputDirectory->path,
+      partitionKeys);
 
   VELOX_ASSERT_THROW(
       AssertQueryBuilder(plan)
@@ -583,21 +559,10 @@ TEST_F(TableWriteTest, maxPartitions) {
 // Test TableWriter does not create a file if input is empty.
 TEST_F(TableWriteTest, writeNoFile) {
   auto outputDirectory = TempDirectoryPath::create();
-  auto plan = PlanBuilder()
-                  .tableScan(rowType_)
-                  .filter("false")
-                  .tableWrite(
-                      rowType_->names(),
-                      std::make_shared<core::InsertTableHandle>(
-                          kHiveConnectorId,
-                          makeHiveInsertTableHandle(
-                              rowType_->names(),
-                              rowType_->children(),
-                              {},
-                              makeLocationHandle(outputDirectory->path))),
-                      CommitStrategy::kNoCommit,
-                      "rows")
-                  .planNode();
+  auto plan = createInsertPlan(
+      PlanBuilder().tableScan(rowType_).filter("false"),
+      rowType_,
+      outputDirectory->path);
 
   auto execute = [&](const std::shared_ptr<const core::PlanNode>& plan,
                      std::shared_ptr<core::QueryCtx> queryCtx) {
@@ -609,4 +574,95 @@ TEST_F(TableWriteTest, writeNoFile) {
 
   execute(plan, std::make_shared<core::QueryCtx>(executor_.get()));
   ASSERT_TRUE(fs::is_empty(outputDirectory->path));
+}
+
+TEST_F(TableWriteTest, createAndInsertIntoUnpartitionedTable) {
+  // When table type is NEW, we always return UpdateMode::kNew. In this case
+  // no exception is expected because we are trying to insert rows into a new
+  // table.
+
+  for (auto immutablePartitionsEnabled : {"true", "false"}) {
+    auto input = makeVectors(rowType_, 10, 10);
+    auto outputDirectory = TempDirectoryPath::create();
+    auto plan = createInsertPlan(
+        PlanBuilder().values(input),
+        rowType_,
+        outputDirectory->path,
+        {},
+        connector::hive::LocationHandle::TableType::kNew);
+
+    auto result = AssertQueryBuilder(plan)
+                      .connectorConfig(
+                          kHiveConnectorId,
+                          HiveConfig::kImmutablePartitions,
+                          immutablePartitionsEnabled)
+                      .copyResults(pool());
+
+    assertEqualResults(
+        {makeRowVector({makeConstant<int64_t>(100, 1)})}, {result});
+  }
+}
+
+TEST_F(TableWriteTest, appendToAnExistingUnpartitionedTableNotAllowed) {
+  // When table type is EXISTING and "immutable_partitions" config is set to
+  // true, inserts into such unpartitioned tables are not allowed.
+  //
+  // We assert that an error is thrown in this case.
+
+  auto input = makeVectors(rowType_, 10, 10);
+  auto outputDirectory = TempDirectoryPath::create();
+  auto plan = createInsertPlan(
+      PlanBuilder().values(input),
+      rowType_,
+      outputDirectory->path,
+      {},
+      connector::hive::LocationHandle::TableType::kExisting);
+
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan)
+          .connectorConfig(
+              kHiveConnectorId, HiveConfig::kImmutablePartitions, "true")
+          .copyResults(pool()),
+      "Unpartitioned Hive tables are immutable.");
+}
+
+TEST_F(TableWriteTest, appendToAnExistingUnpartitionedTable) {
+  // This test uses the default value "false" for the "immutable_partitions"
+  // config allowing writes to an existing unpartitioned table.
+  //
+  // The test inserts data vector by vector and checks the intermediate results
+  // as well as the final result.
+
+  auto kRowsPerVector = 100;
+  auto input = makeVectors(rowType_, 10, kRowsPerVector);
+
+  createDuckDbTable(input);
+
+  for (auto tableType : tableTypes) {
+    auto outputDirectory = TempDirectoryPath::create();
+    auto numRows = 0;
+
+    for (auto rowVector : input) {
+      numRows += kRowsPerVector;
+      auto plan = createInsertPlan(
+          PlanBuilder().values({rowVector}),
+          rowType_,
+          outputDirectory->path,
+          {},
+          tableType);
+      assertQuery(plan, fmt::format("SELECT {}", kRowsPerVector));
+      assertQuery(
+          PlanBuilder()
+              .tableScan(rowType_)
+              .singleAggregation({}, {"count(*)"})
+              .planNode(),
+          makeHiveConnectorSplits(outputDirectory),
+          fmt::format("SELECT {}", numRows));
+    }
+
+    assertQuery(
+        PlanBuilder().tableScan(rowType_).planNode(),
+        makeHiveConnectorSplits(outputDirectory),
+        "SELECT * FROM tmp");
+  }
 }

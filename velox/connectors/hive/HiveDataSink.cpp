@@ -291,7 +291,10 @@ HiveWriterParameters::UpdateMode HiveDataSink::getUpdateMode() const {
           VELOX_UNSUPPORTED("Unsupported insert existing partitions behavior.");
       }
     } else {
-      VELOX_USER_FAIL("Unpartitioned Hive tables are immutable.");
+      if (HiveConfig::immutablePartitions(connectorQueryCtx_->config())) {
+        VELOX_USER_FAIL("Unpartitioned Hive tables are immutable.");
+      }
+      return HiveWriterParameters::UpdateMode::kAppend;
     }
   } else {
     return HiveWriterParameters::UpdateMode::kNew;

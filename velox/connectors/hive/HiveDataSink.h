@@ -99,6 +99,8 @@ class HiveWriterParameters {
   enum class UpdateMode {
     kNew, // Write files to a new directory.
     kOverwrite, // Overwrite an existing directory.
+    // Append mode is currently only supported for unpartitioned tables.
+    kAppend, // Append to an unpartitioned table.
   };
 
   /// @param updateMode Write the files to a new directory, or append to an
@@ -138,6 +140,8 @@ class HiveWriterParameters {
         return "NEW";
       case UpdateMode::kOverwrite:
         return "OVERWRITE";
+      case UpdateMode::kAppend:
+        return "APPEND";
       default:
         VELOX_UNSUPPORTED("Unsupported update mode.");
     }
