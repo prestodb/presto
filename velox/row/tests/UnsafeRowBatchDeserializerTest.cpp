@@ -114,7 +114,7 @@ testing::AssertionResult checkVariableLengthData(
   return testing::AssertionSuccess();
 }
 
-TEST_F(UnsafeRowBatchDeserializerTest, DeserializePrimitives) {
+TEST_F(UnsafeRowBatchDeserializerTest, deserializePrimitives) {
   /*
    * UnsfafeRow with 7 elements:
    *  index | type        | value
@@ -174,7 +174,7 @@ TEST_F(UnsafeRowBatchDeserializerTest, DeserializePrimitives) {
   ASSERT_TRUE(rowParser.isNullAt(6));
 }
 
-TEST_F(UnsafeRowBatchDeserializerTest, DeserializeStrings) {
+TEST_F(UnsafeRowBatchDeserializerTest, deserializeStrings) {
   /*
    * index | string value
    * ------|-------------
@@ -219,7 +219,7 @@ TEST_F(UnsafeRowBatchDeserializerTest, DeserializeStrings) {
       u8"This is a rather long string.  Quite long indeed.");
 }
 
-TEST_F(UnsafeRowBatchDeserializerTest, FixedWidthArray) {
+TEST_F(UnsafeRowBatchDeserializerTest, fixedWidthArray) {
   /*
    * UnsafeRow with 2 elements (element 2 is ignored):
    * Element 1: Array of TinyInt with 5 elements
@@ -283,7 +283,7 @@ TEST_F(UnsafeRowBatchDeserializerTest, FixedWidthArray) {
   ASSERT_TRUE(arrayFlatVector->isNullAt(4));
 }
 
-TEST_F(UnsafeRowBatchDeserializerTest, NestedArray) {
+TEST_F(UnsafeRowBatchDeserializerTest, nestedArray) {
   /*
    * type: Array->Array->Array->TinyInt
    * ArrayVector<ArrayVector<ArrayVector<FlatVector<int8_t>>>
@@ -444,7 +444,7 @@ TEST_F(UnsafeRowBatchDeserializerTest, NestedArray) {
       0);
 }
 
-TEST_F(UnsafeRowBatchDeserializerTest, NestedMap) {
+TEST_F(UnsafeRowBatchDeserializerTest, nestedMap) {
   /*
    * TypePtr: Map<Short, Map<Short, Short>>
    * {
@@ -560,7 +560,7 @@ TEST_F(UnsafeRowBatchDeserializerTest, NestedMap) {
       innerMapNulls));
 }
 
-TEST_F(UnsafeRowBatchDeserializerTest, RowVector) {
+TEST_F(UnsafeRowBatchDeserializerTest, rowVector) {
   // row[0], 0b010010
   // {0x0101010101010101, null, 0xABCDEF, 56llu << 32 | 4, null, 64llu << 32 |
   // 60, "1234", "Make time for civilization, for civilization wont make time."}
@@ -644,7 +644,9 @@ class UnsafeRowComplexBatchDeserializerTests
 
   constexpr static int kMaxBuffers = 10;
 
-  velox::RowVectorPtr createInputRow(int32_t batchSize) {
+  velox::RowVectorPtr createInputRow(
+      int32_t batchSize,
+      std::function<bool(vector_size_t /*row*/)> isNullAt = nullptr) {
     VELOX_CHECK(batchSize <= kMaxBuffers);
     auto intVector =
         makeFlatVector<int64_t>(batchSize, [](vector_size_t i) { return i; });
@@ -663,64 +665,67 @@ class UnsafeRowComplexBatchDeserializerTests
           return StringView::makeInline("str" + std::to_string(row + index));
         });
     return makeRowVector(
-        {intVector, stringVector, intArrayVector, stringArrayVector});
+        {intVector, stringVector, intArrayVector, stringArrayVector}, isNullAt);
   }
 
   std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
   std::array<char[1024], kMaxBuffers> buffers_{};
 };
 
-TEST_F(
-    UnsafeRowComplexBatchDeserializerTests,
-    UnsafeRowDeserializationRowsTests) {
-  std::vector<std::optional<std::string_view>> serializedVec;
-  int32_t batchSize = 10;
-  const auto& inputVector = createInputRow(batchSize);
-  for (size_t i = 0; i < batchSize; ++i) {
-    // Serialize rowVector into bytes.
-    auto rowSize = UnsafeRowDynamicSerializer::serialize(
-        inputVector->type(), inputVector, buffers_[i], /*idx=*/i);
-    ASSERT_TRUE(rowSize.has_value());
-    serializedVec.push_back(std::string_view(buffers_[i], rowSize.value()));
+TEST_F(UnsafeRowComplexBatchDeserializerTests, rows) {
+  // Run 3 tests for serde with different batch sizes.
+  for (int32_t batchSize : {1, 5, 10}) {
+    std::vector<std::optional<std::string_view>> serializedVec;
+    const auto& inputVector = createInputRow(batchSize);
+    for (size_t i = 0; i < batchSize; ++i) {
+      // Serialize rowVector into bytes.
+      auto rowSize = UnsafeRowDynamicSerializer::serialize(
+          inputVector->type(), inputVector, buffers_[i], /*idx=*/i);
+      ASSERT_TRUE(rowSize.has_value());
+      serializedVec.push_back(std::string_view(buffers_[i], rowSize.value()));
+    }
+    VectorPtr outputVector =
+        UnsafeRowDynamicVectorBatchDeserializer::deserializeComplex(
+            serializedVec, inputVector->type(), pool_.get());
+    assertEqualVectors(inputVector, outputVector);
   }
-  VectorPtr outputVector =
-      UnsafeRowDynamicVectorBatchDeserializer::deserializeComplex(
-          serializedVec, inputVector->type(), pool_.get());
-  assertEqualVectors(inputVector, outputVector);
 }
 
-TEST_F(UnsafeRowComplexBatchDeserializerTests, UnsafeRowDeserializationTests) {
-  const auto& inputVector = createInputRow(1);
-  // Serialize rowVector into bytes.
-  auto rowSize = UnsafeRowDynamicSerializer::serialize(
-      inputVector->type(), inputVector, buffers_[0], /*idx=*/0);
+TEST_F(UnsafeRowComplexBatchDeserializerTests, nullRows) {
+  // Test single level all nulls RowVector serde.
+  for (auto& batchSize : {1, 5, 10}) {
+    std::vector<std::optional<std::string_view>> serializedVector;
+    const auto& inputVector = createInputRow(batchSize, nullEvery(1));
+    for (size_t i = 0; i < batchSize; ++i) {
+      serializedVector.push_back(std::nullopt);
+    }
+    VectorPtr outputVector =
+        UnsafeRowDynamicVectorBatchDeserializer::deserializeComplex(
+            serializedVector, inputVector->type(), pool_.get());
+    assertEqualVectors(inputVector, outputVector);
+  }
 
-  VectorPtr outputVector =
-      UnsafeRowDynamicVectorBatchDeserializer::deserializeComplex(
-          std::string_view(buffers_[0], rowSize.value()),
-          inputVector->type(),
-          pool_.get());
-  assertEqualVectors(inputVector, outputVector);
-}
+  // Test RowVector containing another all nulls RowVector serde.
+  //
+  // TODO: The serde is still buggy as tests with innerBatchSize larger than 1
+  // is currently still failing. That is, when a RowVector(A) contains another
+  // RowVector(b). And RowVector(b) contains more than one rows and all of them
+  // are null. We should also fix that.
+  for (auto& innerBatchSize : {1}) {
+    std::vector<std::optional<std::string_view>> serializedVector;
+    const auto& innerRowVector =
+        createInputRow(innerBatchSize, [](vector_size_t i) { return true; });
+    const auto& outerRowVector = makeRowVector({innerRowVector});
 
-TEST_F(
-    UnsafeRowComplexBatchDeserializerTests,
-    UnsafeRowDeserializationRows2Tests) {
-  const auto& inputVector = createInputRow(2);
-  // Serialize rowVector into bytes.
-  auto rowSize = UnsafeRowDynamicSerializer::serialize(
-      inputVector->type(), inputVector, buffers_[0], /*idx=*/0);
-
-  auto nextRowSize = UnsafeRowDynamicSerializer::serialize(
-      inputVector->type(), inputVector, buffers_[1], /*idx=*/1);
-
-  VectorPtr outputVector =
-      UnsafeRowDynamicVectorBatchDeserializer::deserializeComplex(
-          {std::string_view(buffers_[0], rowSize.value()),
-           std::string_view(buffers_[1], nextRowSize.value())},
-          inputVector->type(),
-          pool_.get());
-  assertEqualVectors(inputVector, outputVector);
+    auto rowSize = UnsafeRowDynamicSerializer::serialize(
+        outerRowVector->type(), outerRowVector, buffers_[0], 0);
+    ASSERT_TRUE(rowSize.has_value());
+    serializedVector.push_back(std::string_view(buffers_[0], rowSize.value()));
+    VectorPtr outputVector =
+        UnsafeRowDynamicVectorBatchDeserializer::deserializeComplex(
+            serializedVector, outerRowVector->type(), pool_.get());
+    assertEqualVectors(outerRowVector, outputVector);
+  }
 }
 
 } // namespace

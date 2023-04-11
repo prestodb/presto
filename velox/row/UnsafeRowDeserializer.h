@@ -956,6 +956,9 @@ struct UnsafeRowDynamicVectorDeserializer {
         numFields, std::vector<std::optional<std::string_view>>(numStructs));
 
     for (size_t i = 0; i < numStructs; i++) {
+      if (bits::isBitNull(nulls->as<uint64_t>(), i)) {
+        continue;
+      }
       auto* structIteratorPtr =
           static_cast<UnsafeRowStructIterator*>(dataIterators[i].get());
       while (structIteratorPtr->hasNext()) {
