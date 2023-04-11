@@ -45,4 +45,26 @@ public class TestHiveArrayFunctionQueries
         this.assertQuerySucceeds("SELECT shuffle(array_sort(quantities)) FROM orders_ex");
         this.assertQuery("SELECT array_sort(shuffle(quantities)) FROM orders_ex");
     }
+
+    @Test
+    public void testArrayMatch()
+    {
+        // test all_match
+        this.assertQuery("SELECT all_match(quantities, x -> ((10 / x) > 2)) FROM orders_ex");
+        this.assertQuery("SELECT all_match(quantities, x -> TRY(((10 / x) > 2))) FROM orders_ex");
+        this.assertQuery("SELECT TRY(all_match(quantities, x -> ((10 / x) > 2))) FROM orders_ex");
+        this.assertQuery("SELECT all_match(shuffle(quantities), x -> (x > 500.0)) FROM orders_ex");
+
+        // test any_match
+        this.assertQuery("SELECT any_match(quantities, x -> ((10 / x) > 2)) FROM orders_ex");
+        this.assertQuery("SELECT any_match(quantities, x -> TRY(((10 / x) > 2))) FROM orders_ex");
+        this.assertQuery("SELECT TRY(any_match(quantities, x -> ((10 / x) > 2))) FROM orders_ex");
+        this.assertQuery("SELECT any_match(shuffle(quantities), x -> (x > 500.0)) FROM orders_ex");
+
+        // test none_match
+        this.assertQuery("SELECT none_match(quantities, x -> ((10 / x) > 2)) FROM orders_ex");
+        this.assertQuery("SELECT none_match(quantities, x -> TRY(((10 / x) > 2))) FROM orders_ex");
+        this.assertQuery("SELECT TRY(none_match(quantities, x -> ((10 / x) > 2))) FROM orders_ex");
+        this.assertQuery("SELECT none_match(shuffle(quantities), x -> (x > 500.0)) FROM orders_ex");
+    }
 }
