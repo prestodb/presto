@@ -23,9 +23,9 @@ namespace facebook::velox::window::test {
 
 namespace {
 
-// This test class is for different variations of nth_value function
-// parameterized by the over clause. Each function invocation tests the function
-// over all possible frame clauses.
+// This test class is for different variations of (nth|first|last)_value
+// functions parameterized by the over clause. Each function invocation tests
+// the function over all possible frame clauses.
 class NthValueTest : public WindowTestBase {
  protected:
   NthValueTest() : overClause_("") {}
@@ -33,9 +33,16 @@ class NthValueTest : public WindowTestBase {
   explicit NthValueTest(const std::string& overClause)
       : overClause_(overClause) {}
 
-  // This test has all important variations of the nth_value function
-  // invocation to be tested per (dataset, partition, frame) clause combination.
-  void testNthValue(const std::vector<RowVectorPtr>& input) {
+  // These tests have all important variations of the (nth|first|last)_value
+  // function invocations to be tested per (dataset, partition, frame) clause
+  // combination. The following types of datasets are tested with this utility
+  // function in the unit tests:
+  // i) Data of a uniform distribution.
+  // ii) Dataset with a single partition.
+  // iii) Dataset with a single partition spread across 2 input vectors.
+  // iv) Dataset where all partitions have a single row.
+  // v) Dataset that is randomly generated.
+  void testValueFunctions(const std::vector<RowVectorPtr>& input) {
     // This is a basic test case to give the value of the first frame row.
     testWindowFunction(input, "nth_value(c0, 1)");
 
@@ -48,10 +55,20 @@ class NthValueTest : public WindowTestBase {
     // be outside the partition also. The error cases for -ve offset values
     // are tested separately.
     testWindowFunction(input, "nth_value(c3, c2)");
+
+    // The first_value, last_value functions are tested for columns c0, c1, and
+    // c2, which contain data with different distributions.
+    testWindowFunction(input, "first_value(c0)");
+    testWindowFunction(input, "first_value(c1)");
+    testWindowFunction(input, "first_value(c2)");
+
+    testWindowFunction(input, "last_value(c0)");
+    testWindowFunction(input, "last_value(c1)");
+    testWindowFunction(input, "last_value(c2)");
   }
 
-  // This is for testing different output column types in the nth_value
-  // column parameter.
+  // This is for testing different output column types in the
+  // (nth|first|last)_value functions' column parameter.
   void testPrimitiveType(const TypePtr& type) {
     vector_size_t size = 25;
     auto vectors = makeRowVector({
@@ -76,6 +93,11 @@ class NthValueTest : public WindowTestBase {
         {vectors}, "nth_value(c4, 7)", {newOverClause}, kFrameClauses);
     WindowTestBase::testWindowFunction(
         {vectors}, "nth_value(c4, c2)", {newOverClause}, kFrameClauses);
+
+    WindowTestBase::testWindowFunction(
+        {vectors}, "first_value(c4)", {newOverClause}, kFrameClauses);
+    WindowTestBase::testWindowFunction(
+        {vectors}, "last_value(c4)", {newOverClause}, kFrameClauses);
   }
 
  private:
@@ -95,33 +117,27 @@ class MultiNthValueTest : public NthValueTest,
   MultiNthValueTest() : NthValueTest(GetParam()) {}
 };
 
-// Tests nth_value with data of a uniform distribution.
 TEST_P(MultiNthValueTest, basic) {
-  testNthValue({makeSimpleVector(50)});
+  testValueFunctions({makeSimpleVector(50)});
 }
 
-// Tests nth_value with a dataset with a single partition.
 TEST_P(MultiNthValueTest, singlePartition) {
-  testNthValue({makeSinglePartitionVector(50)});
+  testValueFunctions({makeSinglePartitionVector(50)});
 }
 
-// Tests nth_value with a dataset with a single partition, but spread across
-// 2 input vectors.
 TEST_P(MultiNthValueTest, multiInput) {
-  testNthValue({makeSinglePartitionVector(50), makeSinglePartitionVector(75)});
+  testValueFunctions(
+      {makeSinglePartitionVector(50), makeSinglePartitionVector(75)});
 }
 
-// Tests nth_value with a dataset where all partitions have a single row.
 TEST_P(MultiNthValueTest, singleRowPartitions) {
-  testNthValue({makeSingleRowPartitionsVector((50))});
+  testValueFunctions({makeSingleRowPartitionsVector((50))});
 }
 
-// Tests nth_value with a randomly generated dataset.
 TEST_P(MultiNthValueTest, randomInput) {
-  testNthValue({makeRandomInputVector((50))});
+  testValueFunctions({makeRandomInputVector((50))});
 }
 
-// Tests nth_value projecting result columns of different types.
 TEST_P(MultiNthValueTest, integerValues) {
   testPrimitiveType(INTEGER());
 }

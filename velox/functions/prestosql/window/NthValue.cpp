@@ -23,7 +23,6 @@ namespace facebook::velox::window::prestosql {
 
 namespace {
 
-template <typename T>
 class NthValueFunction : public exec::WindowFunction {
  public:
   explicit NthValueFunction(
@@ -65,14 +64,14 @@ class NthValueFunction : public exec::WindowFunction {
       int32_t resultOffset,
       const VectorPtr& result) override {
     auto numRows = frameStarts->size() / sizeof(vector_size_t);
-    auto frameStartsPtr = frameStarts->as<vector_size_t>();
-    auto frameEndsPtr = frameEnds->as<vector_size_t>();
+    auto rawFrameStarts = frameStarts->as<vector_size_t>();
+    auto rawFrameEnds = frameEnds->as<vector_size_t>();
 
     rowNumbers_.resize(numRows);
     if (constantOffset_.has_value() || isConstantOffsetNull_) {
-      setRowNumbersForConstantOffset(validRows, frameStartsPtr, frameEndsPtr);
+      setRowNumbersForConstantOffset(validRows, rawFrameStarts, rawFrameEnds);
     } else {
-      setRowNumbers(numRows, validRows, frameStartsPtr, frameEndsPtr);
+      setRowNumbers(numRows, validRows, rawFrameStarts, rawFrameEnds);
     }
 
     auto rowNumbersRange = folly::Range(rowNumbers_.data(), numRows);
@@ -179,16 +178,6 @@ class NthValueFunction : public exec::WindowFunction {
   // Member variable re-used for setting null for empty frames.
   SelectivityVector invalidRows_;
 };
-
-template <TypeKind kind>
-std::unique_ptr<exec::WindowFunction> createNthValueFunction(
-    const std::vector<exec::WindowFunctionArg>& args,
-    const TypePtr& resultType,
-    velox::memory::MemoryPool* pool) {
-  using T = typename TypeTraits<kind>::NativeType;
-  return std::make_unique<NthValueFunction<T>>(args, resultType, pool);
-}
-
 } // namespace
 
 void registerNthValue(const std::string& name) {
@@ -211,9 +200,7 @@ void registerNthValue(const std::string& name) {
           velox::memory::MemoryPool* pool,
           HashStringAllocator* /*stringAllocator*/)
           -> std::unique_ptr<exec::WindowFunction> {
-        auto typeKind = args[0].type->kind();
-        return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-            createNthValueFunction, typeKind, args, resultType, pool);
+        return std::make_unique<NthValueFunction>(args, resultType, pool);
       });
 }
 } // namespace facebook::velox::window::prestosql

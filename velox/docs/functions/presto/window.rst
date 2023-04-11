@@ -116,6 +116,14 @@ within the window partition.
 Value functions
 _______________
 
+.. function:: first_value(x) -> [same as input]
+
+Returns the first value of the window.
+
+.. function:: last_value(x) -> [same as input]
+
+Returns the last value of the window.
+
 .. function:: nth_value(x, offset) -> [same as input]
 
 Returns the value at the specified offset from the beginning of the window. Offsets start at 1. The offset
