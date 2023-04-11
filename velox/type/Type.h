@@ -435,6 +435,40 @@ struct TypeFactory;
     return this->kind() == TypeKind::KIND;                                \
   }
 
+class Type;
+using TypePtr = std::shared_ptr<const Type>;
+
+enum class TypeParameterKind {
+  /// Type. For example, element type in the array type.
+  kType,
+  /// Integer. For example, precision in a decimal type.
+  kLongLiteral,
+};
+
+struct TypeParameter {
+  const TypeParameterKind kind;
+
+  /// Must be not not null when kind is kType. All other properties should be
+  /// null or unset.
+  const TypePtr type;
+
+  /// Must be set when kind is kLongLiteral. All other properties should be null
+  /// or unset.
+  const std::optional<int64_t> longLiteral;
+
+  /// Creates kType parameter.
+  explicit TypeParameter(TypePtr _type)
+      : kind{TypeParameterKind::kType},
+        type{std::move(_type)},
+        longLiteral{std::nullopt} {}
+
+  /// Creates kLongLiteral parameter.
+  explicit TypeParameter(int64_t _longLiteral)
+      : kind{TypeParameterKind::kLongLiteral},
+        type{nullptr},
+        longLiteral{_longLiteral} {}
+};
+
 /// Abstract class hierarchy. Instances of these classes carry full
 /// information about types, including for example field names.
 /// Can be instantiated by factory methods, like INTEGER()
@@ -468,6 +502,16 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
 
   virtual bool isPrimitiveType() const = 0;
 
+  /// Returns unique logical type name. It can be
+  /// different from the physical type name returned by 'kindName()'.
+  virtual const char* name() const = 0;
+
+  /// Returns a possibly empty list of type parameters.
+  virtual const std::vector<TypeParameter>& parameters() const = 0;
+
+  /// Returns physical type name. Multiple logical types may share the same
+  /// physical type backing and therefore return the same physical type name.
+  /// The logical type name returned by 'name()' must be unique though.
   virtual const char* kindName() const = 0;
 
   virtual std::string toString() const = 0;
@@ -549,8 +593,6 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
 
 #undef VELOX_FLUENT_CAST
 
-using TypePtr = std::shared_ptr<const Type>;
-
 template <TypeKind KIND>
 class TypeBase : public Type {
  public:
@@ -568,6 +610,15 @@ class TypeBase : public Type {
 
   const char* kindName() const override {
     return TypeTraits<KIND>::name;
+  }
+
+  const char* name() const override {
+    return TypeTraits<KIND>::name;
+  }
+
+  const std::vector<TypeParameter>& parameters() const override {
+    static const std::vector<TypeParameter> kEmpty = {};
+    return kEmpty;
   }
 };
 
@@ -628,7 +679,7 @@ class DecimalType : public ScalarType<KIND> {
       KIND == TypeKind::SHORT_DECIMAL ? 18 : 38;
 
   DecimalType(const uint8_t precision = 18, const uint8_t scale = 0)
-      : precision_(precision), scale_(scale) {
+      : parameters_{TypeParameter(precision), TypeParameter(scale)} {
     VELOX_CHECK_LE(
         scale,
         precision,
@@ -646,32 +697,35 @@ class DecimalType : public ScalarType<KIND> {
     }
     const auto& otherDecimal = static_cast<const DecimalType<KIND>&>(other);
     return (
-        otherDecimal.precision() == this->precision_ &&
-        otherDecimal.scale() == this->scale_);
+        otherDecimal.precision() == precision() &&
+        otherDecimal.scale() == scale());
   }
 
   inline uint8_t precision() const {
-    return precision_;
+    return parameters_[0].longLiteral.value();
   }
 
   inline uint8_t scale() const {
-    return scale_;
+    return parameters_[1].longLiteral.value();
   }
 
   std::string toString() const override {
-    return fmt::format("DECIMAL({},{})", precision_, scale_);
+    return fmt::format("DECIMAL({},{})", precision(), scale());
   }
 
   folly::dynamic serialize() const override {
     auto obj = ScalarType<KIND>::serialize();
-    obj["precision"] = precision_;
-    obj["scale"] = scale_;
+    obj["precision"] = precision();
+    obj["scale"] = scale();
     return obj;
   }
 
+  const std::vector<TypeParameter>& parameters() const override {
+    return parameters_;
+  }
+
  private:
-  const uint8_t precision_;
-  const uint8_t scale_;
+  const std::vector<TypeParameter> parameters_;
 };
 
 using ShortDecimalType = DecimalType<TypeKind::SHORT_DECIMAL>;
@@ -741,8 +795,13 @@ class ArrayType : public TypeBase<TypeKind::ARRAY> {
 
   folly::dynamic serialize() const override;
 
+  const std::vector<TypeParameter>& parameters() const override {
+    return parameters_;
+  }
+
  protected:
   std::shared_ptr<const Type> child_;
+  const std::vector<TypeParameter> parameters_;
 };
 
 class MapType : public TypeBase<TypeKind::MAP> {
@@ -771,9 +830,14 @@ class MapType : public TypeBase<TypeKind::MAP> {
 
   folly::dynamic serialize() const override;
 
+  const std::vector<TypeParameter>& parameters() const override {
+    return parameters_;
+  }
+
  private:
   std::shared_ptr<const Type> keyType_;
   std::shared_ptr<const Type> valueType_;
+  const std::vector<TypeParameter> parameters_;
 };
 
 class RowType : public TypeBase<TypeKind::ROW> {
@@ -823,9 +887,14 @@ class RowType : public TypeBase<TypeKind::ROW> {
     return names_;
   }
 
+  const std::vector<TypeParameter>& parameters() const override {
+    return parameters_;
+  }
+
  private:
   const std::vector<std::string> names_;
   const std::vector<std::shared_ptr<const Type>> children_;
+  const std::vector<TypeParameter> parameters_;
 };
 
 using RowTypePtr = std::shared_ptr<const RowType>;
@@ -840,8 +909,7 @@ class FunctionType : public TypeBase<TypeKind::FUNCTION> {
  public:
   FunctionType(
       std::vector<std::shared_ptr<const Type>>&& argumentTypes,
-      std::shared_ptr<const Type> returnType)
-      : children_(allChildren(std::move(argumentTypes), returnType)) {}
+      std::shared_ptr<const Type> returnType);
 
   uint32_t size() const override {
     return children_.size();
@@ -862,6 +930,10 @@ class FunctionType : public TypeBase<TypeKind::FUNCTION> {
 
   folly::dynamic serialize() const override;
 
+  const std::vector<TypeParameter>& parameters() const override {
+    return parameters_;
+  }
+
  private:
   static std::vector<std::shared_ptr<const Type>> allChildren(
       std::vector<std::shared_ptr<const Type>>&& argumentTypes,
@@ -872,6 +944,7 @@ class FunctionType : public TypeBase<TypeKind::FUNCTION> {
   }
   // Argument types from left to right followed by return value type.
   const std::vector<std::shared_ptr<const Type>> children_;
+  const std::vector<TypeParameter> parameters_;
 };
 
 class OpaqueType : public TypeBase<TypeKind::OPAQUE> {
@@ -1419,6 +1492,15 @@ std::shared_ptr<const Type> createScalarType(TypeKind kind);
 std::shared_ptr<const Type> createType(
     TypeKind kind,
     std::vector<std::shared_ptr<const Type>>&& children);
+
+/// Returns true built-in or custom type with specified name exists.
+bool hasType(const std::string& name);
+
+/// Returns built-in or custom type with specified name and child types.
+/// Returns nullptr if type with specified name doesn't exist.
+TypePtr getType(
+    const std::string& name,
+    const std::vector<TypeParameter>& parameters);
 
 template <TypeKind KIND>
 std::shared_ptr<const Type> createType(

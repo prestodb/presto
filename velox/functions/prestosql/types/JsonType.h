@@ -72,14 +72,18 @@ class JsonType : public VarcharType {
     return this == &other;
   }
 
-  std::string toString() const override {
+  const char* name() const override {
     return "JSON";
+  }
+
+  std::string toString() const override {
+    return name();
   }
 
   folly::dynamic serialize() const override {
     folly::dynamic obj = folly::dynamic::object;
     obj["name"] = "Type";
-    obj["type"] = "JSON";
+    obj["type"] = name();
     return obj;
   }
 };

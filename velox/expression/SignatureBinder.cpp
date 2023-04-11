@@ -41,56 +41,41 @@ std::string buildCalculation(
   return fmt::format("{}={}", variable, calculation);
 }
 
-TypePtr inferDecimalType(
-    const exec::TypeSignature& typeSignature,
+std::optional<int64_t> tryResolveLongLiteral(
+    const TypeSignature& parameter,
     const std::unordered_map<std::string, SignatureVariable>& variables,
     std::unordered_map<std::string, int>& integerVariablesBindings) {
-  if (typeSignature.parameters().size() != 2) {
-    return nullptr;
-  }
+  auto variable = parameter.baseName();
 
-  const auto& precisionVar = typeSignature.parameters()[0].baseName();
-  const auto& scaleVar = typeSignature.parameters()[1].baseName();
-
-  auto inferPositiveInteger = [&](auto variable) -> std::optional<int> {
-    // Determine precision.
-    if (isPositiveInteger(variable)) {
-      // Handle constant.
-      return atoi(variable.c_str());
-    };
-
-    if (integerVariablesBindings.count(variable)) {
-      return integerVariablesBindings.at(variable);
-    }
-
-    auto it = variables.find(variable);
-    if (it == variables.end()) {
-      return std::nullopt;
-    }
-
-    auto& constraints = it->second.constraint();
-
-    if (constraints == "") {
-      return std::nullopt;
-    }
-
-    // Try to assign value based on constraints.
-    // Check constraints and evaluate.
-    auto calculation = buildCalculation(variable, constraints);
-    expression::calculation::evaluate(calculation, integerVariablesBindings);
-    VELOX_CHECK(
-        integerVariablesBindings.count(variable),
-        "Variable {} calculation failed.",
-        variable)
-    return integerVariablesBindings.at(variable);
+  if (isPositiveInteger(variable)) {
+    // Handle constant.
+    return atoi(variable.c_str());
   };
 
-  auto precision = inferPositiveInteger(precisionVar);
-  auto scale = inferPositiveInteger(scaleVar);
-  if (!precision.has_value() || !scale.has_value()) {
-    return nullptr;
+  if (integerVariablesBindings.count(variable)) {
+    return integerVariablesBindings.at(variable);
   }
-  return DECIMAL(*precision, *scale);
+
+  auto it = variables.find(variable);
+  if (it == variables.end()) {
+    return std::nullopt;
+  }
+
+  auto& constraints = it->second.constraint();
+
+  if (constraints == "") {
+    return std::nullopt;
+  }
+
+  // Try to assign value based on constraints.
+  // Check constraints and evaluate.
+  auto calculation = buildCalculation(variable, constraints);
+  expression::calculation::evaluate(calculation, integerVariablesBindings);
+  VELOX_CHECK(
+      integerVariablesBindings.count(variable),
+      "Variable {} calculation failed.",
+      variable)
+  return integerVariablesBindings.at(variable);
 }
 
 } // namespace
@@ -153,18 +138,6 @@ bool SignatureBinderBase::checkOrSetIntegerParameter(
   return true;
 }
 
-bool SignatureBinderBase::tryBindIntegerParameters(
-    const std::vector<exec::TypeSignature>& parameters,
-    const TypePtr& actualType) {
-  // Decimal types
-  VELOX_CHECK_EQ(parameters.size(), 2);
-  const auto& [precision, scale] = getDecimalPrecisionScale(*actualType);
-  return checkOrSetIntegerParameter(parameters[0].baseName(), precision) &&
-      checkOrSetIntegerParameter(parameters[1].baseName(), scale);
-
-  return false;
-}
-
 bool SignatureBinderBase::tryBind(
     const exec::TypeSignature& typeSignature,
     const TypePtr& actualType) {
@@ -198,16 +171,10 @@ bool SignatureBinderBase::tryBind(
 
   // Type is not a variable.
   auto typeName = boost::algorithm::to_upper_copy(baseName);
+  auto actualTypeName =
+      boost::algorithm::to_upper_copy(std::string(actualType->name()));
 
-  if (auto customType = getCustomType(baseName)) {
-    VELOX_CHECK_EQ(
-        typeSignature.parameters().size(),
-        0,
-        "Custom types with parameters are not supported yet");
-    return customType->equivalent(*actualType);
-  }
-
-  if (typeName != actualType->kindName()) {
+  if (typeName != actualTypeName) {
     // Should match except if it was "DECIMAL", then it can be LongDecimal or
     // ShortDecimal.
     if (!isCommonDecimalName(typeName)) {
@@ -222,19 +189,25 @@ bool SignatureBinderBase::tryBind(
   }
   const auto& params = typeSignature.parameters();
 
-  // When actual type is LongDecimal or ShortDecimal() we should read two args.
-  if (actualType->isLongDecimal() || actualType->isShortDecimal()) {
-    return tryBindIntegerParameters(params, actualType);
-  }
-
   // Type Parameters can recurse.
-  if (params.size() != actualType->size()) {
+  if (params.size() != actualType->parameters().size()) {
     return false;
   }
 
   for (auto i = 0; i < params.size(); i++) {
-    if (!tryBind(params[i], actualType->childAt(i))) {
-      return false;
+    const auto& actualParameter = actualType->parameters()[i];
+    switch (actualParameter.kind) {
+      case TypeParameterKind::kLongLiteral:
+        if (!checkOrSetIntegerParameter(
+                params[i].baseName(), actualParameter.longLiteral.value())) {
+          return false;
+        }
+        break;
+      case TypeParameterKind::kType:
+        if (!tryBind(params[i], actualParameter.type)) {
+          return false;
+        }
+        break;
     }
   }
   return true;
@@ -257,23 +230,32 @@ TypePtr SignatureBinder::tryResolveType(
 
   // Type is not a variable.
   auto typeName = boost::algorithm::to_upper_copy(baseName);
-  if (isDecimalName(typeName) || isCommonDecimalName(typeName)) {
-    return inferDecimalType(typeSignature, variables, integerVariablesBindings);
-  }
+
   const auto& params = typeSignature.parameters();
-  std::vector<TypePtr> children;
-  children.reserve(params.size());
+  std::vector<TypeParameter> typeParameters;
   for (auto& param : params) {
+    auto literal =
+        tryResolveLongLiteral(param, variables, integerVariablesBindings);
+    if (literal.has_value()) {
+      typeParameters.push_back(TypeParameter(literal.value()));
+      continue;
+    }
+
     auto type = tryResolveType(
         param, variables, typeVariablesBindings, integerVariablesBindings);
     if (!type) {
       return nullptr;
     }
-    children.emplace_back(type);
+    typeParameters.push_back(TypeParameter(type));
   }
 
-  if (auto type = getCustomType(typeName)) {
-    return type;
+  try {
+    if (auto type = getType(typeName, typeParameters)) {
+      return type;
+    }
+  } catch (const std::exception&) {
+    // TODO Perhaps, modify getType to add suppress-errors flag.
+    return nullptr;
   }
 
   auto typeKind = tryMapNameToTypeKind(typeName);
@@ -281,19 +263,12 @@ TypePtr SignatureBinder::tryResolveType(
     return nullptr;
   }
 
-  // createType(kind) function doesn't support ROW, UNKNOWN and OPAQUE type
-  // kinds.
+  // getType(parameters) function doesn't support OPAQUE type.
   switch (*typeKind) {
-    case TypeKind::ROW:
-      return ROW(std::move(children));
-    case TypeKind::UNKNOWN:
-      return UNKNOWN();
     case TypeKind::OPAQUE:
       return OpaqueType::create<void>();
     default:
-      return createType(*typeKind, std::move(children));
+      return nullptr;
   }
-
-  return nullptr;
 }
 } // namespace facebook::velox::exec

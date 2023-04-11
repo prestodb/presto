@@ -249,7 +249,8 @@ const TypePtr& ArrayType::childAt(uint32_t idx) const {
   return elementType();
 }
 
-ArrayType::ArrayType(TypePtr child) : child_{std::move(child)} {}
+ArrayType::ArrayType(TypePtr child)
+    : child_{std::move(child)}, parameters_{{TypeParameter(child_)}} {}
 
 bool ArrayType::equivalent(const Type& other) const {
   if (&other == this) {
@@ -286,7 +287,9 @@ const TypePtr& MapType::childAt(uint32_t idx) const {
 }
 
 MapType::MapType(TypePtr keyType, TypePtr valueType)
-    : keyType_{std::move(keyType)}, valueType_{std::move(valueType)} {}
+    : keyType_{std::move(keyType)},
+      valueType_{std::move(valueType)},
+      parameters_{{TypeParameter(keyType_), TypeParameter(valueType_)}} {}
 
 std::string MapType::toString() const {
   return "MAP<" + keyType()->toString() + "," + valueType()->toString() + ">";
@@ -305,8 +308,22 @@ folly::dynamic MapType::serialize() const {
   return obj;
 }
 
+namespace {
+std::vector<TypeParameter> createTypeParameters(
+    const std::vector<TypePtr>& children) {
+  std::vector<TypeParameter> parameters;
+  parameters.reserve(children.size());
+  for (const auto& child : children) {
+    parameters.push_back(TypeParameter(child));
+  }
+  return parameters;
+}
+} // namespace
+
 RowType::RowType(std::vector<std::string>&& names, std::vector<TypePtr>&& types)
-    : names_{std::move(names)}, children_{std::move(types)} {
+    : names_{std::move(names)},
+      children_{std::move(types)},
+      parameters_{createTypeParameters(children_)} {
   VELOX_USER_CHECK_EQ(
       names_.size(), children_.size(), "Mismatch names/types sizes");
 }
@@ -479,6 +496,12 @@ bool MapType::equivalent(const Type& other) const {
   return keyType_->equivalent(*otherMap.keyType_) &&
       valueType_->equivalent(*otherMap.valueType_);
 }
+
+FunctionType::FunctionType(
+    std::vector<std::shared_ptr<const Type>>&& argumentTypes,
+    std::shared_ptr<const Type> returnType)
+    : children_(allChildren(std::move(argumentTypes), returnType)),
+      parameters_{createTypeParameters(children_)} {}
 
 bool FunctionType::equivalent(const Type& other) const {
   if (&other == this) {
@@ -911,6 +934,151 @@ void toTypeSql(const TypePtr& type, std::ostream& out) {
       }
       VELOX_UNSUPPORTED("Type is not supported: {}", type->toString());
   }
+}
+
+namespace {
+using SingletonTypeMap = std::unordered_map<std::string, TypePtr>;
+
+const SingletonTypeMap& singletonBuiltInTypes() {
+  static const SingletonTypeMap kTypes = {
+      {"BOOLEAN", BOOLEAN()},
+      {"TINYINT", TINYINT()},
+      {"SMALLINT", SMALLINT()},
+      {"INTEGER", INTEGER()},
+      {"BIGINT", BIGINT()},
+      {"REAL", REAL()},
+      {"DOUBLE", DOUBLE()},
+      {"VARCHAR", VARCHAR()},
+      {"VARBINARY", VARBINARY()},
+      {"TIMESTAMP", TIMESTAMP()},
+      {"DATE", DATE()},
+      {"INTERVAL DAY TO SECOND", INTERVAL_DAY_TIME()},
+      {"UNKNOWN", UNKNOWN()},
+  };
+  return kTypes;
+};
+
+class DecimalParametricType {
+ public:
+  static TypePtr create(const std::vector<TypeParameter>& parameters) {
+    VELOX_USER_CHECK_EQ(2, parameters.size());
+    VELOX_USER_CHECK(parameters[0].kind == TypeParameterKind::kLongLiteral);
+    VELOX_USER_CHECK(parameters[0].longLiteral.has_value());
+    VELOX_USER_CHECK(parameters[1].kind == TypeParameterKind::kLongLiteral);
+    VELOX_USER_CHECK(parameters[1].longLiteral.has_value());
+
+    return DECIMAL(
+        parameters[0].longLiteral.value(), parameters[1].longLiteral.value());
+  }
+};
+
+class ArrayParametricType {
+ public:
+  static TypePtr create(const std::vector<TypeParameter>& parameters) {
+    VELOX_USER_CHECK_EQ(1, parameters.size());
+    VELOX_USER_CHECK(parameters[0].kind == TypeParameterKind::kType);
+    VELOX_USER_CHECK_NOT_NULL(parameters[0].type);
+
+    return ARRAY(parameters[0].type);
+  }
+};
+
+class MapParametricType {
+ public:
+  static TypePtr create(const std::vector<TypeParameter>& parameters) {
+    VELOX_USER_CHECK_EQ(2, parameters.size());
+    VELOX_USER_CHECK(parameters[0].kind == TypeParameterKind::kType);
+    VELOX_USER_CHECK_NOT_NULL(parameters[0].type);
+
+    VELOX_USER_CHECK(parameters[1].kind == TypeParameterKind::kType);
+    VELOX_USER_CHECK_NOT_NULL(parameters[1].type);
+
+    return MAP(parameters[0].type, parameters[1].type);
+  }
+};
+
+class RowParametricType {
+ public:
+  static TypePtr create(const std::vector<TypeParameter>& parameters) {
+    for (const auto& parameter : parameters) {
+      VELOX_USER_CHECK(parameter.kind == TypeParameterKind::kType);
+      VELOX_USER_CHECK_NOT_NULL(parameter.type);
+    }
+
+    std::vector<TypePtr> argumentTypes;
+    argumentTypes.reserve(parameters.size());
+    for (const auto& parameter : parameters) {
+      argumentTypes.push_back(parameter.type);
+    }
+
+    return ROW(std::move(argumentTypes));
+  }
+};
+
+class FunctionParametricType {
+ public:
+  static TypePtr create(const std::vector<TypeParameter>& parameters) {
+    VELOX_USER_CHECK_GE(parameters.size(), 1);
+    for (const auto& parameter : parameters) {
+      VELOX_USER_CHECK(parameter.kind == TypeParameterKind::kType);
+      VELOX_USER_CHECK_NOT_NULL(parameter.type);
+    }
+
+    std::vector<TypePtr> argumentTypes;
+    argumentTypes.reserve(parameters.size() - 1);
+    for (auto i = 0; i < parameters.size() - 1; ++i) {
+      argumentTypes.push_back(parameters[i].type);
+    }
+
+    return FUNCTION(std::move(argumentTypes), parameters.back().type);
+  }
+};
+
+using ParametricTypeMap = std::unordered_map<
+    std::string,
+    std::function<TypePtr(const std::vector<TypeParameter>& parameters)>>;
+
+const ParametricTypeMap& parametricBuiltinTypes() {
+  static const ParametricTypeMap kTypes = {
+      {"DECIMAL", DecimalParametricType::create},
+      {"ARRAY", ArrayParametricType::create},
+      {"MAP", MapParametricType::create},
+      {"ROW", RowParametricType::create},
+      {"FUNCTION", FunctionParametricType::create},
+  };
+  return kTypes;
+}
+
+} // namespace
+
+bool hasType(const std::string& name) {
+  if (singletonBuiltInTypes().count(name)) {
+    return true;
+  }
+
+  if (parametricBuiltinTypes().count(name)) {
+    return true;
+  }
+
+  if (customTypeExists(name)) {
+    return true;
+  }
+
+  return false;
+}
+
+TypePtr getType(
+    const std::string& name,
+    const std::vector<TypeParameter>& parameters) {
+  if (singletonBuiltInTypes().count(name)) {
+    return singletonBuiltInTypes().at(name);
+  }
+
+  if (parametricBuiltinTypes().count(name)) {
+    return parametricBuiltinTypes().at(name)(parameters);
+  }
+
+  return getCustomType(name);
 }
 
 } // namespace facebook::velox

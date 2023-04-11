@@ -36,14 +36,18 @@ class HyperLogLogType : public VarbinaryType {
     return this == &other;
   }
 
-  std::string toString() const override {
+  const char* name() const override {
     return "HYPERLOGLOG";
+  }
+
+  std::string toString() const override {
+    return name();
   }
 
   folly::dynamic serialize() const override {
     folly::dynamic obj = folly::dynamic::object;
     obj["name"] = "Type";
-    obj["type"] = "HYPERLOGLOG";
+    obj["type"] = name();
     return obj;
   }
 };

@@ -55,14 +55,14 @@ TEST(SignatureBinderTest, decimals) {
             .integerVariable("r_scale", "max(a_scale, b_scale)")
             .returnType("decimal(r_precision, r_scale)")
             .argumentType("decimal(a_precision, a_scale)")
-            .argumentType("DECIMAL(b_precision, b_scale)")
+            .argumentType("decimal(b_precision, b_scale)")
             .build();
     ASSERT_EQ(
         signature->argumentTypes()[0].toString(),
         "decimal(a_precision,a_scale)");
     ASSERT_EQ(
         signature->argumentTypes()[1].toString(),
-        "DECIMAL(b_precision,b_scale)");
+        "decimal(b_precision,b_scale)");
     testSignatureBinder(
         signature, {DECIMAL(11, 5), DECIMAL(10, 6)}, DECIMAL(13, 6));
   }

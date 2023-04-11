@@ -40,14 +40,23 @@ class TimestampWithTimeZoneType : public RowType {
     return this == &other;
   }
 
-  std::string toString() const override {
+  const char* name() const override {
     return "TIMESTAMP WITH TIME ZONE";
+  }
+
+  const std::vector<TypeParameter>& parameters() const override {
+    static const std::vector<TypeParameter> kEmpty = {};
+    return kEmpty;
+  }
+
+  std::string toString() const override {
+    return name();
   }
 
   folly::dynamic serialize() const override {
     folly::dynamic obj = folly::dynamic::object;
     obj["name"] = "Type";
-    obj["type"] = "TIMESTAMP WITH TIME ZONE";
+    obj["type"] = name();
     return obj;
   }
 };

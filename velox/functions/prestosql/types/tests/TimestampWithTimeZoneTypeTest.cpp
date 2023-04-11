@@ -26,6 +26,17 @@ class TimestampWithTimeZoneTypeTest : public testing::Test,
   }
 };
 
+TEST_F(TimestampWithTimeZoneTypeTest, basic) {
+  ASSERT_EQ(TIMESTAMP_WITH_TIME_ZONE()->name(), "TIMESTAMP WITH TIME ZONE");
+  ASSERT_EQ(TIMESTAMP_WITH_TIME_ZONE()->kindName(), "ROW");
+  ASSERT_TRUE(TIMESTAMP_WITH_TIME_ZONE()->parameters().empty());
+  ASSERT_EQ(TIMESTAMP_WITH_TIME_ZONE()->toString(), "TIMESTAMP WITH TIME ZONE");
+
+  ASSERT_TRUE(hasType("TIMESTAMP WITH TIME ZONE"));
+  ASSERT_EQ(
+      *getType("TIMESTAMP WITH TIME ZONE", {}), *TIMESTAMP_WITH_TIME_ZONE());
+}
+
 TEST_F(TimestampWithTimeZoneTypeTest, serde) {
   testTypeSerde(TIMESTAMP_WITH_TIME_ZONE());
 }

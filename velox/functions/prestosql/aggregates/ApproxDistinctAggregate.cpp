@@ -394,14 +394,15 @@ bool registerApproxDistinct(
     const std::string& name,
     bool hllAsFinalResult,
     bool hllAsRawInput) {
+  auto returnType = hllAsFinalResult ? "hyperloglog" : "bigint";
+
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   if (hllAsRawInput) {
-    signatures.push_back(
-        exec::AggregateFunctionSignatureBuilder()
-            .returnType(hllAsFinalResult ? "hyperloglog" : "bigint")
-            .intermediateType("varbinary")
-            .argumentType("varbinary")
-            .build());
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType(returnType)
+                             .intermediateType("varbinary")
+                             .argumentType("hyperloglog")
+                             .build());
   } else {
     for (const auto& inputType :
          {"boolean",
@@ -414,20 +415,18 @@ bool registerApproxDistinct(
           "varchar",
           "timestamp",
           "date"}) {
-      signatures.push_back(
-          exec::AggregateFunctionSignatureBuilder()
-              .returnType(hllAsFinalResult ? "hyperloglog" : "bigint")
-              .intermediateType("varbinary")
-              .argumentType(inputType)
-              .build());
+      signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                               .returnType(returnType)
+                               .intermediateType("varbinary")
+                               .argumentType(inputType)
+                               .build());
 
-      signatures.push_back(
-          exec::AggregateFunctionSignatureBuilder()
-              .returnType(hllAsFinalResult ? "hyperloglog" : "bigint")
-              .intermediateType("varbinary")
-              .argumentType(inputType)
-              .argumentType("double")
-              .build());
+      signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                               .returnType(returnType)
+                               .intermediateType("varbinary")
+                               .argumentType(inputType)
+                               .argumentType("double")
+                               .build());
     }
   }
 

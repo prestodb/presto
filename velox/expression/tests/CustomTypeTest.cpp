@@ -45,6 +45,10 @@ class FancyIntType : public OpaqueType {
   }
 
   std::string toString() const override {
+    return name();
+  }
+
+  const char* name() const override {
     return "fancy_int";
   }
 };
