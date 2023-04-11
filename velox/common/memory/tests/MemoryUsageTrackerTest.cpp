@@ -340,15 +340,18 @@ TEST_F(MemoryUsageTrackerTest, reserveAndUpdate) {
 }
 
 TEST_F(MemoryUsageTrackerTest, memoryLeakCheck) {
-  gflags::FlagSaver flagSaver;
   constexpr int64_t kMaxSize = 1 << 30; // 1GB
-  auto parent = MemoryUsageTracker::create(kMaxSize);
-  auto child = parent->addChild(true);
-  child->update(1000);
-  FLAGS_velox_memory_leak_check_enabled = true;
-  ASSERT_DEATH(child.reset(), "");
-  FLAGS_velox_memory_leak_check_enabled = false;
-  child.reset();
+  std::vector<bool> checkLeakFlags = {true, false};
+  for (const auto checkLeak : checkLeakFlags) {
+    SCOPED_TRACE(fmt::format("checkLeak {}", checkLeak));
+    auto parent = MemoryUsageTracker::create(kMaxSize, checkLeak);
+    auto child = parent->addChild(true);
+    child->update(1000);
+    if (checkLeak) {
+      ASSERT_DEATH(child.reset(), "");
+      child->update(-1000);
+    }
+  }
 }
 
 namespace {

@@ -19,8 +19,6 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/memory/Memory.h"
 
-DECLARE_bool(velox_memory_leak_check_enabled);
-
 namespace facebook::velox::memory {
 namespace {
 #define VELOX_MEM_MANAGER_CAP_EXCEEDED(cap)                         \
@@ -37,8 +35,9 @@ std::shared_ptr<MemoryUsageTracker> createMemoryUsageTracker(
     MemoryPool::Kind kind,
     const MemoryPool::Options& options) {
   if (parent == nullptr) {
-    return options.trackUsage ? MemoryUsageTracker::create(options.capacity)
-                              : nullptr;
+    return options.trackUsage
+        ? MemoryUsageTracker::create(options.capacity, options.checkUsageLeak)
+        : nullptr;
   }
   if (parent->getMemoryUsageTracker() == nullptr) {
     return nullptr;
@@ -56,7 +55,8 @@ MemoryPool::MemoryPool(
     : name_(name),
       kind_(kind),
       alignment_{options.alignment},
-      parent_(std::move(parent)) {
+      parent_(std::move(parent)),
+      checkUsageLeak_(options.checkUsageLeak) {
   MemoryAllocator::alignmentCheck(0, alignment_);
   VELOX_CHECK(parent_ != nullptr || kind_ == Kind::kAggregate);
 }
@@ -192,8 +192,7 @@ MemoryPoolImpl::MemoryPoolImpl(
       localMemoryUsage_{} {}
 
 MemoryPoolImpl::~MemoryPoolImpl() {
-  if (FLAGS_velox_memory_leak_check_enabled &&
-      (memoryUsageTracker_ != nullptr)) {
+  if (checkUsageLeak_ && (memoryUsageTracker_ != nullptr)) {
     const auto remainingBytes = memoryUsageTracker_->currentBytes();
     VELOX_CHECK_EQ(
         0,

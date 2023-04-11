@@ -34,6 +34,8 @@
 #include "velox/common/memory/MemoryUsage.h"
 #include "velox/common/memory/MemoryUsageTracker.h"
 
+DECLARE_bool(velox_memory_leak_check_enabled);
+
 namespace facebook::velox::memory {
 
 class MemoryManager;
@@ -112,6 +114,11 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// but sensitive to its cpu cost so we provide an options for user to turn
     /// it off.
     bool trackUsage{true};
+    /// If true, check the memory usage leak on destruction.
+    ///
+    /// TODO: deprecate this flag after all the existing memory leak use cases
+    /// have been fixed.
+    bool checkUsageLeak{FLAGS_velox_memory_leak_check_enabled};
   };
 
   /// Constructs a named memory pool with specified 'name', 'parent' and 'kind'.
@@ -276,6 +283,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   const Kind kind_;
   const uint16_t alignment_;
   const std::shared_ptr<MemoryPool> parent_;
+  const bool checkUsageLeak_;
 
   /// Protects 'children_'.
   mutable folly::SharedMutex childrenMutex_;

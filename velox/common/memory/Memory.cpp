@@ -16,8 +16,6 @@
 
 #include "velox/common/memory/Memory.h"
 
-DECLARE_bool(velox_memory_leak_check_enabled);
-
 namespace facebook::velox::memory {
 namespace {
 #define VELOX_MEM_MANAGER_CAP_EXCEEDED(cap)                         \
@@ -37,6 +35,7 @@ MemoryManager::MemoryManager(const Options& options)
     : allocator_{options.allocator->shared_from_this()},
       memoryQuota_{options.capacity},
       alignment_(std::max(MemoryAllocator::kMinAlignment, options.alignment)),
+      checkUsageLeak_(options.checkUsageLeak),
       poolDestructionCb_([&](MemoryPool* pool) { dropPool(pool); }),
       defaultRoot_{std::make_shared<MemoryPoolImpl>(
           this,
@@ -59,7 +58,7 @@ MemoryManager::MemoryManager(const Options& options)
 }
 
 MemoryManager::~MemoryManager() {
-  if (FLAGS_velox_memory_leak_check_enabled) {
+  if (checkUsageLeak_) {
     VELOX_CHECK_EQ(
         numPools(),
         0,

@@ -28,13 +28,15 @@ namespace facebook::velox::memory {
 std::shared_ptr<MemoryUsageTracker> MemoryUsageTracker::create(
     const std::shared_ptr<MemoryUsageTracker>& parent,
     bool leafTracker,
-    int64_t maxMemory) {
-  auto* tracker = new MemoryUsageTracker(parent, leafTracker, maxMemory);
+    int64_t maxMemory,
+    bool checkUsageLeak) {
+  auto* tracker =
+      new MemoryUsageTracker(parent, leafTracker, maxMemory, checkUsageLeak);
   return std::shared_ptr<MemoryUsageTracker>(tracker);
 }
 
 MemoryUsageTracker::~MemoryUsageTracker() {
-  if (FLAGS_velox_memory_leak_check_enabled) {
+  if (checkUsageLeak_) {
     VELOX_CHECK(
         (usedReservationBytes_ == 0) && (reservationBytes_ == 0) &&
             (minReservationBytes_ == 0),

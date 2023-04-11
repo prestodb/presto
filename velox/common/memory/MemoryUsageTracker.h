@@ -105,8 +105,10 @@ class MemoryUsageTracker
 
   /// Create default usage tracker which is a 'root' tracker.
   static std::shared_ptr<MemoryUsageTracker> create(
-      int64_t maxMemory = kMaxMemory) {
-    return create(/*parent=*/nullptr, /*leafTracker=*/false, maxMemory);
+      int64_t maxMemory = kMaxMemory,
+      bool checkUsageLeak = false) {
+    return create(
+        /*parent=*/nullptr, /*leafTracker=*/false, maxMemory, checkUsageLeak);
   }
 
   ~MemoryUsageTracker();
@@ -200,7 +202,7 @@ class MemoryUsageTracker
         "Can only create child usage tracker from a non-leaf memory usage tracker: {}",
         toString());
     ++numChildren_;
-    return create(shared_from_this(), leafTracker);
+    return create(shared_from_this(), leafTracker, kMaxMemory, checkUsageLeak_);
   }
 
   void setGrowCallback(GrowCallback func) {
@@ -235,13 +237,18 @@ class MemoryUsageTracker
   static std::shared_ptr<MemoryUsageTracker> create(
       const std::shared_ptr<MemoryUsageTracker>& parent,
       bool leafTracker,
-      int64_t maxMemory = kMaxMemory);
+      int64_t maxMemory = kMaxMemory,
+      bool checkUsageLeak = false);
 
   MemoryUsageTracker(
       const std::shared_ptr<MemoryUsageTracker>& parent,
       bool leafTracker,
-      int64_t maxMemory)
-      : parent_(parent), leafTracker_(leafTracker), maxMemory_{maxMemory} {
+      int64_t maxMemory,
+      bool checkUsageLeak)
+      : parent_(parent),
+        leafTracker_(leafTracker),
+        checkUsageLeak_(checkUsageLeak),
+        maxMemory_{maxMemory} {
     // NOTE: only the root memory tracker enforces the memory limit check.
     VELOX_CHECK(parent_ == nullptr || maxMemory_ == kMaxMemory);
     VELOX_CHECK(parent_ != nullptr || !leafTracker_);
@@ -315,6 +322,7 @@ class MemoryUsageTracker
 
   const std::shared_ptr<MemoryUsageTracker> parent_;
   const bool leafTracker_;
+  const bool checkUsageLeak_;
 
   // Serializes updates on 'reservationBytes_', 'usedReservationBytes_'
   // and 'minReservationBytes_' to make reservation decision on a consistent
