@@ -30,5 +30,17 @@ class LocalPlanner {
       ConsumerSupplier consumerSupplier,
       std::vector<std::unique_ptr<DriverFactory>>* driverFactories,
       uint32_t maxDrivers);
+
+  // Determine which pipelines should run Grouped Execution.
+  static void determineGroupedExecutionPipelines(
+      const core::PlanFragment& planFragment,
+      std::vector<std::unique_ptr<DriverFactory>>& driverFactories);
+
+  // Detect joins running in grouped execution mode having sources running in
+  // ungrouped execution mode. In such case the join bridge would be between
+  // grouped execution and ungrouped execution and needs special care to be
+  // detected by both pipelines.
+  static void markMixedJoinBridges(
+      std::vector<std::unique_ptr<DriverFactory>>& driverFactories);
 };
 } // namespace facebook::velox::exec

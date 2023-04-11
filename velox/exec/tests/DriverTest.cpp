@@ -1097,9 +1097,3 @@ DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionCalledFromOffThread) {
   ASSERT_ANY_THROW(driver->task()->enterSuspended(driver->state()));
   ASSERT_ANY_THROW(driver->task()->leaveSuspended(driver->state()));
 }
-
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-  folly::init(&argc, &argv, false);
-  return RUN_ALL_TESTS();
-}

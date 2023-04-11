@@ -573,6 +573,12 @@ void Task::start(
     self->createSplitGroupStateLocked(kUngroupedGroupId);
     self->createDriversLocked(self, kUngroupedGroupId, drivers);
 
+    // Prevent the connecting structures from being cleaned up before all split
+    // groups are finished during the grouped exeution mode.
+    if (self->isGroupedExecution()) {
+      self->splitGroupStates_[kUngroupedGroupId].mixedExecutionMode = true;
+    }
+
     // We might have first slots taken for grouped execution drivers, so need to
     // append the ungrouped execution drivers afterwards in that case.
     if (self->drivers_.empty()) {
@@ -1409,6 +1415,14 @@ std::shared_ptr<TBridgeType> Task::getJoinBridgeInternalLocked(
   const auto& splitGroupState = splitGroupStates_[splitGroupId];
 
   auto it = splitGroupState.bridges.find(planNodeId);
+  if (it == splitGroupState.bridges.end()) {
+    // We might be looking for a bridge between grouped and ungrouped execution.
+    // It will belong to the 'ungrouped' state.
+    if (isGroupedExecution() && splitGroupId != kUngroupedGroupId) {
+      return getJoinBridgeInternalLocked<TBridgeType>(
+          kUngroupedGroupId, planNodeId);
+    }
+  }
   VELOX_CHECK(
       it != splitGroupState.bridges.end(),
       "Join bridge for plan node ID {} not found for group {}, task {}",

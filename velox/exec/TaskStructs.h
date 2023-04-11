@@ -111,11 +111,18 @@ struct SplitGroupState {
   /// e.g. Limit.
   uint32_t numFinishedOutputDrivers{0};
 
+  // True if the state contains structures used for connecting ungrouped
+  // execution pipeline with grouped excution pipeline. In that case we don't
+  // want to clean up some of these structures.
+  bool mixedExecutionMode{false};
+
   /// Clears the state.
   void clear() {
-    bridges.clear();
-    spillOperatorGroups.clear();
-    barriers.clear();
+    if (!mixedExecutionMode) {
+      bridges.clear();
+      spillOperatorGroups.clear();
+      barriers.clear();
+    }
     localMergeSources.clear();
     mergeJoinSources.clear();
     localExchanges.clear();

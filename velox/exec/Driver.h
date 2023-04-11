@@ -377,6 +377,12 @@ struct DriverFactory {
   /// True if 'planNodes' contains a sync node for the task, e.g.
   /// PartitionedOutput.
   bool outputDriver{false};
+  /// Contains node ids for which Hash Join Bridges connect ungrouped execution
+  /// and grouped execution and must be created in ungrouped execution pipeline
+  /// and skipped in grouped execution pipeline.
+  folly::F14FastSet<core::PlanNodeId> mixedExecutionModeHashJoinNodeIds;
+  /// Same as 'mixedExecutionModeHashJoinNodeIds' but for Cross Joins.
+  folly::F14FastSet<core::PlanNodeId> mixedExecutionModeCrossJoinNodeIds;
 
   std::shared_ptr<Driver> createDriver(
       std::unique_ptr<DriverCtx> ctx,
@@ -391,6 +397,11 @@ struct DriverFactory {
   const core::PlanNodeId& leafNodeId() const {
     VELOX_CHECK(!planNodes.empty());
     return planNodes.front()->id();
+  }
+
+  const core::PlanNodeId& outputNodeId() const {
+    VELOX_CHECK(!planNodes.empty());
+    return planNodes.back()->id();
   }
 
   std::shared_ptr<const core::PartitionedOutputNode> needsPartitionedOutput()
@@ -427,30 +438,13 @@ struct DriverFactory {
     return std::nullopt;
   }
 
-  /// Returns plan node IDs of all HashJoinNode's in the pipeline.
-  std::vector<core::PlanNodeId> needsHashJoinBridges() const {
-    std::vector<core::PlanNodeId> planNodeIds;
-    for (const auto& planNode : planNodes) {
-      if (auto joinNode =
-              std::dynamic_pointer_cast<const core::HashJoinNode>(planNode)) {
-        planNodeIds.emplace_back(joinNode->id());
-      }
-    }
-    return planNodeIds;
-  }
+  /// Returns plan node IDs for which Hash Join Bridges must be created based on
+  /// this pipeline.
+  std::vector<core::PlanNodeId> needsHashJoinBridges() const;
 
-  /// Returns plan node IDs of all CrossJoinNode's in the pipeline.
-  std::vector<core::PlanNodeId> needsCrossJoinBridges() const {
-    std::vector<core::PlanNodeId> joinNodeIds;
-    for (const auto& planNode : planNodes) {
-      if (auto joinNode =
-              std::dynamic_pointer_cast<const core::CrossJoinNode>(planNode)) {
-        joinNodeIds.emplace_back(joinNode->id());
-      }
-    }
-
-    return joinNodeIds;
-  }
+  /// Returns plan node IDs for which Cross Join Bridges must be created based
+  /// on this pipeline.
+  std::vector<core::PlanNodeId> needsCrossJoinBridges() const;
 };
 
 // Begins and ends a section where a thread is running but not
