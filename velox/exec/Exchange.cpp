@@ -344,14 +344,13 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
     std::vector<ContinueFuture> futures;
     futures.push_back(std::move(splitFuture_));
     futures.push_back(std::move(dataFuture));
-
     *future = folly::collectAny(futures).unit();
-  } else {
-    // Block until data becomes available.
-    *future = std::move(dataFuture);
+    return BlockingReason::kWaitForSplit;
   }
-  return stats_.rlock()->numSplits == 0 ? BlockingReason::kWaitForSplit
-                                        : BlockingReason::kWaitForExchange;
+
+  // Block until data becomes available.
+  *future = std::move(dataFuture);
+  return BlockingReason::kWaitForProducer;
 }
 
 bool Exchange::isFinished() {

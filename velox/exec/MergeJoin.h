@@ -391,7 +391,7 @@ class MergeJoin : public Operator {
   vector_size_t outputSize_;
 
   /// A future that will be completed when right side input becomes available.
-  ContinueFuture future_{ContinueFuture::makeEmpty()};
+  ContinueFuture futureRightSideInput_{ContinueFuture::makeEmpty()};
 
   /// True if all the right side data has been received.
   bool noMoreRightInput_{false};

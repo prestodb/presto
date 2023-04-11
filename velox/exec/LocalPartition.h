@@ -74,7 +74,7 @@ class LocalExchangeQueue {
 
   /// Used by a consumer to fetch some data. Returns kNotBlocked and sets data
   /// to nullptr if all data has been fetched and all producers are done
-  /// producing data. Returns kWaitForExchange if there is no data, but some
+  /// producing data. Returns kWaitForProducer if there is no data, but some
   /// producers are not done producing data. Sets future that will be completed
   /// once there is data to fetch or if all producers report completion.
   ///

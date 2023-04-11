@@ -93,7 +93,7 @@ BlockingReason Merge::isBlocked(ContinueFuture* future) {
   if (!sourceBlockingFutures_.empty()) {
     *future = std::move(sourceBlockingFutures_.back());
     sourceBlockingFutures_.pop_back();
-    return BlockingReason::kWaitForExchange;
+    return BlockingReason::kWaitForProducer;
   }
 
   return BlockingReason::kNotBlocked;

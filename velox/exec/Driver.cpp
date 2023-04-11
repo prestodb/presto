@@ -701,12 +701,14 @@ std::string blockingReasonToString(BlockingReason reason) {
       return "kWaitForConsumer";
     case BlockingReason::kWaitForSplit:
       return "kWaitForSplit";
-    case BlockingReason::kWaitForExchange:
-      return "kWaitForExchange";
+    case BlockingReason::kWaitForProducer:
+      return "kWaitForProducer";
     case BlockingReason::kWaitForJoinBuild:
       return "kWaitForJoinBuild";
     case BlockingReason::kWaitForJoinProbe:
       return "kWaitForJoinProbe";
+    case BlockingReason::kWaitForMergeJoinRightSide:
+      return "kWaitForMergeJoinRightSide";
     case BlockingReason::kWaitForMemory:
       return "kWaitForMemory";
     case BlockingReason::kWaitForConnector:

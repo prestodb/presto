@@ -143,7 +143,7 @@ BlockingReason LocalExchangeQueue::next(
       consumerPromises_.emplace_back("LocalExchangeQueue::next");
       *future = consumerPromises_.back().getSemiFuture();
 
-      return BlockingReason::kWaitForExchange;
+      return BlockingReason::kWaitForProducer;
     }
 
     *data = queue.front();

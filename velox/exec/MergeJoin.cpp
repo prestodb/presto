@@ -116,9 +116,9 @@ void MergeJoin::initializeFilter(
 }
 
 BlockingReason MergeJoin::isBlocked(ContinueFuture* future) {
-  if (future_.valid()) {
-    *future = std::move(future_);
-    return BlockingReason::kWaitForExchange;
+  if (futureRightSideInput_.valid()) {
+    *future = std::move(futureRightSideInput_);
+    return BlockingReason::kWaitForMergeJoinRightSide;
   }
 
   return BlockingReason::kNotBlocked;
@@ -402,14 +402,15 @@ RowVectorPtr MergeJoin::getOutput() {
     }
 
     // Check if we need to get more data from the right side.
-    if (!noMoreRightInput_ && !future_.valid() && !rightInput_) {
+    if (!noMoreRightInput_ && !futureRightSideInput_.valid() && !rightInput_) {
       if (!rightSource_) {
         rightSource_ = operatorCtx_->task()->getMergeJoinSource(
             operatorCtx_->driverCtx()->splitGroupId, planNodeId());
       }
 
       while (!noMoreRightInput_ && !rightInput_) {
-        auto blockingReason = rightSource_->next(&future_, &rightInput_);
+        auto blockingReason =
+            rightSource_->next(&futureRightSideInput_, &rightInput_);
         if (blockingReason != BlockingReason::kNotBlocked) {
           return nullptr;
         }

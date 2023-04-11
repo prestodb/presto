@@ -54,7 +54,7 @@ class LocalMergeSource : public MergeSource {
         }
         consumerPromises_.emplace_back("LocalMergeSourceQueue::next");
         *future = consumerPromises_.back().getSemiFuture();
-        return BlockingReason::kWaitForExchange;
+        return BlockingReason::kWaitForProducer;
       }
 
       data = data_.front();
@@ -141,7 +141,7 @@ class MergeExchangeSource : public MergeSource {
       }
 
       if (!currentPage_) {
-        return BlockingReason::kWaitForExchange;
+        return BlockingReason::kWaitForProducer;
       }
     }
     if (!inputStream_) {
@@ -234,7 +234,7 @@ BlockingReason MergeJoinSource::next(
 
     consumerPromise_ = ContinuePromise("MergeJoinSource::next");
     *future = consumerPromise_->getSemiFuture();
-    return BlockingReason::kWaitForExchange;
+    return BlockingReason::kWaitForProducer;
   });
 }
 
