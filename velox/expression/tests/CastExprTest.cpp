@@ -1173,3 +1173,22 @@ TEST_F(CastExprTest, dictionaryEncodedNestedInput) {
   auto expectedArray = makeArrayVector({0, 3}, expectedRow);
   assertEqualVectors(expectedArray, result);
 }
+
+TEST_F(CastExprTest, smallerNonNullRowsSizeThanRows) {
+  // Evaluating Cast in Coalesce as the second argument triggers the copy of
+  // Cast localResult to the result vector. The localResult vector is of the
+  // size nonNullRows which can be smaller than rows. This test ensures that
+  // Cast doesn't attempt to access values out-of-bound and hit errors.
+  exec::registerVectorFunction(
+      "add_dict_with_2_trailing_nulls",
+      TestingDictionaryFunction::signatures(),
+      std::make_unique<TestingDictionaryFunction>(2));
+
+  auto data = makeRowVector(
+      {makeFlatVector<int64_t>({1, 2, 3, 4}),
+       makeNullableFlatVector<double>({std::nullopt, 6, 7, std::nullopt})});
+  auto result = evaluate(
+      "coalesce(c1, cast(add_dict_with_2_trailing_nulls(c0) as double))", data);
+  auto expected = makeNullableFlatVector<double>({4, 6, 7, std::nullopt});
+  assertEqualVectors(expected, result);
+}

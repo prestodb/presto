@@ -631,13 +631,6 @@ void CastExpr::apply(
     nonNullRows->deselectNulls(rawNulls, rows.begin(), rows.end());
   }
 
-  LocalSelectivityVector nullRows(*context.execCtx(), rows.end());
-  nullRows->clearAll();
-  if (rawNulls) {
-    *nullRows = rows;
-    nullRows->deselectNonNulls(rawNulls, rows.begin(), rows.end());
-  }
-
   VectorPtr localResult;
   if (!nonNullRows->hasSelections()) {
     localResult =
@@ -665,12 +658,12 @@ void CastExpr::apply(
     localResult = context.getPeeledEncoding()->wrap(
         toType, context.pool(), localResult, *nonNullRows);
   }
-  context.moveOrCopyResult(localResult, rows, result);
+  context.moveOrCopyResult(localResult, *nonNullRows, result);
   context.releaseVector(localResult);
 
-  // If we have a mix of null and non-null in input, add nulls to the result.
+  // If there are nulls in input, add nulls to the result at the same rows.
   VELOX_CHECK_NOT_NULL(result);
-  if (nullRows->hasSelections() && nonNullRows->hasSelections()) {
+  if (rawNulls) {
     Expr::addNulls(
         rows, nonNullRows->asRange().bits(), context, toType, result);
   }
