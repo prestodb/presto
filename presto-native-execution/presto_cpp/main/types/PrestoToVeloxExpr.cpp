@@ -117,9 +117,6 @@ velox::variant VeloxExprConverter::getConstantValue(
           0);
     case TypeKind::DATE:
       return valueVector->as<velox::SimpleVector<velox::Date>>()->valueAt(0);
-    case TypeKind::INTERVAL_DAY_TIME:
-      return valueVector->as<velox::SimpleVector<velox::IntervalDayTime>>()
-          ->valueAt(0);
     case TypeKind::BOOLEAN:
       return valueVector->as<velox::SimpleVector<bool>>()->valueAt(0);
     case TypeKind::DOUBLE:
