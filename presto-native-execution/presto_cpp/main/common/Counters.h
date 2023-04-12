@@ -36,6 +36,18 @@ constexpr folly::StringPiece kCounterNumHTTPRequestError{
 constexpr folly::StringPiece kCounterHTTPRequestLatencyMs{
     "presto_cpp.http_request_latency_ms"};
 
+// Number of http client onBody calls in PrestoExchangeSource.
+constexpr folly::StringPiece kCounterHttpClientPrestoExchangeNumOnBody{
+    "presto_cpp.http.client.presto_exchange_source.num_on_body"};
+// Received IOBuf chain byte size in http client onBody call from
+// PrestoExchangeSource.
+constexpr folly::StringPiece kCounterHttpClientPrestoExchangeOnBodyBytes{
+    "presto_cpp.http.client.presto_exchange_source.on_body_bytes"};
+
+// SerializedPage size in bytes from PrestoExchangeSource.
+constexpr folly::StringPiece kCounterPrestoExchangeSerializedPageSize{
+    "presto_cpp.presto_exchange_source.serialized_page_size"};
+
 constexpr folly::StringPiece kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};
 
