@@ -235,7 +235,6 @@ class HttpsConfig {
   const folly::SocketAddress httpsAddress_;
   const std::string certPath_;
   const std::string keyPath_;
-
   std::string supportedCiphers_;
 };
 
