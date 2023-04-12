@@ -109,7 +109,8 @@ class HttpClient {
   HttpClient(
       folly::EventBase* FOLLY_NONNULL eventBase,
       const folly::SocketAddress& address,
-      std::chrono::milliseconds timeout);
+      std::chrono::milliseconds timeout,
+      std::function<void(int)>&& reportOnBodyStatsFunc = nullptr);
 
   ~HttpClient();
 
@@ -123,6 +124,7 @@ class HttpClient {
   folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
   const folly::HHWheelTimer::UniquePtr timer_;
+  const std::function<void(int)> reportOnBodyStatsFunc_;
 
   std::unique_ptr<proxygen::SessionPool> sessionPool_;
 };

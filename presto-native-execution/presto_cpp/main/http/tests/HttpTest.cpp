@@ -131,9 +131,10 @@ class HttpClientFactory {
 
   std::unique_ptr<http::HttpClient> newClient(
       const folly::SocketAddress& address,
-      const std::chrono::milliseconds& timeout) {
+      const std::chrono::milliseconds& timeout,
+      std::function<void(int)>&& reportOnBodyStatsFunc = nullptr) {
     return std::make_unique<http::HttpClient>(
-        eventBase_.get(), address, timeout);
+        eventBase_.get(), address, timeout, std::move(reportOnBodyStatsFunc));
   }
 
  private:
@@ -451,6 +452,43 @@ TEST(HttpTest, DISABLED_outstandingRequests) {
 
   // Verify that Future's thenValue/thenError invoked.
   ASSERT_EQ(request->requestStatus, kStatusInvalid);
+}
+
+TEST(StatsReportTest, testReportOnBodyStatsFunc) {
+  std::atomic<int> reportedCount = 0;
+  auto memoryPool = getProcessDefaultMemoryManager().getPool(
+      "asyncRequests", MemoryPool::Kind::kLeaf);
+
+  auto server =
+      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+
+  auto request = std::make_shared<AsyncMsgRequestState>();
+  server->registerGet("/async/msg", asyncMsg(request));
+
+  HttpServerWrapper wrapper(std::move(server));
+  auto serverAddress = wrapper.start().get();
+
+  HttpClientFactory clientFactory;
+  auto client = clientFactory.newClient(
+      serverAddress, std::chrono::milliseconds(1'000), [&](size_t bufferBytes) {
+        reportedCount.fetch_add(bufferBytes);
+      });
+
+  auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
+  request->requestPromise = std::move(reqPromise);
+
+  auto responseFuture = sendGet(client.get(), "/async/msg", memoryPool.get());
+
+  // Wait until the request reaches to the server.
+  std::string responseData = "Success";
+  std::move(reqFuture).wait();
+  if (auto msgPromise = request->msgPromise.lock()) {
+    msgPromise->promise.setValue(responseData);
+  }
+  auto response = std::move(responseFuture).get();
+
+  ASSERT_EQ(reportedCount, responseData.size());
+  wrapper.stop();
 }
 
 // Initialize singleton for the reporter

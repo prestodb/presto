@@ -20,14 +20,16 @@ namespace facebook::presto::http {
 HttpClient::HttpClient(
     folly::EventBase* eventBase,
     const folly::SocketAddress& address,
-    std::chrono::milliseconds timeout)
+    std::chrono::milliseconds timeout,
+    std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
       address_(address),
       timer_(folly::HHWheelTimer::newTimer(
           eventBase_,
           std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
           folly::AsyncTimeout::InternalEnum::NORMAL,
-          timeout)) {
+          timeout)),
+      reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)) {
   sessionPool_ = std::make_unique<proxygen::SessionPool>(nullptr, 10);
 }
 
@@ -123,8 +125,12 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   ResponseHandler(
       const proxygen::HTTPMessage& request,
       velox::memory::MemoryPool* pool,
-      const std::string& body)
-      : request_(request), body_(body), pool_(pool) {
+      const std::string& body,
+      std::function<void(int)> reportOnBodyStatsFunc)
+      : request_(request),
+        body_(body),
+        reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
+        pool_(pool) {
     VELOX_CHECK_NOT_NULL(pool_);
   }
 
@@ -149,6 +155,9 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     if ((chain != nullptr) && !response_->hasError()) {
+      if (reportOnBodyStatsFunc_ != nullptr) {
+        reportOnBodyStatsFunc_(chain->length());
+      }
       response_->append(std::move(chain));
     }
   }
@@ -190,6 +199,7 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
  private:
   const proxygen::HTTPMessage request_;
   const std::string body_;
+  const std::function<void(int)> reportOnBodyStatsFunc_;
   velox::memory::MemoryPool* const pool_;
   std::unique_ptr<HttpResponse> response_;
   folly::Promise<std::unique_ptr<HttpResponse>> promise_;
@@ -255,7 +265,8 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
     const proxygen::HTTPMessage& request,
     velox::memory::MemoryPool* pool,
     const std::string& body) {
-  auto responseHandler = std::make_shared<ResponseHandler>(request, pool, body);
+  auto responseHandler = std::make_shared<ResponseHandler>(
+      request, pool, body, reportOnBodyStatsFunc_);
   auto future = responseHandler->initialize(responseHandler);
 
   eventBase_->runInEventBaseThreadAlwaysEnqueue([this, responseHandler]() {
