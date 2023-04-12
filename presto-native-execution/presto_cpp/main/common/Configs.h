@@ -172,12 +172,28 @@ class SystemConfig : public ConfigBase {
 
   int httpServerHttpsPort() const;
 
+  // This config controls what cipher suites are supported by Native workers for
+  // server and client. Note Java and folly::SSLContext use different names to
+  // refer to the same cipher. (guess for different name, Java specific
+  // authentication, key exchange and cipher together and folly just cipher).
+  // For e.g. TLS_RSA_WITH_AES_256_GCM_SHA384 in Java and AES256-GCM-SHA384 in
+  // folly::SSLContext. The ciphers need to enable worker to worker, worker to
+  // coordinator and coordinator to worker communication. Have at least one
+  // cipher suite that is shared for the above 3, otherwise weird failures will
+  // result.
   std::string httpsSupportedCiphers() const;
 
+  // Note: Java packages cert and key in combined JKS file. But CPP requires
+  // them separately. The HTTPS provides integrity and not
+  // security(authentication/authorization). But the HTTPS will protect against
+  // data corruption by bad router and man in middle attacks.
   std::optional<std::string> httpsCertPath() const;
 
   std::optional<std::string> httpsKeyPath() const;
 
+  // Http client expects the cert and key file to be packed into a single file
+  // (most commonly .pem format) The file should not be password protected. If
+  // required, break this down to 3 configs one for cert,key and password later.
   std::optional<std::string> httpsClientCertAndKeyPath() const;
 
   std::string prestoVersion() const;
