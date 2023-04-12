@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/row/UnsafeRow24Deserializer.h"
+#include "velox/row/experimental/UnsafeRow24Deserializer.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::row {

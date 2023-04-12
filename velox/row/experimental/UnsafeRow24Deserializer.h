@@ -24,7 +24,10 @@
 
 namespace facebook::velox::row {
 
-// Caller is responsible for controlling batching.
+/// Caller is responsible for controlling batching.
+///
+/// NOTE: This is an experimental deserializer yet to be completed. It is NOT
+/// used in current codebase.
 class UnsafeRow24Deserializer {
  public:
   virtual ~UnsafeRow24Deserializer() = default;

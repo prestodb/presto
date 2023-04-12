@@ -18,9 +18,8 @@
 #include <folly/init/Init.h>
 #include <random>
 
-#include "velox/row/UnsafeRowBatchDeserializer.h"
-#include "velox/row/UnsafeRowDeserializer.h"
-#include "velox/row/UnsafeRowDynamicSerializer.h"
+#include "velox/row/UnsafeRowDeserializers.h"
+#include "velox/row/UnsafeRowSerializers.h"
 #include "velox/type/Type.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
@@ -37,21 +36,6 @@ class Deserializer {
   virtual void deserialize(
       const std::vector<std::optional<std::string_view>>& data,
       const TypePtr& type) = 0;
-};
-
-class UnsaferowDeserializer : public Deserializer {
- public:
-  UnsaferowDeserializer() {}
-
-  void deserialize(
-      const std::vector<std::optional<std::string_view>>& data,
-      const TypePtr& type) override {
-    UnsafeRowDynamicVectorDeserializer::deserializeComplex(
-        data, type, pool_.get());
-  }
-
- private:
-  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
 };
 
 class UnsaferowBatchDeserializer : public Deserializer {
@@ -154,13 +138,6 @@ int deserialize(
 
 BENCHMARK_NAMED_PARAM_MULTI(
     deserialize,
-    row_10_100k_string_only,
-    10,
-    100000,
-    true,
-    std::make_unique<UnsaferowDeserializer>());
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(
-    deserialize,
     batch_10_100k_string_only,
     10,
     100000,
@@ -168,13 +145,6 @@ BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(
     std::make_unique<UnsaferowBatchDeserializer>());
 
 BENCHMARK_NAMED_PARAM_MULTI(
-    deserialize,
-    row_100_100k_string_only,
-    100,
-    100000,
-    true,
-    std::make_unique<UnsaferowDeserializer>());
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(
     deserialize,
     batch_100_100k_string_only,
     100,
@@ -184,13 +154,6 @@ BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(
 
 BENCHMARK_NAMED_PARAM_MULTI(
     deserialize,
-    row_10_100k_all_types,
-    10,
-    100000,
-    true,
-    std::make_unique<UnsaferowDeserializer>());
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(
-    deserialize,
     batch_10_100k_all_types,
     10,
     100000,
@@ -198,13 +161,6 @@ BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(
     std::make_unique<UnsaferowBatchDeserializer>());
 
 BENCHMARK_NAMED_PARAM_MULTI(
-    deserialize,
-    row_100_100k_all_types,
-    100,
-    100000,
-    false,
-    std::make_unique<UnsaferowDeserializer>());
-BENCHMARK_RELATIVE_NAMED_PARAM_MULTI(
     deserialize,
     batch_100_100k_all_types,
     100,

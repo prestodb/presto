@@ -12,25 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_row_test UnsafeRowSerdeTest.cpp UnsafeRowFuzzTest.cpp)
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
 
-add_test(velox_row_test velox_row_test)
+add_library(velox_row24 UnsafeRow24Deserializer.cpp)
 
-target_link_libraries(
-  velox_row_test
-  velox_exec
-  velox_exec_test_lib
-  velox_functions_lib
-  velox_functions_prestosql
-  velox_aggregates
-  velox_presto_serializer
-  velox_type
-  velox_vector
-  velox_vector_fuzzer
-  velox_vector_test_lib
-  ${FOLLY}
-  ${DOUBLE_CONVERSION}
-  gtest
-  gtest_main
-  gflags::gflags
-  glog::glog)
+target_link_libraries(velox_row24 velox_memory velox_type velox_vector)

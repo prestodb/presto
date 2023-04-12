@@ -16,6 +16,4 @@ if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
 
-add_library(velox_row UnsafeRow24Deserializer.cpp)
-
-target_link_libraries(velox_row velox_memory velox_type velox_vector)
+add_subdirectory(experimental)

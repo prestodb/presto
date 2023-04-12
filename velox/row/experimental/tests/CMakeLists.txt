@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_row_test UnsafeRowSerdeTest.cpp UnsafeRowFuzzTest.cpp)
+add_executable(velox_row24_test UnsafeRow24DeserializerTest.cpp)
 
-add_test(velox_row_test velox_row_test)
+add_test(velox_row24_test velox_row24_test)
 
 target_link_libraries(
-  velox_row_test
+  velox_row24_test
+  velox_row24
   velox_exec
   velox_exec_test_lib
   velox_functions_lib
