@@ -14,7 +14,7 @@
 set -eExv -o functrace
 
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-PRESTO_HOME="${PRESTO_HOME:-"/opt/presto"}"
+PRESTO_HOME="${PRESTO_HOME:-"/opt/presto-server"}"
 USE_ENV_PARAMS=${USE_ENV_PARAMS:-0}
 
 source "${SCRIPT_DIR}/common.sh"

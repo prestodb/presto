@@ -22,7 +22,7 @@ pipeline {
         )
         booleanParam(name: 'BUILD_NATIVE_BASE_IMAGES',
                      defaultValue: false,
-                     description: 'whether to build native builder and runtime base images'
+                     description: 'whether to build and publish native builder and runtime base images'
         )
     }
 
@@ -62,7 +62,6 @@ pipeline {
 
                         echo "build prestodb source code with build version ${PRESTO_BUILD_VERSION}"
                         sh '''
-                            export MAVEN_OPTS="-Xmx1024m -XX:MaxPermSize=128m"
                             unset MAVEN_CONFIG && ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-docs'
                             tree /root/.m2/repository/com/facebook/presto/
                         '''
@@ -96,6 +95,12 @@ pipeline {
                     steps {
                         echo 'build docker image'
                         sh 'apk update && apk add aws-cli bash git make'
+                        sh 'git config --global --add safe.directory ${WORKSPACE}'
+                        sh '''#!/bin/bash -ex
+                            cd presto-native-execution/
+                            git config --global --add safe.directory ${WORKSPACE}/presto-native-execution/velox
+                            make velox-submodule
+                        '''
                     }
                 }
 
@@ -107,11 +112,6 @@ pipeline {
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''#!/bin/bash -ex
-                                for dir in /home/jenkins/agent/workspace/*/; do
-                                    echo "${dir}"
-                                    git config --global --add safe.directory "${dir:0:-1}"
-                                done
-
                                 cd docker/
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_PKG}     . --no-progress
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_CLI_JAR} . --no-progress
@@ -141,8 +141,6 @@ pipeline {
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''#!/bin/bash -ex
                                 cd presto-native-execution/
-                                git config --global --add safe.directory ${WORKSPACE}/presto-native-execution/velox
-                                make velox-submodule
                                 docker buildx build -f Dockerfile.0.buildtime --load --platform "linux/amd64" \
                                     -t "${NATIVE_BUILDER_IMAGE}-amd64" \
                                     -t "${NATIVE_BUILDER_IMAGE_LATEST}-amd64" \
@@ -212,9 +210,7 @@ pipeline {
                         anyOf {
                             expression { params.PUBLISH_ARTIFACTS_ON_CURRENT_BRANCH }
                             branch "master"
-                            branch "ahana"
                         }
-                        beforeAgent true
                     }
 
                     steps {

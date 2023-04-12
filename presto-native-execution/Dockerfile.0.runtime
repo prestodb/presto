@@ -25,11 +25,11 @@ SHELL ["/bin/bash", "-c"]
 WORKDIR /opt/presto/
 
 ENV PROMPT_ALWAYS_RESPOND=n
-ENV PRESTO_HOME="/opt/presto/"
+ENV PRESTO_HOME="/opt/presto-server"
 ENV TZ="Europe/Warsaw"
 
-ADD --chown=186:root --chmod=0775 scripts/release-centos-dockerfile/etc/ /opt/presto/etc/
-ADD --chown=186:root --chmod=0775 scripts/release-centos-dockerfile/opt/ /opt/
+COPY --chown=186:root --chmod=0775 etc/ ${PRESTO_HOME}/etc/
+COPY --chown=186:root --chmod=0775 entrypoint.sh /opt/entrypoint.sh
 
 RUN set -exu && \
     dnf update -y && \
@@ -40,4 +40,9 @@ RUN set -exu && \
     chown -R 186:root /opt && \
     chmod -R ug+rwx /etc/passwd /opt && \
     rm -rf /root/.cache /tmp && \
-    dnf clean all
+    dnf clean all && \
+    mkdir -p $PRESTO_HOME/etc/catalog && \
+    mkdir -p /var/lib/presto/data
+
+ENTRYPOINT ["/opt/entrypoint.sh"]
+EXPOSE 8080/tcp
