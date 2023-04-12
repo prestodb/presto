@@ -1673,6 +1673,16 @@ struct CustomType {
   CustomType() {}
 };
 
+template <typename T>
+struct UnwrapCustomType {
+  using type = T;
+};
+
+template <typename T>
+struct UnwrapCustomType<CustomType<T>> {
+  using type = typename T::type;
+};
+
 struct IntervalDayTime {
  private:
   IntervalDayTime() {}
@@ -1682,6 +1692,7 @@ struct Varbinary {
  private:
   Varbinary() {}
 };
+
 struct Varchar {
  private:
   Varchar() {}
@@ -2092,6 +2103,15 @@ struct MaterializeType<std::shared_ptr<T>> {
   using nullable_t = T;
   using null_free_t = T;
   static constexpr bool requiresMaterialization = false;
+};
+
+template <typename T>
+struct MaterializeType<CustomType<T>> {
+  using inner_materialize_t = MaterializeType<typename T::type>;
+  using nullable_t = typename inner_materialize_t::nullable_t;
+  using null_free_t = typename inner_materialize_t::null_free_t;
+  static constexpr bool requiresMaterialization =
+      inner_materialize_t::requiresMaterialization;
 };
 
 template <>

@@ -491,10 +491,13 @@ template <typename VeloxType, typename T>
 auto materializeElement(const T& element) {
   if constexpr (MaterializeType<VeloxType>::requiresMaterialization) {
     return element.materialize();
-  } else if constexpr (util::is_shared_ptr<VeloxType>::value) {
-    return *element;
   } else {
-    return element;
+    using unwrapped_type = typename UnwrapCustomType<VeloxType>::type;
+    if constexpr (util::is_shared_ptr<unwrapped_type>::value) {
+      return *element;
+    } else {
+      return element;
+    }
   }
 }
 
