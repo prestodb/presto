@@ -85,7 +85,7 @@ HttpsConfig::HttpsConfig(
       certPath_(certPath),
       keyPath_(keyPath),
       supportedCiphers_(supportedCiphers) {
-  // Wangle separates ciphers by ":" where as in config it is ","
+  // Wangle separates ciphers by ":" where in the config it's separated with ","
   std::replace(supportedCiphers_.begin(), supportedCiphers_.end(), ',', ':');
 }
 
