@@ -78,9 +78,9 @@ void sendErrorResponse(
 
 HttpsConfig::HttpsConfig(
     const folly::SocketAddress& httpsAddress,
-    std::string certPath,
-    std::string keyPath,
-    std::string supportedCiphers)
+    const std::string& certPath,
+    const std::string& keyPath,
+    const std::string& supportedCiphers)
     : httpsAddress_(httpsAddress),
       certPath_(certPath),
       keyPath_(keyPath),
@@ -89,7 +89,7 @@ HttpsConfig::HttpsConfig(
   std::replace(supportedCiphers_.begin(), supportedCiphers_.end(), ',', ':');
 }
 
-proxygen::HTTPServer::IPConfig HttpsConfig::getHttpsConfig() const {
+proxygen::HTTPServer::IPConfig HttpsConfig::httpsIpConfig() const {
   proxygen::HTTPServer::IPConfig ipConfig{
       httpsAddress_, proxygen::HTTPServer::Protocol::HTTP};
 
@@ -228,13 +228,13 @@ void HttpServer::start(
 
   server_ = std::make_unique<proxygen::HTTPServer>(std::move(options));
 
-  std::vector<proxygen::HTTPServer::IPConfig> ips{ipConfig};
+  std::vector<proxygen::HTTPServer::IPConfig> ipConfigs{ipConfig};
 
   if (httpsConfig_ != nullptr) {
-    ips.push_back(httpsConfig_->getHttpsConfig());
+    ipConfigs.push_back(httpsConfig_->httpsIpConfig());
   }
 
-  server_->bind(ips);
+  server_->bind(ipConfigs);
 
   LOG(INFO) << "STARTUP: proxygen::HTTPServer::start()";
   server_->start(

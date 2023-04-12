@@ -225,11 +225,11 @@ class HttpsConfig {
  public:
   HttpsConfig(
       const folly::SocketAddress& httpsAddress,
-      std::string certPath,
-      std::string keyPath,
-      std::string supportedCiphers);
+      const std::string& certPath,
+      const std::string& keyPath,
+      const std::string& supportedCiphers);
 
-  proxygen::HTTPServer::IPConfig getHttpsConfig() const;
+  proxygen::HTTPServer::IPConfig httpsIpConfig() const;
 
  private:
   const folly::SocketAddress httpsAddress_;
