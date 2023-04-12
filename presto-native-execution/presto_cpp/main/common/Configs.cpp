@@ -125,7 +125,7 @@ int32_t SystemConfig::numIoThreads() const {
 
 int32_t SystemConfig::numQueryThreads() const {
   auto opt = optionalProperty<int32_t>(std::string(kNumQueryThreads));
-  return opt.value_or(std::thread::hardware_concurrency() * 4);
+  return opt.value_or(std::thread::hardware_concurrency() * 8);
 }
 
 int32_t SystemConfig::numSpillThreads() const {
