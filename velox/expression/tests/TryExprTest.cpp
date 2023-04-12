@@ -334,35 +334,67 @@ TEST_F(TryExprTest, nonDefaultNulls) {
   assertEqualVectors(expected, commonResult);
 }
 
-TEST_F(TryExprTest, coalesce) {
+TEST_F(TryExprTest, branchingSpecialForm) {
   registerFunction<TestingAlwaysThrowsFunction, bool, bool>({"always_throws"});
   auto data = makeRowVector(
       {makeNullableFlatVector<bool>({true, true, std::nullopt}),
        makeFlatVector<double>({1.1, 2.2, 3.3}),
        makeFlatVector<double>({1.1, 2.1, 3.1}),
        makeNullableFlatVector<bool>({false, false, std::nullopt}),
-       makeNullableFlatVector<bool>(
-           {std::nullopt, std::nullopt, std::nullopt})});
+       makeNullableFlatVector<bool>({std::nullopt, std::nullopt, std::nullopt}),
+       makeFlatVector<bool>({true, true, true}),
+       makeNullableFlatVector<bool>({std::nullopt, std::nullopt, true}),
+       makeConstant<double>(1.1, 3)});
 
-  // Test Conjunct with pre-existing errors in Coalesce. Pre-existing error
-  // should be preserved.
+  // Test Conjunct with pre-existing errors in Coalesce and Switch. Pre-existing
+  // error should be preserved.
   auto result = evaluate(
       "try(coalesce(always_throws(c0), is_nan(c1) or is_nan(c2)))", data);
   auto expected =
       makeNullableFlatVector<bool>({std::nullopt, std::nullopt, false});
   assertEqualVectors(expected, result);
 
-  // Test Coalesce over two Conjuncts on the same rows where the first Conjunct
-  // throws. The errors from the first Conjunct should be preserved.
+  result = evaluate(
+      "try(switch(always_throws(c0), c3, is_nan(c1) or is_finite(c2)))", data);
+  auto switchExpected =
+      makeNullableFlatVector<bool>({std::nullopt, std::nullopt, true});
+  assertEqualVectors(switchExpected, result);
+
+  // Test Coalesce and Switch over two Conjuncts on the same rows where the
+  // first Conjunct throws. The errors from the first Conjunct should be
+  // preserved.
   result = evaluate(
       "try(coalesce(always_throws(c0) or always_throws(c3), is_nan(c1) or is_nan(c2)))",
       data);
   assertEqualVectors(expected, result);
 
-  // Test Coalesce in Conjunct on rows that has pre-existing errors. Coalesce
-  // should be evaluated on these rows and these rows should not throw.
+  result = evaluate(
+      "try(switch(always_throws(c0) or always_throws(c3), is_nan(c2) or is_finite(c1), is_nan(c1) or is_finite(c2)))",
+      data);
+  assertEqualVectors(switchExpected, result);
+
+  // Test Coalesce and Switch in Conjunct on rows that has pre-existing errors.
+  // Coalesce and Switch should be evaluated on these rows and these rows should
+  // not throw.
   result = evaluate("always_throws(c0) or coalesce(c4, is_finite(c1))", data);
   expected = makeFlatVector<bool>({true, true, true});
+  assertEqualVectors(expected, result);
+
+  result = evaluate("always_throws(c0) or switch(c4, c3, is_finite(c1))", data);
+  assertEqualVectors(expected, result);
+
+  // Test Switch where the condition has errors on all rows.
+  result = evaluate(
+      "try(switch(always_throws(c5), is_finite(c1), is_finite(c2)))", data);
+  expected =
+      makeNullableFlatVector<bool>({std::nullopt, std::nullopt, std::nullopt});
+  assertEqualVectors(expected, result);
+
+  // Test Switch where then and else clauses only evaluate on the first two
+  // rows.
+  result = evaluate(
+      "try(switch(always_throws(c6), is_finite(c1), is_finite(c7)))", data);
+  expected = makeNullableFlatVector<bool>({true, true, std::nullopt});
   assertEqualVectors(expected, result);
 }
 } // namespace facebook::velox

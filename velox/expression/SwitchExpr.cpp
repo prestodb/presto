@@ -88,6 +88,10 @@ void SwitchExpr::evalSpecialForm(
     // evaluate the case condition
     inputs_[2 * i]->eval(*remainingRows.get(), context, condition);
 
+    if (context.errors()) {
+      context.deselectErrors(*remainingRows);
+    }
+
     const auto booleanMix = getFlatBool(
         condition.get(),
         *remainingRows.get(),
@@ -101,7 +105,8 @@ void SwitchExpr::evalSpecialForm(
     switch (booleanMix) {
       case BooleanMix::kAllTrue:
         inputs_[2 * i + 1]->eval(*remainingRows.get(), context, result);
-        return;
+        remainingRows->clearAll();
+        continue;
       case BooleanMix::kAllNull:
       case BooleanMix::kAllFalse:
         continue;
@@ -132,6 +137,18 @@ void SwitchExpr::evalSpecialForm(
       // fill in nulls for remainingRows
       remainingRows.get()->applyToSelected(
           [&](auto row) { result->setNull(row, true); });
+    }
+  }
+  // Some rows may have not been evaluated by any then or else clause because a
+  // condition threw an error on these rows. We make sure the result vector has
+  // at least the size of rows.end().
+  if (context.errors() && (!result || result->size() < rows.end())) {
+    if (result && result->isConstantEncoding() && result.unique()) {
+      result->resize(rows.end());
+    } else {
+      LocalSelectivityVector nonErrorRows(context, rows);
+      context.deselectErrors(*nonErrorRows);
+      addNulls(rows, nonErrorRows->asRange().bits(), context, result);
     }
   }
 }
