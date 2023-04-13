@@ -15,7 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
-import com.facebook.presto.hive.HiveExternalWorkerQueryRunner;
+import com.facebook.presto.hive.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
 import com.facebook.presto.spark.execution.NativeExecutionModule;
 import com.facebook.presto.spark.execution.TestNativeExecutionModule;
@@ -88,7 +88,8 @@ public class AbstractTestPrestoSparkQueries
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return HiveExternalWorkerQueryRunner.createJavaQueryRunner(Optional.ofNullable(baseDataPath), "legacy");
+        String dataDirectory = System.getProperty("DATA_DIR");
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.ofNullable(dataDirectory).map(Paths::get), "legacy");
     }
 
     protected void assertShuffleMetadata()

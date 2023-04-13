@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.nativeworker;
 
-import com.facebook.presto.hive.HiveExternalWorkerQueryRunner;
+import com.facebook.presto.hive.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -45,7 +45,7 @@ public class AbstractTestHiveQueries
         assertNotNull(prestoServerPath, "Native worker binary path is missing. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.");
         assertNotNull(dataDirectory, "Data directory path is missing. Add -DDATA_DIR=<path/to/data> to your JVM arguments.");
 
-        return HiveExternalWorkerQueryRunner.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift);
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift);
     }
 
     @Override
@@ -53,6 +53,6 @@ public class AbstractTestHiveQueries
             throws Exception
     {
         String dataDirectory = System.getProperty("DATA_DIR");
-        return HiveExternalWorkerQueryRunner.createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)));
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)));
     }
 }
