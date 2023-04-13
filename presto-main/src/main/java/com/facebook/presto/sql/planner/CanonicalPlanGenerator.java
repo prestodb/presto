@@ -666,7 +666,7 @@ public class CanonicalPlanGenerator
                 node.getMaxRowCountPerPartition(),
                 node.isPartial(),
                 Optional.empty());
-        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+        context.addLimitingNodePlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
     }
 
@@ -696,7 +696,7 @@ public class CanonicalPlanGenerator
                 distinctVariables,
                 Optional.empty(),
                 0);
-        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+        context.addLimitingNodePlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
     }
 
