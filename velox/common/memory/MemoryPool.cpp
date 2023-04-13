@@ -56,6 +56,7 @@ MemoryPool::MemoryPool(
       kind_(kind),
       alignment_{options.alignment},
       parent_(std::move(parent)),
+      reclaimer_(options.reclaimer),
       checkUsageLeak_(options.checkUsageLeak) {
   MemoryAllocator::alignmentCheck(0, alignment_);
   VELOX_CHECK(parent_ != nullptr || kind_ == Kind::kAggregate);
@@ -100,37 +101,20 @@ uint64_t MemoryPool::getChildCount() const {
   return children_.size();
 }
 
-void MemoryPool::visitChildren(std::function<void(MemoryPool*)> visitor) const {
-  std::vector<std::shared_ptr<MemoryPool>> children;
-  {
-    folly::SharedMutex::ReadHolder guard{childrenMutex_};
-    children.reserve(children_.size());
-    for (const auto& entry : children_) {
-      auto child = entry.second.lock();
-      if (child != nullptr) {
-        children.push_back(std::move(child));
-      }
+void MemoryPool::visitChildren(
+    const std::function<bool(MemoryPool*)>& visitor) const {
+  folly::SharedMutex::ReadHolder guard{childrenMutex_};
+  for (const auto& entry : children_) {
+    if (!visitor(entry.second)) {
+      return;
     }
-  }
-
-  // NOTE: we should call 'visitor' on child pool object out of
-  // 'childrenMutex_' to avoid potential recursive locking issues. Firstly, the
-  // user provided 'visitor' might try to acquire this memory pool lock again.
-  // Secondly, the shared child pool reference created from the weak pointer
-  // might be the last reference if some other threads drop all the external
-  // references during this time window. Then drop of this last shared reference
-  // after 'visitor' call will trigger child memory pool destruction in that
-  // case. The child memory pool destructor will remove its weak pointer
-  // reference from the parent pool which needs to acquire this memory pool lock
-  // again.
-  for (const auto& child : children) {
-    visitor(child.get());
   }
 }
 
 std::shared_ptr<MemoryPool> MemoryPool::addChild(
     const std::string& name,
-    Kind kind) {
+    Kind kind,
+    std::shared_ptr<MemoryReclaimer> reclaimer) {
   checkPoolManagement();
 
   folly::SharedMutex::WriteHolder guard{childrenMutex_};
@@ -140,8 +124,8 @@ std::shared_ptr<MemoryPool> MemoryPool::addChild(
       "Child memory pool {} already exists in {}",
       name,
       toString());
-  auto child = genChild(shared_from_this(), name, kind);
-  children_.emplace(name, child);
+  auto child = genChild(shared_from_this(), name, kind, std::move(reclaimer));
+  children_.emplace(name, child.get());
   return child;
 }
 
@@ -174,6 +158,43 @@ size_t MemoryPool::getPreferredSize(size_t size) {
     return lower + (lower / 2);
   }
   return lower * 2;
+}
+
+MemoryReclaimer* MemoryPool::reclaimer() const {
+  return reclaimer_.get();
+}
+
+bool MemoryPool::canReclaim() const {
+  if (reclaimer_ == nullptr) {
+    return false;
+  }
+  return reclaimer_->canReclaim(*this);
+}
+
+uint64_t MemoryPool::reclaimableBytes() const {
+  if (reclaimer_ == nullptr) {
+    return 0;
+  }
+  return reclaimer_->reclaimableBytes(*this);
+}
+
+uint64_t MemoryPool::reclaim(uint64_t targetBytes) {
+  if (reclaimer_ == nullptr) {
+    return 0;
+  }
+  return reclaimer_->reclaim(this, targetBytes);
+}
+
+void MemoryPool::enterArbitration() {
+  if (reclaimer_ != nullptr) {
+    reclaimer_->enterArbitration();
+  }
+}
+
+void MemoryPool::leaveArbitration() {
+  if (reclaimer_ != nullptr) {
+    reclaimer_->leaveArbitration();
+  }
 }
 
 MemoryPoolImpl::MemoryPoolImpl(
@@ -395,14 +416,15 @@ uint16_t MemoryPoolImpl::getAlignment() const {
 std::shared_ptr<MemoryPool> MemoryPoolImpl::genChild(
     std::shared_ptr<MemoryPool> parent,
     const std::string& name,
-    Kind kind) {
+    Kind kind,
+    std::shared_ptr<MemoryReclaimer> reclaimer) {
   return std::make_shared<MemoryPoolImpl>(
       memoryManager_,
       name,
       kind,
       parent,
       nullptr,
-      Options{.alignment = alignment_});
+      Options{.alignment = alignment_, .reclaimer = std::move(reclaimer)});
 }
 
 const MemoryUsage& MemoryPoolImpl::getLocalMemoryUsage() const {

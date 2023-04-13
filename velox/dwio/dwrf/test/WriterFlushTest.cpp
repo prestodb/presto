@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/memory/Memory.h"
+#include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 
@@ -123,7 +124,8 @@ class MockMemoryPool : public velox::memory::MemoryPool {
   std::shared_ptr<MemoryPool> genChild(
       std::shared_ptr<MemoryPool> parent,
       const std::string& name,
-      MemoryPool::Kind kind) override {
+      MemoryPool::Kind kind,
+      std::shared_ptr<memory::MemoryReclaimer> /*unused*/) override {
     return std::make_shared<MockMemoryPool>(
         name, kind, parent, memoryUsageTracker_->maxMemory());
   }
@@ -138,6 +140,18 @@ class MockMemoryPool : public velox::memory::MemoryPool {
   MOCK_METHOD1(updateSubtreeMemoryUsage, int64_t(int64_t));
 
   MOCK_CONST_METHOD0(getAlignment, uint16_t());
+
+  uint64_t freeBytes() const override {
+    VELOX_NYI("{} unsupported", __FUNCTION__);
+  }
+
+  uint64_t shrink(uint64_t /*unused*/) override {
+    VELOX_NYI("{} unsupported", __FUNCTION__);
+  }
+
+  uint64_t grow(uint64_t /*unused*/) override {
+    VELOX_NYI("{} unsupported", __FUNCTION__);
+  }
 
   std::string toString() const override {
     return fmt::format(

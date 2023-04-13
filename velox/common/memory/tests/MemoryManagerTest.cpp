@@ -194,8 +194,10 @@ TEST(MemoryManagerTest, globalMemoryManager) {
     auto& rootII = managerII.testingDefaultRoot();
     ASSERT_EQ(2, rootII.getChildCount());
     std::vector<MemoryPool*> pools{};
-    rootII.visitChildren(
-        [&pools](MemoryPool* child) { pools.emplace_back(child); });
+    rootII.visitChildren([&pools](MemoryPool* child) {
+      pools.emplace_back(child);
+      return true;
+    });
     ASSERT_EQ(pools.size(), 2);
     int matchedCount = 0;
     for (const auto* pool : pools) {

@@ -23,6 +23,7 @@ add_library(
   HashStringAllocator.cpp
   Memory.cpp
   MemoryAllocator.cpp
+  MemoryArbitrator.cpp
   MemoryPool.cpp
   MemoryUsage.cpp
   MmapAllocator.cpp

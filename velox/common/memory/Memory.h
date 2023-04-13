@@ -103,6 +103,7 @@ class IMemoryManager {
       const std::string& name = "",
       MemoryPool::Kind kind = MemoryPool::Kind::kAggregate,
       int64_t maxBytes = kMaxMemory,
+      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr,
       bool trackUsage = true) = 0;
 
   /// Returns the number of alive memory pools allocated from getPool().
@@ -171,6 +172,7 @@ class MemoryManager final : public IMemoryManager {
       const std::string& name = "",
       MemoryPool::Kind kind = MemoryPool::Kind::kAggregate,
       int64_t maxBytes = kMaxMemory,
+      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr,
       bool trackUsage = true) final;
 
   MemoryPool& deprecatedGetPool() final;

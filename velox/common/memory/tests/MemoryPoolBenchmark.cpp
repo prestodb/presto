@@ -45,8 +45,10 @@ class BenchmarkHelper {
       return;
     }
 
-    subtree.visitChildren(
-        [this, &leaves](MemoryPool* child) { findLeavesOf(*child, leaves); });
+    subtree.visitChildren([this, &leaves](MemoryPool* child) {
+      findLeavesOf(*child, leaves);
+      return true;
+    });
   }
 
   // Always in parallel, single pool performance can be tested with

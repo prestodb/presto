@@ -19,6 +19,7 @@ add_executable(
   CompactDoubleListTest.cpp
   HashStringAllocatorTest.cpp
   MemoryAllocatorTest.cpp
+  MemoryArbitratorTest.cpp
   MemoryManagerTest.cpp
   MemoryPoolTest.cpp
   MemoryUsageTest.cpp

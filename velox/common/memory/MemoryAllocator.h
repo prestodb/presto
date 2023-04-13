@@ -203,12 +203,12 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// called with the actual allocation bytes and a flag indicating if it is
   /// called for pre-allocation or post-allocation failure. The flag is true for
   /// pre-allocation call and false for post-allocation failure call. The latter
-  /// is to let user have a chance to rollback if needed. For instance,
-  /// 'MemoryPoolImpl' object will make memory counting reservation in
+  /// is to let user have a chance to rollback if needed. As for now, it is only
+  /// used by 'MemoryPoolImpl' object to make memory counting reservation in
   /// 'reservationCB' before the actual memory allocation so it needs to release
-  /// the reservation if the actual allocation fails. The function returns true
-  /// if the allocation succeeded. If returning false, 'out' references no
-  /// memory and any partially allocated memory is freed.
+  /// the reservation if the actual allocation fails halfway. The function
+  /// returns true if the allocation succeeded. If it returns false, 'out'
+  /// references no memory and any partially allocated memory is freed.
   ///
   /// NOTE: user needs to explicitly release allocation 'out' by calling
   /// 'freeNonContiguous' on the same memory allocator object.

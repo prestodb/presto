@@ -57,7 +57,6 @@ class Destination {
 
   BlockingReason flush(
       PartitionedOutputBufferManager& bufferManager,
-
       const std::function<void()>& bufferReleaseFn,
       ContinueFuture* FOLLY_NULLABLE future);
 

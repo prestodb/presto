@@ -194,16 +194,17 @@ TEST_F(MultiFragmentTest, aggregationSingleKey) {
       numPools += pools.size();
       std::vector<memory::MemoryPool*> childPools;
       for (auto pool : pools) {
-        pool->visitChildren([&](memory::MemoryPool* childPool) {
-          ASSERT_EQ(poolsByName.count(childPool->name()), 0)
+        pool->visitChildren([&](memory::MemoryPool* childPool) -> bool {
+          EXPECT_EQ(poolsByName.count(childPool->name()), 0)
               << childPool->name();
           poolsByName[childPool->name()] = childPool;
           if (childPool->parent() != nullptr) {
-            ASSERT_EQ(poolsByName.count(childPool->parent()->name()), 1);
-            ASSERT_EQ(
+            EXPECT_EQ(poolsByName.count(childPool->parent()->name()), 1);
+            EXPECT_EQ(
                 poolsByName[childPool->parent()->name()], childPool->parent());
           }
           childPools.push_back(childPool);
+          return true;
         });
       }
       pools.swap(childPools);

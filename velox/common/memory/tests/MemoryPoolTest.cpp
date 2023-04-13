@@ -163,8 +163,10 @@ TEST(MemoryPoolTest, AddChild) {
 
   std::vector<MemoryPool*> nodes{};
   ASSERT_EQ(2, root->getChildCount());
-  root->visitChildren(
-      [&nodes](MemoryPool* child) { nodes.emplace_back(child); });
+  root->visitChildren([&nodes](MemoryPool* child) {
+    nodes.emplace_back(child);
+    return true;
+  });
   ASSERT_THAT(
       nodes, UnorderedElementsAreArray({childOne.get(), childTwo.get()}));
   // Child pool name collision.
@@ -1862,6 +1864,7 @@ TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
           VELOX_CHECK_EQ(
               pool->name().compare(0, kPoolNamePrefix.size(), kPoolNamePrefix),
               0);
+          return true;
         });
       }
     });
@@ -1874,6 +1877,135 @@ TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
   ASSERT_EQ(root->getChildCount(), 0);
 }
 
+TEST(MemoryPoolTest, visitChildren) {
+  MemoryManager manager{};
+  auto root = manager.getPool("root");
+
+  const int numChildren = 10;
+  std::vector<std::shared_ptr<MemoryPool>> childPools;
+  for (int i = 0; i < numChildren; ++i) {
+    childPools.push_back(
+        root->addChild(std::to_string(i), MemoryPool::Kind::kLeaf));
+  }
+
+  std::vector<int> stopSums;
+  stopSums.push_back(0);
+  stopSums.push_back(numChildren + 1);
+  stopSums.push_back(1);
+  stopSums.push_back(numChildren / 2);
+  stopSums.push_back(numChildren);
+  for (const auto& stopSum : stopSums) {
+    int sum = 0;
+    root->visitChildren([&](MemoryPool* /*unused*/) {
+      ++sum;
+      return !(sum == stopSum);
+    });
+    if (stopSum < 1 || stopSum > numChildren) {
+      ASSERT_EQ(sum, numChildren);
+    } else {
+      ASSERT_EQ(sum, stopSum);
+    }
+  }
+}
+
+TEST_P(MemoryPoolTest, shrinkAPIs) {
+  MemoryManager manager;
+  std::vector<MemoryPool::Kind> poolKinds;
+  for (const auto& poolKind : poolKinds) {
+    SCOPED_TRACE(fmt::format("pool kind {}", poolKind));
+    auto pool = manager.getPool("shrinkAPIs", poolKind);
+    auto* poolPtr = dynamic_cast<MemoryPoolImpl*>(pool.get());
+    VELOX_ASSERT_THROW(poolPtr->freeBytes(), "");
+    VELOX_ASSERT_THROW(poolPtr->shrink(0), "");
+    VELOX_ASSERT_THROW(poolPtr->shrink(100), "");
+  }
+}
+
+TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
+  MemoryManager manager;
+  struct {
+    int numChildren;
+    int numGrandChildren;
+    bool doAllocation;
+    bool hasReclaimer;
+
+    std::string debugString() const {
+      return fmt::format(
+          "numChildren {} numGrandChildren {} doAllocation{} hasReclaimer {}",
+          numChildren,
+          numGrandChildren,
+          doAllocation,
+          hasReclaimer);
+    }
+  } testSettings[] = {
+      {0, 0, false, true},     {0, 0, false, false},   {1, 0, false, true},
+      {1, 0, false, false},    {100, 0, false, true},  {100, 0, false, false},
+      {1, 100, false, true},   {1, 100, false, false}, {10, 100, false, true},
+      {10, 100, false, false}, {100, 1, true, true},   {100, 1, true, false},
+      {0, 0, true, true},      {0, 0, true, false},    {1, 0, true, true},
+      {1, 0, true, false},     {100, 0, true, true},   {100, 0, true, false},
+      {1, 100, true, true},    {1, 100, true, false},  {10, 100, true, true},
+      {10, 100, true, false},  {100, 1, true, true},   {100, 1, true, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    std::vector<std::shared_ptr<MemoryPool>> pools;
+    auto pool = manager.getPool(
+        "shrinkAPIs",
+        MemoryPool::Kind::kAggregate,
+        kMaxMemory,
+        testData.hasReclaimer ? memory::MemoryReclaimer::create() : nullptr);
+    pools.push_back(pool);
+
+    struct Allocation {
+      void* buffer;
+      size_t size;
+      MemoryPool* pool;
+    };
+    std::vector<Allocation> allocations;
+    for (int i = 0; i < testData.numChildren; ++i) {
+      const MemoryPool::Kind kind = testData.numGrandChildren == 0
+          ? MemoryPool::Kind::kLeaf
+          : MemoryPool::Kind::kAggregate;
+      auto childPool = pool->addChild(
+          std::to_string(i),
+          kind,
+          testData.hasReclaimer ? memory::MemoryReclaimer::create() : nullptr);
+      pools.push_back(childPool);
+      for (int j = 0; j < testData.numGrandChildren; ++j) {
+        auto grandChild = childPool->addChild(
+            std::to_string(j),
+            MemoryPool::Kind::kLeaf,
+            testData.hasReclaimer ? memory::MemoryReclaimer::create()
+                                  : nullptr);
+        pools.push_back(grandChild);
+      }
+    }
+    for (auto& pool : pools) {
+      if (testData.hasReclaimer) {
+        ASSERT_NE(pool->reclaimer(), nullptr);
+      } else {
+        ASSERT_EQ(pool->reclaimer(), nullptr);
+      }
+      if (pool->kind() == MemoryPool::Kind::kLeaf) {
+        const size_t size = 1 + folly::Random::rand32(rng_) % 1024;
+        void* buffer = pool->allocate(size);
+        allocations.push_back({buffer, size, pool.get()});
+      }
+    }
+    for (auto& pool : pools) {
+      ASSERT_FALSE(pool->canReclaim());
+      ASSERT_EQ(pool->reclaimableBytes(), 0);
+      ASSERT_EQ(pool->reclaim(0), 0);
+      ASSERT_EQ(pool->reclaim(100), 0);
+      ASSERT_EQ(pool->reclaim(kMaxMemory), 0);
+    }
+    for (const auto& allocation : allocations) {
+      allocation.pool->free(allocation.buffer, allocation.size);
+    }
+  }
+}
+
 TEST_P(MemoryPoolTest, usageTrackerOptionTest) {
   auto manager = getMemoryManager(8 * GB);
   std::vector<bool> trackUsages = {false, true};
@@ -1882,6 +2014,7 @@ TEST_P(MemoryPoolTest, usageTrackerOptionTest) {
         "usageTrackerOptionTest",
         MemoryPool::Kind::kAggregate,
         kMaxMemory,
+        nullptr,
         trackUsage);
     ASSERT_EQ(trackUsage, root->getMemoryUsageTracker() != nullptr);
     auto child = root->addChild("usageTrackerOptionTest");
