@@ -18,15 +18,17 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
-public abstract class AbstractNativeRunner
+public class NativeQueryRunnerUtils
 {
-    protected static Map<String, String> getNativeWorkerHiveProperties()
+    private NativeQueryRunnerUtils() {}
+
+    public static Map<String, String> getNativeWorkerHiveProperties()
     {
         return ImmutableMap.of("hive.storage-format", "DWRF",
                 "hive.pushdown-filter-enabled", "true");
     }
 
-    protected static Map<String, String> getNativeWorkerSystemProperties()
+    public static Map<String, String> getNativeWorkerSystemProperties()
     {
         return ImmutableMap.<String, String>builder()
                 .put("optimizer.optimize-hash-generation", "false")
@@ -42,7 +44,7 @@ public abstract class AbstractNativeRunner
                 .build();
     }
 
-    protected static void createLineitem(QueryRunner queryRunner)
+    public static void createLineitem(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
             queryRunner.execute("CREATE TABLE lineitem AS " +
@@ -57,7 +59,7 @@ public abstract class AbstractNativeRunner
         }
     }
 
-    protected static void createOrders(QueryRunner queryRunner)
+    public static void createOrders(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders")) {
             queryRunner.execute("CREATE TABLE orders AS " +
@@ -67,7 +69,7 @@ public abstract class AbstractNativeRunner
         }
     }
 
-    protected static void createOrdersEx(QueryRunner queryRunner)
+    public static void createOrdersEx(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders_ex")) {
             queryRunner.execute("CREATE TABLE orders_ex AS " +
@@ -77,7 +79,7 @@ public abstract class AbstractNativeRunner
         }
     }
 
-    protected static void createOrdersHll(QueryRunner queryRunner)
+    public static void createOrdersHll(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders_hll")) {
             queryRunner.execute("CREATE TABLE orders_hll AS " +
@@ -87,14 +89,14 @@ public abstract class AbstractNativeRunner
         }
     }
 
-    protected static void createNation(QueryRunner queryRunner)
+    public static void createNation(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
             queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         }
     }
 
-    protected static void createPartitionedNation(QueryRunner queryRunner)
+    public static void createPartitionedNation(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_partitioned")) {
             queryRunner.execute("CREATE TABLE nation_partitioned(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey VARCHAR) WITH (partitioned_by = ARRAY['regionkey'])");
@@ -108,7 +110,7 @@ public abstract class AbstractNativeRunner
         }
     }
 
-    protected static void createBucketedCustomer(QueryRunner queryRunner)
+    public static void createBucketedCustomer(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "customer_bucketed")) {
             queryRunner.execute("CREATE TABLE customer_bucketed(acctbal DOUBLE, custkey BIGINT, name VARCHAR, ds VARCHAR) WITH (bucket_count = 10, bucketed_by = ARRAY['name'], partitioned_by = ARRAY['ds'])");
@@ -124,7 +126,7 @@ public abstract class AbstractNativeRunner
     // - It supports complex types like arrays and maps which is not covered by TPC-H.
     // - TPC-H data model does not have nulls and this gap is covered by PrestoBench.
     // - Add partitioning and bucketing to some of the tables in PrestoBench.
-    protected static void createPrestoBenchTables(QueryRunner queryRunner)
+    public static void createPrestoBenchTables(QueryRunner queryRunner)
     {
         // Create PrestoBench 4 tables
         createPrestoBenchNation(queryRunner);
@@ -133,7 +135,7 @@ public abstract class AbstractNativeRunner
         createPrestoBenchOrders(queryRunner);
     }
 
-    protected static void createCustomer(QueryRunner queryRunner)
+    public static void createCustomer(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "customer")) {
             queryRunner.execute("CREATE TABLE customer AS " +
@@ -144,7 +146,7 @@ public abstract class AbstractNativeRunner
 
     // prestobench_nation: TPC-H Nation and region tables are consolidated into the nation table adding the region name as a new field.
     // This table is not bucketed or partitioned.
-    protected static void createPrestoBenchNation(QueryRunner queryRunner)
+    public static void createPrestoBenchNation(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "prestobench_nation")) {
             queryRunner.execute("CREATE TABLE prestobench_nation as SELECT nation.nationkey, nation.name, region.name as regionname,nation.comment " +
@@ -160,7 +162,7 @@ public abstract class AbstractNativeRunner
     //        - The value is simply the original supplier columns in tpc-h which are: suppkey, name, address, nationkey, phone, acctbal, comment
     // - Partitioning: p_size (50 values)
     // - Bucketing:none to exercise non bucketed joins
-    protected static void createPrestoBenchPart(QueryRunner queryRunner)
+    public static void createPrestoBenchPart(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "prestobench_part")) {
             queryRunner.execute("CREATE TABLE prestobench_part " +
@@ -191,7 +193,7 @@ public abstract class AbstractNativeRunner
     // Nulls: Make 10% of custkey as nulls. This is useful for join keys with nulls.
     // Skew: There are already columns with few values like order status that can be used for skewed (hot task) aggregations.
     //       There are three values with these distributions:  ‘F’ with 49%, ‘O’ with 49% and ‘P’ with 2%
-    protected static void createPrestoBenchOrders(QueryRunner queryRunner)
+    public static void createPrestoBenchOrders(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "prestobench_orders")) {
             queryRunner.execute("CREATE TABLE prestobench_orders " +
@@ -224,7 +226,7 @@ public abstract class AbstractNativeRunner
     //  * key=year of ship date and values is total spending by the customer on orders for the year
     // Bucketing: customer key
     // Partitioning: mktsegment (150 values)
-    protected static void createPrestoBenchCustomer(QueryRunner queryRunner)
+    public static void createPrestoBenchCustomer(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "prestobench_customer")) {
             queryRunner.execute("CREATE TABLE prestobench_customer " +
@@ -250,35 +252,35 @@ public abstract class AbstractNativeRunner
         }
     }
 
-    protected static void createPart(QueryRunner queryRunner)
+    public static void createPart(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "part")) {
             queryRunner.execute("CREATE TABLE part AS SELECT * FROM tpch.tiny.part");
         }
     }
 
-    protected static void createPartSupp(QueryRunner queryRunner)
+    public static void createPartSupp(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "partsupp")) {
             queryRunner.execute("CREATE TABLE partsupp AS SELECT * FROM tpch.tiny.partsupp");
         }
     }
 
-    protected static void createRegion(QueryRunner queryRunner)
+    public static void createRegion(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "region")) {
             queryRunner.execute("CREATE TABLE region AS SELECT * FROM tpch.tiny.region");
         }
     }
 
-    protected static void createSupplier(QueryRunner queryRunner)
+    public static void createSupplier(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "supplier")) {
             queryRunner.execute("CREATE TABLE supplier AS SELECT * FROM tpch.tiny.supplier");
         }
     }
 
-    protected static void createEmptyTable(QueryRunner queryRunner)
+    public static void createEmptyTable(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "empty_table")) {
             queryRunner.execute("CREATE TABLE empty_table (orderkey BIGINT, shipmodes array(varchar))");
@@ -286,7 +288,7 @@ public abstract class AbstractNativeRunner
     }
 
     // Create two bucketed by 'orderkey' tables to be able to run bucketed execution join query on them.
-    protected static void createBucketedLineitemAndOrders(QueryRunner queryRunner)
+    public static void createBucketedLineitemAndOrders(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem_bucketed")) {
             queryRunner.execute("CREATE TABLE lineitem_bucketed(orderkey BIGINT, partkey BIGINT, suppkey BIGINT, linenumber INTEGER, quantity DOUBLE, ds VARCHAR) " +
