@@ -162,8 +162,9 @@ class TaskManagerTest : public testing::Test {
     taskManager_ = std::make_unique<TaskManager>();
     taskResource_ = std::make_unique<TaskResource>(*taskManager_.get());
 
-    auto httpServer = std::make_unique<http::HttpServer>(
-        folly::SocketAddress("127.0.0.1", 0));
+    auto httpServer =
+        std::make_unique<http::HttpServer>(std::make_unique<http::HttpConfig>(
+            folly::SocketAddress("127.0.0.1", 0)));
     taskResource_->registerUris(*httpServer.get());
 
     httpServerWrapper_ =

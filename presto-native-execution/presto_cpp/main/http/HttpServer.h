@@ -221,18 +221,28 @@ class DispatchingRequestHandlerFactory
       endpoints_;
 };
 
+class HttpConfig {
+ public:
+  HttpConfig(const folly::SocketAddress& address);
+
+  proxygen::HTTPServer::IPConfig ipConfig() const;
+
+ private:
+  const folly::SocketAddress address_;
+};
+
 class HttpsConfig {
  public:
   HttpsConfig(
-      const folly::SocketAddress& httpsAddress,
+      const folly::SocketAddress& address,
       const std::string& certPath,
       const std::string& keyPath,
       const std::string& supportedCiphers);
 
-  proxygen::HTTPServer::IPConfig httpsIpConfig() const;
+  proxygen::HTTPServer::IPConfig ipConfig() const;
 
  private:
-  const folly::SocketAddress httpsAddress_;
+  const folly::SocketAddress address_;
   const std::string certPath_;
   const std::string keyPath_;
   std::string supportedCiphers_;
@@ -241,7 +251,7 @@ class HttpsConfig {
 class HttpServer {
  public:
   explicit HttpServer(
-      const folly::SocketAddress& httpAddress,
+      std::unique_ptr<HttpConfig> httpConfig,
       std::unique_ptr<HttpsConfig> httpsConfig = nullptr,
       int httpExecThreads = 8);
 
@@ -325,7 +335,7 @@ class HttpServer {
   }
 
  private:
-  const folly::SocketAddress httpAddress_;
+  const std::unique_ptr<HttpConfig> httpConfig_;
   const std::unique_ptr<HttpsConfig> httpsConfig_;
   int httpExecThreads_;
   std::unique_ptr<DispatchingRequestHandlerFactory> handlerFactory_;

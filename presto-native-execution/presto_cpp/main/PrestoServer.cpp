@@ -256,6 +256,8 @@ void PrestoServer::run() {
     announcer->start();
   }
 
+  auto httpConfig = std::make_unique<http::HttpConfig>(httpSocketAddress);
+
   std::unique_ptr<http::HttpsConfig> httpsConfig;
   if (httpsPort.has_value()) {
     folly::SocketAddress httpsSocketAddress;
@@ -266,7 +268,7 @@ void PrestoServer::run() {
   }
 
   httpServer_ = std::make_unique<http::HttpServer>(
-      httpSocketAddress, std::move(httpsConfig), httpExecThreads);
+      std::move(httpConfig), std::move(httpsConfig), httpExecThreads);
 
   httpServer_->registerPost(
       "/v1/memory",
