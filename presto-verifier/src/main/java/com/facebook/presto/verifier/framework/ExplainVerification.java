@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -50,6 +51,7 @@ public class ExplainVerification
         extends AbstractVerification<QueryBundle, ExplainMatchResult, String>
 {
     private static final ResultSetConverter<String> QUERY_PLAN_RESULT_SET_CONVERTER = resultSet -> Optional.of(resultSet.getString("Query Plan"));
+    private static final String LOCATION_PATTERN = "\\s*\\(\\d+:\\d+\\)\\s*$";  // matches "(123:456)"
     private static JsonCodec<JsonRenderedNode> planCodec;
     private final SqlParser sqlParser;
 
@@ -124,7 +126,7 @@ public class ExplainVerification
             return STRUCTURE_MISMATCH;
         }
 
-        boolean detailsMismatched = !Objects.equals(controlPlan.getDetails(), testPlan.getDetails())
+        boolean detailsMismatched = !matchesDetails(controlPlan.getDetails(), testPlan.getDetails())
                 || !Objects.equals(controlPlan.getEstimates(), testPlan.getEstimates());
         for (int i = 0; i < controlPlan.getChildren().size(); i++) {
             MatchType childMatchType = match(controlPlan.getChildren().get(i), testPlan.getChildren().get(i));
@@ -136,5 +138,24 @@ public class ExplainVerification
             }
         }
         return detailsMismatched ? DETAILS_MISMATCH : MATCH;
+    }
+
+    private boolean matchesDetails(String controlDetails, String testDetails)
+    {
+        if (controlDetails == null && testDetails == null) {
+            return true;
+        }
+        else if (controlDetails == null || testDetails == null) {
+            return false;
+        }
+
+        String[] controlDetailArr = controlDetails.split("\n", 0);
+        String[] testDetailArr = testDetails.split("\n", 0);
+        controlDetailArr = Arrays.stream(controlDetailArr).map(s -> s.replaceFirst(LOCATION_PATTERN, "")).toArray(size -> new String[size]);
+        testDetailArr = Arrays.stream(testDetailArr).map(s -> s.replaceFirst(LOCATION_PATTERN, "")).toArray(size -> new String[size]);
+
+        Arrays.sort(controlDetailArr);
+        Arrays.sort(testDetailArr);
+        return Arrays.equals(controlDetailArr, testDetailArr);
     }
 }

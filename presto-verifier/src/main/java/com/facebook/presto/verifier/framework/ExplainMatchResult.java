@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.MATCH;
 import static java.util.Objects.requireNonNull;
 
 public class ExplainMatchResult
@@ -35,7 +36,7 @@ public class ExplainMatchResult
     @Override
     public boolean isMatched()
     {
-        return true;
+        return matchType == MATCH;
     }
 
     @Override
