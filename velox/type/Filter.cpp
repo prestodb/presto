@@ -86,6 +86,9 @@ std::string Filter::toString() const {
     case FilterKind::kMultiRange:
       strKind = "MultiRange";
       break;
+    case FilterKind::kHugeintRange:
+      strKind = "HugeintRange";
+      break;
   };
 
   return fmt::format(

@@ -28,6 +28,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/type/StringView.h"
+#include "velox/type/Type.h"
 #include "velox/type/UnscaledShortDecimal.h"
 
 namespace facebook::velox::common {
@@ -52,6 +53,7 @@ enum class FilterKind {
   kNegatedBytesValues,
   kBigintMultiRange,
   kMultiRange,
+  kHugeintRange,
 };
 
 /**
@@ -131,7 +133,7 @@ class Filter {
     VELOX_UNSUPPORTED("{}: testInt64() is not supported.", toString());
   }
 
-  virtual bool testInt128(__int128_t /* unused */) const {
+  virtual bool testInt128(int128_t /* unused */) const {
     VELOX_UNSUPPORTED("{}: testInt128() is not supported.", toString());
   }
 
@@ -203,6 +205,11 @@ class Filter {
   virtual bool
   testInt64Range(int64_t /*min*/, int64_t /*max*/, bool /*hasNull*/) const {
     VELOX_UNSUPPORTED("{}: testInt64Range() is not supported.", toString());
+  }
+
+  virtual bool
+  testInt128Range(int128_t /*min*/, int128_t /*max*/, bool /*hasNull*/) const {
+    VELOX_UNSUPPORTED("{}: testInt128Range() is not supported.", toString());
   }
 
   // Returns true if at least one value in the specified range can pass the
@@ -327,7 +334,7 @@ class AlwaysTrue final : public Filter {
     return true;
   }
 
-  bool testInt128(__int128_t /* unused */) const final {
+  bool testInt128(int128_t /* unused */) const final {
     return true;
   }
 
@@ -702,6 +709,59 @@ class NegatedBigintRange final : public Filter {
 
  private:
   std::unique_ptr<BigintRange> nonNegated_;
+};
+
+class HugeintRange final : public Filter {
+ public:
+  /// @param lower Lowest value in the rejected range, inclusive.
+  /// @param upper Highest value in the range, inclusive.
+  /// @param nullAllowed Null values are passing the filter if true.
+  HugeintRange(int128_t lower, int128_t upper, bool nullAllowed)
+      : Filter(true, nullAllowed, FilterKind::kHugeintRange),
+        lower_(lower),
+        upper_(upper) {}
+
+  std::unique_ptr<Filter> clone(
+      std::optional<bool> nullAllowed = std::nullopt) const final {
+    if (nullAllowed) {
+      return std::make_unique<HugeintRange>(
+          this->lower_, this->upper_, nullAllowed.value());
+    } else {
+      return std::make_unique<HugeintRange>(*this);
+    }
+  }
+
+  bool testInt128(int128_t value) const final {
+    return value >= lower_ && value <= upper_;
+  }
+
+  bool testInt128Range(int128_t min, int128_t max, bool hasNull) const final {
+    if (hasNull && nullAllowed_) {
+      return true;
+    }
+
+    return !(min > upper_ || max < lower_);
+  }
+
+  int128_t lower() const {
+    return lower_;
+  }
+
+  int128_t upper() const {
+    return upper_;
+  }
+
+  std::string toString() const final {
+    return fmt::format(
+        "HugeintRange: [{}, {}] {}",
+        lower_,
+        upper_,
+        nullAllowed_ ? "with nulls" : "no nulls");
+  }
+
+ private:
+  const int128_t lower_;
+  const int128_t upper_;
 };
 
 /// IN-list filter for integral data types. Implemented as a hash table. Good
@@ -1675,7 +1735,7 @@ class MultiRange final : public Filter {
 // Helper for applying filters to different types
 template <typename TFilter, typename T>
 static inline bool applyFilter(TFilter& filter, T value) {
-  if constexpr (std::is_same_v<T, __int128_t>) {
+  if constexpr (std::is_same_v<T, int128_t>) {
     return filter.testInt128(value);
   } else if constexpr (std::is_same_v<T, UnscaledShortDecimal>) {
     return filter.testInt64(value.unscaledValue());

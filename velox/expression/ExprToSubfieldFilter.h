@@ -331,6 +331,45 @@ std::unique_ptr<common::MultiRange> orFilter(
       std::move(filters), nullAllowed, nanAllowed);
 }
 
+inline std::unique_ptr<common::HugeintRange> lessThanHugeint(
+    int128_t max,
+    bool nullAllowed = false) {
+  return std::make_unique<common::HugeintRange>(
+      std::numeric_limits<int128_t>::min(), max - 1, nullAllowed);
+}
+
+inline std::unique_ptr<common::HugeintRange> lessThanOrEqualHugeint(
+    int128_t max,
+    bool nullAllowed = false) {
+  return std::make_unique<common::HugeintRange>(
+      std::numeric_limits<int128_t>::min(), max, nullAllowed);
+}
+
+inline std::unique_ptr<common::HugeintRange> greaterThanHugeint(
+    int128_t min,
+    bool nullAllowed = false) {
+  return std::make_unique<common::HugeintRange>(
+      min + 1, std::numeric_limits<int128_t>::max(), nullAllowed);
+}
+
+inline std::unique_ptr<common::HugeintRange> greaterThanOrEqualHugeint(
+    int128_t min,
+    bool nullAllowed = false) {
+  return std::make_unique<common::HugeintRange>(
+      min, std::numeric_limits<int128_t>::max(), nullAllowed);
+}
+
+inline std::unique_ptr<common::HugeintRange> equalHugeint(
+    int128_t value,
+    bool nullAllowed = false) {
+  return std::make_unique<common::HugeintRange>(value, value, nullAllowed);
+}
+
+inline std::unique_ptr<common::HugeintRange>
+betweenHugeint(int128_t min, int128_t max, bool nullAllowed = false) {
+  return std::make_unique<common::HugeintRange>(min, max, nullAllowed);
+}
+
 std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
     const core::TypedExprPtr& expr);
 
