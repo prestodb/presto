@@ -61,6 +61,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
@@ -91,6 +92,7 @@ public final class TypeConverter
     public static final String ORC_ICEBERG_ID_KEY = "iceberg.id";
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
     public static final String ICEBERG_LONG_TYPE = "iceberg.long-type";
+    public static final String ICEBERG_BINARY_TYPE = "iceberg.binary-type";
 
     private TypeConverter() {}
 
@@ -121,6 +123,8 @@ public final class TypeConverter
                 return TimestampType.TIMESTAMP;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
+            case UUID:
+                return UUID;
             case LIST:
                 Types.ListType listType = (Types.ListType) type;
                 return new ArrayType(toPrestoType(listType.elementType(), typeManager));
@@ -185,6 +189,9 @@ public final class TypeConverter
         }
         if (type instanceof TimestampWithTimeZoneType) {
             return Types.TimestampType.withZone();
+        }
+        if (type.equals(UUID)) {
+            return Types.UUIDType.get();
         }
         throw new PrestoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }
@@ -332,6 +339,10 @@ public final class TypeConverter
             case STRING:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.STRING, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case UUID:
+                attributes = ImmutableMap.<String, String>builder()
+                        .putAll(attributes)
+                        .put(ICEBERG_BINARY_TYPE, "UUID")
+                        .build();
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case FIXED:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));

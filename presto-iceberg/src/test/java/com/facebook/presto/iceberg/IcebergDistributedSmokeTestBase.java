@@ -735,4 +735,38 @@ public class IcebergDistributedSmokeTestBase
 
         dropTable(session, tableName);
     }
+
+    public void testUuid()
+    {
+        testSelectOrPartitionedByUuid(false);
+    }
+
+    //@Test
+    //public void testPartitionedByUuid()
+    //{
+    //    testSelectOrPartitionedByUuid(true);
+    //}
+
+    private void testSelectOrPartitionedByUuid(boolean partitioned)
+    {
+        String tableName = format("test_%s_by_uuid", partitioned ? "partitioned" : "selected");
+        String partitioning = partitioned ? "WITH (partitioning = ARRAY['x'])" : "";
+        assertUpdate(format("CREATE TABLE %s (x uuid, y bigint) %s", tableName, partitioning));
+
+        assertUpdate(format("INSERT INTO %s VALUES (UUID '406caec7-68b9-4778-81b2-a12ece70c8b1', 12345)", tableName), 1);
+        assertQuery(format("SELECT count(*) FROM %s", tableName), "SELECT 1");
+        assertQuery(format("SELECT x FROM %s", tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
+
+        assertUpdate(format("INSERT INTO %s VALUES (UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7', 67890)", tableName), 1);
+        assertUpdate(format("INSERT INTO %s VALUES (NULL, 7531)", tableName), 1);
+        assertQuery(format("SELECT count(*) FROM %s", tableName), "SELECT 3");
+        assertQuery(format("SELECT * FROM %s WHERE x = UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'", tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID), 12345");
+        assertQuery(format("SELECT * FROM %s WHERE x = UUID 'f79c3e09-677c-4bbd-a479-3f349cb785e7'", tableName), "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID), 67890");
+        assertQuery(format("SELECT * FROM %s WHERE x IS NULL", tableName), "SELECT NULL, 7531");
+        assertQuery(format("SELECT x FROM %s WHERE y = 12345", tableName), "SELECT CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
+        assertQuery(format("SELECT x FROM %s WHERE y = 67890", tableName), "SELECT CAST('f79c3e09-677c-4bbd-a479-3f349cb785e7' AS UUID)");
+        assertQuery(format("SELECT x FROM %s WHERE y = 7531", tableName), "SELECT NULL");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
 }

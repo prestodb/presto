@@ -183,6 +183,7 @@ final class FixJsonDataUtils
             case INTERVAL_DAY_TO_SECOND:
             case IPADDRESS:
             case IPPREFIX:
+            case UUID:
             case DECIMAL:
             case CHAR:
             case GEOMETRY:
