@@ -159,18 +159,7 @@ class Expr {
   virtual void computeMetadata();
 
   virtual void reset() {
-    for (auto& [_, sharedSubexprResults] : sharedSubexprResults_) {
-      auto& [sharedSubexprRows, sharedSubexprValues] = sharedSubexprResults;
-      if (sharedSubexprRows) {
-        sharedSubexprRows->clearAll();
-      }
-      if (BaseVector::isVectorWritable(sharedSubexprValues) &&
-          sharedSubexprValues->isFlatEncoding()) {
-        sharedSubexprValues->resize(0);
-      } else {
-        sharedSubexprValues = nullptr;
-      }
-    }
+    sharedSubexprResults_.clear();
   }
 
   void clearMemo() {
