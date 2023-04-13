@@ -85,6 +85,14 @@ def diff(args):
     else:
         print(f"{bcolors.BOLD}No differences found.")
 
+    if exit_status:
+        print(
+            f""" 
+            {bcolors.BOLD}Incompatible changes in function signatures have been detected.
+            This means your changes have modified function signatures and possibly broken backwards compatibility.  
+        """
+        )
+
     return exit_status
 
 

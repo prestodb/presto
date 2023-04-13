@@ -362,7 +362,13 @@ jobs:
             pip install deepdiff
             python ./scripts/signature.py export --spark --presto /tmp/pr_signatures.json
             cp ./scripts/signature.py /tmp/signature.py
-            git checkout main
+            git remote add upstream https://github.com/facebookincubator/velox
+            git fetch upstream
+            merge_base=$(git merge-base  'upstream/main' `git rev-parse HEAD`) || \
+            { echo "::error::Failed to find merge_base"; exit 1; }
+            echo "Merge Base: $merge_base"
+            git checkout $merge_base
+            git submodule update --init --recursive
             LD_LIBRARY_PATH=/usr/local/lib make python-clean
             LD_LIBRARY_PATH=/usr/local/lib make python-build
             cp /tmp/signature.py ./scripts/signature.py
