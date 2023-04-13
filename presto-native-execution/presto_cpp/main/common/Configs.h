@@ -172,7 +172,7 @@ class SystemConfig : public ConfigBase {
 
   int httpServerHttpsPort() const;
 
-  // This config controls what cipher suites are supported by Native workers for
+  // A list of ciphers (comma separated) that are supported by
   // server and client. Note Java and folly::SSLContext use different names to
   // refer to the same cipher. (guess for different name, Java specific
   // authentication, key exchange and cipher together and folly just cipher).
