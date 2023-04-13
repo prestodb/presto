@@ -125,5 +125,43 @@ TEST_F(URLFunctionsTest, extractParameter) {
   EXPECT_EQ(extractParam("foo", ""), std::nullopt);
 }
 
+TEST_F(URLFunctionsTest, urlEncode) {
+  const auto urlEncode = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string>("url_encode(c0)", value);
+  };
+
+  EXPECT_EQ(std::nullopt, urlEncode(std::nullopt));
+  EXPECT_EQ("", urlEncode(""));
+  EXPECT_EQ("http%3A%2F%2Ftest", urlEncode("http://test"));
+  EXPECT_EQ(
+      "http%3A%2F%2Ftest%3Fa%3Db%26c%3Dd", urlEncode("http://test?a=b&c=d"));
+  EXPECT_EQ(
+      "http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88",
+      urlEncode("http://\u30c6\u30b9\u30c8"));
+  EXPECT_EQ("%7E%40%3A.-*_%2B+%E2%98%83", urlEncode("~@:.-*_+ \u2603"));
+  EXPECT_EQ("test", urlEncode("test"));
+}
+
+TEST_F(URLFunctionsTest, urlDecode) {
+  const auto urlDecode = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string>("url_decode(c0)", value);
+  };
+
+  EXPECT_EQ(std::nullopt, urlDecode(std::nullopt));
+  EXPECT_EQ("", urlDecode(""));
+  EXPECT_EQ("http://test", urlDecode("http%3A%2F%2Ftest"));
+  EXPECT_EQ(
+      "http://test?a=b&c=d", urlDecode("http%3A%2F%2Ftest%3Fa%3Db%26c%3Dd"));
+  EXPECT_EQ(
+      "http://\u30c6\u30b9\u30c8",
+      urlDecode("http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88"));
+  EXPECT_EQ("~@:.-*_+ \u2603", urlDecode("%7E%40%3A.-*_%2B+%E2%98%83"));
+  EXPECT_EQ("test", urlDecode("test"));
+
+  EXPECT_THROW(urlDecode("http%3A%2F%2"), VeloxUserError);
+  EXPECT_THROW(urlDecode("http%3A%2F%"), VeloxUserError);
+  EXPECT_THROW(urlDecode("http%3A%2F%2H"), VeloxUserError);
+}
+
 } // namespace
 } // namespace facebook::velox

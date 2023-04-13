@@ -28,6 +28,7 @@ extern void registerHyperLogFunctions(const std::string& prefix);
 extern void registerJsonFunctions(const std::string& prefix);
 extern void registerMapFunctions(const std::string& prefix);
 extern void registerStringFunctions(const std::string& prefix);
+extern void registerBinaryFunctions(const std::string& prefix);
 extern void registerURLFunctions(const std::string& prefix);
 extern void registerMapAllowingDuplicates(
     const std::string& name,
@@ -78,6 +79,10 @@ void registerStringFunctions(const std::string& prefix) {
   functions::registerStringFunctions(prefix);
 }
 
+void registerBinaryFunctions(const std::string& prefix) {
+  functions::registerBinaryFunctions(prefix);
+}
+
 void registerBitwiseFunctions(const std::string& prefix) {
   functions::registerBitwiseFunctions(prefix);
 }
@@ -94,6 +99,7 @@ void registerAllScalarFunctions(const std::string& prefix) {
   registerDateTimeFunctions(prefix);
   registerURLFunctions(prefix);
   registerStringFunctions(prefix);
+  registerBinaryFunctions(prefix);
   registerBitwiseFunctions(prefix);
 }
 

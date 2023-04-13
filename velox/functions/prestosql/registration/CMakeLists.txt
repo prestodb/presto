@@ -16,6 +16,7 @@ add_library(
   velox_functions_prestosql
   ArithmeticFunctionsRegistration.cpp
   ArrayFunctionsRegistration.cpp
+  BinaryFunctionsRegistration.cpp
   CheckedArithmeticRegistration.cpp
   ComparisonFunctionsRegistration.cpp
   DateTimeFunctionsRegistration.cpp

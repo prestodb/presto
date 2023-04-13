@@ -39,6 +39,89 @@ bool parse(const TInString& rawUrl, boost::cmatch& match) {
       rawUrl.data(), rawUrl.data() + rawUrl.size(), match, kUriRegex);
 }
 
+FOLLY_ALWAYS_INLINE unsigned char toHex(unsigned char c) {
+  return c < 10 ? (c + '0') : (c + 'A' - 10);
+}
+
+FOLLY_ALWAYS_INLINE void charEscape(unsigned char c, char* output) {
+  output[0] = '%';
+  output[1] = toHex(c / 16);
+  output[2] = toHex(c % 16);
+}
+
+/// Escapes ``input`` by encoding it so that it can be safely included in
+/// URL query parameter names and values:
+///
+///  * Alphanumeric characters are not encoded.
+///  * The characters ``.``, ``-``, ``*`` and ``_`` are not encoded.
+///  * The ASCII space character is encoded as ``+``.
+///  * All other characters are converted to UTF-8 and the bytes are encoded
+///    as the string ``%XX`` where ``XX`` is the uppercase hexadecimal
+///    value of the UTF-8 byte.
+template <typename TOutString, typename TInString>
+FOLLY_ALWAYS_INLINE void urlEscape(TOutString& output, const TInString& input) {
+  auto inputSize = input.size();
+  output.reserve(inputSize * 3);
+
+  auto inputBuffer = input.data();
+  auto outputBuffer = output.data();
+
+  size_t outIndex = 0;
+  for (auto i = 0; i < inputSize; ++i) {
+    unsigned char p = inputBuffer[i];
+
+    if ((p >= 'a' && p <= 'z') || (p >= 'A' && p <= 'Z') ||
+        (p >= '0' && p <= '9') || p == '-' || p == '_' || p == '.' ||
+        p == '*') {
+      outputBuffer[outIndex++] = p;
+    } else if (p == ' ') {
+      outputBuffer[outIndex++] = '+';
+    } else {
+      charEscape(p, outputBuffer + outIndex);
+      outIndex += 3;
+    }
+  }
+  output.resize(outIndex);
+}
+
+template <typename TOutString, typename TInString>
+FOLLY_ALWAYS_INLINE void urlUnescape(
+    TOutString& output,
+    const TInString& input) {
+  auto inputSize = input.size();
+  output.reserve(inputSize);
+
+  auto outputBuffer = output.data();
+  const char* p = input.data();
+  const char* end = p + inputSize;
+  char buf[3];
+  buf[2] = '\0';
+  char* endptr;
+  for (; p < end; ++p) {
+    if (*p == '+') {
+      *outputBuffer++ = ' ';
+    } else if (*p == '%') {
+      if (p + 2 < end) {
+        buf[0] = p[1];
+        buf[1] = p[2];
+        int val = strtol(buf, &endptr, 16);
+        if (endptr == buf + 2) {
+          *outputBuffer++ = (char)val;
+          p += 2;
+        } else {
+          VELOX_USER_FAIL(
+              "Illegal hex characters in escape (%) pattern: {}", buf);
+        }
+      } else {
+        VELOX_USER_FAIL("Incomplete trailing escape (%) pattern");
+      }
+    } else {
+      *outputBuffer++ = *p;
+    }
+  }
+  output.resize(outputBuffer - output.data());
+}
+
 } // namespace
 
 bool matchAuthorityAndPath(
@@ -264,6 +347,28 @@ struct UrlExtractParameterFunction {
     }
 
     return false;
+  }
+};
+
+template <typename T>
+struct UrlEncodeFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varbinary>& input) {
+    urlEscape(result, input);
+  }
+};
+
+template <typename T>
+struct UrlDecodeFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varbinary>& input) {
+    urlUnescape(result, input);
   }
 };
 
