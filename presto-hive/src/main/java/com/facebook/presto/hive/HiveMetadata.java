@@ -17,7 +17,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -132,6 +131,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -302,7 +302,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_MATERIALIZ
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getField;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
@@ -1501,11 +1500,10 @@ public class HiveMetadata
         for (int i = 0; i < partitionTypes.size(); i++) {
             String keyValue = key.get(i);
             Type type = partitionTypes.get(i);
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1, 0);
             // Convert other valid Timestamp formats such as Date ("1969-12-31"), Spark Timestamp ("1969-12-31 00:00:00") to Presto Timestamp string.
             if (type.equals(TIMESTAMP)) {
-                blockBuilder.writeLong(parseHiveTimestamp(keyValue, timeZone));
-                newKey.add(getField(type, blockBuilder.build(), 0).toString());
+                Timestamp time = new Timestamp(parseHiveTimestamp(keyValue, timeZone));
+                newKey.add(time.toString());
             }
             else {
                 newKey.add(keyValue);
