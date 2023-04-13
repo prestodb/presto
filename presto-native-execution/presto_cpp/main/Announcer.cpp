@@ -42,7 +42,7 @@ std::string announcementBody(
     connectors << connectorIds[i];
   }
 
-  auto uriScheme = useHttps ? "https" : "http";
+  const auto uriScheme = useHttps ? "https" : "http";
 
   nlohmann::json body = {
       {"environment", environment},
