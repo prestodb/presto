@@ -331,8 +331,8 @@ TEST_F(PrestoExchangeSourceTest, basic) {
   }
   producer->noMoreData();
 
-  auto producerServer =
-      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   producer->registerEndpoints(producerServer.get());
 
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
@@ -373,8 +373,8 @@ TEST_F(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
   }
   producer->noMoreData();
 
-  auto producerServer =
-      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   producer->registerEndpoints(producerServer.get());
 
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
@@ -398,8 +398,8 @@ TEST_F(PrestoExchangeSourceTest, slowProducer) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
   auto producer = std::make_unique<Producer>();
 
-  auto producerServer =
-      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   producer->registerEndpoints(producerServer.get());
 
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
@@ -436,8 +436,8 @@ TEST_F(PrestoExchangeSourceTest, failedProducer) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
   auto producer = std::make_unique<Producer>();
 
-  auto producerServer =
-      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   producer->registerEndpoints(producerServer.get());
 
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
@@ -468,8 +468,8 @@ TEST_F(PrestoExchangeSourceTest, exceedingMemoryCapacityForHttpResponse) {
 
   auto producer = std::make_unique<Producer>();
 
-  auto producerServer =
-      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   producer->registerEndpoints(producerServer.get());
 
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
@@ -500,8 +500,8 @@ TEST_F(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
 
   auto producer = std::make_unique<Producer>();
 
-  auto producerServer =
-      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   producer->registerEndpoints(producerServer.get());
 
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
