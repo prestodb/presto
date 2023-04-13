@@ -76,6 +76,20 @@ void sendErrorResponse(
       .sendWithEOM();
 }
 
+HttpConfig::HttpConfig(const folly::SocketAddress& httpAddress)
+    : httpAddress_(httpAddress) {}
+
+proxygen::HTTPServer::IPConfig HttpConfig::httpIpConfig() const {
+  proxygen::HTTPServer::IPConfig ipConfig{
+      httpAddress_, proxygen::HTTPServer::Protocol::HTTP};
+  if (SystemConfig::instance()->httpServerReusePort()) {
+    folly::SocketOptionKey portReuseOpt = {SOL_SOCKET, SO_REUSEPORT};
+    ipConfig.acceptorSocketOptions.emplace();
+    ipConfig.acceptorSocketOptions->insert({portReuseOpt, 1});
+  }
+  return ipConfig;
+}
+
 HttpsConfig::HttpsConfig(
     const folly::SocketAddress& httpsAddress,
     const std::string& certPath,
@@ -105,10 +119,10 @@ proxygen::HTTPServer::IPConfig HttpsConfig::httpsIpConfig() const {
 }
 
 HttpServer::HttpServer(
-    const folly::SocketAddress& httpAddress,
+    std::unique_ptr<HttpConfig> httpConfig,
     std::unique_ptr<HttpsConfig> httpsConfig,
     int httpExecThreads)
-    : httpAddress_(httpAddress),
+    : httpConfig_(std::move(httpConfig)),
       httpsConfig_(std::move(httpsConfig)),
       httpExecThreads_(httpExecThreads),
       handlerFactory_(std::make_unique<DispatchingRequestHandlerFactory>()),
@@ -191,14 +205,6 @@ void HttpServer::start(
     std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters,
     std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess,
     std::function<void(std::exception_ptr)> onError) {
-  proxygen::HTTPServer::IPConfig ipConfig{
-      httpAddress_, proxygen::HTTPServer::Protocol::HTTP};
-
-  if (SystemConfig::instance()->httpServerReusePort()) {
-    folly::SocketOptionKey portReuseOpt = {SOL_SOCKET, SO_REUSEPORT};
-    ipConfig.acceptorSocketOptions.emplace();
-    ipConfig.acceptorSocketOptions->insert({portReuseOpt, 1});
-  }
 
   proxygen::HTTPServerOptions options;
   // The 'threads' field is not used when we provide our own executor (see us
@@ -228,7 +234,11 @@ void HttpServer::start(
 
   server_ = std::make_unique<proxygen::HTTPServer>(std::move(options));
 
-  std::vector<proxygen::HTTPServer::IPConfig> ipConfigs{ipConfig};
+  std::vector<proxygen::HTTPServer::IPConfig> ipConfigs;
+
+  if (httpConfig_ != nullptr) {
+    ipConfigs.push_back(httpConfig_->httpIpConfig());
+  }
 
   if (httpsConfig_ != nullptr) {
     ipConfigs.push_back(httpsConfig_->httpsIpConfig());
