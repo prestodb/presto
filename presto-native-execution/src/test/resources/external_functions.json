@@ -1,0 +1,41 @@
+{
+  "udfSignatureMap": {
+    "eq":[
+      {
+        "docString":"function to check equivalence of the two values",
+        "functionKind": "SCALAR",
+        "outputType": "BOOLEAN",
+        "paramTypes":[
+          "INTEGER",
+          "INTEGER"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+    "sum": [
+      {
+        "docString": "Returns sum of integers",
+        "functionKind": "AGGREGATE",
+        "outputType": "BIGINT",
+        "paramTypes": [
+          "INTEGER"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "BIGINT",
+          "isOrderSensitive": false
+        }
+      }
+    ]
+  }
+}

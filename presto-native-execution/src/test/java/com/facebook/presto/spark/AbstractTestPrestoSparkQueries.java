@@ -115,7 +115,7 @@ public class AbstractTestPrestoSparkQueries
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP",
-                        "json-based-function-manager.path-to-function-definition", "src/test/resources/eq.json"));
+                        "json-based-function-manager.path-to-function-definition", "src/test/resources/external_functions.json"));
     }
 
     protected ImmutableList<Module> getNativeExecutionModules()
