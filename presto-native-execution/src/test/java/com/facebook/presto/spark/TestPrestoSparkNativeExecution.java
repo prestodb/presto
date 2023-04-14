@@ -60,7 +60,7 @@ public class TestPrestoSparkNativeExecution
     @Test
     public void testJoins()
     {
-        assertQuery("SELECT count(*) FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
+        assertQuery("SELECT * FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
     }
 
     @Test
