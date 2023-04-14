@@ -144,7 +144,7 @@ struct UnsafeRowDynamicParser {
    * @param idx
    * @return the element type at the given index.
    */
-  const TypePtr typeAt(size_t idx) const {
+  const TypePtr& typeAt(size_t idx) const {
     return types.at(idx);
   }
 

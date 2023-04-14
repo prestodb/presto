@@ -23,6 +23,7 @@
 
 namespace facebook::velox::row {
 
+namespace {
 /**
  * A virtual class that represents iterators that loop through UnsafeRow data.
  */
@@ -47,7 +48,7 @@ class UnsafeRowDataBatchIterator {
    */
   FOLLY_ALWAYS_INLINE std::tuple<uint32_t, uint32_t> readDataPointer(
       const char* data) {
-    const uint64_t offsetAndSize = *reinterpret_cast<const uint64_t*>(data);
+    const uint64_t offsetAndSize = readInt64(data);
     return {
         /*size*/ static_cast<uint32_t>(offsetAndSize),
         /*offset*/ offsetAndSize >> 32};
@@ -92,6 +93,10 @@ class UnsafeRowDataBatchIterator {
   }
 
  protected:
+  static uint64_t readInt64(const char* data) {
+    return *reinterpret_cast<const uint64_t*>(data);
+  }
+
   /**
    * The data need to be processed. The vector represent a whole column of
    * data over.
@@ -101,13 +106,13 @@ class UnsafeRowDataBatchIterator {
   /**
    * The number of rows in the given data.
    */
-  size_t numRows_ = 0;
+  const size_t numRows_;
 
  private:
   /**
    * The element type.
    */
-  TypePtr type_;
+  const TypePtr type_;
 };
 
 inline UnsafeRowDataBatchIterator::~UnsafeRowDataBatchIterator() {}
@@ -119,15 +124,15 @@ using DataBatchIteratorPtr = std::shared_ptr<UnsafeRowDataBatchIterator>;
  * and anything that can be represented as a c++ fundamental type with at most
  * 8 bytes.
  */
-struct UnsafeRowPrimitiveBatchIterator : UnsafeRowDataBatchIterator {
+struct PrimitiveBatchIterator : UnsafeRowDataBatchIterator {
  public:
   /**
-   * UnsafeRowPrimitiveBatchIterator constructor.
+   * PrimitiveBatchIterator constructor.
    * @param data The part of the UnsafeRow data buffer that contains the
    * primitive value
    * @param type The element type
    */
-  UnsafeRowPrimitiveBatchIterator(
+  PrimitiveBatchIterator(
       const std::vector<std::optional<std::string_view>>& data,
       const TypePtr& type)
       : UnsafeRowDataBatchIterator(data, type) {}
@@ -167,20 +172,19 @@ struct UnsafeRowPrimitiveBatchIterator : UnsafeRowDataBatchIterator {
     [nullset : (num elements + 63) / 64
     words] [variable length data: variable]
  */
-struct UnsafeRowStructBatchIterator : UnsafeRowDataBatchIterator {
+struct StructBatchIterator : UnsafeRowDataBatchIterator {
  public:
   /**
-   * UnsafeRowStructBatchIterator constructor.
+   * StructBatchIterator constructor.
    * @param data
    * @param type
    */
-  explicit UnsafeRowStructBatchIterator(
+  explicit StructBatchIterator(
       const std::vector<std::optional<std::string_view>>& data,
       const TypePtr& type)
       : UnsafeRowDataBatchIterator(data, type),
-        childrenTypes_(
-            std::dynamic_pointer_cast<const RowType>(type)->children()),
-        numElements_(std::dynamic_pointer_cast<const RowType>(type)->size()) {
+        childTypes_(asRowType(type)->children()),
+        numElements_(childTypes_.size()) {
     columnData_.resize(numRows_);
   }
 
@@ -204,7 +208,7 @@ struct UnsafeRowStructBatchIterator : UnsafeRowDataBatchIterator {
    * type.
    */
   const std::vector<std::optional<std::string_view>>& nextColumnBatch() {
-    const TypePtr& type = childrenTypes_[idx_];
+    const TypePtr& type = childTypes_[idx_];
     std::size_t cppSizeInBytes =
         type->isFixedWidth() ? type->cppSizeInBytes() : 0;
     std::size_t fieldOffset = UnsafeRow::getNullLength(numElements_) +
@@ -249,19 +253,20 @@ struct UnsafeRowStructBatchIterator : UnsafeRowDataBatchIterator {
   /**
    * The types of children.
    */
-  const std::vector<TypePtr>& childrenTypes_;
+  const std::vector<TypePtr>& childTypes_;
 
   /**
    * The number of elements in the struct.
    */
-  size_t numElements_;
+  const size_t numElements_;
 
   /**
    * The current processing column data.
    */
   std::vector<std::optional<std::string_view>> columnData_;
 };
-using StructBatchIteratorPtr = std::shared_ptr<UnsafeRowStructBatchIterator>;
+
+using StructBatchIteratorPtr = std::shared_ptr<StructBatchIterator>;
 
 /**
  * Iterator to traverse through an UnsafeRow array representation.  This is
@@ -274,7 +279,7 @@ using StructBatchIteratorPtr = std::shared_ptr<UnsafeRowStructBatchIterator>;
  * [fixed length data or offsets: (num elements) words]
  * [variable length data: variable]
  */
-struct UnsafeRowArrayBatchIterator : UnsafeRowDataBatchIterator {
+struct ArrayBatchIterator : UnsafeRowDataBatchIterator {
  public:
   /**
    * Constructor for UnsafeRowArray.
@@ -282,31 +287,28 @@ struct UnsafeRowArrayBatchIterator : UnsafeRowDataBatchIterator {
    * @param isFixedLength whether the elements in the array is fixed length
    * @param fixedDataWidth the data width if the element is fixed length
    */
-  UnsafeRowArrayBatchIterator(
+  ArrayBatchIterator(
       const std::vector<std::optional<std::string_view>>& data,
-      const TypePtr& type,
-      bool isFixedLength,
-      size_t fixedDataWidth = 0)
+      const TypePtr& type)
       : UnsafeRowDataBatchIterator(data, type),
-        isFixedLength_(isFixedLength),
-        fixedDataWidth_(fixedDataWidth) {
-    elementType_ = type->asArray().elementType();
+        elementType_{type->childAt(0)},
+        isFixedLength_(elementType_->isFixedWidth()),
+        fixedDataWidth_(isFixedLength_ ? elementType_->cppSizeInBytes() : 0) {
     totalNumElements_ = 0L;
 
     for (int32_t i = 0; i < numRows_; ++i) {
       if (data_[i].has_value()) {
-        totalNumElements_ +=
-            reinterpret_cast<const uint64_t*>(data_[i]->data())[0];
+        totalNumElements_ += readInt64(data_[i]->data());
       }
     }
     columnData_.resize(totalNumElements_);
   }
 
-  int64_t totalNumElements() {
+  int64_t totalNumElements() const {
     return totalNumElements_;
   }
 
-  const TypePtr getElementType() {
+  const TypePtr& getElementType() const {
     return elementType_;
   }
 
@@ -314,19 +316,13 @@ struct UnsafeRowArrayBatchIterator : UnsafeRowDataBatchIterator {
    * @return the size of the array
    */
   size_t size(size_t idx) override {
-    return isNull(idx)
-        ? 0
-        : reinterpret_cast<const uint64_t*>(data_[idx]->data())[0];
-  }
-
-  bool childIsFixedLength() {
-    return isFixedLength_;
+    return isNull(idx) ? 0 : readInt64(data_[idx]->data());
   }
 
   std::string toString(size_t idx) override {
     std::stringstream str;
     str << "Data iterator of type " << type()->toString() << " of size "
-        << size(idx) << " childIsFixedLength " << childIsFixedLength();
+        << size(idx) << " childIsFixedLength " << isFixedLength_;
     return str.str();
   }
 
@@ -344,7 +340,7 @@ struct UnsafeRowArrayBatchIterator : UnsafeRowDataBatchIterator {
       }
       const char* rawData = data_[i]->data();
       const char* nullSet = rawData + UnsafeRow::kFieldWidthBytes;
-      size_t numElement = reinterpret_cast<const uint64_t*>(rawData)[0];
+      size_t numElement = readInt64(rawData);
       auto nullLengthBytes = UnsafeRow::getNullLength(numElement);
       const size_t elementOffsetBase =
           UnsafeRow::kFieldWidthBytes + nullLengthBytes;
@@ -372,14 +368,19 @@ struct UnsafeRowArrayBatchIterator : UnsafeRowDataBatchIterator {
 
  private:
   /**
+   * The element type.
+   */
+  const TypePtr elementType_;
+
+  /**
    * Whether the elements are fixed length.
    */
-  bool isFixedLength_;
+  const bool isFixedLength_;
 
   /**
    * The width of the elements if it is fixed length
    */
-  size_t fixedDataWidth_;
+  const size_t fixedDataWidth_;
 
   /**
    * the children elements of all array data for the whole column.
@@ -387,17 +388,13 @@ struct UnsafeRowArrayBatchIterator : UnsafeRowDataBatchIterator {
   std::vector<std::optional<std::string_view>> columnData_;
 
   /**
-   * The element type.
-   */
-  TypePtr elementType_;
-
-  /**
    * The total number of elements in all the array the current iterator
    * represents.
    */
   int64_t totalNumElements_;
 };
-using ArrayBatchIteratorPtr = std::shared_ptr<UnsafeRowArrayBatchIterator>;
+
+using ArrayBatchIteratorPtr = std::shared_ptr<ArrayBatchIterator>;
 
 DataBatchIteratorPtr getBatchIteratorPtr(
     const std::vector<std::optional<std::string_view>>& data,
@@ -406,7 +403,7 @@ DataBatchIteratorPtr getBatchIteratorPtr(
 /**
  * Iterator representation of an UnsafeRowMap object.
  */
-struct UnsafeRowMapBatchIterator : UnsafeRowDataBatchIterator {
+struct MapBatchIterator : UnsafeRowDataBatchIterator {
  public:
   /**
    * UnsafeRowMapIterator constructor. The elements in an UnsafeRow Map
@@ -414,7 +411,7 @@ struct UnsafeRowMapBatchIterator : UnsafeRowDataBatchIterator {
    * @param data
    * @param type
    */
-  explicit UnsafeRowMapBatchIterator(
+  explicit MapBatchIterator(
       const std::vector<std::optional<std::string_view>>& data,
       const TypePtr& type)
       : UnsafeRowDataBatchIterator(data, type) {
@@ -433,30 +430,23 @@ struct UnsafeRowMapBatchIterator : UnsafeRowDataBatchIterator {
       }
 
       // offsetToValues is at least 8, even if the map is empty
-      size_t offsetToValues =
-          reinterpret_cast<const uint64_t*>(data_[i]->data())[0];
+      size_t offsetToValues = readInt64(data_[i]->data());
 
       auto keysStart = data_[i]->data() + UnsafeRow::kFieldWidthBytes;
-      auto keysData = std::string_view(keysStart, offsetToValues);
-      keyArray_[i] = keysData;
-      auto valuesStart = keysStart + offsetToValues;
-      valueArray_[i] =
-          std::string_view(valuesStart, data_[i]->size() - keysData.size());
+      keyArray_[i] = std::string_view(keysStart, offsetToValues);
+      valueArray_[i] = std::string_view(
+          keysStart + offsetToValues,
+          data_[i]->size() - offsetToValues - UnsafeRow::kFieldWidthBytes);
     }
 
-    auto mapTypePtr = std::dynamic_pointer_cast<const MapType>(type);
-    keysIteratorWrapper_ =
-        std::dynamic_pointer_cast<UnsafeRowArrayBatchIterator>(
-            getBatchIteratorPtr(keyArray_, ARRAY(mapTypePtr->keyType())));
-    valuesIteratorWrapper_ =
-        std::dynamic_pointer_cast<UnsafeRowArrayBatchIterator>(
-            getBatchIteratorPtr(valueArray_, ARRAY(mapTypePtr->valueType())));
+    keysIteratorWrapper_ = std::dynamic_pointer_cast<ArrayBatchIterator>(
+        getBatchIteratorPtr(keyArray_, ARRAY(type->childAt(0))));
+    valuesIteratorWrapper_ = std::dynamic_pointer_cast<ArrayBatchIterator>(
+        getBatchIteratorPtr(valueArray_, ARRAY(type->childAt(1))));
 
-    totalNumElements_ = 0;
     numElements_.resize(numRows_);
     for (int32_t i = 0; i < numRows_; ++i) {
       numElements_[i] = keysIteratorWrapper_->size(i);
-      totalNumElements_ += numElements_[i];
     }
   }
 
@@ -481,13 +471,6 @@ struct UnsafeRowMapBatchIterator : UnsafeRowDataBatchIterator {
     return numElements_[idx];
   }
 
-  /**
-   * @return the total number of elements (key-value pairs) in the map.
-   */
-  int64_t totalNumElements() {
-    return totalNumElements_;
-  }
-
  private:
   /**
    * The keys iterator wrapped as an UnsafeRowArray.
@@ -504,30 +487,25 @@ struct UnsafeRowMapBatchIterator : UnsafeRowDataBatchIterator {
   std::vector<std::optional<std::string_view>> valueArray_;
 
   std::vector<size_t> numElements_;
-
-  int64_t totalNumElements_;
 };
 
 inline DataBatchIteratorPtr getBatchIteratorPtr(
     const std::vector<std::optional<std::string_view>>& data,
     const TypePtr& type) {
   if (type->isPrimitiveType()) {
-    return std::make_shared<UnsafeRowPrimitiveBatchIterator>(data, type);
+    return std::make_shared<PrimitiveBatchIterator>(data, type);
   } else if (type->isRow()) {
-    return std::make_shared<UnsafeRowStructBatchIterator>(data, type);
+    return std::make_shared<StructBatchIterator>(data, type);
   } else if (type->isArray()) {
-    auto childTypePtr = type->asArray().elementType();
-    size_t childWidth =
-        childTypePtr->isFixedWidth() ? childTypePtr->cppSizeInBytes() : 0;
-    return std::make_shared<UnsafeRowArrayBatchIterator>(
-        data, type, childTypePtr->isFixedWidth(), childWidth);
+    return std::make_shared<ArrayBatchIterator>(data, type);
   } else if (type->isMap()) {
-    return std::make_shared<UnsafeRowMapBatchIterator>(data, type);
+    return std::make_shared<MapBatchIterator>(data, type);
   }
 
-  VELOX_NYI("Unknow data type " + type->toString());
+  VELOX_NYI("Unknown data type " + type->toString());
   return nullptr;
 }
+} // namespace
 
 /**
  * UnsafeRowDeserializer for primitive types.
@@ -557,7 +535,7 @@ struct UnsafeRowPrimitiveBatchDeserializer {
  * UnsafeRow dynamic deserializer using TypePtr, deserializes an UnsafeRow to
  * a Vector.
  */
-struct UnsafeRowDynamicVectorBatchDeserializer {
+struct UnsafeRowDeserializer {
   /**
    * Allocate and populate the metadata Vectors in ArrayVector or MapVector.
    * @param dataIterators iterator that points to whole column batch of data.
@@ -571,9 +549,9 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
       const DataBatchIteratorPtr& dataIterator,
       memory::MemoryPool* pool,
       const size_t size) {
-    BufferPtr offsets = AlignedBuffer::allocate<int32_t>(size, pool);
-    BufferPtr lengths = AlignedBuffer::allocate<vector_size_t>(size, pool);
-    BufferPtr nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), pool);
+    BufferPtr offsets = allocateOffsets(size, pool);
+    BufferPtr lengths = allocateSizes(size, pool);
+    BufferPtr nulls = allocateNulls(size, pool);
     auto* offsetsPtr = offsets->asMutable<int32_t>();
     auto* lengthsPtr = lengths->asMutable<vector_size_t>();
     auto* nullsPtr = nulls->asMutable<uint64_t>();
@@ -581,17 +559,42 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
 
     for (int i = 0; i < size; i++) {
       auto isNull = dataIterator->isNull(i);
-      bits::setBit(nullsPtr, i, isNull ? bits::kNull : !bits::kNull);
+      bits::setNull(nullsPtr, i, isNull);
       nullCount += isNull;
       lengthsPtr[i] = isNull ? 0 : dataIterator->size(i);
       offsetsPtr[i] = i == 0 ? 0 : offsetsPtr[i - 1] + lengthsPtr[i - 1];
     }
 
+    if (nullCount == 0) {
+      nulls = nullptr;
+    }
+
     return std::tuple(offsets, lengths, nulls, nullCount);
   }
 
+  inline static BufferPtr populateNulls(
+      const DataBatchIteratorPtr& dataIterator,
+      memory::MemoryPool* pool,
+      const size_t size) {
+    BufferPtr nulls = allocateNulls(size, pool);
+    auto* nullsPtr = nulls->asMutable<uint64_t>();
+    size_t nullCount = 0;
+
+    for (int i = 0; i < size; i++) {
+      auto isNull = dataIterator->isNull(i);
+      bits::setNull(nullsPtr, i, isNull);
+      nullCount += isNull;
+    }
+
+    if (nullCount == 0) {
+      return nullptr;
+    }
+
+    return nulls;
+  }
+
   /**
-   * Converts a list of UnsafeRowMapBatchIterators to Vectors.
+   * Converts a list of MapBatchIterators to Vectors.
    * @param dataIterators iterator that points to whole column batch of data.
    * @param pool
    * @return a MapVectorPtr
@@ -599,11 +602,10 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
   static VectorPtr convertMapIteratorsToVectors(
       const DataBatchIteratorPtr& dataIterator,
       memory::MemoryPool* pool) {
-    TypePtr type = dataIterator->type();
+    const TypePtr& type = dataIterator->type();
     assert(type->isMap());
 
-    auto* iteratorPtr =
-        static_cast<UnsafeRowMapBatchIterator*>(dataIterator.get());
+    auto* iteratorPtr = static_cast<MapBatchIterator*>(dataIterator.get());
     size_t numMaps = iteratorPtr->numRows();
 
     auto [offsets, lengths, nulls, nullCount] =
@@ -619,15 +621,13 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
         numMaps,
         offsets,
         lengths,
-        deserializeComplex(
-            keysIterator->nextColumnBatch(), type->asMap().keyType(), pool),
-        deserializeComplex(
-            valuesIterator->nextColumnBatch(), type->asMap().valueType(), pool),
+        deserialize(keysIterator->nextColumnBatch(), type->childAt(0), pool),
+        deserialize(valuesIterator->nextColumnBatch(), type->childAt(1), pool),
         nullCount);
   }
 
   /**
-   * Converts a list of UnsafeRowArrayBatchIterators to Vectors.
+   * Converts a list of ArrayBatchIterators to Vectors.
    * @param dataIterator iterator that points to whole column batch of data.
    * process.
    * @param pool
@@ -636,11 +636,10 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
   static VectorPtr convertArrayIteratorsToVectors(
       const DataBatchIteratorPtr& dataIterator,
       memory::MemoryPool* pool) {
-    TypePtr type = dataIterator->type();
+    const TypePtr& type = dataIterator->type();
     assert(type->isArray());
 
-    auto* iteratorPtr =
-        static_cast<UnsafeRowArrayBatchIterator*>(dataIterator.get());
+    auto* iteratorPtr = static_cast<ArrayBatchIterator*>(dataIterator.get());
 
     size_t numArrays = iteratorPtr->numRows();
 
@@ -663,12 +662,12 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
         numArrays,
         offsets,
         lengths,
-        deserializeComplex(iteratorPtr->nextColumnBatch(), elementType, pool),
+        deserialize(iteratorPtr->nextColumnBatch(), elementType, pool),
         nullCount);
   }
 
   /**
-   * Converts a list of UnsafeRowStructBatchIterators to Vectors.
+   * Converts a list of StructBatchIterators to Vectors.
    * @param dataIterator iterator that points to whole column batch of data.
    * @param pool
    * @return an RowVectorPtr
@@ -679,26 +678,25 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
     const TypePtr& type = dataIterator->type();
     assert(type->isRow());
     auto* StructBatchIteratorPtr =
-        static_cast<UnsafeRowStructBatchIterator*>(dataIterator.get());
+        static_cast<StructBatchIterator*>(dataIterator.get());
     const auto& rowType = type->asRow();
     size_t numFields = rowType.size();
     size_t numStructs = StructBatchIteratorPtr->numRows();
 
-    auto [offsets, lengths, nulls, nullCount] =
-        populateMetadataVectors(dataIterator, pool, numStructs);
+    auto nulls = populateNulls(dataIterator, pool, numStructs);
 
     std::vector<VectorPtr> columnVectors(numFields);
     for (size_t i = 0; i < numFields; ++i) {
-      columnVectors[i] = deserializeComplex(
+      columnVectors[i] = deserialize(
           StructBatchIteratorPtr->nextColumnBatch(), rowType.childAt(i), pool);
     }
-    size_t size = columnVectors[0]->size();
+
     return std::make_shared<RowVector>(
-        pool, type, nulls, size, std::move(columnVectors));
+        pool, type, nulls, numStructs, std::move(columnVectors));
   }
 
   /**
-   * Converts a list of UnsafeRowPrimitiveBatchIterators to a FlatVector
+   * Converts a list of PrimitiveBatchIterators to a FlatVector
    * @tparam Kind the element's type kind.
    * @param dataIterator iterator that points to the dataIterator over the
    * whole column batch of data.
@@ -711,25 +709,23 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
       const DataBatchIteratorPtr& dataIterator,
       const TypePtr& type,
       memory::MemoryPool* pool) {
-    auto iterator = std::dynamic_pointer_cast<UnsafeRowPrimitiveBatchIterator>(
-        dataIterator);
+    auto iterator =
+        std::dynamic_pointer_cast<PrimitiveBatchIterator>(dataIterator);
     size_t size = iterator->numRows();
     auto vector = BaseVector::create(type, size, pool);
+    using T = typename TypeTraits<Kind>::NativeType;
     using TypeTraits = ScalarTraits<Kind>;
-    using InMemoryType = typename TypeTraits::InMemoryType;
 
-    size_t nullCount = 0;
-    auto* flatResult = vector->asFlatVector<InMemoryType>();
+    auto* flatResult = vector->asFlatVector<T>();
 
     for (int32_t i = 0; i < size; ++i) {
       if (iterator->isNull(i)) {
         vector->setNull(i, true);
         iterator->next();
-        nullCount++;
       } else {
         vector->setNull(i, false);
 
-        if constexpr (std::is_same_v<InMemoryType, StringView>) {
+        if constexpr (std::is_same_v<T, StringView>) {
           StringView val =
               UnsafeRowPrimitiveBatchDeserializer::deserializeStringView(
                   iterator->next().value());
@@ -743,7 +739,6 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
         }
       }
     }
-    vector->setNullCount(nullCount);
     return vector;
   }
 
@@ -791,12 +786,12 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
    *data to a array.
    * @return a VectorPtr
    */
-  static VectorPtr deserializeComplex(
+  static VectorPtr deserializeOne(
       std::optional<std::string_view> data,
-      TypePtr type,
+      const TypePtr& type,
       memory::MemoryPool* pool) {
     std::vector<std::optional<std::string_view>> vectors{data};
-    return deserializeComplex(vectors, type, pool);
+    return deserialize(vectors, type, pool);
   }
 
   /**
@@ -808,7 +803,7 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
    *data to a array.
    * @return a VectorPtr
    */
-  static VectorPtr deserializeComplex(
+  static VectorPtr deserialize(
       const std::vector<std::optional<std::string_view>>& data,
       const TypePtr& type,
       memory::MemoryPool* pool) {

@@ -552,8 +552,8 @@ class UnsafeRowComplexDeserializerTests : public exec::test::OperatorTestBase {
     std::vector<std::optional<std::string_view>> serializedVector;
     for (size_t i = 0; i < inputVector->size(); ++i) {
       // Serialize rowVector into bytes.
-      auto rowSize = UnsafeRowDynamicSerializer::serialize(
-          inputVector->type(), inputVector, this->buffers_[i], /*idx=*/i);
+      auto rowSize = UnsafeRowSerializer::serialize(
+          inputVector, this->buffers_[i], /*idx=*/i);
       serializedVector.push_back(
           rowSize.has_value()
               ? std::optional<std::string_view>(
@@ -625,7 +625,7 @@ TEST_F(UnsafeRowComplexDeserializerTests, DISABLED_Testfuzzer) {
     std::vector<std::optional<std::string_view>> rowData;
     char* data = &buffer[0];
     for (int j = 0; j < input->size(); ++j) {
-      auto size = UnsafeRowDynamicSerializer::serialize(type, input, data, j);
+      auto size = UnsafeRowSerializer::serialize(input, data, j);
       ASSERT_TRUE(size);
       rowData.emplace_back(std::string_view(data, *size));
       data += *size;

@@ -34,18 +34,20 @@ using namespace facebook::velox::test;
 class UnsafeRowFuzzTests : public ::testing::Test {
  public:
   UnsafeRowFuzzTests() {
-    clearBuffer();
+    clearBuffers();
   }
 
-  void clearBuffer() {
-    std::memset(buffer_, 0, BUFFER_SIZE);
+  void clearBuffers() {
+    for (auto& buffer : buffers_) {
+      std::memset(buffer, 0, kBufferSize);
+    }
   }
+
+  static constexpr uint64_t kBufferSize = 20 << 10; // 20k
+
+  std::array<char[kBufferSize], 100> buffers_{};
 
   std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
-  BufferPtr bufferPtr_ =
-      AlignedBuffer::allocate<char>(BUFFER_SIZE, pool_.get(), true);
-  char* buffer_ = bufferPtr_->asMutable<char>();
-  static constexpr uint64_t BUFFER_SIZE = 20 << 10; // 20k
 };
 
 TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
@@ -65,14 +67,14 @@ TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
        MAP(VARCHAR(), ARRAY(INTEGER()))});
 
   VectorFuzzer::Options opts;
-  opts.vectorSize = 1;
+  opts.vectorSize = 100;
   opts.nullRatio = 0.1;
   opts.containerHasNulls = false;
   opts.dictionaryHasNulls = false;
   opts.stringVariableLength = true;
   opts.stringLength = 20;
-  opts.containerVariableLength = false;
-  opts.complexElementsMaxSize = 1000000;
+  opts.containerVariableLength = true;
+  opts.complexElementsMaxSize = 10'000;
 
   // Spark uses microseconds to store timestamp
   opts.timestampPrecision =
@@ -86,21 +88,26 @@ TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
 
   const auto iterations = 1000;
   for (size_t i = 0; i < iterations; ++i) {
-    clearBuffer();
-    const auto& inputVector = fuzzer.fuzzRow(rowType);
-    // Serialize rowVector into bytes.
-    UnsafeRowDynamicSerializer::preloadVector(inputVector);
-    auto rowSize = UnsafeRowDynamicSerializer::serialize(
-        rowType, inputVector, buffer_, /*idx=*/0);
+    clearBuffers();
 
-    auto rowSizeMeasured =
-        UnsafeRowDynamicSerializer::getSizeRow(rowType, inputVector.get(), 0);
-    EXPECT_EQ(rowSize.value_or(0), rowSizeMeasured);
+    const auto& inputVector = fuzzer.fuzzInputRow(rowType);
+    // Serialize rowVector into bytes.
+    std::vector<std::optional<std::string_view>> serialized;
+    serialized.reserve(inputVector->size());
+    for (auto j = 0; j < inputVector->size(); ++j) {
+      UnsafeRowSerializer::preloadVector(inputVector);
+      auto rowSize =
+          UnsafeRowSerializer::serialize(inputVector, buffers_[j], j);
+
+      auto rowSizeMeasured =
+          UnsafeRowSerializer::getSizeRow(inputVector.get(), j);
+      EXPECT_EQ(rowSize.value_or(0), rowSizeMeasured);
+      serialized.push_back(std::string_view(buffers_[j], rowSize.value()));
+    }
 
     // Deserialize previous bytes back to row vector
     VectorPtr outputVector =
-        UnsafeRowDynamicVectorBatchDeserializer::deserializeComplex(
-            std::string_view(buffer_, rowSize.value()), rowType, pool_.get());
+        UnsafeRowDeserializer::deserialize(serialized, rowType, pool_.get());
 
     assertEqualVectors(inputVector, outputVector);
   }
