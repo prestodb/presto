@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.nativeworker;
 
-import com.facebook.presto.hive.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
