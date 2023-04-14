@@ -14,16 +14,12 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
-public class TestHiveJoinQueries
-        extends AbstractTestHiveQueries
+public abstract class AbstractTestNativeJoinQueries
+        extends AbstractTestQueryFramework
 {
-    public TestHiveJoinQueries()
-    {
-        super(true);
-    }
-
     @Test
     public void testInnerJoin()
     {
