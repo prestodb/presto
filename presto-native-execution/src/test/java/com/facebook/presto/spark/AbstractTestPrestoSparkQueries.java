@@ -15,7 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
-import com.facebook.presto.hive.PrestoNativeQueryRunnerUtils;
+import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
 import com.facebook.presto.spark.execution.NativeExecutionModule;
 import com.facebook.presto.spark.execution.TestNativeExecutionModule;
