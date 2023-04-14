@@ -83,11 +83,15 @@ class LocalFileSystem : public FileSystem {
     return path;
   }
 
-  std::unique_ptr<ReadFile> openFileForRead(std::string_view path) override {
+  std::unique_ptr<ReadFile> openFileForRead(
+      std::string_view path,
+      const FileOptions& /*unused*/) override {
     return std::make_unique<LocalReadFile>(extractPath(path));
   }
 
-  std::unique_ptr<WriteFile> openFileForWrite(std::string_view path) override {
+  std::unique_ptr<WriteFile> openFileForWrite(
+      std::string_view path,
+      const FileOptions& /*unused*/) override {
     return std::make_unique<LocalWriteFile>(extractPath(path));
   }
 
@@ -192,5 +196,4 @@ void registerLocalFileSystem() {
   registerFileSystem(
       LocalFileSystem::schemeMatcher(), LocalFileSystem::fileSystemGenerator());
 }
-
 } // namespace facebook::velox::filesystems

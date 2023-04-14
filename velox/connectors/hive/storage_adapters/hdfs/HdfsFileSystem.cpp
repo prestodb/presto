@@ -78,7 +78,8 @@ std::string HdfsFileSystem::name() const {
 }
 
 std::unique_ptr<ReadFile> HdfsFileSystem::openFileForRead(
-    std::string_view path) {
+    std::string_view path,
+    const FileOptions& /*unused*/) {
   if (path.find(kScheme) == 0) {
     path.remove_prefix(kScheme.length());
   }
@@ -90,7 +91,8 @@ std::unique_ptr<ReadFile> HdfsFileSystem::openFileForRead(
 }
 
 std::unique_ptr<WriteFile> HdfsFileSystem::openFileForWrite(
-    std::string_view path) {
+    std::string_view path,
+    const FileOptions& /*unused*/) {
   return std::make_unique<HdfsWriteFile>(impl_->hdfsClient(), path);
 }
 

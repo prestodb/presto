@@ -396,7 +396,9 @@ std::string S3FileSystem::getLogLevelName() const {
   return impl_->getLogLevelName();
 }
 
-std::unique_ptr<ReadFile> S3FileSystem::openFileForRead(std::string_view path) {
+std::unique_ptr<ReadFile> S3FileSystem::openFileForRead(
+    std::string_view path,
+    const FileOptions& /*unused*/) {
   const std::string file = s3Path(path);
   auto s3file = std::make_unique<S3ReadFile>(file, impl_->s3Client());
   s3file->initialize();
@@ -404,7 +406,8 @@ std::unique_ptr<ReadFile> S3FileSystem::openFileForRead(std::string_view path) {
 }
 
 std::unique_ptr<WriteFile> S3FileSystem::openFileForWrite(
-    std::string_view path) {
+    std::string_view path,
+    const FileOptions& /*unused*/) {
   VELOX_NYI();
 }
 
