@@ -238,6 +238,7 @@ public class PrestoSparkRunner
         private final Map<String, String> sessionPropertyConfigurationProperties;
         private final Map<String, Map<String, String>> functionNamespaceProperties;
         private final Map<String, Map<String, String>> tempStorageProperties;
+        private final boolean isLocal;
 
         public DistributionBasedPrestoSparkTaskExecutorFactoryProvider(PrestoSparkDistribution distribution)
         {
@@ -252,6 +253,7 @@ public class PrestoSparkRunner
             this.sessionPropertyConfigurationProperties = distribution.getSessionPropertyConfigurationProperties().orElse(null);
             this.functionNamespaceProperties = distribution.getFunctionNamespaceProperties().orElse(null);
             this.tempStorageProperties = distribution.getTempStorageProperties().orElse(null);
+            this.isLocal = distribution.getSparkContext().isLocal();
         }
 
         @Override
@@ -278,7 +280,7 @@ public class PrestoSparkRunner
             synchronized (DistributionBasedPrestoSparkTaskExecutorFactoryProvider.class) {
                 if (service == null) {
                     service = createService(
-                            SparkProcessType.EXECUTOR,
+                            isLocal ? SparkProcessType.LOCAL_EXECUTOR : SparkProcessType.EXECUTOR,
                             packageSupplier,
                             configProperties,
                             catalogProperties,
