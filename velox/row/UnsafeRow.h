@@ -376,7 +376,7 @@ class UnsafeRow {
 
     // write the data pointer
     reinterpret_cast<uint64_t*>(fixedLengthData_)[pos] = dataPointer;
-    setVariableLengthOffset(variableLengthOffset_ + size);
+    setVariableLengthOffset(alignToFieldWidth(variableLengthOffset_ + size));
   }
 
   /**

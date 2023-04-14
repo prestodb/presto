@@ -260,8 +260,19 @@ TEST_F(UnsafeRowSerializerTests, StringsDynamic) {
       StringView("", 0),
       StringView(),
       StringView("INLINE", 6)};
+
   auto stringVec =
       makeFlatVectorPtr<StringView>(4, VARCHAR(), pool_.get(), nulls, elements);
+  auto row = makeRowVector({stringVec});
+
+  for (auto i = 0; i < row->size(); ++i) {
+    auto serialized =
+        UnsafeRowDynamicSerializer::serialize(row->type(), row, buffer_, i)
+            .value_or(0);
+    auto size =
+        UnsafeRowDynamicSerializer::getSizeRow(row->type(), row.get(), i);
+    ASSERT_EQ(serialized, size);
+  }
 
   auto serialized0 =
       UnsafeRowSerializer::serialize<VarcharType>(stringVec, buffer_, 0);
@@ -1128,7 +1139,7 @@ TEST_F(UnsafeRowSerializerTests, rowVarLength) {
       rowVector,
       buffer_,
       0);
-  EXPECT_TRUE(checkVariableLength(bytes0, 12 * 8 - 2, *expected0));
+  EXPECT_TRUE(checkVariableLength(bytes0, 12 * 8, *expected0));
   clearBuffer();
 
   // row[1], 0b010001
@@ -1154,7 +1165,7 @@ TEST_F(UnsafeRowSerializerTests, rowVarLength) {
       rowVector,
       buffer_,
       1);
-  EXPECT_TRUE(checkVariableLength(bytes1, 13 * 8 - 4, *expected1));
+  EXPECT_TRUE(checkVariableLength(bytes1, 13 * 8, *expected1));
 }
 
 TEST_F(UnsafeRowSerializerTests, LazyVector) {
