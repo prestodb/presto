@@ -13,11 +13,22 @@
  */
 package com.facebook.presto.nativeworker;
 
-public class TestHiveQueriesUsingJSON
-        extends TestHiveQueries
+import com.facebook.presto.hive.PrestoNativeQueryRunnerUtils;
+import com.facebook.presto.testing.ExpectedQueryRunner;
+import com.facebook.presto.testing.QueryRunner;
+
+public class TestPrestoNativeGeneralQueriesThrift
+        extends AbstractTestNativeGeneralQueries
 {
-    public TestHiveQueriesUsingJSON()
+    @Override
+    protected QueryRunner createQueryRunner() throws Exception
     {
-        super(false);
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true);
+    }
+
+    @Override
+    protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
+    {
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
     }
 }
