@@ -46,6 +46,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeW
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static org.testng.Assert.assertNotNull;
 
 public class PrestoNativeQueryRunnerUtils
 {
@@ -89,6 +90,12 @@ public class PrestoNativeQueryRunnerUtils
         defaultQueryRunner.close();
 
         return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true);
+    }
+
+    public static QueryRunner createJavaQueryRunner() throws Exception
+    {
+        String dataDirectory = System.getProperty("DATA_DIR");
+        return createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)));
     }
 
     public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory)
@@ -209,5 +216,19 @@ public class PrestoNativeQueryRunnerUtils
                         throw new UncheckedIOException(e);
                     }
                 }));
+    }
+
+    public static QueryRunner createNativeQueryRunner(boolean useThrift)
+            throws Exception
+    {
+        String prestoServerPath = System.getProperty("PRESTO_SERVER");
+        String dataDirectory = System.getProperty("DATA_DIR");
+        String workerCount = System.getProperty("WORKER_COUNT");
+        int cacheMaxSize = 0;
+
+        assertNotNull(prestoServerPath, "Native worker binary path is missing. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.");
+        assertNotNull(dataDirectory, "Data directory path is missing. Add -DDATA_DIR=<path/to/data> to your JVM arguments.");
+
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift);
     }
 }
