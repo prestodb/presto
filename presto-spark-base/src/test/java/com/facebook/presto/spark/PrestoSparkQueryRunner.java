@@ -80,7 +80,6 @@ import io.airlift.tpch.TpchTable;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -341,13 +340,13 @@ public class PrestoSparkQueryRunner
         connectorManager.createConnection("tpch", "tpch", ImmutableMap.of());
 
         // Install Hive Plugin
-        File baseDir;
+        Path baseDir;
         if (dataDirectory.isPresent()) {
-            baseDir = dataDirectory.get().resolve("hive_data").toFile();
+            baseDir = dataDirectory.get();
         }
         else {
             try {
-                baseDir = createTempDirectory("PrestoTest").toFile();
+                baseDir = createTempDirectory("PrestoTest");
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -359,7 +358,7 @@ public class PrestoSparkQueryRunner
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
-        this.metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+        this.metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.resolve("hive_data").toFile().toURI().toString(), "test");
         if (!metastore.getDatabase(METASTORE_CONTEXT, "hive_test").isPresent()) {
             metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("hive_test"));
         }

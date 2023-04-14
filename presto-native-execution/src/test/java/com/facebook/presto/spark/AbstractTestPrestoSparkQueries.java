@@ -28,12 +28,16 @@ import com.google.inject.Module;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.shuffle.ShuffleHandle;
 import org.apache.spark.shuffle.sort.BypassMergeSortShuffleHandle;
+import org.testng.annotations.BeforeClass;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -43,6 +47,15 @@ public class AbstractTestPrestoSparkQueries
 {
     private static final String SPARK_SHUFFLE_MANAGER = "spark.shuffle.manager";
     private static final String FALLBACK_SPARK_SHUFFLE_MANAGER = "spark.fallback.shuffle.manager";
+    private static Path baseDataPath;
+
+    @BeforeClass
+    public void init()
+            throws Exception
+    {
+        baseDataPath = getBaseDataPath();
+        super.init();
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -63,6 +76,7 @@ public class AbstractTestPrestoSparkQueries
         }
 
         PrestoSparkQueryRunner queryRunner = PrestoSparkNativeQueryRunner.createPrestoSparkNativeQueryRunner(
+                Optional.of(baseDataPath),
                 builder.build(),
                 getNativeExecutionShuffleConfigs(),
                 getNativeExecutionModules());
@@ -74,8 +88,7 @@ public class AbstractTestPrestoSparkQueries
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        String dataDirectory = System.getProperty("DATA_DIR");
-        return HiveExternalWorkerQueryRunner.createJavaQueryRunner(Optional.ofNullable(dataDirectory).map(Paths::get), "legacy");
+        return HiveExternalWorkerQueryRunner.createJavaQueryRunner(Optional.ofNullable(baseDataPath), "legacy");
     }
 
     protected void assertShuffleMetadata()
@@ -129,5 +142,20 @@ public class AbstractTestPrestoSparkQueries
         }
 
         return moduleBuilder.build();
+    }
+
+    protected Path getBaseDataPath()
+    {
+        String dataDirectory = System.getProperty("DATA_DIR");
+        if (dataDirectory == null) {
+            try {
+                return createTempDirectory("PrestoTest").toAbsolutePath();
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        return Paths.get(dataDirectory);
     }
 }
