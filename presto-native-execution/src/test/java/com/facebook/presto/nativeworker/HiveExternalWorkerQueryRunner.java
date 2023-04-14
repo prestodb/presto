@@ -11,13 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.nativeworker;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.tests.DistributedQueryRunner;
 
-public class HiveExternalWorkerQueryRunner {
+public class HiveExternalWorkerQueryRunner
+{
+    private HiveExternalWorkerQueryRunner() {}
     public static void main(String[] args)
             throws Exception
     {
