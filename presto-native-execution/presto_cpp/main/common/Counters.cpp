@@ -84,17 +84,17 @@ void registerPrestoCppCounters() {
       kCounterPartitionedOutputBufferGetDataLatencyMs,
       facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterCumulativeUserCpuTimeMicros, facebook::velox::StatType::AVG);
+      kCounterOsUserCpuTimeMicros, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterCumulativeSystemCpuTimeMicros, facebook::velox::StatType::AVG);
+      kCounterOsSystemCpuTimeMicros, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterNumCumulativeSoftPageFaults, facebook::velox::StatType::AVG);
+      kCounterOsNumSoftPageFaults, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterNumCumulativeHardPageFaults, facebook::velox::StatType::AVG);
+      kCounterOsNumHardPageFaults, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterNumVoluntaryContextSwitches, facebook::velox::StatType::AVG);
+      kCounterOsNumVoluntaryContextSwitches, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterNumInvoluntaryContextSwitches, facebook::velox::StatType::AVG);
+      kCounterOsNumForcedContextSwitches, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMappedMemoryRawAllocBytesSmall, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
