@@ -14,6 +14,7 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -25,14 +26,9 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
-abstract class TestHiveQueries
-        extends AbstractTestHiveQueries
+public abstract class AbstractTestNativeGeneralQueries
+        extends AbstractTestQueryFramework
 {
-    protected TestHiveQueries(boolean useThrift)
-    {
-        super(useThrift);
-    }
-
     @Test
     public void testCatalogWithCacheEnabled()
     {
@@ -167,8 +163,8 @@ abstract class TestHiveQueries
         assertQueryOrdered("SELECT nationkey, name, regionkey FROM nation ORDER BY name DESC");
 
         assertQueryOrdered(
-                        "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax "
-                                + "FROM lineitem ORDER BY orderkey, linenumber");
+                "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax "
+                        + "FROM lineitem ORDER BY orderkey, linenumber");
         assertQueryOrdered(
                 "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax "
                         + "FROM lineitem ORDER BY orderkey, linenumber DESC");
@@ -215,8 +211,8 @@ abstract class TestHiveQueries
     public void testCast()
     {
         assertQuery("SELECT CAST(linenumber as TINYINT), CAST(linenumber AS SMALLINT), "
-                              + "CAST(linenumber AS INTEGER), CAST(linenumber AS BIGINT), CAST(quantity AS REAL), "
-                              + "CAST(orderkey AS DOUBLE), CAST(orderkey AS VARCHAR) FROM lineitem");
+                + "CAST(linenumber AS INTEGER), CAST(linenumber AS BIGINT), CAST(quantity AS REAL), "
+                + "CAST(orderkey AS DOUBLE), CAST(orderkey AS VARCHAR) FROM lineitem");
 
         assertQuery("SELECT CAST(true as VARCHAR), CAST(false as VARCHAR)");
         assertQuery("SELECT CAST(0.0 as VARCHAR)");
@@ -390,7 +386,7 @@ abstract class TestHiveQueries
                 "CAST('-999999999.999999' as DECIMAL(15, 6)), NULL)");
         // Array of decimals.
         assertQuery(enableDecimalParsing, "SELECT ARRAY[decimal'1.2', decimal'123.123'," +
-                    "decimal'100000000.0', NULL, NULL]");
+                "decimal'100000000.0', NULL, NULL]");
     }
 
     private Session enableDecimalParsing()
