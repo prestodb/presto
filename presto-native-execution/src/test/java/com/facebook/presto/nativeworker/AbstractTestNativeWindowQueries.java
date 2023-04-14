@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
 
-public class TestHiveWindowQueries
-        extends AbstractTestHiveQueries
+public abstract class AbstractTestNativeWindowQueries
+        extends AbstractTestQueryFramework
 {
     private static final List<String> OVER_CLAUSES_WITH_ORDER_BY = Arrays.asList(
             "PARTITION BY orderkey ORDER BY totalprice",
@@ -38,11 +39,6 @@ public class TestHiveWindowQueries
             "PARTITION BY orderkey, orderdate",
             "PARTITION BY custkey, orderkey, shippriority",
             "PARTITION BY orderkey, custkey");
-
-    public TestHiveWindowQueries()
-    {
-        super(true);
-    }
 
     protected List<String> getRankingQueries(String rankingFunction, boolean orderBy)
     {
