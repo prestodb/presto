@@ -118,9 +118,12 @@ class PartitionAndSerializeOperator : public Operator {
 
     // Allocate memory.
     auto buffer = dataVector.getBufferWithSpace(totalSize);
+    // getBufferWithSpace() may return a buffer that already has content, so we
+    // only use the space after that.
+    auto rawBuffer = buffer->asMutable<char>() + buffer->size();
+    buffer->setSize(buffer->size() + totalSize);
 
     // Serialize rows.
-    auto rawBuffer = buffer->asMutable<char>();
     size_t offset = 0;
     for (auto i = 0; i < numInput; ++i) {
       dataVector.setNoCopy(
