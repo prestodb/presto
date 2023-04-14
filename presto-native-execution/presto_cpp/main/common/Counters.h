@@ -84,26 +84,26 @@ constexpr folly::StringPiece kCounterPartitionedOutputBufferGetDataLatencyMs{
 
 // User CPU time of the presto_server process in microsecond since the process
 // start.
-constexpr folly::StringPiece kCounterCumulativeUserCpuTimeMicros{
-    "presto_cpp.cumulative_user_cpu_time_micros"};
+constexpr folly::StringPiece kCounterOsUserCpuTimeMicros{
+    "presto_cpp.os_user_cpu_time_micros"};
 // System CPU time of the presto_server process in microsecond since the process
 // start.
-constexpr folly::StringPiece kCounterCumulativeSystemCpuTimeMicros{
-    "presto_cpp.cumulative_system_cpu_time_micros"};
+constexpr folly::StringPiece kCounterOsSystemCpuTimeMicros{
+    "presto_cpp.os_system_cpu_time_micros"};
 // Total number of soft page faults of the presto_server process in microsecond
 // since the process start.
-constexpr folly::StringPiece kCounterNumCumulativeSoftPageFaults{
-    "presto_cpp.num_cumulative_soft_page_faults"};
+constexpr folly::StringPiece kCounterOsNumSoftPageFaults{
+    "presto_cpp.os_num_soft_page_faults"};
 // Total number of hard page faults of the presto_server process in microsecond
 // since the process start.
-constexpr folly::StringPiece kCounterNumCumulativeHardPageFaults{
-    "presto_cpp.num_cumulative_hard_page_faults"};
+constexpr folly::StringPiece kCounterOsNumHardPageFaults{
+    "presto_cpp.os_num_hard_page_faults"};
 // Total number of voluntary context switches in the presto_server process.
-constexpr folly::StringPiece kCounterNumVoluntaryContextSwitches{
-    "presto_cpp.num_voluntary_context_switches"};
+constexpr folly::StringPiece kCounterOsNumVoluntaryContextSwitches{
+    "presto_cpp.os_num_voluntary_context_switches"};
 // Total number of involuntary context switches in the presto_server process.
-constexpr folly::StringPiece kCounterNumInvoluntaryContextSwitches{
-    "presto_cpp.num_involuntary_context_switches"};
+constexpr folly::StringPiece kCounterOsNumForcedContextSwitches{
+    "presto_cpp.os_num_forced_context_switches"};
 
 // ================== Memory Counters =================
 
