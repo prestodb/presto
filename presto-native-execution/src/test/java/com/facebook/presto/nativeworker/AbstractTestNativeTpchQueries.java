@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.io.Resources;
 import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
@@ -21,14 +22,9 @@ import java.io.IOException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public abstract class TestHiveTpchQueries
-        extends AbstractTestHiveQueries
+public abstract class AbstractTestNativeTpchQueries
+        extends AbstractTestQueryFramework
 {
-    public TestHiveTpchQueries(boolean useThrift)
-    {
-        super(useThrift);
-    }
-
     private static String getTpchQuery(int q)
             throws IOException
     {
