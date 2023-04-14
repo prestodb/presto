@@ -14,16 +14,12 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
-public class TestTpchQueries
-        extends AbstractTestHiveQueries
+public abstract class AbstractTestNativeTpchConnectorQueries
+        extends AbstractTestQueryFramework
 {
-    public TestTpchQueries()
-    {
-        super(true);
-    }
-
     private Session tpchStandardTiny()
     {
         return Session.builder(getSession()).setCatalog("tpchstandard").setSchema("tiny").build();
