@@ -10,6 +10,13 @@ Binary Functions
 
     Computes the md5 of x.
 
+.. spark:function:: might_contain(bloomFilter, value) -> boolean
+
+   Returns TRUE if ``bloomFilter`` might contain ``value``. 
+
+   ``bloomFilter`` is a VARBINARY computed using ::spark::function::`bloom_filter_agg` aggregate function. 
+   ``value`` is a BIGINT.
+
 .. spark:function:: sha1(x) -> varchar
 
     Computes SHA-1 digest of x and convert the result to a hex string.

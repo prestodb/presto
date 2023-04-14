@@ -28,6 +28,7 @@
 #include "velox/functions/sparksql/Hash.h"
 #include "velox/functions/sparksql/In.h"
 #include "velox/functions/sparksql/LeastGreatest.h"
+#include "velox/functions/sparksql/MightContain.h"
 #include "velox/functions/sparksql/RegexFunctions.h"
 #include "velox/functions/sparksql/RegisterArithmetic.h"
 #include "velox/functions/sparksql/RegisterCompare.h"
@@ -165,6 +166,10 @@ void registerFunctions(const std::string& prefix) {
       int64_t,
       Varchar,
       Varchar>({prefix + "unix_timestamp", prefix + "to_unix_timestamp"});
+
+  // Register bloom filter function
+  exec::registerVectorFunction(
+      prefix + "might_contain", mightContainSignatures(), makeMightContain());
 }
 
 } // namespace sparksql
