@@ -443,6 +443,10 @@ void PeriodicTaskManager::addOperatingSystemStatsTask() {
             kCounterNumCumulativeSoftPageFaults, usage.ru_minflt);
         REPORT_ADD_STAT_VALUE(
             kCounterNumCumulativeHardPageFaults, usage.ru_majflt);
+        REPORT_ADD_STAT_VALUE(
+            kCounterNumVoluntaryContextSwitches, usage.ru_nvcsw);
+        REPORT_ADD_STAT_VALUE(
+            kCounterNumInvoluntaryContextSwitches, usage.ru_nivcsw);
       },
       std::chrono::microseconds{kOsPeriodGlobalCounters},
       "os_counters");

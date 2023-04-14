@@ -92,6 +92,10 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumCumulativeHardPageFaults, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterNumVoluntaryContextSwitches, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterNumInvoluntaryContextSwitches, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMappedMemoryRawAllocBytesSmall, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMappedMemoryRawAllocBytesSizeClass,
