@@ -17,19 +17,18 @@
 #include <optional>
 
 #include "velox/common/base/Nulls.h"
-#include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/row/UnsafeRowDeserializers.h"
 #include "velox/row/UnsafeRowSerializers.h"
-#include "velox/type/Type.h"
-#include "velox/vector/BaseVector.h"
-#include "velox/vector/tests/utils/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
-using namespace facebook::velox::row;
-using namespace facebook::velox::test;
 
-class UnsafeRowSerializerTests
-    : public facebook::velox::exec::test::OperatorTestBase {
+namespace facebook::velox::row {
+
+namespace {
+
+class UnsafeRowSerializerTests : public testing::Test,
+                                 public test::VectorTestBase {
  protected:
   UnsafeRowSerializerTests() {
     clearBuffer();
@@ -40,15 +39,9 @@ class UnsafeRowSerializerTests
   }
 
   BufferPtr bufferPtr_ =
-      AlignedBuffer::allocate<char>(kBufferSize, pool_.get(), true);
+      AlignedBuffer::allocate<char>(kBufferSize, pool(), true);
   // Variable pointing to the row pointer held by the smart pointer BufferPtr.
   char* buffer_ = bufferPtr_->asMutable<char>();
-
-  template <typename T>
-  ConstantVectorPtr<T> constantVector(
-      const std::vector<std::optional<T>>& data) {
-    return vectorMaker_.constantVector(data);
-  }
 
   template <typename T>
   std::shared_ptr<LazyVector> lazyFlatVector(
@@ -100,35 +93,6 @@ class UnsafeRowSerializerTests
       }
     }
     return testing::AssertionSuccess();
-  }
-
-  testing::AssertionResult checkIsNull(std::optional<size_t> serializedSize) {
-    return !serializedSize.has_value() ? testing::AssertionSuccess()
-                                       : testing::AssertionFailure();
-  }
-
-  template <typename T>
-  VectorPtr makeFlatVectorPtr(
-      size_t flatVectorSize,
-      const TypePtr type,
-      memory::MemoryPool* pool,
-      bool* nullsValue,
-      T* elementValue) {
-    auto vector = BaseVector::create(type, flatVectorSize, pool);
-    auto flatVector = vector->asFlatVector<T>();
-
-    size_t nullCount = 0;
-    for (size_t i = 0; i < flatVectorSize; i++) {
-      if (nullsValue[i]) {
-        vector->setNull(i, true);
-        nullCount++;
-      } else {
-        vector->setNull(i, false);
-        flatVector->set(i, elementValue[i]);
-      }
-    }
-    vector->setNullCount(nullCount);
-    return vector;
   }
 
   ArrayVectorPtr makeArrayVectorPtr(
@@ -230,11 +194,8 @@ TEST_F(UnsafeRowSerializerTests, fixedLengthPrimitive) {
 }
 
 TEST_F(UnsafeRowSerializerTests, fixedLengthVectorPtr) {
-  bool nulls[5] = {false, false, false, false, false};
-  int32_t elements[5] = {
-      0x01010101, 0x01010101, 0x01010101, 0x01234567, 0x01010101};
-  auto intVector =
-      makeFlatVectorPtr<int32_t>(5, INTEGER(), pool_.get(), nulls, elements);
+  auto intVector = makeFlatVector<int32_t>(
+      {0x01010101, 0x01010101, 0x01010101, 0x01234567, 0x01010101});
 
   auto intSerialized0 =
       UnsafeRowSerializer::serialize<IntegerType>(intVector, buffer_, 0);
@@ -250,19 +211,15 @@ TEST_F(UnsafeRowSerializerTests, fixedLengthVectorPtr) {
   intVector->setNull(2, true);
   auto nullSerialized =
       UnsafeRowSerializer::serialize<IntegerType>(intVector, buffer_, 2);
-  EXPECT_TRUE(checkIsNull(nullSerialized));
+  EXPECT_FALSE(nullSerialized.has_value());
 }
 
-TEST_F(UnsafeRowSerializerTests, StringsDynamic) {
-  bool nulls[4] = {false, false, true, false};
-  StringView elements[4] = {
-      StringView("Hello, World!", 13),
-      StringView("", 0),
-      StringView(),
-      StringView("INLINE", 6)};
-
-  auto stringVec =
-      makeFlatVectorPtr<StringView>(4, VARCHAR(), pool_.get(), nulls, elements);
+TEST_F(UnsafeRowSerializerTests, stringsDynamic) {
+  VectorPtr stringVec = makeNullableFlatVector<StringView>(
+      {StringView("Hello, World!", 13),
+       StringView("", 0),
+       std::nullopt,
+       StringView("INLINE", 6)});
   auto row = makeRowVector({stringVec});
 
   for (auto i = 0; i < row->size(); ++i) {
@@ -290,7 +247,7 @@ TEST_F(UnsafeRowSerializerTests, StringsDynamic) {
 
   auto serialized2 =
       UnsafeRowSerializer::serialize<VarcharType>(stringVec, buffer_, 2);
-  EXPECT_TRUE(checkIsNull(serialized2));
+  EXPECT_FALSE(serialized2.has_value());
 
   size = UnsafeRowDynamicSerializer::getSize(VARCHAR(), stringVec, 2);
   EXPECT_EQ(size, serialized2.value_or(0));
@@ -305,10 +262,8 @@ TEST_F(UnsafeRowSerializerTests, StringsDynamic) {
 }
 
 TEST_F(UnsafeRowSerializerTests, timestamp) {
-  bool nulls[2] = {false, true};
-  Timestamp elements[2] = {Timestamp(1, 2'000), Timestamp(0, 0)};
-  auto timestampVec = makeFlatVectorPtr<Timestamp>(
-      2, TIMESTAMP(), pool_.get(), nulls, elements);
+  auto timestampVec =
+      makeNullableFlatVector<Timestamp>({Timestamp(1, 2'000), std::nullopt});
 
   auto serialized0 =
       UnsafeRowSerializer::serialize<TimestampType>(timestampVec, buffer_, 0);
@@ -317,7 +272,7 @@ TEST_F(UnsafeRowSerializerTests, timestamp) {
 
   auto serialized1 =
       UnsafeRowSerializer::serialize<TimestampType>(timestampVec, buffer_, 1);
-  EXPECT_TRUE(checkIsNull(serialized1));
+  EXPECT_FALSE(serialized1.has_value());
 
   auto timestamp = Timestamp(-1, 2'000);
   auto serialized3 =
@@ -384,38 +339,17 @@ TEST_F(UnsafeRowSerializerTests, mapStdContainers) {
 }
 
 TEST_F(UnsafeRowSerializerTests, arrayPrimitives) {
-  /// ArrayVector<FlatVector<int16_t>>:
-  /// [ null, [0x0333, 0x1444, 0x0555], [0x1666, 0x0777, null, 0x0999] ]
-  /// size: 3
-  /// offsets: [0, 0, 3]
-  /// lengths: [0, 3, 4]
-  /// nulls: 0b001
-  /// elements:
-  ///  FlatVector<int16_t>:
-  ///  size: 7
-  ///  [0x0333, 0x1444, 0x0555, 0x1666, 0x0777, null, 0x0999]
-  ///  nulls: 0b0100000
-  auto flatVector = makeNullableFlatVector<int16_t>(
-      {0x0333, 0x1444, 0x0555, 0x1666, 0x0777, std::nullopt, 0x0999});
-
-  size_t arrayVectorSize = 3;
-  bool nullsValue[3] = {1, 0, 0};
-  int32_t offsetsValue[3] = {0, 0, 3};
-  vector_size_t lengthsValue[3] = {0, 3, 4};
-  auto arrayVector = makeArrayVectorPtr(
-      arrayVectorSize,
-      pool_.get(),
-      offsetsValue,
-      lengthsValue,
-      nullsValue,
-      ARRAY(SMALLINT()),
-      flatVector);
+  auto arrayVector = makeNullableArrayVector<int16_t>({
+      std::nullopt,
+      {{0x0333, 0x1444, 0x0555}},
+      {{0x1666, 0x0777, std::nullopt, 0x0999}},
+  });
 
   // null
   auto serialized0 =
       UnsafeRowSerializer::serializeComplexVectors<Array<SmallintType>>(
           arrayVector, buffer_, 0);
-  EXPECT_TRUE(checkIsNull(serialized0));
+  EXPECT_FALSE(serialized0.has_value());
 
   auto arraySize =
       UnsafeRowDynamicSerializer::getSize(ARRAY(SMALLINT()), arrayVector, 0);
@@ -425,7 +359,7 @@ TEST_F(UnsafeRowSerializerTests, arrayPrimitives) {
 
   auto dynamic0 = UnsafeRowDynamicSerializer::serialize(
       ARRAY(SMALLINT()), arrayVector, buffer_, 0);
-  EXPECT_TRUE(checkIsNull(dynamic0));
+  EXPECT_FALSE(dynamic0.has_value());
   clearBuffer();
 
   // [0x0333, 0x1444, 0x0555]
@@ -478,39 +412,14 @@ TEST_F(UnsafeRowSerializerTests, arrayPrimitives) {
 }
 
 TEST_F(UnsafeRowSerializerTests, arrayStringView) {
-  /// ArrayVector<FlatVector<StringView>>:
-  /// [ hello, longString, emptyString, null ], [null, world], null]
-  /// size: 3
-  /// offsets: [0, 4, 6]
-  /// lengths: [4, 2, 0]
-  /// nulls: 0b100
-  /// elements:
-  ///  FlatVector<StringView>:
-  ///  size: 6
-  ///  [ hello, longString, emptyString, null, null, world]
-  ///  nulls: 0b011000
-  auto hello = StringView("Hello", 5);
   auto longString =
       StringView("This is a rather long string.  Quite long indeed.", 49);
-  auto emptyString = StringView("", 0);
-  auto world = StringView("World", 5);
-  auto placeHolder = StringView();
 
-  auto flatVector = makeNullableFlatVector<StringView>(
-      {hello, longString, emptyString, std::nullopt, std::nullopt, world});
-
-  size_t arrayVectorSize = 3;
-  bool nullsValue[3] = {false, false, true};
-  int32_t offsetsValue[3] = {0, 4, 6};
-  vector_size_t lengthsValue[3] = {4, 2, 0};
-  auto arrayVector = makeArrayVectorPtr(
-      arrayVectorSize,
-      pool_.get(),
-      offsetsValue,
-      lengthsValue,
-      nullsValue,
-      ARRAY(VARCHAR()),
-      flatVector);
+  auto arrayVector = makeNullableArrayVector<StringView>({
+      {{"Hello"_sv, longString, ""_sv, std::nullopt}},
+      {{std::nullopt, "World"_sv}},
+      std::nullopt,
+  });
 
   // [ hello, longString, emptyString, null ]
   auto serialized0 =
@@ -585,12 +494,12 @@ TEST_F(UnsafeRowSerializerTests, arrayStringView) {
   arraySize =
       UnsafeRowDynamicSerializer::getSize(ARRAY(VARCHAR()), arrayVector, 2);
   EXPECT_EQ(arraySize, serialized2.value_or(0));
-  EXPECT_TRUE(checkIsNull(serialized2));
+  EXPECT_FALSE(serialized2.has_value());
   clearBuffer();
 
   auto dynamic2 = UnsafeRowDynamicSerializer::serialize(
       ARRAY(VARCHAR()), arrayVector, buffer_, 2);
-  EXPECT_TRUE(checkIsNull(dynamic2));
+  EXPECT_FALSE(dynamic2.has_value());
   clearBuffer();
 }
 
@@ -633,7 +542,7 @@ TEST_F(UnsafeRowSerializerTests, nestedArray) {
   vector_size_t arrayLengthsValue[6] = {2, 2, 3, 0, 1, 2};
   auto arrayVector = makeArrayVectorPtr(
       arrayVectorSize,
-      pool_.get(),
+      pool(),
       arrayOffsetsValue,
       arrayLengthsValue,
       arrayNullsValue,
@@ -646,7 +555,7 @@ TEST_F(UnsafeRowSerializerTests, nestedArray) {
   vector_size_t arrayArrayLengthsValue[3] = {2, 3, 1};
   auto arrayArrayVector = makeArrayVectorPtr(
       arrayArrayVectorSize,
-      pool_.get(),
+      pool(),
       arrayArrayOffsetsValue,
       arrayArrayLengthsValue,
       arrayArrayNullsValue,
@@ -796,7 +705,7 @@ TEST_F(UnsafeRowSerializerTests, map) {
   vector_size_t valuesLengthsValue[4] = {2, 3, 1, 1};
   auto valuesArrayVector = makeArrayVectorPtr(
       valuesArrayVectorSize,
-      pool_.get(),
+      pool(),
       valuesOffsetsValue,
       valuesLengthsValue,
       valuesNullsValue,
@@ -809,11 +718,11 @@ TEST_F(UnsafeRowSerializerTests, map) {
   vector_size_t mapLengthsValue[3] = {3, 0, 1};
   auto mapVector = makeMapVectorPtr(
       mapVectorSize,
-      pool_.get(),
+      pool(),
       mapOffsetsValue,
       mapLengthsValue,
       mapNullsValue,
-      MAP(VARCHAR(), ARRAY(TINYINT())), // MAP(VARCHAR(), ARRAY(TINYINT()))
+      MAP(VARCHAR(), ARRAY(TINYINT())),
       keysFlatVector,
       valuesArrayVector); // valuesArrayVector
 
@@ -862,12 +771,12 @@ TEST_F(UnsafeRowSerializerTests, map) {
   // null
   auto serialized1 = UnsafeRowSerializer::serializeComplexVectors<
       Map<VarcharType, Array<TinyintType>>>(mapVector, buffer_, 1);
-  EXPECT_TRUE(checkIsNull(serialized1));
+  EXPECT_FALSE(serialized1.has_value());
   clearBuffer();
 
   auto dynamic1 = UnsafeRowDynamicSerializer::serialize(
       MAP(VARCHAR(), ARRAY(TINYINT())), mapVector, buffer_, 1);
-  EXPECT_TRUE(checkIsNull(dynamic1));
+  EXPECT_FALSE(dynamic1.has_value());
 
   mapSize = UnsafeRowDynamicSerializer::getSize(
       MAP(VARCHAR(), ARRAY(TINYINT())), mapVector, 1);
@@ -915,17 +824,13 @@ TEST_F(UnsafeRowSerializerTests, rowFixedLength) {
   auto c2 = makeNullableFlatVector<int16_t>(
       {0x1111, 0x00FF, 0x7E00, 0x1234, std::nullopt});
 
-  auto c3 = constantVector<int32_t>(
-      std::vector<std::optional<int32_t>>(5, 0x22222222));
+  auto c3 = makeConstant<int32_t>(0x22222222, 5);
 
-  auto c4 = constantVector<int32_t>(
-      std::vector<std::optional<int32_t>>(5, std::nullopt));
+  auto c4 = makeNullConstant(TypeKind::INTEGER, 5);
 
-  auto c5 = constantVector<Timestamp>(
-      std::vector<std::optional<Timestamp>>(5, Timestamp(0, 0xFF * 1000)));
+  auto c5 = makeConstant(Timestamp(0, 0xFF * 1000), 5);
 
-  auto c6 = constantVector<Timestamp>(
-      std::vector<std::optional<Timestamp>>(5, std::nullopt));
+  auto c6 = makeNullConstant(TypeKind::TIMESTAMP, 5);
 
   auto rowVector = makeRowVector({c0, c1, c2, c3, c4, c5, c6});
 
@@ -1087,33 +992,21 @@ TEST_F(UnsafeRowSerializerTests, rowVarLength) {
    * Function begin() returns prefix_ when inlined and value_ when not, so the
    * string doesn't get truncated.
    */
-  bool nulls0[2] = {false, true};
-  int64_t elements0[2] = {0x0101010101010101, 0x0101010101010101};
-  auto c0 =
-      makeFlatVectorPtr<int64_t>(2, BIGINT(), pool_.get(), nulls0, elements0);
+  auto c0 = makeNullableFlatVector<int64_t>({0x0101010101010101, std::nullopt});
 
-  bool nulls1[2] = {true, false};
-  StringView elements1[2] = {StringView("abcd"), StringView("Hello World!")};
-  auto c1 = makeFlatVectorPtr<StringView>(
-      2, VARCHAR(), pool_.get(), nulls1, elements1);
+  auto c1 = makeNullableFlatVector<StringView>(
+      {std::nullopt, StringView("Hello World!")});
 
-  bool nulls2[2] = {false, false};
-  int64_t elements2[2] = {0xABCDEF, 0xAAAAAAAAAA};
-  auto c2 =
-      makeFlatVectorPtr<int64_t>(2, BIGINT(), pool_.get(), nulls2, elements2);
+  auto c2 = makeFlatVector<int64_t>({0xABCDEF, 0xAAAAAAAAAA});
 
-  auto c3 = constantVector<StringView>(
-      std::vector<std::optional<StringView>>(2, StringView("1234")));
+  auto c3 = makeConstant("1234"_sv, 2);
 
-  auto c4 = constantVector<StringView>(
-      std::vector<std::optional<StringView>>(2, std::nullopt));
+  auto c4 = makeNullConstant(TypeKind::VARCHAR, 2);
 
-  bool nulls5[2] = {false, false};
-  StringView elements5[2] = {
+  auto c5 = makeFlatVector<StringView>({
       StringView("Im a string with 30 characters"),
-      StringView("Pero yo tengo veinte")};
-  auto c5 = makeFlatVectorPtr<StringView>(
-      2, VARCHAR(), pool_.get(), nulls5, elements5);
+      StringView("Pero yo tengo veinte"),
+  });
 
   auto rowVector = makeRowVector({c0, c1, c2, c3, c4, c5});
 
@@ -1168,7 +1061,7 @@ TEST_F(UnsafeRowSerializerTests, rowVarLength) {
   EXPECT_TRUE(checkVariableLength(bytes1, 13 * 8, *expected1));
 }
 
-TEST_F(UnsafeRowSerializerTests, LazyVector) {
+TEST_F(UnsafeRowSerializerTests, lazyVector) {
   VectorPtr lazyVector0 = lazyFlatVector<StringView>(
       1, [](vector_size_t i) { return StringView("Hello, World!", 13); });
 
@@ -1210,14 +1103,14 @@ TEST_F(UnsafeRowSerializerTests, complexNullsAndEncoding) {
        ARRAY(VARCHAR()),
        MAP(VARCHAR(), BOOLEAN())});
 
-  auto nullVector = BaseVector::createNullConstant(type, 100, pool_.get());
+  auto nullVector = BaseVector::createNullConstant(type, 100, pool());
   auto serialized =
       UnsafeRowDynamicSerializer::serialize(type, nullVector, buffer_, 0);
-  EXPECT_TRUE(checkIsNull(serialized));
+  EXPECT_FALSE(serialized.has_value());
 
   auto vp = BaseVector::wrapInConstant(1, 0, nullVector);
   serialized = UnsafeRowDynamicSerializer::serialize(type, vp, buffer_, 0);
-  EXPECT_TRUE(checkIsNull(serialized));
+  EXPECT_FALSE(serialized.has_value());
 
   clearBuffer();
 }
@@ -1226,8 +1119,8 @@ class UnsafeRowBatchDeserializerTest : public ::testing::Test {
  public:
   UnsafeRowBatchDeserializerTest()
       : pool_(memory::getDefaultMemoryPool()),
-        bufferPtr(AlignedBuffer::allocate<char>(1024, pool_.get(), true)),
-        buffer(bufferPtr->asMutable<char>()) {}
+        bufferPtr_(AlignedBuffer::allocate<char>(1024, pool_.get(), true)),
+        buffer_(bufferPtr_->asMutable<char>()) {}
 
  protected:
   /**
@@ -1254,8 +1147,8 @@ class UnsafeRowBatchDeserializerTest : public ::testing::Test {
                                          << " but got " << vector->size();
     }
 
-    auto offsets = (vector->offsets())->template asMutable<int32_t>();
-    auto sizes = (vector->sizes())->template asMutable<vector_size_t>();
+    auto offsets = (vector->offsets())->template as<int32_t>();
+    auto sizes = (vector->sizes())->template as<vector_size_t>();
 
     for (int i = 0; i < expectedSize; i++) {
       if (std::memcmp(expectedOffsets + i, offsets + i, sizeof(int32_t)) != 0) {
@@ -1277,10 +1170,10 @@ class UnsafeRowBatchDeserializerTest : public ::testing::Test {
 
   std::shared_ptr<memory::MemoryPool> pool_;
 
-  BufferPtr bufferPtr;
+  BufferPtr bufferPtr_;
 
   // variable pointing to the row pointer held by the smart pointer BufferPtr
-  char* buffer;
+  char* buffer_;
 };
 
 template <typename T>
@@ -1829,8 +1722,8 @@ Make time for civilization, for civilization wont make time.}");
 Im a string with 30 characters}");
 }
 
-class UnsafeRowComplexBatchDeserializerTests
-    : public exec::test::OperatorTestBase {
+class UnsafeRowComplexBatchDeserializerTests : public testing::Test,
+                                               public test::VectorTestBase {
  public:
   UnsafeRowComplexBatchDeserializerTests() {}
 
@@ -1866,19 +1759,19 @@ class UnsafeRowComplexBatchDeserializerTests
       // Serialize rowVector into bytes.
       auto rowSize = UnsafeRowDynamicSerializer::serialize(
           inputVector->type(), inputVector, buffers_[i], /*idx=*/i);
-      serializedVector.push_back(
-          rowSize.has_value()
-              ? std::optional<std::string_view>(
-                    std::string_view(buffers_[i], rowSize.value()))
-              : std::nullopt);
+      if (rowSize) {
+        serializedVector.push_back(
+            std::string_view(buffers_[i], rowSize.value()));
+      } else {
+        serializedVector.push_back(std::nullopt);
+      }
     }
     VectorPtr outputVector =
         UnsafeRowDynamicVectorBatchDeserializer::deserializeComplex(
-            serializedVector, inputVector->type(), this->pool_.get());
-    assertEqualVectors(inputVector, outputVector);
+            serializedVector, inputVector->type(), pool());
+    test::assertEqualVectors(inputVector, outputVector);
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
   std::array<char[1024], kMaxBuffers> buffers_{};
 };
 
@@ -1898,15 +1791,12 @@ TEST_F(UnsafeRowComplexBatchDeserializerTests, nullRows) {
   }
 
   // Test RowVector containing another all nulls RowVector serde.
-  //
-  // TODO: The serde is still buggy as tests with innerBatchSize larger than 1
-  // is currently still failing. That is, when a RowVector(A) contains another
-  // RowVector(b). And RowVector(b) contains more than one rows and all of them
-  // are null. We should also fix that.
-  for (auto& innerBatchSize : {1}) {
-    const auto innerRowVector =
-        createInputRow(innerBatchSize, [](vector_size_t i) { return true; });
+  for (auto& innerBatchSize : {1, 5, 10}) {
+    const auto innerRowVector = createInputRow(innerBatchSize, nullEvery(1));
     const auto outerRowVector = makeRowVector({innerRowVector});
     testVectorSerde(outerRowVector);
   }
 }
+
+} // namespace
+} // namespace facebook::velox::row
