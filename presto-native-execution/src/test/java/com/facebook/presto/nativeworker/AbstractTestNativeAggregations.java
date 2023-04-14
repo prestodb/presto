@@ -13,18 +13,14 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestHiveAggregationQueries
-        extends AbstractTestHiveQueries
+public abstract class AbstractTestNativeAggregations
+        extends AbstractTestQueryFramework
 {
-    public TestHiveAggregationQueries()
-    {
-        super(true);
-    }
-
     @Test
     public void testAggregations()
     {
