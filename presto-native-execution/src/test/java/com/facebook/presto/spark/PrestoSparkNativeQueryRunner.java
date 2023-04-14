@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
@@ -33,6 +33,7 @@ public class PrestoSparkNativeQueryRunner
     private static final int AVAILABLE_CPU_COUNT = 4;
 
     public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner(
+            Optional<Path> baseDir,
             Map<String, String> additionalConfigProperties,
             Map<String, String> additionalSparkProperties,
             ImmutableList<Module> nativeModules)
@@ -47,7 +48,7 @@ public class PrestoSparkNativeQueryRunner
                 configBuilder.build(),
                 getNativeWorkerHiveProperties(),
                 additionalSparkProperties,
-                Optional.ofNullable(dataDirectory).map(Paths::get),
+                baseDir,
                 nativeModules,
                 AVAILABLE_CPU_COUNT);
 
