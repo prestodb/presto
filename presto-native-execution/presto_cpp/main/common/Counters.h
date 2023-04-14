@@ -98,6 +98,12 @@ constexpr folly::StringPiece kCounterNumCumulativeSoftPageFaults{
 // since the process start.
 constexpr folly::StringPiece kCounterNumCumulativeHardPageFaults{
     "presto_cpp.num_cumulative_hard_page_faults"};
+// Total number of voluntary context switches in the presto_server process.
+constexpr folly::StringPiece kCounterNumVoluntaryContextSwitches{
+    "presto_cpp.num_voluntary_context_switches"};
+// Total number of involuntary context switches in the presto_server process.
+constexpr folly::StringPiece kCounterNumInvoluntaryContextSwitches{
+    "presto_cpp.num_involuntary_context_switches"};
 
 // ================== Memory Counters =================
 
