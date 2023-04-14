@@ -11,19 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
-public class TestHiveBitwiseFunctionQueries
-        extends AbstractTestHiveQueries
+public abstract class AbstractTestNativeBitwiseFunctionQueries
+        extends AbstractTestQueryFramework
 {
-    public TestHiveBitwiseFunctionQueries()
-    {
-        super(false);
-    }
-
     @Test
     public void testBitCount()
     {
