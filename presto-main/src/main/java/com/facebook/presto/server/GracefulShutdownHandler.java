@@ -26,7 +26,6 @@ import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.util.List;
@@ -36,6 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -68,8 +68,7 @@ public class GracefulShutdownHandler
     private final CounterStat shutdownCounter = new CounterStat();
     private final CounterStat gracefulShutdownCounter = new CounterStat();
     private final TimeStat gracefulShutdownTime = new TimeStat(NANOSECONDS);
-    @GuardedBy("this")
-    private boolean shutdownRequested;
+    private AtomicBoolean shutdownRequested = new AtomicBoolean(false);
 
     @Inject
     public GracefulShutdownHandler(
@@ -222,12 +221,12 @@ public class GracefulShutdownHandler
 
     private synchronized void setShutdownRequested(boolean shutdownRequested)
     {
-        this.shutdownRequested = shutdownRequested;
+        this.shutdownRequested.set(true);
     }
 
-    public synchronized boolean isShutdownRequested()
+    public boolean isShutdownRequested()
     {
-        return shutdownRequested;
+        return shutdownRequested.get();
     }
 
     @Managed

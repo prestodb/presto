@@ -205,7 +205,7 @@ public class LazyOutputBuffer
             synchronized (this) {
                 if (delegate == null) {
                     if (state.get() == FINISHED) {
-                        return immediateFuture(emptyResults(taskInstanceId, 0, true));
+                        return immediateFuture(emptyResults(taskInstanceId, 0, true, false));
                     }
 
                     PendingRead pendingRead = new PendingRead(bufferId, token, maxSize);
@@ -301,7 +301,7 @@ public class LazyOutputBuffer
         // if there is no output buffer, free the pending reads
         if (outputBuffer == null) {
             for (PendingRead pendingRead : pendingReads) {
-                pendingRead.getFutureResult().set(emptyResults(taskInstanceId, 0, true));
+                pendingRead.getFutureResult().set(emptyResults(taskInstanceId, 0, true, false));
             }
             return;
         }

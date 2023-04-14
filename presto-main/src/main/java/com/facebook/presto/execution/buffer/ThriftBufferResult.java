@@ -37,6 +37,7 @@ public class ThriftBufferResult
     private final long nextToken;
     private final boolean bufferComplete;
     private final List<ThriftSerializedPage> thriftSerializedPages;
+    private final boolean nodeShuttingdown;
 
     public static ThriftBufferResult fromBufferResult(BufferResult bufferResult)
     {
@@ -50,7 +51,8 @@ public class ThriftBufferResult
                 bufferResult.getToken(),
                 bufferResult.getNextToken(),
                 bufferResult.isBufferComplete(),
-                thriftSerializedPages);
+                thriftSerializedPages,
+                bufferResult.isNodeShuttingdown());
     }
 
     /**
@@ -62,7 +64,8 @@ public class ThriftBufferResult
             long token,
             long nextToken,
             boolean bufferComplete,
-            List<ThriftSerializedPage> thriftSerializedPages)
+            List<ThriftSerializedPage> thriftSerializedPages,
+            boolean nodeShuttingdown)
     {
         checkArgument(!isNullOrEmpty(taskInstanceId), "taskInstanceId is null");
 
@@ -71,6 +74,7 @@ public class ThriftBufferResult
         this.nextToken = nextToken;
         this.bufferComplete = bufferComplete;
         this.thriftSerializedPages = ImmutableList.copyOf(requireNonNull(thriftSerializedPages, "thriftSerializedPages is null"));
+        this.nodeShuttingdown = nodeShuttingdown;
     }
 
     @ThriftField(1)
@@ -103,6 +107,12 @@ public class ThriftBufferResult
         return thriftSerializedPages;
     }
 
+    @ThriftField(6)
+    public boolean isNodeShuttingdown()
+    {
+        return nodeShuttingdown;
+    }
+
     public List<SerializedPage> getSerializedPages()
     {
         return thriftSerializedPages.stream()
@@ -124,13 +134,14 @@ public class ThriftBufferResult
                 Objects.equals(nextToken, that.nextToken) &&
                 Objects.equals(taskInstanceId, that.taskInstanceId) &&
                 Objects.equals(bufferComplete, that.bufferComplete) &&
-                Objects.equals(thriftSerializedPages, that.thriftSerializedPages);
+                Objects.equals(thriftSerializedPages, that.thriftSerializedPages) &&
+                Objects.equals(nodeShuttingdown, that.nodeShuttingdown);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(token, nextToken, taskInstanceId, bufferComplete, thriftSerializedPages);
+        return Objects.hash(token, nextToken, taskInstanceId, bufferComplete, thriftSerializedPages, nodeShuttingdown);
     }
 
     @Override
@@ -142,12 +153,13 @@ public class ThriftBufferResult
                 .add("taskInstanceId", taskInstanceId)
                 .add("bufferComplete", bufferComplete)
                 .add("thriftSerializedPages", thriftSerializedPages)
+                .add("isNodeShuttingdown", nodeShuttingdown)
                 .toString();
     }
 
     @VisibleForTesting
     public BufferResult toBufferResult()
     {
-        return new BufferResult(taskInstanceId, token, nextToken, bufferComplete, getSerializedPages());
+        return new BufferResult(taskInstanceId, token, nextToken, bufferComplete, nodeShuttingdown, getSerializedPages());
     }
 }

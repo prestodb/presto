@@ -28,13 +28,19 @@ public class BufferResult
 {
     public static BufferResult emptyResults(String taskInstanceId, long token, boolean bufferComplete)
     {
-        return new BufferResult(taskInstanceId, token, token, bufferComplete, ImmutableList.of());
+        return new BufferResult(taskInstanceId, token, token, bufferComplete, false, ImmutableList.of());
+    }
+
+    public static BufferResult emptyResults(String taskInstanceId, long token, boolean bufferComplete, boolean isNodeShuttingdown)
+    {
+        return new BufferResult(taskInstanceId, token, token, bufferComplete, isNodeShuttingdown, ImmutableList.of());
     }
 
     private final String taskInstanceId;
     private final long token;
     private final long nextToken;
     private final boolean bufferComplete;
+    private final boolean isNodeShuttingdown;
     private final List<SerializedPage> serializedPages;
 
     public BufferResult(
@@ -44,12 +50,24 @@ public class BufferResult
             boolean bufferComplete,
             List<SerializedPage> serializedPages)
     {
+        this(taskInstanceId, token, nextToken, bufferComplete, false, serializedPages);
+    }
+
+    public BufferResult(
+            String taskInstanceId,
+            long token,
+            long nextToken,
+            boolean bufferComplete,
+            boolean isNodeShuttingdown,
+            List<SerializedPage> serializedPages)
+    {
         checkArgument(!isNullOrEmpty(taskInstanceId), "taskInstanceId is null");
 
         this.taskInstanceId = taskInstanceId;
         this.token = token;
         this.nextToken = nextToken;
         this.bufferComplete = bufferComplete;
+        this.isNodeShuttingdown = isNodeShuttingdown;
         this.serializedPages = ImmutableList.copyOf(requireNonNull(serializedPages, "serializedPages is null"));
     }
 
@@ -71,6 +89,11 @@ public class BufferResult
     public boolean isBufferComplete()
     {
         return bufferComplete;
+    }
+
+    public boolean isNodeShuttingdown()
+    {
+        return isNodeShuttingdown;
     }
 
     public List<SerializedPage> getSerializedPages()

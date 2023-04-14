@@ -201,7 +201,7 @@ public class MockExchangeRequestProcessor
 
             // if no page, return NO CONTENT
             if (serializedPage == null) {
-                return BufferResult.emptyResults(TASK_INSTANCE_ID, token.get(), false);
+                return BufferResult.emptyResults(TASK_INSTANCE_ID, token.get(), false, false);
             }
 
             // add serializedPages up to the size limit
@@ -220,7 +220,7 @@ public class MockExchangeRequestProcessor
             // update sequence id
             long nextToken = token.get() + responsePages.size();
 
-            BufferResult bufferResult = new BufferResult(TASK_INSTANCE_ID, token.get(), nextToken, false, responsePages);
+            BufferResult bufferResult = new BufferResult(TASK_INSTANCE_ID, token.get(), nextToken, false, false, responsePages);
             token.set(nextToken);
 
             return bufferResult;

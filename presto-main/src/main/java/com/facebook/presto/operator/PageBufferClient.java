@@ -105,6 +105,8 @@ public final class PageBufferClient
     @GuardedBy("this")
     private boolean completed;
     @GuardedBy("this")
+    private boolean isNodeShuttingdown;
+    @GuardedBy("this")
     private String taskInstanceId;
 
     private final AtomicLong rowsReceived = new AtomicLong();
@@ -194,6 +196,11 @@ public final class PageBufferClient
     public synchronized boolean isRunning()
     {
         return future != null;
+    }
+
+    public synchronized boolean isNodeShuttingdown()
+    {
+        return isNodeShuttingdown;
     }
 
     @Override
@@ -352,6 +359,9 @@ public final class PageBufferClient
                     if (result.isClientComplete()) {
                         completed = true;
                     }
+                    if (result.isNodeShuttingdown()) {
+                        isNodeShuttingdown = true;
+                    }
                     if (future == resultFuture) {
                         future = null;
                     }
@@ -496,14 +506,14 @@ public final class PageBufferClient
 
     public static class PagesResponse
     {
-        public static PagesResponse createPagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean complete)
+        public static PagesResponse createPagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean complete, boolean isNodeShuttingdown)
         {
-            return new PagesResponse(taskInstanceId, token, nextToken, pages, complete);
+            return new PagesResponse(taskInstanceId, token, nextToken, pages, complete, isNodeShuttingdown);
         }
 
-        public static PagesResponse createEmptyPagesResponse(String taskInstanceId, long token, long nextToken, boolean complete)
+        public static PagesResponse createEmptyPagesResponse(String taskInstanceId, long token, long nextToken, boolean complete, boolean isNodeShuttingdown)
         {
-            return new PagesResponse(taskInstanceId, token, nextToken, ImmutableList.of(), complete);
+            return new PagesResponse(taskInstanceId, token, nextToken, ImmutableList.of(), complete, isNodeShuttingdown);
         }
 
         private final String taskInstanceId;
@@ -511,14 +521,16 @@ public final class PageBufferClient
         private final long nextToken;
         private final List<SerializedPage> pages;
         private final boolean clientComplete;
+        private final boolean isNodeShuttingdown;
 
-        private PagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean clientComplete)
+        private PagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean clientComplete, boolean isNodeShuttingdown)
         {
             this.taskInstanceId = taskInstanceId;
             this.token = token;
             this.nextToken = nextToken;
             this.pages = ImmutableList.copyOf(pages);
             this.clientComplete = clientComplete;
+            this.isNodeShuttingdown = isNodeShuttingdown;
         }
 
         public long getToken()
@@ -544,6 +556,11 @@ public final class PageBufferClient
         public String getTaskInstanceId()
         {
             return taskInstanceId;
+        }
+
+        public boolean isNodeShuttingdown()
+        {
+            return isNodeShuttingdown;
         }
 
         @Override

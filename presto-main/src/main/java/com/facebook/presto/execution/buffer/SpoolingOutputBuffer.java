@@ -330,12 +330,12 @@ public class SpoolingOutputBuffer
 
         // startSequenceId is for a page before the current page position
         if (startSequenceId < currentSequenceId) {
-            return immediateFuture(emptyResults(taskInstanceId, startSequenceId, false));
+            return immediateFuture(emptyResults(taskInstanceId, startSequenceId, false, false));
         }
 
         // tells client that buffer is complete
         if (noMorePages.get() && handleInfoQueue.isEmpty() && pages.isEmpty()) {
-            return immediateFuture(emptyResults(taskInstanceId, startSequenceId, true));
+            return immediateFuture(emptyResults(taskInstanceId, startSequenceId, true, false));
         }
 
         // validate previous pages were acknowledged
@@ -365,7 +365,7 @@ public class SpoolingOutputBuffer
 
         ListenableFuture<BufferResult> resultFuture = transform(memoryPages, input -> {
             long newSequenceId = startSequenceId + input.size();
-            return new BufferResult(taskInstanceId, startSequenceId, newSequenceId, false, input);
+            return new BufferResult(taskInstanceId, startSequenceId, newSequenceId, false, false, input);
         }, executor);
 
         return catchingAsync(resultFuture, Exception.class, e -> {
@@ -708,7 +708,7 @@ public class SpoolingOutputBuffer
 
         public void completeResultFutureWithEmpty()
         {
-            resultFuture.set(emptyResults(taskInstanceId, startSequenceId, false));
+            resultFuture.set(emptyResults(taskInstanceId, startSequenceId, false, false));
         }
 
         public void setResultFuture(ListenableFuture<BufferResult> result)

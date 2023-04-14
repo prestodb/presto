@@ -49,6 +49,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_WORKER_SHUTTING_DOWN;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.PAGE_METADATA_SIZE;
 import static com.facebook.presto.util.TaskUtils.DEFAULT_MAX_WAIT_TIME;
@@ -203,6 +204,7 @@ public class AsyncPageTransportServlet
                         response.setHeader(PRESTO_PAGE_TOKEN, String.valueOf(bufferResult.getToken()));
                         response.setHeader(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(bufferResult.getNextToken()));
                         response.setHeader(PRESTO_BUFFER_COMPLETE, String.valueOf(bufferResult.isBufferComplete()));
+                        response.setHeader(PRESTO_WORKER_SHUTTING_DOWN, String.valueOf(bufferResult.isNodeShuttingdown()));
 
                         List<SerializedPage> serializedPages = bufferResult.getSerializedPages();
                         if (serializedPages.isEmpty()) {

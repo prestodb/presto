@@ -83,6 +83,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_WORKER_SHUTTING_DOWN;
 import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskInfo;
 import static com.facebook.presto.server.TaskResourceUtils.isThriftRequest;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
@@ -113,6 +114,7 @@ public class TaskResource
     private final Codec<PlanFragment> planFragmentCodec;
     private final HandleResolver handleResolver;
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
+    private final GracefulShutdownHandler gracefulShutdownHandler;
 
     @Inject
     public TaskResource(
@@ -124,7 +126,8 @@ public class TaskResource
             SmileCodec<PlanFragment> planFragmentSmileCodec,
             InternalCommunicationConfig communicationConfig,
             HandleResolver handleResolver,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager)
+            ConnectorTypeSerdeManager connectorTypeSerdeManager,
+            GracefulShutdownHandler gracefulShutdownHandler)
     {
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -133,6 +136,7 @@ public class TaskResource
         this.planFragmentCodec = planFragmentJsonCodec;
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.connectorTypeSerdeManager = requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
+        this.gracefulShutdownHandler = gracefulShutdownHandler;
     }
 
     @GET
@@ -354,6 +358,7 @@ public class TaskResource
                     .header(PRESTO_PAGE_TOKEN, result.getToken())
                     .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
                     .header(PRESTO_BUFFER_COMPLETE, result.isBufferComplete())
+                    .header(PRESTO_WORKER_SHUTTING_DOWN, gracefulShutdownHandler.isShutdownRequested())
                     .build();
         }, directExecutor());
 
@@ -366,6 +371,7 @@ public class TaskResource
                                 .header(PRESTO_PAGE_TOKEN, token)
                                 .header(PRESTO_PAGE_NEXT_TOKEN, token)
                                 .header(PRESTO_BUFFER_COMPLETE, false)
+                                .header(PRESTO_WORKER_SHUTTING_DOWN, gracefulShutdownHandler.isShutdownRequested())
                                 .build());
 
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
