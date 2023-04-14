@@ -72,12 +72,13 @@ public class TestPrestoSparkNativeExecution
     }
 
     /**
-     * Test native execution of a cpp function declared via json file, with sample function eq() defined
-     * in src/test/resources/eq.json
+     * Test native execution of cpp functions declared via a json file.
+     * `eq()` Scalar function & `sum()` Aggregate function are defined in `src/test/resources/external_functions.json`
      */
     @Test
     public void testJsonFileBasedFunction()
     {
         assertQuery("SELECT json.test_schema.eq(1, linenumber) FROM lineitem", "SELECT 1 = linenumber FROM lineitem");
+        assertQuery("SELECT json.test_schema.sum(linenumber) FROM lineitem", "SELECT sum(linenumber) FROM lineitem");
     }
 }
