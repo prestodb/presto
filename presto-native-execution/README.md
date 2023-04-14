@@ -100,7 +100,7 @@ From the Presto repo run the commands below:
 
 Run IntelliJ IDEA:
 * Edit/Create `HiveQueryRunnerExternal` Application Run/Debug Configuration (alter paths accordingly).
-  * Main class: `com.facebook.presto.hive.HiveExternalWorkerQueryRunner`.
+  * Main class: `com.facebook.presto.hive.PrestoNativeQueryRunnerUtils`.
   * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
   * Working directory: `$MODULE_DIR$`
   * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
