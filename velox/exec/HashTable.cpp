@@ -1264,13 +1264,22 @@ void HashTable<ignoreNullKeys>::clearUseRange(std::vector<bool>& useRange) {
 }
 
 template <bool ignoreNullKeys>
-void HashTable<ignoreNullKeys>::decideHashMode(int32_t numNew) {
+void HashTable<ignoreNullKeys>::decideHashMode(
+    int32_t numNew,
+    bool disableRangeArrayHash) {
   std::vector<uint64_t> rangeSizes(hashers_.size());
   std::vector<uint64_t> distinctSizes(hashers_.size());
   std::vector<bool> useRange(hashers_.size());
   uint64_t bestWithReserve = 1;
   uint64_t distinctsWithReserve = 1;
   uint64_t rangesWithReserve = 1;
+  // Permanently turn off kArray hash mode with key value ranges after this is
+  // first requested.
+  if (disableRangeArrayHash && numNew == 0 && disableRangeArrayHash_) {
+    // The option is already set and no new rows are added. Return.
+    return;
+  }
+  disableRangeArrayHash_ |= disableRangeArrayHash;
   if (numDistinct_ && !isJoinBuild_) {
     if (!analyze()) {
       setHashMode(HashMode::kHash, numNew);
@@ -1295,14 +1304,15 @@ void HashTable<ignoreNullKeys>::decideHashMode(int32_t numNew) {
     }
   }
 
-  if (rangesWithReserve < kArrayHashMaxSize) {
+  if (rangesWithReserve < kArrayHashMaxSize && !disableRangeArrayHash_) {
     std::fill(useRange.begin(), useRange.end(), true);
     capacity_ = setHasherMode(hashers_, useRange, rangeSizes, distinctSizes);
     setHashMode(HashMode::kArray, numNew);
     return;
   }
 
-  if (bestWithReserve < kArrayHashMaxSize) {
+  if (bestWithReserve < kArrayHashMaxSize ||
+      (disableRangeArrayHash_ && bestWithReserve < numDistinct_ * 2)) {
     capacity_ = setHasherMode(hashers_, useRange, rangeSizes, distinctSizes);
     setHashMode(HashMode::kArray, numNew);
     return;

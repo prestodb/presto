@@ -66,6 +66,14 @@ class GroupingSet {
 
   void resetPartial();
 
+  /// Returns true if 'this' should start producing partial
+  /// aggregation results. Checks the memory consumption against
+  /// 'maxBytes'. If exceeding 'maxBytes', sees if changing hash mode
+  /// can free up space and rehashes and returns false if significant
+  /// space was recovered. In specific, changing from an array hash
+  /// based on value ranges to one based on value ids can save a lot.
+  bool isPartialFull(int64_t maxBytes);
+
   const HashLookup& hashLookup() const;
 
   /// Spills content until under 'targetRows' and under 'targetBytes'

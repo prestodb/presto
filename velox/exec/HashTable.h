@@ -222,8 +222,13 @@ class BaseHashTable {
   /// empty. After calling this, the caller must recompute the hash of
   /// the key columns as the mappings in VectorHashers will have
   /// changed. The table is set up so as to take at least 'numNew'
-  /// distinct entries before needing to rehash.
-  virtual void decideHashMode(int32_t numNew) = 0;
+  /// distinct entries before needing to rehash. If 'disableRangeArrayHash' is
+  /// true, this will avoid kArray hash mode with value range mode keys. These
+  /// can make large arrays with very few keys.  This setting persists for the
+  /// lifetime of 'this'.
+  virtual void decideHashMode(
+      int32_t numNew,
+      bool disableRangeArrayHash = false) = 0;
 
   // Removes 'rows'  from the hash table and its RowContainer. 'rows' must exist
   // and be unique.
@@ -421,7 +426,8 @@ class HashTable : public BaseHashTable {
     return hashMode_;
   }
 
-  void decideHashMode(int32_t numNew) override;
+  void decideHashMode(int32_t numNew, bool disableRangeArrayHash = false)
+      override;
 
   void erase(folly::Range<char**> rows) override;
 
@@ -694,6 +700,9 @@ class HashTable : public BaseHashTable {
 
   //  Counts parallel build rows. Used for consistency check.
   std::atomic<int64_t> numParallelBuildRows_{0};
+
+  // If true, avoids using VectorHasher value ranges with kArray hash mode.
+  bool disableRangeArrayHash_{false};
 };
 
 } // namespace facebook::velox::exec

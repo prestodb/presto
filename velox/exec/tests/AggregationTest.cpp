@@ -678,6 +678,55 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
           .customStats.count("flushRowCount"));
 }
 
+TEST_F(AggregationTest, largeValueRangeArray) {
+  // We have keys that map to integer range. The keys are
+  // a little under max array hash table size apart. This wastes 16MB of
+  // memory for the array hash table. Every batch will overflow the
+  // max partial memory. We check that when detecting the first
+  // overflow, the partial agg rehashes itself not to use a value
+  // range array hash mode and will accept more batches without
+  // flushing.
+  std::string string1k;
+  string1k.resize(1000);
+  std::vector<RowVectorPtr> vectors;
+  // Make two identical ectors. The first one overflows the max size
+  // but gets rehashed to smaller by using value ids instead of
+  // ranges. The next vector fits in the space made freed.
+  for (auto i = 0; i < 2; ++i) {
+    vectors.push_back(makeRowVector(
+        {makeFlatVector<int64_t>(
+             1000, [](auto row) { return row % 2 == 0 ? 100 : 1000000; }),
+         makeFlatVector<StringView>(
+             1000, [&](auto /*row*/) { return StringView(string1k); })}));
+  }
+  std::vector<RowVectorPtr> expected = {makeRowVector(
+      {makeFlatVector<int64_t>({100, 1000000}),
+       makeFlatVector<int64_t>({1000, 1000})})};
+
+  core::PlanNodeId partialAggId;
+  core::PlanNodeId finalAggId;
+  auto op = PlanBuilder()
+                .values({vectors})
+                .partialAggregation({"c0"}, {"array_agg(c1)"})
+                .capturePlanNodeId(partialAggId)
+                .finalAggregation()
+                .capturePlanNodeId(finalAggId)
+                .project({"c0", "cardinality(a0) as l"})
+                .planNode();
+  auto task = test::assertQuery(op, expected);
+  auto stats = toPlanStats(task->taskStats());
+  auto runtimeStats = stats.at(partialAggId).customStats;
+
+  // The partial agg is expected to exceed max size after the first batch and
+  // see that it has an oversize range based array with just 2 entries. It is
+  // then expected to change hash mode and rehash.
+  EXPECT_EQ(1, runtimeStats.at("hashtable.numRehashes").count);
+
+  // The partial agg is expected to flush just once. The final agg gets one
+  // batch.
+  EXPECT_EQ(1, stats.at(finalAggId).inputVectors);
+}
+
 TEST_F(AggregationTest, partialAggregationMemoryLimitIncrease) {
   constexpr int64_t kGB = 1 << 30;
   constexpr int64_t kB = 1 << 10;

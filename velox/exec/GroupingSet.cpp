@@ -458,6 +458,27 @@ void GroupingSet::resetPartial() {
   }
 }
 
+bool GroupingSet::isPartialFull(int64_t maxBytes) {
+  VELOX_CHECK(isPartial_);
+  if (!table_ || allocatedBytes() <= maxBytes) {
+    return false;
+  }
+  if (table_->hashMode() != BaseHashTable::HashMode::kArray) {
+    // Not a kArray table, no rehashing will shrink this.
+    return true;
+  }
+  auto stats = table_->stats();
+  // If we have a large array with sparse data, we rehash this in a
+  // mode that turns off value ranges for kArray mode. Large means
+  // over 1/16 of the space budget and sparse means under 1 entry
+  // per 32 buckets.
+  if (stats.capacity * sizeof(void*) > maxBytes / 16 &&
+      stats.numDistinct < stats.capacity / 32) {
+    table_->decideHashMode(0, true);
+  }
+  return allocatedBytes() > maxBytes;
+}
+
 uint64_t GroupingSet::allocatedBytes() const {
   if (table_) {
     return table_->allocatedBytes();

@@ -188,7 +188,7 @@ void HashAggregation::addInput(RowVectorPtr input) {
   // aggregation as the final aggregator will handle it the same way as the
   // partial aggregator. Hence, we have to use more memory anyway.
   if (isPartialOutput_ && !isGlobal_ &&
-      groupingSet_->allocatedBytes() > maxPartialAggregationMemoryUsage_) {
+      groupingSet_->isPartialFull(maxPartialAggregationMemoryUsage_)) {
     partialFull_ = true;
   }
 
