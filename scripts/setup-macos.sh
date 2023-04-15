@@ -62,7 +62,7 @@ function update_brew {
      then
        BREW_PATH=/opt/homebrew/bin/brew ;
  fi
-  $BREW_PATH update --auto-update
+  $BREW_PATH update --auto-update --verbose
   $BREW_PATH developer off
 }
 
@@ -125,6 +125,7 @@ function install_velox_deps {
 (return 2> /dev/null) && return # If script was sourced, don't run commands.
 
 (
+  echo "Installing mac dependencies"
   update_brew
   if [[ $# -ne 0 ]]; then
     for cmd in "$@"; do

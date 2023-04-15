@@ -19,7 +19,7 @@ add_compile_definitions(BUILD_PARQUET_EXTENSION)
 # that DuckDB embeds and is also on Thrift master.
 # The workaround, for now, is to disable this warning if the compiler is Clang.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wno-deprecated-declarations)
+  add_compile_options(-Wno-deprecated-declarations -Wno-unqualified-std-cast-call)
 endif()
 
 # This stringop-overflow warning seems to have lots of false positives and has
