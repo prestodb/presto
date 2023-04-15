@@ -19,9 +19,7 @@
 #include <re2/re2.h>
 #include <wangle/ssl/SSLContextConfig.h>
 #include "presto_cpp/external/json/json.hpp"
-#include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/http/HttpConstants.h"
-#include "velox/common/base/StatsReporter.h"
 
 namespace facebook::presto::http {
 
@@ -223,12 +221,13 @@ class DispatchingRequestHandlerFactory
 
 class HttpConfig {
  public:
-  HttpConfig(const folly::SocketAddress& address);
+  HttpConfig(const folly::SocketAddress& address, bool reusePort = false);
 
   proxygen::HTTPServer::IPConfig ipConfig() const;
 
  private:
   const folly::SocketAddress address_;
+  const bool reusePort_{false};
 };
 
 class HttpsConfig {
@@ -237,7 +236,8 @@ class HttpsConfig {
       const folly::SocketAddress& address,
       const std::string& certPath,
       const std::string& keyPath,
-      const std::string& supportedCiphers);
+      const std::string& supportedCiphers,
+      bool reusePort = false);
 
   proxygen::HTTPServer::IPConfig ipConfig() const;
 
@@ -246,6 +246,7 @@ class HttpsConfig {
   const std::string certPath_;
   const std::string keyPath_;
   std::string supportedCiphers_;
+  const bool reusePort_;
 };
 
 class HttpServer {

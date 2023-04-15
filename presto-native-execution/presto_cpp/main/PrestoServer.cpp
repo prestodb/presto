@@ -256,7 +256,9 @@ void PrestoServer::run() {
     announcer->start();
   }
 
-  auto httpConfig = std::make_unique<http::HttpConfig>(httpSocketAddress);
+  const bool reusePort = SystemConfig::instance()->httpServerReusePort();
+  auto httpConfig =
+      std::make_unique<http::HttpConfig>(httpSocketAddress, reusePort);
 
   std::unique_ptr<http::HttpsConfig> httpsConfig;
   if (httpsPort.has_value()) {
@@ -264,7 +266,7 @@ void PrestoServer::run() {
     httpsSocketAddress.setFromLocalPort(httpsPort.value());
 
     httpsConfig = std::make_unique<http::HttpsConfig>(
-        httpsSocketAddress, certPath, keyPath, ciphers);
+        httpsSocketAddress, certPath, keyPath, ciphers, reusePort);
   }
 
   httpServer_ = std::make_unique<http::HttpServer>(
