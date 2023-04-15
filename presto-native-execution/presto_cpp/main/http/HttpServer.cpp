@@ -76,13 +76,13 @@ void sendErrorResponse(
       .sendWithEOM();
 }
 
-HttpConfig::HttpConfig(const folly::SocketAddress& address)
-    : address_(address) {}
+HttpConfig::HttpConfig(const folly::SocketAddress& address, bool reusePort)
+    : address_(address), reusePort_(reusePort) {}
 
 proxygen::HTTPServer::IPConfig HttpConfig::ipConfig() const {
   proxygen::HTTPServer::IPConfig ipConfig{
       address_, proxygen::HTTPServer::Protocol::HTTP};
-  if (SystemConfig::instance()->httpServerReusePort()) {
+  if (reusePort_) {
     folly::SocketOptionKey portReuseOpt = {SOL_SOCKET, SO_REUSEPORT};
     ipConfig.acceptorSocketOptions.emplace();
     ipConfig.acceptorSocketOptions->insert({portReuseOpt, 1});
@@ -94,11 +94,13 @@ HttpsConfig::HttpsConfig(
     const folly::SocketAddress& address,
     const std::string& certPath,
     const std::string& keyPath,
-    const std::string& supportedCiphers)
+    const std::string& supportedCiphers,
+    bool reusePort)
     : address_(address),
       certPath_(certPath),
       keyPath_(keyPath),
-      supportedCiphers_(supportedCiphers) {
+      supportedCiphers_(supportedCiphers),
+      reusePort_(reusePort) {
   // Wangle separates ciphers by ":" where in the config it's separated with ","
   std::replace(supportedCiphers_.begin(), supportedCiphers_.end(), ',', ':');
 }
@@ -116,7 +118,7 @@ proxygen::HTTPServer::IPConfig HttpsConfig::ipConfig() const {
 
   ipConfig.sslConfigs.push_back(sslCfg);
 
-  if (SystemConfig::instance()->httpServerReusePort()) {
+  if (reusePort_) {
     folly::SocketOptionKey portReuseOpt = {SOL_SOCKET, SO_REUSEPORT};
     ipConfig.acceptorSocketOptions.emplace();
     ipConfig.acceptorSocketOptions->insert({portReuseOpt, 1});
