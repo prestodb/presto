@@ -20,6 +20,7 @@
 #include <velox/common/memory/Memory.h>
 #include "presto_cpp/main/http/HttpClient.h"
 #include "presto_cpp/main/http/HttpServer.h"
+#include "velox/common/base/StatsReporter.h"
 
 namespace fs = boost::filesystem;
 
