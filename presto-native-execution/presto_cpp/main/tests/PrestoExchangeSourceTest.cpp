@@ -298,7 +298,7 @@ class PrestoExchangeSourceTest : public testing::Test {
  public:
   void SetUp() override {
     auto& defaultManager = memory::MemoryManager::getInstance();
-    pool_ = memory::getDefaultMemoryPool("PrestoExchangeSourceTest");
+    pool_ = memory::addDefaultLeafMemoryPool("PrestoExchangeSourceTest");
     memory::MmapAllocator::Options options;
     options.capacity = 1L << 30;
     allocator_ = std::make_unique<memory::MmapAllocator>(options);
@@ -460,11 +460,10 @@ TEST_F(PrestoExchangeSourceTest, failedProducer) {
 
 TEST_F(PrestoExchangeSourceTest, exceedingMemoryCapacityForHttpResponse) {
   const int64_t memoryCapBytes = 1 << 10;
-  auto rootPool = getProcessDefaultMemoryManager().getPool(
-      "httpResponseAllocationFailure",
-      MemoryPool::Kind::kAggregate,
-      memoryCapBytes);
-  auto leafPool = rootPool->addChild("exceedingMemoryCapacityForHttpResponse");
+  auto rootPool = defaultMemoryManager().addRootPool(
+      "httpResponseAllocationFailure", memoryCapBytes);
+  auto leafPool =
+      rootPool->addLeafChild("exceedingMemoryCapacityForHttpResponse");
 
   auto producer = std::make_unique<Producer>();
 
@@ -494,9 +493,9 @@ TEST_F(PrestoExchangeSourceTest, exceedingMemoryCapacityForHttpResponse) {
 }
 
 TEST_F(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
-  auto rootPool = getProcessDefaultMemoryManager().getPool(
-      "memoryAllocationAndUsageCheck", MemoryPool::Kind::kAggregate);
-  auto leafPool = rootPool->addChild("memoryAllocationAndUsageCheck");
+  auto rootPool =
+      defaultMemoryManager().addRootPool("memoryAllocationAndUsageCheck");
+  auto leafPool = rootPool->addLeafChild("memoryAllocationAndUsageCheck");
 
   auto producer = std::make_unique<Producer>();
 

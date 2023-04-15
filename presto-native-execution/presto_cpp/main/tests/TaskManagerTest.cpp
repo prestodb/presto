@@ -154,9 +154,9 @@ class TaskManagerTest : public testing::Test {
     connector::registerConnector(hiveConnector);
     dwrf::registerDwrfReaderFactory();
 
-    rootPool_ = memory::getProcessDefaultMemoryManager().getPool(
-        "TaskManagerTest.root");
-    leafPool_ = memory::getDefaultMemoryPool("TaskManagerTest.leaf");
+    rootPool_ =
+        memory::defaultMemoryManager().addRootPool("TaskManagerTest.root");
+    leafPool_ = memory::addDefaultLeafMemoryPool("TaskManagerTest.leaf");
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
 
     taskManager_ = std::make_unique<TaskManager>();

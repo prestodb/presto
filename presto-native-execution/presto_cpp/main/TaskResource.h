@@ -23,7 +23,7 @@ class TaskResource {
  public:
   explicit TaskResource(TaskManager& taskManager)
       : taskManager_(taskManager),
-        pool_(velox::memory::getDefaultMemoryPool()) {}
+        pool_(velox::memory::addDefaultLeafMemoryPool()) {}
 
   void registerUris(http::HttpServer& server);
 
