@@ -63,7 +63,7 @@ class StripeLoadKeysTest : public Test {
 
     TestDecrypterFactory factory;
     auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
-    pool_ = getDefaultMemoryPool();
+    pool_ = addDefaultLeafMemoryPool();
 
     reader_ = std::make_unique<ReaderBase>(
         *pool_,

@@ -33,8 +33,8 @@ void mockSchemaRelease(ArrowSchema*) {}
 void mockArrayRelease(ArrowArray*) {}
 
 void exportToArrow(const TypePtr& type, ArrowSchema& out) {
-  auto pool = &facebook::velox::memory::getProcessDefaultMemoryManager()
-                   .deprecatedGetPool();
+  auto pool =
+      &facebook::velox::memory::defaultMemoryManager().deprecatedLeafPool();
   exportToArrow(BaseVector::create(type, 0, pool), out);
 }
 
@@ -187,7 +187,7 @@ class ArrowBridgeArrayExportTest : public testing::Test {
 
   // Boiler plate structures required by vectorMaker.
   std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
   facebook::velox::test::VectorMaker vectorMaker_{execCtx_.pool()};
 };
@@ -1133,7 +1133,7 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     EXPECT_NO_THROW(importFromArrow(arrowSchema, arrowArray, pool_.get()));
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
 };
 
 class ArrowBridgeArrayImportAsViewerTest : public ArrowBridgeArrayImportTest {

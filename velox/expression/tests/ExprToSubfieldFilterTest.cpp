@@ -60,7 +60,8 @@ class ExprToSubfieldFilterTest : public testing::Test {
   }
 
  private:
-  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
+  std::shared_ptr<memory::MemoryPool> pool_ =
+      memory::addDefaultLeafMemoryPool();
 };
 
 TEST_F(ExprToSubfieldFilterTest, eq) {

@@ -27,7 +27,7 @@ using namespace facebook::velox::parquet;
 class ParquetPageReaderTest : public ParquetReaderTestBase {};
 
 namespace {
-auto defaultPool = memory::getDefaultMemoryPool();
+auto defaultPool = memory::addDefaultLeafMemoryPool();
 }
 
 TEST_F(ParquetPageReaderTest, smallPage) {

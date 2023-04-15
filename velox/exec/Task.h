@@ -284,11 +284,10 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t driverId,
       const std::string& operatorType);
 
-  /// Creates new instance of MemoryPool for the connector writer used by a
-  /// table write operator, stores it in the task to ensure lifetime and returns
-  /// a raw pointer. Not thread safe, e.g. must be called from the Operator's
-  /// constructor.
-  velox::memory::MemoryPool* addConnectorWriterPoolLocked(
+  /// Creates new instance of MemoryPool with aggregate kind for the connector
+  /// use, stores it in the task to ensure lifetime and returns a raw pointer.
+  /// Not thread safe, e.g. must be called from the Operator's constructor.
+  velox::memory::MemoryPool* addConnectorPoolLocked(
       const core::PlanNodeId& planNodeId,
       int pipelineId,
       uint32_t driverId,

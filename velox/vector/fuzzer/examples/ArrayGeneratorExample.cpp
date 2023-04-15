@@ -38,7 +38,7 @@ int main() {
   auto uniform = std::uniform_int_distribution<int32_t>(lo, hi);
 
   FuzzerGenerator rng;
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
 
   GeneratorSpecPtr randomArray =
       RANDOM_ARRAY(RANDOM_DOUBLE(normal, nullProbability), uniform);

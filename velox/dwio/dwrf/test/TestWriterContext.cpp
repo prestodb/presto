@@ -26,8 +26,7 @@ TEST(TestWriterContext, GetIntDictionaryEncoder) {
   auto config = std::make_shared<Config>();
   WriterContext context{
       config,
-      memory::getProcessDefaultMemoryManager().getPool(
-          "GetIntDictionaryEncoder")};
+      memory::defaultMemoryManager().addRootPool("GetIntDictionaryEncoder")};
 
   EXPECT_EQ(0, context.dictEncoders_.size());
   auto& intEncoder_1_0 = context.getIntDictionaryEncoder<int32_t>(
@@ -62,7 +61,7 @@ TEST(TestWriterContext, RemoveIntDictionaryEncoderForNode) {
   config->set(Config::MAP_FLAT_DICT_SHARE, false);
   WriterContext context{
       config,
-      memory::getProcessDefaultMemoryManager().getPool(
+      memory::defaultMemoryManager().addRootPool(
           "RemoveIntDictionaryEncoderForNode")};
 
   context.getIntDictionaryEncoder<int32_t>(
@@ -114,7 +113,7 @@ TEST(TestWriterContext, BuildPhysicalSizeAggregators) {
   auto config = std::make_shared<Config>();
   WriterContext context{
       config,
-      memory::getProcessDefaultMemoryManager().getPool(
+      memory::defaultMemoryManager().addRootPool(
           "BuildPhysicalSizeAggregators")};
   auto type = ROW({
       {"array", ARRAY(REAL())},

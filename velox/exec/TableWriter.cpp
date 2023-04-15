@@ -31,13 +31,19 @@ TableWriter::TableWriter(
           tableWriteNode->id(),
           "TableWrite"),
       driverCtx_(driverCtx),
+      connectorPool_(driverCtx_->task->addConnectorPoolLocked(
+          planNodeId(),
+          driverCtx_->pipelineId,
+          driverCtx_->driverId,
+          operatorType(),
+          tableWriteNode->insertTableHandle()->connectorId())),
       insertTableHandle_(
           tableWriteNode->insertTableHandle()->connectorInsertTableHandle()),
       commitStrategy_(tableWriteNode->commitStrategy()) {
   const auto& connectorId = tableWriteNode->insertTableHandle()->connectorId();
   connector_ = connector::getConnector(connectorId);
-  connectorQueryCtx_ =
-      operatorCtx_->createConnectorQueryCtx(connectorId, planNodeId(), false);
+  connectorQueryCtx_ = operatorCtx_->createConnectorQueryCtx(
+      connectorId, planNodeId(), connectorPool_);
 
   auto names = tableWriteNode->columnNames();
   auto types = tableWriteNode->columns()->children();

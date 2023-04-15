@@ -68,10 +68,8 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
                   .planNode();
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   queryCtx->testingOverrideMemoryPool(
-      memory::getProcessDefaultMemoryManager().getPool(
-          queryCtx->queryId(),
-          memory::MemoryPool::Kind::kAggregate,
-          kMaxBytes));
+      memory::defaultMemoryManager().addRootPool(
+          queryCtx->queryId(), kMaxBytes));
   CursorParameters params;
   params.planNode = plan;
   params.queryCtx = queryCtx;
@@ -115,10 +113,8 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
                   .planNode();
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   queryCtx->testingOverrideMemoryPool(
-      memory::getProcessDefaultMemoryManager().getPool(
-          queryCtx->queryId(),
-          memory::MemoryPool::Kind::kAggregate,
-          kMaxBytes));
+      memory::defaultMemoryManager().addRootPool(
+          queryCtx->queryId(), kMaxBytes));
 
   const int32_t numDrivers = 10;
   CursorParameters params;

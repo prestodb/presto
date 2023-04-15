@@ -33,7 +33,7 @@ class RowContainerTestBase : public testing::Test,
                              public velox::test::VectorTestBase {
  protected:
   void SetUp() override {
-    pool_ = memory::getDefaultMemoryPool();
+    pool_ = memory::addDefaultLeafMemoryPool();
     if (!isRegisteredVectorSerde()) {
       facebook::velox::serializer::presto::PrestoVectorSerde::
           registerVectorSerde();

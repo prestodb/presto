@@ -126,7 +126,7 @@ class CodegenBenchmark : public CodegenTestCore {
   CodegenBenchmark() {
     CodegenTestCore::init();
     queryCtx = std::make_shared<core::QueryCtx>();
-    pool = memory::getDefaultMemoryPool();
+    pool = memory::addDefaultLeafMemoryPool();
     execCtx = std::make_unique<core::ExecCtx>(pool.get(), queryCtx_.get());
   }
 

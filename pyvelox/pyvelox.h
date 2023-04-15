@@ -66,7 +66,7 @@ struct PyVeloxContext {
 
  private:
   std::shared_ptr<facebook::velox::memory::MemoryPool> pool_ =
-      facebook::velox::memory::getDefaultMemoryPool();
+      facebook::velox::memory::addDefaultLeafMemoryPool();
   std::shared_ptr<facebook::velox::core::QueryCtx> queryCtx_ =
       std::make_shared<facebook::velox::core::QueryCtx>();
   std::unique_ptr<facebook::velox::core::ExecCtx> execCtx_ =

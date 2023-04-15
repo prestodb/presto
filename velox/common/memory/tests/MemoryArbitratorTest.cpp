@@ -128,13 +128,8 @@ TEST_F(MemoryReclaimerTest, default) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     std::vector<std::shared_ptr<MemoryPool>> pools;
-    auto pool = getProcessDefaultMemoryManager().getPool(
-        "shrinkAPIs",
-        MemoryPool::Kind::kAggregate,
-        kMaxMemory,
-        true,
-        true,
-        memory::MemoryReclaimer::create());
+    auto pool = defaultMemoryManager().addRootPool(
+        "shrinkAPIs", kMaxMemory, true, memory::MemoryReclaimer::create());
     pools.push_back(pool);
 
     struct Allocation {
@@ -144,18 +139,16 @@ TEST_F(MemoryReclaimerTest, default) {
     };
     std::vector<Allocation> allocations;
     for (int i = 0; i < testData.numChildren; ++i) {
-      const MemoryPool::Kind kind = testData.numGrandchildren == 0
-          ? MemoryPool::Kind::kLeaf
-          : MemoryPool::Kind::kAggregate;
-      auto childPool = pool->addChild(
-          std::to_string(i), kind, true, memory::MemoryReclaimer::create());
+      const bool isLeaf = testData.numGrandchildren == 0;
+      auto childPool = isLeaf
+          ? pool->addLeafChild(
+                std::to_string(i), true, memory::MemoryReclaimer::create())
+          : pool->addAggregateChild(
+                std::to_string(i), memory::MemoryReclaimer::create());
       pools.push_back(childPool);
       for (int j = 0; j < testData.numGrandchildren; ++j) {
-        auto grandchild = childPool->addChild(
-            std::to_string(j),
-            MemoryPool::Kind::kLeaf,
-            true,
-            memory::MemoryReclaimer::create());
+        auto grandchild = childPool->addLeafChild(
+            std::to_string(j), true, memory::MemoryReclaimer::create());
         pools.push_back(grandchild);
       }
     }
@@ -256,25 +249,16 @@ TEST_F(MemoryReclaimerTest, mockReclaim) {
   const int numAllocationsPerLeaf = 10;
   const int allocBytes = 10;
   std::atomic<uint64_t> totalUsedBytes{0};
-  auto root = getProcessDefaultMemoryManager().getPool(
-      "mockReclaim",
-      MemoryPool::Kind::kAggregate,
-      kMaxMemory,
-      true,
-      true,
-      MemoryReclaimer::create());
+  auto root = defaultMemoryManager().addRootPool(
+      "mockReclaim", kMaxMemory, true, MemoryReclaimer::create());
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int i = 0; i < numChildren; ++i) {
-    auto childPool = root->addChild(
-        std::to_string(i),
-        MemoryPool::Kind::kAggregate,
-        true,
-        MemoryReclaimer::create());
+    auto childPool =
+        root->addAggregateChild(std::to_string(i), MemoryReclaimer::create());
     childPools.push_back(childPool);
     for (int j = 0; j < numGrandchildren; ++j) {
-      auto grandchildPool = childPool->addChild(
+      auto grandchildPool = childPool->addLeafChild(
           std::to_string(j),
-          MemoryPool::Kind::kLeaf,
           true,
           std::make_shared<MockLeafMemoryReclaimer>(totalUsedBytes));
       childPools.push_back(grandchildPool);
@@ -315,18 +299,15 @@ TEST_F(MemoryReclaimerTest, mockReclaimMoreThanAvailable) {
   const int numAllocationsPerLeaf = 10;
   const int allocBytes = 100;
   std::atomic<uint64_t> totalUsedBytes{0};
-  auto root = getProcessDefaultMemoryManager().getPool(
+  auto root = defaultMemoryManager().addRootPool(
       "mockReclaimMoreThanAvailable",
-      MemoryPool::Kind::kAggregate,
       kMaxMemory,
-      true,
       true,
       MemoryReclaimer::create());
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int i = 0; i < numChildren; ++i) {
-    auto childPool = root->addChild(
+    auto childPool = root->addLeafChild(
         std::to_string(i),
-        MemoryPool::Kind::kLeaf,
         true,
         std::make_shared<MockLeafMemoryReclaimer>(totalUsedBytes));
     childPools.push_back(childPool);
@@ -349,11 +330,9 @@ TEST_F(MemoryReclaimerTest, mockReclaimMoreThanAvailable) {
 }
 
 TEST_F(MemoryReclaimerTest, concurrentRandomMockReclaims) {
-  auto root = getProcessDefaultMemoryManager().getPool(
+  auto root = defaultMemoryManager().addRootPool(
       "concurrentRandomMockReclaims",
-      MemoryPool::Kind::kAggregate,
       kMaxMemory,
-      true,
       true,
       MemoryReclaimer::create());
 
@@ -362,15 +341,11 @@ TEST_F(MemoryReclaimerTest, concurrentRandomMockReclaims) {
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   std::vector<std::shared_ptr<MemoryPool>> leafPools;
   for (int i = 0; i < numLeafPools / 5; ++i) {
-    childPools.push_back(root->addChild(
-        std::to_string(i),
-        MemoryPool::Kind::kAggregate,
-        true,
-        MemoryReclaimer::create()));
+    childPools.push_back(
+        root->addAggregateChild(std::to_string(i), MemoryReclaimer::create()));
     for (int j = 0; j < 5; ++j) {
-      auto leafPool = childPools.back()->addChild(
+      auto leafPool = childPools.back()->addLeafChild(
           std::to_string(j),
-          MemoryPool::Kind::kLeaf,
           true,
           std::make_shared<MockLeafMemoryReclaimer>(totalUsedBytes));
       leafPools.push_back(leafPool);

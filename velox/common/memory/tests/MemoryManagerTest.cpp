@@ -43,7 +43,7 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(0, manager.getTotalBytes());
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMaxAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().getAlignment(), manager.alignment());
-    ASSERT_EQ(manager.deprecatedGetPool().getAlignment(), manager.alignment());
+    ASSERT_EQ(manager.deprecatedLeafPool().getAlignment(), manager.alignment());
   }
   {
     MemoryManager manager{{.capacity = 8L * 1024 * 1024}};
@@ -51,14 +51,14 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(manager.numPools(), 0);
     ASSERT_EQ(0, manager.getTotalBytes());
     ASSERT_EQ(manager.testingDefaultRoot().getAlignment(), manager.alignment());
-    ASSERT_EQ(manager.deprecatedGetPool().getAlignment(), manager.alignment());
+    ASSERT_EQ(manager.deprecatedLeafPool().getAlignment(), manager.alignment());
   }
   {
     MemoryManager manager{{.alignment = 0, .capacity = 8L * 1024 * 1024}};
 
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMinAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().getAlignment(), manager.alignment());
-    ASSERT_EQ(manager.deprecatedGetPool().getAlignment(), manager.alignment());
+    ASSERT_EQ(manager.deprecatedLeafPool().getAlignment(), manager.alignment());
     // TODO: replace with root pool memory tracker quota check.
     ASSERT_EQ(1, manager.testingDefaultRoot().getChildCount());
     ASSERT_EQ(8L * 1024 * 1024, manager.getMemoryQuota());
@@ -67,46 +67,44 @@ TEST(MemoryManagerTest, Ctor) {
   { ASSERT_ANY_THROW(MemoryManager manager{{.capacity = -1}}); }
 }
 
-TEST(MemoryManagerTest, getPool) {
+TEST(MemoryManagerTest, addPool) {
   MemoryManager manager{};
 
-  auto rootPool = manager.getPool(
-      "getRootPool", MemoryPool::Kind::kAggregate, kMaxMemory, true, true);
+  auto rootPool = manager.addRootPool("duplicateRootPool", kMaxMemory);
   {
-    ASSERT_ANY_THROW(manager.getPool(
-        "getPool", MemoryPool::Kind::kAggregate, kMaxMemory, true, false));
+    // TODO: add to support avoid duplicate named root pool.
+    auto duplicateRoot = manager.addRootPool("duplicateRootPool", kMaxMemory);
   }
-  auto threadSafeLeafPool = manager.getPool(
-      "getChildPool", MemoryPool::Kind::kLeaf, kMaxMemory, true, true);
-  auto nonThreadSafeLeafPool = manager.getPool(
-      "getPool", MemoryPool::Kind::kLeaf, kMaxMemory, true, true);
+  auto threadSafeLeafPool = manager.addLeafPool("leafPool", true);
+  auto nonThreadSafeLeafPool = manager.addLeafPool("duplicateLeafPool", true);
+  { ASSERT_ANY_THROW(manager.addLeafPool("duplicateLeafPool")); }
 }
 
 TEST(MemoryManagerTest, defaultMemoryManager) {
-  auto& managerA = toMemoryManager(getProcessDefaultMemoryManager());
-  auto& managerB = toMemoryManager(getProcessDefaultMemoryManager());
+  auto& managerA = toMemoryManager(defaultMemoryManager());
+  auto& managerB = toMemoryManager(defaultMemoryManager());
   ASSERT_EQ(managerA.numPools(), 0);
   ASSERT_EQ(managerA.testingDefaultRoot().getChildCount(), 1);
   ASSERT_EQ(managerB.numPools(), 0);
   ASSERT_EQ(managerB.testingDefaultRoot().getChildCount(), 1);
 
-  auto child1 = managerA.getPool("child_1", MemoryPool::Kind::kLeaf);
+  auto child1 = managerA.addLeafPool("child_1");
   ASSERT_EQ(child1->parent()->name(), managerA.testingDefaultRoot().name());
-  auto child2 = managerB.getPool("child_2", MemoryPool::Kind::kLeaf);
+  auto child2 = managerB.addLeafPool("child_2");
   ASSERT_EQ(child2->parent()->name(), managerA.testingDefaultRoot().name());
   EXPECT_EQ(3, managerA.testingDefaultRoot().getChildCount());
   EXPECT_EQ(3, managerB.testingDefaultRoot().getChildCount());
   ASSERT_EQ(managerA.numPools(), 2);
   ASSERT_EQ(managerB.numPools(), 2);
-  auto pool = managerB.getPool();
+  auto pool = managerB.addRootPool();
   ASSERT_EQ(managerA.numPools(), 3);
   ASSERT_EQ(managerB.numPools(), 3);
   ASSERT_EQ(
       managerA.toString(),
-      "Memory Manager[limit 8388608.00TB alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_AGGREGATE_0\n]");
+      "Memory Manager[limit 8388608.00TB alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n]");
   ASSERT_EQ(
       managerB.toString(),
-      "Memory Manager[limit 8388608.00TB alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_AGGREGATE_0\n]");
+      "Memory Manager[limit 8388608.00TB alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n]");
   child1.reset();
   EXPECT_EQ(2, managerA.testingDefaultRoot().getChildCount());
   child2.reset();
@@ -124,21 +122,21 @@ TEST(MemoryManagerTest, defaultMemoryManager) {
       "Memory Manager[limit 8388608.00TB alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\n]");
 }
 
-TEST(MemoryHeaderTest, getDefaultMemoryPool) {
-  auto& manager = toMemoryManager(getProcessDefaultMemoryManager());
+TEST(MemoryHeaderTest, addDefaultLeafMemoryPool) {
+  auto& manager = toMemoryManager(defaultMemoryManager());
   ASSERT_EQ(manager.testingDefaultRoot().getChildCount(), 1);
   {
-    auto poolA = getDefaultMemoryPool();
+    auto poolA = addDefaultLeafMemoryPool();
     ASSERT_EQ(poolA->kind(), MemoryPool::Kind::kLeaf);
-    auto poolB = getDefaultMemoryPool();
+    auto poolB = addDefaultLeafMemoryPool();
     ASSERT_EQ(poolB->kind(), MemoryPool::Kind::kLeaf);
     EXPECT_EQ(3, manager.testingDefaultRoot().getChildCount());
     {
-      auto poolC = getDefaultMemoryPool();
+      auto poolC = addDefaultLeafMemoryPool();
       ASSERT_EQ(poolC->kind(), MemoryPool::Kind::kLeaf);
       EXPECT_EQ(4, manager.testingDefaultRoot().getChildCount());
       {
-        auto poolD = getDefaultMemoryPool();
+        auto poolD = addDefaultLeafMemoryPool();
         ASSERT_EQ(poolD->kind(), MemoryPool::Kind::kLeaf);
         EXPECT_EQ(5, manager.testingDefaultRoot().getChildCount());
       }
@@ -148,7 +146,7 @@ TEST(MemoryHeaderTest, getDefaultMemoryPool) {
   }
   EXPECT_EQ(1, manager.testingDefaultRoot().getChildCount());
 
-  auto namedPool = getDefaultMemoryPool("namedPool");
+  auto namedPool = addDefaultLeafMemoryPool("namedPool");
   ASSERT_EQ(namedPool->name(), "namedPool");
 }
 
@@ -163,8 +161,7 @@ TEST(MemoryManagerTest, memoryPoolManagement) {
   std::vector<std::shared_ptr<MemoryPool>> userLeafPools;
   for (int i = 0; i < numPools; ++i) {
     const std::string name(std::to_string(i));
-    auto pool = manager.getPool(
-        name, i % 2 ? MemoryPool::Kind::kLeaf : MemoryPool::Kind::kAggregate);
+    auto pool = i % 2 ? manager.addLeafPool(name) : manager.addRootPool(name);
     ASSERT_EQ(pool->name(), name);
     if (i % 2) {
       ASSERT_EQ(pool->kind(), MemoryPool::Kind::kLeaf);
@@ -176,10 +173,10 @@ TEST(MemoryManagerTest, memoryPoolManagement) {
       userRootPools.push_back(pool);
     }
   }
-  auto leafUnamedPool = manager.getPool("", MemoryPool::Kind::kLeaf);
+  auto leafUnamedPool = manager.addLeafPool();
   ASSERT_FALSE(leafUnamedPool->name().empty());
   ASSERT_EQ(leafUnamedPool->kind(), MemoryPool::Kind::kLeaf);
-  auto rootUnamedPool = manager.getPool("", MemoryPool::Kind::kAggregate);
+  auto rootUnamedPool = manager.addRootPool();
   ASSERT_FALSE(rootUnamedPool->name().empty());
   ASSERT_EQ(rootUnamedPool->kind(), MemoryPool::Kind::kAggregate);
   ASSERT_EQ(rootUnamedPool->parent(), nullptr);
@@ -203,7 +200,7 @@ TEST(MemoryManagerTest, globalMemoryManager) {
   {
     auto& rootI = manager.testingDefaultRoot();
     const std::string childIName("some_child");
-    auto childI = rootI.addChild(childIName, MemoryPool::Kind::kLeaf);
+    auto childI = rootI.addLeafChild(childIName);
     ASSERT_EQ(rootI.getChildCount(), 2);
 
     auto& rootII = managerII.testingDefaultRoot();
@@ -225,18 +222,17 @@ TEST(MemoryManagerTest, globalMemoryManager) {
     }
     ASSERT_EQ(matchedCount, 2);
 
-    auto& defaultChild = manager.deprecatedGetPool();
+    auto& defaultChild = manager.deprecatedLeafPool();
     ASSERT_EQ(defaultChild.name(), kDefaultLeafName.str());
 
-    auto childII = manager.getPool("another_child", MemoryPool::Kind::kLeaf);
+    auto childII = manager.addLeafPool("another_child");
     ASSERT_EQ(childII->kind(), MemoryPool::Kind::kLeaf);
     ASSERT_EQ(rootI.getChildCount(), 3);
     ASSERT_EQ(childII->parent()->name(), kDefaultRootName.str());
     childII.reset();
     ASSERT_EQ(rootI.getChildCount(), 2);
     ASSERT_EQ(rootII.getChildCount(), 2);
-    auto userRootChild =
-        manager.getPool("rootChild", MemoryPool::Kind::kAggregate);
+    auto userRootChild = manager.addRootPool("rootChild");
     ASSERT_EQ(userRootChild->kind(), MemoryPool::Kind::kAggregate);
     ASSERT_EQ(rootI.getChildCount(), 2);
     ASSERT_EQ(rootII.getChildCount(), 2);
@@ -245,9 +241,9 @@ TEST(MemoryManagerTest, globalMemoryManager) {
   ASSERT_EQ(manager.numPools(), 0);
   {
     auto& manager = MemoryManager::getInstance();
-    auto& defaultManager = getProcessDefaultMemoryManager();
+    auto& defaultManager = defaultMemoryManager();
     ASSERT_EQ(&manager, &defaultManager);
-    auto pool = getDefaultMemoryPool();
+    auto pool = addDefaultLeafMemoryPool();
     ASSERT_EQ(pool->kind(), MemoryPool::Kind::kLeaf);
     ASSERT_EQ(pool->parent()->name(), kDefaultRootName.str());
     ASSERT_EQ(manager.numPools(), 1);
@@ -338,13 +334,13 @@ TEST(MemoryManagerTest, alignmentOptionCheck) {
         manager.testingDefaultRoot().getAlignment(),
         std::max(testData.alignment, MemoryAllocator::kMinAlignment));
     ASSERT_EQ(
-        manager.deprecatedGetPool().getAlignment(),
+        manager.deprecatedLeafPool().getAlignment(),
         std::max(testData.alignment, MemoryAllocator::kMinAlignment));
-    auto leafPool = manager.getPool("leafPool", MemoryPool::Kind::kLeaf);
+    auto leafPool = manager.addLeafPool("leafPool");
     ASSERT_EQ(
         leafPool->getAlignment(),
         std::max(testData.alignment, MemoryAllocator::kMinAlignment));
-    auto rootPool = manager.getPool("rootPool");
+    auto rootPool = manager.addRootPool("rootPool");
     ASSERT_EQ(
         rootPool->getAlignment(),
         std::max(testData.alignment, MemoryAllocator::kMinAlignment));
@@ -377,9 +373,9 @@ TEST(MemoryManagerTest, concurrentPoolAccess) {
               fmt::format("concurrentPoolAccess{}", poolId++);
           std::shared_ptr<MemoryPool> poolToAdd;
           if (folly::Random().oneIn(2)) {
-            poolToAdd = manager.getPool(name, MemoryPool::Kind::kLeaf);
+            poolToAdd = manager.addLeafPool(name);
           } else {
-            poolToAdd = manager.getPool(name);
+            poolToAdd = manager.addRootPool(name);
           }
           std::lock_guard<std::mutex> l(mu);
           pools.push_back(std::move(poolToAdd));
@@ -438,7 +434,7 @@ TEST(MemoryManagerTest, quotaEnforcement) {
       options.alignment = alignment;
       options.capacity = testData.memoryQuotaBytes;
       MemoryManager manager{options};
-      auto pool = manager.getPool("quotaEnforcement", MemoryPool::Kind::kLeaf);
+      auto pool = manager.addLeafPool("quotaEnforcement");
       void* smallBuffer{nullptr};
       if (testData.smallAllocationBytes != 0) {
         if ((testData.largeAllocationPages == 0) &&

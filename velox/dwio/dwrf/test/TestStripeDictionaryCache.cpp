@@ -26,7 +26,7 @@ using namespace ::testing;
 namespace facebook::velox::dwrf {
 
 namespace {
-auto defaultPool = velox::memory::getDefaultMemoryPool();
+auto defaultPool = velox::memory::addDefaultLeafMemoryPool();
 
 folly::Function<BufferPtr(memory::MemoryPool*)> genConsecutiveRangeBuffer(
     int64_t begin,

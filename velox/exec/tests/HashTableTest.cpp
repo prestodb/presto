@@ -470,7 +470,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
     ASSERT_EQ(0, table->listNullKeyRows(&iter, rows.size(), rows.data()));
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
   std::unique_ptr<test::VectorMaker> vectorMaker_{
       std::make_unique<test::VectorMaker>(pool_.get())};
   // Bitmap of positions in batches_ that end up in the table.

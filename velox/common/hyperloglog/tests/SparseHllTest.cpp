@@ -98,7 +98,7 @@ class SparseHllTest : public ::testing::Test {
     return serialized;
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
   HashStringAllocator allocator_{pool_.get()};
 };
 
@@ -174,7 +174,7 @@ class SparseHllToDenseTest : public ::testing::TestWithParam<int8_t> {
     return serialized;
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
   HashStringAllocator allocator_{pool_.get()};
 };
 

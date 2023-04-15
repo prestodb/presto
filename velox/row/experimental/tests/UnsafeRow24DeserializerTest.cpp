@@ -73,7 +73,7 @@ VectorPtr deserialize(
 class UnsafeRowVectorDeserializerTest : public ::testing::Test {
  public:
   UnsafeRowVectorDeserializerTest()
-      : pool_(memory::getDefaultMemoryPool()),
+      : pool_(memory::addDefaultLeafMemoryPool()),
         bufferPtr(AlignedBuffer::allocate<char>(1024, pool_.get(), true)),
         buffer(bufferPtr->asMutable<char>()) {}
 
@@ -565,7 +565,8 @@ class UnsafeRowComplexDeserializerTests : public exec::test::OperatorTestBase {
     assertEqualVectors(inputVector, outputVector);
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
+  std::shared_ptr<memory::MemoryPool> pool_ =
+      memory::addDefaultLeafMemoryPool();
   std::array<char[1024], kMaxBuffers> buffers_{};
 };
 

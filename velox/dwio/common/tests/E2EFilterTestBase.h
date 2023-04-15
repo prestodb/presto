@@ -79,9 +79,8 @@ class E2EFilterTestBase : public testing::Test {
   static constexpr int32_t kRowsInGroup = 10'000;
 
   void SetUp() override {
-    rootPool_ =
-        memory::getProcessDefaultMemoryManager().getPool("E2EFilterTestBase");
-    leafPool_ = rootPool_->addChild("E2EFilterTestBase");
+    rootPool_ = memory::defaultMemoryManager().addRootPool("E2EFilterTestBase");
+    leafPool_ = rootPool_->addLeafChild("E2EFilterTestBase");
   }
 
   static bool typeKindSupportsValueHook(TypeKind kind) {

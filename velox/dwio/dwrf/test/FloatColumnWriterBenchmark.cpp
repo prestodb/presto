@@ -42,7 +42,7 @@ void runBenchmark(int nullEvery) {
 
   auto type = CppToType<float>::create();
   auto typeWithId = TypeWithId::create(type, 1);
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   VectorPtr vector;
   // Prepare input
   BufferPtr values = AlignedBuffer::allocate<float>(kVectorSize, pool.get());
@@ -78,7 +78,7 @@ void runBenchmark(int nullEvery) {
     auto config = std::make_shared<Config>();
     WriterContext context{
         config,
-        memory::getProcessDefaultMemoryManager().getPool(
+        memory::defaultMemoryManager().addRootPool(
             "FloatColumnWriterBenchmark")};
     auto writer = BaseColumnWriter::create(context, *typeWithId, 0);
     writer->write(vector, common::Ranges::of(0, kVectorSize));

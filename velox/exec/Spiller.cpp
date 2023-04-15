@@ -651,7 +651,7 @@ void Spiller::fillSpillRuns(std::vector<SpillableStats>& statsList) {
 
 // static
 memory::MemoryPool& Spiller::spillPool() {
-  static auto pool = memory::getDefaultMemoryPool();
+  static auto pool = memory::addDefaultLeafMemoryPool();
   return *pool;
 }
 

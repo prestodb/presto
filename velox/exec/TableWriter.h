@@ -64,7 +64,8 @@ class TableWriter : public Operator {
  private:
   void createDataSink();
 
-  const DriverCtx* driverCtx_;
+  const DriverCtx* const driverCtx_;
+  memory::MemoryPool* const connectorPool_;
   const std::shared_ptr<connector::ConnectorInsertTableHandle>
       insertTableHandle_;
   const connector::CommitStrategy commitStrategy_;

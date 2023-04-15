@@ -41,7 +41,7 @@ TEST(TestIntegerDictionaryEncoder, AddKey) {
       TestCase{{-2, 2, 2, -2, 2}, {0, 1, 1, 0, 1}}};
 
   for (const auto& testCase : testCases) {
-    auto pool = getDefaultMemoryPool();
+    auto pool = addDefaultLeafMemoryPool();
     IntegerDictionaryEncoder<int64_t> intDictEncoder{*pool, *pool};
     std::vector<size_t> actualEncodedSequence{};
     for (const auto& key : testCase.addKeySequence) {
@@ -74,7 +74,7 @@ TEST(TestIntegerDictionaryEncoder, GetCount) {
           {3, 2, 3, 3, 2}}};
 
   for (const auto& testCase : testCases) {
-    auto pool = getDefaultMemoryPool();
+    auto pool = addDefaultLeafMemoryPool();
     IntegerDictionaryEncoder<int64_t> intDictEncoder{*pool, *pool};
     for (const auto& key : testCase.addKeySequence) {
       intDictEncoder.addKey(key);
@@ -106,7 +106,7 @@ TEST(TestIntegerDictionaryEncoder, GetTotalCount) {
       TestCase{{-2, 1, 2, 0, -1, 1, 0, 2, 0, -2, -1, -2, 1}, 13}};
 
   for (const auto& testCase : testCases) {
-    auto pool = getDefaultMemoryPool();
+    auto pool = addDefaultLeafMemoryPool();
     IntegerDictionaryEncoder<int64_t> intDictEncoder{*pool, *pool};
     for (const auto& key : testCase.addKeySequence) {
       intDictEncoder.addKey(key);
@@ -117,7 +117,7 @@ TEST(TestIntegerDictionaryEncoder, GetTotalCount) {
 }
 
 TEST(TestIntegerDictionaryEncoder, Clear) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   {
     IntegerDictionaryEncoder<int64_t> intDictEncoder{*pool, *pool};
     EXPECT_EQ(1, intDictEncoder.refCount_);
@@ -200,7 +200,7 @@ TEST(TestIntegerDictionaryEncoder, Clear) {
 }
 
 TEST(TestIntegerDictionaryEncoder, RepeatedFlush) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   IntegerDictionaryEncoder<int64_t> intDictEncoder{*pool, *pool};
   std::vector<int> keys{0, 1, 4, 9, 16, 25, 9, 1};
   for (const auto& key : keys) {
@@ -226,7 +226,7 @@ TEST(TestIntegerDictionaryEncoder, RepeatedFlush) {
 }
 
 TEST(TestIntegerDictionaryEncoder, Limit) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   IntegerDictionaryEncoder<int16_t> intDictEncoder{*pool, *pool};
   for (size_t iter = 0; iter < 2; ++iter) {
     int16_t val = std::numeric_limits<int16_t>::min();
@@ -263,7 +263,7 @@ void testGetSortedIndexLookupTable() {
       TestCase{{-1, 0, -2, 2, 1}, false, {0, 1, 2, 3, 4}}};
 
   for (const auto& testCase : testCases) {
-    auto pool = getDefaultMemoryPool();
+    auto pool = addDefaultLeafMemoryPool();
     IntegerDictionaryEncoder<T> intDictEncoder{*pool, *pool};
     for (const auto& key : testCase.addKeySequence) {
       intDictEncoder.addKey(key);
@@ -330,7 +330,7 @@ TEST(TestIntegerDictionaryEncoder, ShortIntegerDictionary) {
     values.emplace_back(static_cast<int16_t>(i));
   }
 
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   IntegerDictionaryEncoder<int16_t> intDictEncoder{*pool, *pool};
   dwio::common::DataBuffer<bool> inDict{*pool};
   dwio::common::DataBuffer<int16_t> lookupTable{*pool};
@@ -443,7 +443,7 @@ void testInfrequentKeyOptimization() {
           24}};
 
   for (const auto& testCase : testCases) {
-    auto pool = getDefaultMemoryPool();
+    auto pool = addDefaultLeafMemoryPool();
     IntegerDictionaryEncoder<T> intDictEncoder{*pool, *pool};
     for (const auto& key : testCase.addKeySequence) {
       intDictEncoder.addKey(key);

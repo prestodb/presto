@@ -44,7 +44,7 @@ using namespace facebook::velox::test;
 
 namespace {
 const std::string structFile(getExampleFilePath("struct.orc"));
-auto defaultPool = memory::getDefaultMemoryPool();
+auto defaultPool = memory::addDefaultLeafMemoryPool();
 } // namespace
 
 TEST(TestReader, testWriterVersions) {
@@ -1120,7 +1120,7 @@ TEST(TestReader, testUpcastFloat) {
 }
 
 TEST(TestReader, testEmptyFile) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   MemorySink sink{*pool, 1024};
   DataBufferHolder holder{*pool, 1024, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
   BufferedOutputStream output{holder};
@@ -1232,7 +1232,7 @@ void testBufferLifeCycle(
     std::mt19937& rng,
     size_t batchSize,
     bool hasNull) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   std::vector<VectorPtr> batches;
   std::function<bool(vector_size_t)> isNullAt = nullptr;
   if (hasNull) {
@@ -1289,7 +1289,7 @@ void testFlatmapAsMapFieldLifeCycle(
     std::mt19937& rng,
     size_t batchSize,
     bool hasNull) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   std::vector<VectorPtr> batches;
   std::function<bool(vector_size_t)> isNullAt = nullptr;
   if (hasNull) {

@@ -54,9 +54,8 @@ class MemoryOperator {
       : maxMemory_(maxMemory),
         allocationBytes_(allocationSize),
         maxOps_(maxOps),
-        pool_(memoryManager->getPool(
-            fmt::format("MemoryOperator{}", poolId_++),
-            MemoryPool::Kind::kLeaf)) {
+        pool_(memoryManager->addLeafPool(
+            fmt::format("MemoryOperator{}", poolId_++))) {
     rng_.seed(1234);
   }
 

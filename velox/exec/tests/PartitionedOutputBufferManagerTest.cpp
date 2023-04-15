@@ -29,7 +29,7 @@ using facebook::velox::test::BatchMaker;
 class PartitionedOutputBufferManagerTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = facebook::velox::memory::getDefaultMemoryPool();
+    pool_ = facebook::velox::memory::addDefaultLeafMemoryPool();
     bufferManager_ = PartitionedOutputBufferManager::getInstance().lock();
     if (!isRegisteredVectorSerde()) {
       facebook::velox::serializer::presto::PrestoVectorSerde::
@@ -386,7 +386,7 @@ TEST_F(PartitionedOutputBufferManagerTest, setQueueErrorWithPendingPages) {
   std::memcpy(iobuf->writableData(), payload.data(), payloadSize);
   iobuf->append(payloadSize);
 
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   auto page = std::make_unique<SerializedPage>(std::move(iobuf), pool.get());
   ASSERT_EQ(payloadSize, pool->getCurrentBytes());
 

@@ -22,7 +22,7 @@ using namespace facebook::velox::dwrf;
 using namespace facebook::velox::memory;
 
 TEST(DataBufferHolderTests, InputCheck) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   ASSERT_THROW((DataBufferHolder{*pool, 0}), exception::LoggedException);
   ASSERT_THROW(
       (DataBufferHolder{*pool, 1024, 2048}), exception::LoggedException);
@@ -35,7 +35,7 @@ TEST(DataBufferHolderTests, InputCheck) {
 }
 
 TEST(DataBufferHolderTests, TakeAndGetBuffer) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink sink{*pool, 1024};
   DataBufferHolder holder{*pool, 1024, 0, 2.0f, &sink};
   DataBuffer<char> buffer{*pool, 512};
@@ -58,7 +58,7 @@ TEST(DataBufferHolderTests, TakeAndGetBuffer) {
 }
 
 TEST(DataBufferHolderTests, TruncateBufferHolder) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   DataBufferHolder holder{*pool, 1024};
   constexpr size_t BUF_SIZE = 10;
   DataBuffer<char> buffer{*pool, BUF_SIZE};
@@ -83,7 +83,7 @@ TEST(DataBufferHolderTests, TruncateBufferHolder) {
 }
 
 TEST(DataBufferHolderTests, TakeAndGetBufferNoOutput) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   DataBufferHolder holder{*pool, 1024};
   DataBuffer<char> buffer{*pool, 512};
   std::memset(buffer.data(), 'a', 512);
@@ -113,7 +113,7 @@ TEST(DataBufferHolderTests, TakeAndGetBufferNoOutput) {
 }
 
 TEST(DataBufferHolderTests, Reset) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   DataBufferHolder holder{*pool, 1024};
   DataBuffer<char> buffer{*pool, 512};
   std::memset(buffer.data(), 'a', 512);
@@ -127,7 +127,7 @@ TEST(DataBufferHolderTests, Reset) {
 }
 
 TEST(DataBufferHolderTests, TryResize) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   DataBufferHolder holder{*pool, 1024, 128};
 
   auto runTest = [&pool, &holder](
@@ -242,7 +242,7 @@ TEST(DataBufferHolderTests, TryResize) {
 }
 
 TEST(DataBufferHolderTests, TestGrowRatio) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   DataBufferHolder holder{*pool, 1024, 16, 4.0f};
   DataBuffer<char> buffer{*pool, 16};
   ASSERT_TRUE(holder.tryResize(buffer, 0, 1));

@@ -134,7 +134,7 @@ TEST_P(MemoryPoolTest, Ctor) {
   constexpr uint16_t kAlignment = 64;
   MemoryManager manager{{.alignment = kAlignment, .capacity = 8 * GB}};
   // While not recommended, the root allocator should be valid.
-  auto root = manager.getPool("Ctor");
+  auto root = manager.addRootPool("Ctor");
   ASSERT_EQ(root->kind(), MemoryPool::Kind::kAggregate);
   ASSERT_EQ(root->getCurrentBytes(), 0);
   ASSERT_EQ(root->parent(), nullptr);
@@ -158,8 +158,7 @@ TEST_P(MemoryPoolTest, Ctor) {
     ASSERT_EQ(fakeRoot->parent(), nullptr);
   }
   {
-    auto child =
-        root->addChild("child", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+    auto child = root->addLeafChild("child", isLeafThreadSafe_);
     ASSERT_EQ(child->parent(), root.get());
     auto& favoriteChild = dynamic_cast<MemoryPoolImpl&>(*child);
     ASSERT_EQ("child", favoriteChild.name());
@@ -172,13 +171,12 @@ TEST_P(MemoryPoolTest, Ctor) {
 
 TEST_P(MemoryPoolTest, AddChild) {
   MemoryManager manager{};
-  auto root = manager.getPool("root");
+  auto root = manager.addRootPool("root");
   ASSERT_EQ(root->parent(), nullptr);
 
   ASSERT_EQ(0, root->getChildCount());
-  auto childOne =
-      root->addChild("child_one", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
-  auto childTwo = root->addChild("child_two", MemoryPool::Kind::kAggregate);
+  auto childOne = root->addLeafChild("child_one", isLeafThreadSafe_);
+  auto childTwo = root->addAggregateChild("child_two");
 
   std::vector<MemoryPool*> nodes{};
   ASSERT_EQ(2, root->getChildCount());
@@ -189,27 +187,23 @@ TEST_P(MemoryPoolTest, AddChild) {
   ASSERT_THAT(
       nodes, UnorderedElementsAreArray({childOne.get(), childTwo.get()}));
   // Child pool name collision.
-  ASSERT_THROW(
-      root->addChild("child_one", MemoryPool::Kind::kAggregate),
-      VeloxRuntimeError);
+  ASSERT_THROW(root->addAggregateChild("child_one"), VeloxRuntimeError);
   ASSERT_EQ(root->getChildCount(), 2);
   childOne.reset();
   ASSERT_EQ(root->getChildCount(), 1);
-  childOne =
-      root->addChild("child_one", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  childOne = root->addLeafChild("child_one", isLeafThreadSafe_);
   ASSERT_EQ(root->getChildCount(), 2);
 }
 
 TEST_P(MemoryPoolTest, dropChild) {
   MemoryManager manager{};
-  auto root = manager.getPool("root");
+  auto root = manager.addRootPool("root");
   ASSERT_EQ(root->parent(), nullptr);
 
   ASSERT_EQ(root->getChildCount(), 0);
-  auto childOne =
-      root->addChild("child_one", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto childOne = root->addLeafChild("child_one", isLeafThreadSafe_);
   ASSERT_EQ(childOne->parent(), root.get());
-  auto childTwo = root->addChild("child_two", MemoryPool::Kind::kAggregate);
+  auto childTwo = root->addAggregateChild("child_two");
   ASSERT_EQ(childTwo->parent(), root.get());
   ASSERT_EQ(root->getChildCount(), 2);
 
@@ -221,17 +215,13 @@ TEST_P(MemoryPoolTest, dropChild) {
   ASSERT_EQ(root->getChildCount(), 0);
 
   // Check parent pool is alive until all the children has been destroyed.
-  auto child = root->addChild("child", MemoryPool::Kind::kAggregate);
+  auto child = root->addAggregateChild("child");
   ASSERT_EQ(child->parent(), root.get());
   auto* rawChild = child.get();
-  auto grandChild1 = child->addChild(
-      "grandChild1", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto grandChild1 = child->addLeafChild("grandChild1", isLeafThreadSafe_);
   ASSERT_EQ(grandChild1->parent(), child.get());
-  ASSERT_THROW(
-      child->addChild("grandChild1", MemoryPool::Kind::kAggregate),
-      VeloxRuntimeError);
-  auto grandChild2 = child->addChild(
-      "grandChild2", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  ASSERT_THROW(child->addAggregateChild("grandChild1"), VeloxRuntimeError);
+  auto grandChild2 = child->addLeafChild("grandChild2", isLeafThreadSafe_);
   ASSERT_EQ(grandChild2->parent(), child.get());
   ASSERT_EQ(1, root->getChildCount());
   ASSERT_EQ(2, child->getChildCount());
@@ -250,10 +240,9 @@ TEST_P(MemoryPoolTest, dropChild) {
 // Mainly tests how it tracks externally allocated memory.
 TEST_P(MemoryPoolTest, ReserveTest) {
   MemoryManager manager{{.capacity = 8 * GB}};
-  auto root = manager.getPool();
+  auto root = manager.addRootPool();
 
-  auto child = root->addChild(
-      "elastic_quota", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto child = root->addLeafChild("elastic_quota", isLeafThreadSafe_);
 
   const int64_t kChunkSize{32L * MB};
 
@@ -293,9 +282,8 @@ void testMmapMemoryAllocation(
   MemoryManager manager({.capacity = 8 * GB});
   const auto kPageSize = 4 * KB;
 
-  auto root = manager.getPool();
-  auto child =
-      root->addChild("elastic_quota", MemoryPool::Kind::kLeaf, threadSafe);
+  auto root = manager.addRootPool();
+  auto child = root->addLeafChild("elastic_quota", threadSafe);
 
   std::vector<void*> allocations;
   uint64_t totalPageAllocated = 0;
@@ -359,10 +347,9 @@ TEST_P(MemoryPoolTest, BigMmapMemoryAllocation) {
 // Mainly tests how it updates the memory usage in Memorypool->
 TEST_P(MemoryPoolTest, AllocTest) {
   auto manager = getMemoryManager(8 * GB);
-  auto root = manager->getPool();
+  auto root = manager->addRootPool();
 
-  auto child = root->addChild(
-      "elastic_quota", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto child = root->addLeafChild("elastic_quota", isLeafThreadSafe_);
 
   const int64_t kChunkSize{32L * MB};
 
@@ -387,10 +374,9 @@ TEST_P(MemoryPoolTest, AllocTest) {
 TEST_P(MemoryPoolTest, DISABLED_memoryLeakCheck) {
   gflags::FlagSaver flagSaver;
   auto manager = getMemoryManager(8 * GB);
-  auto root = manager->getPool();
+  auto root = manager->addRootPool();
 
-  auto child = root->addChild(
-      "elastic_quota", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto child = root->addLeafChild("elastic_quota", isLeafThreadSafe_);
   const int64_t kChunkSize{32L * MB};
   void* oneChunk = child->allocate(kChunkSize);
   FLAGS_velox_memory_leak_check_enabled = true;
@@ -400,10 +386,9 @@ TEST_P(MemoryPoolTest, DISABLED_memoryLeakCheck) {
 
 TEST_P(MemoryPoolTest, ReallocTestSameSize) {
   auto manager = getMemoryManager(8 * GB);
-  auto root = manager->getPool();
+  auto root = manager->addRootPool();
 
-  auto pool = root->addChild(
-      "elastic_quota", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto pool = root->addLeafChild("elastic_quota", isLeafThreadSafe_);
 
   const int64_t kChunkSize{32L * MB};
 
@@ -424,10 +409,9 @@ TEST_P(MemoryPoolTest, ReallocTestSameSize) {
 
 TEST_P(MemoryPoolTest, ReallocTestHigher) {
   auto manager = getMemoryManager(8 * GB);
-  auto root = manager->getPool();
+  auto root = manager->addRootPool();
 
-  auto pool = root->addChild(
-      "elastic_quota", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto pool = root->addLeafChild("elastic_quota", isLeafThreadSafe_);
 
   const int64_t kChunkSize{32L * MB};
   // Realloc higher.
@@ -446,9 +430,8 @@ TEST_P(MemoryPoolTest, ReallocTestHigher) {
 
 TEST_P(MemoryPoolTest, ReallocTestLower) {
   auto manager = getMemoryManager(8 * GB);
-  auto root = manager->getPool();
-  auto pool = root->addChild(
-      "elastic_quota", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto root = manager->addRootPool();
+  auto pool = root->addLeafChild("elastic_quota", isLeafThreadSafe_);
 
   const int64_t kChunkSize{32L * MB};
   // Realloc lower.
@@ -467,10 +450,9 @@ TEST_P(MemoryPoolTest, ReallocTestLower) {
 
 TEST_P(MemoryPoolTest, allocateZeroFilled) {
   auto manager = getMemoryManager(8 * GB);
-  auto root = manager->getPool();
+  auto root = manager->addRootPool();
 
-  auto pool = root->addChild(
-      "elastic_quota", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto pool = root->addLeafChild("elastic_quota", isLeafThreadSafe_);
 
   const std::vector<int64_t> numEntriesVector({1, 2, 10});
   const std::vector<int64_t> sizeEachVector({1, 117, 2467});
@@ -508,7 +490,7 @@ TEST_P(MemoryPoolTest, alignmentCheck) {
     options.alignment = alignment;
     auto manager =
         getMemoryManager({.alignment = alignment, .capacity = 8 * GB});
-    auto pool = manager->getPool("alignmentCheck", MemoryPool::Kind::kLeaf);
+    auto pool = manager->addLeafPool("alignmentCheck");
     ASSERT_EQ(
         pool->getAlignment(),
         alignment == 0 ? MemoryAllocator::kMinAlignment : alignment);
@@ -527,12 +509,9 @@ TEST_P(MemoryPoolTest, alignmentCheck) {
 
 TEST_P(MemoryPoolTest, MemoryCapExceptions) {
   MemoryManager manager{{.capacity = 127L * MB}};
-  auto root = manager.getPool(
-      "MemoryCapExceptions",
-      MemoryPool::Kind::kAggregate,
-      manager.getMemoryQuota());
-  auto pool = root->addChild(
-      "static_quota", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto root =
+      manager.addRootPool("MemoryCapExceptions", manager.getMemoryQuota());
+  auto pool = root->addLeafChild("static_quota", isLeafThreadSafe_);
 
   // Capping memory manager.
   {
@@ -554,21 +533,20 @@ TEST(MemoryPoolTest, GetAlignment) {
   {
     EXPECT_EQ(
         MemoryAllocator::kMaxAlignment,
-        MemoryManager{{.capacity = 32 * MB}}.getPool()->getAlignment());
+        MemoryManager{{.capacity = 32 * MB}}.addRootPool()->getAlignment());
   }
   {
     MemoryManager manager{{.alignment = 64, .capacity = 32 * MB}};
-    EXPECT_EQ(64, manager.getPool()->getAlignment());
+    EXPECT_EQ(64, manager.addRootPool()->getAlignment());
   }
 }
 
 TEST_P(MemoryPoolTest, MemoryManagerGlobalCap) {
   MemoryManager manager{{.capacity = 32 * MB}};
 
-  auto root = manager.getPool();
-  auto pool = root->addChild("unbounded", MemoryPool::Kind::kAggregate);
-  auto child =
-      pool->addChild("unbounded", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto root = manager.addRootPool();
+  auto pool = root->addAggregateChild("unbounded");
+  auto child = pool->addLeafChild("unbounded", isLeafThreadSafe_);
   void* oneChunk = child->allocate(32L * MB);
   ASSERT_EQ(0L, root->getCurrentBytes());
   EXPECT_THROW(child->allocate(32L * MB), velox::VeloxRuntimeError);
@@ -584,8 +562,8 @@ TEST_P(MemoryPoolTest, MemoryManagerGlobalCap) {
 // with memoryUsageTracker.
 TEST_P(MemoryPoolTest, childUsageTest) {
   MemoryManager manager{{.capacity = 8 * GB}};
-  auto root = manager.getPool();
-  auto pool = root->addChild("main_pool", MemoryPool::Kind::kAggregate);
+  auto root = manager.addRootPool();
+  auto pool = root->addAggregateChild("main_pool");
 
   auto verifyUsage = [](std::vector<std::shared_ptr<MemoryPool>>& tree,
                         std::vector<int> currentBytes,
@@ -617,21 +595,17 @@ TEST_P(MemoryPoolTest, childUsageTest) {
   // p3      p4       p5       p6
   //
   std::vector<std::shared_ptr<MemoryPool>> tree;
-  tree.push_back(pool->addChild("p0", MemoryPool::Kind::kAggregate));
+  tree.push_back(pool->addAggregateChild("p0"));
 
   // first level: p1, p2.
-  tree.push_back(tree[0]->addChild("p1", MemoryPool::Kind::kAggregate));
-  tree.push_back(tree[0]->addChild("p2", MemoryPool::Kind::kAggregate));
+  tree.push_back(tree[0]->addAggregateChild("p1"));
+  tree.push_back(tree[0]->addAggregateChild("p2"));
 
   // second level: p3, p4, p5, p6.
-  tree.push_back(
-      tree[1]->addChild("p3", MemoryPool::Kind::kLeaf, isLeafThreadSafe_));
-  tree.push_back(
-      tree[1]->addChild("p4", MemoryPool::Kind::kLeaf, isLeafThreadSafe_));
-  tree.push_back(
-      tree[2]->addChild("p5", MemoryPool::Kind::kLeaf, isLeafThreadSafe_));
-  tree.push_back(
-      tree[2]->addChild("p6", MemoryPool::Kind::kLeaf, isLeafThreadSafe_));
+  tree.push_back(tree[1]->addLeafChild("p3", isLeafThreadSafe_));
+  tree.push_back(tree[1]->addLeafChild("p4", isLeafThreadSafe_));
+  tree.push_back(tree[2]->addLeafChild("p5", isLeafThreadSafe_));
+  tree.push_back(tree[2]->addLeafChild("p6", isLeafThreadSafe_));
 
   verifyUsage(
       tree,
@@ -726,7 +700,7 @@ TEST_P(MemoryPoolTest, allocatorOverflow) {
 
 TEST_P(MemoryPoolTest, contiguousAllocate) {
   auto manager = getMemoryManager(8 * GB);
-  auto pool = manager->getPool("contiguousAllocate", MemoryPool::Kind::kLeaf);
+  auto pool = manager->addLeafPool("contiguousAllocate");
   const auto largestSizeClass =
       MemoryAllocator::getInstance()->largestSizeClass();
   struct {
@@ -812,12 +786,9 @@ TEST_P(MemoryPoolTest, contiguousAllocateExceedLimit) {
   const MachinePageCount kMaxNumPages = 1 << 10;
   const auto kMemoryCapBytes = kMaxNumPages * AllocationTraits::kPageSize;
   auto manager = getMemoryManager(kMemoryCapBytes);
-  auto root = manager->getPool(
-      "contiguousAllocateExceedLimit",
-      MemoryPool::Kind::kAggregate,
-      kMemoryCapBytes);
-  auto pool =
-      root->addChild("child", MemoryPool::Kind::kLeaf, isLeafThreadSafe_);
+  auto root =
+      manager->addRootPool("contiguousAllocateExceedLimit", kMemoryCapBytes);
+  auto pool = root->addLeafChild("child", isLeafThreadSafe_);
   ContiguousAllocation allocation;
   pool->allocateContiguous(kMaxNumPages, allocation);
   ASSERT_THROW(
@@ -832,8 +803,7 @@ TEST_P(MemoryPoolTest, contiguousAllocateExceedLimit) {
 
 TEST_P(MemoryPoolTest, badContiguousAllocation) {
   auto manager = getMemoryManager(8 * GB);
-  auto pool =
-      manager->getPool("badContiguousAllocation", MemoryPool::Kind::kLeaf);
+  auto pool = manager->addLeafPool("badContiguousAllocation");
   constexpr MachinePageCount kAllocSize = 8;
   ContiguousAllocation allocation;
   ASSERT_THROW(pool->allocateContiguous(0, allocation), VeloxRuntimeError);
@@ -841,8 +811,7 @@ TEST_P(MemoryPoolTest, badContiguousAllocation) {
 
 TEST_P(MemoryPoolTest, nonContiguousAllocate) {
   auto manager = getMemoryManager(8 * GB);
-  auto pool =
-      manager->getPool("nonContiguousAllocate", MemoryPool::Kind::kLeaf);
+  auto pool = manager->addLeafPool("nonContiguousAllocate");
   const auto& sizeClasses = MemoryAllocator::getInstance()->sizeClasses();
   for (const auto& sizeClass : sizeClasses) {
     SCOPED_TRACE(fmt::format("sizeClass:{}", sizeClass));
@@ -928,12 +897,9 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
 
 TEST_P(MemoryPoolTest, nonContiguousAllocateWithOldAllocation) {
   auto manager = getMemoryManager(8 * GB);
-  auto root = manager->getPool(
-      "nonContiguousAllocateWithOldAllocation", MemoryPool::Kind::kAggregate);
-  auto pool = root->addChild(
-      "nonContiguousAllocateWithOldAllocation",
-      MemoryPool::Kind::kLeaf,
-      isLeafThreadSafe_);
+  auto root = manager->addRootPool("nonContiguousAllocateWithOldAllocation");
+  auto pool = root->addLeafChild(
+      "nonContiguousAllocateWithOldAllocation", isLeafThreadSafe_);
   struct {
     MachinePageCount numOldPages;
     MachinePageCount numNewPages;
@@ -1055,11 +1021,9 @@ TEST_P(MemoryPoolTest, persistentNonContiguousAllocateFailure) {
     reset();
 
     auto manager = getMemoryManager(8 * GB);
-    auto root = manager->getPool();
-    auto pool = root->addChild(
-        "persistentNonContiguousAllocateFailure",
-        MemoryPool::Kind::kLeaf,
-        isLeafThreadSafe_);
+    auto root = manager->addRootPool();
+    auto pool = root->addLeafChild(
+        "persistentNonContiguousAllocateFailure", isLeafThreadSafe_);
     Allocation allocation;
     if (testData.numOldPages > 0) {
       pool->allocateNonContiguous(testData.numOldPages, allocation);
@@ -1158,11 +1122,9 @@ TEST_P(MemoryPoolTest, transientNonContiguousAllocateFailure) {
     }
     reset();
     auto manager = getMemoryManager(8 * GB);
-    auto root = manager->getPool();
-    auto pool = root->addChild(
-        "transientNonContiguousAllocateFailure",
-        MemoryPool::Kind::kLeaf,
-        isLeafThreadSafe_);
+    auto root = manager->addRootPool();
+    auto pool = root->addLeafChild(
+        "transientNonContiguousAllocateFailure", isLeafThreadSafe_);
     Allocation allocation;
     if (testData.numOldPages > 0) {
       pool->allocateNonContiguous(testData.numOldPages, allocation);
@@ -1183,11 +1145,9 @@ TEST_P(MemoryPoolTest, transientNonContiguousAllocateFailure) {
 
 TEST_P(MemoryPoolTest, contiguousAllocateWithOldAllocation) {
   auto manager = getMemoryManager(8 * GB);
-  auto root = manager->getPool();
-  auto pool = root->addChild(
-      "contiguousAllocateWithOldAllocation",
-      MemoryPool::Kind::kLeaf,
-      isLeafThreadSafe_);
+  auto root = manager->addRootPool();
+  auto pool = root->addLeafChild(
+      "contiguousAllocateWithOldAllocation", isLeafThreadSafe_);
   struct {
     MachinePageCount numOldPages;
     MachinePageCount numNewPages;
@@ -1320,11 +1280,9 @@ TEST_P(MemoryPoolTest, persistentContiguousAllocateFailure) {
       continue;
     }
     auto manager = getMemoryManager(8 * GB);
-    auto root = manager->getPool();
-    auto pool = root->addChild(
-        "persistentContiguousAllocateFailure",
-        MemoryPool::Kind::kLeaf,
-        isLeafThreadSafe_);
+    auto root = manager->addRootPool();
+    auto pool = root->addLeafChild(
+        "persistentContiguousAllocateFailure", isLeafThreadSafe_);
     ContiguousAllocation allocation;
     if (testData.numOldPages > 0) {
       pool->allocateContiguous(testData.numOldPages, allocation);
@@ -1443,11 +1401,9 @@ TEST_P(MemoryPoolTest, transientContiguousAllocateFailure) {
       continue;
     }
     auto manager = getMemoryManager(8 * GB);
-    auto root = manager->getPool();
-    auto pool = root->addChild(
-        "transientContiguousAllocateFailure",
-        MemoryPool::Kind::kLeaf,
-        isLeafThreadSafe_);
+    auto root = manager->addRootPool();
+    auto pool = root->addLeafChild(
+        "transientContiguousAllocateFailure", isLeafThreadSafe_);
     ContiguousAllocation allocation;
     if (testData.numOldPages > 0) {
       pool->allocateContiguous(testData.numOldPages, allocation);
@@ -1472,8 +1428,7 @@ TEST_P(MemoryPoolTest, transientContiguousAllocateFailure) {
 
 TEST_P(MemoryPoolTest, badNonContiguousAllocation) {
   auto manager = getMemoryManager(8 * GB);
-  auto pool =
-      manager->getPool("badNonContiguousAllocation", MemoryPool::Kind::kLeaf);
+  auto pool = manager->addLeafPool("badNonContiguousAllocation");
   Allocation allocation;
   // Bad zero page allocation size.
   ASSERT_THROW(pool->allocateNonContiguous(0, allocation), VeloxRuntimeError);
@@ -1492,14 +1447,10 @@ TEST_P(MemoryPoolTest, nonContiguousAllocateExceedLimit) {
   const MachinePageCount kMaxNumPages = 1 << 10;
   const auto kMemoryCapBytes = kMaxNumPages * AllocationTraits::kPageSize;
   auto manager = getMemoryManager(kMemoryCapBytes);
-  auto root = manager->getPool(
-      "nonContiguousAllocateExceedLimit",
-      MemoryPool::Kind::kAggregate,
-      kMemoryCapBytes);
-  auto pool = root->addChild(
-      "nonContiguousAllocateExceedLimit",
-      MemoryPool::Kind::kLeaf,
-      isLeafThreadSafe_);
+  auto root =
+      manager->addRootPool("nonContiguousAllocateExceedLimit", kMemoryCapBytes);
+  auto pool =
+      root->addLeafChild("nonContiguousAllocateExceedLimit", isLeafThreadSafe_);
   Allocation allocation;
   pool->allocateNonContiguous(kMaxNumPages, allocation);
   ASSERT_THROW(
@@ -1514,8 +1465,7 @@ TEST_P(MemoryPoolTest, nonContiguousAllocateExceedLimit) {
 
 TEST_P(MemoryPoolTest, nonContiguousAllocateError) {
   auto manager = getMemoryManager(8 * GB);
-  auto pool =
-      manager->getPool("nonContiguousAllocateError", MemoryPool::Kind::kLeaf);
+  auto pool = manager->addLeafPool("nonContiguousAllocateError");
   allocator_->testingSetFailureInjection(
       MemoryAllocator::InjectedFailure::kAllocate, true);
   constexpr MachinePageCount kAllocSize = 8;
@@ -1555,11 +1505,9 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationError) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto manager = getMemoryManager(8 * GB);
-    auto root = manager->getPool();
-    auto pool = root->addChild(
-        "mmapAllocatorCapAllocationError",
-        MemoryPool::Kind::kLeaf,
-        isLeafThreadSafe_);
+    auto root = manager->addRootPool();
+    auto pool = root->addLeafChild(
+        "mmapAllocatorCapAllocationError", isLeafThreadSafe_);
 
     allocator_->testingSetFailureInjection(
         MemoryAllocator::InjectedFailure::kCap,
@@ -1605,11 +1553,9 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapAllocationZeroFilledError) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto manager = getMemoryManager(8 * GB);
-    auto root = manager->getPool();
-    auto pool = root->addChild(
-        "mmapAllocatorCapAllocationZeroFilledError",
-        MemoryPool::Kind::kLeaf,
-        isLeafThreadSafe_);
+    auto root = manager->addRootPool();
+    auto pool = root->addLeafChild(
+        "mmapAllocatorCapAllocationZeroFilledError", isLeafThreadSafe_);
 
     allocator_->testingSetFailureInjection(
         MemoryAllocator::InjectedFailure::kCap,
@@ -1655,11 +1601,9 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapReallocateError) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto manager = getMemoryManager(8 * GB);
-    auto root = manager->getPool();
-    auto pool = root->addChild(
-        "mmapAllocatorCapReallocateError",
-        MemoryPool::Kind::kLeaf,
-        isLeafThreadSafe_);
+    auto root = manager->addRootPool();
+    auto pool = root->addLeafChild(
+        "mmapAllocatorCapReallocateError", isLeafThreadSafe_);
 
     allocator_->testingSetFailureInjection(
         MemoryAllocator::InjectedFailure::kCap,
@@ -1680,7 +1624,7 @@ TEST_P(MemoryPoolTest, mmapAllocatorCapReallocateError) {
 
 TEST_P(MemoryPoolTest, validCheck) {
   auto manager = getMemoryManager(8 * GB);
-  auto root = manager->getPool();
+  auto root = manager->addRootPool();
   ASSERT_ANY_THROW(root->allocate(100));
   ASSERT_ANY_THROW(root->reallocate(static_cast<void*>(this), 100, 300));
   ASSERT_ANY_THROW(root->allocateZeroFilled(100, 100));
@@ -1695,10 +1639,9 @@ TEST_P(MemoryPoolTest, validCheck) {
     ASSERT_ANY_THROW(root->allocateContiguous(100, out));
     ASSERT_ANY_THROW(root->freeContiguous(out));
   }
-  auto child = root->addChild("validCheck");
-  ASSERT_ANY_THROW(child->addChild(
-      "validCheck", MemoryPool::Kind::kLeaf, isLeafThreadSafe_));
-  ASSERT_ANY_THROW(child->addChild("validCheck", MemoryPool::Kind::kAggregate));
+  auto child = root->addLeafChild("validCheck");
+  ASSERT_ANY_THROW(child->addLeafChild("validCheck", isLeafThreadSafe_));
+  ASSERT_ANY_THROW(child->addAggregateChild("validCheck"));
 }
 
 // Class used to test operations on MemoryPool.
@@ -1823,18 +1766,14 @@ class MemoryPoolTester {
 TEST_P(MemoryPoolTest, concurrentUpdateToDifferentPools) {
   constexpr int64_t kMaxMemory = 10 * GB;
   MemoryManager manager{{.capacity = kMaxMemory}};
-  auto root = manager.getPool(
-      "concurrentUpdateToDifferentPools",
-      MemoryPool::Kind::kAggregate,
-      kMaxMemory);
+  auto root =
+      manager.addRootPool("concurrentUpdateToDifferentPools", kMaxMemory);
   const int32_t kNumThreads = 5;
   // Create one memory tracker per each thread.
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int32_t i = 0; i < kNumThreads; ++i) {
-    childPools.push_back(root->addChild(
-        fmt::format("{}", i),
-        MemoryPool::Kind::kLeaf,
-        i % 2 ? isLeafThreadSafe_ : !isLeafThreadSafe_));
+    childPools.push_back(root->addLeafChild(
+        fmt::format("{}", i), i % 2 ? isLeafThreadSafe_ : !isLeafThreadSafe_));
   }
 
   folly::Random::DefaultGenerator rng;
@@ -1863,13 +1802,13 @@ TEST_P(MemoryPoolTest, concurrentUpdatesToTheSamePool) {
   }
   constexpr int64_t kMaxMemory = 8 * GB;
   MemoryManager manager{{.capacity = kMaxMemory}};
-  auto root = manager.getPool();
+  auto root = manager.addRootPool();
 
   const int32_t kNumThreads = 5;
   const int32_t kNumChildPools = 2;
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int32_t i = 0; i < kNumChildPools; ++i) {
-    childPools.push_back(root->addChild(fmt::format("{}", i)));
+    childPools.push_back(root->addLeafChild(fmt::format("{}", i)));
   }
 
   folly::Random::DefaultGenerator rng;
@@ -1897,7 +1836,7 @@ TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
   rng.seed(1234);
   constexpr int64_t kMaxMemory = 8 * GB;
   MemoryManager manager{{.capacity = kMaxMemory}};
-  auto root = manager.getPool();
+  auto root = manager.addRootPool();
   std::atomic<int64_t> poolId{0};
   std::mutex lock;
   std::vector<std::shared_ptr<MemoryPool>> pools;
@@ -1914,8 +1853,8 @@ TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
         {
           std::lock_guard<std::mutex> l(lock);
           if (pools.empty() || folly::Random().oneIn(5)) {
-            auto pool =
-                root->addChild(fmt::format("{}{}", kPoolNamePrefix, poolId++));
+            auto pool = root->addLeafChild(
+                fmt::format("{}{}", kPoolNamePrefix, poolId++));
             pools.push_back(pool);
             continue;
           }
@@ -1930,13 +1869,14 @@ TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
 
         if (pool->kind() == MemoryPool::Kind::kAggregate &&
             !folly::Random().oneIn(3)) {
-          const bool isLeaf = folly::Random().oneIn(4);
-          auto childPool = pool->addChild(
-              fmt::format("{}{}", kPoolNamePrefix, poolId++),
-              isLeaf ? MemoryPool::Kind::kLeaf : MemoryPool::Kind::kAggregate,
-              isLeaf ? (folly::Random().oneIn(2) ? isLeafThreadSafe_
-                                                 : !isLeafThreadSafe_)
-                     : true);
+          const std::string name =
+              fmt::format("{}{}", kPoolNamePrefix, poolId++);
+          auto childPool = folly::Random().oneIn(4)
+              ? pool->addLeafChild(
+                    name,
+                    folly::Random().oneIn(2) ? isLeafThreadSafe_
+                                             : !isLeafThreadSafe_)
+              : pool->addAggregateChild(name);
           std::lock_guard<std::mutex> l(lock);
           pools.push_back(std::move(childPool));
           continue;
@@ -1961,13 +1901,12 @@ TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
 
 TEST(MemoryPoolTest, visitChildren) {
   MemoryManager manager{};
-  auto root = manager.getPool("root");
+  auto root = manager.addRootPool("root");
 
   const int numChildren = 10;
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int i = 0; i < numChildren; ++i) {
-    childPools.push_back(
-        root->addChild(std::to_string(i), MemoryPool::Kind::kLeaf));
+    childPools.push_back(root->addLeafChild(std::to_string(i)));
   }
 
   std::vector<int> stopSums;
@@ -1992,10 +1931,11 @@ TEST(MemoryPoolTest, visitChildren) {
 
 TEST_P(MemoryPoolTest, shrinkAPIs) {
   MemoryManager manager;
-  std::vector<MemoryPool::Kind> poolKinds;
-  for (const auto& poolKind : poolKinds) {
-    SCOPED_TRACE(fmt::format("pool kind {}", poolKind));
-    auto pool = manager.getPool("shrinkAPIs", poolKind);
+  std::vector<bool> isLeafs = {true, false};
+  for (const auto isLeaf : isLeafs) {
+    SCOPED_TRACE(fmt::format("is leaf {}", isLeaf));
+    auto pool = isLeaf ? manager.addLeafPool("shrinkAPIs")
+                       : manager.addRootPool("shrinkAPIs");
     auto* poolPtr = dynamic_cast<MemoryPoolImpl*>(pool.get());
     VELOX_ASSERT_THROW(poolPtr->freeBytes(), "");
     VELOX_ASSERT_THROW(poolPtr->shrink(0), "");
@@ -2007,15 +1947,15 @@ TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
   MemoryManager manager;
   struct {
     int numChildren;
-    int numGrandChildren;
+    int numGrandchildren;
     bool doAllocation;
     bool hasReclaimer;
 
     std::string debugString() const {
       return fmt::format(
-          "numChildren {} numGrandChildren {} doAllocation{} hasReclaimer {}",
+          "numChildren {} numGrandchildren {} doAllocation{} hasReclaimer {}",
           numChildren,
-          numGrandChildren,
+          numGrandchildren,
           doAllocation,
           hasReclaimer);
     }
@@ -2032,11 +1972,9 @@ TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     std::vector<std::shared_ptr<MemoryPool>> pools;
-    auto pool = manager.getPool(
+    auto pool = manager.addRootPool(
         "shrinkAPIs",
-        MemoryPool::Kind::kAggregate,
         kMaxMemory,
-        true,
         true,
         testData.hasReclaimer ? memory::MemoryReclaimer::create() : nullptr);
     pools.push_back(pool);
@@ -2048,19 +1986,21 @@ TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
     };
     std::vector<Allocation> allocations;
     for (int i = 0; i < testData.numChildren; ++i) {
-      const MemoryPool::Kind kind = testData.numGrandChildren == 0
-          ? MemoryPool::Kind::kLeaf
-          : MemoryPool::Kind::kAggregate;
-      auto childPool = pool->addChild(
-          std::to_string(i),
-          kind,
-          kind == MemoryPool::Kind::kLeaf ? isLeafThreadSafe_ : true,
-          testData.hasReclaimer ? memory::MemoryReclaimer::create() : nullptr);
+      const bool isLeaf = testData.numGrandchildren == 0 ? true : false;
+      auto childPool = isLeaf
+          ? pool->addLeafChild(
+                std::to_string(i),
+                isLeafThreadSafe_,
+                testData.hasReclaimer ? memory::MemoryReclaimer::create()
+                                      : nullptr)
+          : pool->addAggregateChild(
+                std::to_string(i),
+                testData.hasReclaimer ? memory::MemoryReclaimer::create()
+                                      : nullptr);
       pools.push_back(childPool);
-      for (int j = 0; j < testData.numGrandChildren; ++j) {
-        auto grandChild = childPool->addChild(
+      for (int j = 0; j < testData.numGrandchildren; ++j) {
+        auto grandChild = childPool->addLeafChild(
             std::to_string(j),
-            MemoryPool::Kind::kLeaf,
             isLeafThreadSafe_,
             testData.hasReclaimer ? memory::MemoryReclaimer::create()
                                   : nullptr);
@@ -2096,15 +2036,10 @@ TEST_P(MemoryPoolTest, usageTrackerOptionTest) {
   auto manager = getMemoryManager(8 * GB);
   std::vector<bool> trackUsages = {false, true};
   for (const auto trackUsage : trackUsages) {
-    auto root = manager->getPool(
-        "usageTrackerOptionTest",
-        MemoryPool::Kind::kAggregate,
-        kMaxMemory,
-        trackUsage,
-        true,
-        nullptr);
+    auto root = manager->addRootPool(
+        "usageTrackerOptionTest", kMaxMemory, trackUsage, nullptr);
     ASSERT_EQ(trackUsage, root->getMemoryUsageTracker() != nullptr);
-    auto child = root->addChild("usageTrackerOptionTest");
+    auto child = root->addLeafChild("usageTrackerOptionTest");
     ASSERT_EQ(trackUsage, child->getMemoryUsageTracker() != nullptr);
   }
 }

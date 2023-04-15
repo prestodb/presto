@@ -15,7 +15,7 @@ Let’s start by getting access to a MemoryPool:
 
     #include "velox/common/memory/Memory.h"
 
-    auto pool = memory::getDefaultMemoryPool();
+    auto pool = memory::addDefaultLeafMemoryPool();
 
 `pool` is a std::shared_ptr<velox::memory::MemoryPool>. We can use it to
 allocate buffers.

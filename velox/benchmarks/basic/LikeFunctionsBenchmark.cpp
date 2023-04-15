@@ -173,7 +173,7 @@ class LikeFunctionsBenchmark : public FunctionBaseTest,
  private:
   static constexpr const char* kWildcardCharacterSet = "%_";
   static constexpr const char* kAnyWildcardCharacter = "%";
-  std::shared_ptr<MemoryPool> pool_{getDefaultMemoryPool()};
+  std::shared_ptr<MemoryPool> pool_{addDefaultLeafMemoryPool()};
   VectorPtr inputFuzzer_;
 };
 

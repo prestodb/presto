@@ -41,8 +41,7 @@ static_assert(!Buffer::is_pod_like_v<std::shared_ptr<int>>, "");
 class BufferTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ =
-        memoryManager_.getPool("BufferTest", memory::MemoryPool::Kind::kLeaf);
+    pool_ = memoryManager_.addLeafPool("BufferTest");
   }
 
   memory::MemoryManager memoryManager_;

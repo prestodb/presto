@@ -22,7 +22,7 @@ using namespace facebook::velox;
 using namespace facebook::velox::dwio::common;
 
 TEST(BitConcatenationTests, basic) {
-  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
   BitConcatenation bits(*pool);
   BufferPtr result;
 

@@ -202,7 +202,7 @@ void HiveDataSink::appendWriter(
 
   auto sink = dwio::common::DataSink::create(writePath);
   writers_.push_back(std::make_unique<Writer>(
-      options, std::move(sink), *connectorQueryCtx_->aggregatePool()));
+      options, std::move(sink), *connectorQueryCtx_->connectorMemoryPool()));
   writerInfo_.push_back(std::make_shared<HiveWriterInfo>(*writerParameters));
 }
 

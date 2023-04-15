@@ -66,8 +66,7 @@ class MemoryPoolAllocationBenchMark {
         break;
     }
     rng_.seed(FLAGS_allocation_size_seed);
-    pool_ = manager_->getPool(
-        "MemoryPoolAllocationBenchMark", memory::MemoryPool::Kind::kLeaf);
+    pool_ = manager_->addLeafPool("MemoryPoolAllocationBenchMark");
   }
 
   ~MemoryPoolAllocationBenchMark() {

@@ -76,7 +76,7 @@ class PlanFragmentTest : public testing::Test {
   RowTypePtr probeTypeWithProjection_;
   std::vector<RowVectorPtr> emptyProbeVectors_;
   std::shared_ptr<PlanNode> probeValueNode_;
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
 };
 }; // namespace
 

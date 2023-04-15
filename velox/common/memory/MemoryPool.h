@@ -172,11 +172,21 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual void visitChildren(
       const std::function<bool(MemoryPool*)>& visitor) const;
 
+  /// TODO Remove once Prestissimo is updated.
   /// Creates named child memory pool from this with specified 'kind'.
   virtual std::shared_ptr<MemoryPool> addChild(
       const std::string& name,
-      Kind kind = MemoryPool::Kind::kLeaf,
+      Kind kind = MemoryPool::Kind::kLeaf);
+
+  /// Invoked to create a named leaf child memory pool.
+  virtual std::shared_ptr<MemoryPool> addLeafChild(
+      const std::string& name,
       bool threadSafe = true,
+      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr);
+
+  /// Invoked to create a named aggregate child memory pool.
+  virtual std::shared_ptr<MemoryPool> addAggregateChild(
+      const std::string& name,
       std::shared_ptr<MemoryReclaimer> reclaimer = nullptr);
 
   /// Allocates a buffer with specified 'size'.
@@ -197,9 +207,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Allocates one or more runs that add up to at least 'numPages', with the
   /// smallest run being at least 'minSizeClass' pages. 'minSizeClass' must be
   /// <= the size of the largest size class. The new memory is returned in 'out'
-  /// and any memory formerly referenced by 'out' is freed. The function returns
-  /// true if the allocation succeeded. If returning false, 'out' references no
-  /// memory and any partially allocated memory is freed.
+  /// on success and any memory formerly referenced by 'out' is freed. The
+  /// function throws if allocation fails and 'out' references no memory and any
+  /// partially allocated memory is freed.
   virtual void allocateNonContiguous(
       MachinePageCount numPages,
       Allocation& out,

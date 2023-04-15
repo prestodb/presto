@@ -30,7 +30,7 @@ using namespace facebook::velox::dwrf;
 
 template <typename T, bool isSigned, bool vInt>
 void testInts(std::function<T()> generator) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   constexpr size_t count = 10240;
   DataBuffer<T> buffer{*pool, count};
   std::array<uint64_t, count / 64> nulls;

@@ -28,7 +28,7 @@ namespace {
 
 using namespace facebook::velox;
 
-std::shared_ptr<memory::MemoryPool> pool{memory::getDefaultMemoryPool()};
+std::shared_ptr<memory::MemoryPool> pool{memory::addDefaultLeafMemoryPool()};
 
 VectorFuzzer::Options getOpts(size_t n, double nullRatio = 0) {
   VectorFuzzer::Options opts;

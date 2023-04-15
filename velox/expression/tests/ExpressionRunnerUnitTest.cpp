@@ -35,7 +35,7 @@ class ExpressionRunnerUnitTest : public testing::Test, public VectorTestBase {
   }
 
  protected:
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
   core::QueryCtx queryCtx_{};
   core::ExecCtx execCtx_{pool_.get(), &queryCtx_};
 };

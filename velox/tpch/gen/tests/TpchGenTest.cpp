@@ -31,8 +31,7 @@ using namespace facebook::velox::tpch;
 class TpchGenTestNationTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memory::getProcessDefaultMemoryManager().getPool(
-        "TpchGenTestNationTest", memory::MemoryPool::Kind::kLeaf);
+    pool_ = memory::defaultMemoryManager().addLeafPool("TpchGenTestNationTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -135,8 +134,7 @@ TEST_F(TpchGenTestNationTest, reproducible) {
 class TpchGenTestRegionTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memory::getProcessDefaultMemoryManager().getPool(
-        "TpchGenTestRegionTest", memory::MemoryPool::Kind::kLeaf);
+    pool_ = memory::defaultMemoryManager().addLeafPool("TpchGenTestRegionTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -198,8 +196,7 @@ TEST_F(TpchGenTestRegionTest, reproducible) {
 class TpchGenTestOrdersTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memory::getProcessDefaultMemoryManager().getPool(
-        "TpchGenTestOrdersTest", memory::MemoryPool::Kind::kLeaf);
+    pool_ = memory::defaultMemoryManager().addLeafPool("TpchGenTestOrdersTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -305,8 +302,8 @@ TEST_F(TpchGenTestOrdersTest, reproducible) {
 class TpchGenTestLineItemTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memory::getProcessDefaultMemoryManager().getPool(
-        "TpchGenTestLineItemTest", memory::MemoryPool::Kind::kLeaf);
+    pool_ =
+        memory::defaultMemoryManager().addLeafPool("TpchGenTestLineItemTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -417,8 +414,8 @@ TEST_F(TpchGenTestLineItemTest, reproducible) {
 class TpchGenTestSupplierTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memory::getProcessDefaultMemoryManager().getPool(
-        "TpchGenTestSupplierTest", memory::MemoryPool::Kind::kLeaf);
+    pool_ =
+        memory::defaultMemoryManager().addLeafPool("TpchGenTestSupplierTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -510,8 +507,7 @@ TEST_F(TpchGenTestSupplierTest, reproducible) {
 class TpchGenTestPartTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memory::getProcessDefaultMemoryManager().getPool(
-        "TpchGenTestPartTest", memory::MemoryPool::Kind::kLeaf);
+    pool_ = memory::defaultMemoryManager().addLeafPool("TpchGenTestPartTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -596,8 +592,8 @@ TEST_F(TpchGenTestPartTest, reproducible) {
 class TpchGenTestPartSuppTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memory::getProcessDefaultMemoryManager().getPool(
-        "TpchGenTestPartSuppTest", memory::MemoryPool::Kind::kLeaf);
+    pool_ =
+        memory::defaultMemoryManager().addLeafPool("TpchGenTestPartSuppTest");
   }
 
   bool partSuppCheck(
@@ -741,8 +737,8 @@ TEST_F(TpchGenTestPartSuppTest, reproducible) {
 class TpchGenTestCustomerTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memory::getProcessDefaultMemoryManager().getPool(
-        "TpchGenTestCustomerTest", memory::MemoryPool::Kind::kLeaf);
+    pool_ =
+        memory::defaultMemoryManager().addLeafPool("TpchGenTestCustomerTest");
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;

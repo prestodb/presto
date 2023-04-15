@@ -50,7 +50,7 @@ namespace facebook::velox::dwrf {
   auto writer = std::make_unique<Writer>(
       options,
       std::move(sink),
-      velox::memory::getProcessDefaultMemoryManager().getPool());
+      velox::memory::defaultMemoryManager().addRootPool());
 
   for (size_t i = 0; i < batches.size(); ++i) {
     writer->write(batches[i]);

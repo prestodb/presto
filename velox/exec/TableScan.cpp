@@ -36,7 +36,13 @@ TableScan::TableScan(
           "TableScan"),
       tableHandle_(tableScanNode->tableHandle()),
       columnHandles_(tableScanNode->assignments()),
-      driverCtx_(driverCtx) {
+      driverCtx_(driverCtx),
+      connectorPool_(driverCtx_->task->addConnectorPoolLocked(
+          planNodeId(),
+          driverCtx_->pipelineId,
+          driverCtx_->driverId,
+          operatorType(),
+          tableHandle_->connectorId())) {
   connector_ = connector::getConnector(tableHandle_->connectorId());
 }
 
@@ -92,7 +98,7 @@ RowVectorPtr TableScan::getOutput() {
 
       if (!dataSource_) {
         connectorQueryCtx_ = operatorCtx_->createConnectorQueryCtx(
-            connectorSplit->connectorId, planNodeId(), true);
+            connectorSplit->connectorId, planNodeId(), connectorPool_);
         dataSource_ = connector_->createDataSource(
             outputType_,
             tableHandle_,
@@ -207,7 +213,7 @@ void TableScan::preload(std::shared_ptr<connector::ConnectorSplit> split) {
        columns = columnHandles_,
        connector = connector_,
        ctx = operatorCtx_->createConnectorQueryCtx(
-           split->connectorId, planNodeId(), true),
+           split->connectorId, planNodeId(), connectorPool_),
        task = operatorCtx_->task(),
        split]() -> std::unique_ptr<DataSourcePtr> {
         if (task->isCancelled()) {

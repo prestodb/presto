@@ -33,7 +33,7 @@ struct Multipart {
 class HashStringAllocatorTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memory::getDefaultMemoryPool();
+    pool_ = memory::addDefaultLeafMemoryPool();
     instance_ = std::make_unique<HashStringAllocator>(pool_.get());
     rng_.seed(1);
   }

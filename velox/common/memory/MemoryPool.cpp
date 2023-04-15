@@ -114,8 +114,46 @@ void MemoryPool::visitChildren(
 
 std::shared_ptr<MemoryPool> MemoryPool::addChild(
     const std::string& name,
-    Kind kind,
+    Kind kind) {
+  checkPoolManagement();
+
+  folly::SharedMutex::WriteHolder guard{childrenMutex_};
+  VELOX_CHECK_EQ(
+      children_.count(name),
+      0,
+      "Child memory pool {} already exists in {}",
+      name,
+      toString());
+  auto child = genChild(shared_from_this(), name, kind, true, nullptr);
+  children_.emplace(name, child.get());
+  return child;
+}
+
+std::shared_ptr<MemoryPool> MemoryPool::addLeafChild(
+    const std::string& name,
     bool threadSafe,
+    std::shared_ptr<MemoryReclaimer> reclaimer) {
+  checkPoolManagement();
+
+  folly::SharedMutex::WriteHolder guard{childrenMutex_};
+  VELOX_CHECK_EQ(
+      children_.count(name),
+      0,
+      "Leaf child memory pool {} already exists in {}",
+      name,
+      toString());
+  auto child = genChild(
+      shared_from_this(),
+      name,
+      MemoryPool::Kind::kLeaf,
+      threadSafe,
+      std::move(reclaimer));
+  children_.emplace(name, child.get());
+  return child;
+}
+
+std::shared_ptr<MemoryPool> MemoryPool::addAggregateChild(
+    const std::string& name,
     std::shared_ptr<MemoryReclaimer> reclaimer) {
   checkPoolManagement();
 
@@ -127,7 +165,11 @@ std::shared_ptr<MemoryPool> MemoryPool::addChild(
       name,
       toString());
   auto child = genChild(
-      shared_from_this(), name, kind, threadSafe, std::move(reclaimer));
+      shared_from_this(),
+      name,
+      MemoryPool::Kind::kAggregate,
+      true,
+      std::move(reclaimer));
   children_.emplace(name, child.get());
   return child;
 }

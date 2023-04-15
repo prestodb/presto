@@ -111,7 +111,7 @@ void decodeAndVerifyBoolean(
 }
 
 TEST(ByteRleEncoder, random_chars) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;
@@ -131,7 +131,7 @@ TEST(ByteRleEncoder, random_chars) {
 }
 
 TEST(ByteRleEncoder, random_chars_with_null) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;
@@ -153,7 +153,7 @@ TEST(ByteRleEncoder, random_chars_with_null) {
 }
 
 TEST(BooleanRleEncoder, random_bits_not_aligned) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;
@@ -173,7 +173,7 @@ TEST(BooleanRleEncoder, random_bits_not_aligned) {
 }
 
 TEST(BooleanRleEncoder, random_bits_aligned) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;
@@ -193,7 +193,7 @@ TEST(BooleanRleEncoder, random_bits_aligned) {
 }
 
 TEST(BooleanRleEncoder, random_bits_aligned_with_null) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;

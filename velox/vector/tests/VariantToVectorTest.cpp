@@ -25,7 +25,7 @@
 using namespace facebook::velox;
 
 class VariantToVectorTest : public testing::Test {
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
 
  public:
   template <TypeKind KIND>

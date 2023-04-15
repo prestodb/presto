@@ -24,7 +24,7 @@ using namespace facebook::velox::dwio::parquet;
 using namespace facebook::velox::parquet;
 
 namespace {
-auto defaultPool = memory::getDefaultMemoryPool();
+auto defaultPool = memory::addDefaultLeafMemoryPool();
 }
 
 class ParquetReaderTest : public ParquetReaderTestBase {};

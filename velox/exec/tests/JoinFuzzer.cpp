@@ -113,7 +113,7 @@ class JoinFuzzer {
   FuzzerGenerator rng_;
   size_t currentSeed_{0};
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
   VectorFuzzer vectorFuzzer_;
 };
 

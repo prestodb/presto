@@ -141,9 +141,8 @@ using PopulateBatch =
 class ColumnWriterStatsTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    rootPool_ =
-        getProcessDefaultMemoryManager().getPool("ColumnWriterStatsTest");
-    leafPool_ = rootPool_->addChild("ColumnWriterStatsTest");
+    rootPool_ = defaultMemoryManager().addRootPool("ColumnWriterStatsTest");
+    leafPool_ = rootPool_->addLeafChild("ColumnWriterStatsTest");
   }
 
   std::unique_ptr<RowReader> writeAndGetReader(

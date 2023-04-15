@@ -25,7 +25,7 @@ using namespace facebook::velox::memory;
 using namespace facebook::velox::dwrf;
 
 TEST(BufferedOutputStream, blockAligned) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink memSink(*pool, 1024);
 
   uint64_t block = 10;
@@ -49,7 +49,7 @@ TEST(BufferedOutputStream, blockAligned) {
 }
 
 TEST(BufferedOutputStream, blockNotAligned) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink memSink(*pool, 1024);
 
   uint64_t block = 10;
@@ -94,7 +94,7 @@ TEST(BufferedOutputStream, blockNotAligned) {
 }
 
 TEST(BufferedOutputStream, protoBufSerialization) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink memSink(*pool, 1024);
 
   uint64_t block = 10;
@@ -119,7 +119,7 @@ TEST(BufferedOutputStream, protoBufSerialization) {
 }
 
 TEST(BufferedOutputStream, increaseSize) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink memSink(*pool, 1024);
 
   uint64_t max = 512;
@@ -174,7 +174,7 @@ TEST(BufferedOutputStream, increaseSize) {
 }
 
 TEST(BufferedOutputStream, recordPosition) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink memSink(*pool, 1024);
   uint64_t block = 256;
   uint64_t initial = 128;
@@ -234,7 +234,7 @@ TEST(BufferedOutputStream, recordPosition) {
 }
 
 TEST(AppendOnlyBufferedStream, Basic) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink memSink(*pool, 1024);
   uint64_t block = 10;
   DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};

@@ -156,7 +156,7 @@ class QueryCtx : public Context {
 
   void initPool(const std::string& queryId) {
     if (pool_ == nullptr) {
-      pool_ = memory::getProcessDefaultMemoryManager().getPool(
+      pool_ = memory::defaultMemoryManager().addRootPool(
           QueryCtx::generatePoolName(queryId));
     }
   }

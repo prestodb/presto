@@ -57,7 +57,7 @@ class GenerateAstTest : public CodegenTestBase {
     registerVeloxArithmeticUDFs(udfManager_);
     useBuiltInForArithmetic_ = false;
 
-    pool_ = memory::getDefaultMemoryPool();
+    pool_ = memory::addDefaultLeafMemoryPool();
 
     rowType_ = ROW({"c0", "c1", "c2"}, {DOUBLE(), DOUBLE(), DOUBLE()});
 

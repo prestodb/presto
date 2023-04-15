@@ -213,12 +213,12 @@ class OperatorCtx {
 
   /// Makes an extract of QueryCtx for use in a connector. 'planNodeId'
   /// is the id of the calling TableScan. This and the task id identify the scan
-  /// for column access tracking. If 'forScan' is true, it is created for a
-  /// TableScan, otherwise for a TableWriter operator.
+  /// for column access tracking. 'connectorPool' is an aggregate memory pool
+  /// for connector use.
   std::shared_ptr<connector::ConnectorQueryCtx> createConnectorQueryCtx(
       const std::string& connectorId,
       const std::string& planNodeId,
-      bool forScan) const;
+      memory::MemoryPool* connectorPool) const;
 
   /// Generates the spiller config for a given spiller 'type' if the disk
   /// spilling is enabled, otherwise returns null.

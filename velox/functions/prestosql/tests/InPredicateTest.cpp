@@ -23,7 +23,8 @@ class InPredicateTest : public FunctionBaseTest {
  protected:
   template <typename T>
   void testIntegers() {
-    std::shared_ptr<memory::MemoryPool> pool{memory::getDefaultMemoryPool()};
+    std::shared_ptr<memory::MemoryPool> pool{
+        memory::addDefaultLeafMemoryPool()};
 
     const vector_size_t size = 1'000;
     auto vector = makeFlatVector<T>(size, [](auto row) { return row % 17; });

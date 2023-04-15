@@ -145,7 +145,7 @@ class ParquetReaderTestBase : public testing::Test {
         "velox/dwio/parquet/tests/reader", "../examples/" + fileName);
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::addDefaultLeafMemoryPool()};
   std::unique_ptr<test::VectorMaker> vectorMaker_{
       std::make_unique<test::VectorMaker>(pool_.get())};
 };

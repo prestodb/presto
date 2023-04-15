@@ -74,11 +74,15 @@ class TableScan : public SourceOperator {
   // Adjust batch size according to split information.
   void setBatchSize();
 
+  // Process-wide IO wait time.
+  static std::atomic<uint64_t> ioWaitNanos_;
+
   const std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
   const std::
       unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
           columnHandles_;
-  DriverCtx* driverCtx_;
+  DriverCtx* const driverCtx_;
+  memory::MemoryPool* const connectorPool_;
   ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
   BlockingReason blockingReason_;
   bool needNewSplit_ = true;
@@ -114,8 +118,5 @@ class TableScan : public SourceOperator {
   // The last value of the IO wait time of 'this' that has been added to the
   // global static 'ioWaitNanos_'.
   uint64_t lastIoWaitNanos_{0};
-
-  // Process-wide IO wait time.
-  static std::atomic<uint64_t> ioWaitNanos_;
 };
 } // namespace facebook::velox::exec

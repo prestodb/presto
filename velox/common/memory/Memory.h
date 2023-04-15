@@ -92,36 +92,46 @@ class IMemoryManager {
   /// Returns the memory allocation alignment of this memory manager.
   virtual uint16_t alignment() const = 0;
 
-  /// Creates a memory pool for use with specified 'name', 'kind' and 'cap'. If
-  /// 'name' is missing, the memory manager generates a default name internally
-  /// to ensure uniqueness. If 'kind' is kAggregate, a root memory pool is
-  /// created. Otherwise, a leaf memory pool is created as the child of the
-  /// memory manager's default root memory pool. If 'kind' is kAggregate and
-  /// 'trackUsage' is true, then set the memory usage tracker in the created
-  /// memory pool. If 'threadSafe' is true when creating a leaf memory pool,
-  /// then we track its memory usage in a non-thread-safe mode to reduce its
-  /// cpu cost.
+  /// Creates a root memory pool with specified 'name' and 'cap'. If 'name' is
+  /// missing, the memory manager generates a default name internally to ensure
+  /// uniqueness. If 'trackUsage' is true, then set the memory usage tracker in
+  /// the created root memory pool.
+  virtual std::shared_ptr<MemoryPool> addRootPool(
+      const std::string& name = "",
+      int64_t maxBytes = kMaxMemory,
+      bool trackUsage = true,
+      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) = 0;
+
+  /// Creates a leaf memory pool for direct memory allocation use with specified
+  /// 'name'. If 'name' is missing, the memory manager generates a default name
+  /// internally to ensure uniqueness. The leaf memory pool is created as the
+  /// child of the memory manager's default root memory pool. If 'threadSafe' is
+  /// true, then we track its memory usage in a non-thread-safe mode to reduce
+  /// its cpu cost.
+  virtual std::shared_ptr<MemoryPool> addLeafPool(
+      const std::string& name = "",
+      bool threadSafe = true,
+      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) = 0;
+
+  /// TODO Remove once Prestissimo is updated.
   virtual std::shared_ptr<MemoryPool> getPool(
       const std::string& name = "",
       MemoryPool::Kind kind = MemoryPool::Kind::kAggregate,
-      int64_t maxBytes = kMaxMemory,
-      bool trackUsage = true,
-      bool threadSafe = true,
-      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) = 0;
+      int64_t maxBytes = kMaxMemory) = 0;
+
+  /// Returns the default leaf memory pool for direct memory allocation use. The
+  /// pool is created as the child of the memory manager's default root memory
+  /// pool and is owned by the memory manager.
+  ///
+  /// TODO: deprecate this API after all the use cases are able to manage the
+  /// lifecycle of the allocated memory pools properly.
+  virtual MemoryPool& deprecatedLeafPool() = 0;
 
   /// Returns the number of alive memory pools allocated from getPool().
   ///
   /// NOTE: this doesn't count the memory manager's internal default root and
   /// leaf memory pools.
   virtual size_t numPools() const = 0;
-
-  /// Returns a leaf memory pool for memory allocation use. The pool is
-  /// created as the child of the memory manager's default root memory pool and
-  /// is owned by the memory manager.
-  ///
-  /// TODO: deprecate this API after all the use cases are able to manage the
-  /// lifecycle of the allocated memory pools properly.
-  virtual MemoryPool& deprecatedGetPool() = 0;
 
   /// Returns the current total memory usage under this memory manager.
   virtual int64_t getTotalBytes() const = 0;
@@ -171,15 +181,24 @@ class MemoryManager final : public IMemoryManager {
 
   uint16_t alignment() const final;
 
-  std::shared_ptr<MemoryPool> getPool(
+  std::shared_ptr<MemoryPool> addRootPool(
       const std::string& name = "",
-      MemoryPool::Kind kind = MemoryPool::Kind::kAggregate,
       int64_t maxBytes = kMaxMemory,
       bool trackUsage = true,
+      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) final;
+
+  std::shared_ptr<MemoryPool> addLeafPool(
+      const std::string& name = "",
       bool threadSafe = true,
       std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) final;
 
-  MemoryPool& deprecatedGetPool() final;
+  /// TODO Remove once Prestissimo is updated.
+  std::shared_ptr<MemoryPool> getPool(
+      const std::string& name = "",
+      MemoryPool::Kind kind = MemoryPool::Kind::kAggregate,
+      int64_t maxBytes = kMaxMemory) final;
+
+  MemoryPool& deprecatedLeafPool() final;
 
   int64_t getTotalBytes() const final;
 
@@ -221,14 +240,23 @@ class MemoryManager final : public IMemoryManager {
   std::vector<MemoryPool*> pools_;
 };
 
+IMemoryManager& defaultMemoryManager();
+
+/// Creates a leaf memory pool from the default memory manager for memory
+/// allocation use.
+std::shared_ptr<MemoryPool> addDefaultLeafMemoryPool(
+    const std::string& name = "",
+    bool threadSafe = true);
+
+/// TODO Remove once Prestissimo is updated.
 IMemoryManager& getProcessDefaultMemoryManager();
 
+/// TODO Remove once Prestissimo is updated.
+///
 /// Creates a leaf memory pool from the default memory manager for memory
 /// allocation use. If 'threadSafe' is true, then creates a leaf memory pool
 /// with thread-safe memory usage tracking.
-std::shared_ptr<MemoryPool> getDefaultMemoryPool(
-    const std::string& name = "",
-    bool threadSafe = true);
+std::shared_ptr<MemoryPool> getDefaultMemoryPool(const std::string& name = "");
 
 FOLLY_ALWAYS_INLINE int32_t alignmentPadding(void* address, int32_t alignment) {
   auto extra = reinterpret_cast<uintptr_t>(address) % alignment;

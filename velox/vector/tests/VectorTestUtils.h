@@ -83,7 +83,7 @@ class VectorGeneratedData {
 
   // In case T is StringView, the buffer below holds their actual data.
   std::shared_ptr<memory::MemoryPool> scopedPool =
-      memory::getDefaultMemoryPool();
+      memory::addDefaultLeafMemoryPool();
   StringViewBufferHolder stringViewBufferHolder_ =
       StringViewBufferHolder(scopedPool.get());
 };
@@ -271,7 +271,7 @@ template <typename T>
 SimpleVectorPtr<T> createAndAssert(
     const ExpectedData<T>& expected,
     VectorEncoding::Simple encoding) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   VectorMaker maker(pool.get());
 
   auto vector = maker.encodedVector(encoding, expected);

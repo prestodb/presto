@@ -46,7 +46,7 @@ class WriterSinkTests : public Test {
 };
 
 TEST_F(WriterSinkTests, Checksum) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink out{*pool, 1024 + 3};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::CRC32);
@@ -87,7 +87,7 @@ TEST_F(WriterSinkTests, Checksum) {
 }
 
 TEST_F(WriterSinkTests, NoChecksum) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink out{*pool, 1024 + 3};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
@@ -103,7 +103,7 @@ TEST_F(WriterSinkTests, NoChecksum) {
 }
 
 TEST_F(WriterSinkTests, NoCache) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink out{*pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
@@ -127,7 +127,7 @@ TEST_F(WriterSinkTests, NoCache) {
 }
 
 TEST_F(WriterSinkTests, CacheIndex) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink out{*pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
@@ -169,7 +169,7 @@ TEST_F(WriterSinkTests, CacheIndex) {
 }
 
 TEST_F(WriterSinkTests, CacheFooter) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink out{*pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
@@ -211,7 +211,7 @@ TEST_F(WriterSinkTests, CacheFooter) {
 }
 
 TEST_F(WriterSinkTests, CacheBothEmptyIndex) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink out{*pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
@@ -239,7 +239,7 @@ TEST_F(WriterSinkTests, CacheBothEmptyIndex) {
 }
 
 TEST_F(WriterSinkTests, CacheBoth) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink out{*pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
@@ -287,7 +287,7 @@ TEST_F(WriterSinkTests, CacheBoth) {
 }
 
 TEST_F(WriterSinkTests, CacheExceedsLimit) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink out{*pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
@@ -411,7 +411,7 @@ TEST_F(WriterSinkTests, CacheExceedsLimit) {
 }
 
 TEST_F(WriterSinkTests, CacheLarge) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink out{*pool, 10 * 1024 * 1024 + 3};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::NULL_);
@@ -437,7 +437,7 @@ TEST_F(WriterSinkTests, CacheLarge) {
 }
 
 TEST_F(WriterSinkTests, SetModeOutOfOrder) {
-  auto pool = getDefaultMemoryPool();
+  auto pool = addDefaultLeafMemoryPool();
   MemorySink out{*pool, 1024};
   Config config;
   config.set(Config::CHECKSUM_ALGORITHM, proto::ChecksumAlgorithm::CRC32);

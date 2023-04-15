@@ -1043,7 +1043,7 @@ TEST_F(UnsafeRowSerializerTests, complexNullsAndEncoding) {
 class UnsafeRowBatchDeserializerTest : public ::testing::Test {
  public:
   UnsafeRowBatchDeserializerTest()
-      : pool_(memory::getDefaultMemoryPool()),
+      : pool_(memory::addDefaultLeafMemoryPool()),
         bufferPtr_(AlignedBuffer::allocate<char>(1024, pool_.get(), true)),
         buffer_(bufferPtr_->asMutable<char>()) {}
 

@@ -35,7 +35,8 @@ class FunctionTest : public ::testing::Test {
   std::shared_ptr<core::QueryCtx> queryCtx_ =
       std::make_shared<core::QueryCtx>();
 
-  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
+  std::shared_ptr<memory::MemoryPool> pool_ =
+      memory::addDefaultLeafMemoryPool();
 
   std::shared_ptr<vestrait::SubstraitParser> substraitParser_ =
       std::make_shared<vestrait::SubstraitParser>();

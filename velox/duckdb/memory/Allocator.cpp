@@ -49,8 +49,7 @@ void veloxPoolFree(
 
 VeloxPoolAllocator& getDefaultAllocator() {
   static std::shared_ptr<memory::MemoryPool> pool =
-      memory::getProcessDefaultMemoryManager().getPool(
-          "VeloxPoolAllocator", memory::MemoryPool::Kind::kLeaf);
+      memory::addDefaultLeafMemoryPool("VeloxPoolAllocator");
   static VeloxPoolAllocator allocator{*pool};
   return allocator;
 }

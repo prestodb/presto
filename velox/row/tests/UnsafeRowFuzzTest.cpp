@@ -47,7 +47,8 @@ class UnsafeRowFuzzTests : public ::testing::Test {
 
   std::array<char[kBufferSize], 100> buffers_{};
 
-  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
+  std::shared_ptr<memory::MemoryPool> pool_ =
+      memory::addDefaultLeafMemoryPool();
 };
 
 TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {

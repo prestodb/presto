@@ -42,9 +42,9 @@ class WriterContext : public CompressionBufferPool {
       std::unique_ptr<encryption::EncryptionHandler> handler = nullptr)
       : config_{config},
         pool_{std::move(pool)},
-        dictionaryPool_{pool_->addChild(".dictionary")},
-        outputStreamPool_{pool_->addChild(".compression")},
-        generalPool_{pool_->addChild(".general")},
+        dictionaryPool_{pool_->addLeafChild(".dictionary")},
+        outputStreamPool_{pool_->addLeafChild(".compression")},
+        generalPool_{pool_->addLeafChild(".general")},
         handler_{std::move(handler)},
         compression{getConfig(Config::COMPRESSION)},
         compressionBlockSize{getConfig(Config::COMPRESSION_BLOCK_SIZE)},

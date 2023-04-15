@@ -213,36 +213,34 @@ class ExpressionEvaluator {
 class ConnectorQueryCtx {
  public:
   ConnectorQueryCtx(
-      memory::MemoryPool* leafPool,
-      memory::MemoryPool* aggregatePool,
+      memory::MemoryPool* operatorPool,
+      memory::MemoryPool* connectorPool,
       const Config* connectorConfig,
       std::unique_ptr<ExpressionEvaluator> expressionEvaluator,
       memory::MemoryAllocator* FOLLY_NONNULL allocator,
       const std::string& taskId,
       const std::string& planNodeId,
       int driverId)
-      : leafPool_(leafPool),
-        aggregatePool_(aggregatePool),
+      : operatorPool_(operatorPool),
+        connectorPool_(connectorPool),
         config_(connectorConfig),
         expressionEvaluator_(std::move(expressionEvaluator)),
         allocator_(allocator),
         scanId_(fmt::format("{}.{}", taskId, planNodeId)),
         taskId_(taskId),
-        driverId_(driverId) {
-    VELOX_CHECK_NOT_NULL(leafPool_);
-  }
+        driverId_(driverId) {}
 
-  /// Returns the memory pool for memory allocation.
+  /// Returns the associated operator's memory pool which is a leaf kind of
+  /// memory pool, used for direct memory allocation use.
   memory::MemoryPool* memoryPool() const {
-    return leafPool_;
+    return operatorPool_;
   }
 
-  /// Returns the aggregate memory pool for the data sink that needs the
-  /// hierarchical memory pool management, such as HiveDataSink. This is set to
-  /// null for table scan.
-  memory::MemoryPool* aggregatePool() const {
-    VELOX_CHECK_NOT_NULL(aggregatePool_);
-    return aggregatePool_;
+  /// Returns the connector's memory pool which is an aggregate kind of memory
+  /// pool, used for the data sink for table write that needs the hierarchical
+  /// memory pool management, such as HiveDataSink.
+  memory::MemoryPool* connectorMemoryPool() const {
+    return connectorPool_;
   }
 
   const Config* FOLLY_NONNULL config() const {
@@ -276,8 +274,8 @@ class ConnectorQueryCtx {
   }
 
  private:
-  memory::MemoryPool* leafPool_;
-  memory::MemoryPool* aggregatePool_;
+  memory::MemoryPool* operatorPool_;
+  memory::MemoryPool* connectorPool_;
   const Config* FOLLY_NONNULL config_;
   std::unique_ptr<ExpressionEvaluator> expressionEvaluator_;
   memory::MemoryAllocator* FOLLY_NONNULL allocator_;

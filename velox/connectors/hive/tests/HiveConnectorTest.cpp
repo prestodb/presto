@@ -24,7 +24,8 @@ using namespace facebook::velox::common;
 
 class HiveConnectorTest : public testing::Test {
  protected:
-  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
+  std::shared_ptr<memory::MemoryPool> pool_ =
+      memory::addDefaultLeafMemoryPool();
 };
 
 HiveColumnHandle makeColumnHandle(

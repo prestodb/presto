@@ -39,7 +39,7 @@ inline std::string getExampleFilePath(const std::string& fileName) {
 
 class MockStripeStreams : public StripeStreams {
  public:
-  MockStripeStreams() : pool_{memory::getDefaultMemoryPool()} {};
+  MockStripeStreams() : pool_{memory::addDefaultLeafMemoryPool()} {};
   ~MockStripeStreams() = default;
 
   std::unique_ptr<dwio::common::SeekableInputStream> getStream(
@@ -231,8 +231,7 @@ class ProtoWriter : public WriterBase {
       memory::MemoryPool& sinkPool)
       : WriterBase{std::make_unique<dwio::common::MemorySink>(sinkPool, 1024)} {
     initContext(
-        std::make_shared<Config>(),
-        pool->addChild("proto_writer", MemoryPool::Kind::kAggregate));
+        std::make_shared<Config>(), pool->addAggregateChild("proto_writer"));
   }
 
   template <typename T>

@@ -273,7 +273,7 @@ class WriterEncodingIndexTest2 {
  public:
   WriterEncodingIndexTest2()
       : config_{std::make_shared<Config>()},
-        pool_{facebook::velox::memory::getDefaultMemoryPool()} {}
+        pool_{facebook::velox::memory::addDefaultLeafMemoryPool()} {}
 
   virtual ~WriterEncodingIndexTest2() = default;
 
@@ -302,7 +302,7 @@ class WriterEncodingIndexTest2 {
     ASSERT_EQ(recordPositionCount.size(), backfillPositionCount.size());
     WriterContext context{
         config_,
-        velox::memory::getProcessDefaultMemoryManager().getPool(
+        velox::memory::defaultMemoryManager().addRootPool(
             "WriterEncodingIndexTest2")};
     std::vector<StrictMock<MockIndexBuilder>*> mocks;
     for (auto i = 0; i < recordPositionCount.size(); ++i) {
@@ -663,7 +663,7 @@ TYPED_TEST(FloatColumnWriterEncodingIndexTest, TestIndex) {
 class IntegerColumnWriterDirectEncodingIndexTest : public testing::Test {
  public:
   explicit IntegerColumnWriterDirectEncodingIndexTest(bool abandonDict = false)
-      : pool_{memory::getDefaultMemoryPool()},
+      : pool_{memory::addDefaultLeafMemoryPool()},
         config_{std::make_shared<Config>()},
         abandonDict_{abandonDict} {
     config_->set(
@@ -704,7 +704,7 @@ class IntegerColumnWriterDirectEncodingIndexTest : public testing::Test {
       std::function<bool(size_t, size_t)> callAbandonDict) {
     WriterContext context{
         config_,
-        velox::memory::getProcessDefaultMemoryManager().getPool(
+        velox::memory::defaultMemoryManager().addRootPool(
             "IntegerColumnWriterDirectEncodingIndexTest")};
     auto mockIndexBuilder = std::make_unique<StrictMock<MockIndexBuilder>>();
     auto mockIndexBuilderPtr = mockIndexBuilder.get();
@@ -869,9 +869,9 @@ TEST_F(IntegerColumnWriterAbandonDictionaryIndexTest, AbandonDictionary) {
 class StringColumnWriterDictionaryEncodingIndexTest : public testing::Test {
  public:
   explicit StringColumnWriterDictionaryEncodingIndexTest()
-      : rootPool_{memory::getProcessDefaultMemoryManager().getPool(
+      : rootPool_{memory::defaultMemoryManager().addRootPool(
             "StringColumnWriterDictionaryEncodingIndexTest")},
-        leafPool_{rootPool_->addChild(
+        leafPool_{rootPool_->addLeafChild(
             "StringColumnWriterDictionaryEncodingIndexTest")},
         config_{std::make_shared<Config>()} {
     config_->set(
@@ -973,10 +973,10 @@ TEST_F(StringColumnWriterDictionaryEncodingIndexTest, OmitInDictStream) {
 class StringColumnWriterDirectEncodingIndexTest : public testing::Test {
  public:
   explicit StringColumnWriterDirectEncodingIndexTest(bool abandonDict = false)
-      : rootPool_{memory::getProcessDefaultMemoryManager().getPool(
+      : rootPool_{memory::defaultMemoryManager().addRootPool(
             "StringColumnWriterDirectEncodingIndexTest")},
-        leafPool_{
-            rootPool_->addChild("StringColumnWriterDirectEncodingIndexTest")},
+        leafPool_{rootPool_->addLeafChild(
+            "StringColumnWriterDirectEncodingIndexTest")},
         config_{std::make_shared<Config>()},
         abandonDict_{abandonDict} {
     config_->set(

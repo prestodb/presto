@@ -104,7 +104,7 @@ class CodegenTestCore {
             udfManager_,
             useSymbolForArithmetic_,
             eventSequence_);
-    pool_ = memory::getDefaultMemoryPool();
+    pool_ = memory::addDefaultLeafMemoryPool();
     queryCtx_ = std::make_shared<core::QueryCtx>(executor_.get());
     execCtx_ = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get());
 

@@ -89,7 +89,7 @@ TEST(TestConcat, EvalConcatFunction) {
   auto outRowType =
       ROW({"pl", "mi"},
           {std::make_shared<DoubleType>(), std::make_shared<DoubleType>()});
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   auto inRowVector = BaseVector::create(inRowType, rowLength, pool.get());
   auto outRowVector = BaseVector::create(outRowType, rowLength, pool.get());
 
@@ -191,7 +191,7 @@ struct GeneratedVectorFunctionConfigBool {
 
 TEST(TestBooEvalVectorFunction, EvalBoolExpression) {
   // TODO: Move those to test class
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   const size_t vectorSize = 1000;
   auto queryCtx = std::make_shared<core::QueryCtx>();
   auto execCtx = std::make_unique<core::ExecCtx>(pool.get(), queryCtx.get());

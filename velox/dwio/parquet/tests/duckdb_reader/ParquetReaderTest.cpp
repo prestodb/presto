@@ -31,7 +31,7 @@ using namespace facebook::velox::dwio::parquet;
 using namespace facebook::velox::parquet::duckdb_reader;
 
 namespace {
-auto defaultPool = memory::getDefaultMemoryPool();
+auto defaultPool = memory::addDefaultLeafMemoryPool();
 
 std::unique_ptr<ParquetReader> createFileInput(
     const std::string& path,

@@ -30,7 +30,7 @@ using MemoryPool = facebook::velox::memory::MemoryPool;
 
 TEST(DataBuffer, ZeroOut) {
   const uint8_t VALUE = 13;
-  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
   DataBuffer<uint8_t> buffer(*pool, 16);
   for (auto i = 0; i < buffer.size(); i++) {
     auto data = buffer.data();
@@ -58,7 +58,7 @@ TEST(DataBuffer, ZeroOut) {
 }
 
 TEST(DataBuffer, At) {
-  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
 
   DataBuffer<uint8_t> buffer{*pool};
   for (auto i = 0; i != 15; ++i) {
@@ -80,7 +80,7 @@ TEST(DataBuffer, At) {
 }
 
 TEST(DataBuffer, Reset) {
-  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
 
   DataBuffer<uint8_t> buffer{*pool};
   buffer.reserve(16);
@@ -136,7 +136,7 @@ TEST(DataBuffer, Reset) {
 }
 
 TEST(DataBuffer, Wrap) {
-  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
   auto size = 26;
   auto buffer = velox::AlignedBuffer::allocate<char>(size, pool.get());
   auto raw = buffer->asMutable<char>();
@@ -153,7 +153,7 @@ TEST(DataBuffer, Wrap) {
 }
 
 TEST(DataBuffer, Move) {
-  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
   {
     DataBuffer<uint8_t> buffer{*pool};
     buffer.reserve(16);

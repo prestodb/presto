@@ -51,10 +51,8 @@ class MultiFragmentTest : public HiveConnectorTestBase {
     auto queryCtx = std::make_shared<core::QueryCtx>(
         executor_.get(), std::make_shared<core::MemConfig>(configSettings_));
     queryCtx->testingOverrideMemoryPool(
-        memory::getProcessDefaultMemoryManager().getPool(
-            queryCtx->queryId(),
-            memory::MemoryPool::Kind::kAggregate,
-            maxMemory));
+        memory::defaultMemoryManager().addRootPool(
+            queryCtx->queryId(), maxMemory));
     core::PlanFragment planFragment{planNode};
     return std::make_shared<Task>(
         taskId,
@@ -212,8 +210,9 @@ TEST_F(MultiFragmentTest, aggregationSingleKey) {
     if (i == 0) {
       // For leaf task, it has total 21 memory pools: task pool + 4 plan node
       // pools (TableScan, FilterProject, PartialAggregation, PartitionedOutput)
-      // and 16 operator pools (4 drivers * number of plan nodes).
-      ASSERT_EQ(numPools, 21);
+      // + 16 operator pools (4 drivers * number of plan nodes) + 4 connector
+      // pools for TableScan.
+      ASSERT_EQ(numPools, 25);
     } else {
       // For root task, it has total 8 memory pools: task pool + 3 plan node
       // pools (Exchange, Aggregation, PartitionedOutput) and 4 leaf pools: 3

@@ -37,7 +37,7 @@ constexpr int kVectorSize = 16 << 10;
 
 struct BenchmarkData {
   BenchmarkData()
-      : pool_(memory::getDefaultMemoryPool(
+      : pool_(memory::addDefaultLeafMemoryPool(
             "BenchmarkData",
             FLAGS_use_thread_safe_memory_usage_track)) {
     VectorFuzzer::Options opts;
@@ -110,7 +110,6 @@ DEFINE_BENCHMARKS(row)
 } // namespace facebook::velox
 
 int main(int argc, char* argv[]) {
-  FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
   folly::init(&argc, &argv);
   using namespace facebook::velox;
   gflags::ParseCommandLineFlags(&argc, &argv, true);

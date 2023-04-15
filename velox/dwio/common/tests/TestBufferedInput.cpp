@@ -22,7 +22,7 @@ using namespace facebook::velox::dwio::common;
 TEST(TestBufferedInput, ZeroLengthStream) {
   auto readFile =
       std::make_shared<facebook::velox::InMemoryReadFile>(std::string());
-  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
   BufferedInput input(readFile, *pool);
   auto ret = input.enqueue({0, 0});
   EXPECT_NE(ret, nullptr);

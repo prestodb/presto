@@ -26,7 +26,7 @@ TEST(VectorReader, ReadDoublesVectors) {
   auto inRowType = ROW({"columnA", "columnB"}, {DOUBLE(), DOUBLE()});
   auto outRowType = ROW({"expr1", "expr2"}, {DOUBLE(), DOUBLE()});
 
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   auto inRowVector = BaseVector::create(inRowType, vectorSize, pool.get());
   auto outRowVector = BaseVector::create(outRowType, vectorSize, pool.get());
 
@@ -54,7 +54,7 @@ TEST(VectorReader, ReadDoublesVectors) {
 
 TEST(VectorReader, ReadBoolVectors) {
   // TODO: Move those to test class
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   const size_t vectorSize = 1000;
 
   auto inRowType = ROW({"columnA", "columnB"}, {BOOLEAN(), BOOLEAN()});

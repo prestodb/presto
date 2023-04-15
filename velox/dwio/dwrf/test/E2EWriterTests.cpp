@@ -46,15 +46,14 @@ using folly::Random;
 constexpr uint64_t kSizeMB = 1024UL * 1024UL;
 
 namespace {
-auto defaultPool = memory::getDefaultMemoryPool();
+auto defaultPool = memory::addDefaultLeafMemoryPool();
 }
 
 class E2EWriterTests : public Test {
  protected:
   E2EWriterTests() {
-    rootPool_ =
-        memory::getProcessDefaultMemoryManager().getPool("E2EWriterTests");
-    leafPool_ = rootPool_->addChild("leaf");
+    rootPool_ = memory::defaultMemoryManager().addRootPool("E2EWriterTests");
+    leafPool_ = rootPool_->addLeafChild("leaf");
   }
 
   std::unique_ptr<DwrfReader> createReader(
@@ -339,7 +338,7 @@ TEST_F(E2EWriterTests, FlatMapDictionaryEncoding) {
   // Start with a size larger than stride to cover splitting into
   // strides. Continue with smaller size for faster test.
   size_t size = 1100;
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -379,7 +378,7 @@ TEST_F(E2EWriterTests, MaxFlatMapKeys) {
   const uint32_t keyLimit = 2000;
   const auto randomStart = Random::rand32(100);
 
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   b::row row;
   for (int32_t i = 0; i < keyLimit; ++i) {
     row.push_back(b::pair{randomStart + i, Random::rand64()});
@@ -405,7 +404,7 @@ TEST_F(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
 
   const auto randomStart = Random::rand32(100);
 
-  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
   b::row row;
   row.push_back(b::pair{randomStart, Random::rand64()});
 
@@ -452,7 +451,7 @@ TEST_F(E2EWriterTests, TooManyFlatMapKeys) {
   const uint32_t keyLimit = 2000;
   const auto randomStart = Random::rand32(100);
 
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   b::row row;
   for (int32_t i = 0; i < (keyLimit + 1); ++i) {
     row.push_back(b::pair{randomStart + i, Random::rand64()});
@@ -474,7 +473,7 @@ TEST_F(E2EWriterTests, TooManyFlatMapKeys) {
 }
 
 TEST_F(E2EWriterTests, FlatMapBackfill) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
 
   using keyType = int32_t;
   using valueType = int32_t;
@@ -537,7 +536,7 @@ void testFlatMapWithNulls(
     bool firstRowNotNull,
     bool enableFlatmapDictionaryEncoding = false,
     bool shareDictionary = false) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
 
   using keyType = int32_t;
   using valueType = int32_t;
@@ -604,7 +603,7 @@ TEST_F(E2EWriterTests, FlatMapWithNullsSharedDict) {
 }
 
 TEST_F(E2EWriterTests, FlatMapEmpty) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
 
   using keyType = int32_t;
   using valueType = int32_t;
@@ -800,7 +799,7 @@ TEST_F(E2EWriterTests, PartialStride) {
 }
 
 TEST_F(E2EWriterTests, OversizeRows) {
-  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -838,7 +837,7 @@ TEST_F(E2EWriterTests, OversizeRows) {
 }
 
 TEST_F(E2EWriterTests, OversizeBatches) {
-  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -886,7 +885,7 @@ TEST_F(E2EWriterTests, OversizeBatches) {
 }
 
 TEST_F(E2EWriterTests, OverflowLengthIncrements) {
-  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -1294,7 +1293,7 @@ VectorPtr createKeys(
 } // namespace
 
 TEST_F(E2EWriterTests, fuzzSimple) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   auto type = ROW({
       {"bool_val", BOOLEAN()},
       {"byte_val", TINYINT()},
@@ -1343,7 +1342,7 @@ TEST_F(E2EWriterTests, fuzzSimple) {
 }
 
 TEST_F(E2EWriterTests, fuzzComplex) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   auto type = ROW({
       {"array", ARRAY(REAL())},
       {"map", MAP(INTEGER(), DOUBLE())},
@@ -1398,7 +1397,7 @@ TEST_F(E2EWriterTests, fuzzComplex) {
 }
 
 TEST_F(E2EWriterTests, fuzzFlatmap) {
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   auto type = ROW({
       {"flatmap1", MAP(INTEGER(), REAL())},
       {"flatmap2", MAP(VARCHAR(), ARRAY(REAL()))},
