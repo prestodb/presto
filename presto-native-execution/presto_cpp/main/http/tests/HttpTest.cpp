@@ -203,8 +203,7 @@ sendGet(http::HttpClient* client, const std::string& url, MemoryPool* pool) {
 class HttpTest : public ::testing::Test {};
 
 TEST_F(HttpTest, ssl) {
-  auto memoryPool = getProcessDefaultMemoryManager().getPool(
-      "basic", MemoryPool::Kind::kLeaf);
+  auto memoryPool = defaultMemoryManager().addLeafPool("ssl");
 
   std::string certPath = getCertsPath("test_cert1.pem");
   std::string keyPath = getCertsPath("test_key1.pem");
@@ -229,8 +228,7 @@ TEST_F(HttpTest, ssl) {
 }
 
 TEST_F(HttpTest, basic) {
-  auto memoryPool = getProcessDefaultMemoryManager().getPool(
-      "basic", MemoryPool::Kind::kLeaf);
+  auto memoryPool = defaultMemoryManager().addLeafPool("basic");
   auto server = std::make_unique<http::HttpServer>(
       std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   server->registerGet("/ping", ping);
@@ -287,11 +285,9 @@ TEST_F(HttpTest, basic) {
 
 TEST_F(HttpTest, httpResponseAllocationFailure) {
   const int64_t memoryCapBytes = 1 << 10;
-  auto rootPool = getProcessDefaultMemoryManager().getPool(
-      "httpResponseAllocationFailure",
-      MemoryPool::Kind::kAggregate,
-      memoryCapBytes);
-  auto leafPool = rootPool->addChild("httpResponseAllocationFailure");
+  auto rootPool = defaultMemoryManager().addRootPool(
+      "httpResponseAllocationFailure", memoryCapBytes);
+  auto leafPool = rootPool->addLeafChild("httpResponseAllocationFailure");
   auto server = std::make_unique<http::HttpServer>(
       std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   server->registerGet(R"(/echo.*)", echo);
@@ -318,8 +314,7 @@ TEST_F(HttpTest, httpResponseAllocationFailure) {
 }
 
 TEST_F(HttpTest, serverRestart) {
-  auto memoryPool = getProcessDefaultMemoryManager().getPool(
-      "serverRestart", MemoryPool::Kind::kLeaf);
+  auto memoryPool = defaultMemoryManager().addLeafPool("serverRestart");
 
   auto server = std::make_unique<http::HttpServer>(
       std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
@@ -430,8 +425,7 @@ http::EndpointRequestHandlerFactory asyncMsg(
 } // namespace
 
 TEST_F(HttpTest, asyncRequests) {
-  auto memoryPool = getProcessDefaultMemoryManager().getPool(
-      "asyncRequests", MemoryPool::Kind::kLeaf);
+  auto memoryPool = defaultMemoryManager().addLeafPool("asyncRequests");
 
   auto server = std::make_unique<http::HttpServer>(
       std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
@@ -465,8 +459,7 @@ TEST_F(HttpTest, asyncRequests) {
 }
 
 TEST_F(HttpTest, timedOutRequests) {
-  auto memoryPool = getProcessDefaultMemoryManager().getPool(
-      "timedOutRequests", MemoryPool::Kind::kLeaf);
+  auto memoryPool = defaultMemoryManager().addLeafPool("timedOutRequests");
 
   auto server = std::make_unique<http::HttpServer>(
       std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
@@ -501,8 +494,8 @@ TEST_F(HttpTest, timedOutRequests) {
 // TODO: Enabled it when fixed.
 // Disabled it, while we are investigating and fixing this test failure.
 TEST_F(HttpTest, DISABLED_outstandingRequests) {
-  auto memoryPool = getProcessDefaultMemoryManager().getPool(
-      "DISABLED_outstandingRequests", MemoryPool::Kind::kLeaf);
+  auto memoryPool =
+      defaultMemoryManager().addLeafPool("DISABLED_outstandingRequests");
 
   auto server = std::make_unique<http::HttpServer>(
       std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
@@ -535,8 +528,7 @@ TEST_F(HttpTest, DISABLED_outstandingRequests) {
 
 TEST_F(HttpTest, testReportOnBodyStatsFunc) {
   std::atomic<int> reportedCount = 0;
-  auto memoryPool = getProcessDefaultMemoryManager().getPool(
-      "asyncRequests", MemoryPool::Kind::kLeaf);
+  auto memoryPool = defaultMemoryManager().addLeafPool("asyncRequests");
 
   auto server = std::make_unique<http::HttpServer>(
       std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));

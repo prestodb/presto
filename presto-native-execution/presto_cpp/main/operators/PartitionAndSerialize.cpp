@@ -110,8 +110,8 @@ class PartitionAndSerializeOperator : public Operator {
 
     size_t totalSize = 0;
     for (auto i = 0; i < numInput; ++i) {
-      const size_t rowSize = velox::row::UnsafeRowDynamicSerializer::getSizeRow(
-          input_->type(), input_.get(), i);
+      const size_t rowSize =
+          velox::row::UnsafeRowSerializer::getSizeRow(input_.get(), i);
       rowSizes_[i] = rowSize;
       totalSize += (sizeof(size_t) + rowSize);
     }
@@ -134,8 +134,8 @@ class PartitionAndSerializeOperator : public Operator {
       offset += sizeof(size_t);
 
       // Write row data.
-      auto size = velox::row::UnsafeRowDynamicSerializer::serialize(
-                      input_->type(), input_, rawBuffer + offset, i)
+      auto size = velox::row::UnsafeRowSerializer::serialize(
+                      input_, rawBuffer + offset, i)
                       .value_or(0);
       VELOX_DCHECK_EQ(size, rowSizes_[i]);
       offset += size;
