@@ -57,6 +57,8 @@
 #include "velox/dwio/parquet/RegisterParquetReader.h" // @manual
 #endif
 
+DECLARE_bool(velox_memory_leak_check_enabled);
+
 namespace facebook::presto {
 using namespace facebook::velox;
 
@@ -154,7 +156,7 @@ PrestoServer::PrestoServer(const std::string& configDirectoryPath)
 
 PrestoServer::~PrestoServer() {}
 
-void PrestoServer::run() {
+void PrestoServer::run() { 
   auto systemConfig = SystemConfig::instance();
   auto nodeConfig = NodeConfig::instance();
   int httpPort{0};
@@ -466,6 +468,9 @@ void PrestoServer::run() {
 }
 
 void PrestoServer::initializeVeloxMemory() {
+  // Turns on the memory leak check in Presto Server.
+  FLAGS_velox_memory_leak_check_enabled = true;
+
   auto nodeConfig = NodeConfig::instance();
   auto systemConfig = SystemConfig::instance();
   uint64_t memoryGb = nodeConfig->nodeMemoryGb(
