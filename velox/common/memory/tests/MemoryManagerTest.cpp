@@ -67,6 +67,21 @@ TEST(MemoryManagerTest, Ctor) {
   { ASSERT_ANY_THROW(MemoryManager manager{{.capacity = -1}}); }
 }
 
+TEST(MemoryManagerTest, getPool) {
+  MemoryManager manager{};
+
+  auto rootPool = manager.getPool(
+      "getRootPool", MemoryPool::Kind::kAggregate, kMaxMemory, true, true);
+  {
+    ASSERT_ANY_THROW(manager.getPool(
+        "getPool", MemoryPool::Kind::kAggregate, kMaxMemory, true, false));
+  }
+  auto threadSafeLeafPool = manager.getPool(
+      "getChildPool", MemoryPool::Kind::kLeaf, kMaxMemory, true, true);
+  auto nonThreadSafeLeafPool = manager.getPool(
+      "getPool", MemoryPool::Kind::kLeaf, kMaxMemory, true, true);
+}
+
 TEST(MemoryManagerTest, defaultMemoryManager) {
   auto& managerA = toMemoryManager(getProcessDefaultMemoryManager());
   auto& managerB = toMemoryManager(getProcessDefaultMemoryManager());

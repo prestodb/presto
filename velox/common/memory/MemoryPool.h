@@ -120,6 +120,11 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// but sensitive to its cpu cost so we provide an options for user to turn
     /// it off.
     bool trackUsage{true};
+    /// If true, track the leaf memory pool usage in a thread-safe mode
+    /// otherwise not. This only applies for leaf memory pool with memory usage
+    /// tracking enabled. We use non-thread safe tracking mode for single
+    /// threaded use case.
+    bool threadSafe{true};
     /// If true, check the memory usage leak on destruction.
     ///
     /// TODO: deprecate this flag after all the existing memory leak use cases
@@ -171,6 +176,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual std::shared_ptr<MemoryPool> addChild(
       const std::string& name,
       Kind kind = MemoryPool::Kind::kLeaf,
+      bool threadSafe = true,
       std::shared_ptr<MemoryReclaimer> reclaimer = nullptr);
 
   /// Allocates a buffer with specified 'size'.
@@ -315,6 +321,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
       std::shared_ptr<MemoryPool> parent,
       const std::string& name,
       Kind kind,
+      bool threadSafe,
       std::shared_ptr<MemoryReclaimer>) = 0;
 
   /// Invoked only on destruction to remove this memory pool from its parent's
@@ -418,6 +425,7 @@ class MemoryPoolImpl : public MemoryPool {
       std::shared_ptr<MemoryPool> parent,
       const std::string& name,
       Kind kind,
+      bool threadSafe,
       std::shared_ptr<MemoryReclaimer> reclaimer) override;
 
   // Gets the memory allocation stats of the MemoryPoolImpl attached to the

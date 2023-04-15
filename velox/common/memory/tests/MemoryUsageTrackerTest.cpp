@@ -30,19 +30,25 @@ using namespace ::facebook::velox::memory;
 using namespace ::facebook::velox;
 using namespace ::facebook::velox::common::testutil;
 
-class MemoryUsageTrackerTest : public testing::Test {
+class MemoryUsageTrackerTest : public testing::TestWithParam<bool> {
+ public:
+  MemoryUsageTrackerTest() : isLeafTrackerThreadSafe_(GetParam()) {}
+
  protected:
   static void SetUpTestCase() {
     TestValue::enable();
   }
+
+  const bool isLeafTrackerThreadSafe_;
 };
 
-TEST_F(MemoryUsageTrackerTest, constructor) {
+TEST_P(MemoryUsageTrackerTest, constructor) {
   std::vector<std::shared_ptr<MemoryUsageTracker>> trackers;
   auto tracker = MemoryUsageTracker::create();
   trackers.push_back(tracker);
-  trackers.push_back(tracker->addChild(true));
+  trackers.push_back(tracker->addChild(true, isLeafTrackerThreadSafe_));
   trackers.push_back(tracker->addChild(false));
+  ASSERT_ANY_THROW(trackers.push_back(tracker->addChild(false, false)));
 
   for (unsigned i = 0; i < trackers.size(); ++i) {
     ASSERT_EQ(trackers[i]->currentBytes(), 0);
@@ -60,12 +66,12 @@ TEST_F(MemoryUsageTrackerTest, constructor) {
   }
 }
 
-TEST_F(MemoryUsageTrackerTest, stats) {
+TEST_P(MemoryUsageTrackerTest, stats) {
   constexpr int64_t kMaxSize = 1 << 30; // 1GB
   constexpr int64_t kMB = 1 << 20;
   auto parent = MemoryUsageTracker::create(kMaxSize);
 
-  auto child = parent->addChild(true);
+  auto child = parent->addChild(true, isLeafTrackerThreadSafe_);
 
   child->update(1000);
   child->update(8 * kMB);
@@ -85,13 +91,13 @@ TEST_F(MemoryUsageTrackerTest, stats) {
       "<tracker used 0B available 0B limit 1.00GB reservation [used 0B, reserved 0B, min 0B] counters [allocs 2, frees 2, reserves 0, releases 0, collisions 0, children 0])>");
 }
 
-TEST_F(MemoryUsageTrackerTest, update) {
+TEST_P(MemoryUsageTrackerTest, update) {
   constexpr int64_t kMaxSize = 1 << 30; // 1GB
   constexpr int64_t kMB = 1 << 20;
   auto parent = MemoryUsageTracker::create(kMaxSize);
 
-  auto child1 = parent->addChild(true);
-  auto child2 = parent->addChild(true);
+  auto child1 = parent->addChild(true, isLeafTrackerThreadSafe_);
+  auto child2 = parent->addChild(true, isLeafTrackerThreadSafe_);
 
   ASSERT_THROW(child1->reserve(2 * kMaxSize), VeloxRuntimeError);
 
@@ -180,12 +186,12 @@ TEST_F(MemoryUsageTrackerTest, update) {
   ASSERT_EQ(child1->stats(), stats);
 }
 
-TEST_F(MemoryUsageTrackerTest, reserve) {
+TEST_P(MemoryUsageTrackerTest, reserve) {
   constexpr int64_t kMaxSize = 1 << 30;
   constexpr int64_t kMB = 1 << 20;
   auto parent = MemoryUsageTracker::create(kMaxSize);
 
-  auto child = parent->addChild(true);
+  auto child = parent->addChild(true, isLeafTrackerThreadSafe_);
 
   EXPECT_THROW(child->reserve(2 * kMaxSize), VeloxRuntimeError);
 
@@ -235,12 +241,12 @@ TEST_F(MemoryUsageTrackerTest, reserve) {
   ASSERT_EQ(child->stats(), stats);
 }
 
-TEST_F(MemoryUsageTrackerTest, reserveAndUpdate) {
+TEST_P(MemoryUsageTrackerTest, reserveAndUpdate) {
   constexpr int64_t kMaxSize = 1 << 30; // 1GB
   constexpr int64_t kMB = 1 << 20;
   auto parent = MemoryUsageTracker::create(kMaxSize);
 
-  auto child = parent->addChild(true);
+  auto child = parent->addChild(true, isLeafTrackerThreadSafe_);
 
   child->update(1000);
   ASSERT_EQ(parent->usedReservationBytes(), 0);
@@ -339,13 +345,13 @@ TEST_F(MemoryUsageTrackerTest, reserveAndUpdate) {
   child->update(-child->usedReservationBytes());
 }
 
-TEST_F(MemoryUsageTrackerTest, memoryLeakCheck) {
+TEST_P(MemoryUsageTrackerTest, memoryLeakCheck) {
   constexpr int64_t kMaxSize = 1 << 30; // 1GB
   std::vector<bool> checkLeakFlags = {true, false};
   for (const auto checkLeak : checkLeakFlags) {
     SCOPED_TRACE(fmt::format("checkLeak {}", checkLeak));
     auto parent = MemoryUsageTracker::create(kMaxSize, checkLeak);
-    auto child = parent->addChild(true);
+    auto child = parent->addChild(true, isLeafTrackerThreadSafe_);
     child->update(1000);
     if (checkLeak) {
       ASSERT_DEATH(child.reset(), "");
@@ -381,11 +387,11 @@ bool grow(int64_t size, int64_t hardLimit, MemoryUsageTracker& tracker) {
 }
 } // namespace
 
-DEBUG_ONLY_TEST_F(MemoryUsageTrackerTest, grow) {
+DEBUG_ONLY_TEST_P(MemoryUsageTrackerTest, grow) {
   constexpr int64_t kMB = 1 << 20;
   auto parent = MemoryUsageTracker::create(10 * kMB);
 
-  auto child = parent->addChild(true);
+  auto child = parent->addChild(true, isLeafTrackerThreadSafe_);
   child->testingUpdateMaxMemory(5 * kMB);
   int64_t parentLimit = 100 * kMB;
   parent->setGrowCallback([&](int64_t size, MemoryUsageTracker& tracker) {
@@ -406,7 +412,7 @@ DEBUG_ONLY_TEST_F(MemoryUsageTrackerTest, grow) {
   {
     std::atomic<bool> injectOnce{true};
     SCOPED_TESTVALUE_SET(
-        "facebook::velox::memory::MemoryUsageTracker::incrementReservation::AfterGrowCallback",
+        "facebook::velox::memory::MemoryUsageTracker::incrementReservationThreadSafe::AfterGrowCallback",
         std::function<void(MemoryUsageTracker*)>(
             [&](MemoryUsageTracker* /*unused*/) {
               if (injectOnce.exchange(false)) {
@@ -445,10 +451,10 @@ DEBUG_ONLY_TEST_F(MemoryUsageTrackerTest, grow) {
   child->update(-child->usedReservationBytes());
 }
 
-TEST_F(MemoryUsageTrackerTest, maybeReserve) {
+TEST_P(MemoryUsageTrackerTest, maybeReserve) {
   constexpr int64_t kMB = 1 << 20;
   auto parent = memory::MemoryUsageTracker::create(10 * kMB);
-  auto child = parent->addChild(true);
+  auto child = parent->addChild(true, isLeafTrackerThreadSafe_);
   // 1MB can be reserved, rounds up to 8 and leaves 2 unreserved in parent.
   ASSERT_TRUE(child->maybeReserve(kMB));
   ASSERT_EQ(child->currentBytes(), 0);
@@ -485,7 +491,7 @@ TEST_F(MemoryUsageTrackerTest, maybeReserve) {
   ASSERT_EQ(child->usedReservationBytes(), 0);
   ASSERT_EQ(parent->usedReservationBytes(), 0);
 
-  child = parent->addChild(true);
+  child = parent->addChild(true, isLeafTrackerThreadSafe_);
   EXPECT_TRUE(child->maybeReserve(kMB));
   ASSERT_EQ(child->currentBytes(), 0);
   ASSERT_EQ(child->usedReservationBytes(), 0);
@@ -503,7 +509,7 @@ TEST_F(MemoryUsageTrackerTest, maybeReserve) {
   ASSERT_EQ(stats.numCollisions, 0);
 }
 
-TEST_F(MemoryUsageTrackerTest, validCheck) {
+TEST_P(MemoryUsageTrackerTest, validCheck) {
   constexpr int64_t kMB = 1 << 20;
   auto parent = memory::MemoryUsageTracker::create(10 * kMB);
   ASSERT_ANY_THROW(parent->update(100));
@@ -511,8 +517,8 @@ TEST_F(MemoryUsageTrackerTest, validCheck) {
   ASSERT_ANY_THROW(parent->reserve(100));
   ASSERT_ANY_THROW(parent->maybeReserve(100));
   ASSERT_ANY_THROW(parent->release());
-  auto child = parent->addChild(true);
-  ASSERT_ANY_THROW(child->addChild(true));
+  auto child = parent->addChild(true, isLeafTrackerThreadSafe_);
+  ASSERT_ANY_THROW(child->addChild(true, isLeafTrackerThreadSafe_));
   ASSERT_ANY_THROW(child->addChild(false));
 }
 
@@ -602,7 +608,7 @@ class MemoryUsageTrackTester {
   int64_t usedBytes_{0};
 };
 
-TEST_F(MemoryUsageTrackerTest, concurrentUpdateToDifferentPools) {
+TEST_P(MemoryUsageTrackerTest, concurrentUpdateToDifferentPools) {
   constexpr int64_t kMB = 1 << 20;
   constexpr int64_t kMaxMemory = 32 * kMB;
   auto parent = memory::MemoryUsageTracker::create(kMaxMemory);
@@ -610,7 +616,8 @@ TEST_F(MemoryUsageTrackerTest, concurrentUpdateToDifferentPools) {
   // Create one memory tracker per each thread.
   std::vector<std::shared_ptr<MemoryUsageTracker>> childTrackers;
   for (int32_t i = 0; i < kNumThreads; ++i) {
-    childTrackers.push_back(parent->addChild(true));
+    childTrackers.push_back(parent->addChild(
+        true, i % 2 ? isLeafTrackerThreadSafe_ : !isLeafTrackerThreadSafe_));
   }
 
   folly::Random::DefaultGenerator rng;
@@ -648,7 +655,10 @@ TEST_F(MemoryUsageTrackerTest, concurrentUpdateToDifferentPools) {
   ASSERT_LE(parent->peakBytes(), parent->cumulativeBytes());
 }
 
-TEST_F(MemoryUsageTrackerTest, concurrentUpdatesToTheSamePool) {
+TEST_P(MemoryUsageTrackerTest, concurrentUpdatesToTheSamePool) {
+  if (!isLeafTrackerThreadSafe_) {
+    return;
+  }
   constexpr int64_t kMB = 1 << 20;
   constexpr int64_t kMaxMemory = 32 * kMB;
   auto parent = memory::MemoryUsageTracker::create(kMaxMemory);
@@ -695,11 +705,11 @@ TEST_F(MemoryUsageTrackerTest, concurrentUpdatesToTheSamePool) {
   ASSERT_LE(parent->peakBytes(), parent->cumulativeBytes());
 }
 
-TEST_F(MemoryUsageTrackerTest, concurrentAllocates) {
+TEST_P(MemoryUsageTrackerTest, concurrentAllocates) {
   const int32_t kNumAllocs = 3;
   folly::futures::Barrier barrier(kNumAllocs);
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::MemoryUsageTracker::reserve",
+      "facebook::velox::memory::MemoryUsageTracker::reserveThreadSafe",
       std::function<void(MemoryUsageTracker*)>(
           [&](MemoryUsageTracker* /*unused*/) { barrier.wait(); }));
   // NOTE: the allocation sizes are chosen based on the memory thresholds
@@ -738,5 +748,10 @@ TEST_F(MemoryUsageTrackerTest, concurrentAllocates) {
   tracker->update(-kSmallAllocSize);
   tracker->update(-kLargeAllocSize);
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    MemoryUsageTrackerTestSuite,
+    MemoryUsageTrackerTest,
+    testing::ValuesIn({false, true}));
 
 // TODO: add collision tests and stats verification.

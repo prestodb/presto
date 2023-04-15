@@ -16,6 +16,8 @@
 
 #include "velox/common/memory/Memory.h"
 
+DECLARE_bool(velox_enable_memory_usage_track_in_default_memory_pool);
+
 namespace facebook::velox::memory {
 namespace {
 #define VELOX_MEM_MANAGER_CAP_EXCEEDED(cap)                         \
@@ -48,7 +50,8 @@ MemoryManager::MemoryManager(const Options& options)
           MemoryPool::Options{
               .alignment = alignment_,
               .capacity = kMaxMemory,
-              .trackUsage = false})},
+              .trackUsage =
+                  FLAGS_velox_enable_memory_usage_track_in_default_memory_pool})},
       deprecatedDefaultLeafPool_(defaultRoot_->addChild(
           kDefaultLeafName.str(),
           MemoryPool::Kind::kLeaf)) {
@@ -87,8 +90,9 @@ std::shared_ptr<MemoryPool> MemoryManager::getPool(
     const std::string& name,
     MemoryPool::Kind kind,
     int64_t maxBytes,
-    std::shared_ptr<MemoryReclaimer> reclaimer,
-    bool trackUsage) {
+    bool trackUsage,
+    bool threadSafe,
+    std::shared_ptr<MemoryReclaimer> reclaimer) {
   std::string poolName = name;
   if (poolName.empty()) {
     static std::atomic<int64_t> poolId{0};
@@ -96,7 +100,7 @@ std::shared_ptr<MemoryPool> MemoryManager::getPool(
         fmt::format("default_{}_{}", MemoryPool::kindString(kind), poolId++);
   }
   if (kind == MemoryPool::Kind::kLeaf) {
-    return defaultRoot_->addChild(poolName, kind);
+    return defaultRoot_->addChild(poolName, kind, threadSafe);
   }
 
   MemoryPool::Options options;
@@ -104,6 +108,7 @@ std::shared_ptr<MemoryPool> MemoryManager::getPool(
   options.capacity = maxBytes;
   options.reclaimer = std::move(reclaimer);
   options.trackUsage = trackUsage;
+  options.threadSafe = threadSafe;
   auto pool = std::make_shared<MemoryPoolImpl>(
       this,
       poolName,
@@ -183,9 +188,12 @@ IMemoryManager& getProcessDefaultMemoryManager() {
   return MemoryManager::getInstance();
 }
 
-std::shared_ptr<MemoryPool> getDefaultMemoryPool(const std::string& name) {
+std::shared_ptr<MemoryPool> getDefaultMemoryPool(
+    const std::string& name,
+    bool threadSafe) {
   auto& memoryManager = getProcessDefaultMemoryManager();
-  return memoryManager.getPool(name, MemoryPool::Kind::kLeaf);
+  return memoryManager.getPool(
+      name, MemoryPool::Kind::kLeaf, kMaxMemory, true, threadSafe);
 }
 
 } // namespace facebook::velox::memory

@@ -125,6 +125,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
       std::shared_ptr<MemoryPool> parent,
       const std::string& name,
       MemoryPool::Kind kind,
+      bool /*unused*/,
       std::shared_ptr<memory::MemoryReclaimer> /*unused*/) override {
     return std::make_shared<MockMemoryPool>(
         name, kind, parent, memoryUsageTracker_->maxMemory());

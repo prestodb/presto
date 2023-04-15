@@ -95,3 +95,10 @@ DEFINE_bool(
     velox_memory_leak_check_enabled,
     false,
     "If true, check fails on any memory leaks in memory pool and memory manager");
+
+// TODO: deprecate this after solves all the use cases that can cause
+// significant performance regression by memory usage tracking.
+DEFINE_bool(
+    velox_enable_memory_usage_track_in_default_memory_pool,
+    false,
+    "If true, enable memory usage tracking in the default memory pool");

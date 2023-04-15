@@ -98,13 +98,16 @@ class IMemoryManager {
   /// created. Otherwise, a leaf memory pool is created as the child of the
   /// memory manager's default root memory pool. If 'kind' is kAggregate and
   /// 'trackUsage' is true, then set the memory usage tracker in the created
-  /// memory pool.
+  /// memory pool. If 'threadSafe' is true when creating a leaf memory pool,
+  /// then we track its memory usage in a non-thread-safe mode to reduce its
+  /// cpu cost.
   virtual std::shared_ptr<MemoryPool> getPool(
       const std::string& name = "",
       MemoryPool::Kind kind = MemoryPool::Kind::kAggregate,
       int64_t maxBytes = kMaxMemory,
-      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr,
-      bool trackUsage = true) = 0;
+      bool trackUsage = true,
+      bool threadSafe = true,
+      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) = 0;
 
   /// Returns the number of alive memory pools allocated from getPool().
   ///
@@ -172,8 +175,9 @@ class MemoryManager final : public IMemoryManager {
       const std::string& name = "",
       MemoryPool::Kind kind = MemoryPool::Kind::kAggregate,
       int64_t maxBytes = kMaxMemory,
-      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr,
-      bool trackUsage = true) final;
+      bool trackUsage = true,
+      bool threadSafe = true,
+      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) final;
 
   MemoryPool& deprecatedGetPool() final;
 
@@ -220,8 +224,11 @@ class MemoryManager final : public IMemoryManager {
 IMemoryManager& getProcessDefaultMemoryManager();
 
 /// Creates a leaf memory pool from the default memory manager for memory
-/// allocation use.
-std::shared_ptr<MemoryPool> getDefaultMemoryPool(const std::string& name = "");
+/// allocation use. If 'threadSafe' is true, then creates a leaf memory pool
+/// with thread-safe memory usage tracking.
+std::shared_ptr<MemoryPool> getDefaultMemoryPool(
+    const std::string& name = "",
+    bool threadSafe = true);
 
 FOLLY_ALWAYS_INLINE int32_t alignmentPadding(void* address, int32_t alignment) {
   auto extra = reinterpret_cast<uintptr_t>(address) % alignment;

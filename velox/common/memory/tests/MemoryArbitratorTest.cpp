@@ -132,6 +132,8 @@ TEST_F(MemoryReclaimerTest, default) {
         "shrinkAPIs",
         MemoryPool::Kind::kAggregate,
         kMaxMemory,
+        true,
+        true,
         memory::MemoryReclaimer::create());
     pools.push_back(pool);
 
@@ -146,12 +148,13 @@ TEST_F(MemoryReclaimerTest, default) {
           ? MemoryPool::Kind::kLeaf
           : MemoryPool::Kind::kAggregate;
       auto childPool = pool->addChild(
-          std::to_string(i), kind, memory::MemoryReclaimer::create());
+          std::to_string(i), kind, true, memory::MemoryReclaimer::create());
       pools.push_back(childPool);
       for (int j = 0; j < testData.numGrandchildren; ++j) {
         auto grandchild = childPool->addChild(
             std::to_string(j),
             MemoryPool::Kind::kLeaf,
+            true,
             memory::MemoryReclaimer::create());
         pools.push_back(grandchild);
       }
@@ -257,18 +260,22 @@ TEST_F(MemoryReclaimerTest, mockReclaim) {
       "mockReclaim",
       MemoryPool::Kind::kAggregate,
       kMaxMemory,
+      true,
+      true,
       MemoryReclaimer::create());
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int i = 0; i < numChildren; ++i) {
     auto childPool = root->addChild(
         std::to_string(i),
         MemoryPool::Kind::kAggregate,
+        true,
         MemoryReclaimer::create());
     childPools.push_back(childPool);
     for (int j = 0; j < numGrandchildren; ++j) {
       auto grandchildPool = childPool->addChild(
           std::to_string(j),
           MemoryPool::Kind::kLeaf,
+          true,
           std::make_shared<MockLeafMemoryReclaimer>(totalUsedBytes));
       childPools.push_back(grandchildPool);
       auto* reclaimer =
@@ -312,12 +319,15 @@ TEST_F(MemoryReclaimerTest, mockReclaimMoreThanAvailable) {
       "mockReclaimMoreThanAvailable",
       MemoryPool::Kind::kAggregate,
       kMaxMemory,
+      true,
+      true,
       MemoryReclaimer::create());
   std::vector<std::shared_ptr<MemoryPool>> childPools;
   for (int i = 0; i < numChildren; ++i) {
     auto childPool = root->addChild(
         std::to_string(i),
         MemoryPool::Kind::kLeaf,
+        true,
         std::make_shared<MockLeafMemoryReclaimer>(totalUsedBytes));
     childPools.push_back(childPool);
     auto* reclaimer =
@@ -343,6 +353,8 @@ TEST_F(MemoryReclaimerTest, concurrentRandomMockReclaims) {
       "concurrentRandomMockReclaims",
       MemoryPool::Kind::kAggregate,
       kMaxMemory,
+      true,
+      true,
       MemoryReclaimer::create());
 
   std::atomic<uint64_t> totalUsedBytes{0};
@@ -353,11 +365,13 @@ TEST_F(MemoryReclaimerTest, concurrentRandomMockReclaims) {
     childPools.push_back(root->addChild(
         std::to_string(i),
         MemoryPool::Kind::kAggregate,
+        true,
         MemoryReclaimer::create()));
     for (int j = 0; j < 5; ++j) {
       auto leafPool = childPools.back()->addChild(
           std::to_string(j),
           MemoryPool::Kind::kLeaf,
+          true,
           std::make_shared<MockLeafMemoryReclaimer>(totalUsedBytes));
       leafPools.push_back(leafPool);
       auto* reclaimer =
