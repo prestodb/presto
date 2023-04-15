@@ -26,7 +26,7 @@ using namespace facebook::velox::core;
 class RowExpressionTest : public ::testing::Test {
  public:
   void SetUp() override {
-    pool_ = memory::getDefaultMemoryPool();
+    pool_ = memory::addDefaultLeafMemoryPool();
     converter_ = std::make_unique<VeloxExprConverter>(pool_.get());
   }
 
