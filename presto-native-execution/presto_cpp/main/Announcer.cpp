@@ -101,7 +101,7 @@ Announcer::Announcer(
           connectorIds)),
       announcementRequest_(
           announcementRequest(address, port, nodeId, announcementBody_)),
-      pool_(velox::memory::getDefaultMemoryPool("Announcer")),
+      pool_(velox::memory::addDefaultLeafMemoryPool("Announcer")),
       eventBaseThread_(false /*autostart*/) {}
 
 Announcer::~Announcer() {

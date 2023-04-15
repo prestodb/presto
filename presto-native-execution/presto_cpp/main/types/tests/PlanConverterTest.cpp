@@ -62,7 +62,7 @@ std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
   std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
 
   VeloxInteractiveQueryPlanConverter converter(pool.get());
   return converter
@@ -78,7 +78,7 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
   const std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
-  auto pool = memory::getDefaultMemoryPool();
+  auto pool = memory::addDefaultLeafMemoryPool();
   VeloxBatchQueryPlanConverter converter(
       shuffleName, std::move(serializedShuffleWriteInfo), pool.get());
   return converter
