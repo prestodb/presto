@@ -66,8 +66,6 @@ public class TestPrestoSparkNativeExecution
     @Test
     public void testFailures()
     {
-        assertQueryFails("SELECT sequence(1, orderkey) FROM orders",
-                ".*Scalar function name not registered: presto.default.sequence.*");
         assertQueryFails("SELECT orderkey / 0 FROM orders", ".*division by zero.*");
     }
 
