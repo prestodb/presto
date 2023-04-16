@@ -910,7 +910,7 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
   params.planNode = plan;
   params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
   params.queryCtx->setConfigOverridesUnsafe(
-      {{core::QueryConfig::kPreferredOutputBatchSize, "1"}});
+      {{core::QueryConfig::kPreferredOutputBatchRows, "1"}});
 
   {
     auto cursor = std::make_unique<TaskCursor>(params);
@@ -956,7 +956,7 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
   params.planNode = plan;
   params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   params.queryCtx->setConfigOverridesUnsafe(
-      {{core::QueryConfig::kPreferredOutputBatchSize, "1"}});
+      {{core::QueryConfig::kPreferredOutputBatchRows, "1"}});
 
   auto cursor = std::make_unique<TaskCursor>(params);
   std::vector<RowVectorPtr> result;

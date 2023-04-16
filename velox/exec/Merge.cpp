@@ -37,7 +37,7 @@ Merge::Merge(
           operatorId,
           planNodeId,
           operatorType),
-      outputBatchSize_{driverCtx->queryConfig().preferredOutputBatchSize()} {
+      outputBatchSize_{outputBatchRows()} {
   auto numKeys = sortingKeys.size();
   sortingKeys_.reserve(numKeys);
   for (int i = 0; i < numKeys; ++i) {

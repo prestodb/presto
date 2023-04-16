@@ -288,6 +288,30 @@ OperatorStats Operator::stats(bool clear) {
   return ret;
 }
 
+uint32_t Operator::outputBatchRows(
+    std::optional<uint64_t> averageRowSize) const {
+  const auto& queryConfig = operatorCtx_->task()->queryCtx()->queryConfig();
+
+  if (!averageRowSize.has_value()) {
+    return queryConfig.preferredOutputBatchRows();
+  }
+
+  uint64_t rowSize = averageRowSize.value();
+  VELOX_CHECK_GE(
+      rowSize,
+      0,
+      "The given average row size of {}.{} is negative.",
+      operatorType(),
+      operatorId());
+
+  if (rowSize * queryConfig.maxOutputBatchRows() <
+      queryConfig.preferredOutputBatchBytes()) {
+    return queryConfig.maxOutputBatchRows();
+  }
+  return std::max<uint32_t>(
+      queryConfig.preferredOutputBatchBytes() / rowSize, 1);
+}
+
 void Operator::recordBlockingTime(uint64_t start, BlockingReason reason) {
   uint64_t now =
       std::chrono::duration_cast<std::chrono::microseconds>(

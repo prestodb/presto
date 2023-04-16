@@ -33,7 +33,6 @@ HashAggregation::HashAggregation(
           aggregationNode->step() == core::AggregationNode::Step::kPartial
               ? "PartialAggregation"
               : "Aggregation"),
-      outputBatchSize_{driverCtx->queryConfig().preferredOutputBatchSize()},
       isPartialOutput_(isPartialOutput(aggregationNode->step())),
       isDistinct_(aggregationNode->aggregates().empty()),
       isGlobal_(aggregationNode->groupingKeys().empty()),
@@ -309,7 +308,8 @@ RowVectorPtr HashAggregation::getOutput() {
     return output;
   }
 
-  const auto batchSize = isGlobal_ ? 1 : outputBatchSize_;
+  const auto batchSize =
+      isGlobal_ ? 1 : outputBatchRows(groupingSet_->estimateRowSize());
 
   // Reuse output vectors if possible.
   prepareOutput(batchSize);

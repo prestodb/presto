@@ -30,7 +30,7 @@ MergeJoin::MergeJoin(
           operatorId,
           joinNode->id(),
           "MergeJoin"),
-      outputBatchSize_{driverCtx->queryConfig().preferredOutputBatchSize()},
+      outputBatchSize_{outputBatchRows()},
       joinType_{joinNode->joinType()},
       numKeys_{joinNode->leftKeys().size()} {
   VELOX_USER_CHECK(

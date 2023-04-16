@@ -729,6 +729,30 @@ TEST_F(RowContainerTest, rowSizeWithNormalizedKey) {
   ASSERT_EQ(numRows, 1);
 }
 
+TEST_F(RowContainerTest, estimateRowSize) {
+  auto numRows = 1000;
+
+  // Make a RowContainer with a fixed-length key column and a variable-length
+  // dependent column.
+  auto rowContainer = makeRowContainer({BIGINT()}, {VARCHAR()});
+  EXPECT_FALSE(rowContainer->estimateRowSize().has_value());
+
+  // Store rows to the container.
+  auto key =
+      vectorMaker_.flatVector<int64_t>(numRows, [](auto row) { return row; });
+  auto dependent = vectorMaker_.flatVector<StringView>(numRows, [](auto row) {
+    return StringView::makeInline(fmt::format("str {}", row));
+  });
+  SelectivityVector allRows(numRows);
+  DecodedVector decodedKey(*key, allRows);
+  DecodedVector decodedDependent(*dependent, allRows);
+  for (size_t i = 0; i < numRows; i++) {
+    auto row = rowContainer->newRow();
+    rowContainer->store(decodedKey, i, row, 0);
+    rowContainer->store(decodedDependent, i, row, 1);
+  }
+}
+
 class AggregateWithAlignment : public Aggregate {
  public:
   explicit AggregateWithAlignment(TypePtr resultType, int alignment)

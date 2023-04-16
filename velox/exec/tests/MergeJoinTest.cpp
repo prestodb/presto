@@ -37,7 +37,7 @@ class MergeJoinTest : public HiveConnectorTestBase {
     params.planNode = planNode;
     params.queryCtx = queryCtx;
     params.queryCtx->setConfigOverridesUnsafe(
-        {{core::QueryConfig::kPreferredOutputBatchSize,
+        {{core::QueryConfig::kPreferredOutputBatchRows,
           std::to_string(preferredOutputBatchSize)}});
     return params;
   }

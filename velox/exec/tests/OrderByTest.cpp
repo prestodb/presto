@@ -356,22 +356,24 @@ TEST_F(OrderByTest, unknown) {
       {0});
 }
 
-/// Verifies that Order By output batch sizes correspond to
-/// preferredOutputBatchSize.
-TEST_F(OrderByTest, outputBatchSize) {
+/// Verifies output batch rows of OrderBy
+TEST_F(OrderByTest, outputBatchRows) {
   struct {
     int numRowsPerBatch;
-    int preferredOutBatchSize;
+    int preferredOutBatchBytes;
     int expectedOutputVectors;
 
     std::string debugString() const {
       return fmt::format(
           "numRowsPerBatch:{}, preferredOutBatchSize:{}, expectedOutputVectors:{}",
           numRowsPerBatch,
-          preferredOutBatchSize,
+          preferredOutBatchBytes,
           expectedOutputVectors);
     }
-  } testSettings[] = {{1024, 1024 * 1024 * 10, 1}, {1024, 1, 2}};
+    // Output kPreferredOutputBatchRows by default and thus include all rows in
+    // a single vector.
+    // TODO(gaoge): change after determining output batch rows adaptively.
+  } testSettings[] = {{1024, 1, 1}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -397,8 +399,8 @@ TEST_F(OrderByTest, outputBatchSize) {
                     .planNode();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->setConfigOverridesUnsafe(
-        {{core::QueryConfig::kPreferredOutputBatchSize,
-          std::to_string(testData.preferredOutBatchSize)}});
+        {{core::QueryConfig::kPreferredOutputBatchBytes,
+          std::to_string(testData.preferredOutBatchBytes)}});
     CursorParameters params;
     params.planNode = plan;
     params.queryCtx = queryCtx;

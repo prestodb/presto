@@ -91,12 +91,9 @@ OrderBy::OrderBy(
   }
 #endif
 
-  outputBatchSize_ = std::max<uint32_t>(
-      operatorCtx_->execCtx()
-          ->queryCtx()
-          ->queryConfig()
-          .preferredOutputBatchSize(),
-      data_->estimatedNumRowsPerBatch(kBatchSizeInBytes));
+  // TODO(gaoge): Move to where we can estimate the average row size and set the
+  // output batch rows based on it.
+  outputBatchSize_ = outputBatchRows();
 }
 
 void OrderBy::addInput(RowVectorPtr input) {

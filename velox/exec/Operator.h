@@ -476,6 +476,15 @@ class Operator : public BaseRuntimeStatWriter {
   // 'identityProjections_' and 'resultProjections_'.
   RowVectorPtr fillOutput(vector_size_t size, BufferPtr mapping);
 
+  // Returns the number of rows for the output batch. This uses averageRowSize
+  // to calculate how many rows fit in preferredOutputBatchBytes. It caps the
+  // number of rows at 10K and returns at least one row. The averageRowSize must
+  // not be negative. If the averageRowSize is 0 which is not advised, returns
+  // maxOutputBatchRows. If the averageRowSize is not given, returns
+  // preferredOutputBatchRows.
+  uint32_t outputBatchRows(
+      std::optional<uint64_t> averageRowSize = std::nullopt) const;
+
   std::unique_ptr<OperatorCtx> operatorCtx_;
   folly::Synchronized<OperatorStats> stats_;
   const RowTypePtr outputType_;

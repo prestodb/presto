@@ -715,4 +715,12 @@ void GroupingSet::updateRow(SpillMergeStream& input, char* FOLLY_NONNULL row) {
   mergeSelection_.setValid(input.currentIndex(), false);
 }
 
+std::optional<int64_t> GroupingSet::estimateRowSize() const {
+  const RowContainer* rows =
+      table_ ? table_->rows() : rowsWhileReadingSpill_.get();
+  return rows && rows->estimateRowSize() >= 0
+      ? std::optional<int64_t>(rows->estimateRowSize())
+      : std::nullopt;
+};
+
 } // namespace facebook::velox::exec

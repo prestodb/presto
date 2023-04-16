@@ -64,9 +64,6 @@ class HashAggregation : public Operator {
   // measure of the effectiveness of the partial aggregation.
   void maybeIncreasePartialAggregationMemoryUsage(double aggregationPct);
 
-  // Maximum number of rows in the output batch.
-  const uint32_t outputBatchSize_;
-
   const bool isPartialOutput_;
   const bool isDistinct_;
   const bool isGlobal_;

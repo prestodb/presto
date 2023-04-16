@@ -122,7 +122,7 @@ HashProbe::HashProbe(
           operatorId,
           joinNode->id(),
           "HashProbe"),
-      outputBatchSize_{driverCtx->queryConfig().preferredOutputBatchSize()},
+      outputBatchSize_{outputBatchRows()},
       joinNode_(std::move(joinNode)),
       joinType_{joinNode_->joinType()},
       nullAware_{joinNode_->isNullAware()},

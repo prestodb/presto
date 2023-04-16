@@ -2,6 +2,38 @@
 Configuration properties
 ========================
 
+Generic Configuration
+---------------------
+
+``preferred_output_batch_bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``10MB``
+
+Preferred size of batches in bytes to be returned by operators from Operator::getOutput.
+It is used when an estimate of average row size is known. Otherwise preferred_output_batch_rows is used.
+
+``preferred_output_batch_rows``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``1024``
+
+Preferred number of rows to be returned by operators from Operator::getOutput. It is used
+when an estimate of average row size is not known. When the estimate of average row size is known,
+preferred_output_batch_bytes is used.
+
+``max_output_batch_rows``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``10000``
+
+Max number of rows that could be return by operators from Operator::getOutput. It is used
+when an estimate of average row size is known and preferred_output_batch_bytes is used to compute
+the number of output rows.
+
 Memory Management
 -----------------
 
@@ -189,7 +221,7 @@ True if appending data to an existing unpartitioned table is allowed.
 Currently this configuration does not support appending to existing partitions.
 
 
-Spark-specific configuration
+Spark-specific Configuration
 ----------------------------
 
 ``spark.legacy-size-of-null``

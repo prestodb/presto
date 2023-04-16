@@ -525,6 +525,9 @@ class RowContainer {
         stringAllocator_.freeSpace());
   }
 
+  // Returns the average size of rows in bytes stored in this container.
+  std::optional<int64_t> estimateRowSize() const;
+
   // Returns a cap on  extra memory that may be needed when adding 'numRows'
   // and variableLengthBytes of out-of-line variable length data.
   int64_t sizeIncrement(vector_size_t numRows, int64_t variableLengthBytes)
@@ -546,14 +549,6 @@ class RowContainer {
       }
     }
     return 0;
-  }
-
-  // Returns estimated number of rows a batch can support for
-  // the given batchSizeInBytes.
-  // FIXME(venkatra): estimate num rows for variable length fields.
-  int32_t estimatedNumRowsPerBatch(int32_t batchSizeInBytes) {
-    return (batchSizeInBytes / fixedRowSize_) +
-        ((batchSizeInBytes % fixedRowSize_) ? 1 : 0);
   }
 
   // Extract column values for 'rows' into 'result'.

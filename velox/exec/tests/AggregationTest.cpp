@@ -1023,6 +1023,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
             .config(
                 QueryConfig::kSpillStartPartitionBit,
                 std::to_string(kPartitionStartBit))
+            .config(QueryConfig::kPreferredOutputBatchBytes, "1024")
             .assertResults(results);
 
     auto stats = task->taskStats().pipelineStats;
@@ -1134,6 +1135,7 @@ TEST_F(AggregationTest, spillWithNonSpillingPartition) {
           // Set to increase the hash table a little bit to only trigger spill
           // on the partition with most spillable data.
           .config(QueryConfig::kSpillableReservationGrowthPct, "25")
+          .config(QueryConfig::kPreferredOutputBatchBytes, "1024")
           .assertResults(results);
 
   auto stats = task->taskStats().pipelineStats;
@@ -1354,39 +1356,55 @@ TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {
   for (int32_t i = 0; i < numBatches; ++i) {
     batches.push_back(fuzzer.fuzzRow(rowType_));
   }
-  std::vector<uint32_t> outputBufferSizes({1, 10, 1'000'000});
-  for (const auto& outputBufferSize : outputBufferSizes) {
+
+  auto plan = PlanBuilder()
+                  .values(batches)
+                  .singleAggregation({"c0", "c1"}, {"sum(c2)"})
+                  .planNode();
+  auto results = AssertQueryBuilder(plan).copyResults(pool_.get());
+
+  {
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    uint64_t outputBufferSize = 10UL << 20;
     SCOPED_TRACE(fmt::format("outputBufferSize: {}", outputBufferSize));
 
-    auto results =
-        AssertQueryBuilder(PlanBuilder()
-                               .values(batches)
-                               .singleAggregation({"c0", "c1"}, {"sum(c2)"})
-                               .planNode())
-            .copyResults(pool_.get());
-
-    auto tempDirectory = exec::test::TempDirectoryPath::create();
-    auto task =
-        AssertQueryBuilder(PlanBuilder()
-                               .values(batches)
-                               .singleAggregation({"c0", "c1"}, {"sum(c2)"})
-                               .planNode())
-            .spillDirectory(tempDirectory->path)
-            .config(QueryConfig::kSpillEnabled, "true")
-            .config(QueryConfig::kAggregationSpillEnabled, "true")
-            // Set one spill partition to avoid the test flakiness.
-            .config(QueryConfig::kSpillPartitionBits, "0")
-            .config(
-                QueryConfig::kPreferredOutputBatchSize,
-                std::to_string(outputBufferSize))
-            // Set the memory trigger limit to be a very small value.
-            .config(QueryConfig::kAggregationSpillMemoryThreshold, "1")
-            .assertResults(results);
+    auto task = AssertQueryBuilder(plan)
+                    .spillDirectory(tempDirectory->path)
+                    .config(
+                        QueryConfig::kPreferredOutputBatchBytes,
+                        std::to_string(outputBufferSize))
+                    .config(QueryConfig::kSpillEnabled, "true")
+                    .config(QueryConfig::kAggregationSpillEnabled, "true")
+                    // Set one spill partition to avoid the test flakiness.
+                    .config(QueryConfig::kSpillPartitionBits, "0")
+                    // Set the memory trigger limit to be a very small value.
+                    .config(QueryConfig::kAggregationSpillMemoryThreshold, "1")
+                    .assertResults(results);
 
     const auto opStats = task->taskStats().pipelineStats[0].operatorStats[1];
-    ASSERT_EQ(
-        folly::divCeil(opStats.outputPositions, outputBufferSize),
-        opStats.outputVectors);
+    ASSERT_EQ(opStats.outputVectors, 1);
+    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+  }
+  {
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    uint64_t outputBufferSize = 1;
+    SCOPED_TRACE(fmt::format("outputBufferSize: {}", outputBufferSize));
+
+    auto task = AssertQueryBuilder(plan)
+                    .spillDirectory(tempDirectory->path)
+                    .config(
+                        QueryConfig::kPreferredOutputBatchBytes,
+                        std::to_string(outputBufferSize))
+                    .config(QueryConfig::kSpillEnabled, "true")
+                    .config(QueryConfig::kAggregationSpillEnabled, "true")
+                    // Set one spill partition to avoid the test flakiness.
+                    .config(QueryConfig::kSpillPartitionBits, "0")
+                    // Set the memory trigger limit to be a very small value.
+                    .config(QueryConfig::kAggregationSpillMemoryThreshold, "1")
+                    .assertResults(results);
+
+    const auto opStats = task->taskStats().pipelineStats[0].operatorStats[1];
+    ASSERT_EQ(opStats.outputVectors, opStats.outputPositions);
     OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
   }
 }
@@ -1448,6 +1466,54 @@ TEST_F(AggregationTest, preGroupedAggregationWithSpilling) {
   // Verify that spilling is not triggered.
   ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledBytes, 0);
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+}
+
+TEST_F(AggregationTest, adaptiveOutputBatchRows) {
+  int32_t defaultOutputBatchRows = 10;
+  vector_size_t size = defaultOutputBatchRows * 5;
+  auto vectors = std::vector<RowVectorPtr>(
+      8,
+      makeRowVector(
+          {"k0", "c0"},
+          {makeFlatVector<int32_t>(size, [&](auto row) { return row; }),
+           makeFlatVector<int8_t>(size, [&](auto row) { return row % 2; })}));
+
+  createDuckDbTable(vectors);
+
+  auto plan = PlanBuilder()
+                  .values(vectors)
+                  .singleAggregation({"k0"}, {"sum(c0)"})
+                  .planNode();
+
+  // Test setting larger output batch bytes will create batches of greater
+  // number of rows.
+  {
+    auto outputBatchBytes = "1000";
+    auto task =
+        AssertQueryBuilder(plan, duckDbQueryRunner_)
+            .config(QueryConfig::kPreferredOutputBatchBytes, outputBatchBytes)
+            .assertResults("SELECT k0, SUM(c0) FROM tmp GROUP BY k0");
+
+    auto aggOpStats = task->taskStats().pipelineStats[0].operatorStats[1];
+    ASSERT_GT(
+        aggOpStats.outputPositions / aggOpStats.outputVectors,
+        defaultOutputBatchRows);
+  }
+
+  // Test setting smaller output batch bytes will create batches of fewer
+  // number of rows.
+  {
+    auto outputBatchBytes = "1";
+    auto task =
+        AssertQueryBuilder(plan, duckDbQueryRunner_)
+            .config(QueryConfig::kPreferredOutputBatchBytes, outputBatchBytes)
+            .assertResults("SELECT k0, SUM(c0) FROM tmp GROUP BY k0");
+
+    auto aggOpStats = task->taskStats().pipelineStats[0].operatorStats[1];
+    ASSERT_LT(
+        aggOpStats.outputPositions / aggOpStats.outputVectors,
+        defaultOutputBatchRows);
+  }
 }
 
 } // namespace

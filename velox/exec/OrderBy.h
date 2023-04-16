@@ -57,8 +57,6 @@ class OrderBy : public Operator {
   }
 
  private:
-  static const int32_t kBatchSizeInBytes{2 * 1024 * 1024};
-
   // Checks if input will fit in the existing memory and increases
   // reservation if not. If reservation cannot be increased, spills enough to
   // make 'input' fit.

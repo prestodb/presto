@@ -34,7 +34,7 @@ class StreamingAggregationTest : public OperatorTestBase {
     params.planNode = planNode;
     params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     params.queryCtx->setConfigOverridesUnsafe(
-        {{core::QueryConfig::kPreferredOutputBatchSize,
+        {{core::QueryConfig::kPreferredOutputBatchRows,
           std::to_string(preferredOutputBatchSize)}});
     return params;
   }

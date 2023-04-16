@@ -17,6 +17,7 @@
 #include "velox/exec/RowContainer.h"
 
 #include "velox/exec/ContainerRowSerde.h"
+#include "velox/exec/Operator.h"
 
 namespace facebook::velox::exec {
 namespace {
@@ -558,6 +559,19 @@ void RowContainer::extractProbedFlags(
       }
     }
   }
+}
+
+std::optional<int64_t> RowContainer::estimateRowSize() const {
+  if (numRows_ == 0) {
+    return std::nullopt;
+  }
+  int64_t freeBytes = rows_.availableInRun() + fixedRowSize_ * numFreeRows_;
+  int64_t usedSize = rows_.allocatedBytes() - freeBytes +
+      stringAllocator_.retainedSize() - stringAllocator_.freeSpace();
+  int64_t rowSize = usedSize / numRows_;
+  VELOX_CHECK_GT(
+      rowSize, 0, "Estimated row size of the RowContainer must be positive.");
+  return rowSize;
 }
 
 int64_t RowContainer::sizeIncrement(

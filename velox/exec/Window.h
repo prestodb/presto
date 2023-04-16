@@ -159,7 +159,6 @@ class Window : public Operator {
       vector_size_t* rawFrameBounds);
 
   bool finished_ = false;
-  const vector_size_t outputBatchSizeInBytes_;
   const vector_size_t numInputColumns_;
 
   // The Window operator needs to see all the input rows before starting
