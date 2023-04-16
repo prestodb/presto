@@ -1,5 +1,6 @@
-# prestodb/avx/centos8-prestissimo
+# syntax=docker.io/prestodb/avx/centos8-prestissimo:1
 
+# prestodb/avx/centos8-prestissimo
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -12,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ARG CPU_TARGET=avx
-ARG TARGETPLATFORM=linux/amd64
 ARG IMAGE_TAG=latest
 ARG IMAGE_REGISTRY=prestodb/${CPU_TARGET}
 ARG BUILDTIME_IMAGE=centos8-prestissimo-buildtime
@@ -20,27 +20,25 @@ ARG RUNTIME_IMAGE=centos8-prestissimo-runtime
 
 FROM --platform=$TARGETPLATFORM ${IMAGE_REGISTRY}/${BUILDTIME_IMAGE}:${IMAGE_TAG} as build-stage
 
-ENV PRESTO_HOME="/opt/presto-server"
-ENV PATH=/opt/dependency/install/bin:/opt/dependency/install/bin/hadoop-2.10.1/bin:$PATH
-RUN mkdir -p $PRESTO_HOME
-ADD ./ $PRESTO_HOME/_build/
-
 WORKDIR $PRESTO_HOME
-RUN set +u && \
-    source /opt/rh/gcc-toolset-9/enable && \
-    source $PRESTO_HOME/_build/velox/scripts/setup-helper-functions.sh && \
-    NO_SYNCH=True make --directory="$PRESTO_HOME/_build/" release \
+
+ENV PATH=/opt/dependency/install/bin:/opt/dependency/install/bin/hadoop-2.10.1/bin:$PATH
+ADD ./ ${PRESTO_HOME}/_build/
+
+RUN source /opt/rh/gcc-toolset-9/enable && \
+    source ${PRESTO_HOME}/_build/velox/scripts/setup-helper-functions.sh && \
+    NO_SYNCH=True make --directory='${PRESTO_HOME}/_build/' release \
         PRESTO_ENABLE_PARQUET=ON \
         PRESTO_ENABLE_S3=ON \
-        PRESTO_ENABLE_HDFS=ON \
+        PRESTO_ENABLE_HDFS=OFF \
         PRESTO_ENABLE_TESTING=OFF \
         TREAT_WARNINGS_AS_ERRORS=OFF \
         NUM_THREADS=8 \
         MAX_HIGH_MEM_JOBS=8 \
-        MAX_LINK_JOBS=8
-RUN ls -al && \
-    mv "$(find $(pwd) | grep 'presto_server$')" $PRESTO_HOME && \
-    chmod uga+x "$PRESTO_HOME/presto_server"
+        MAX_LINK_JOBS=8 && \
+    ls -al && \
+    mv '$(find $(pwd) | grep "presto_server$")' '${PRESTO_HOME}' && \
+    rm -rf '${PRESTO_HOME}/_build'
 
 #/////////////////////////////////////////////
 #          centos8-prestissimo-runtime
@@ -53,9 +51,7 @@ LABEL org.opencontainers.image.vendor="Ahana, Intel and Meta Corporations collab
 LABEL org.opencontainers.image.version="1.0.0"
 LABEL org.opencontainers.image.authors="milosz.linkiewicz@intel.com"
 
-USER presto
-ENV PRESTO_HOME="/opt/presto-server"
 ENV PATH=$PRESTO_HOME:$PATH
-COPY --chown=186:root --chmod=0775 --from=build-stage $PRESTO_HOME/presto_server $PRESTO_HOME/presto_server
-COPY --chown=186:root --chmod=0775 --from=build-stage /usr/local/lib64/lib* /usr/lib64/lib* /usr/local/lib64/
-COPY --chown=186:root --chmod=0775 --from=build-stage /usr/local/lib/lib* /usr/local/lib/
+COPY --chown=186:186 --chmod=0755 --from=build-stage $PRESTO_HOME/presto_server $PRESTO_HOME/presto_server
+COPY --chown=186:186 --chmod=0755 --from=build-stage /usr/local/lib64/lib* /usr/lib64/lib* /usr/local/lib64/
+COPY --chown=186:186 --chmod=0755 --from=build-stage /usr/local/lib/lib* /usr/local/lib/

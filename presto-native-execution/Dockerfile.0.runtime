@@ -1,5 +1,6 @@
-# prestodb/avx/centos8-prestissimo-runtime
+# syntax=docker.io/prestodb/avx/centos8-prestissimo-runtime:1
 
+# prestodb/avx/centos8-prestissimo-runtime
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-ARG TARGETPLATFORM=linux/amd64
 ARG IMAGE_CACHE_REGISTRY=quay.io/centos
 FROM --platform=$TARGETPLATFORM ${IMAGE_CACHE_REGISTRY}/centos:stream8
 
@@ -21,28 +21,29 @@ LABEL org.opencontainers.image.vendor="Ahana, Intel and Meta Corporations collab
 LABEL org.opencontainers.image.version="1.0.0"
 LABEL org.opencontainers.image.authors="milosz.linkiewicz@intel.com"
 
-SHELL ["/bin/bash", "-c"]
-WORKDIR /opt/presto/
+ARG CPU_TARGET=avx
 
+SHELL ["/bin/bash", "-eEo", "pipefail", "-c"]
+WORKDIR /opt/presto-server
+
+ENV CPU_TARGET=${CPU_TARGET}
 ENV PROMPT_ALWAYS_RESPOND=n
-ENV PRESTO_HOME="/opt/presto-server"
 ENV TZ="Europe/Warsaw"
+ENV PRESTO_HOME="/opt/presto-server"
 
-COPY --chown=186:root --chmod=0775 etc/ ${PRESTO_HOME}/etc/
-COPY --chown=186:root --chmod=0775 entrypoint.sh /opt/entrypoint.sh
+COPY --chown=186:186 --chmod=0755 etc/ ${PRESTO_HOME}/etc/
+COPY --chown=186:186 --chmod=0755 entrypoint.sh /opt/entrypoint.sh
 
-RUN set -exu && \
-    dnf update -y && \
+RUN dnf update -y && \
     dnf -y install uuid hostname vim && \
-    mkdir -p /opt/presto/catalog && \
-    useradd -r -g root --uid=186 -d /opt presto && \
-    chgrp root /etc/passwd && \
-    chown -R 186:root /opt && \
+    mkdir -p '${PRESTO_HOME}/catalog' '${PRESTO_HOME}/etc/catalog' '/var/lib/presto/data' && \
+    useradd -r -U --uid=186 -d /opt presto && \
+    chgrp 186 /etc/passwd && \
+    chown -R 186:186 /opt && \
     chmod -R ug+rwx /etc/passwd /opt && \
     rm -rf /root/.cache /tmp && \
-    dnf clean all && \
-    mkdir -p $PRESTO_HOME/etc/catalog && \
-    mkdir -p /var/lib/presto/data
+    dnf clean all
 
+USER presto:presto
 ENTRYPOINT ["/opt/entrypoint.sh"]
 EXPOSE 8080/tcp

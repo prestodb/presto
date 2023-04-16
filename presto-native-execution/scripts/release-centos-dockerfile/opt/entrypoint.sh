@@ -14,8 +14,13 @@
 set -eExv -o functrace
 
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
+
+GENERATE_NODE_CONFIG="${GENERATE_NODE_CONFIG:-0}"
 PRESTO_HOME="${PRESTO_HOME:-"/opt/presto-server"}"
-USE_ENV_PARAMS=${USE_ENV_PARAMS:-0}
+HTTP_SERVER_PORT="${HTTP_SERVER_PORT:-"8080"}"
+DISCOVERY_URI="${DISCOVERY_URI:-"http://127.0.0.1:${HTTP_SERVER_PORT}"}"
+NODE_UUID="${NODE_UUID:-$(uuid)}"
+NODE_IP="${NODE_IP:-$(hostname -I)}"
 
 source "${SCRIPT_DIR}/common.sh"
 
@@ -24,47 +29,46 @@ trap 'failure "LINENO" "BASH_LINENO" "${BASH_COMMAND}" "${?}"; [ -z "${DEBUG}" ]
 
 if [[ "${DEBUG}" == "0" || "${DEBUG}" == "false" || "${DEBUG}" == "False" ]]; then DEBUG=""; fi
 
-HTTP_SERVER_PORT="${HTTP_SERVER_PORT:-"8080"}"
-DISCOVERY_URI="${HTTP_SERVER_PORT:-"http://127.0.0.1:${HTTP_SERVER_PORT}"}"
-
 while getopts ':-:' optchar; do
   case "$optchar" in
     -)
       case "$OPTARG" in
-        discovery-uri=*) DISCOVERY_URI="${OPTARG#*=}" ;;
+        discovery-uri=*)    DISCOVERY_URI="${OPTARG#*=}" ;;
         http-server-port=*) HTTP_SERVER_PORT="${OPTARG#*=}" ;;
-        node-memory-gb=*) NODE_MEMORY_GB="${OPTARG#*=}" ;;
-        use-env-params) USE_ENV_PARAMS=1 ;;
-        *)
-          presto_args+=("$optchar")
-          ;;
+        node-uuid=*)        NODE_UUID="${OPTARG#*=}" ;;
+        node-ip=*)          NODE_IP="${OPTARG#*=}" ;;
+        node-memory-gb=*)   NODE_MEMORY_GB="${OPTARG#*=}" ;;
+        use-env-params)     GENERATE_NODE_CONFIG=1 ;;
+        *) presto_args+=("--${OPTARG}") ;;
       esac
       ;;
-    *)
-      presto_args+=("$optchar")
-      ;;
+    *) presto_args+=("-${OPTARG}") ;;
   esac
 done
 
+NODE_MEMORY_GB="${NODE_MEMORY_GB:-$(memory_gb_preflight_check 32)}"
+mkdir -p "${PRESTO_HOME}/catalog" || true
 
-function node_command_line_config()
+function generate_node_config()
 {
-  printf "presto.version=0.273.3\n"                    >  "${PRESTO_HOME}/config.properties"
-  printf "discovery.uri=${DISCOVERY_URI}\n"            >> "${PRESTO_HOME}/config.properties"
-  printf "http-server.http.port=${HTTP_SERVER_PORT}\n" >> "${PRESTO_HOME}/config.properties"
+  cat > "${PRESTO_HOME}/config.properties" <<- EOF
+  	presto.version=0.280
+  	http-server.http.port=${HTTP_SERVER_PORT}
+  	discovery.uri=${DISCOVERY_URI}
+	EOF
 
-  printf "node.environment=intel-poland\n"    >  "${PRESTO_HOME}/node.properties"
-  printf "node.location=torun-cluster\n"      >> "${PRESTO_HOME}/node.properties"
-  printf "node.id=${NODE_UUID}\n"             >> "${PRESTO_HOME}/node.properties"
-  printf "node.ip=$(hostname -I)\n"           >> "${PRESTO_HOME}/node.properties"
-  printf "node.memory_gb=${NODE_MEMORY_GB}\n" >> "${PRESTO_HOME}/node.properties"
+  cat > "${PRESTO_HOME}/node.properties" <<- EOF
+  	node.environment=intel-poland
+  	node.location=torun-cluster
+  	node.id=${NODE_UUID}
+  	node.ip=${NODE_IP}
+  	node.memory_gb=${NODE_MEMORY_GB}
+	EOF
 }
 
-function node_configuration()
+function template_provided_config()
 {
   render_node_configuration_files
-
-  [ -z "$NODE_UUID" ] && NODE_UUID=$(uuid) || return 12
 
   if [[ -z "$(grep -E '^ *node\.id=' "${PRESTO_HOME}/node.properties" | cut -d'=' -f2)" ]]; then
     printf "node.id=${NODE_UUID}\n" >> "${PRESTO_HOME}/node.properties"
@@ -76,10 +80,11 @@ function node_configuration()
   fi
 }
 
-NODE_MEMORY_GB="$(memory_gb_preflight_check ${NODE_MEMORY_GB})"
-
-[ $USE_ENV_PARAMS == "1" ] && node_command_line_config || node_configuration
+if [ "${GENERATE_NODE_CONFIG}" == "1" ]; then
+  generate_node_config
+else
+  template_provided_config
+fi
 
 cd "${PRESTO_HOME}"
-[ -d "${PRESTO_HOME}/catalog" ] || mkdir -p "${PRESTO_HOME}/catalog"
-"${PRESTO_HOME}/presto_server" --logtostderr=1 --v=1 "${presto_args[@]}"
+"${PRESTO_HOME}/presto_server" --logtostderr=1 --v=2 "${presto_args[@]}"
