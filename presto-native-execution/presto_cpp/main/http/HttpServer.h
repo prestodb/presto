@@ -221,7 +221,9 @@ class DispatchingRequestHandlerFactory
 
 class HttpConfig {
  public:
-  HttpConfig(const folly::SocketAddress& address, bool reusePort = false);
+  explicit HttpConfig(
+      const folly::SocketAddress& address,
+      bool reusePort = false);
 
   proxygen::HTTPServer::IPConfig ipConfig() const;
 

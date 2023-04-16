@@ -30,7 +30,9 @@ class Announcer {
       const std::string& nodeId,
       const std::string& nodeLocation,
       const std::vector<std::string>& connectorIds,
-      uint64_t frequencyMs);
+      uint64_t frequencyMs,
+      const std::string& clientCertAndKeyPath = "",
+      const std::string& ciphers = "");
 
   ~Announcer();
 
@@ -52,6 +54,8 @@ class Announcer {
   std::unique_ptr<http::HttpClient> client_;
   std::atomic_bool stopped_{true};
   folly::EventBaseThread eventBaseThread_;
+  const std::string clientCertAndKeyPath_;
+  const std::string ciphers_;
 };
 
 } // namespace facebook::presto
