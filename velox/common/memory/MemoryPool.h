@@ -172,19 +172,19 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual void visitChildren(
       const std::function<bool(MemoryPool*)>& visitor) const;
 
-  /// TODO Remove once Prestissimo is updated.
-  /// Creates named child memory pool from this with specified 'kind'.
-  virtual std::shared_ptr<MemoryPool> addChild(
-      const std::string& name,
-      Kind kind = MemoryPool::Kind::kLeaf);
-
   /// Invoked to create a named leaf child memory pool.
+  ///
+  /// NOTE: 'threadSafe' and 'reclaimer' only applies if the leaf memory pool
+  /// has enabled memory usage tracking which inherits from its parent.
   virtual std::shared_ptr<MemoryPool> addLeafChild(
       const std::string& name,
       bool threadSafe = true,
       std::shared_ptr<MemoryReclaimer> reclaimer = nullptr);
 
   /// Invoked to create a named aggregate child memory pool.
+  ///
+  /// NOTE: 'reclaimer' only applies if the aggregate memory pool has enabled
+  /// memory usage tracking which inherits from its parent.
   virtual std::shared_ptr<MemoryPool> addAggregateChild(
       const std::string& name,
       std::shared_ptr<MemoryReclaimer> reclaimer = nullptr);

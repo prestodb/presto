@@ -1204,23 +1204,4 @@ struct UnsafeRowSerializer {
     return nullLength + elementsSize;
   }
 };
-
-// TODO Remove after updating Prestissimo.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-struct UnsafeRowDynamicSerializer {
-  static std::optional<size_t> serialize(
-      const TypePtr& /*type*/,
-      const VectorPtr& data,
-      char* buffer,
-      size_t idx) {
-    return UnsafeRowSerializer::serialize(data, buffer, idx);
-  }
-
-  inline static size_t
-  getSizeRow(const TypePtr& /*type*/, const RowVector* data, size_t idx) {
-    return UnsafeRowSerializer::getSizeRow(data, idx);
-  }
-};
-#endif
-
 } // namespace facebook::velox::row

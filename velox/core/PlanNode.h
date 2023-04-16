@@ -909,33 +909,6 @@ class GatherPartitionFunctionSpec : public PartitionFunctionSpec {
   }
 };
 
-/// TODO Remove once Prestissimo is updated.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-using PartitionFunctionFactory =
-    std::function<std::unique_ptr<PartitionFunction>(int numPartitions)>;
-
-class LegacyPartitionFunctionSpec : public PartitionFunctionSpec {
- public:
-  LegacyPartitionFunctionSpec(PartitionFunctionFactory factory)
-      : factory_{std::move(factory)} {}
-
-  std::unique_ptr<PartitionFunction> create(int numPartitions) const override {
-    return factory_(numPartitions);
-  };
-
-  std::string toString() const override {
-    return "legacy";
-  }
-
-  folly::dynamic serialize() const override {
-    VELOX_UNSUPPORTED();
-  }
-
- private:
-  const PartitionFunctionFactory factory_;
-};
-#endif
-
 /// Partitions data using specified partition function. The number of partitions
 /// is determined by the parallelism of the upstream pipeline. Can be used to
 /// gather data from multiple sources.
@@ -976,21 +949,6 @@ class LocalPartitionNode : public PlanNode {
           sources_[0]->outputType()->toString());
     }
   }
-
-  /// TODO Remove once Prestissimo is updated.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  LocalPartitionNode(
-      const PlanNodeId& id,
-      Type type,
-      PartitionFunctionFactory partitionFunctionFactory,
-      std::vector<PlanNodePtr> sources)
-      : LocalPartitionNode(
-            id,
-            type,
-            std::make_shared<LegacyPartitionFunctionSpec>(
-                std::move(partitionFunctionFactory)),
-            std::move(sources)) {}
-#endif
 
   static std::shared_ptr<LocalPartitionNode> gather(
       const PlanNodeId& id,
@@ -1065,34 +1023,6 @@ class PartitionedOutputNode : public PlanNode {
           "Broadcast partitioning doesn't allow for partitioning keys");
     }
   }
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  PartitionedOutputNode(
-      const PlanNodeId& id,
-      const std::vector<TypedExprPtr>& keys,
-      int numPartitions,
-      bool broadcast,
-      bool replicateNullsAndAny,
-      PartitionFunctionFactory partitionFunctionFactory,
-      RowTypePtr outputType,
-      PlanNodePtr source)
-      : PartitionedOutputNode(
-            id,
-            keys,
-            numPartitions,
-            broadcast,
-            replicateNullsAndAny,
-            std::make_shared<LegacyPartitionFunctionSpec>(
-                std::move(partitionFunctionFactory)),
-            std::move(outputType),
-            std::move(source)) {}
-
-  PartitionFunctionFactory partitionFunctionFactory() const {
-    return [this](int numPartitions) {
-      return partitionFunctionSpec_->create(numPartitions);
-    };
-  }
-#endif
 
   static std::shared_ptr<PartitionedOutputNode> broadcast(
       const PlanNodeId& id,

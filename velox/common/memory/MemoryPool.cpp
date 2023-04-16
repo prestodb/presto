@@ -112,23 +112,6 @@ void MemoryPool::visitChildren(
   }
 }
 
-std::shared_ptr<MemoryPool> MemoryPool::addChild(
-    const std::string& name,
-    Kind kind) {
-  checkPoolManagement();
-
-  folly::SharedMutex::WriteHolder guard{childrenMutex_};
-  VELOX_CHECK_EQ(
-      children_.count(name),
-      0,
-      "Child memory pool {} already exists in {}",
-      name,
-      toString());
-  auto child = genChild(shared_from_this(), name, kind, true, nullptr);
-  children_.emplace(name, child.get());
-  return child;
-}
-
 std::shared_ptr<MemoryPool> MemoryPool::addLeafChild(
     const std::string& name,
     bool threadSafe,

@@ -125,37 +125,6 @@ std::shared_ptr<MemoryPool> MemoryManager::addLeafPool(
   return defaultRoot_->addLeafChild(poolName, threadSafe, reclaimer);
 }
 
-/// TODO Remove once Prestissimo is updated.
-std::shared_ptr<MemoryPool> MemoryManager::getPool(
-    const std::string& name,
-    MemoryPool::Kind kind,
-    int64_t maxBytes) {
-  std::string poolName = name;
-  if (poolName.empty()) {
-    static std::atomic<int64_t> poolId{0};
-    poolName =
-        fmt::format("default_{}_{}", MemoryPool::kindString(kind), poolId++);
-  }
-  if (kind == MemoryPool::Kind::kLeaf) {
-    return defaultRoot_->addLeafChild(poolName);
-  }
-
-  MemoryPool::Options options;
-  options.alignment = alignment_;
-  options.capacity = maxBytes;
-
-  auto pool = std::make_shared<MemoryPoolImpl>(
-      this,
-      poolName,
-      MemoryPool::Kind::kAggregate,
-      nullptr,
-      poolDestructionCb_,
-      options);
-  folly::SharedMutex::WriteHolder guard{mutex_};
-  pools_.push_back(pool.get());
-  return pool;
-}
-
 void MemoryManager::dropPool(MemoryPool* pool) {
   VELOX_CHECK_NOT_NULL(pool);
   folly::SharedMutex::WriteHolder guard{mutex_};
@@ -229,14 +198,4 @@ std::shared_ptr<MemoryPool> addDefaultLeafMemoryPool(
   auto& memoryManager = defaultMemoryManager();
   return memoryManager.addLeafPool(name, threadSafe);
 }
-
-IMemoryManager& getProcessDefaultMemoryManager() {
-  return MemoryManager::getInstance();
-}
-
-std::shared_ptr<MemoryPool> getDefaultMemoryPool(const std::string& name) {
-  auto& memoryManager = getProcessDefaultMemoryManager();
-  return memoryManager.addLeafPool(name);
-}
-
 } // namespace facebook::velox::memory
