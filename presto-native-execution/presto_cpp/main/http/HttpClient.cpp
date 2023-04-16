@@ -29,7 +29,8 @@ HttpClient::HttpClient(
           std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
           folly::AsyncTimeout::InternalEnum::NORMAL,
           timeout)),
-      reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)) {
+      reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
+      maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()) {
   sessionPool_ = std::make_unique<proxygen::SessionPool>(nullptr, 10);
 }
 
@@ -43,14 +44,13 @@ HttpClient::~HttpClient() {
 
 HttpResponse::HttpResponse(
     std::unique_ptr<proxygen::HTTPMessage> headers,
-    velox::memory::MemoryPool* pool)
+    velox::memory::MemoryPool* pool,
+    uint64_t minResponseAllocBytes,
+    uint64_t maxResponseAllocBytes)
     : headers_(std::move(headers)),
       pool_(pool),
-      minResponseAllocBytes_(velox::memory::AllocationTraits::pageBytes(
-          pool_->sizeClasses().front())),
-      maxResponseAllocBytes_(std::max(
-          minResponseAllocBytes_,
-          SystemConfig::instance()->httpMaxAllocateBytes())) {
+      minResponseAllocBytes_(minResponseAllocBytes),
+      maxResponseAllocBytes_(maxResponseAllocBytes) {
   VELOX_CHECK_NOT_NULL(pool_);
 }
 
@@ -125,12 +125,17 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   ResponseHandler(
       const proxygen::HTTPMessage& request,
       velox::memory::MemoryPool* pool,
+      uint64_t maxResponseAllocBytes,
       const std::string& body,
       std::function<void(int)> reportOnBodyStatsFunc)
       : request_(request),
         body_(body),
         reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
-        pool_(pool) {
+        pool_(pool),
+        minResponseAllocBytes_(velox::memory::AllocationTraits::pageBytes(
+            pool_->sizeClasses().front())),
+        maxResponseAllocBytes_(
+            std::max(minResponseAllocBytes_, maxResponseAllocBytes)) {
     VELOX_CHECK_NOT_NULL(pool_);
   }
 
@@ -150,7 +155,8 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
-    response_ = std::make_unique<HttpResponse>(std::move(msg), pool_);
+    response_ = std::make_unique<HttpResponse>(
+        std::move(msg), pool_, minResponseAllocBytes_, maxResponseAllocBytes_);
   }
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
@@ -201,6 +207,8 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   const std::string body_;
   const std::function<void(int)> reportOnBodyStatsFunc_;
   velox::memory::MemoryPool* const pool_;
+  const uint64_t minResponseAllocBytes_;
+  const uint64_t maxResponseAllocBytes_;
   std::unique_ptr<HttpResponse> response_;
   folly::Promise<std::unique_ptr<HttpResponse>> promise_;
   std::shared_ptr<ResponseHandler> self_;
@@ -266,7 +274,7 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
     velox::memory::MemoryPool* pool,
     const std::string& body) {
   auto responseHandler = std::make_shared<ResponseHandler>(
-      request, pool, body, reportOnBodyStatsFunc_);
+      request, pool, maxResponseAllocBytes_, body, reportOnBodyStatsFunc_);
   auto future = responseHandler->initialize(responseHandler);
 
   eventBase_->runInEventBaseThreadAlwaysEnqueue([this, responseHandler]() {

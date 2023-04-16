@@ -27,7 +27,9 @@ class HttpResponse {
  public:
   HttpResponse(
       std::unique_ptr<proxygen::HTTPMessage> headers,
-      velox::memory::MemoryPool* pool);
+      velox::memory::MemoryPool* pool,
+      uint64_t minResponseAllocBytes,
+      uint64_t maxResponseAllocBytes);
 
   ~HttpResponse();
 
@@ -125,6 +127,7 @@ class HttpClient {
   const folly::SocketAddress address_;
   const folly::HHWheelTimer::UniquePtr timer_;
   const std::function<void(int)> reportOnBodyStatsFunc_;
+  const uint64_t maxResponseAllocBytes_;
 
   std::unique_ptr<proxygen::SessionPool> sessionPool_;
 };
