@@ -88,7 +88,9 @@ Announcer::Announcer(
     const std::string& nodeId,
     const std::string& nodeLocation,
     const std::vector<std::string>& connectorIds,
-    uint64_t frequencyMs)
+    uint64_t frequencyMs,
+    const std::string& clientCertAndKeyPath,
+    const std::string& ciphers)
     : discoveryAddressLookup_(std::move(discoveryAddressLookup)),
       frequencyMs_(frequencyMs),
       announcementBody_(announcementBody(
@@ -102,7 +104,9 @@ Announcer::Announcer(
       announcementRequest_(
           announcementRequest(address, port, nodeId, announcementBody_)),
       pool_(velox::memory::addDefaultLeafMemoryPool("Announcer")),
-      eventBaseThread_(false /*autostart*/) {}
+      eventBaseThread_(false /*autostart*/),
+      clientCertAndKeyPath_(clientCertAndKeyPath),
+      ciphers_(ciphers) {}
 
 Announcer::~Announcer() {
   stop();
@@ -137,7 +141,9 @@ void Announcer::makeAnnouncement() {
       client_ = std::make_unique<http::HttpClient>(
           eventBaseThread_.getEventBase(),
           address_,
-          std::chrono::milliseconds(10'000));
+          std::chrono::milliseconds(10'000),
+          clientCertAndKeyPath_,
+          ciphers_);
     }
   } catch (const std::exception& ex) {
     LOG(WARNING) << "Error occurred during announcement run: " << ex.what();
