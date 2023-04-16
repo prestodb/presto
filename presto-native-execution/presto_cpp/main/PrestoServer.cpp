@@ -160,7 +160,10 @@ void PrestoServer::run() {
   int httpPort{0};
   int httpExecThreads{0};
 
-  std::string certPath, keyPath, ciphers;
+  std::string certPath;
+  std::string keyPath;
+  std::string ciphers;
+  std::string clientCertAndKeyPath;
   std::optional<int> httpsPort;
 
   try {
@@ -197,6 +200,7 @@ void PrestoServer::run() {
         VELOX_USER_FAIL(
             "Https Client Certificates are not configured correctly");
       }
+      clientCertAndKeyPath = optionalClientCertPath.value();
     }
 
     nodeVersion_ = systemConfig->prestoVersion();
@@ -252,7 +256,9 @@ void PrestoServer::run() {
         nodeId_,
         nodeLocation_,
         catalogNames,
-        30'000 /*milliseconds*/);
+        30'000 /*milliseconds*/,
+        clientCertAndKeyPath,
+        ciphers);
     announcer->start();
   }
 

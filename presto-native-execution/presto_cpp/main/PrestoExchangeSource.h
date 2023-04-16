@@ -15,6 +15,7 @@
 
 #include <folly/Uri.h>
 
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/exec/Exchange.h"
@@ -26,7 +27,9 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       const folly::Uri& baseUri,
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
-      velox::memory::MemoryPool* pool);
+      velox::memory::MemoryPool* pool,
+      const std::string& clientCertAndKeyPath_ = "",
+      const std::string& ciphers_ = "");
 
   bool shouldRequestLocked() override;
 
@@ -97,5 +100,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   // A boolean indicating whether abortResults() call was issued and was
   // successfully processed by the remote server.
   std::atomic_bool abortResultsSucceeded_{false};
+  const std::string clientCertAndKeyPath_;
+  const std::string ciphers_;
 };
 } // namespace facebook::presto
