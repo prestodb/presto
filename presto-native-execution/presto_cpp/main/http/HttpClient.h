@@ -112,6 +112,8 @@ class HttpClient {
       folly::EventBase* FOLLY_NONNULL eventBase,
       const folly::SocketAddress& address,
       std::chrono::milliseconds timeout,
+      const std::string& clientCertAndKeyPath = "",
+      const std::string& ciphers = "",
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr);
 
   ~HttpClient();
@@ -128,6 +130,13 @@ class HttpClient {
   const folly::HHWheelTimer::UniquePtr timer_;
   const std::function<void(int)> reportOnBodyStatsFunc_;
   const uint64_t maxResponseAllocBytes_;
+  // clientCertAndKeyPath_ Points to a file (usually with pem extension) which
+  // contains certificate and key concatenated together
+  const std::string clientCertAndKeyPath_;
+  // List of ciphers (comma separated) client can use. Note that, to communicate
+  // successfully with server, client needs to have at least one cipher common
+  // with server's cipher list
+  const std::string ciphers_;
 
   std::unique_ptr<proxygen::SessionPool> sessionPool_;
 };
