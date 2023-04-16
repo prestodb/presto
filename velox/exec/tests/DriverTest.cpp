@@ -203,7 +203,12 @@ class DriverTest : public OperatorTestBase {
         } else if (operation == ResultOperation::kTerminate) {
           cancelFuture_ = cursor->task()->requestAbort();
         } else if (operation == ResultOperation::kYield) {
-          cursor->task()->requestYield();
+          if (*counter % 2 == 0) {
+            auto time = getCurrentTimeMicro();
+            cursor->task()->yieldIfDue(time - 10);
+          } else {
+            cursor->task()->requestYield();
+          }
         } else if (operation == ResultOperation::kPause) {
           auto& executor = folly::QueuedImmediateExecutor::instance();
           auto future = cursor->task()->requestPause().via(&executor);

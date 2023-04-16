@@ -1886,7 +1886,7 @@ std::string Task::errorMessage() const {
   return errorMessageLocked();
 }
 
-StopReason Task::enter(ThreadState& state) {
+StopReason Task::enter(ThreadState& state, uint64_t nowMicros) {
   std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK(state.isEnqueued);
   state.isEnqueued = false;
@@ -1902,6 +1902,9 @@ StopReason Task::enter(ThreadState& state) {
   }
   if (reason == StopReason::kNone) {
     ++numThreads_;
+    if (numThreads_ == 1) {
+      onThreadSince_ = nowMicros;
+    }
     state.setThread();
     state.hasBlockingFuture = false;
   }
@@ -2000,6 +2003,19 @@ StopReason Task::shouldStop() {
     return shouldStopLocked();
   }
   return StopReason::kNone;
+}
+
+int32_t Task::yieldIfDue(uint64_t startTimeMicros) {
+  if (onThreadSince_ < startTimeMicros) {
+    std::lock_guard<std::mutex> l(mutex_);
+    // Reread inside the mutex
+    if (onThreadSince_ < startTimeMicros && numThreads_ && !toYield_ &&
+        !terminateRequested_ && !pauseRequested_) {
+      toYield_ = numThreads_;
+      return numThreads_;
+    }
+  }
+  return 0;
 }
 
 void Task::finishedLocked() {
