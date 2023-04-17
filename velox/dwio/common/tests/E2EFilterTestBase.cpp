@@ -529,7 +529,13 @@ void E2EFilterTestBase::testSubfieldsPruning() {
         [](auto j) { return 7 + (j % 3); },
         [](auto j) { return j; },
         [&](auto j) { return j >= i + 1 && j % 19 == (i + 1) % 19; });
-    batches.push_back(vectorMaker.rowVector({"a", "b", "c"}, {a, b, c}));
+    auto d = vectorMaker.mapVector<int64_t, StringView>(
+        batchSize_,
+        [](auto) { return 1; },
+        [](auto) { return 0; },
+        [](auto) { return "foofoofoofoofoo"_sv; });
+    batches.push_back(
+        vectorMaker.rowVector({"a", "b", "c", "d"}, {a, b, c, d}));
   }
   writeToMemory(batches[0]->type(), batches, false);
   auto spec = std::make_shared<common::ScanSpec>("<root>");
@@ -551,6 +557,9 @@ void E2EFilterTestBase::testSubfieldsPruning() {
       ->setFilter(common::createBigintValues(requiredB, false));
   spec->addFieldRecursively("c", *ARRAY(BIGINT()), 2)
       ->setMaxArrayElementsCount(6);
+  auto specD = spec->addFieldRecursively("d", *MAP(BIGINT(), VARCHAR()), 3);
+  specD->childByName(common::ScanSpec::kMapKeysFieldName)
+      ->setFilter(common::createBigintValues({1}, false));
   ReaderOptions readerOpts{leafPool_.get()};
   RowReaderOptions rowReaderOpts;
   std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
@@ -598,6 +607,9 @@ void E2EFilterTestBase::testSubfieldsPruning() {
               cc->elements()->equalValueAt(c->elements().get(), k1, k2));
         }
       }
+      auto* dd = actual->childAt(3)->loadedVector()->asUnchecked<MapVector>();
+      ASSERT_FALSE(dd->isNullAt(ii));
+      ASSERT_EQ(dd->sizeAt(ii), 0);
       ++ii;
     }
   }
