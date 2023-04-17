@@ -40,7 +40,7 @@ class MapKeyValueFunction : public exec::VectorFunction {
       exec::LocalSingleRow singleRow(context, flatIndex);
       localResult = applyFlat(*singleRow, flatMap, context);
       localResult =
-          BaseVector::wrapInConstant(rows.size(), flatIndex, localResult);
+          BaseVector::wrapInConstant(rows.end(), flatIndex, localResult);
     } else {
       localResult = applyFlat(rows, arg, context);
     }

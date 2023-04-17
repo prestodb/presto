@@ -176,7 +176,7 @@ void ArraySort::apply(
     exec::LocalSingleRow singleRow(context, flatIndex);
     localResult = applyFlat(*singleRow, flatArray, context);
     localResult =
-        BaseVector::wrapInConstant(rows.size(), flatIndex, localResult);
+        BaseVector::wrapInConstant(rows.end(), flatIndex, localResult);
   } else {
     localResult = applyFlat(rows, arg, context);
   }

@@ -69,8 +69,8 @@ class ArrayShuffleFunction : public exec::VectorFunction {
 
     // Allocate new buffer to hold shuffled indices.
     BufferPtr shuffledIndices = allocateIndices(numElements, context.pool());
-    BufferPtr offsets = allocateOffsets(rows.size(), context.pool());
-    BufferPtr sizes = allocateSizes(rows.size(), context.pool());
+    BufferPtr offsets = allocateOffsets(rows.end(), context.pool());
+    BufferPtr sizes = allocateSizes(rows.end(), context.pool());
 
     vector_size_t* rawIndices = shuffledIndices->asMutable<vector_size_t>();
     vector_size_t* rawOffsets = offsets->asMutable<vector_size_t>();
@@ -98,7 +98,7 @@ class ArrayShuffleFunction : public exec::VectorFunction {
         context.pool(),
         arrayVector->type(),
         nullptr,
-        rows.size(),
+        rows.end(),
         std::move(offsets),
         std::move(sizes),
         std::move(resultElements));

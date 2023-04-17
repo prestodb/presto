@@ -139,7 +139,7 @@ class VectorArithmetic : public VectorFunction {
           args[1].unique() && rightEncoding == VectorEncoding::Simple::FLAT) {
         result = std::move(args[1]);
       } else {
-        result = BaseVector::create(outputType, rows.size(), context.pool());
+        result = BaseVector::create(outputType, rows.end(), context.pool());
       }
     } else {
       // if the output is previously initialized, we prepare it for writing

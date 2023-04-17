@@ -64,8 +64,8 @@ class FilterFunctionBase : public exec::VectorFunction {
     auto inputSizes = input->rawSizes();
 
     auto* pool = context.pool();
-    resultSizes = allocateSizes(rows.size(), pool);
-    resultOffsets = allocateOffsets(rows.size(), pool);
+    resultSizes = allocateSizes(rows.end(), pool);
+    resultOffsets = allocateOffsets(rows.end(), pool);
     auto rawResultSizes = resultSizes->asMutable<vector_size_t>();
     auto rawResultOffsets = resultOffsets->asMutable<vector_size_t>();
     auto numElements = lambdaArgs[0]->size();
@@ -163,7 +163,7 @@ class ArrayFilterFunction : public FilterFunctionBase {
         flatArray->pool(),
         flatArray->type(),
         flatArray->nulls(),
-        rows.size(),
+        rows.end(),
         std::move(resultOffsets),
         std::move(resultSizes),
         wrappedElements);
@@ -228,7 +228,7 @@ class MapFilterFunction : public FilterFunctionBase {
         flatMap->pool(),
         outputType,
         flatMap->nulls(),
-        rows.size(),
+        rows.end(),
         std::move(resultOffsets),
         std::move(resultSizes),
         wrappedKeys,

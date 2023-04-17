@@ -25,7 +25,7 @@ BufferPtr flattenNulls(
   }
 
   BufferPtr nulls =
-      AlignedBuffer::allocate<bool>(rows.size(), decodedVector.base()->pool());
+      AlignedBuffer::allocate<bool>(rows.end(), decodedVector.base()->pool());
   auto rawNulls = nulls->asMutable<uint64_t>();
   rows.applyToSelected([&](vector_size_t row) {
     bits::setNull(rawNulls, row, decodedVector.isNullAt(row));
@@ -104,7 +104,7 @@ ArrayVectorPtr flattenArray(
       array->pool(),
       array->type(),
       newNulls,
-      rows.size(),
+      rows.end(),
       newOffsets,
       newSizes,
       BaseVector::wrapInDictionary(
@@ -142,7 +142,7 @@ MapVectorPtr flattenMap(
       map->pool(),
       map->type(),
       newNulls,
-      rows.size(),
+      rows.end(),
       newOffsets,
       newSizes,
       BaseVector::wrapInDictionary(

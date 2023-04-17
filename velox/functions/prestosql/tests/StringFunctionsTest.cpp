@@ -1371,7 +1371,7 @@ class MultiStringFunction : public exec::VectorFunction {
       const TypePtr& /* outputType */,
       exec::EvalCtx& /*context*/,
       VectorPtr& result) const override {
-    result = BaseVector::wrapInConstant(rows.size(), 0, args[0]);
+    result = BaseVector::wrapInConstant(rows.end(), 0, args[0]);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {

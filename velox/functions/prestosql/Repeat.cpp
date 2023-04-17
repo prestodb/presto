@@ -66,7 +66,7 @@ class RepeatFunction : public exec::VectorFunction {
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
       exec::EvalCtx& context) const {
-    const auto numRows = rows.size();
+    const auto numRows = rows.end();
     auto pool = context.pool();
 
     if (args[1]->as<ConstantVector<int32_t>>()->isNullAt(0)) {
@@ -120,7 +120,7 @@ class RepeatFunction : public exec::VectorFunction {
       totalCount += count;
     });
 
-    const auto numRows = rows.size();
+    const auto numRows = rows.end();
     auto pool = context.pool();
 
     // Allocate new vector for nulls if necessary.

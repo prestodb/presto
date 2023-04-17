@@ -67,10 +67,10 @@ class MapConcatFunction : public exec::VectorFunction {
 
     // Initialize offsets and sizes to 0 so that canonicalize() will
     // work also for sparse 'rows'.
-    BufferPtr offsets = allocateOffsets(rows.size(), pool);
+    BufferPtr offsets = allocateOffsets(rows.end(), pool);
     auto rawOffsets = offsets->asMutable<vector_size_t>();
 
-    BufferPtr sizes = allocateSizes(rows.size(), pool);
+    BufferPtr sizes = allocateSizes(rows.end(), pool);
     auto rawSizes = sizes->asMutable<vector_size_t>();
 
     vector_size_t offset = 0;
@@ -99,7 +99,7 @@ class MapConcatFunction : public exec::VectorFunction {
         pool,
         outputType,
         BufferPtr(nullptr),
-        rows.size(),
+        rows.end(),
         offsets,
         sizes,
         combinedKeys,
@@ -148,7 +148,7 @@ class MapConcatFunction : public exec::VectorFunction {
           pool,
           outputType,
           BufferPtr(nullptr),
-          rows.size(),
+          rows.end(),
           offsets,
           sizes,
           keys,

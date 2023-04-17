@@ -129,7 +129,7 @@ class ReverseFunction : public exec::VectorFunction {
       exec::LocalSingleRow singleRow(context, flatIndex);
       localResult = applyArrayFlat(*singleRow, flatArray, context);
       localResult =
-          BaseVector::wrapInConstant(rows.size(), flatIndex, localResult);
+          BaseVector::wrapInConstant(rows.end(), flatIndex, localResult);
     } else {
       localResult = applyArrayFlat(rows, arg, context);
     }

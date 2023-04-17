@@ -101,7 +101,7 @@ void applyScalarType(
   VELOX_DCHECK(kind == inputElements->typeKind());
   const SelectivityVector inputElementRows =
       toElementRows(inputElements->size(), rows, inputArray);
-  const vector_size_t elementsCount = inputElementRows.size();
+  const vector_size_t elementsCount = inputElementRows.end();
 
   // TODO: consider to use dictionary wrapping to avoid the direct sorting on
   // the scalar values as we do for complex data type if this runs slow in
@@ -186,7 +186,7 @@ class ArraySortFunction : public exec::VectorFunction {
       exec::LocalSingleRow singleRow(context, flatIndex);
       localResult = applyFlat(*singleRow, flatArray, context);
       localResult =
-          BaseVector::wrapInConstant(rows.size(), flatIndex, localResult);
+          BaseVector::wrapInConstant(rows.end(), flatIndex, localResult);
     } else {
       localResult = applyFlat(rows, arg, context);
     }

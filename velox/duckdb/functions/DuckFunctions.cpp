@@ -347,7 +347,7 @@ static void toDuck(
   if (args.size() == 0) {
     return;
   }
-  auto numRows = args[0]->size();
+  auto numRows = rows.end();
   auto cardinality = std::min<size_t>(numRows - offset, STANDARD_VECTOR_SIZE);
   result.SetCardinality(cardinality);
 
@@ -453,7 +453,7 @@ class DuckDBFunction : public exec::VectorFunction {
     auto state = initializeState(std::move(inputTypes), duckDBAllocator);
     assert(state->functionIndex < set_.size());
     auto& function = set_[state->functionIndex];
-    idx_t nrow = rows.size();
+    idx_t nrow = rows.end();
 
     if (!result) {
       result = createVeloxVector(rows, function.return_type, nrow, context);

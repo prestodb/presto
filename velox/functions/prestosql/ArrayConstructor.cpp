@@ -37,9 +37,9 @@ class ArrayConstructor : public exec::VectorFunction {
     context.ensureWritable(rows, outputType, result);
     result->clearNulls(rows);
     auto arrayResult = result->as<ArrayVector>();
-    auto sizes = arrayResult->mutableSizes(rows.size());
+    auto sizes = arrayResult->mutableSizes(rows.end());
     auto rawSizes = sizes->asMutable<int32_t>();
-    auto offsets = arrayResult->mutableOffsets(rows.size());
+    auto offsets = arrayResult->mutableOffsets(rows.end());
     auto rawOffsets = offsets->asMutable<int32_t>();
 
     auto elementsResult = arrayResult->elements();

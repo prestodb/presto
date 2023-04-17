@@ -41,7 +41,7 @@ void setKeysResultTyped(
     const SelectivityVector& rows) {
   using T = typename KindToFlatVector<kind>::WrapperType;
   auto flatVector = keysResult->asFlatVector<T>();
-  flatVector->resize(rows.size() * mapSize);
+  flatVector->resize(rows.end() * mapSize);
 
   exec::LocalDecodedVector decoded(context);
   for (vector_size_t i = 0; i < mapSize; i++) {
@@ -63,7 +63,7 @@ void setValuesResultTyped(
     const SelectivityVector& rows) {
   using T = typename KindToFlatVector<kind>::WrapperType;
   auto flatVector = valuesResult->asFlatVector<T>();
-  flatVector->resize(rows.size() * mapSize);
+  flatVector->resize(rows.end() * mapSize);
 
   exec::LocalDecodedVector decoded(context);
   for (vector_size_t i = 0; i < mapSize; i++) {
@@ -116,9 +116,9 @@ class MapFunction : public exec::VectorFunction {
         rows, std::make_shared<MapType>(keyType, valueType), result);
 
     auto mapResult = result->as<MapVector>();
-    auto sizes = mapResult->mutableSizes(rows.size());
+    auto sizes = mapResult->mutableSizes(rows.end());
     auto rawSizes = sizes->asMutable<int32_t>();
-    auto offsets = mapResult->mutableOffsets(rows.size());
+    auto offsets = mapResult->mutableOffsets(rows.end());
     auto rawOffsets = offsets->asMutable<int32_t>();
 
     // Setting size and offsets
@@ -130,8 +130,8 @@ class MapFunction : public exec::VectorFunction {
     // Setting keys and value elements
     auto keysResult = mapResult->mapKeys();
     auto valuesResult = mapResult->mapValues();
-    keysResult->resize(rows.size() * mapSize);
-    valuesResult->resize(rows.size() * mapSize);
+    keysResult->resize(rows.end() * mapSize);
+    valuesResult->resize(rows.end() * mapSize);
 
     VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
         setKeysResultTyped,
