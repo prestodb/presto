@@ -489,7 +489,7 @@ std::string BaseVector::toString(
 }
 
 void BaseVector::ensureWritable(const SelectivityVector& rows) {
-  auto newSize = std::max<vector_size_t>(rows.size(), length_);
+  auto newSize = std::max<vector_size_t>(rows.end(), length_);
   if (nulls_ && !(nulls_->unique() && nulls_->isMutable())) {
     BufferPtr newNulls = AlignedBuffer::allocate<bool>(newSize, pool_);
     auto rawNewNulls = newNulls->asMutable<uint64_t>();
@@ -511,9 +511,9 @@ void BaseVector::ensureWritable(
     VectorPool* vectorPool) {
   if (!result) {
     if (vectorPool) {
-      result = vectorPool->get(type, rows.size());
+      result = vectorPool->get(type, rows.end());
     } else {
-      result = BaseVector::create(type, rows.size(), pool);
+      result = BaseVector::create(type, rows.end(), pool);
     }
     return;
   }
@@ -542,7 +542,7 @@ void BaseVector::ensureWritable(
 
   // The copy-on-write size is the max of the writable row set and the
   // vector.
-  auto targetSize = std::max<vector_size_t>(rows.size(), result->size());
+  auto targetSize = std::max<vector_size_t>(rows.end(), result->size());
 
   VectorPtr copy;
   if (vectorPool) {

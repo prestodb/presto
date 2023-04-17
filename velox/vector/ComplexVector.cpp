@@ -209,8 +209,7 @@ void RowVector::copy(
     BufferPtr mappedIndices;
     vector_size_t* rawMappedIndices = nullptr;
     if (toSourceRow) {
-      mappedIndices =
-          AlignedBuffer::allocate<vector_size_t>(rows.size(), pool_);
+      mappedIndices = AlignedBuffer::allocate<vector_size_t>(rows.end(), pool_);
       rawMappedIndices = mappedIndices->asMutable<vector_size_t>();
       nonNullRows.applyToSelected(
           [&](auto row) { rawMappedIndices[row] = indices[toSourceRow[row]]; });
@@ -688,7 +687,7 @@ std::string ArrayVector::toString(vector_size_t index) const {
 }
 
 void ArrayVector::ensureWritable(const SelectivityVector& rows) {
-  auto newSize = std::max<vector_size_t>(rows.size(), BaseVector::length_);
+  auto newSize = std::max<vector_size_t>(rows.end(), BaseVector::length_);
   if (offsets_ && !offsets_->unique()) {
     BufferPtr newOffsets =
         AlignedBuffer::allocate<vector_size_t>(newSize, BaseVector::pool_);
@@ -950,7 +949,7 @@ std::string MapVector::toString(vector_size_t index) const {
 }
 
 void MapVector::ensureWritable(const SelectivityVector& rows) {
-  auto newSize = std::max<vector_size_t>(rows.size(), BaseVector::length_);
+  auto newSize = std::max<vector_size_t>(rows.end(), BaseVector::length_);
   if (offsets_ && !offsets_->unique()) {
     BufferPtr newOffsets =
         AlignedBuffer::allocate<vector_size_t>(newSize, BaseVector::pool_);

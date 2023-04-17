@@ -75,13 +75,13 @@ void FieldReference::evalSpecialForm(
     }
     // The caller relies on vectors having a meaningful size. If we
     // have a constant that is not wrapped in anything we set its size
-    // to correspond to rows.size(). This is in place for unique ones
+    // to correspond to rows.end(). This is in place for unique ones
     // and a copy otherwise.
     if (!useDecode && child->isConstantEncoding()) {
       if (isUniqueChild) {
-        child->resize(rows.size());
+        child->resize(rows.end());
       } else {
-        child = BaseVector::wrapInConstant(rows.size(), 0, child);
+        child = BaseVector::wrapInConstant(rows.end(), 0, child);
       }
     }
     result = useDecode ? std::move(decoded.wrap(child, *input, rows.end()))
