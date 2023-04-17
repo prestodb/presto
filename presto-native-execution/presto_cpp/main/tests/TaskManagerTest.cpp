@@ -940,7 +940,7 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
       std::move(f).via(&executor);
   // Future is invoked when a value is set on the promise.
   auto future =
-      move(semiFuture)
+      std::move(semiFuture)
           .thenValue([&promiseFulfilled,
                       token](std::unique_ptr<Result> result) {
             ASSERT_EQ(result->complete, false);
