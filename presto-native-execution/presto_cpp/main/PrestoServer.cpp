@@ -361,10 +361,7 @@ void PrestoServer::run() {
       memoryAllocator,
       dynamic_cast<const velox::cache::AsyncDataCache* const>(memoryAllocator),
       velox::connector::getAllConnectors());
-  periodicTaskManager_->addTask(
-      [server = this]() { server->populateMemAndCPUInfo(); },
-      1'000'000, // 1 second
-      "populate_mem_cpu_info");
+  addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();
 
@@ -425,6 +422,22 @@ void PrestoServer::run() {
         << "Global IO Executor '" << pGlobalIOExecutor->getName()
         << "': threads: " << pGlobalIOExecutor->numActiveThreads() << "/"
         << pGlobalIOExecutor->numThreads();
+  }
+}
+
+void PrestoServer::yieldTasks() {
+  const auto timeslice = SystemConfig::instance()->taskRunTimeSliceMicros();
+  if (timeslice <= 0) {
+    return;
+  }
+  static std::atomic<int32_t> numYields = 0;
+  const auto numQueued = driverCPUExecutor()->getTaskQueueSize();
+  if (numQueued > 0) {
+    numYields += taskManager_->yieldTasks(numQueued, timeslice);
+  }
+  if (numYields > 100'000) {
+    LOG(INFO) << "Yielded " << numYields << " more threads.";
+    numYields = 0;
   }
 }
 
@@ -536,7 +549,18 @@ void PrestoServer::initializeCoordinatorDiscoverer() {
   }
 }
 
-void PrestoServer::addAdditionalPeriodicTasks() {}
+void PrestoServer::addServerPeriodicTasks() {
+  periodicTaskManager_->addTask(
+      [server = this]() { server->populateMemAndCPUInfo(); },
+      1'000'000, // 1 second
+      "populate_mem_cpu_info");
+
+  const auto timeslice = SystemConfig::instance()->taskRunTimeSliceMicros();
+  if (timeslice > 0) {
+    periodicTaskManager_->addTask(
+        [server = this]() { server->yieldTasks(); }, timeslice, "yield_tasks");
+  }
+}
 
 std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListener() {
   return nullptr;

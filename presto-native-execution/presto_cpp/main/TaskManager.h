@@ -119,6 +119,11 @@ class TaskManager {
     return &queryContextManager_;
   }
 
+  /// Make upto target task threads to yield. Task candidate must have been on
+  /// thread for at least sliceMicros to be yieldable. Return the number of
+  /// threads in tasks that were requested to yield.
+  int32_t yieldTasks(int32_t numTargetThreadsToYield, int32_t timeSliceMicros);
+
   const QueryContextManager* getQueryContextManager() const {
     return &queryContextManager_;
   }
