@@ -19,11 +19,14 @@ add_compile_definitions(BUILD_PARQUET_EXTENSION)
 # that DuckDB embeds and is also on Thrift master.
 # The workaround, for now, is to disable this warning if the compiler is Clang.
 check_cxx_compiler_flag(-Wno-unqualified-std-cast-call UNQUALIFIED_STD_CAST)
+check_cxx_compiler_flag(-Wno-bitwise-instead-of-logical BITWISE_INSTEAD_OF_LOGICAL)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wno-deprecated-declarations)
   if(UNQUALIFIED_STD_CAST)
-    add_compile_options(-Wno-deprecated-declarations -Wno-unqualified-std-cast-call)
-  else()
-    add_compile_options(-Wno-deprecated-declarations)
+    add_compile_options(-Wno-unqualified-std-cast-call)
+  endif()
+  if(BITWISE_INSTEAD_OF_LOGICAL)
+    add_compile_options(-Wno-bitwise-instead-of-logical)
   endif()
 endif()
 
