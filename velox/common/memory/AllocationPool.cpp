@@ -31,6 +31,11 @@ void AllocationPool::clear() {
 
 char* AllocationPool::allocateFixed(uint64_t bytes, int32_t alignment) {
   VELOX_CHECK_GT(bytes, 0, "Cannot allocate zero bytes");
+  if (availableInRun() >= bytes && alignment == 1) {
+    auto* result = currentRun().data<char>() + currentOffset_;
+    currentOffset_ += bytes;
+    return result;
+  }
   VELOX_CHECK_EQ(
       __builtin_popcount(alignment), 1, "Alignment can only be power of 2");
 
