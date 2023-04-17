@@ -271,6 +271,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 35s
           STR_PROP(kExchangeMaxErrorDuration, "30s"),
           STR_PROP(kExchangeRequestTimeout, "10s"),
+          NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
       };
 }
 
@@ -499,6 +500,10 @@ std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
 
 std::chrono::duration<double> SystemConfig::exchangeRequestTimeout() const {
   return toDuration(optionalProperty(kExchangeRequestTimeout).value());
+}
+
+int32_t SystemConfig::taskRunTimeSliceMicros() const {
+  return optionalProperty<int32_t>(kTaskRunTimeSliceMicros).value();
 }
 
 NodeConfig::NodeConfig() {
