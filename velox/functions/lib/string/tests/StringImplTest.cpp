@@ -496,3 +496,44 @@ TEST_F(StringImplTest, pad) {
   runTestUserError(
       "text", ((int64_t)std::numeric_limits<int32_t>::max()) + 1, "a");
 }
+
+// Make sure that utf8proc_codepoint returns invalid codepoint (-1) for
+// incomplete character of length>1.
+TEST_F(StringImplTest, utf8proc_codepoint) {
+  int size;
+
+  std::string twoBytesChar = "\xdd\x81";
+  EXPECT_EQ(
+      utf8proc_codepoint(twoBytesChar.data(), twoBytesChar.data() + 1, size),
+      -1);
+  EXPECT_NE(
+      utf8proc_codepoint(twoBytesChar.data(), twoBytesChar.data() + 2, size),
+      -1);
+  EXPECT_EQ(size, 2);
+
+  std::string threeBytesChar = "\xe0\xa4\x86";
+  for (int i = 1; i <= 2; i++) {
+    EXPECT_EQ(
+        utf8proc_codepoint(
+            threeBytesChar.data(), threeBytesChar.data() + i, size),
+        -1);
+  }
+
+  EXPECT_NE(
+      utf8proc_codepoint(
+          threeBytesChar.data(), threeBytesChar.data() + 3, size),
+      -1);
+  EXPECT_EQ(size, 3);
+
+  std::string fourBytesChar = "\xf0\x92\x80\x85";
+  for (int i = 1; i <= 3; i++) {
+    EXPECT_EQ(
+        utf8proc_codepoint(
+            fourBytesChar.data(), fourBytesChar.data() + i, size),
+        -1);
+  }
+  EXPECT_NE(
+      utf8proc_codepoint(fourBytesChar.data(), fourBytesChar.data() + 4, size),
+      -1);
+  EXPECT_EQ(size, 4);
+}

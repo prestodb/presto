@@ -1324,13 +1324,8 @@ TEST_F(StringFunctionsTest, reverse) {
   EXPECT_EQ(expectedInvalidStr, reverse(invalidStr));
 
   // Test unicode out of the valid range.
-  std::string invalidUnicodeStr;
-  invalidUnicodeStr.resize(3);
-  // An invalid unicode within 0xD800--0xDFFF.
-  int16_t invalidUnicode = 0xeda0;
-  memcpy(invalidUnicodeStr.data(), &invalidUnicode, 2);
-  invalidUnicodeStr[2] = '\0';
-  EXPECT_THROW(reverse(invalidUnicodeStr), VeloxUserError);
+  std::string invalidIncompleteString = "\xed\xa0";
+  EXPECT_EQ(reverse(invalidIncompleteString), "\xa0\xed");
 }
 
 TEST_F(StringFunctionsTest, toUtf8) {

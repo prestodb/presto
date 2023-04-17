@@ -72,11 +72,14 @@ reverseUnicode(char* output, const char* input, size_t length) {
   auto outputIdx = length;
   while (inputIdx < length) {
     int size = 1;
-    utf8proc_codepoint(&input[inputIdx], size);
-    // invalid utf8 gets byte sequence with nextCodePoint==-1 and size==1,
+    auto valid = utf8proc_codepoint(&input[inputIdx], input + length, size);
+
+    // if invalid utf8 gets byte sequence with nextCodePoint==-1 and size==1,
     // continue reverse invalid sequence byte by byte.
-    VELOX_USER_CHECK_GT(
-        size, 0, "UNLIKELY: could not get size of invalid utf8 code point");
+    if (valid == -1) {
+      size = 1;
+    }
+
     VELOX_USER_CHECK_GE(outputIdx, size, "access out of bound");
     outputIdx -= size;
 
@@ -125,7 +128,8 @@ FOLLY_ALWAYS_INLINE size_t upperUnicode(
   while (inputIdx < inputLength) {
     utf8proc_int32_t nextCodePoint;
     int size;
-    nextCodePoint = utf8proc_codepoint(&input[inputIdx], size);
+    nextCodePoint =
+        utf8proc_codepoint(&input[inputIdx], input + inputLength, size);
     if (UNLIKELY(nextCodePoint == -1)) {
       // invalid input string, copy the remaining of the input string as is to
       // the output.
@@ -164,7 +168,8 @@ FOLLY_ALWAYS_INLINE size_t lowerUnicode(
   while (inputIdx < inputLength) {
     utf8proc_int32_t nextCodePoint;
     int size;
-    nextCodePoint = utf8proc_codepoint(&input[inputIdx], size);
+    nextCodePoint =
+        utf8proc_codepoint(&input[inputIdx], input + inputLength, size);
     if (UNLIKELY(nextCodePoint == -1)) {
       // invalid input string, copy the remaining of the input string as is to
       // the output.

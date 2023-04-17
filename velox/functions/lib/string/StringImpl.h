@@ -143,7 +143,8 @@ FOLLY_ALWAYS_INLINE int32_t charToCodePoint(const T& inputString) {
       length);
 
   int size;
-  auto codePoint = utf8proc_codepoint(inputString.data(), size);
+  auto codePoint = utf8proc_codepoint(
+      inputString.data(), inputString.data() + inputString.size(), size);
   return codePoint;
 }
 
@@ -387,8 +388,10 @@ FOLLY_ALWAYS_INLINE void trimUnicodeWhiteSpace(
   if constexpr (leftTrim) {
     int codePointSize = 0;
     while (curStartPos < input.size()) {
-      auto codePoint =
-          utf8proc_codepoint(input.data() + curStartPos, codePointSize);
+      auto codePoint = utf8proc_codepoint(
+          input.data() + curStartPos,
+          input.data() + input.size(),
+          codePointSize);
       if (!isUnicodeWhiteSpace(codePoint)) {
         break;
       }
