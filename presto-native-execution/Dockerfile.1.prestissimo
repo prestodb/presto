@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 ARG CPU_TARGET=avx
 ARG IMAGE_TAG=latest
 ARG IMAGE_REGISTRY=prestodb/${CPU_TARGET}
@@ -19,7 +20,6 @@ ARG BUILDTIME_IMAGE=centos8-prestissimo-buildtime
 ARG RUNTIME_IMAGE=centos8-prestissimo-runtime
 
 FROM --platform=$TARGETPLATFORM ${IMAGE_REGISTRY}/${BUILDTIME_IMAGE}:${IMAGE_TAG} as build-stage
-
 WORKDIR $PRESTO_HOME
 
 ENV PATH=/opt/dependency/install/bin:/opt/dependency/install/bin/hadoop-2.10.1/bin:$PATH
