@@ -1085,4 +1085,29 @@ TEST_F(SimpleFunctionTest, evalGenericOutput) {
   assertEqualVectors(expected, result);
 }
 
+template <typename T>
+struct NotDefaultNull {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  void
+  callNullable(int32_t& out, const int32_t* input1, const int32_t* input2) {
+    out = (input1 && input2) ? 1 : 2;
+  }
+
+  void callNullFree(int32_t& out, int32_t input1, int32_t input2) {
+    out = 10;
+  }
+};
+
+// Test that callNullable is called when nulls are purned.
+TEST_F(SimpleFunctionTest, testAllNotNull) {
+  auto input = makeNullableFlatVector<int32_t>({std::nullopt, 2});
+  registerFunction<NotDefaultNull, int32_t, int32_t, int32_t>({"func"});
+  // This expression triggers null pruinig on distinct fields.
+  auto result = evaluate(
+      "try(switch(func(c0, NULL::INT)==0, c0))", makeRowVector({input}));
+  auto expected = makeNullableFlatVector<int32_t>({std::nullopt, std::nullopt});
+  assertEqualVectors(expected, result);
+}
+
 } // namespace
