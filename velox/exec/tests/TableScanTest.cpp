@@ -32,6 +32,7 @@
 
 using namespace facebook::velox;
 using namespace facebook::velox::connector::hive;
+using namespace facebook::velox::core;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::common::test;
 using namespace facebook::velox::exec::test;
@@ -615,6 +616,80 @@ TEST_F(TableScanTest, count) {
   }
 
   EXPECT_EQ(numRead, 10'000);
+}
+
+TEST_F(TableScanTest, batchSize) {
+  // Make a wide row of many BIGINT columns to ensure that row size is
+  // larger than 1KB.
+  auto rowSize = 1024; // 1KB
+  auto columnSize = sizeof(int64_t);
+  auto numColumns = 2 * rowSize / columnSize;
+  // Make total input size 2MB, less than 10MB.
+  auto totalInputSize = 2048 * 1024;
+  auto numRows = totalInputSize / rowSize; // 1024 rows
+
+  std::vector<std::string> names;
+  for (int i = 0; i < numColumns; i++) {
+    names.push_back(fmt::format("c{}", i));
+  }
+  auto rowType =
+      ROW(std::move(names), std::vector<TypePtr>(numColumns, BIGINT()));
+  auto vector = makeVectors(1, numRows, rowType);
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, vector);
+
+  createDuckDbTable(vector);
+
+  auto plan = PlanBuilder().tableScan(rowType).planNode();
+  // Test kPreferredOutputBatchBytes is set to be very small and less than a
+  // single row size. Then each output batch contains 1 and only 1 row, or
+  // the number of batches equals to the number of output rows.
+  {
+    auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                    .plan(plan)
+                    .splits(makeHiveConnectorSplits({filePath}))
+                    .config(
+                        QueryConfig::kPreferredOutputBatchBytes,
+                        folly::to<std::string>(rowSize - 100))
+                    .assertResults("SELECT * FROM tmp");
+    const auto opStats = task->taskStats().pipelineStats[0].operatorStats[0];
+
+    EXPECT_EQ(opStats.outputVectors, opStats.outputPositions);
+  }
+  // Test kPreferredOutputBatchBytes is set to be very large and more than the
+  // total input size.Then there would be only 1 output batch containing all
+  // output rows.
+  {
+    auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                    .plan(plan)
+                    .splits(makeHiveConnectorSplits({filePath}))
+                    .config(
+                        QueryConfig::kPreferredOutputBatchBytes,
+                        folly::to<std::string>(totalInputSize * 5))
+                    .assertResults("SELECT * FROM tmp");
+    const auto opStats = task->taskStats().pipelineStats[0].operatorStats[0];
+
+    EXPECT_EQ(opStats.outputVectors, 1);
+  }
+  // Test kPreferredOutputBatchBytes is set to be less than the total input
+  // size. Then there would be more than 1 output batch. Each batch contains
+  // more than 1 row but fewer than the total output rows.
+  {
+    auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                    .plan(plan)
+                    .splits(makeHiveConnectorSplits({filePath}))
+                    .config(
+                        QueryConfig::kPreferredOutputBatchBytes,
+                        folly::to<std::string>(totalInputSize - 1024))
+                    .assertResults("SELECT * FROM tmp");
+    const auto opStats = task->taskStats().pipelineStats[0].operatorStats[0];
+
+    EXPECT_GT(opStats.outputVectors, 1);
+    EXPECT_LT(opStats.outputVectors, opStats.outputPositions);
+    EXPECT_GT(opStats.outputPositions / opStats.outputVectors, 1);
+    EXPECT_LT(opStats.outputPositions / opStats.outputVectors, numRows);
+  }
 }
 
 // Test that adding the same split with the same sequence id does not cause

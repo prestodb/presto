@@ -57,8 +57,6 @@ class TableScan : public SourceOperator {
   }
 
  private:
-  static constexpr int32_t kDefaultBatchSize = 1024;
-
   // Sets 'maxPreloadSplits' and 'splitPreloader' if prefetching
   // splits is appropriate. The preloader will be applied to the
   // 'first 'maxPreloadSplits' of the Tasks's split queue for 'this'
@@ -70,9 +68,6 @@ class TableScan : public SourceOperator {
   // background on the executor of the connector. If the DataSource is
   // needed before prepare is done, it will be made when needed.
   void preload(std::shared_ptr<connector::ConnectorSplit> split);
-
-  // Adjust batch size according to split information.
-  void setBatchSize();
 
   // Process-wide IO wait time.
   static std::atomic<uint64_t> ioWaitNanos_;
@@ -110,7 +105,7 @@ class TableScan : public SourceOperator {
   // Count of splits that finished preloading before being read.
   int32_t numReadyPreloadedSplits_{0};
 
-  int32_t readBatchSize_{kDefaultBatchSize};
+  int32_t readBatchSize_;
 
   // String shown in ExceptionContext inside DataSource and LazyVector loading.
   std::string debugString_;

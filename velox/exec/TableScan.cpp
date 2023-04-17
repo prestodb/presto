@@ -42,7 +42,10 @@ TableScan::TableScan(
           driverCtx_->pipelineId,
           driverCtx_->driverId,
           operatorType(),
-          tableHandle_->connectorId())) {
+          tableHandle_->connectorId())),
+      readBatchSize_(driverCtx_->task->queryCtx()
+                         ->queryConfig()
+                         .preferredOutputBatchRows()) {
   connector_ = connector::getConnector(tableHandle_->connectorId());
 }
 
@@ -138,7 +141,12 @@ RowVectorPtr TableScan::getOutput() {
         dataSource_->addSplit(connectorSplit);
       }
       ++stats_.wlock()->numSplits;
-      setBatchSize();
+
+      auto estimatedRowSize = dataSource_->estimatedRowSize();
+      readBatchSize_ =
+          estimatedRowSize == connector::DataSource::kUnknownRowSize
+          ? outputBatchRows()
+          : outputBatchRows(estimatedRowSize);
     }
 
     const auto ioTimeStartMicros = getCurrentTimeMicro();
@@ -258,20 +266,6 @@ void TableScan::checkPreload() {
 
 bool TableScan::isFinished() {
   return noMoreSplits_;
-}
-
-void TableScan::setBatchSize() {
-  constexpr int64_t kMB = 1 << 20;
-  auto estimate = dataSource_->estimatedRowSize();
-  if (estimate == connector::DataSource::kUnknownRowSize) {
-    readBatchSize_ = kDefaultBatchSize;
-    return;
-  }
-  if (estimate < 1024) {
-    readBatchSize_ = 10000; // No more than 10MB of data per batch.
-    return;
-  }
-  readBatchSize_ = std::min<int64_t>(100, 10 * kMB / estimate);
 }
 
 void TableScan::addDynamicFilter(
