@@ -83,7 +83,7 @@ class PrestoServer {
  protected:
   /// Hook for derived PrestoServer implementations to add additional periodic
   /// tasks.
-  virtual void addAdditionalPeriodicTasks();
+  virtual void addAdditionalPeriodicTasks(){};
 
   virtual void initializeCoordinatorDiscoverer();
 
@@ -138,6 +138,8 @@ class PrestoServer {
   void initializeVeloxMemory();
 
  protected:
+  void addServerPeriodicTasks();
+
   void reportMemoryInfo(proxygen::ResponseHandler* downstream);
 
   void reportServerInfo(proxygen::ResponseHandler* downstream);
@@ -145,6 +147,9 @@ class PrestoServer {
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
   void populateMemAndCPUInfo();
+
+  // Periodically yield tasks if there are tasks queued.
+  void yieldTasks();
 
   const std::string configDirectoryPath_;
 

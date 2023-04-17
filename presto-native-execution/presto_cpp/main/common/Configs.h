@@ -253,6 +253,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kRemoteFunctionServerThriftPort{
       "remote-function-server.thrift.port"};
 
+  /// Do not include runtime stats in the returned task info if the task is
+  /// in running state.
   static constexpr std::string_view kSkipRuntimeStatsInRunningTaskInfo{
       "skip-runtime-stats-in-running-task-info"};
 
@@ -270,6 +272,10 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kExchangeRequestTimeout{
       "exchange.http-client.request-timeout"};
+
+  /// The maximum timeslice for a task on thread if there are threads queued.
+  static constexpr std::string_view kTaskRunTimeSliceMicros{
+      "task-run-timeslice-micros"};
 
   SystemConfig();
 
@@ -395,6 +401,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 
   std::chrono::duration<double> exchangeRequestTimeout() const;
+
+  int32_t taskRunTimeSliceMicros() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
