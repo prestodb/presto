@@ -195,9 +195,8 @@ TEST_F(CrossJoinTest, zeroColumnBuild) {
   };
 
   auto rightVectors = {
-      makeRowVector({sequence<int32_t>(5)}),
-      //      vectorMaker_.rowVector(ROW({}, {}), 5),
-  };
+      makeRowVector({sequence<int32_t>(1)}),
+      makeRowVector({sequence<int32_t>(4, 1)})};
 
   createDuckDbTable("t", {leftVectors});
 

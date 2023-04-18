@@ -29,17 +29,12 @@ CrossJoinProbe::CrossJoinProbe(
           joinNode->id(),
           "CrossJoinProbe"),
       outputBatchSize_{outputBatchRows()} {
-  bool isIdentityProjection = true;
-
   auto probeType = joinNode->sources()[0]->outputType();
   for (auto i = 0; i < probeType->size(); ++i) {
     auto name = probeType->nameOf(i);
     auto outIndex = outputType_->getChildIdxIfExists(name);
     if (outIndex.has_value()) {
       identityProjections_.emplace_back(i, outIndex.value());
-      if (outIndex != i) {
-        isIdentityProjection = false;
-      }
     }
   }
 
@@ -49,10 +44,6 @@ CrossJoinProbe::CrossJoinProbe(
     if (tableChannel.has_value()) {
       buildProjections_.emplace_back(tableChannel.value(), i);
     }
-  }
-
-  if (isIdentityProjection && buildProjections_.empty()) {
-    isIdentityProjection_ = true;
   }
 }
 
