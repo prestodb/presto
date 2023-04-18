@@ -129,42 +129,6 @@ static void addRuntimeMetricIfNotZero(
   }
 }
 
-// Add 'running time' metrics from Velox operator stats to Presto operator
-// stats.
-static void addRunningTimeOperatorMetrics(
-    protocol::OperatorStats& opOut,
-    protocol::TaskStats& prestoTaskStats,
-    const exec::OperatorStats& op) {
-  auto statName = fmt::format(
-      "{}.{}.runningAddInputWallNanos", op.operatorType, op.planNodeId);
-  auto prestoMetric =
-      createProtocolRuntimeMetric(statName, op.addInputTiming.wallNanos);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
-
-  statName = fmt::format(
-      "{}.{}.runningGetOutputWallNanos", op.operatorType, op.planNodeId);
-  prestoMetric =
-      createProtocolRuntimeMetric(statName, op.getOutputTiming.wallNanos);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
-
-  statName = fmt::format(
-      "{}.{}.runningFinishWallNanos", op.operatorType, op.planNodeId);
-  prestoMetric =
-      createProtocolRuntimeMetric(statName, op.finishTiming.wallNanos);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
-
-  statName = fmt::format(
-      "{}.{}.runningTotalTimeWallNanos", op.operatorType, op.planNodeId);
-  const auto totalRunningWallNanos = op.addInputTiming.wallNanos +
-      op.getOutputTiming.wallNanos + op.finishTiming.wallNanos;
-  prestoMetric = createProtocolRuntimeMetric(statName, totalRunningWallNanos);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
-}
-
 // Add 'spilling' metrics from Velox operator stats to Presto operator stats.
 static void addSpillingOperatorMetrics(
     protocol::OperatorStats& opOut,
@@ -466,7 +430,6 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
             statName, createProtocolRuntimeMetric(statName, op.numSplits));
       }
 
-      addRunningTimeOperatorMetrics(opOut, prestoTaskStats, op);
       // If Velox operator has spilling stats, then add them to the Presto
       // operator stats and the task stats as runtime stats.
       if (op.spilledBytes > 0) {
