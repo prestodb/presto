@@ -30,6 +30,16 @@ presto-docs-venv/
 #==============================================================================#
 # presto-native-execution
 #==============================================================================#
+presto-native-execution/antlr4/
+presto-native-execution/double-conversion/
+presto-native-execution/fbthrift/
+presto-native-execution/fizz/
+presto-native-execution/fmt/
+presto-native-execution/folly/
+presto-native-execution/proxygen/
+presto-native-execution/range-v3/
+presto-native-execution/re2/
+presto-native-execution/wangle/
 _build/
 cmake-build-*/
 *.swp
