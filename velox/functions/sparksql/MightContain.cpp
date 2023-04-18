@@ -40,7 +40,8 @@ class BloomFilterMightContainFunction final : public exec::VectorFunction {
     VELOX_USER_CHECK(serialized->isConstantMapping())
     BloomFilter output{StlAllocator<uint64_t>(&allocator)};
     try {
-      output.merge(serialized->valueAt<StringView>(0).str().c_str());
+      auto sv = serialized->valueAt<StringView>(0);
+      output.merge(sv.data());
     } catch (const std::exception& e) {
       context.setErrors(rows, std::current_exception());
       return;
