@@ -1,6 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import styles from './styles.module.css';
+import useBaseUrl from "@docusaurus/useBaseUrl";
 
 const FeatureList = [
   {
@@ -51,6 +52,9 @@ export default function HomepageFeatures() {
           {FeatureList.map((props, idx) => (
             <Feature key={idx} {...props} />
           ))}
+        </div>
+        <div className="row">
+          <img src={useBaseUrl("img/stack_transform.png")}/>
         </div>
       </div>
     </section>

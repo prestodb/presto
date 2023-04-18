@@ -56,7 +56,12 @@ export default function Home() {
               <div className="container">
                   <div className="row">
                       <div className={clsx('col')}>
-                          <img src={useBaseUrl("img/stack_transform.png")}/>
+                          <center>
+                          <iframe width="70%" height="504" src="https://www.youtube.com/embed/T9NMWN7vuSc"
+                                  title="YouTube video player" frameBorder="0"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                  allowFullScreen></iframe>
+                          </center>
                       </div>
                   </div>
               </div>
