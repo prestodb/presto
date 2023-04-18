@@ -98,7 +98,7 @@ import static com.google.inject.multibindings.MapBinder.newMapBinder;
  */
 public class PrestoDataDefBindingHelper
 {
-    private PrestoDataDefBindingHelper(){}
+    private PrestoDataDefBindingHelper() {}
 
     private static final Map<Class<? extends Statement>, Class<? extends DataDefinitionTask<?>>> STATEMENT_TASK_TYPES;
     private static final Map<Class<? extends Statement>, Class<? extends DataDefinitionTask<?>>> TRANSACTION_CONTROL_TYPES;
@@ -157,10 +157,10 @@ public class PrestoDataDefBindingHelper
 
     public static void bindTransactionControlDefinitionTasks(Binder binder)
     {
-        MapBinder<Class<? extends Statement>, DataDefinitionTask<?>> taskBinder = newMapBinder(binder,
-                new TypeLiteral<Class<? extends Statement>>() {
-                }, new TypeLiteral<DataDefinitionTask<?>>() {
-                });
+        MapBinder<Class<? extends Statement>, DataDefinitionTask<?>> taskBinder = newMapBinder(
+                binder,
+                new TypeLiteral<Class<? extends Statement>>() {},
+                new TypeLiteral<DataDefinitionTask<?>>() {});
 
         TRANSACTION_CONTROL_TYPES.entrySet().stream()
                 .forEach(entry -> taskBinder.addBinding(entry.getKey()).to(entry.getValue()).in(Scopes.SINGLETON));
