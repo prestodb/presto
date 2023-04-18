@@ -756,7 +756,13 @@ public class UnaliasSymbolReferences
                 // TODO remove once all UnaliasSymbolReference are above translateExpressions
                 return castToRowExpression(canonicalize(castToExpression(value)));
             }
-            return RowExpressionVariableInliner.inlineVariables(this::canonicalize, value);
+            else {
+                warningCollector.add(new PrestoWarning(
+                        ALIAS_WARNING,
+                        "You are renaming a column with the same name as an existing column name of the same table."));
+
+                return RowExpressionVariableInliner.inlineVariables(this::canonicalize, value);
+            }
         }
 
         private Expression canonicalize(Expression value)

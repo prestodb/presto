@@ -82,7 +82,7 @@ public final class StandardReadMappings
 
     public static ReadMapping bigintReadMapping()
     {
-        return longReadMapping(BIGINT, ResultSet::getLong);
+        return longReadMapping(BIGINT, (resultSet, columnIndex) -> bigIntegerValue(resultSet.getBigDecimal(columnIndex)));
     }
 
     public static ReadMapping realReadMapping()

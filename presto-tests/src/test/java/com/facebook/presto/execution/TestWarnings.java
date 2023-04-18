@@ -57,6 +57,13 @@ public class TestWarnings
     }
 
     @Test
+    public void testAliasOrExistingField()
+    {
+        String query = "SELECT column1, column2 column3 FROM table";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(ALIAS_WARNING.toWarningCode()));
+    }
+    
+    @Test
     public void testStageCountWarningThreshold()
     {
         StringBuilder queryBuilder = new StringBuilder("SELECT name FROM nation WHERE nationkey = 0");

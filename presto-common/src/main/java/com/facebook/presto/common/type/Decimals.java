@@ -166,6 +166,11 @@ public final class Decimals
     {
         return encodeUnscaledValue(value.unscaledValue());
     }
+    
+    public static BigInteger bigIntegerValue(BigDecimal value)
+    {
+        return value.toBigInteger();
+    }
 
     public static BigInteger decodeUnscaledValue(Slice valueSlice)
     {
