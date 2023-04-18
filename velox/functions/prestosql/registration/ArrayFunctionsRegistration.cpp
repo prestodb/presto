@@ -97,6 +97,7 @@ void registerArrayFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sort, prefix + "array_sort");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sum, prefix + "array_sum");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_repeat, prefix + "repeat");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_sequence, prefix + "sequence");
 
   exec::registerStatefulVectorFunction(
       prefix + "width_bucket",

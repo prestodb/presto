@@ -214,6 +214,15 @@ Array Functions
     Returns a subarray starting from index ``start``(or starting from the end
     if ``start`` is negative) with a length of ``length``.
 
+.. function:: sequence(start, stop) -> array
+
+    Generate a sequence of integers from start to stop, incrementing by 1 if start is less than or equal to stop,
+    otherwise -1.
+
+.. function:: sequence(start, stop, step) -> array
+
+    Generate a sequence of integers from start to stop, incrementing by step.
+
 .. function:: subscript(array(E), index) -> E
 
     Returns element of ``array`` at given ``index``. The index starts from one.
