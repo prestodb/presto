@@ -260,7 +260,7 @@ public class PayloadJoinOptimizer
                 Map<VariableReferenceExpression, RowExpression> pushableExpressions = new HashMap<>();
 
                 projectNode.getAssignments().forEach((var, expr) -> {
-                    if (joinKeys.contains(var) && var.equals(expr)) {
+                    if (joinKeys.contains(var) && !var.equals(expr)) {
                         // join key computed in this projection: need to push down
                         assignments.put(var, var);
                         pushableExpressions.put(var, expr);
@@ -276,7 +276,7 @@ public class PayloadJoinOptimizer
 
             PlanNode newChild = context.rewrite(child, context.get());
 
-            if (child == newChild) {
+            if (child.equals(newChild) || !context.get().needsPayloadRejoin()) {
                 return projectNode;
             }
 
