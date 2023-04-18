@@ -21,13 +21,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.testng.Assert.assertTrue;
 
 public class TestAssignments
 {
-    private final Assignments assignments = assignment(new VariableReferenceExpression(Optional.empty(), "test", BIGINT), TRUE_LITERAL);
+    private final Assignments assignments = assignment(new VariableReferenceExpression(Optional.empty(), "test", BIGINT), TRUE_CONSTANT);
 
     @Test(expectedExceptions = {UnsupportedOperationException.class})
     public void testOutputsImmutable()
