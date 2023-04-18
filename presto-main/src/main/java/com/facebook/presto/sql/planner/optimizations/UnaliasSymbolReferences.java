@@ -40,10 +40,8 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -71,12 +69,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -97,9 +90,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocati
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
+import static com.facebook.presto.sql.relational.Expressions.isNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -680,14 +671,7 @@ public class UnaliasSymbolReferences
                         map(entry.getKey(), variable);
                     }
                 }
-                else if (isExpression(expression) && castToExpression(expression) instanceof SymbolReference) {
-                    // Always map a trivial symbol projection
-                    VariableReferenceExpression variable = new VariableReferenceExpression(expression.getSourceLocation(), Symbol.from(castToExpression(expression)).getName(), types.get(castToExpression(expression)));
-                    if (!variable.getName().equals(entry.getKey().getName())) {
-                        map(entry.getKey(), variable);
-                    }
-                }
-                else if (!isNull(expression) && isDeterministic(expression)) {
+                else if (!isNull(expression) && determinismEvaluator.isDeterministic(expression)) {
                     // Try to map same deterministic expressions within a projection into the same symbol
                     // Omit NullLiterals since those have ambiguous types
                     VariableReferenceExpression computedVariable = computedExpressions.get(expression);
@@ -706,31 +690,6 @@ public class UnaliasSymbolReferences
                 assignments.put(canonical, expression);
             }
             return assignments.build();
-        }
-
-        private boolean isDeterministic(RowExpression expression)
-        {
-            if (isExpression(expression)) {
-                return ExpressionDeterminismEvaluator.isDeterministic(castToExpression(expression));
-            }
-            return determinismEvaluator.isDeterministic(expression);
-        }
-
-        private static boolean isNull(RowExpression expression)
-        {
-            if (isExpression(expression)) {
-                return castToExpression(expression) instanceof NullLiteral;
-            }
-            return Expressions.isNull(expression);
-        }
-
-        private Symbol canonicalize(Symbol symbol)
-        {
-            String canonical = symbol.getName();
-            while (mapping.containsKey(canonical)) {
-                canonical = mapping.get(canonical);
-            }
-            return new Symbol(symbol.getNodeLocation(), canonical);
         }
 
         private VariableReferenceExpression canonicalize(VariableReferenceExpression variable)
@@ -752,24 +711,7 @@ public class UnaliasSymbolReferences
 
         private RowExpression canonicalize(RowExpression value)
         {
-            if (isExpression(value)) {
-                // TODO remove once all UnaliasSymbolReference are above translateExpressions
-                return castToRowExpression(canonicalize(castToExpression(value)));
-            }
             return RowExpressionVariableInliner.inlineVariables(this::canonicalize, value);
-        }
-
-        private Expression canonicalize(Expression value)
-        {
-            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
-            {
-                @Override
-                public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-                {
-                    Symbol canonical = canonicalize(Symbol.from(node));
-                    return canonical.toSymbolReference();
-                }
-            }, value);
         }
 
         private List<VariableReferenceExpression> canonicalizeAndDistinct(List<VariableReferenceExpression> outputs)

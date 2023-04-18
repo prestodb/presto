@@ -31,7 +31,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchan
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.relational.Expressions.variable;
 
 public class TestPushPartialAggregationThroughExchange
@@ -50,7 +49,7 @@ public class TestPushPartialAggregationThroughExchange
                                             .addSource(p.values(a))
                                             .addInputsSet(a)
                                             .singleDistributionPartitioningScheme(a)))
-                            .addAggregation(p.variable("SUM", DOUBLE), expression("SUM(a)"), ImmutableList.of(DOUBLE))
+                            .addAggregation(p.variable("SUM", DOUBLE), p.rowExpression("SUM(a)"))
                             .globalGrouping()
                             .step(PARTIAL));
                 })
@@ -75,7 +74,7 @@ public class TestPushPartialAggregationThroughExchange
                                             .addSource(p.values(a))
                                             .addInputsSet(a)
                                             .singleDistributionPartitioningScheme(a)))
-                            .addAggregation(p.variable("SUM", DOUBLE), expression("SUM(a)"), ImmutableList.of(DOUBLE))
+                            .addAggregation(p.variable("SUM", DOUBLE), p.rowExpression("SUM(a)"))
                             .globalGrouping()
                             .step(PARTIAL));
                 })
@@ -96,7 +95,7 @@ public class TestPushPartialAggregationThroughExchange
                                             .addSource(p.values(new PlanNodeId("values"), a, b))
                                             .addInputsSet(a, b)
                                             .singleDistributionPartitioningScheme(a, b)))
-                            .addAggregation(p.variable("SUM", DOUBLE), expression("SUM(a)"), ImmutableList.of(DOUBLE))
+                            .addAggregation(p.variable("SUM", DOUBLE), p.rowExpression("SUM(a)"))
                             .singleGroupingSet(b)
                             .step(SINGLE));
                 })
@@ -122,7 +121,7 @@ public class TestPushPartialAggregationThroughExchange
                                             .addSource(p.values(new PlanNodeId("values"), a, b))
                                             .addInputsSet(a, b)
                                             .singleDistributionPartitioningScheme(a, b)))
-                            .addAggregation(p.variable("SUM", DOUBLE), expression("SUM(a)"), ImmutableList.of(DOUBLE))
+                            .addAggregation(p.variable("SUM", DOUBLE), p.rowExpression("SUM(a)"))
                             .singleGroupingSet(b)
                             .step(PARTIAL));
                 })
