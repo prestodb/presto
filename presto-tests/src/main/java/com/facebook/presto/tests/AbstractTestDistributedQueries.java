@@ -1203,6 +1203,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("create table part_map as select *, map(ARRAY[1,3], ARRAY[2,4]) as m3, map(ARRAY[1,3], ARRAY[2,4]) as m4 from part", 2000);
 
         String[] queries = {
+                "SELECT l.* FROM lineitem_map l left join orders o on (l.orderkey+1 = o.orderkey+1) left join part p on (l.partkey+1=p.partkey+1)",
                 "SELECT l.* FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
                 "SELECT l.*, p.m3 FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join (select *, map(array[1,2], array[11,22]) as m3 from part) p on (l.partkey=p.partkey)",
                 "SELECT l.*, p.m3 FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join (select *, map(array[partkey], array[size]) as m3 from part) p on (l.partkey=p.partkey)",
@@ -1239,7 +1240,8 @@ public abstract class AbstractTestDistributedQueries
                 "with lm as (select if (quantity > 1, quantity, 1) as q1, * from lineitem_map), lm2 as (select if (q1 > 2, q1, 1) as q2, quantity,partkey,suppkey,linenumber,m1,m2 from lm left join orders o on (lm.orderkey=o.orderkey)) SELECT l.* FROM (select q2+3 as q3,partkey,suppkey,linenumber,m1,m2 from lm2) l left join part p on (l.partkey=p.partkey)",
                 "SELECT l.* FROM (select rand(100) as pk100 from (select orderkey+1 as ok1, * from lineitem_map) l left join orders o on (l.ok1 = o.orderkey+1)) l left join part p on (l.pk100=p.partkey)",
                 "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)",
-                "SELECT l.*, p.m3, p.m4 FROM (select * from lineitem_map where false) l left join orders o on (l.orderkey = o.orderkey) left join part_map p on (l.partkey=p.partkey)"
+                "SELECT l.*, p.m3, p.m4 FROM (select * from lineitem_map where false) l left join orders o on (l.orderkey = o.orderkey) left join part_map p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select * from lineitem_map where false) l left join orders o on (l.orderkey+1 = o.orderkey+1) left join part p on (l.partkey+1=p.partkey+1)"
         };
 
         for (String query : nonOptimizableQueries) {
