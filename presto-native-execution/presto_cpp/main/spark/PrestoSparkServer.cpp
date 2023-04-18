@@ -20,10 +20,10 @@ namespace facebook::presto {
 using namespace facebook::velox;
 
 PrestoSparkServer::PrestoSparkServer(const std::string& configDirectoryPath)
-    : PrestoServer(configDirectoryPath) {}
+    : PrestoServerBase(configDirectoryPath) {}
 
 void PrestoSparkServer::registerFunctions() {
-  PrestoServer::registerFunctions();
+  PrestoServerBase::registerFunctions();
   // Register Test functions (if test mode is enabled)
   registerTestFunctions();
 }

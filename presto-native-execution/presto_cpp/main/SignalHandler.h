@@ -17,17 +17,17 @@
 
 namespace facebook::presto {
 
-class PrestoServer;
+class PrestoServerBase;
 
 class SignalHandler : private folly::AsyncSignalHandler {
  public:
-  explicit SignalHandler(PrestoServer* prestoServer);
+  explicit SignalHandler(PrestoServerBase* prestoServer);
 
  private:
   void signalReceived(int signum) noexcept override;
 
  private:
-  PrestoServer* prestoServer_{nullptr};
+  PrestoServerBase* prestoServer_{nullptr};
 };
 
 }; // namespace facebook::presto

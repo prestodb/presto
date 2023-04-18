@@ -22,6 +22,7 @@ add_library(
   CPUMon.cpp
   PeriodicTaskManager.cpp
   PrestoExchangeSource.cpp
+  PrestoServerBase.cpp
   PrestoServer.cpp
   PrestoTask.cpp
   QueryContextManager.cpp

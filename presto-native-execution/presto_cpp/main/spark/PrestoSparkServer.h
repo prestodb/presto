@@ -15,7 +15,7 @@
 
 #include <string>
 
-#include "presto_cpp/main/PrestoServer.h"
+#include "presto_cpp/main/PrestoServerBase.h"
 
 namespace facebook::presto {
 
@@ -23,7 +23,7 @@ namespace facebook::presto {
 /// Customize this class to be suitable for Presto-on-Spark. However, do not
 /// deviate significantly from C++ Presto Server.
 /// This server is accessible under the name of `presto_spark_server`.
-class PrestoSparkServer : public PrestoServer {
+class PrestoSparkServer : public PrestoServerBase {
  public:
   explicit PrestoSparkServer(const std::string& configDirectoryPath);
 

@@ -118,7 +118,7 @@ Run CLion:
 * File->Close Project if any is open.
 * Open `presto/presto-native-execution` directory as CMake project and wait till CLion loads/generates cmake files, symbols, etc.
 * Edit configuration for `presto_server` module (alter paths accordingly).
-  * Program arguments: `--logtostderr=1 --v=1 --etc_dir=/Users/<user>/git/presto/presto-native-execution/etc`
+  * Program arguments: `--logtostderr=1 --v=1 --etc_dir=/Users/<user>/git/presto/presto-native-execution/etc/presto`
   * Working directory: `/Users/<user>/git/presto/presto-native-execution`
 * Edit menu CLion->Preferences->Build, Execution, Deployment->CMake
   * CMake options: `-DVELOX_BUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug`
