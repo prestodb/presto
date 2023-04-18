@@ -39,9 +39,7 @@ import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
-import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
@@ -58,6 +56,8 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.SystemSessionProperties.getAnalyzerType;
+import static com.facebook.presto.security.AccessControlUtils.checkPermissions;
+import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdentity;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -275,10 +275,10 @@ public class DispatchManager
             }
 
             // check permissions if needed
-            checkPermissions(queryId, sessionContext);
+            checkPermissions(accessControl, securityConfig, queryId, sessionContext);
 
             // get authorized identity if possible
-            Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(queryId, sessionContext);
+            Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(accessControl, securityConfig, queryId, sessionContext);
 
             // decode session
             session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
@@ -342,46 +342,6 @@ public class DispatchManager
             DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(session, query, Optional.empty(), throwable);
             queryCreated(failedDispatchQuery);
         }
-    }
-
-    /**
-     * When selectAuthorizedIdentity API is not enabled, we check the delegation permission
-     */
-    private void checkPermissions(QueryId queryId, SessionContext sessionContext)
-    {
-        Identity identity = sessionContext.getIdentity();
-        if (!securityConfig.isAuthorizedIdentitySelectionEnabled()) {
-            accessControl.checkCanSetUser(
-                    identity,
-                    new AccessControlContext(
-                            queryId,
-                            Optional.ofNullable(sessionContext.getClientInfo()),
-                            Optional.ofNullable(sessionContext.getSource())),
-                    identity.getPrincipal(),
-                    identity.getUser());
-        }
-    }
-
-    /**
-     * When selectAuthorizedIdentity API is enabled,
-     * 1. Check the delegation permission, which is inside the API call
-     * 2. Select and return the authorized identity
-     */
-    private Optional<AuthorizedIdentity> getAuthorizedIdentity(QueryId queryId, SessionContext sessionContext)
-    {
-        if (securityConfig.isAuthorizedIdentitySelectionEnabled()) {
-            Identity identity = sessionContext.getIdentity();
-            AuthorizedIdentity authorizedIdentity = accessControl.selectAuthorizedIdentity(
-                    identity,
-                    new AccessControlContext(
-                            queryId,
-                            Optional.ofNullable(sessionContext.getClientInfo()),
-                            Optional.ofNullable(sessionContext.getSource())),
-                    identity.getUser(),
-                    sessionContext.getCertificates());
-            return Optional.of(authorizedIdentity);
-        }
-        return Optional.empty();
     }
 
     private boolean queryCreated(DispatchQuery dispatchQuery)

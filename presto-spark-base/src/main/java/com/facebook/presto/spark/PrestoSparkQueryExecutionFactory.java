@@ -52,6 +52,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.QuerySessionSupplier;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.SessionPropertyDefaults;
+import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
@@ -79,8 +80,7 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.spi.security.AccessControlContext;
-import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
@@ -128,6 +128,8 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
+import static com.facebook.presto.security.AccessControlUtils.checkPermissions;
+import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdentity;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isAdaptiveQueryExecutionEnabled;
 import static com.facebook.presto.spark.SparkErrorCode.MALFORMED_QUERY_FILE;
@@ -186,6 +188,7 @@ public class PrestoSparkQueryExecutionFactory
     private final NodeMemoryConfig nodeMemoryConfig;
     private final FeaturesConfig featuresConfig;
     private final QueryManagerConfig queryManagerConfig;
+    private final SecurityConfig securityConfig;
     private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks;
     private final Optional<ErrorClassifier> errorClassifier;
@@ -222,6 +225,7 @@ public class PrestoSparkQueryExecutionFactory
             NodeMemoryConfig nodeMemoryConfig,
             FeaturesConfig featuresConfig,
             QueryManagerConfig queryManagerConfig,
+            SecurityConfig securityConfig,
             Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks,
             Optional<ErrorClassifier> errorClassifier,
@@ -256,23 +260,11 @@ public class PrestoSparkQueryExecutionFactory
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
         this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
+        this.securityConfig = requireNonNull(securityConfig, "securityConfig is null");
         this.waitTimeMetrics = ImmutableSet.copyOf(requireNonNull(waitTimeMetrics, "waitTimeMetrics is null"));
         this.ddlTasks = ImmutableMap.copyOf(requireNonNull(ddlTasks, "ddlTasks is null"));
         this.errorClassifier = requireNonNull(errorClassifier, "errorClassifier is null");
         this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null").getHistoryBasedPlanStatisticsTracker();
-    }
-
-    private void checkPermissions(QueryId queryId, SessionContext sessionContext)
-    {
-        Identity identity = sessionContext.getIdentity();
-        accessControl.checkCanSetUser(
-                identity,
-                new AccessControlContext(
-                        queryId,
-                        Optional.ofNullable(sessionContext.getClientInfo()),
-                        Optional.ofNullable(sessionContext.getSource())),
-                identity.getPrincipal(),
-                identity.getUser());
     }
 
     public static QueryInfo createQueryInfo(
@@ -584,11 +576,13 @@ public class PrestoSparkQueryExecutionFactory
                 credentialsProviders,
                 authenticatorProviders);
 
-        // The permission check is moved out from createSession function.
-        // To keep the same behavior as before, we check the permissions separately here
-        checkPermissions(queryId, sessionContext);
+        // check permissions if needed
+        checkPermissions(accessControl, securityConfig, queryId, sessionContext);
 
-        Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, Optional.empty());
+        // get authorized identity if possible
+        Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(accessControl, securityConfig, queryId, sessionContext);
+
+        Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
 
         if (retryExecutionStrategy.isPresent()) {
