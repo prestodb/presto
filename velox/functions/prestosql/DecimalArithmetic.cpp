@@ -16,6 +16,7 @@
 
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/prestosql/ArithmeticImpl.h"
 #include "velox/type/DecimalUtil.h"
 
 namespace facebook::velox::functions {
@@ -95,6 +96,58 @@ class DecimalBaseFunction : public exec::VectorFunction {
 
   const uint8_t aRescale_;
   const uint8_t bRescale_;
+};
+
+template <
+    typename R /* Result Type */,
+    typename A /* Argument */,
+    typename Operation /* Arithmetic operation */>
+class DecimalUnaryBaseFunction : public exec::VectorFunction {
+ public:
+  explicit DecimalUnaryBaseFunction(uint8_t aRescale) : aRescale_(aRescale) {}
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& resultType,
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    // Single-arg deterministic functions receive their only
+    // argument as flat or constant only.
+    auto rawResults = prepareResults(rows, resultType, context, result);
+    if (args[0]->isConstantEncoding()) {
+      // Fast path for constant vectors.
+      auto constant = args[0]->asUnchecked<SimpleVector<A>>()->valueAt(0);
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
+        Operation::template apply<R, A>(rawResults[row], constant, aRescale_);
+      });
+    } else {
+      // Fast path for flat.
+      auto flatA = args[0]->asUnchecked<FlatVector<A>>();
+      auto rawA = flatA->mutableRawValues();
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
+        Operation::template apply<R, A>(rawResults[row], rawA[row], aRescale_);
+      });
+    }
+  }
+
+  bool supportsFlatNoNullsFastPath() const override {
+    return true;
+  }
+
+ private:
+  R* prepareResults(
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      exec::EvalCtx& context,
+      VectorPtr& result) const {
+    context.ensureWritable(rows, resultType, result);
+    result->clearNulls(rows);
+    return result->asUnchecked<FlatVector<R>>()->mutableRawValues();
+  }
+
+ private:
+  const uint8_t aRescale_;
 };
 
 class Addition {
@@ -233,6 +286,78 @@ class Divide {
   }
 };
 
+class Round {
+ public:
+  template <typename R, typename A>
+  inline static void apply(R& r, const A& a, uint8_t aRescale) {
+    // aRescale holds the scale of the input.
+    auto temp = a;
+    DecimalUtil::divideWithRoundUp<A, A, int128_t>(
+        temp, a, DecimalUtil::kPowersOfTen[aRescale], false, 0, 0);
+    r = R(temp.unscaledValue());
+  }
+
+  inline static uint8_t computeRescaleFactor(
+      uint8_t fromScale,
+      uint8_t /*toScale*/,
+      uint8_t /*rScale*/) {
+    return fromScale;
+  }
+
+  inline static std::pair<uint8_t, uint8_t> computeResultPrecisionScale(
+      const uint8_t aPrecision,
+      const uint8_t aScale) {
+    return {
+        std::min(38, aPrecision - aScale + std::min((uint8_t)1, aScale)), 0};
+  }
+};
+
+class Abs {
+ public:
+  template <typename R, typename A>
+  inline static void apply(R& r, const A& a, uint8_t /*aRescale*/) {
+    if constexpr (std::is_same_v<R, A>) {
+      r = a.unscaledValue() < 0 ? R(-a.unscaledValue()) : a;
+    }
+  }
+
+  inline static uint8_t computeRescaleFactor(
+      uint8_t fromScale,
+      uint8_t /*toScale*/,
+      uint8_t /*rScale*/) {
+    return fromScale;
+  }
+
+  inline static std::pair<uint8_t, uint8_t> computeResultPrecisionScale(
+      const uint8_t aPrecision,
+      const uint8_t aScale) {
+    return {aPrecision, aScale};
+  }
+};
+
+class Negate {
+ public:
+  template <typename R, typename A>
+  inline static void apply(R& r, const A& a, uint8_t /*aRescale*/) {
+    if constexpr (std::is_same_v<R, A>) {
+      r = R(-a.unscaledValue());
+    }
+  }
+
+  inline static uint8_t computeRescaleFactor(
+      uint8_t fromScale,
+      uint8_t /*toScale*/,
+      uint8_t /*rScale*/) {
+    return fromScale;
+  }
+
+  inline static std::pair<uint8_t, uint8_t> computeResultPrecisionScale(
+      const uint8_t aPrecision,
+      const uint8_t aScale) {
+    return {aPrecision, aScale};
+  }
+};
+
 std::vector<std::shared_ptr<exec::FunctionSignature>>
 decimalMultiplySignature() {
   return {
@@ -281,6 +406,58 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> decimalDivideSignature() {
               .argumentType("DECIMAL(a_precision, a_scale)")
               .argumentType("DECIMAL(b_precision, b_scale)")
               .build()};
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> decimalRoundSignature() {
+  return {
+      exec::FunctionSignatureBuilder()
+          .integerVariable("a_precision")
+          .integerVariable("a_scale")
+          .integerVariable(
+              "r_precision", "min(38, a_precision - a_scale + min(1, a_scale))")
+          .integerVariable("r_scale", "0")
+          .returnType("DECIMAL(r_precision, r_scale)")
+          .argumentType("DECIMAL(a_precision, a_scale)")
+          .build()};
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>>
+decimalAbsNegateSignature() {
+  return {exec::FunctionSignatureBuilder()
+              .integerVariable("a_precision")
+              .integerVariable("a_scale")
+              .returnType("DECIMAL(a_precision, a_scale)")
+              .argumentType("DECIMAL(a_precision, a_scale)")
+              .build()};
+}
+
+template <typename Operation>
+std::shared_ptr<exec::VectorFunction> createDecimalUnary(
+    const std::string& /*name*/,
+    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  auto aType = inputArgs[0].type;
+  auto [aPrecision, aScale] = getDecimalPrecisionScale(*aType);
+  auto [rPrecision, rScale] =
+      Operation::computeResultPrecisionScale(aPrecision, aScale);
+  uint8_t aRescale = Operation::computeRescaleFactor(aScale, 0, rScale);
+  if (aType->kind() == TypeKind::SHORT_DECIMAL) {
+    return std::make_shared<DecimalUnaryBaseFunction<
+        UnscaledShortDecimal /*result*/,
+        UnscaledShortDecimal,
+        Operation>>(aRescale);
+  } else if (aType->kind() == TypeKind::LONG_DECIMAL) {
+    if (rPrecision <= DecimalType<TypeKind::SHORT_DECIMAL>::kMaxPrecision) {
+      return std::make_shared<DecimalUnaryBaseFunction<
+          UnscaledShortDecimal /*result*/,
+          UnscaledLongDecimal,
+          Operation>>(aRescale);
+    }
+    return std::make_shared<DecimalUnaryBaseFunction<
+        UnscaledLongDecimal /*result*/,
+        UnscaledLongDecimal,
+        Operation>>(aRescale);
+  }
+  VELOX_UNSUPPORTED();
 }
 
 template <typename Operation>
@@ -360,4 +537,19 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_decimal_div,
     decimalDivideSignature(),
     createDecimalFunction<Divide>);
+
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+    udf_decimal_round,
+    decimalRoundSignature(),
+    createDecimalUnary<Round>);
+
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+    udf_decimal_abs,
+    decimalAbsNegateSignature(),
+    createDecimalUnary<Abs>);
+
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+    udf_decimal_negate,
+    decimalAbsNegateSignature(),
+    createDecimalUnary<Negate>);
 }; // namespace facebook::velox::functions
