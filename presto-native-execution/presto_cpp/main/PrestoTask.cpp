@@ -423,11 +423,24 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
           taskRuntimeStats[statName] = stat.second;
         }
       }
+
       if (op.numSplits != 0) {
         const auto statName =
             fmt::format("{}.{}.numSplits", op.operatorType, op.planNodeId);
         opOut.runtimeStats.emplace(
             statName, createProtocolRuntimeMetric(statName, op.numSplits));
+      }
+      if (op.inputVectors != 0) {
+        auto statName = fmt::format(
+            "{}.{}.{}", op.operatorType, op.planNodeId, "inputBatches");
+        opOut.runtimeStats.emplace(
+            statName, createProtocolRuntimeMetric(statName, op.inputVectors));
+      }
+      if (op.outputVectors != 0) {
+        auto statName = fmt::format(
+            "{}.{}.{}", op.operatorType, op.planNodeId, "outputBatches");
+        opOut.runtimeStats.emplace(
+            statName, createProtocolRuntimeMetric(statName, op.outputVectors));
       }
 
       // If Velox operator has spilling stats, then add them to the Presto
