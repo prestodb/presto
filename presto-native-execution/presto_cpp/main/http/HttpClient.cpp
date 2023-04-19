@@ -246,6 +246,21 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   }
 
   void connectSuccess(proxygen::HTTPUpstreamSession* session) override {
+    auto httpInitialReceiveWindow =
+        SystemConfig::instance()->httpClientInitialReceiveWindow();
+    auto httpReceiveStreamWindowSize =
+        SystemConfig::instance()->httpClientReceiveStreamWindowSize();
+    auto httpReceiveSessionWindowSize =
+        SystemConfig::instance()->httpClientReceiveSessionWindowSize();
+    if (httpInitialReceiveWindow.hasValue() &&
+        httpReceiveStreamWindowSize.hasValue() &&
+        httpReceiveSessionWindowSize.hasValue()) {
+      session->setFlowControl(
+          httpInitialReceiveWindow.value(),
+          httpReceiveStreamWindowSize.value(),
+          httpReceiveSessionWindowSize.value());
+    }
+
     auto txn = session->newTransaction(responseHandler_.get());
     if (txn) {
       responseHandler_->sendRequest(txn);

@@ -210,6 +210,23 @@ uint64_t SystemConfig::httpMaxAllocateBytes() const {
   return opt.value_or(kHttpMaxAllocateBytesDefault);
 }
 
+folly::Optional<uint64_t> SystemConfig::httpClientInitialReceiveWindow() const {
+  return optionalProperty<uint64_t>(
+      std::string(kHttpClientInitialReceiveWindow));
+}
+
+folly::Optional<uint64_t> SystemConfig::httpClientReceiveStreamWindowSize()
+    const {
+  return optionalProperty<uint64_t>(
+      std::string(kHttpClientReceiveStreamWindowSize));
+}
+
+folly::Optional<uint64_t> SystemConfig::httpClientReceiveSessionWindowSize()
+    const {
+  return optionalProperty<uint64_t>(
+      std::string(kHttpClientReceiveSessionWindowSize));
+}
+
 NodeConfig* NodeConfig::instance() {
   static std::unique_ptr<NodeConfig> instance = std::make_unique<NodeConfig>();
   return instance.get();

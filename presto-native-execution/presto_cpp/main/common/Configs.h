@@ -132,6 +132,19 @@ class SystemConfig : public ConfigBase {
   /// the received http response data.
   static constexpr std::string_view kHttpMaxAllocateBytes{
       "http-server.max-response-allocate-bytes"};
+  // Http client size of initial receive window size in bytes for all ingress
+  // streams, only effective for http/2 and above.
+  static constexpr std::string_view kHttpClientInitialReceiveWindow{
+      "http-client.initial-receive-window"};
+  // Http client per-stream receive window size in bytes for NEW streams, only
+  // effective for http/2 and above.
+  static constexpr std::string_view kHttpClientReceiveStreamWindowSize{
+      "http-client.receive-stream-window-size"};
+  // Http client per-session receive window size in bytes, it sets the ingress
+  // buffering threshold before applying ingress backpressure, effective for
+  // http/1.1 and above
+  static constexpr std::string_view kHttpClientReceiveSessionWindowSize{
+      "http-client.receive-session-window-size"};
   // Most server nodes today (May 2022) have at least 16 cores.
   // Setting the default maximum drivers per task to this value will
   // provide a better off-shelf experience.
@@ -248,6 +261,12 @@ class SystemConfig : public ConfigBase {
   bool registerTestFunctions() const;
 
   uint64_t httpMaxAllocateBytes() const;
+
+  folly::Optional<uint64_t> httpClientInitialReceiveWindow() const;
+
+  folly::Optional<uint64_t> httpClientReceiveStreamWindowSize() const;
+
+  folly::Optional<uint64_t> httpClientReceiveSessionWindowSize() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
