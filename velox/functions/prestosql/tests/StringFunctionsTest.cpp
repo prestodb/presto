@@ -498,6 +498,19 @@ TEST_F(StringFunctionsTest, substrNegativeStarts) {
   EXPECT_EQ(result->valueAt(0).getString(), "");
 }
 
+TEST_F(StringFunctionsTest, substrNumericOverflow) {
+  const auto substr = [&](std::optional<std::string> str,
+                          std::optional<int32_t> start,
+                          std::optional<int32_t> length) {
+    return evaluateOnce<std::string>("substr(c0, c1, c2)", str, start, length);
+  };
+
+  EXPECT_EQ(substr("example", 4, 2147483645), "mple");
+  EXPECT_EQ(substr("example", 2147483645, 4), "");
+  EXPECT_EQ(substr("example", -4, -2147483645), "");
+  EXPECT_EQ(substr("example", -2147483645, -4), "");
+}
+
 /**
  * The test for substr operating on single buffers with two string functions
  * using a conditional

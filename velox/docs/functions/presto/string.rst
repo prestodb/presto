@@ -134,13 +134,16 @@ String Functions
 
     Returns the rest of ``string`` from the starting position ``start``.
     Positions start with ``1``. A negative starting position is interpreted
-    as being relative to the end of the string.
+    as being relative to the end of the string. Returns empty string if absolute
+    value of ``start`` is greater then length of the ``string``.
 
 .. function:: substr(string, start, length) -> varchar
 
     Returns a substring from ``string`` of length ``length`` from the starting
     position ``start``. Positions start with ``1``. A negative starting
     position is interpreted as being relative to the end of the string.
+    Returns empty string if absolute value of ``'start`` is greater then
+    length of the ``string``.
 
 .. function:: trim(string) -> varchar
 

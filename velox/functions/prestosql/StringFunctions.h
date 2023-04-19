@@ -51,13 +51,17 @@ struct CodePointFunction {
 ///
 ///     Returns the rest of string from the starting position start.
 ///     Positions start with 1. A negative starting position is interpreted as
-///     being relative to the end of the string.
+///     being relative to the end of the string. Returns empty string if
+///     absolute value of start is greater then length of the string.
+
 ///
 /// substr(string, start, length) -> varchar
 ///
 ///     Returns a substring from string of length length from the
 ///     starting position start. Positions start with 1. A negative starting
 ///     position is interpreted as being relative to the end of the string.
+///     Returns empty string if absolute value of start is greater then length
+///     of the string.
 template <typename T>
 struct SubstrFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -93,7 +97,7 @@ struct SubstrFunction {
       I start,
       I length = std::numeric_limits<I>::max()) {
     // Following Presto semantics
-    if (start == 0) {
+    if (start == 0 || length <= 0) {
       result.setEmpty();
       return;
     }
@@ -106,14 +110,13 @@ struct SubstrFunction {
     }
 
     // Following Presto semantics
-    if (start <= 0 || start > numCharacters || length <= 0) {
+    if (start <= 0 || start > numCharacters) {
       result.setEmpty();
       return;
     }
 
     // Adjusting length
-    if (length == std::numeric_limits<I>::max() ||
-        length + start - 1 > numCharacters) {
+    if (numCharacters - start + 1 < length) {
       // set length to the max valid length
       length = numCharacters - start + 1;
     }
