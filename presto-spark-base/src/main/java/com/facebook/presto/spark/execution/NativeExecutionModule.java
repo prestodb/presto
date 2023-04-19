@@ -44,6 +44,11 @@ public class NativeExecutionModule
                     config.setMaxConnectionsPerServer(250);
                 });
         binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
-        binder.bind(NativeExecutionProcessFactory.class).in(Scopes.SINGLETON);
+        if (System.getProperty("NATIVE_PORT") != null) {
+            binder.bind(NativeExecutionProcessFactory.class).to(DetachedNativeExecutionProcessFactory.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(NativeExecutionProcessFactory.class).in(Scopes.SINGLETON);
+        }
     }
 }
