@@ -18,14 +18,16 @@
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 #include "velox/functions/sparksql/aggregates/Register.h"
 
+using namespace facebook::velox::aggregate::test;
+
 namespace facebook::velox::functions::sparksql::aggregates::test {
 
 namespace {
 
-class LastAggregateTest : public aggregate::test::AggregationTestBase {
+class FirstAggregateTest : public AggregationTestBase {
  protected:
   void SetUp() override {
-    aggregate::test::AggregationTestBase::SetUp();
+    AggregationTestBase::SetUp();
     aggregates::registerAggregateFunctions("spark_");
   }
 
@@ -47,8 +49,8 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
         testAggregations(
             vectors,
             {"c0"},
-            {"spark_last_ignore_null(c1)"},
-            "SELECT c0, last(c1 ORDER BY c1 NULLS FIRST) FROM tmp GROUP BY c0");
+            {"spark_first_ignore_null(c1)"},
+            "SELECT c0, first(c1 ORDER BY c1 NULLS LAST) FROM tmp GROUP BY c0");
       }
       {
         // Expected result should have first 7 rows including nulls.
@@ -57,10 +59,10 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
             makeFlatVector<int32_t>(7, [](auto row) { return row; }),
             makeFlatVector<T>(
                 7, // size
-                [](auto row) { return 91 + row; }, // valueAt
-                [](auto row) { return (91 + row) % 3 == 0; }), // nullAt
+                [](auto row) { return row; }, // valueAt
+                [](auto row) { return row % 3 == 0; }), // nullAt
         })};
-        testAggregations(vectors, {"c0"}, {"spark_last(c1)"}, expected);
+        testAggregations(vectors, {"c0"}, {"spark_first(c1)"}, expected);
       }
     }
 
@@ -71,15 +73,15 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
 
       {
         SCOPED_TRACE("ignore null + global");
-        auto expectedTrue = {makeRowVector({makeNullableFlatVector<T>({2})})};
+        auto expectedTrue = {makeRowVector({makeNullableFlatVector<T>({1})})};
         testAggregations(
-            vectors, {}, {"spark_last_ignore_null(c0)"}, expectedTrue);
+            vectors, {}, {"spark_first_ignore_null(c0)"}, expectedTrue);
       }
       {
         SCOPED_TRACE("not ignore null + global");
         auto expectedFalse = {
             makeRowVector({makeNullableFlatVector<T>({std::nullopt})})};
-        testAggregations(vectors, {}, {"spark_last(c0)"}, expectedFalse);
+        testAggregations(vectors, {}, {"spark_first(c0)"}, expectedFalse);
       }
     }
   }
@@ -91,12 +93,12 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
     {
       SCOPED_TRACE("ignore null + group by");
       testAggregations(
-          data, {"c0"}, {"spark_last_ignore_null(c1)"}, ignoreNullData);
+          data, {"c0"}, {"spark_first_ignore_null(c1)"}, ignoreNullData);
     }
 
     {
       SCOPED_TRACE("not ignore null + group by");
-      testAggregations(data, {"c0"}, {"spark_last(c1)"}, hasNullData);
+      testAggregations(data, {"c0"}, {"spark_first(c1)"}, hasNullData);
     }
   }
 
@@ -107,51 +109,51 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
     {
       SCOPED_TRACE("ignore null + global");
       testAggregations(
-          data, {}, {"spark_last_ignore_null(c0)"}, ignoreNullData);
+          data, {}, {"spark_first_ignore_null(c0)"}, ignoreNullData);
     }
 
     {
       SCOPED_TRACE("not ignore null + global");
-      testAggregations(data, {}, {"spark_last(c0)"}, hasNullData);
+      testAggregations(data, {}, {"spark_first(c0)"}, hasNullData);
     }
   }
 };
 
-TEST_F(LastAggregateTest, boolean) {
+TEST_F(FirstAggregateTest, boolean) {
   testAggregate<bool>();
 }
 
-TEST_F(LastAggregateTest, tinyInt) {
+TEST_F(FirstAggregateTest, tinyInt) {
   testAggregate<int8_t>();
 }
 
-TEST_F(LastAggregateTest, smallInt) {
+TEST_F(FirstAggregateTest, smallInt) {
   testAggregate<int16_t>();
 }
 
-TEST_F(LastAggregateTest, integer) {
+TEST_F(FirstAggregateTest, integer) {
   testAggregate<int32_t>();
 }
 
-TEST_F(LastAggregateTest, bigint) {
+TEST_F(FirstAggregateTest, bigint) {
   testAggregate<int64_t>();
 }
 
-TEST_F(LastAggregateTest, real) {
+TEST_F(FirstAggregateTest, real) {
   testAggregate<float>();
 }
 
-TEST_F(LastAggregateTest, double) {
+TEST_F(FirstAggregateTest, double) {
   testAggregate<double>();
 }
 
-TEST_F(LastAggregateTest, timestampGroupBy) {
+TEST_F(FirstAggregateTest, timestampGroupBy) {
   auto vectors = {makeRowVector({
       makeFlatVector<int32_t>(98, [](auto row) { return row % 7; }),
       makeFlatVector<Timestamp>(
           98, // size
           [](auto row) { return Timestamp(row, row); }, // valueAt
-          [](auto row) { return row % 3 == 0; }), // nullAt
+          nullEvery(3)),
   })};
 
   auto ignoreNullData = {makeRowVector({
@@ -159,8 +161,8 @@ TEST_F(LastAggregateTest, timestampGroupBy) {
       makeFlatVector<Timestamp>(
           7, // size
           [](auto row) {
-            return (row + 91) % 3 == 0 ? Timestamp(row + 91 - 7, row + 91 - 7)
-                                       : Timestamp(row + 91, row + 91);
+            return row % 3 == 0 ? Timestamp(row + 7, row + 7)
+                                : Timestamp(row, row);
           } // valueAt
           ),
   })};
@@ -170,21 +172,21 @@ TEST_F(LastAggregateTest, timestampGroupBy) {
       makeFlatVector<int32_t>(7, [](auto row) { return row; }),
       makeFlatVector<Timestamp>(
           7, // size
-          [](auto row) { return Timestamp(91 + row, 91 + row); }, // valueAt
-          [](auto row) { return (row + 91) % 3 == 0; }), // nullAt
+          [](auto row) { return Timestamp(row, row); }, // valueAt
+          [](auto row) { return row % 3 == 0; }), // nullAt
   })};
 
   testGroupBy(vectors, ignoreNullData, hasNullData);
 }
 
-TEST_F(LastAggregateTest, timestampGlobal) {
+TEST_F(FirstAggregateTest, timestampGlobal) {
   auto vectors = {makeRowVector({
       makeNullableFlatVector<Timestamp>(
           {std::nullopt, Timestamp(1, 1), Timestamp(2, 2), std::nullopt}),
   })};
 
   auto ignoreNullData = {
-      makeRowVector({makeNullableFlatVector<Timestamp>({Timestamp(2, 2)})})};
+      makeRowVector({makeNullableFlatVector<Timestamp>({Timestamp(1, 1)})})};
 
   auto hasNullData = {
       makeRowVector({makeNullableFlatVector<Timestamp>({std::nullopt})})};
@@ -192,13 +194,13 @@ TEST_F(LastAggregateTest, timestampGlobal) {
   testGlobalAggregate(vectors, ignoreNullData, hasNullData);
 }
 
-TEST_F(LastAggregateTest, dateGroupBy) {
+TEST_F(FirstAggregateTest, dateGroupBy) {
   auto vectors = {makeRowVector({
       makeFlatVector<int32_t>(98, [](auto row) { return row % 7; }),
       makeFlatVector<Date>(
           98, // size
           [](auto row) { return Date(row); }, // valueAt
-          [](auto row) { return row % 3 == 0; }), // nullAt
+          nullEvery(3)),
   })};
 
   auto ignoreNullData = {makeRowVector({
@@ -206,7 +208,7 @@ TEST_F(LastAggregateTest, dateGroupBy) {
       makeFlatVector<Date>(
           7, // size
           [](auto row) {
-            return (row + 91) % 3 == 0 ? Date(row + 91 - 7) : Date(row + 91);
+            return row % 3 == 0 ? Date(row + 7) : Date(row);
           } // valueAt
           ),
   })};
@@ -216,21 +218,20 @@ TEST_F(LastAggregateTest, dateGroupBy) {
       makeFlatVector<int32_t>(7, [](auto row) { return row; }),
       makeFlatVector<Date>(
           7, // size
-          [](auto row) { return Date(row + 91); }, // valueAt
-          [](auto row) { return (row + 91) % 3 == 0; }), // nullAt
+          [](auto row) { return Date(row); }, // valueAt
+          [](auto row) { return row % 3 == 0; }), // nullAt
   })};
 
   testGroupBy(vectors, ignoreNullData, hasNullData);
 }
 
-TEST_F(LastAggregateTest, dateGlobal) {
+TEST_F(FirstAggregateTest, dateGlobal) {
   auto vectors = {makeRowVector({
       makeNullableFlatVector<Date>(
           {std::nullopt, Date(1), Date(2), std::nullopt}),
   })};
 
-  auto ignoreNullData = {
-      makeRowVector({makeNullableFlatVector<Date>({Date(2)})})};
+  auto ignoreNullData = {makeRowVector({makeFlatVector<Date>({Date(1)})})};
 
   auto hasNullData = {
       makeRowVector({makeNullableFlatVector<Date>({std::nullopt})})};
@@ -238,7 +239,7 @@ TEST_F(LastAggregateTest, dateGlobal) {
   testGlobalAggregate(vectors, ignoreNullData, hasNullData);
 }
 
-TEST_F(LastAggregateTest, intervalGroupBy) {
+TEST_F(FirstAggregateTest, intervalGroupBy) {
   auto vectors = {makeRowVector({
       makeFlatVector<int32_t>(98, [](auto row) { return row % 7; }),
       makeFlatVector<int64_t>(
@@ -252,9 +253,7 @@ TEST_F(LastAggregateTest, intervalGroupBy) {
       makeFlatVector<int32_t>(7, [](auto row) { return row; }),
       makeFlatVector<int64_t>(
           7, // size
-          [](auto row) {
-            return (row + 91) % 3 == 0 ? row + 91 - 7 : row + 91;
-          }, // valueAt
+          [](auto row) { return row % 3 == 0 ? (row + 7) : (row); }, // valueAt
           nullptr, // nullAt
           INTERVAL_DAY_TIME()),
   })};
@@ -264,22 +263,22 @@ TEST_F(LastAggregateTest, intervalGroupBy) {
       makeFlatVector<int32_t>(7, [](auto row) { return row; }),
       makeFlatVector<int64_t>(
           7, // size
-          [](auto row) { return row + 91; }, // valueAt
-          [](auto row) { return (row + 91) % 3 == 0; }, // nullAt
+          [](auto row) { return row; }, // valueAt
+          nullEvery(3),
           INTERVAL_DAY_TIME()),
   })};
 
   testGroupBy(vectors, ignoreNullData, hasNullData);
 }
 
-TEST_F(LastAggregateTest, intervalGlobal) {
+TEST_F(FirstAggregateTest, intervalGlobal) {
   auto vectors = {makeRowVector({
       makeNullableFlatVector<int64_t>(
           {std::nullopt, 1, 2, std::nullopt}, INTERVAL_DAY_TIME()),
   })};
 
   auto ignoreNullData = {makeRowVector(
-      {makeNullableFlatVector<int64_t>({2}, INTERVAL_DAY_TIME())})};
+      {makeNullableFlatVector<int64_t>({1}, INTERVAL_DAY_TIME())})};
 
   auto hasNullData = {makeRowVector(
       {makeNullableFlatVector<int64_t>({std::nullopt}, INTERVAL_DAY_TIME())})};
@@ -287,7 +286,7 @@ TEST_F(LastAggregateTest, intervalGlobal) {
   testGlobalAggregate(vectors, ignoreNullData, hasNullData);
 }
 
-TEST_F(LastAggregateTest, varcharGroupBy) {
+TEST_F(FirstAggregateTest, varcharGroupBy) {
   std::vector<std::string> data(98);
   auto vectors = {makeRowVector({
       makeFlatVector<int32_t>(98, [](auto row) { return row % 7; }),
@@ -302,41 +301,43 @@ TEST_F(LastAggregateTest, varcharGroupBy) {
 
   createDuckDbTable(vectors);
 
-  // Verify when ignoreNull is true.
-  testAggregations(
-      vectors,
-      {"c0"},
-      {"spark_last_ignore_null(c1)"},
-      "SELECT c0, last(c1) FROM tmp WHERE c1 IS NOT NULL GROUP BY c0");
+  {
+    SCOPED_TRACE("ignore null + group by");
+    testAggregations(
+        vectors,
+        {"c0"},
+        {"spark_first_ignore_null(c1)"},
+        "SELECT c0, first(c1) FROM tmp WHERE c1 IS NOT NULL GROUP BY c0");
+  }
 
-  // Verify when ignoreNull is false.
-  // Expected result should have last 7 rows [91..98) including nulls.
-  auto expected = {makeRowVector({
-      makeFlatVector<int32_t>(7, [](auto row) { return row; }),
-      makeFlatVector<StringView>(
-          7, // size
-          [&data](auto row) { return StringView(data[91 + row]); }, // valueAt
-          [](auto row) { return (91 + row) % 3 == 0; }), // nullAt
-  })};
-  testAggregations(vectors, {"c0"}, {"spark_last(c1)"}, expected);
+  {
+    SCOPED_TRACE("not ignore null + group by");
+    auto expected = {makeRowVector({
+        makeFlatVector<int32_t>(7, [](auto row) { return row; }),
+        makeFlatVector<StringView>(
+            7, // size
+            [&data](auto row) { return StringView(data[row]); }, // valueAt
+            nullEvery(3)),
+    })};
+    testAggregations(vectors, {"c0"}, {"spark_first(c1)"}, expected);
+  }
 }
 
-TEST_F(LastAggregateTest, varcharGlobal) {
+TEST_F(FirstAggregateTest, varcharGlobal) {
   auto vectors = {makeRowVector({
       makeNullableFlatVector<StringView>(
           {std::nullopt, "a", "b", std::nullopt}),
   })};
 
-  auto ignoreNullData = {
-      makeRowVector({makeNullableFlatVector<StringView>({"b"})})};
+  auto ignoreNullData = {makeRowVector({makeFlatVector<StringView>({"a"})})};
 
   auto hasNullData = {
-      makeRowVector({makeNullableFlatVector<StringView>({std::nullopt})})};
+      makeRowVector({makeNullableFlatVector<std::string>({std::nullopt})})};
 
   testGlobalAggregate(vectors, ignoreNullData, hasNullData);
 }
 
-TEST_F(LastAggregateTest, arrayGroupBy) {
+TEST_F(FirstAggregateTest, arrayGroupBy) {
   auto vectors = {makeRowVector({
       makeFlatVector<int32_t>(98, [](auto row) { return row % 7; }),
       makeArrayVector<int64_t>(
@@ -344,7 +345,7 @@ TEST_F(LastAggregateTest, arrayGroupBy) {
           [](auto row) { return row % 3; }, // sizeAt
           [](auto row, auto idx) { return row * 100 + idx; }, // valueAt
           // Even rows are null.
-          [](auto row) { return row % 2 == 0; }), // nullAt
+          nullEvery(2)),
   })};
 
   auto hasNullData = {makeRowVector({
@@ -352,13 +353,12 @@ TEST_F(LastAggregateTest, arrayGroupBy) {
       makeArrayVector<int64_t>(
           7,
           [](auto row) {
-            // Even rows are null, for these return values for (row - 7)
-            return ((91 + row) % 2) ? (91 + row) % 3 : (91 + row - 7) % 3;
+            // Even rows are null, for these return values for (row + 7)
+            return (row % 2) ? row % 3 : (row + 7) % 3;
           },
           [](auto row, auto idx) {
-            // Even rows are null, for these return values for (row - 7)
-            return ((91 + row) % 2) ? (91 + row) * 100 + idx
-                                    : (91 + row - 7) * 100 + idx;
+            // Even rows are null, for these return values for (row + 7)
+            return (row % 2) ? row * 100 + idx : (row + 7) * 100 + idx;
           }),
   })};
 
@@ -366,22 +366,22 @@ TEST_F(LastAggregateTest, arrayGroupBy) {
       makeFlatVector<int32_t>(7, [](auto row) { return row; }),
       makeArrayVector<int64_t>(
           7, // size
-          [](auto row) { return (91 + row) % 3; }, // sizeAt
-          [](auto row, auto idx) { return (91 + row) * 100 + idx; }, // valueAt
-          [](auto row) { return (91 + row) % 2 == 0; }), // nullAt
+          [](auto row) { return row % 3; }, // sizeAt
+          [](auto row, auto idx) { return row * 100 + idx; }, // valueAt
+          nullEvery(2)),
   })};
 
   testGroupBy(vectors, hasNullData, ignoreNullData);
 }
 
-TEST_F(LastAggregateTest, arrayGlobal) {
+TEST_F(FirstAggregateTest, arrayGlobal) {
   auto vectors = {makeRowVector({
       makeNullableArrayVector<int64_t>(
           {std::nullopt, {{1, 2}}, {{3, 4}}, std::nullopt}),
   })};
 
   auto ignoreNullData = {makeRowVector({
-      makeArrayVector<int64_t>({{3, 4}}),
+      makeArrayVector<int64_t>({{1, 2}}),
   })};
 
   auto hasNullData = {makeRowVector({
@@ -391,7 +391,7 @@ TEST_F(LastAggregateTest, arrayGlobal) {
   testGlobalAggregate(vectors, ignoreNullData, hasNullData);
 }
 
-TEST_F(LastAggregateTest, mapGroupBy) {
+TEST_F(FirstAggregateTest, mapGroupBy) {
   auto vectors = {makeRowVector({
       makeFlatVector<int32_t>(98, [](auto row) { return row % 7; }),
       makeMapVector<int64_t, float>(
@@ -401,20 +401,19 @@ TEST_F(LastAggregateTest, mapGroupBy) {
           [](auto idx) { return idx * 0.1; }), // valueAt
   })};
 
-  // Expected result should have last 7 rows of input |vectors|
   auto expected = {makeRowVector({
       makeFlatVector<int32_t>(7, [](auto row) { return row; }),
       makeMapVector<int64_t, float>(
           7, // size
-          [](auto row) { return row % 2 ? 2 : 0; }, // sizeAt
-          [](auto idx) { return 92 + idx; }, // keyAt
-          [](auto idx) { return (92 + idx) * 0.1; }), // valueAt
+          [](auto row) { return row % 2 ? 0 : 2; }, // sizeAt
+          [](auto idx) { return idx; }, // keyAt
+          [](auto idx) { return idx * 0.1; }), // valueAt
   })};
 
-  testAggregations(vectors, {"c0"}, {"spark_last(c1)"}, expected);
+  testAggregations(vectors, {"c0"}, {"spark_first(c1)"}, expected);
 }
 
-TEST_F(LastAggregateTest, mapGlobal) {
+TEST_F(FirstAggregateTest, mapGlobal) {
   auto O = [](const std::vector<std::pair<int64_t, std::optional<float>>>& m) {
     return std::make_optional(m);
   };
@@ -424,7 +423,7 @@ TEST_F(LastAggregateTest, mapGlobal) {
   })};
 
   auto ignoreNullData = {makeRowVector({
-      makeNullableMapVector<int64_t, float>({O({{2, 4.0}})}),
+      makeNullableMapVector<int64_t, float>({O({{1, 2.0}})}),
   })};
 
   auto hasNullData = {makeRowVector({
