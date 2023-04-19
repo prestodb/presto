@@ -43,6 +43,11 @@ public class UnresolvedSymbolExpression
         return type;
     }
 
+    public List<String> getName()
+    {
+        return name;
+    }
+
     @Override
     public List<RowExpression> getChildren()
     {

@@ -79,6 +79,7 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
+import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.TestExpressionInterpreter.AVG_UDAF_CPP;
 import static com.facebook.presto.sql.TestExpressionInterpreter.SQUARE_UDF_CPP;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
@@ -854,13 +855,13 @@ public class TestLogicalPlanner
                                 anyTree(tableScan("orders")))));
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Given correlated subquery is not supported.*")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Unexpected UnresolvedSymbolExpression.*")
     public void testDoubleNestedCorrelatedSubqueries()
     {
         assertPlan(
                 "SELECT orderkey FROM orders o " +
                         "WHERE 3 IN (SELECT o.custkey FROM lineitem l WHERE (SELECT l.orderkey = o.orderkey))",
-                OPTIMIZED,
+                OPTIMIZED_AND_VALIDATED,
                 anyTree(
                         filter("OUTER_FILTER",
                                 apply(ImmutableList.of("C", "O"),
@@ -1744,10 +1745,10 @@ public class TestLogicalPlanner
                                                         tableScan("supplier", ImmutableMap.of("suppkey_4", "suppkey"))))))));
 
         // Same query with a right join fails with legacy error
-        String expectedErrorMsg = "Unexpected identifier in logical plan: ";
+        String expectedErrorMsg = "Unexpected UnresolvedSymbolExpression in logical plan: ";
         assertPlanFailedWithException("SELECT COUNT(*) FROM part p RIGHT JOIN partsupp ps ON p.partkey=ps.partkey AND EXISTS (SELECT 1 FROM supplier s WHERE s.suppkey=ps.suppkey)",
                 this.getQueryRunner().getDefaultSession(),
-                expectedErrorMsg + "ps");
+                expectedErrorMsg + "ps.suppkey");
 
         // Subquery pushed to part and therefore final join order is ((part JOIN supplier) ROJ partsupp)
         assertPlan("SELECT COUNT(*) FROM part p RIGHT JOIN partsupp ps ON p.partkey=ps.partkey AND EXISTS (SELECT 1 FROM supplier s WHERE s.suppkey=p.partkey)",
@@ -1788,7 +1789,7 @@ public class TestLogicalPlanner
         // Same query with a right join fails with legacy error
         assertPlanFailedWithException("SELECT COUNT(*) FROM part p RIGHT JOIN (SELECT * FROM partsupp ps, supplier s WHERE ps.suppkey=s.suppkey) sq ON sq.partkey=p.partkey AND NOT EXISTS (SELECT 1 FROM lineitem l WHERE sq.supplycost+sq.acctbal = l.extendedprice)",
                 this.getQueryRunner().getDefaultSession(),
-                expectedErrorMsg + "sq");
+                expectedErrorMsg + "sq.supplycost");
 
         // Ensure subquery and filter get pushed to partsupp
         assertPlan("SELECT COUNT(*) FROM part p LEFT JOIN partsupp ps ON p.partkey=ps.partkey AND EXISTS (SELECT 1 FROM supplier s WHERE s.suppkey=ps.suppkey) AND ps.availqty<1000",
