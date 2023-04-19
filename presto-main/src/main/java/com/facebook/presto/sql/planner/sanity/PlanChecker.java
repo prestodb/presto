@@ -46,7 +46,8 @@ public final class PlanChecker
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new TypeValidator(),
-                        new VerifyOnlyOneOutputNode())
+                        new VerifyOnlyOneOutputNode(),
+                        new VerifyNoUnresolvedSymbolExpression())
                 .putAll(
                         Stage.FRAGMENT,
                         new ValidateDependenciesChecker(),
