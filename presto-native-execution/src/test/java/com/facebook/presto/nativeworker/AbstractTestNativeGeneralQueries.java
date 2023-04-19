@@ -578,6 +578,9 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // xxhash64.
         assertQuery("SELECT xxhash64(cast(comment as varbinary)) FROM orders");
+
+        // from_base64url, to_base64url
+        assertQuery("SELECT from_base64url(to_base64url(cast(comment as varbinary))) FROM orders");
     }
 
     @Test
