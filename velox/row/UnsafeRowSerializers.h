@@ -520,8 +520,7 @@ struct UnsafeRowSerializer {
       }
       auto serializedDataSize =
           serializeSimpleVector<kind>(nullSet, offset, size, vector.get());
-      return UnsafeRow::alignToFieldWidth(
-          nullSet - buffer + serializedDataSize.value_or(0));
+      return UnsafeRow::alignToFieldWidth(serializedDataSize.value_or(0));
     } else {
       auto [nullLength, fixedDataStart] = computeFixedDataStart(nullSet, size);
       // Create a temporary unsafe row as a container to recursively serialize.
@@ -833,7 +832,7 @@ struct UnsafeRowSerializer {
             offset,
             size,
             vector.get());
-    return nullSet - buffer + serializedDataSize.value_or(0);
+    return serializedDataSize.value_or(0);
   }
 
   /// Serializing an element in Velox array given its
@@ -991,7 +990,7 @@ struct UnsafeRowSerializer {
       size_t size,
       const BaseVector* data) {
     size_t dataSize = size * serializedSizeInBytes(data->type());
-    return UnsafeRow::alignToFieldWidth(dataSize + UnsafeRow::kFieldWidthBytes);
+    return UnsafeRow::alignToFieldWidth(dataSize);
   }
 
   /// Extracts and returns size for StringView fields
