@@ -13,11 +13,24 @@
  */
 #pragma once
 
-#include "PrestoServerBase.h"
+#include <string>
+
+#include "presto_cpp/main/PrestoServerBase.h"
 
 namespace facebook::presto {
-class PrestoServer : public PrestoServerBase {
+
+/// C++ Presto Server for Presto-on-Spark.
+/// Customize this class to be suitable for Presto-on-Spark. However, do not
+/// deviate significantly from C++ Presto Server.
+/// This server is accessible under the name of `presto_spark_server`.
+class PrestoSparkServer : public PrestoServerBase {
  public:
-  explicit PrestoServer(const std::string& configDirectoryPath);
+  explicit PrestoSparkServer(const std::string& configDirectoryPath);
+
+ protected:
+  void registerFunctions() override;
+
+  /// Registers all the test function if test mode is enabled
+  virtual void registerTestFunctions();
 };
 } // namespace facebook::presto

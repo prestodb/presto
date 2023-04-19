@@ -22,6 +22,7 @@ add_library(
   CPUMon.cpp
   PeriodicTaskManager.cpp
   PrestoExchangeSource.cpp
+  PrestoServerBase.cpp
   PrestoServer.cpp
   PrestoTask.cpp
   QueryContextManager.cpp
@@ -88,3 +89,5 @@ target_link_libraries(
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()
+
+add_subdirectory(spark)

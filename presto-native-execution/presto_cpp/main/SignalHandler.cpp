@@ -14,11 +14,11 @@
 #include "presto_cpp/main/SignalHandler.h"
 #include <folly/io/async/EventBaseManager.h>
 #include <csignal>
-#include "presto_cpp/main/PrestoServer.h"
+#include "presto_cpp/main/PrestoServerBase.h"
 
 namespace facebook::presto {
 
-SignalHandler::SignalHandler(PrestoServer* prestoServer)
+SignalHandler::SignalHandler(PrestoServerBase* prestoServer)
     : folly::AsyncSignalHandler(folly::EventBaseManager::get()->getEventBase()),
       prestoServer_(prestoServer) {
   registerSignalHandler(SIGINT);
