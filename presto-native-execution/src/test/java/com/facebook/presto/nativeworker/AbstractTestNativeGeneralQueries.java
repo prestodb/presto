@@ -414,6 +414,15 @@ public abstract class AbstractTestNativeGeneralQueries
                 "(decimal'-0.0000004', decimal'-0.12345')," +
                 "(decimal'123', decimal'13245')) t(n, m)");
 
+        // numeric limits
+        assertQueryFails("SELECT n + m from (values (DECIMAL'99999999999999999999999999999999999999'," +
+                "CAST('1' as DECIMAL(2,0)))) t(n, m)",
+                ".*Decimal overflow.*");
+        assertQueryFails(
+                "SELECT n + m from (values (CAST('-99999999999999999999999999999999999999' as DECIMAL(38,0))," +
+                        "CAST('-1' as DECIMAL(15,0)))) t(n,m)",
+                ".*Decimal overflow.*");
+
         // Subtraction of long decimals.
         assertQuery(
                 "SELECT n - m from (values " +
@@ -428,14 +437,19 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT n - m from (values (decimal'1.1', decimal'-1.1')," +
                 "(decimal'-0.0000004', decimal'-0.12345')," +
                 "(decimal'123', decimal'13245')) t(n, m)");
-
+        // Subtraction Overflow
+        assertQueryFails(
+                "SELECT n - m from (values (DECIMAL'-99999999999999999999999999999999999999', decimal'1')) " +
+                        "t(n,m)", ".*Decimal overflow.*");
         // Multiplication.
         assertQuery("SELECT n * m from (values (DECIMAL'99999999999999999999', DECIMAL'-0.000003')," +
                 "(DECIMAL'-0.00000000000000001', DECIMAL'10000000000'),(DECIMAL'-12345678902345.124', DECIMAL'-0.275')," +
                 "(NULL, NULL), (NULL, DECIMAL'2')) t(n, m)");
         assertQuery("SELECT n*m from(values (DECIMAL '100', DECIMAL '299'),(DECIMAL '5.4', DECIMAL '-125')," +
                 "(DECIMAL '-3.4', DECIMAL '-625'), (DECIMAL '-0.0004', DECIMAL '-0.0123')) t(n,m)");
-
+        // Multiplication overflow.
+        assertQueryFails("SELECT n*m from (values (DECIMAL'14621507953634074601941877663083790335', DECIMAL'10')) " +
+                "t(n,m)", ".*Decimal overflow.*");
         // Division long decimals.
         assertQuery("SELECT n/m from(values " +
                 "(CAST('10000000000000000.00' as decimal(19, 2)), DECIMAL'30000000000000.00')," +
@@ -443,9 +457,17 @@ public abstract class AbstractTestNativeGeneralQueries
                 "(CAST('-0.55555555' as decimal(19, 6)), DECIMAL'-111111111.222')," +
                 "(CAST('123456789123456789' as decimal(18, 0)), DECIMAL '-999232342342344234')" +
                 ") t(n, m)");
+        // Divide by zero error.
+        assertQueryFails("SELECT n/m from(values (DECIMAL'100', DECIMAL'0.0')) t(n,m)",
+                        ".*Division by zero.*");
+
         // Division short decimals.
         assertQuery("SELECT n/m from(values (DECIMAL'100', DECIMAL'299'),(DECIMAL'5.4', DECIMAL'-125')," +
                 "(DECIMAL'-3.4', DECIMAL'0.6'), (DECIMAL'-0.0004', DECIMAL'-0.0123')) t(n,m)");
+
+        // Division overflow.
+        assertQueryFails("SELECT n/m from(values (DECIMAL'99999999999999999999999999999999999999', DECIMAL'0.01'))" +
+                        " t(n,m)", ".*Decimal overflow.*");
     }
 
     @Test
