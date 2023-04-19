@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
-#include "velox/row/UnsafeRowDynamicSerializer.h"
+#include "velox/row/UnsafeRowSerializers.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
@@ -110,17 +110,20 @@ class PartitionAndSerializeOperator : public Operator {
 
     size_t totalSize = 0;
     for (auto i = 0; i < numInput; ++i) {
-      const size_t rowSize = velox::row::UnsafeRowDynamicSerializer::getSizeRow(
-          input_->type(), input_.get(), i);
+      const size_t rowSize =
+          velox::row::UnsafeRowSerializer::getSizeRow(input_.get(), i);
       rowSizes_[i] = rowSize;
       totalSize += (sizeof(size_t) + rowSize);
     }
 
     // Allocate memory.
     auto buffer = dataVector.getBufferWithSpace(totalSize);
+    // getBufferWithSpace() may return a buffer that already has content, so we
+    // only use the space after that.
+    auto rawBuffer = buffer->asMutable<char>() + buffer->size();
+    buffer->setSize(buffer->size() + totalSize);
 
     // Serialize rows.
-    auto rawBuffer = buffer->asMutable<char>();
     size_t offset = 0;
     for (auto i = 0; i < numInput; ++i) {
       dataVector.setNoCopy(
@@ -131,8 +134,8 @@ class PartitionAndSerializeOperator : public Operator {
       offset += sizeof(size_t);
 
       // Write row data.
-      auto size = velox::row::UnsafeRowDynamicSerializer::serialize(
-                      input_->type(), input_, rawBuffer + offset, i)
+      auto size = velox::row::UnsafeRowSerializer::serialize(
+                      input_, rawBuffer + offset, i)
                       .value_or(0);
       VELOX_DCHECK_EQ(size, rowSizes_[i]);
       offset += size;

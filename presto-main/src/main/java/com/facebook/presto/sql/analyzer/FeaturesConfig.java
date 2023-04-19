@@ -240,6 +240,7 @@ public class FeaturesConfig
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
     private String nativeExecutionExecutablePath = "./presto_server";
+    private String nativeExecutionProgramArguments = "";
     private boolean randomizeOuterJoinNullKey;
     private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
     private boolean isOptimizeConditionalAggregationEnabled;
@@ -250,6 +251,8 @@ public class FeaturesConfig
     private boolean isOptimizeJoinProbeWithEmptyBuildRuntime;
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     private boolean mergeDuplicateAggregationsEnabled = true;
+    private boolean mergeAggregationsWithAndWithoutFilter;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2281,6 +2284,19 @@ public class FeaturesConfig
         return this.nativeExecutionExecutablePath;
     }
 
+    @Config("native-execution-program-arguments")
+    @ConfigDescription("Program arguments for native engine execution")
+    public FeaturesConfig setNativeExecutionProgramArguments(String nativeExecutionProgramArguments)
+    {
+        this.nativeExecutionProgramArguments = nativeExecutionProgramArguments;
+        return this;
+    }
+
+    public String getNativeExecutionProgramArguments()
+    {
+        return this.nativeExecutionProgramArguments;
+    }
+
     public boolean isRandomizeOuterJoinNullKeyEnabled()
     {
         return randomizeOuterJoinNullKey;
@@ -2408,6 +2424,19 @@ public class FeaturesConfig
     public FeaturesConfig setMergeDuplicateAggregationsEnabled(boolean mergeDuplicateAggregationsEnabled)
     {
         this.mergeDuplicateAggregationsEnabled = mergeDuplicateAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isMergeAggregationsWithAndWithoutFilter()
+    {
+        return this.mergeAggregationsWithAndWithoutFilter;
+    }
+
+    @Config("optimizer.merge-aggregations-with-and-without-filter")
+    @ConfigDescription("Enable optimization that merges the same agg with and without filter for efficiency")
+    public FeaturesConfig setMergeAggregationsWithAndWithoutFilter(boolean mergeAggregationsWithAndWithoutFilter)
+    {
+        this.mergeAggregationsWithAndWithoutFilter = mergeAggregationsWithAndWithoutFilter;
         return this;
     }
 }

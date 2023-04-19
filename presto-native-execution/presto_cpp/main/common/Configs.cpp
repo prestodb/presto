@@ -49,6 +49,35 @@ bool SystemConfig::httpServerReusePort() const {
   return opt.value_or(kHttpServerReusePortDefault);
 }
 
+int SystemConfig::httpServerHttpsPort() const {
+  return requiredProperty<int>(std::string(kHttpServerHttpsPort));
+}
+
+bool SystemConfig::enableHttps() const {
+  auto opt = optionalProperty<bool>(std::string(kHttpServerHttpsEnabled));
+  return opt.value_or(kHttpServerHttpsEnabledDefault);
+}
+
+std::string SystemConfig::httpsSupportedCiphers() const {
+  auto opt = optionalProperty<std::string>(std::string(kHttpsSupportedCiphers));
+  return opt.value_or(std::string(kHttpsSupportedCiphersDefault));
+}
+
+std::optional<std::string> SystemConfig::httpsCertPath() const {
+  return static_cast<std::optional<std::string>>(
+      optionalProperty<std::string>(std::string(kHttpsCertPath)));
+}
+
+std::optional<std::string> SystemConfig::httpsKeyPath() const {
+  return static_cast<std::optional<std::string>>(
+      optionalProperty<std::string>(std::string(kHttpsKeyPath)));
+}
+
+std::optional<std::string> SystemConfig::httpsClientCertAndKeyPath() const {
+  return static_cast<std::optional<std::string>>(
+      optionalProperty<std::string>(std::string(kHttpsClientCertAndKeyPath)));
+}
+
 std::string SystemConfig::prestoVersion() const {
   return requiredProperty(std::string(kPrestoVersion));
 }
@@ -169,6 +198,16 @@ bool SystemConfig::enableHttpAccessLog() const {
 bool SystemConfig::enableHttpStatsFilter() const {
   auto opt = optionalProperty<bool>(std::string(kHttpEnableStatFilter));
   return opt.value_or(kHttpEnableStatsFilterDefault);
+}
+
+bool SystemConfig::registerTestFunctions() const {
+  auto opt = optionalProperty<bool>(std::string(kRegisterTestFunctions));
+  return opt.value_or(kRegisterTestFunctionsDefault);
+}
+
+uint64_t SystemConfig::httpMaxAllocateBytes() const {
+  auto opt = optionalProperty<uint64_t>(std::string(kHttpMaxAllocateBytes));
+  return opt.value_or(kHttpMaxAllocateBytesDefault);
 }
 
 NodeConfig* NodeConfig::instance() {

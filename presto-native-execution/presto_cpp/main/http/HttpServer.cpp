@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/http/HttpServer.h"
+#include <algorithm>
 #include "presto_cpp/main/common/Configs.h"
 
 namespace facebook::presto::http {
@@ -75,15 +76,69 @@ void sendErrorResponse(
       .sendWithEOM();
 }
 
+HttpConfig::HttpConfig(const folly::SocketAddress& address, bool reusePort)
+    : address_(address), reusePort_(reusePort) {}
+
+proxygen::HTTPServer::IPConfig HttpConfig::ipConfig() const {
+  proxygen::HTTPServer::IPConfig ipConfig{
+      address_, proxygen::HTTPServer::Protocol::HTTP};
+  if (reusePort_) {
+    folly::SocketOptionKey portReuseOpt = {SOL_SOCKET, SO_REUSEPORT};
+    ipConfig.acceptorSocketOptions.emplace();
+    ipConfig.acceptorSocketOptions->insert({portReuseOpt, 1});
+  }
+  return ipConfig;
+}
+
+HttpsConfig::HttpsConfig(
+    const folly::SocketAddress& address,
+    const std::string& certPath,
+    const std::string& keyPath,
+    const std::string& supportedCiphers,
+    bool reusePort)
+    : address_(address),
+      certPath_(certPath),
+      keyPath_(keyPath),
+      supportedCiphers_(supportedCiphers),
+      reusePort_(reusePort) {
+  // Wangle separates ciphers by ":" where in the config it's separated with ","
+  std::replace(supportedCiphers_.begin(), supportedCiphers_.end(), ',', ':');
+}
+
+proxygen::HTTPServer::IPConfig HttpsConfig::ipConfig() const {
+  proxygen::HTTPServer::IPConfig ipConfig{
+      address_, proxygen::HTTPServer::Protocol::HTTP};
+
+  wangle::SSLContextConfig sslCfg;
+  sslCfg.isDefault = true;
+  sslCfg.clientVerification =
+      folly::SSLContext::VerifyClientCertificate::DO_NOT_REQUEST;
+  sslCfg.setCertificate(certPath_, keyPath_, "");
+  sslCfg.sslCiphers = supportedCiphers_;
+
+  ipConfig.sslConfigs.push_back(sslCfg);
+
+  if (reusePort_) {
+    folly::SocketOptionKey portReuseOpt = {SOL_SOCKET, SO_REUSEPORT};
+    ipConfig.acceptorSocketOptions.emplace();
+    ipConfig.acceptorSocketOptions->insert({portReuseOpt, 1});
+  }
+  return ipConfig;
+}
+
 HttpServer::HttpServer(
-    const folly::SocketAddress& httpAddress,
+    std::unique_ptr<HttpConfig> httpConfig,
+    std::unique_ptr<HttpsConfig> httpsConfig,
     int httpExecThreads)
-    : httpAddress_(httpAddress),
+    : httpConfig_(std::move(httpConfig)),
+      httpsConfig_(std::move(httpsConfig)),
       httpExecThreads_(httpExecThreads),
       handlerFactory_(std::make_unique<DispatchingRequestHandlerFactory>()),
       httpExecutor_{std::make_shared<folly::IOThreadPoolExecutor>(
           httpExecThreads,
-          std::make_shared<folly::NamedThreadFactory>("HTTPSrvExec"))} {}
+          std::make_shared<folly::NamedThreadFactory>("HTTPSrvExec"))} {
+  VELOX_CHECK((httpConfig_ != nullptr) || (httpsConfig_ != nullptr));
+}
 
 proxygen::RequestHandler*
 DispatchingRequestHandlerFactory::EndPoint::checkAndApply(
@@ -160,15 +215,6 @@ void HttpServer::start(
     std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters,
     std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess,
     std::function<void(std::exception_ptr)> onError) {
-  proxygen::HTTPServer::IPConfig cfg{
-      httpAddress_, proxygen::HTTPServer::Protocol::HTTP};
-
-  if (SystemConfig::instance()->httpServerReusePort()) {
-    folly::SocketOptionKey portReuseOpt = {SOL_SOCKET, SO_REUSEPORT};
-    cfg.acceptorSocketOptions.emplace();
-    cfg.acceptorSocketOptions->insert({portReuseOpt, 1});
-  }
-
   proxygen::HTTPServerOptions options;
   // The 'threads' field is not used when we provide our own executor (see us
   // passing httpExecutor_ below) to the start() method. In that case we create
@@ -197,8 +243,17 @@ void HttpServer::start(
 
   server_ = std::make_unique<proxygen::HTTPServer>(std::move(options));
 
-  std::vector<proxygen::HTTPServer::IPConfig> ips{cfg};
-  server_->bind(ips);
+  std::vector<proxygen::HTTPServer::IPConfig> ipConfigs;
+
+  if (httpConfig_ != nullptr) {
+    ipConfigs.push_back(httpConfig_->ipConfig());
+  }
+
+  if (httpsConfig_ != nullptr) {
+    ipConfigs.push_back(httpsConfig_->ipConfig());
+  }
+
+  server_->bind(ipConfigs);
 
   LOG(INFO) << "STARTUP: proxygen::HTTPServer::start()";
   server_->start(

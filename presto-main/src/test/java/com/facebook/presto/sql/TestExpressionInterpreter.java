@@ -122,7 +122,7 @@ import static org.testng.Assert.fail;
 public class TestExpressionInterpreter
 {
     public static final SqlInvokedFunction SQUARE_UDF_CPP = new SqlInvokedFunction(
-            QualifiedObjectName.valueOf(new CatalogSchemaName("json", "f3"), "square"),
+            QualifiedObjectName.valueOf(new CatalogSchemaName("json", "test_schema"), "square"),
             ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
             parseTypeSignature(StandardTypes.BIGINT),
             "Integer square",
@@ -131,7 +131,7 @@ public class TestExpressionInterpreter
             notVersioned());
 
     public static final SqlInvokedFunction AVG_UDAF_CPP = new SqlInvokedFunction(
-            QualifiedObjectName.valueOf(new CatalogSchemaName("json", "f3"), "avg"),
+            QualifiedObjectName.valueOf(new CatalogSchemaName("json", "test_schema"), "avg"),
             ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.DOUBLE))),
             parseTypeSignature(StandardTypes.DOUBLE),
             "Returns mean of doubles",
@@ -416,14 +416,14 @@ public class TestExpressionInterpreter
     public void testCppFunctionCall()
     {
         METADATA.getFunctionAndTypeManager().createFunction(SQUARE_UDF_CPP, false);
-        assertOptimizedEquals("json.f3.square(-5)", "json.f3.square(-5)");
+        assertOptimizedEquals("json.test_schema.square(-5)", "json.test_schema.square(-5)");
     }
 
     @Test
     public void testCppAggregateFunctionCall()
     {
         METADATA.getFunctionAndTypeManager().createFunction(AVG_UDAF_CPP, false);
-        assertOptimizedEquals("json.f3.avg(1.0)", "json.f3.avg(1.0)");
+        assertOptimizedEquals("json.test_schema.avg(1.0)", "json.test_schema.avg(1.0)");
     }
 
     // Run this method exactly once.

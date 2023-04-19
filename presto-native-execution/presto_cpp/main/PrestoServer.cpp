@@ -29,6 +29,7 @@
 #include "presto_cpp/main/connectors/hive/storage_adapters/FileSystems.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
+#include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleInterface.h"
@@ -62,7 +63,9 @@ using namespace facebook::velox;
 namespace {
 
 constexpr char const* kHttp = "http";
-constexpr char const* kBaseUriFormat = "http://{}:{}";
+constexpr char const* kHttps = "https";
+constexpr char const* kTaskUriFormat =
+    "{}://{}:{}"; // protocol, address and port
 constexpr char const* kConnectorName = "connector.name";
 constexpr char const* kCacheEnabled = "cache.enabled";
 constexpr char const* kCacheMaxCacheSize = "cache.max-cache-size";
@@ -154,14 +157,48 @@ PrestoServer::~PrestoServer() {}
 void PrestoServer::run() {
   auto systemConfig = SystemConfig::instance();
   auto nodeConfig = NodeConfig::instance();
-  int servicePort{0};
+  int httpPort{0};
   int httpExecThreads{0};
+
+  std::string certPath, keyPath, ciphers;
+  std::optional<int> httpsPort;
+
   try {
     systemConfig->initialize(
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
         fmt::format("{}/node.properties", configDirectoryPath_));
-    servicePort = systemConfig->httpServerHttpPort();
+
+    httpPort = systemConfig->httpServerHttpPort();
+    if (systemConfig->enableHttps()) {
+      httpsPort = systemConfig->httpServerHttpsPort();
+
+      ciphers = systemConfig->httpsSupportedCiphers();
+      if (ciphers.empty()) {
+        VELOX_USER_FAIL("Https is enabled without ciphers")
+      }
+
+      auto optionalCertPath = systemConfig->httpsCertPath();
+      if (!optionalCertPath.has_value()) {
+        VELOX_USER_FAIL("Https is enabled without certificate path");
+      }
+      certPath = optionalCertPath.value();
+
+      auto optionalKeyPath = systemConfig->httpsKeyPath();
+      if (!optionalKeyPath.has_value()) {
+        VELOX_USER_FAIL("Https is enabled without key path");
+      }
+      keyPath = optionalKeyPath.value();
+
+      auto optionalClientCertPath = systemConfig->httpsClientCertAndKeyPath();
+      if (!optionalClientCertPath.has_value()) {
+        // This config is not used in server but validated here, otherwise, it
+        // will fail later in the HttpClient during query execution.
+        VELOX_USER_FAIL(
+            "Https Client Certificates are not configured correctly");
+      }
+    }
+
     nodeVersion_ = systemConfig->prestoVersion();
     httpExecThreads = systemConfig->httpExecThreads();
     environment_ = nodeConfig->nodeEnvironment();
@@ -195,19 +232,20 @@ void PrestoServer::run() {
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
 
-  folly::SocketAddress socketAddress;
-  socketAddress.setFromLocalPort(servicePort);
+  folly::SocketAddress httpSocketAddress;
+  httpSocketAddress.setFromLocalPort(httpPort);
   LOG(INFO) << fmt::format(
       "STARTUP: Starting server at {}:{} ({})",
-      socketAddress.getIPAddress().str(),
-      servicePort,
+      httpSocketAddress.getIPAddress().str(),
+      httpPort,
       address_);
 
   std::unique_ptr<Announcer> announcer;
   if (auto discoveryAddressLookupFunc = discoveryAddressLookup()) {
     announcer = std::make_unique<Announcer>(
         address_,
-        servicePort,
+        httpsPort.has_value(),
+        httpsPort.has_value() ? httpsPort.value() : httpPort,
         discoveryAddressLookupFunc,
         nodeVersion_,
         environment_,
@@ -218,8 +256,21 @@ void PrestoServer::run() {
     announcer->start();
   }
 
-  httpServer_ =
-      std::make_unique<http::HttpServer>(socketAddress, httpExecThreads);
+  const bool reusePort = SystemConfig::instance()->httpServerReusePort();
+  auto httpConfig =
+      std::make_unique<http::HttpConfig>(httpSocketAddress, reusePort);
+
+  std::unique_ptr<http::HttpsConfig> httpsConfig;
+  if (httpsPort.has_value()) {
+    folly::SocketAddress httpsSocketAddress;
+    httpsSocketAddress.setFromLocalPort(httpsPort.value());
+
+    httpsConfig = std::make_unique<http::HttpsConfig>(
+        httpsSocketAddress, certPath, keyPath, ciphers, reusePort);
+  }
+
+  httpServer_ = std::make_unique<http::HttpServer>(
+      std::move(httpConfig), std::move(httpsConfig), httpExecThreads);
 
   httpServer_->registerPost(
       "/v1/memory",
@@ -282,6 +333,12 @@ void PrestoServer::run() {
   velox::aggregate::prestosql::registerAllAggregateFunctions(
       kPrestoDefaultPrefix);
   velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
+  if (SystemConfig::instance()->registerTestFunctions()) {
+    velox::functions::prestosql::registerComparisonFunctions(
+        "json.test_schema.");
+    velox::aggregate::prestosql::registerAllAggregateFunctions(
+        "json.test_schema.");
+  }
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
 
@@ -298,7 +355,15 @@ void PrestoServer::run() {
 
   taskManager_ = std::make_unique<TaskManager>(
       systemConfig->values(), nodeConfig->values());
-  taskManager_->setBaseUri(fmt::format(kBaseUriFormat, address_, servicePort));
+
+  std::string taskUri;
+  if (httpsPort.has_value()) {
+    taskUri = fmt::format(kTaskUriFormat, kHttps, address_, httpsPort.value());
+  } else {
+    taskUri = fmt::format(kTaskUriFormat, kHttp, address_, httpPort);
+  }
+
+  taskManager_->setBaseUri(taskUri);
   taskManager_->setNodeId(nodeId_);
   taskResource_ = std::make_unique<TaskResource>(*taskManager_);
   taskResource_->registerUris(*httpServer_);
@@ -332,20 +397,32 @@ void PrestoServer::run() {
   }
 
   LOG(INFO) << "STARTUP: Starting all periodic tasks...";
-  PeriodicTaskManager periodicTaskManager(
-      driverCPUExecutor(), httpServer_->getExecutor(), taskManager_.get());
-  periodicTaskManager.addTask(
+  std::vector<std::shared_ptr<velox::connector::Connector>> connectors;
+  for (auto connectorId : catalogNames) {
+    connectors.emplace_back(velox::connector::getConnector(connectorId));
+  }
+
+  auto memoryAllocator = velox::memory::MemoryAllocator::getInstance();
+  periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
+      driverCPUExecutor(),
+      httpServer_->getExecutor(),
+      taskManager_.get(),
+      memoryAllocator,
+      dynamic_cast<const velox::cache::AsyncDataCache* const>(memoryAllocator),
+      velox::connector::getAllConnectors());
+  periodicTaskManager_->addTask(
       [server = this]() { server->populateMemAndCPUInfo(); },
       1'000'000, // 1 second
       "populate_mem_cpu_info");
-  periodicTaskManager.start();
+  addAdditionalPeriodicTasks();
+  periodicTaskManager_->start();
 
   // Start everything. After the return from the following call we are shutting
   // down.
   httpServer_->start(getHttpServerFilters());
 
   LOG(INFO) << "SHUTDOWN: Stopping all periodic tasks...";
-  periodicTaskManager.stop();
+  periodicTaskManager_->stop();
 
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
@@ -489,6 +566,8 @@ std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
   }
 }
 
+void PrestoServer::addAdditionalPeriodicTasks() {}
+
 std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListener() {
   return nullptr;
 }
@@ -519,7 +598,7 @@ PrestoServer::getHttpServerFilters() {
 
 std::unique_ptr<proxygen::RequestHandlerFactory>
 PrestoServer::getHttpStatsFilter() {
-  return nullptr;
+  return std::make_unique<http::filters::StatsFilterFactory>();
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(

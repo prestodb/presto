@@ -44,7 +44,6 @@ abstract class TestHiveQueries
         getQueryRunner().createCatalog("hivecached", "hive", hiveProperties);
 
         Session session = Session.builder(getSession())
-                .setSystemProperty("table_writer_merge_operator_enabled", "false")
                 .setCatalog("hivecached")
                 .setCatalogSessionProperty("hivecached", "collect_column_statistics_on_write", "false")
                 .build();

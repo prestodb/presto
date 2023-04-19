@@ -80,6 +80,7 @@ import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTransla
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PageDataOutput;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.security.TokenAuthenticator;
@@ -524,9 +525,9 @@ public class PrestoSparkTaskExecutorFactory
                     inputs instanceof PrestoSparkNativeTaskInputs,
                     format("PrestoSparkNativeTaskInputs is required for native execution, but %s is provided", inputs.getClass().getName()));
             PrestoSparkNativeTaskInputs nativeInputs = (PrestoSparkNativeTaskInputs) inputs;
-            fillNativeExecutionTaskInputs(fragment, nativeInputs, shuffleReadInfos);
-            shuffleWriteInfo = nativeInputs.getShuffleWriteDescriptor().isPresent() && !findTableWriteNode(fragment.getRoot()).isPresent() ?
-                    Optional.of(shuffleInfoTranslator.createShuffleWriteInfo(nativeInputs.getShuffleWriteDescriptor().get())) : Optional.empty();
+            fillNativeExecutionTaskInputs(fragment, session, nativeInputs, shuffleReadInfos);
+            shuffleWriteInfo = needShuffleWriteInfo(nativeInputs, (NativeExecutionNode) fragment.getRoot()) ?
+                    Optional.of(shuffleInfoTranslator.createShuffleWriteInfo(session, nativeInputs.getShuffleWriteDescriptor().get())) : Optional.empty();
             taskSources = getNativeExecutionShuffleSources(session, taskId, fragment, shuffleReadInfos.build(), getTaskSources(serializedTaskSources));
         }
         else {
@@ -678,8 +679,14 @@ public class PrestoSparkTaskExecutorFactory
         return OptionalLong.of(sum);
     }
 
+    private boolean needShuffleWriteInfo(PrestoSparkNativeTaskInputs nativeInputs, NativeExecutionNode node)
+    {
+        return nativeInputs.getShuffleWriteDescriptor().isPresent() && !findTableWriteNode(node).isPresent() && !(node.getSubPlan() instanceof OutputNode);
+    }
+
     private void fillNativeExecutionTaskInputs(
             PlanFragment fragment,
+            Session session,
             PrestoSparkNativeTaskInputs inputs,
             ImmutableMap.Builder<PlanNodeId, PrestoSparkShuffleReadInfo> shuffleReadInfos)
     {
@@ -687,7 +694,7 @@ public class PrestoSparkTaskExecutorFactory
             for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
                 PrestoSparkShuffleReadDescriptor shuffleReadDescriptor = inputs.getShuffleReadDescriptors().get(sourceFragmentId.toString());
                 if (shuffleReadDescriptor != null) {
-                    shuffleReadInfos.put(remoteSource.getId(), shuffleInfoTranslator.createShuffleReadInfo(shuffleReadDescriptor));
+                    shuffleReadInfos.put(remoteSource.getId(), shuffleInfoTranslator.createShuffleReadInfo(session, shuffleReadDescriptor));
                 }
             }
         }

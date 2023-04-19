@@ -17,6 +17,7 @@
 
 #include <velox/common/memory/MemoryAllocator.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
@@ -297,7 +298,7 @@ class PrestoExchangeSourceTest : public testing::Test {
  public:
   void SetUp() override {
     auto& defaultManager = memory::MemoryManager::getInstance();
-    pool_ = memory::getDefaultMemoryPool("PrestoExchangeSourceTest");
+    pool_ = memory::addDefaultLeafMemoryPool("PrestoExchangeSourceTest");
     memory::MmapAllocator::Options options;
     options.capacity = 1L << 30;
     allocator_ = std::make_unique<memory::MmapAllocator>(options);
@@ -330,8 +331,8 @@ TEST_F(PrestoExchangeSourceTest, basic) {
   }
   producer->noMoreData();
 
-  auto producerServer =
-      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   producer->registerEndpoints(producerServer.get());
 
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
@@ -372,8 +373,8 @@ TEST_F(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
   }
   producer->noMoreData();
 
-  auto producerServer =
-      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   producer->registerEndpoints(producerServer.get());
 
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
@@ -397,8 +398,8 @@ TEST_F(PrestoExchangeSourceTest, slowProducer) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
   auto producer = std::make_unique<Producer>();
 
-  auto producerServer =
-      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   producer->registerEndpoints(producerServer.get());
 
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
@@ -435,8 +436,8 @@ TEST_F(PrestoExchangeSourceTest, failedProducer) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
   auto producer = std::make_unique<Producer>();
 
-  auto producerServer =
-      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   producer->registerEndpoints(producerServer.get());
 
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
@@ -459,16 +460,15 @@ TEST_F(PrestoExchangeSourceTest, failedProducer) {
 
 TEST_F(PrestoExchangeSourceTest, exceedingMemoryCapacityForHttpResponse) {
   const int64_t memoryCapBytes = 1 << 10;
-  auto rootPool = getProcessDefaultMemoryManager().getPool(
-      "httpResponseAllocationFailure",
-      MemoryPool::Kind::kAggregate,
-      memoryCapBytes);
-  auto leafPool = rootPool->addChild("exceedingMemoryCapacityForHttpResponse");
+  auto rootPool = defaultMemoryManager().addRootPool(
+      "httpResponseAllocationFailure", memoryCapBytes);
+  auto leafPool =
+      rootPool->addLeafChild("exceedingMemoryCapacityForHttpResponse");
 
   auto producer = std::make_unique<Producer>();
 
-  auto producerServer =
-      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
   producer->registerEndpoints(producerServer.get());
 
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
@@ -490,4 +490,80 @@ TEST_F(PrestoExchangeSourceTest, exceedingMemoryCapacityForHttpResponse) {
   // response data but just fails the query.
   ASSERT_EQ(exchangeSource->testingFailedAttempts(), 1);
   ASSERT_EQ(leafPool->getCurrentBytes(), 0);
+}
+
+TEST_F(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
+  auto rootPool =
+      defaultMemoryManager().addRootPool("memoryAllocationAndUsageCheck");
+  auto leafPool = rootPool->addLeafChild("memoryAllocationAndUsageCheck");
+
+  auto producer = std::make_unique<Producer>();
+
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
+  producer->registerEndpoints(producerServer.get());
+
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+
+  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  queue->addSourceLocked();
+  queue->noMoreSources();
+  auto exchangeSource = std::make_shared<PrestoExchangeSource>(
+      makeProducerUri(producerAddress), 3, queue, leafPool.get());
+
+  const std::string smallPayload(7 << 10, 'L');
+  producer->enqueue(smallPayload);
+  requestNextPage(queue, exchangeSource);
+  auto smallPage = waitForNextPage(queue);
+  ASSERT_EQ(leafPool->getMemoryUsageTracker()->numAllocs(), 2);
+  int64_t currMemoryBytes;
+  int64_t peakMemoryBytes;
+  PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+  ASSERT_EQ(
+      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+          (1 + 2),
+      currMemoryBytes);
+  ASSERT_EQ(
+      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+          (1 + 2),
+      peakMemoryBytes);
+  smallPage.reset();
+  PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+  ASSERT_EQ(0, currMemoryBytes);
+  ASSERT_EQ(
+      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+          (1 + 2),
+      peakMemoryBytes);
+
+  const std::string largePayload(128 << 10, 'L');
+  producer->enqueue(largePayload);
+  requestNextPage(queue, exchangeSource);
+  auto largePage = waitForNextPage(queue);
+  producer->noMoreData();
+
+  PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+
+  ASSERT_EQ(
+      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+          (1 + 2 + 4 + 8 + 16 + 16),
+      currMemoryBytes);
+  ASSERT_EQ(
+      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+          (1 + 2 + 4 + 8 + 16 + 16),
+      peakMemoryBytes);
+  largePage.reset();
+  PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+  ASSERT_EQ(0, currMemoryBytes);
+  ASSERT_EQ(
+      memory::AllocationTraits::pageBytes(pool_->sizeClasses().front()) *
+          (1 + 2 + 4 + 8 + 16 + 16),
+      peakMemoryBytes);
+
+  requestNextPage(queue, exchangeSource);
+  waitForEndMarker(queue);
+  serverWrapper.stop();
+  PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
+  ASSERT_EQ(0, currMemoryBytes);
+  ASSERT_EQ(192512, peakMemoryBytes);
 }

@@ -14,42 +14,42 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.UnresolvedSymbolExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SubqueryExpression;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.lang.String.join;
 
-public final class NoSubqueryExpressionLeftChecker
+public final class VerifyNoUnresolvedSymbolExpression
         implements PlanChecker.Checker
 {
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        List<Expression> expressions = ExpressionExtractor.extractExpressions(plan)
+        List<RowExpression> expressions = ExpressionExtractor.extractExpressions(plan)
                 .stream()
-                .filter(OriginalExpressionUtils::isExpression)
-                .map(OriginalExpressionUtils::castToExpression)
                 .collect(toImmutableList());
-        for (Expression expression : expressions) {
-            new DefaultTraversalVisitor<Void, Void>()
-            {
-                @Override
-                protected Void visitSubqueryExpression(SubqueryExpression node, Void context)
-                {
-                    throw new IllegalStateException(format("Unexpected subquery expression in logical plan: %s", node));
-                }
-            }.process(expression, null);
+        for (RowExpression expression : expressions) {
+            expression.accept(
+                    new DefaultRowExpressionTraversalVisitor<Void>()
+                    {
+                        @Override
+                        public Void visitUnresolvedSymbolExpression(UnresolvedSymbolExpression node, Void context)
+                        {
+                            throw new IllegalStateException(format("Unexpected UnresolvedSymbolExpression in logical plan: %s", join(".", node.getName())));
+                        }
+                    },
+                    null);
         }
     }
 }

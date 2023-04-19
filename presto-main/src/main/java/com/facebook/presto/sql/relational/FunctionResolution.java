@@ -260,7 +260,7 @@ public final class FunctionResolution
 
     public boolean isTryFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals("$internal$try");
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().getObjectName().equals("$internal$try");
     }
 
     public boolean isFailFunction(FunctionHandle functionHandle)

@@ -104,15 +104,6 @@ public class TestExtractSpatialInnerJoin
                                         p.values(p.variable("a", GEOMETRY)),
                                         p.values(p.variable("b", GEOMETRY)))))
                 .doesNotFire();
-
-        // We do not support spherical ST_Contains yet
-        assertRuleApplication()
-                .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(to_spherical_geography(ST_GeometryFromText(wkt)), point)"),
-                                p.join(INNER,
-                                        p.values(p.variable("wkt", VARCHAR)),
-                                        p.values(p.variable("point", SPHERICAL_GEOGRAPHY)))))
-                .doesNotFire();
     }
 
     @Test(enabled = false)

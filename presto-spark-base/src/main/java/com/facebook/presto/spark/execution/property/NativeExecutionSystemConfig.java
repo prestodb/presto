@@ -29,16 +29,22 @@ public class NativeExecutionSystemConfig
     private static final String ENABLE_SERIALIZED_PAGE_CHECKSUM = "enable-serialized-page-checksum";
     private static final String ENABLE_VELOX_EXPRESSION_LOGGING = "enable_velox_expression_logging";
     private static final String ENABLE_VELOX_TASK_LOGGING = "enable_velox_task_logging";
+    // Port on which presto-native http server should run
     private static final String HTTP_SERVER_HTTP_PORT = "http-server.http.port";
     private static final String HTTP_SERVER_REUSE_PORT = "http-server.reuse-port";
+    private static final String REGISTER_TEST_FUNCTIONS = "register-test-functions";
+    // Number of I/O thread to use for serving http request on presto-native (proxygen server)
+    // this excludes worker thread used by velox
     private static final String HTTP_EXEC_THREADS = "http_exec_threads";
     private static final String NUM_IO_THREADS = "num-io-threads";
     private static final String PRESTO_VERSION = "presto.version";
     private static final String SHUTDOWN_ONSET_SEC = "shutdown-onset-sec";
     private static final String SYSTEM_MEMORY_GB = "system-memory-gb";
     private static final String TASK_MAX_DRIVERS_PER_TASK = "task.max-drivers-per-task";
+    // Name of exchange client to use
     private static final String SHUFFLE_NAME = "shuffle.name";
-
+    // Feature flag for access log on presto-native http server
+    private static final String HTTP_SERVER_ACCESS_LOGS = "http-server.enable-access-log";
     private boolean enableSerializedPageChecksum = true;
     private boolean enableVeloxExpressionLogging;
     private boolean enableVeloxTaskLogging = true;
@@ -52,6 +58,8 @@ public class NativeExecutionSystemConfig
     private int maxDriversPerTask = 15;
     private String prestoVersion = "dummy.presto.version";
     private String shuffleName = "local";
+    private boolean registerTestFunctions;
+    private boolean enableHttpServerAccessLog = true;
 
     public Map<String, String> getAllProperties()
     {
@@ -62,6 +70,7 @@ public class NativeExecutionSystemConfig
                 .put(ENABLE_VELOX_TASK_LOGGING, String.valueOf(isEnableVeloxTaskLogging()))
                 .put(HTTP_SERVER_HTTP_PORT, String.valueOf(getHttpServerPort()))
                 .put(HTTP_SERVER_REUSE_PORT, String.valueOf(isHttpServerReusePort()))
+                .put(REGISTER_TEST_FUNCTIONS, String.valueOf(isRegisterTestFunctions()))
                 .put(HTTP_EXEC_THREADS, String.valueOf(getHttpExecThreads()))
                 .put(NUM_IO_THREADS, String.valueOf(getNumIoThreads()))
                 .put(PRESTO_VERSION, getPrestoVersion())
@@ -69,6 +78,7 @@ public class NativeExecutionSystemConfig
                 .put(SYSTEM_MEMORY_GB, String.valueOf(getSystemMemoryGb()))
                 .put(TASK_MAX_DRIVERS_PER_TASK, String.valueOf(getMaxDriversPerTask()))
                 .put(SHUFFLE_NAME, getShuffleName())
+                .put(HTTP_SERVER_ACCESS_LOGS, String.valueOf(isEnableHttpServerAccessLog()))
                 .build();
     }
 
@@ -142,6 +152,18 @@ public class NativeExecutionSystemConfig
     public boolean isHttpServerReusePort()
     {
         return httpServerReusePort;
+    }
+
+    @Config(REGISTER_TEST_FUNCTIONS)
+    public NativeExecutionSystemConfig setRegisterTestFunctions(boolean registerTestFunctions)
+    {
+        this.registerTestFunctions = registerTestFunctions;
+        return this;
+    }
+
+    public boolean isRegisterTestFunctions()
+    {
+        return registerTestFunctions;
     }
 
     @Config(HTTP_EXEC_THREADS)
@@ -226,5 +248,17 @@ public class NativeExecutionSystemConfig
     public String getPrestoVersion()
     {
         return prestoVersion;
+    }
+
+    @Config(HTTP_SERVER_ACCESS_LOGS)
+    public NativeExecutionSystemConfig setEnableHttpServerAccessLog(boolean enableHttpServerAccessLog)
+    {
+        this.enableHttpServerAccessLog = enableHttpServerAccessLog;
+        return this;
+    }
+
+    public boolean isEnableHttpServerAccessLog()
+    {
+        return enableHttpServerAccessLog;
     }
 }

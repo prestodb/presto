@@ -22,7 +22,8 @@ public abstract class AbstractNativeRunner
 {
     protected static Map<String, String> getNativeWorkerHiveProperties()
     {
-        return ImmutableMap.of("hive.storage-format", "DWRF", "hive.pushdown-filter-enabled", "true");
+        return ImmutableMap.of("hive.storage-format", "DWRF",
+                "hive.pushdown-filter-enabled", "true");
     }
 
     protected static Map<String, String> getNativeWorkerSystemProperties()
@@ -37,6 +38,7 @@ public abstract class AbstractNativeRunner
                 // To achieve that, we set inline-sql-functions to false.
                 .put("inline-sql-functions", "false")
                 .put("use-alternative-function-signatures", "true")
+                .put("experimental.table-writer-merge-operator-enabled", "false")
                 .build();
     }
 

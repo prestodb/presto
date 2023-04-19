@@ -11,20 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <velox/common/base/Exceptions.h>
+
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
 
 namespace facebook::presto::http {
 HttpClient::HttpClient(
     folly::EventBase* eventBase,
     const folly::SocketAddress& address,
-    std::chrono::milliseconds timeout)
+    std::chrono::milliseconds timeout,
+    std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
       address_(address),
       timer_(folly::HHWheelTimer::newTimer(
           eventBase_,
           std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
           folly::AsyncTimeout::InternalEnum::NORMAL,
-          timeout)) {
+          timeout)),
+      reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
+      maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()) {
   sessionPool_ = std::make_unique<proxygen::SessionPool>(nullptr, 10);
 }
 
@@ -36,6 +42,18 @@ HttpClient::~HttpClient() {
   }
 }
 
+HttpResponse::HttpResponse(
+    std::unique_ptr<proxygen::HTTPMessage> headers,
+    velox::memory::MemoryPool* pool,
+    uint64_t minResponseAllocBytes,
+    uint64_t maxResponseAllocBytes)
+    : headers_(std::move(headers)),
+      pool_(pool),
+      minResponseAllocBytes_(minResponseAllocBytes),
+      maxResponseAllocBytes_(maxResponseAllocBytes) {
+  VELOX_CHECK_NOT_NULL(pool_);
+}
+
 HttpResponse::~HttpResponse() {
   // Clear out any leftover iobufs if not consumed.
   freeBuffers();
@@ -44,10 +62,26 @@ HttpResponse::~HttpResponse() {
 void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
   VELOX_CHECK(!iobuf->isChained());
   VELOX_CHECK(!hasError());
-  const uint64_t dataLength = iobuf->length();
-  void* buf{nullptr};
+
+  uint64_t dataLength = iobuf->length();
+  auto dataStart = iobuf->data();
+  if (!bodyChain_.empty()) {
+    auto tail = bodyChain_.back().get();
+    auto space = tail->tailroom();
+    auto copySize = std::min<size_t>(space, dataLength);
+    ::memcpy(tail->writableTail(), dataStart, copySize);
+    tail->append(copySize);
+    dataLength -= copySize;
+    if (dataLength == 0) {
+      return;
+    }
+    dataStart += copySize;
+  }
+
+  const size_t roundedSize = nextAllocationSize(dataLength);
+  void* newBuf{nullptr};
   try {
-    buf = pool_->allocate(dataLength);
+    newBuf = pool_->allocate(roundedSize);
   } catch (const velox::VeloxException& ex) {
     // NOTE: we need to catch exception and process it later in driver execution
     // context when processing the data response. Otherwise, the presto server
@@ -55,9 +89,23 @@ void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
     setError(ex);
     return;
   }
-  VELOX_CHECK_NOT_NULL(buf);
-  ::memcpy(buf, iobuf->data(), dataLength);
-  bodyChain_.emplace_back(folly::IOBuf::wrapBuffer(buf, dataLength));
+  VELOX_CHECK_NOT_NULL(newBuf);
+  bodyChainBytes_ += roundedSize;
+  ::memcpy(newBuf, dataStart, dataLength);
+  bodyChain_.emplace_back(folly::IOBuf::wrapBuffer(newBuf, roundedSize));
+  bodyChain_.back()->trimEnd(roundedSize - dataLength);
+}
+
+FOLLY_ALWAYS_INLINE size_t
+HttpResponse::nextAllocationSize(uint64_t dataLength) const {
+  const size_t minAllocSize = velox::bits::nextPowerOfTwo(
+      velox::bits::roundUp(dataLength, minResponseAllocBytes_));
+  return std::max<size_t>(
+      minAllocSize,
+      std::min<size_t>(
+          maxResponseAllocBytes_,
+          velox::bits::nextPowerOfTwo(velox::bits::roundUp(
+              dataLength + bodyChainBytes_, minResponseAllocBytes_))));
 }
 
 std::string HttpResponse::dumpBodyChain() const {
@@ -77,8 +125,17 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   ResponseHandler(
       const proxygen::HTTPMessage& request,
       velox::memory::MemoryPool* pool,
-      const std::string& body)
-      : request_(request), body_(body), pool_(pool) {
+      uint64_t maxResponseAllocBytes,
+      const std::string& body,
+      std::function<void(int)> reportOnBodyStatsFunc)
+      : request_(request),
+        body_(body),
+        reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
+        pool_(pool),
+        minResponseAllocBytes_(velox::memory::AllocationTraits::pageBytes(
+            pool_->sizeClasses().front())),
+        maxResponseAllocBytes_(
+            std::max(minResponseAllocBytes_, maxResponseAllocBytes)) {
     VELOX_CHECK_NOT_NULL(pool_);
   }
 
@@ -98,11 +155,15 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
-    response_ = std::make_unique<HttpResponse>(std::move(msg), pool_);
+    response_ = std::make_unique<HttpResponse>(
+        std::move(msg), pool_, minResponseAllocBytes_, maxResponseAllocBytes_);
   }
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     if ((chain != nullptr) && !response_->hasError()) {
+      if (reportOnBodyStatsFunc_ != nullptr) {
+        reportOnBodyStatsFunc_(chain->length());
+      }
       response_->append(std::move(chain));
     }
   }
@@ -144,7 +205,10 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
  private:
   const proxygen::HTTPMessage request_;
   const std::string body_;
+  const std::function<void(int)> reportOnBodyStatsFunc_;
   velox::memory::MemoryPool* const pool_;
+  const uint64_t minResponseAllocBytes_;
+  const uint64_t maxResponseAllocBytes_;
   std::unique_ptr<HttpResponse> response_;
   folly::Promise<std::unique_ptr<HttpResponse>> promise_;
   std::shared_ptr<ResponseHandler> self_;
@@ -166,7 +230,19 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
 
   void connect() {
     connector_ = std::make_unique<proxygen::HTTPConnector>(this, timer_);
-    connector_->connect(eventBase_, address_);
+    auto systemConfig = SystemConfig::instance();
+    if (systemConfig->enableHttps()) {
+      auto ciphers = systemConfig->httpsSupportedCiphers();
+      auto clientCertAndKeyPath =
+          systemConfig->httpsClientCertAndKeyPath().value();
+      auto context = std::make_shared<folly::SSLContext>();
+      context->loadCertKeyPairFromFiles(
+          clientCertAndKeyPath.c_str(), clientCertAndKeyPath.c_str());
+      context->setCiphersOrThrow(ciphers);
+      connector_->connectSSL(eventBase_, address_, context);
+    } else {
+      connector_->connect(eventBase_, address_);
+    }
   }
 
   void connectSuccess(proxygen::HTTPUpstreamSession* session) override {
@@ -197,7 +273,8 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
     const proxygen::HTTPMessage& request,
     velox::memory::MemoryPool* pool,
     const std::string& body) {
-  auto responseHandler = std::make_shared<ResponseHandler>(request, pool, body);
+  auto responseHandler = std::make_shared<ResponseHandler>(
+      request, pool, maxResponseAllocBytes_, body, reportOnBodyStatsFunc_);
   auto future = responseHandler->initialize(responseHandler);
 
   eventBase_->runInEventBaseThreadAlwaysEnqueue([this, responseHandler]() {

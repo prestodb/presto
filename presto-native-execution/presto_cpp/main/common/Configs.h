@@ -88,6 +88,16 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
   static constexpr std::string_view kHttpExecThreads{"http_exec_threads"};
+  static constexpr std::string_view kHttpServerHttpsPort{
+      "http-server.https.port"};
+  static constexpr std::string_view kHttpServerHttpsEnabled{
+      "http-server.https.enabled"};
+  static constexpr std::string_view kHttpsSupportedCiphers{
+      "https-supported-ciphers"};
+  static constexpr std::string_view kHttpsCertPath{"https-cert-path"};
+  static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
+  static constexpr std::string_view kHttpsClientCertAndKeyPath{
+      "https-client-cert-key-path"};
   static constexpr std::string_view kNumIoThreads{"num-io-threads"};
   static constexpr std::string_view kNumQueryThreads{"num-query-threads"};
   static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
@@ -116,6 +126,12 @@ class SystemConfig : public ConfigBase {
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatFilter{
       "http-server.enable-stats-filter"};
+  static constexpr std::string_view kRegisterTestFunctions{
+      "register-test-functions"};
+  /// The options to configure the max quantized memory allocation size to store
+  /// the received http response data.
+  static constexpr std::string_view kHttpMaxAllocateBytes{
+      "http-server.max-response-allocate-bytes"};
   // Most server nodes today (May 2022) have at least 16 cores.
   // Setting the default maximum drivers per task to this value will
   // provide a better off-shelf experience.
@@ -123,6 +139,9 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kHttpServerReusePortDefault = false;
   static constexpr int32_t kConcurrentLifespansPerTaskDefault = 1;
   static constexpr int32_t kHttpExecThreadsDefault = 8;
+  static constexpr bool kHttpServerHttpsEnabledDefault = false;
+  static constexpr std::string_view kHttpsSupportedCiphersDefault{
+      "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384"};
   static constexpr int32_t kNumIoThreadsDefault = 30;
   static constexpr int32_t kShutdownOnsetSecDefault = 10;
   static constexpr int32_t kSystemMemoryGbDefault = 40;
@@ -140,12 +159,42 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kUseMmapAllocatorDefault{true};
   static constexpr bool kHttpEnableAccessLogDefault = false;
   static constexpr bool kHttpEnableStatsFilterDefault = false;
+  static constexpr bool kRegisterTestFunctionsDefault = false;
+  static constexpr uint64_t kHttpMaxAllocateBytesDefault = 64 << 10;
 
   static SystemConfig* instance();
 
   int httpServerHttpPort() const;
 
   bool httpServerReusePort() const;
+
+  bool enableHttps() const;
+
+  int httpServerHttpsPort() const;
+
+  // A list of ciphers (comma separated) that are supported by
+  // server and client. Note Java and folly::SSLContext use different names to
+  // refer to the same cipher. (guess for different name, Java specific
+  // authentication, key exchange and cipher together and folly just cipher).
+  // For e.g. TLS_RSA_WITH_AES_256_GCM_SHA384 in Java and AES256-GCM-SHA384 in
+  // folly::SSLContext. The ciphers need to enable worker to worker, worker to
+  // coordinator and coordinator to worker communication. Have at least one
+  // cipher suite that is shared for the above 3, otherwise weird failures will
+  // result.
+  std::string httpsSupportedCiphers() const;
+
+  // Note: Java packages cert and key in combined JKS file. But CPP requires
+  // them separately. The HTTPS provides integrity and not
+  // security(authentication/authorization). But the HTTPS will protect against
+  // data corruption by bad router and man in middle attacks.
+  std::optional<std::string> httpsCertPath() const;
+
+  std::optional<std::string> httpsKeyPath() const;
+
+  // Http client expects the cert and key file to be packed into a single file
+  // (most commonly .pem format) The file should not be password protected. If
+  // required, break this down to 3 configs one for cert,key and password later.
+  std::optional<std::string> httpsClientCertAndKeyPath() const;
 
   std::string prestoVersion() const;
 
@@ -195,6 +244,10 @@ class SystemConfig : public ConfigBase {
   bool enableHttpAccessLog() const;
 
   bool enableHttpStatsFilter() const;
+
+  bool registerTestFunctions() const;
+
+  uint64_t httpMaxAllocateBytes() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

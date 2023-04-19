@@ -13,21 +13,24 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static java.util.Objects.requireNonNull;
 
 class PlanBuilder
@@ -96,7 +99,15 @@ class PlanBuilder
         return translations;
     }
 
-    public PlanBuilder appendProjections(Iterable<Expression> expressions, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanBuilder appendProjections(
+            Iterable<Expression> expressions,
+            VariableAllocator variableAllocator,
+            PlanNodeIdAllocator idAllocator,
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            Analysis analysis,
+            SqlPlannerContext context)
     {
         TranslationMap translations = copyTranslations();
 
@@ -104,13 +115,13 @@ class PlanBuilder
 
         // add an identity projection for underlying plan
         for (VariableReferenceExpression variable : getRoot().getOutputVariables()) {
-            projections.put(variable, castToRowExpression(createSymbolReference(variable)));
+            projections.put(variable, variable);
         }
 
         ImmutableMap.Builder<VariableReferenceExpression, Expression> newTranslations = ImmutableMap.builder();
         for (Expression expression : expressions) {
             VariableReferenceExpression variable = newVariable(variableAllocator, expression, getAnalysis().getTypeWithCoercions(expression));
-            projections.put(variable, castToRowExpression(translations.rewrite(expression)));
+            projections.put(variable, rowExpression(translations.rewrite(expression), context, session, metadata, sqlParser, analysis, variableAllocator));
             newTranslations.put(variable, expression);
         }
         // Now append the new translations into the TranslationMap
@@ -119,5 +130,17 @@ class PlanBuilder
         }
 
         return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()));
+    }
+
+    private RowExpression rowExpression(Expression expression, SqlPlannerContext context, Session session, Metadata metadata, SqlParser sqlParser, Analysis analysis, VariableAllocator variableAllocator)
+    {
+        return toRowExpression(
+                expression,
+                metadata,
+                session,
+                sqlParser,
+                variableAllocator,
+                analysis,
+                context.getTranslatorContext());
     }
 }

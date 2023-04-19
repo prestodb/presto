@@ -36,6 +36,18 @@ constexpr folly::StringPiece kCounterNumHTTPRequestError{
 constexpr folly::StringPiece kCounterHTTPRequestLatencyMs{
     "presto_cpp.http_request_latency_ms"};
 
+// Number of http client onBody calls in PrestoExchangeSource.
+constexpr folly::StringPiece kCounterHttpClientPrestoExchangeNumOnBody{
+    "presto_cpp.http.client.presto_exchange_source.num_on_body"};
+// Received IOBuf chain byte size in http client onBody call from
+// PrestoExchangeSource.
+constexpr folly::StringPiece kCounterHttpClientPrestoExchangeOnBodyBytes{
+    "presto_cpp.http.client.presto_exchange_source.on_body_bytes"};
+
+// SerializedPage size in bytes from PrestoExchangeSource.
+constexpr folly::StringPiece kCounterPrestoExchangeSerializedPageSize{
+    "presto_cpp.presto_exchange_source.serialized_page_size"};
+
 constexpr folly::StringPiece kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};
 
@@ -72,20 +84,26 @@ constexpr folly::StringPiece kCounterPartitionedOutputBufferGetDataLatencyMs{
 
 // User CPU time of the presto_server process in microsecond since the process
 // start.
-constexpr folly::StringPiece kCounterCumulativeUserCpuTimeMicros{
-    "presto_cpp.cumulative_user_cpu_time_micros"};
+constexpr folly::StringPiece kCounterOsUserCpuTimeMicros{
+    "presto_cpp.os_user_cpu_time_micros"};
 // System CPU time of the presto_server process in microsecond since the process
 // start.
-constexpr folly::StringPiece kCounterCumulativeSystemCpuTimeMicros{
-    "presto_cpp.cumulative_system_cpu_time_micros"};
+constexpr folly::StringPiece kCounterOsSystemCpuTimeMicros{
+    "presto_cpp.os_system_cpu_time_micros"};
 // Total number of soft page faults of the presto_server process in microsecond
 // since the process start.
-constexpr folly::StringPiece kCounterNumCumulativeSoftPageFaults{
-    "presto_cpp.num_cumulative_soft_page_faults"};
+constexpr folly::StringPiece kCounterOsNumSoftPageFaults{
+    "presto_cpp.os_num_soft_page_faults"};
 // Total number of hard page faults of the presto_server process in microsecond
 // since the process start.
-constexpr folly::StringPiece kCounterNumCumulativeHardPageFaults{
-    "presto_cpp.num_cumulative_hard_page_faults"};
+constexpr folly::StringPiece kCounterOsNumHardPageFaults{
+    "presto_cpp.os_num_hard_page_faults"};
+// Total number of voluntary context switches in the presto_server process.
+constexpr folly::StringPiece kCounterOsNumVoluntaryContextSwitches{
+    "presto_cpp.os_num_voluntary_context_switches"};
+// Total number of involuntary context switches in the presto_server process.
+constexpr folly::StringPiece kCounterOsNumForcedContextSwitches{
+    "presto_cpp.os_num_forced_context_switches"};
 
 // ================== Memory Counters =================
 
@@ -114,6 +132,13 @@ constexpr folly::StringPiece kCounterMappedMemoryRawAllocBytesSizeClass{
 // largest SizeClass cannot accommodate, are counted towards this counter.
 constexpr folly::StringPiece kCounterMappedMemoryRawAllocBytesLarge{
     "presto_cpp.mapped_memory_raw_alloc_bytes_large"};
+/// Number of bytes currently queued in PrestoExchangeSource waiting for
+/// consume.
+constexpr folly::StringPiece kCounterExchangeSourceQueuedBytes{
+    "presto_cpp.exchange_source_queued_bytes"};
+/// Peak number of bytes queued in PrestoExchangeSource waiting for consume.
+constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
+    "presto_cpp.exchange_source_peak_queued_bytes"};
 
 // ================== Cache Counters ==================
 
@@ -221,4 +246,23 @@ constexpr folly::StringPiece kCounterSsdCacheCumulativeCachedBytes{
     "presto_cpp.ssd_cache_cumulative_cached_bytes"};
 constexpr folly::StringPiece kCounterSsdCacheCachedBytes{
     "presto_cpp.ssd_cache_cached_bytes"};
+
+// ================== HiveConnector Counters ==================
+// Format template strings use 'constexpr std::string_view' to be 'fmt::format'
+// compatible.
+constexpr std::string_view kCounterHiveFileHandleCacheNumElementsFormat{
+    "presto_cpp.{}.hive_file_handle_cache_num_elements"};
+constexpr std::string_view kCounterHiveFileHandleCachePinnedSizeFormat{
+    "presto_cpp.{}.hive_file_handle_cache_pinned_size"};
+constexpr std::string_view kCounterHiveFileHandleCacheCurSizeFormat{
+    "presto_cpp.{}.hive_file_handle_cache_cur_size"};
+constexpr std::string_view kCounterHiveFileHandleCacheNumAccumulativeHitsFormat{
+    "presto_cpp.{}.hive_file_handle_cache_num_accumulative_hits"};
+constexpr std::string_view
+    kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat{
+        "presto_cpp.{}.hive_file_handle_cache_num_accumulative_lookups"};
+constexpr std::string_view kCounterHiveFileHandleCacheNumHitsFormat{
+    "presto_cpp.{}.hive_file_handle_cache_num_hits"};
+constexpr std::string_view kCounterHiveFileHandleCacheNumLookupsFormat{
+    "presto_cpp.{}.hive_file_handle_cache_num_lookups"};
 } // namespace facebook::presto

@@ -1219,7 +1219,8 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem_map) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)",
                 "with lm as (select quantity + 1 as q1, * from lineitem_map) SELECT l.* FROM (select * from lm) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
 
-                "SELECT l.* FROM lineitem_map l left join orders o on (cast(l.orderkey as varchar) = cast(o.orderkey as varchar)) left join part p on (l.partkey=p.partkey)"
+                "SELECT l.* FROM lineitem_map l left join orders o on (cast(l.orderkey as varchar) = cast(o.orderkey as varchar)) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem_map) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)"
         };
 
         for (String query : queries) {
@@ -1237,7 +1238,8 @@ public abstract class AbstractTestDistributedQueries
         String[] nonOptimizableQueries = {
                 "with lm as (select if (quantity > 1, quantity, 1) as q1, * from lineitem_map), lm2 as (select if (q1 > 2, q1, 1) as q2, quantity,partkey,suppkey,linenumber,m1,m2 from lm left join orders o on (lm.orderkey=o.orderkey)) SELECT l.* FROM (select q2+3 as q3,partkey,suppkey,linenumber,m1,m2 from lm2) l left join part p on (l.partkey=p.partkey)",
                 "SELECT l.* FROM (select rand(100) as pk100 from (select orderkey+1 as ok1, * from lineitem_map) l left join orders o on (l.ok1 = o.orderkey+1)) l left join part p on (l.pk100=p.partkey)",
-                "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)"
+                "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)",
+                "SELECT l.*, p.m3, p.m4 FROM (select * from lineitem_map where false) l left join orders o on (l.orderkey = o.orderkey) left join part_map p on (l.partkey=p.partkey)"
         };
 
         for (String query : nonOptimizableQueries) {
@@ -1250,6 +1252,32 @@ public abstract class AbstractTestDistributedQueries
 
         MaterializedResult countStarQuery = computeActual(session, "select count(t.m1) from (SELECT l.* FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)) t");
         assertEquals((Long) countStarQuery.getOnlyValue(), Long.valueOf(60175L));
+    }
+
+    @Test
+    public void testStringFilters()
+    {
+        assertUpdate("CREATE TABLE test_charn_filter (shipmode CHAR(10))");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_charn_filter"));
+        assertTableColumnNames("test_charn_filter", "shipmode");
+        assertUpdate("INSERT INTO test_charn_filter SELECT shipmode FROM lineitem", 60175);
+
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'AIR'", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'AIR    '", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'AIR       '", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'AIR            '", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
+
+        assertUpdate("CREATE TABLE test_varcharn_filter (shipmode VARCHAR(10))");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_varcharn_filter"));
+        assertTableColumnNames("test_varcharn_filter", "shipmode");
+        assertUpdate("INSERT INTO test_varcharn_filter SELECT shipmode FROM lineitem", 60175);
+
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR'", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR    '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR       '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR            '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
     }
 
     private String sanitizePlan(String explain)

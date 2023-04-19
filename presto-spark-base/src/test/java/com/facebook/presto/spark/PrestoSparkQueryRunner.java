@@ -54,7 +54,6 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFa
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
 import com.facebook.presto.spark.execution.NativeExecutionModule;
-import com.facebook.presto.spark.execution.TestNativeExecutionModule;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -81,7 +80,6 @@ import io.airlift.tpch.TpchTable;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -221,7 +219,8 @@ public class PrestoSparkQueryRunner
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> additionalConfigProperties, Map<String, String> hiveProperties, Optional<Path> dataDirectory)
     {
-        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive", additionalConfigProperties, hiveProperties, ImmutableMap.of(), dataDirectory, DEFAULT_AVAILABLE_CPU_COUNT);
+        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner(
+                "hive", additionalConfigProperties, hiveProperties, ImmutableMap.of(), dataDirectory, ImmutableList.of(new NativeExecutionModule()), DEFAULT_AVAILABLE_CPU_COUNT);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
         if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
             metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("tpch"));
@@ -272,11 +271,17 @@ public class PrestoSparkQueryRunner
 
     public PrestoSparkQueryRunner(String defaultCatalog, Map<String, String> additionalConfigProperties, Map<String, String> hiveProperties, Optional<Path> dataDirectory)
     {
-        this(defaultCatalog, additionalConfigProperties, hiveProperties, ImmutableMap.of(), dataDirectory, DEFAULT_AVAILABLE_CPU_COUNT);
+        this(defaultCatalog, additionalConfigProperties, hiveProperties, ImmutableMap.of(), dataDirectory, ImmutableList.of(new NativeExecutionModule()), DEFAULT_AVAILABLE_CPU_COUNT);
     }
 
     public PrestoSparkQueryRunner(
-            String defaultCatalog, Map<String, String> additionalConfigProperties, Map<String, String> hiveProperties, Map<String, String> additionalSparkProperties, Optional<Path> dataDirectory, int availableCpuCount)
+            String defaultCatalog,
+            Map<String, String> additionalConfigProperties,
+            Map<String, String> hiveProperties,
+            Map<String, String> additionalSparkProperties,
+            Optional<Path> dataDirectory,
+            ImmutableList<Module> additionalModules,
+            int availableCpuCount)
     {
         setupLogging();
 
@@ -288,14 +293,10 @@ public class PrestoSparkQueryRunner
         configProperties.put("task.concurrency", Integer.toString(DEFAULT_TASK_CONCURRENCY));
         configProperties.putAll(additionalConfigProperties);
 
-        ImmutableList.Builder<Module> additionalModules = ImmutableList.builder();
-        additionalModules.add(new PrestoSparkLocalMetadataStorageModule());
-        if (System.getProperty("NATIVE_PORT") != null) {
-            additionalModules.add(new TestNativeExecutionModule());
-        }
-        else {
-            additionalModules.add(new NativeExecutionModule());
-        }
+        ImmutableList.Builder<Module> moduleBuilder = ImmutableList.builder();
+        moduleBuilder.add(new PrestoSparkLocalMetadataStorageModule());
+        moduleBuilder.addAll(additionalModules);
+
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
                 DRIVER,
                 configProperties.build(),
@@ -306,7 +307,7 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 new SqlParserOptions(),
-                additionalModules.build(),
+                moduleBuilder.build(),
                 true);
 
         Injector injector = injectorFactory.create();
@@ -339,13 +340,13 @@ public class PrestoSparkQueryRunner
         connectorManager.createConnection("tpch", "tpch", ImmutableMap.of());
 
         // Install Hive Plugin
-        File baseDir;
+        Path baseDir;
         if (dataDirectory.isPresent()) {
-            baseDir = dataDirectory.get().resolve("hive_data").toFile();
+            baseDir = dataDirectory.get();
         }
         else {
             try {
-                baseDir = createTempDirectory("PrestoTest").toFile();
+                baseDir = createTempDirectory("PrestoTest");
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -357,7 +358,7 @@ public class PrestoSparkQueryRunner
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
-        this.metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+        this.metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.resolve("hive_data").toFile().toURI().toString(), "test");
         if (!metastore.getDatabase(METASTORE_CONTEXT, "hive_test").isPresent()) {
             metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("hive_test"));
         }
@@ -410,6 +411,7 @@ public class PrestoSparkQueryRunner
         logging.setLevel("org.apache.parquet.hadoop", WARN);
         logging.setLevel("parquet.hadoop", WARN);
     }
+
     @Override
     public int getNodeCount()
     {

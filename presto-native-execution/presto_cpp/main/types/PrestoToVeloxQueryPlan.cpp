@@ -1088,10 +1088,8 @@ class HivePartitionFunctionSpec : public core::PartitionFunctionSpec {
   }
 
   std::string toString() const override {
-    return fmt::format(
-        "HIVE({NUM_BUCKETS {} KEYS {}})",
-        numBuckets_,
-        folly::join(", ", keyChannels_.channels));
+    return "HIVE({NUM_BUCKETS + " + std::to_string(numBuckets_) + " KEYS " +
+        folly::join(", ", keyChannels_.channels) + "})";
   }
 
   folly::dynamic serialize() const override {
@@ -2333,9 +2331,7 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   //     threads to one thread.
   // (3) A ShuffleWriteNode.
   // To be noted, whether the last node of the plan is PartitionedOutputNode
-  // can't guarantee the quer
-  //
-  // y has shuffle stage, for example a plan with
+  // can't guarantee the query has shuffle stage, for example a plan with
   // TableWriteNode can also have PartitionedOutputNode to distribute the
   // metadata to coordinator.
   if (serializedShuffleWriteInfo_ == nullptr) {

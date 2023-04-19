@@ -106,7 +106,8 @@ public final class SqlFunctionUtils
                         Optional.empty(),
                         Optional.empty(),
                         sqlFunctionProperties,
-                        sessionFunctions),
+                        sessionFunctions,
+                        new SqlToRowExpressionTranslator.Context()),
                 functionMetadata.getArgumentNames().get(),
                 arguments,
                 argumentVariables);

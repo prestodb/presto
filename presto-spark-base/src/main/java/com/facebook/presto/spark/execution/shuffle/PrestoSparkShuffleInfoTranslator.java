@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark.execution.shuffle;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleReadDescriptor;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleWriteDescriptor;
 import com.facebook.presto.spark.execution.PrestoSparkShuffleReadInfo;
@@ -26,9 +27,9 @@ import com.facebook.presto.spark.execution.PrestoSparkShuffleWriteInfo;
  */
 public interface PrestoSparkShuffleInfoTranslator
 {
-    PrestoSparkShuffleWriteInfo createShuffleWriteInfo(PrestoSparkShuffleWriteDescriptor writeDescriptor);
+    PrestoSparkShuffleWriteInfo createShuffleWriteInfo(Session session, PrestoSparkShuffleWriteDescriptor writeDescriptor);
 
-    PrestoSparkShuffleReadInfo createShuffleReadInfo(PrestoSparkShuffleReadDescriptor readDescriptor);
+    PrestoSparkShuffleReadInfo createShuffleReadInfo(Session session, PrestoSparkShuffleReadDescriptor readDescriptor);
 
     String createSerializedWriteInfo(PrestoSparkShuffleWriteInfo writeInfo);
 

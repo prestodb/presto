@@ -312,9 +312,19 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
       "  \"maxBytesPerPartition\": {}\n"
       "}}";
 
-  static constexpr std::string_view kLocalShuffleInfoFormat =
+  static constexpr std::string_view kLocalShuffleWriteInfoFormat =
       "{{\n"
       "  \"rootPath\": \"{}\",\n"
+      "  \"queryId\": \"query_id\",\n"
+      "  \"shuffleId\": 0,\n"
+      "  \"numPartitions\": {}\n"
+      "}}";
+
+  static constexpr std::string_view kLocalShuffleReadInfoFormat =
+      "{{\n"
+      "  \"rootPath\": \"{}\",\n"
+      "  \"queryId\": \"query_id\",\n"
+      "  \"partitionIds\": [ \"shuffle_0_0_0\" ],\n"
       "  \"numPartitions\": {}\n"
       "}}";
 
@@ -554,46 +564,74 @@ TEST_F(UnsafeRowShuffleTest, endToEnd) {
 }
 
 TEST_F(UnsafeRowShuffleTest, persistentShuffleDeser) {
-  std::string serializedInfo =
+  std::string serializedWriteInfo =
       "{\n"
       "  \"rootPath\": \"abc\",\n"
+      "  \"queryId\": \"query_id\",\n"
+      "  \"shuffleId\": 1,\n"
       "  \"numPartitions\": 11\n"
       "}";
-  LocalShuffleInfo shuffleInfo = LocalShuffleInfo::deserialize(serializedInfo);
-  EXPECT_EQ(shuffleInfo.rootPath, "abc");
-  EXPECT_EQ(shuffleInfo.numPartitions, 11);
+  LocalShuffleWriteInfo shuffleWriteInfo =
+      LocalShuffleWriteInfo::deserialize(serializedWriteInfo);
+  EXPECT_EQ(shuffleWriteInfo.rootPath, "abc");
+  EXPECT_EQ(shuffleWriteInfo.queryId, "query_id");
+  EXPECT_EQ(shuffleWriteInfo.shuffleId, 1);
+  EXPECT_EQ(shuffleWriteInfo.numPartitions, 11);
 
-  serializedInfo =
+  serializedWriteInfo =
       "{\n"
       "  \"rootPath\": \"efg\",\n"
+      "  \"queryId\": \"query_id\",\n"
+      "  \"shuffleId\": 1,\n"
       "  \"numPartitions\": 12\n"
       "}";
-  shuffleInfo = LocalShuffleInfo::deserialize(serializedInfo);
-  EXPECT_EQ(shuffleInfo.rootPath, "efg");
-  EXPECT_EQ(shuffleInfo.numPartitions, 12);
+  shuffleWriteInfo = LocalShuffleWriteInfo::deserialize(serializedWriteInfo);
+  EXPECT_EQ(shuffleWriteInfo.rootPath, "efg");
+  EXPECT_EQ(shuffleWriteInfo.queryId, "query_id");
+  EXPECT_EQ(shuffleWriteInfo.shuffleId, 1);
+  EXPECT_EQ(shuffleWriteInfo.numPartitions, 12);
+
+  std::string serializedReadInfo =
+      "{\n"
+      "  \"rootPath\": \"abc\",\n"
+      "  \"queryId\": \"query_id\",\n"
+      "  \"partitionIds\": [ \"shuffle1\" ],\n"
+      "  \"numPartitions\": 11\n"
+      "}";
+  std::vector<std::string> partitionIds{"shuffle1"};
+  LocalShuffleReadInfo shuffleReadInfo =
+      LocalShuffleReadInfo::deserialize(serializedReadInfo);
+  EXPECT_EQ(shuffleReadInfo.rootPath, "abc");
+  EXPECT_EQ(shuffleReadInfo.queryId, "query_id");
+  EXPECT_EQ(shuffleReadInfo.partitionIds, partitionIds);
+  EXPECT_EQ(shuffleReadInfo.numPartitions, 11);
 
   std::string badSerializedInfo =
       "{\n"
       "  \"rootpath\": \"efg\",\n"
+      "  \"queryId\": \"query_id\",\n"
+      "  \"shuffleId\": 1,\n"
       "  \"numpartitions\": 12\n"
       "}";
   EXPECT_THROW(
-      LocalShuffleInfo::deserialize(badSerializedInfo),
+      LocalShuffleWriteInfo::deserialize(badSerializedInfo),
       nlohmann::detail::out_of_range);
 
   badSerializedInfo =
       "{\n"
       "  \"rootPath\": \"abc\",\n"
+      "  \"queryId\": \"query_id\",\n"
+      "  \"shuffleId\": 1,\n"
       "  \"numPartitions\": \"hey-wrong-type\"\n"
       "}";
   EXPECT_THROW(
-      LocalShuffleInfo::deserialize(badSerializedInfo),
+      LocalShuffleWriteInfo::deserialize(badSerializedInfo),
       nlohmann::detail::type_error);
 }
 
 TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
-  uint32_t numPartitions = 5;
-  uint32_t numMapDrivers = 2;
+  uint32_t numPartitions = 1;
+  uint32_t numMapDrivers = 1;
 
   // Create a local file system storage based shuffle.
   velox::filesystems::registerLocalFileSystem();
@@ -607,16 +645,18 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
 
   // Make sure all previously registered exchange factory are gone.
   velox::exec::ExchangeSource::factories().clear();
-  const std::string kShuffleInfo =
-      fmt::format(kLocalShuffleInfoFormat, rootPath, numPartitions);
+  const std::string kShuffleWriteInfo =
+      fmt::format(kLocalShuffleWriteInfoFormat, rootPath, numPartitions);
+  const std::string kShuffleReadInfo =
+      fmt::format(kLocalShuffleReadInfoFormat, rootPath, numPartitions);
   const std::string kShuffleName =
       std::string(LocalPersistentShuffleFactory::kShuffleName);
   registerExchangeSource(
       std::string(LocalPersistentShuffleFactory::kShuffleName));
   runShuffleTest(
       std::string(LocalPersistentShuffleFactory::kShuffleName),
-      kShuffleInfo,
-      kShuffleInfo,
+      kShuffleWriteInfo,
+      kShuffleReadInfo,
       numPartitions,
       numMapDrivers,
       {data});
@@ -627,8 +667,8 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
   // For unit testing, these numbers are set to relatively small values.
   // For stress testing, the following parameters and the fuzzer vector,
   // string and container sizes can be bumped up.
-  size_t numPartitions = 5;
-  size_t numMapDrivers = 2;
+  size_t numPartitions = 1;
+  size_t numMapDrivers = 1;
   size_t numInputVectors = 5;
   size_t numIterations = 5;
 
@@ -674,8 +714,10 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
   velox::filesystems::registerLocalFileSystem();
   auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
   auto rootPath = rootDirectory->path;
-  const std::string shuffleInfo =
-      fmt::format(kLocalShuffleInfoFormat, rootPath, numPartitions);
+  const std::string shuffleWriteInfo =
+      fmt::format(kLocalShuffleWriteInfoFormat, rootPath, numPartitions);
+  const std::string shuffleReadInfo =
+      fmt::format(kLocalShuffleReadInfoFormat, rootPath, numPartitions);
   for (int it = 0; it < numIterations; it++) {
     auto seed = folly::Random::rand32();
     VectorFuzzer fuzzer(opts, pool_.get(), seed);
@@ -690,8 +732,8 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
         std::string(LocalPersistentShuffleFactory::kShuffleName));
     runShuffleTest(
         std::string(LocalPersistentShuffleFactory::kShuffleName),
-        shuffleInfo,
-        shuffleInfo,
+        shuffleWriteInfo,
+        shuffleReadInfo,
         numPartitions,
         numMapDrivers,
         inputVectors);

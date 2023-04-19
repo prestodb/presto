@@ -181,6 +181,29 @@ public abstract class BasePlanFragmenter
 
         // Only delegate non-coordinatorOnly plan fragment to native engine
         if (isNativeExecutionEnabled(session) && !properties.getPartitioningHandle().isCoordinatorOnly()) {
+            if (root instanceof OutputNode) {
+                // OutputNode is special in that it can have duplicate output variables since it
+                // does not get converted to a PhysicalOperation for execution.
+                // Regular plan nodes, including NativeExecutionNode, must have unique output variables.
+                // Check if OutputNode has duplicate output variables and remove these.
+                // This is safe because OutputNode variables are not used by the workers.
+                OutputNode outputNode = (OutputNode) root;
+                List<VariableReferenceExpression> outputVariables = outputNode.getOutputVariables();
+                List<VariableReferenceExpression> newOutputVariables = new ArrayList<>();
+                List<String> newColumnNames = new ArrayList<>();
+                Set<VariableReferenceExpression> uniqueOutputVariables = new HashSet<>();
+                for (int i = 0; i < outputVariables.size(); ++i) {
+                    VariableReferenceExpression variable = outputVariables.get(i);
+                    if (uniqueOutputVariables.add(variable)) {
+                        newOutputVariables.add(variable);
+                        newColumnNames.add(outputNode.getColumnNames().get(i));
+                    }
+                }
+
+                if (uniqueOutputVariables.size() < outputVariables.size()) {
+                    root = new OutputNode(outputNode.getSourceLocation(), outputNode.getId(), outputNode.getSource(), newColumnNames, newOutputVariables);
+                }
+            }
             root = new NativeExecutionNode(root);
             schedulingOrder = scheduleOrder(root);
         }
@@ -559,7 +582,7 @@ public abstract class BasePlanFragmenter
         String catalogName = tableHandle.getConnectorId().getCatalogName();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
-        StatisticsAggregationPlanner.TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable, false);
+        StatisticsAggregationPlanner.TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable);
         StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());
         PlanNode tableWriterMerge;
 

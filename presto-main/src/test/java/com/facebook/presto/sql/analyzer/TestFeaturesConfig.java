@@ -211,6 +211,7 @@ public class TestFeaturesConfig
                 .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(true)
                 .setNativeExecutionEnabled(false)
                 .setNativeExecutionExecutablePath("./presto_server")
+                .setNativeExecutionProgramArguments("")
                 .setRandomizeOuterJoinNullKeyEnabled(false)
                 .setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy.DISABLED)
                 .setOptimizeConditionalAggregationEnabled(false)
@@ -220,7 +221,8 @@ public class TestFeaturesConfig
                 .setPrefilterForGroupbyLimit(false)
                 .setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(false)
                 .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(true)
-                .setMergeDuplicateAggregationsEnabled(true));
+                .setMergeDuplicateAggregationsEnabled(true)
+                .setMergeAggregationsWithAndWithoutFilter(false));
     }
 
     @Test
@@ -381,6 +383,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-multiple-approx-percentile-on-same-field", "false")
                 .put("native-execution-enabled", "true")
                 .put("native-execution-executable-path", "/bin/echo")
+                .put("native-execution-program-arguments", "--v 1")
                 .put("optimizer.randomize-outer-join-null-key", "true")
                 .put("optimizer.randomize-outer-join-null-key-strategy", "key_from_outer_join")
                 .put("optimizer.optimize-conditional-aggregation-enabled", "true")
@@ -391,6 +394,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-probe-for-empty-build-runtime", "true")
                 .put("optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins", "false")
                 .put("optimizer.merge-duplicate-aggregations", "false")
+                .put("optimizer.merge-aggregations-with-and-without-filter", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -549,6 +553,7 @@ public class TestFeaturesConfig
                 .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(false)
                 .setNativeExecutionEnabled(true)
                 .setNativeExecutionExecutablePath("/bin/echo")
+                .setNativeExecutionProgramArguments("--v 1")
                 .setRandomizeOuterJoinNullKeyEnabled(true)
                 .setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy.KEY_FROM_OUTER_JOIN)
                 .setOptimizeConditionalAggregationEnabled(true)
@@ -558,7 +563,8 @@ public class TestFeaturesConfig
                 .setPrefilterForGroupbyLimit(true)
                 .setOptimizeJoinProbeForEmptyBuildRuntimeEnabled(true)
                 .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(false)
-                .setMergeDuplicateAggregationsEnabled(false);
+                .setMergeDuplicateAggregationsEnabled(false)
+                .setMergeAggregationsWithAndWithoutFilter(true);
         assertFullMapping(properties, expected);
     }
 

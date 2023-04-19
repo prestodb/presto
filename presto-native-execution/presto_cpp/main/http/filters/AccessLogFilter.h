@@ -14,11 +14,8 @@
 
 #pragma once
 
-#include <fmt/format.h>
-#include <glog/logging.h>
 #include <proxygen/httpserver/Filters.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
-#include <time.h>
 
 namespace facebook::presto::http::filters {
 
@@ -70,8 +67,6 @@ class AccessLogFilterFactory : public proxygen::RequestHandlerFactory {
       proxygen::HTTPMessage*) noexcept override {
     return new AccessLogFilter(handler);
   }
-
- private:
 };
 
 } // namespace facebook::presto::http::filters

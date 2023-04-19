@@ -154,16 +154,17 @@ class TaskManagerTest : public testing::Test {
     connector::registerConnector(hiveConnector);
     dwrf::registerDwrfReaderFactory();
 
-    rootPool_ = memory::getProcessDefaultMemoryManager().getPool(
-        "TaskManagerTest.root");
-    leafPool_ = memory::getDefaultMemoryPool("TaskManagerTest.leaf");
+    rootPool_ =
+        memory::defaultMemoryManager().addRootPool("TaskManagerTest.root");
+    leafPool_ = memory::addDefaultLeafMemoryPool("TaskManagerTest.leaf");
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
 
     taskManager_ = std::make_unique<TaskManager>();
     taskResource_ = std::make_unique<TaskResource>(*taskManager_.get());
 
-    auto httpServer = std::make_unique<http::HttpServer>(
-        folly::SocketAddress("127.0.0.1", 0));
+    auto httpServer =
+        std::make_unique<http::HttpServer>(std::make_unique<http::HttpConfig>(
+            folly::SocketAddress("127.0.0.1", 0)));
     taskResource_->registerUris(*httpServer.get());
 
     httpServerWrapper_ =
@@ -939,7 +940,7 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
       std::move(f).via(&executor);
   // Future is invoked when a value is set on the promise.
   auto future =
-      move(semiFuture)
+      std::move(semiFuture)
           .thenValue([&promiseFulfilled,
                       token](std::unique_ptr<Result> result) {
             ASSERT_EQ(result->complete, false);

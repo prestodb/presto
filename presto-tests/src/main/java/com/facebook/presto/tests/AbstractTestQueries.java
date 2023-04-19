@@ -54,6 +54,7 @@ import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENA
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_UNNEST;
+import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER;
 import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
@@ -6480,5 +6481,69 @@ public abstract class AbstractTestQueries
                 "FROM lineitem " +
                 "GROUP BY linenumber " +
                 "HAVING min(orderkey) < (SELECT avg(orderkey) FROM orders WHERE orderkey < 7)");
+    }
+
+    @Test
+    public void testSameAggregationWithAndWithoutFilter()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER, "true")
+                .build();
+        Session disableOptimization = Session.builder(getSession())
+                .setSystemProperty(MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER, "false")
+                .build();
+
+        assertQuery(enableOptimization, "select regionkey, count(name) filter (where name like '%N%') n_nations, count(name) all_nations from nation group by regionkey", "values (3,4,5),(2,5,5),(0,1,5),(4,2,5),(1,3,5)");
+        assertQuery(enableOptimization, "select count(name) filter (where name like '%N%') n_nations, count(name) all_nations from nation", "values (15,25)");
+        assertQuery(enableOptimization, "select count(1), count(1) filter (where k > 5) from (values 1, null, 3, 5, null, 8, 10) t(k)", "values (7, 2)");
+
+        String sql = "select regionkey, count(name) filter (where name like '%N%') n_nations, count(name) all_nations from nation group by regionkey";
+        MaterializedResult resultWithOptimization = computeActual(enableOptimization, sql);
+        MaterializedResult resultWithoutOptimization = computeActual(disableOptimization, sql);
+        assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
+        sql = "select count(name) filter (where name like '%N%') n_nations, count(name) all_nations from nation";
+        resultWithOptimization = computeActual(enableOptimization, sql);
+        resultWithoutOptimization = computeActual(disableOptimization, sql);
+        assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
+        sql = "select partkey, sum(quantity), sum(quantity) filter (where discount > 0.1) from lineitem group by grouping sets((), (partkey))";
+        resultWithOptimization = computeActual(enableOptimization, sql);
+        resultWithoutOptimization = computeActual(disableOptimization, sql);
+        assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
+
+        // multiple aggregations in query
+        sql = "select partkey, sum(quantity), sum(quantity) filter (where discount < 0.05), sum(linenumber), sum(linenumber) filter (where discount < 0.05) from lineitem group by partkey";
+        resultWithOptimization = computeActual(enableOptimization, sql);
+        resultWithoutOptimization = computeActual(disableOptimization, sql);
+        assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
+        // aggregations in multiple levels
+        sql = "select partkey, avg(sum), avg(sum) filter (where tax < 0.05), avg(filtersum) from (select partkey, suppkey, sum(quantity) sum, sum(quantity) filter (where discount > 0.05) filtersum, max(tax) tax from lineitem where partkey=1598 group by partkey, suppkey) t group by partkey";
+        resultWithOptimization = computeActual(enableOptimization, sql);
+        resultWithoutOptimization = computeActual(disableOptimization, sql);
+        assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
+        // global aggregation
+        sql = "select sum(quantity), sum(quantity) filter (where discount < 0.05) from lineitem";
+        resultWithOptimization = computeActual(enableOptimization, sql);
+        resultWithoutOptimization = computeActual(disableOptimization, sql);
+        assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
+        // order by
+        sql = "select partkey, array_agg(suppkey order by suppkey), array_agg(suppkey order by suppkey) filter (where discount > 0.05) from lineitem group by partkey";
+        resultWithOptimization = computeActual(enableOptimization, sql);
+        resultWithoutOptimization = computeActual(disableOptimization, sql);
+        assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
+        // grouping sets
+        sql = "SELECT partkey, suppkey, sum(quantity), sum(quantity) filter (where discount > 0.05) from lineitem group by grouping sets((), (partkey), (partkey, suppkey))";
+        resultWithOptimization = computeActual(enableOptimization, sql);
+        resultWithoutOptimization = computeActual(disableOptimization, sql);
+        assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
+        // aggregation over union
+        sql = "SELECT partkey, sum(quantity), sum(quantity) filter (where orderkey > 0) from (select quantity, orderkey, partkey from lineitem union all select totalprice as quantity, orderkey, custkey as partkey from orders) group by partkey";
+        resultWithOptimization = computeActual(enableOptimization, sql);
+        resultWithoutOptimization = computeActual(disableOptimization, sql);
+        assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
+        // aggregation over join
+        sql = "select custkey, sum(quantity), sum(quantity) filter (where tax < 0.05) from lineitem l join orders o on l.orderkey=o.orderkey group by custkey";
+        resultWithOptimization = computeActual(enableOptimization, sql);
+        resultWithoutOptimization = computeActual(disableOptimization, sql);
+        assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
     }
 }

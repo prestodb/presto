@@ -76,7 +76,7 @@ public class SelectiveReaderContext
     }
 
     @Nullable
-    public TupleDomainFilter getRowGroupFilter(BooleanInputStream presentStream)
+    public TupleDomainFilter getFilter(BooleanInputStream presentStream)
     {
         if (isOutputRequired() && presentStream == null && filter == TupleDomainFilter.IS_NOT_NULL) {
             // Readers don't handle the outputRequired == false and filter = null. When that is fixed

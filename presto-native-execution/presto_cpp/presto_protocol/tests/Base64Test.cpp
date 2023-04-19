@@ -24,7 +24,7 @@ using namespace facebook::velox;
 class Base64Test : public ::testing::Test {
  public:
   void SetUp() override {
-    pool_ = memory::getDefaultMemoryPool();
+    pool_ = memory::addDefaultLeafMemoryPool();
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;

@@ -19,8 +19,10 @@
 #include <sstream>
 
 #include "presto_cpp/main/QueryContextManager.h"
+#include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/exec/Operator.h"
 
 using namespace facebook::velox;
@@ -62,7 +64,14 @@ PrestoExchangeSource::PrestoExchangeSource(
   folly::SocketAddress address(folly::IPAddress(host_).str(), port_, true);
   auto* eventBase = folly::getUnsafeMutableGlobalEventBase();
   httpClient_ = std::make_unique<http::HttpClient>(
-      eventBase, address, std::chrono::milliseconds(10'000));
+      eventBase,
+      address,
+      std::chrono::milliseconds(10'000),
+      [](size_t bufferBytes) {
+        REPORT_ADD_STAT_VALUE(kCounterHttpClientPrestoExchangeNumOnBody);
+        REPORT_ADD_HISTOGRAM_VALUE(
+            kCounterHttpClientPrestoExchangeOnBodyBytes, bufferBytes);
+      });
 }
 
 bool PrestoExchangeSource::shouldRequestLocked() {
@@ -144,27 +153,37 @@ void PrestoExchangeSource::processDataResponse(
 
   std::unique_ptr<exec::SerializedPage> page;
   std::unique_ptr<folly::IOBuf> singleChain;
-  bool empty = response->empty();
+  const bool empty = response->empty();
+  int64_t totalBytes{0};
   if (!empty) {
     auto iobufs = response->consumeBody();
     for (auto& buf : iobufs) {
+      totalBytes += buf->capacity();
       if (!singleChain) {
         singleChain = std::move(buf);
       } else {
         singleChain->prev()->appendChain(std::move(buf));
       }
     }
+    PrestoExchangeSource::updateMemoryUsage(totalBytes);
+
     page = std::make_unique<exec::SerializedPage>(
         std::move(singleChain), nullptr, [pool = pool_](folly::IOBuf& iobuf) {
+          int64_t freedBytes{0};
           // Free the backed memory from MemoryAllocator on page dtor
           folly::IOBuf* start = &iobuf;
           auto curr = start;
           do {
-            pool->free(curr->writableData(), curr->length());
+            freedBytes += curr->capacity();
+            pool->free(curr->writableData(), curr->capacity());
             curr = curr->next();
           } while (curr != start);
+          PrestoExchangeSource::updateMemoryUsage(-freedBytes);
         });
   }
+
+  REPORT_ADD_HISTOGRAM_VALUE(
+      kCounterPrestoExchangeSerializedPageSize, page ? page->size() : 0);
 
   {
     std::vector<ContinuePromise> promises;
@@ -300,11 +319,29 @@ PrestoExchangeSource::createExchangeSource(
     int destination,
     std::shared_ptr<exec::ExchangeQueue> queue,
     memory::MemoryPool* pool) {
-  if (strncmp(url.c_str(), "http://", 7) == 0) {
+  if (strncmp(url.c_str(), "http://", 7) == 0 ||
+      strncmp(url.c_str(), "https://", 8) == 0) {
     return std::make_unique<PrestoExchangeSource>(
         folly::Uri(url), destination, queue, pool);
   }
   return nullptr;
 }
 
+void PrestoExchangeSource::updateMemoryUsage(int64_t updateBytes) {
+  const int64_t newMemoryBytes =
+      currQueuedMemoryBytes().fetch_add(updateBytes) + updateBytes;
+  if (updateBytes > 0) {
+    peakQueuedMemoryBytes() =
+        std::max<int64_t>(peakQueuedMemoryBytes(), newMemoryBytes);
+  } else {
+    VELOX_CHECK_GE(currQueuedMemoryBytes(), 0);
+  }
+}
+
+void PrestoExchangeSource::getMemoryUsage(
+    int64_t& currentBytes,
+    int64_t& peakBytes) {
+  currentBytes = currQueuedMemoryBytes();
+  peakBytes = peakQueuedMemoryBytes();
+}
 } // namespace facebook::presto
