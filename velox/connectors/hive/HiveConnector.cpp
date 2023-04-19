@@ -446,7 +446,7 @@ void HiveDataSource::addDynamicFilter(
     const std::shared_ptr<common::Filter>& filter) {
   auto& fieldSpec = scanSpec_->getChildByChannel(outputChannel);
   fieldSpec.addFilter(*filter);
-  scanSpec_->resetCachedValues();
+  scanSpec_->resetCachedValues(true);
 }
 
 void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
@@ -561,7 +561,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
         INTEGER(),
         velox::variant(split_->tableBucketNumber.value()));
   }
-
+  scanSpec_->resetCachedValues(false);
   std::vector<std::string> columnNames;
   for (auto& spec : scanSpec_->children()) {
     if (!spec->isConstant()) {

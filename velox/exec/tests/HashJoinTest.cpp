@@ -4475,7 +4475,7 @@ TEST_F(HashJoinTest, dynamicFilterOnPartitionKey) {
   std::shared_ptr<connector::hive::HiveTableHandle> tableHandle =
       makeTableHandle();
   ColumnHandleMap assignments = {
-      {"n1_0", regularColumn("id", BIGINT())},
+      {"n1_0", regularColumn("c0", BIGINT())},
       {"n1_1", partitionKey("k", BIGINT())}};
 
   core::PlanNodeId probeScanId;
