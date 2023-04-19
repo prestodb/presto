@@ -26,12 +26,14 @@ import com.facebook.presto.orc.DwrfWriterEncryption;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
+import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.WriterEncryptionGroup;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.KeyProvider;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableListMultimap;
@@ -85,6 +87,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isStringDictionaryS
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
+import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT;
 import static com.facebook.presto.orc.metadata.KeyProvider.CRYPTO_SERVICE;
 import static com.facebook.presto.orc.metadata.KeyProvider.UNKNOWN;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -105,23 +108,30 @@ public class OrcFileWriterFactory
      * A boolean value, stored in the SerDe properties as a string, indicating
      * that the flat map writer for this table should be enabled.
      */
-    private static final String ORC_FLAT_MAP_WRITER_ENABLED_KEY = "orc.flatten.map";
+    static final String ORC_FLAT_MAP_WRITER_ENABLED_KEY = "orc.flatten.map";
+
+    /**
+     * An integer value stored in the SerDe properties as a string, and indicating
+     * the max allowed number of keys in a flat map column.
+     */
+    static final String ORC_FLAT_MAP_KEY_LIMIT_KEY = "orc.map.flat.max.keys";
 
     /**
      * A comma separated list of column numbers, stored in the SerDe properties,
      * indicating which columns should use flat map writer.
      */
-    private static final String ORC_FLAT_MAP_COLUMN_NUMBERS_KEY = "orc.map.flat.cols";
-    private static final Splitter FLAT_MAP_COLUMN_NUMBERS_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
+    static final String ORC_FLAT_MAP_COLUMN_NUMBERS_KEY = "orc.map.flat.cols";
 
     /**
      * A boolean value, stored in the SerDe properties as a string, indicating
      * that the flat map writer should generate map column statistics instead of
      * compound column statistics.
      */
-    private static final String ORC_MAP_STATISTICS_KEY = "orc.map.statistics";
+    static final String ORC_MAP_STATISTICS_KEY = "orc.map.statistics";
+
     private static final String HOSTNAME_METADATA_KEY = "orc.writer.host";
     private static final Supplier<Optional<String>> HOSTNAME = Suppliers.memoize(OrcFileWriterFactory::getHostname);
+    private static final Splitter FLAT_MAP_COLUMN_NUMBERS_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
@@ -251,9 +261,6 @@ public class OrcFileWriterFactory
 
             Optional<DwrfWriterEncryption> dwrfWriterEncryption = createDwrfEncryption(encryptionInformation, fileColumnNames, fileColumnTypes);
 
-            boolean mapStatisticsEnabled = isMapStatisticsEnabled(schema);
-            Set<Integer> flattenedColumns = getFlattenedColumns(schema, session);
-
             ImmutableMap.Builder<String, String> metadata = ImmutableMap.<String, String>builder()
                     .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
                     .put(MetastoreUtil.PRESTO_QUERY_ID_NAME, session.getQueryId());
@@ -263,6 +270,8 @@ public class OrcFileWriterFactory
                 metadata.put(HOSTNAME_METADATA_KEY, HOSTNAME.get().get());
             }
 
+            OrcWriterOptions orcWriterOptions = buildOrcWriterOptions(session, schema);
+
             return Optional.of(new OrcFileWriter(
                     dataSink,
                     rollbackAction,
@@ -270,25 +279,7 @@ public class OrcFileWriterFactory
                     fileColumnNames,
                     fileColumnTypes,
                     compression,
-                    orcFileWriterConfig
-                            .toOrcWriterOptionsBuilder()
-                            .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
-                                    .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
-                                    .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
-                                    .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
-                                    .build())
-                            .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
-                            .withIntegerDictionaryEncodingEnabled(isIntegerDictionaryEncodingEnabled(session))
-                            .withStringDictionaryEncodingEnabled(isStringDictionaryEncodingEnabled(session))
-                            .withStringDictionarySortingEnabled(isStringDictionarySortingEnabled(session))
-                            .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session))
-                            .withIgnoreDictionaryRowGroupSizes(isExecutionBasedMemoryAccountingEnabled(session))
-                            .withDwrfStripeCacheEnabled(isDwrfWriterStripeCacheEnabled(session))
-                            .withDwrfStripeCacheMaxSize(getDwrfWriterStripeCacheMaxSize(session))
-                            .withFlattenedColumns(flattenedColumns)
-                            .withMapStatisticsEnabled(mapStatisticsEnabled)
-                            .withCompressionLevel(getCompressionLevel(session))
-                            .build(),
+                    orcWriterOptions,
                     fileInputColumnIndexes,
                     metadata.build(),
                     hiveStorageTimeZone,
@@ -301,6 +292,35 @@ public class OrcFileWriterFactory
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating " + orcEncoding + " file. " + e.getMessage(), e);
         }
+    }
+
+    @VisibleForTesting
+    OrcWriterOptions buildOrcWriterOptions(ConnectorSession session, Properties schema)
+    {
+        boolean mapStatisticsEnabled = isMapStatisticsEnabled(schema);
+        int flatMapKeyLimit = getFlatMapKeyLimit(schema);
+        Set<Integer> flattenedColumns = getFlattenedColumns(schema, session);
+
+        return orcFileWriterConfig
+                .toOrcWriterOptionsBuilder()
+                .withFlushPolicy(DefaultOrcWriterFlushPolicy.builder()
+                        .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
+                        .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
+                        .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
+                        .build())
+                .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
+                .withIntegerDictionaryEncodingEnabled(isIntegerDictionaryEncodingEnabled(session))
+                .withStringDictionaryEncodingEnabled(isStringDictionaryEncodingEnabled(session))
+                .withStringDictionarySortingEnabled(isStringDictionarySortingEnabled(session))
+                .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session))
+                .withIgnoreDictionaryRowGroupSizes(isExecutionBasedMemoryAccountingEnabled(session))
+                .withDwrfStripeCacheEnabled(isDwrfWriterStripeCacheEnabled(session))
+                .withDwrfStripeCacheMaxSize(getDwrfWriterStripeCacheMaxSize(session))
+                .withFlattenedColumns(flattenedColumns)
+                .withMaxFlattenedMapKeyCount(flatMapKeyLimit)
+                .withMapStatisticsEnabled(mapStatisticsEnabled)
+                .withCompressionLevel(getCompressionLevel(session))
+                .build();
     }
 
     private Optional<DwrfWriterEncryption> createDwrfEncryption(Optional<EncryptionInformation> encryptionInformation, List<String> fileColumnNames, List<Type> types)
@@ -394,6 +414,13 @@ public class OrcFileWriterFactory
     private boolean isMapStatisticsEnabled(Properties schema)
     {
         return parseBoolean(schema.getProperty(ORC_MAP_STATISTICS_KEY, "false"));
+    }
+
+    private int getFlatMapKeyLimit(Properties properties)
+    {
+        String defaultValue = Integer.toString(DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT);
+        String value = properties.getProperty(ORC_FLAT_MAP_KEY_LIMIT_KEY, defaultValue).trim();
+        return Integer.parseInt(value);
     }
 
     // The result is cached by the Suppliers.memoize because getCanonicalHostName does a DNS call.
