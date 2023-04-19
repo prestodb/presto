@@ -401,17 +401,28 @@ class UnsafeRow {
 
     return std::string_view(buffer_ + offset, size);
   }
-
-  /**
-   * Write the data field as a continuous variable length data type at the end
-   * of the row.
-   * @param pos
-   * @param data a string_view over the variable length data.
-   */
-  void appendVariableLengthData(const std::string_view& data) {
-    std::memcpy(
-        fixedLengthData_ + variableLengthOffset_, data.begin(), data.size());
-  }
 };
+
+template <TypeKind kind>
+size_t serializedSizeInBytes() {
+  return sizeof(typename ScalarTraits<kind>::SerializedType);
+}
+
+template <>
+FOLLY_ALWAYS_INLINE size_t serializedSizeInBytes<TypeKind::VARCHAR>() {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+FOLLY_ALWAYS_INLINE size_t serializedSizeInBytes<TypeKind::VARBINARY>() {
+  VELOX_UNREACHABLE();
+}
+
+/// Returns the number of bytes needed to serialized fixed-width type. Throws if
+/// 'type' is ot fixed-width.
+FOLLY_ALWAYS_INLINE size_t serializedSizeInBytes(const TypePtr& type) {
+  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      serializedSizeInBytes, type->kind());
+}
 
 } // namespace facebook::velox::row

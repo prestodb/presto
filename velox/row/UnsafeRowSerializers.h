@@ -275,12 +275,10 @@ struct UnsafeRowSerializer {
       int32_t offset,
       size_t size,
       const BaseVector* data) {
-    using NativeType = typename TypeTraits<Kind>::NativeType;
-    const auto& simple =
-        *data->loadedVector()->asUnchecked<SimpleVector<NativeType>>();
+    using T = typename TypeTraits<Kind>::NativeType;
+    const auto& simple = *data->loadedVector()->asUnchecked<SimpleVector<T>>();
     auto [nullLength, fixedDataStart] = computeFixedDataStart(nullSet, size);
-    size_t dataSize = size * sizeof(NativeType);
-    auto stride = Kind == TypeKind::TIMESTAMP ? 8 : sizeof(NativeType);
+    auto stride = serializedSizeInBytes(data->type());
     for (int i = 0; i < size; i++) {
       bool isNull = simple.isNullAt(i + offset);
       if (isNull) {
@@ -291,7 +289,7 @@ struct UnsafeRowSerializer {
             simple.valueAt(i + offset), fixedDataStart + i * stride);
       }
     }
-    return UnsafeRow::alignToFieldWidth(dataSize + nullLength);
+    return UnsafeRow::alignToFieldWidth(size * stride + nullLength);
   }
 
   /// Struct declaration for partial template specialization.
@@ -992,8 +990,7 @@ struct UnsafeRowSerializer {
   inline static size_t getSizeSimpleVector(
       size_t size,
       const BaseVector* data) {
-    using NativeType = typename TypeTraits<Kind>::NativeType;
-    size_t dataSize = size * sizeof(NativeType);
+    size_t dataSize = size * serializedSizeInBytes(data->type());
     return UnsafeRow::alignToFieldWidth(dataSize + UnsafeRow::kFieldWidthBytes);
   }
 

@@ -1684,6 +1684,11 @@ class UnsafeRowComplexBatchDeserializerTests : public testing::Test,
       // Serialize rowVector into bytes.
       auto rowSize =
           UnsafeRowSerializer::serialize(inputVector, buffers_[i], /*idx=*/i);
+
+      ASSERT_EQ(
+          rowSize.value_or(0),
+          UnsafeRowSerializer::getSizeRow(inputVector.get(), i));
+
       if (rowSize) {
         serializedVector.push_back(
             std::string_view(buffers_[i], rowSize.value()));
@@ -1720,6 +1725,26 @@ TEST_F(UnsafeRowComplexBatchDeserializerTests, nullRows) {
     const auto outerRowVector = makeRowVector({innerRowVector});
     testVectorSerde(outerRowVector);
   }
+}
+
+TEST_F(UnsafeRowComplexBatchDeserializerTests, arrayOfTimestamp) {
+  auto data = makeRowVector({
+      makeArrayVector<Timestamp>({
+          {
+              Timestamp::fromMicros(1001),
+              Timestamp::fromMicros(1002),
+              Timestamp::fromMicros(1003),
+          },
+          {
+              Timestamp::fromMicros(1001),
+              Timestamp::fromMicros(1002),
+              Timestamp::fromMicros(1003),
+              Timestamp::fromMicros(1004),
+          },
+      }),
+  });
+
+  testVectorSerde(data);
 }
 
 } // namespace

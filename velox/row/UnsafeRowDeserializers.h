@@ -209,8 +209,8 @@ struct StructBatchIterator : UnsafeRowDataBatchIterator {
    */
   const std::vector<std::optional<std::string_view>>& nextColumnBatch() {
     const TypePtr& type = childTypes_[idx_];
-    std::size_t cppSizeInBytes =
-        type->isFixedWidth() ? type->cppSizeInBytes() : 0;
+    std::size_t fixedSize =
+        type->isFixedWidth() ? serializedSizeInBytes(type) : 0;
     std::size_t fieldOffset = UnsafeRow::getNullLength(numElements_) +
         idx_ * UnsafeRow::kFieldWidthBytes;
 
@@ -225,8 +225,8 @@ struct StructBatchIterator : UnsafeRowDataBatchIterator {
       const char* fieldData = rawData + fieldOffset;
 
       // Fixed length field
-      if (cppSizeInBytes) {
-        columnData_[i] = std::string_view(fieldData, cppSizeInBytes);
+      if (fixedSize > 0) {
+        columnData_[i] = std::string_view(fieldData, fixedSize);
         continue;
       }
 
@@ -293,7 +293,8 @@ struct ArrayBatchIterator : UnsafeRowDataBatchIterator {
       : UnsafeRowDataBatchIterator(data, type),
         elementType_{type->childAt(0)},
         isFixedLength_(elementType_->isFixedWidth()),
-        fixedDataWidth_(isFixedLength_ ? elementType_->cppSizeInBytes() : 0) {
+        fixedDataWidth_(
+            isFixedLength_ ? serializedSizeInBytes(elementType_) : 0) {
     totalNumElements_ = 0L;
 
     for (int32_t i = 0; i < numRows_; ++i) {
