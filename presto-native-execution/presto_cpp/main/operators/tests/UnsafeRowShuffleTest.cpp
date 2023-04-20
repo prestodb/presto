@@ -21,6 +21,7 @@
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/exec/Exchange.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -113,6 +114,10 @@ class TestShuffleWriter : public ShuffleWriter {
     }
   }
 
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return {{"test-shuffle.write", 1002}};
+  }
+
   std::shared_ptr<std::vector<std::vector<BufferPtr>>>& readyPartitions() {
     return readyPartitions_;
   }
@@ -199,17 +204,21 @@ class TestShuffleReader : public ShuffleReader {
           readyPartitions)
       : partition_(partition), readyPartitions_(readyPartitions) {}
 
-  bool hasNext() {
+  bool hasNext() override {
     return !(*readyPartitions_)[partition_].empty();
   }
 
-  BufferPtr next(bool success) {
+  BufferPtr next(bool success) override {
     VELOX_CHECK(success, "Unexpected error")
     VELOX_CHECK(!(*readyPartitions_)[partition_].empty());
 
     auto buffer = (*readyPartitions_)[partition_].back();
     (*readyPartitions_)[partition_].pop_back();
     return buffer;
+  }
+
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return {{"test-shuffle.read", 1032}};
   }
 
  private:
@@ -467,6 +476,13 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
 
     ASSERT_TRUE(exec::test::waitForTaskCompletion(writerTask.get(), 3'000'000));
 
+    // Verify that shuffle stats got propagated to the ShuffleWrite operator.
+    auto shuffleStats = writerTask->taskStats()
+                            .pipelineStats[0]
+                            .operatorStats.back()
+                            .runtimeStats;
+    ASSERT_EQ(1, shuffleStats.count(fmt::format("{}.write", shuffleName)));
+
     // NOTE: each map driver processes the input once.
     std::vector<RowVectorPtr> expectedOutputVectors;
     for (auto& input : flattenInputs) {
@@ -496,6 +512,14 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
             task, {makeTaskId("read", 0, serializedShuffleReadInfo)});
         noMoreSplits = true;
       });
+
+      // Verify that shuffle stats got propagated to the Exchange operator.
+      auto exchangeStats = taskCursor->task()
+                               ->taskStats()
+                               .pipelineStats[0]
+                               .operatorStats[0]
+                               .runtimeStats;
+      ASSERT_EQ(1, exchangeStats.count(fmt::format("{}.read", shuffleName)));
 
       for (auto& resultVector : results) {
         auto vector = copyResultVector(resultVector);
