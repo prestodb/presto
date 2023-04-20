@@ -56,17 +56,23 @@ PrestoExchangeSource::PrestoExchangeSource(
     const folly::Uri& baseUri,
     int destination,
     std::shared_ptr<exec::ExchangeQueue> queue,
-    memory::MemoryPool* pool)
+    memory::MemoryPool* pool,
+    const std::string& clientCertAndKeyPath,
+    const std::string& ciphers)
     : ExchangeSource(extractTaskId(baseUri.path()), destination, queue, pool),
       basePath_(baseUri.path()),
       host_(baseUri.host()),
-      port_(baseUri.port()) {
+      port_(baseUri.port()),
+      clientCertAndKeyPath_(clientCertAndKeyPath),
+      ciphers_(ciphers) {
   folly::SocketAddress address(folly::IPAddress(host_).str(), port_, true);
   auto* eventBase = folly::getUnsafeMutableGlobalEventBase();
   httpClient_ = std::make_unique<http::HttpClient>(
       eventBase,
       address,
       std::chrono::milliseconds(10'000),
+      clientCertAndKeyPath_,
+      ciphers_,
       [](size_t bufferBytes) {
         REPORT_ADD_STAT_VALUE(kCounterHttpClientPrestoExchangeNumOnBody);
         REPORT_ADD_HISTOGRAM_VALUE(
@@ -319,10 +325,21 @@ PrestoExchangeSource::createExchangeSource(
     int destination,
     std::shared_ptr<exec::ExchangeQueue> queue,
     memory::MemoryPool* pool) {
-  if (strncmp(url.c_str(), "http://", 7) == 0 ||
-      strncmp(url.c_str(), "https://", 8) == 0) {
+  if (strncmp(url.c_str(), "http://", 7) == 0) {
     return std::make_unique<PrestoExchangeSource>(
         folly::Uri(url), destination, queue, pool);
+  } else if (strncmp(url.c_str(), "https://", 8) == 0) {
+    const auto systemConfig = SystemConfig::instance();
+    const auto clientCertAndKeyPath =
+        systemConfig->httpsClientCertAndKeyPath().value_or("");
+    const auto ciphers = systemConfig->httpsClientCertAndKeyPath().value_or("");
+    return std::make_unique<PrestoExchangeSource>(
+        folly::Uri(url),
+        destination,
+        queue,
+        pool,
+        clientCertAndKeyPath,
+        ciphers);
   }
   return nullptr;
 }

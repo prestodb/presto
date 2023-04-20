@@ -35,6 +35,7 @@ int main(int argc, char** argv) {
 }
 
 namespace {
+
 std::string getCertsPath(const std::string& fileName) {
   std::string currentPath = fs::current_path().c_str();
   if (boost::algorithm::ends_with(currentPath, "fbcode")) {
@@ -55,7 +56,7 @@ std::string getCertsPath(const std::string& fileName) {
 
 class HttpServerWrapper {
  public:
-  HttpServerWrapper(std::unique_ptr<http::HttpServer> server)
+  explicit HttpServerWrapper(std::unique_ptr<http::HttpServer> server)
       : server_(std::move(server)) {}
 
   ~HttpServerWrapper() {
@@ -182,9 +183,27 @@ class HttpClientFactory {
   std::unique_ptr<http::HttpClient> newClient(
       const folly::SocketAddress& address,
       const std::chrono::milliseconds& timeout,
+      bool useHttps,
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr) {
-    return std::make_unique<http::HttpClient>(
-        eventBase_.get(), address, timeout, std::move(reportOnBodyStatsFunc));
+    if (useHttps) {
+      std::string clientCaPath = getCertsPath("client_ca.pem");
+      std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
+      return std::make_unique<http::HttpClient>(
+          eventBase_.get(),
+          address,
+          timeout,
+          clientCaPath,
+          ciphers,
+          std::move(reportOnBodyStatsFunc));
+    } else {
+      return std::make_unique<http::HttpClient>(
+          eventBase_.get(),
+          address,
+          timeout,
+          "",
+          "",
+          std::move(reportOnBodyStatsFunc));
+    }
   }
 
  private:
@@ -199,11 +218,26 @@ sendGet(http::HttpClient* client, const std::string& url, MemoryPool* pool) {
       .url(url)
       .send(client, pool);
 }
+
+static std::unique_ptr<http::HttpServer> getServer(bool useHttps) {
+  if (useHttps) {
+    std::string certPath = getCertsPath("test_cert1.pem");
+    std::string keyPath = getCertsPath("test_key1.pem");
+    std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
+    auto httpsConfig = std::make_unique<http::HttpsConfig>(
+        folly::SocketAddress("127.0.0.1", 0), certPath, keyPath, ciphers);
+    return std::make_unique<http::HttpServer>(nullptr, std::move(httpsConfig));
+  } else {
+    return std::make_unique<http::HttpServer>(
+        std::make_unique<http::HttpConfig>(
+            folly::SocketAddress("127.0.0.1", 0)));
+  }
+}
 } // namespace
 
-class HttpTest : public ::testing::Test {};
+class HttpsBasicTest : public ::testing::Test {};
 
-TEST_F(HttpTest, ssl) {
+TEST_F(HttpsBasicTest, ssl) {
   auto memoryPool = defaultMemoryManager().addLeafPool("ssl");
 
   std::string certPath = getCertsPath("test_cert1.pem");
@@ -228,10 +262,14 @@ TEST_F(HttpTest, ssl) {
   EXPECT_TRUE(cb.succeeded());
 }
 
-TEST_F(HttpTest, basic) {
+class HttpTestSuite : public ::testing::TestWithParam<bool> {};
+
+TEST_P(HttpTestSuite, basic) {
   auto memoryPool = defaultMemoryManager().addLeafPool("basic");
-  auto server = std::make_unique<http::HttpServer>(
-      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
+
+  bool useHttps = GetParam();
+  auto server = getServer(useHttps);
+
   server->registerGet("/ping", ping);
   server->registerGet("/blackhole", blackhole);
   server->registerGet(R"(/echo.*)", echo);
@@ -241,8 +279,8 @@ TEST_F(HttpTest, basic) {
   auto serverAddress = wrapper.start().get();
 
   HttpClientFactory clientFactory;
-  auto client =
-      clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
+  auto client = clientFactory.newClient(
+      serverAddress, std::chrono::milliseconds(1'000), useHttps);
 
   {
     auto response = sendGet(client.get(), "/ping", memoryPool.get()).get();
@@ -284,13 +322,15 @@ TEST_F(HttpTest, basic) {
   ASSERT_EQ(socketException->getType(), folly::AsyncSocketException::NOT_OPEN);
 }
 
-TEST_F(HttpTest, httpResponseAllocationFailure) {
+TEST_P(HttpTestSuite, httpResponseAllocationFailure) {
   const int64_t memoryCapBytes = 1 << 10;
   auto rootPool = defaultMemoryManager().addRootPool(
       "httpResponseAllocationFailure", memoryCapBytes);
   auto leafPool = rootPool->addLeafChild("httpResponseAllocationFailure");
-  auto server = std::make_unique<http::HttpServer>(
-      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
+
+  bool useHttps = GetParam();
+  auto server = getServer(useHttps);
+
   server->registerGet(R"(/echo.*)", echo);
   server->registerPost(R"(/echo.*)", echo);
 
@@ -298,8 +338,8 @@ TEST_F(HttpTest, httpResponseAllocationFailure) {
   auto serverAddress = wrapper.start().get();
 
   HttpClientFactory clientFactory;
-  auto client =
-      clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
+  auto client = clientFactory.newClient(
+      serverAddress, std::chrono::milliseconds(1'000), useHttps);
 
   {
     const std::string echoMessage(memoryCapBytes * 4, 'C');
@@ -314,35 +354,35 @@ TEST_F(HttpTest, httpResponseAllocationFailure) {
   wrapper.stop();
 }
 
-TEST_F(HttpTest, serverRestart) {
+TEST_P(HttpTestSuite, serverRestart) {
   auto memoryPool = defaultMemoryManager().addLeafPool("serverRestart");
 
-  auto server = std::make_unique<http::HttpServer>(
-      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
+  bool useHttps = GetParam();
+  auto server = getServer(useHttps);
+
   server->registerGet("/ping", ping);
 
   auto wrapper = std::make_unique<HttpServerWrapper>(std::move(server));
   auto serverAddress = wrapper->start().get();
 
   HttpClientFactory clientFactory;
-  auto client =
-      clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
+  auto client = clientFactory.newClient(
+      serverAddress, std::chrono::milliseconds(1'000), useHttps);
 
   auto response = sendGet(client.get(), "/ping", memoryPool.get()).get();
   ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
 
   wrapper->stop();
 
-  auto server2 = std::make_unique<http::HttpServer>(
-      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
-  ;
+  auto server2 = getServer(useHttps);
+
   server2->registerGet("/ping", ping);
 
   wrapper = std::make_unique<HttpServerWrapper>(std::move(server2));
 
   serverAddress = wrapper->start().get();
-  client =
-      clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
+  client = clientFactory.newClient(
+      serverAddress, std::chrono::milliseconds(1'000), useHttps);
   response = sendGet(client.get(), "/ping", memoryPool.get()).get();
   ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
   wrapper->stop();
@@ -425,11 +465,11 @@ http::EndpointRequestHandlerFactory asyncMsg(
 }
 } // namespace
 
-TEST_F(HttpTest, asyncRequests) {
+TEST_P(HttpTestSuite, asyncRequests) {
   auto memoryPool = defaultMemoryManager().addLeafPool("asyncRequests");
 
-  auto server = std::make_unique<http::HttpServer>(
-      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
+  bool useHttps = GetParam();
+  auto server = getServer(useHttps);
 
   auto request = std::make_shared<AsyncMsgRequestState>();
   server->registerGet("/async/msg", asyncMsg(request));
@@ -438,8 +478,8 @@ TEST_F(HttpTest, asyncRequests) {
   auto serverAddress = wrapper.start().get();
 
   HttpClientFactory clientFactory;
-  auto client =
-      clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
+  auto client = clientFactory.newClient(
+      serverAddress, std::chrono::milliseconds(1'000), useHttps);
 
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
   request->requestPromise = std::move(reqPromise);
@@ -459,11 +499,11 @@ TEST_F(HttpTest, asyncRequests) {
   wrapper.stop();
 }
 
-TEST_F(HttpTest, timedOutRequests) {
+TEST_P(HttpTestSuite, timedOutRequests) {
   auto memoryPool = defaultMemoryManager().addLeafPool("timedOutRequests");
 
-  auto server = std::make_unique<http::HttpServer>(
-      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
+  bool useHttps = GetParam();
+  auto server = getServer(useHttps);
 
   auto request = std::make_shared<AsyncMsgRequestState>();
 
@@ -473,8 +513,8 @@ TEST_F(HttpTest, timedOutRequests) {
   auto serverAddress = wrapper.start().get();
 
   HttpClientFactory clientFactory;
-  auto client =
-      clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
+  auto client = clientFactory.newClient(
+      serverAddress, std::chrono::milliseconds(1'000), useHttps);
 
   request->maxWaitMillis = 100;
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
@@ -494,12 +534,13 @@ TEST_F(HttpTest, timedOutRequests) {
 
 // TODO: Enabled it when fixed.
 // Disabled it, while we are investigating and fixing this test failure.
-TEST_F(HttpTest, DISABLED_outstandingRequests) {
+TEST_P(HttpTestSuite, DISABLED_outstandingRequests) {
   auto memoryPool =
       defaultMemoryManager().addLeafPool("DISABLED_outstandingRequests");
 
-  auto server = std::make_unique<http::HttpServer>(
-      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
+  bool useHttps = GetParam();
+  auto server = getServer(useHttps);
+
   auto request = std::make_shared<AsyncMsgRequestState>();
 
   server->registerGet("/async/msg", asyncMsg(request));
@@ -508,8 +549,8 @@ TEST_F(HttpTest, DISABLED_outstandingRequests) {
   auto serverAddress = wrapper.start().get();
 
   HttpClientFactory clientFactory;
-  auto client =
-      clientFactory.newClient(serverAddress, std::chrono::milliseconds(10'000));
+  auto client = clientFactory.newClient(
+      serverAddress, std::chrono::milliseconds(10'000), useHttps);
 
   request->maxWaitMillis = 0;
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
@@ -527,12 +568,12 @@ TEST_F(HttpTest, DISABLED_outstandingRequests) {
   ASSERT_EQ(request->requestStatus, kStatusInvalid);
 }
 
-TEST_F(HttpTest, testReportOnBodyStatsFunc) {
+TEST_P(HttpTestSuite, testReportOnBodyStatsFunc) {
   std::atomic<int> reportedCount = 0;
   auto memoryPool = defaultMemoryManager().addLeafPool("asyncRequests");
 
-  auto server = std::make_unique<http::HttpServer>(
-      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
+  bool useHttps = GetParam();
+  auto server = getServer(useHttps);
 
   auto request = std::make_shared<AsyncMsgRequestState>();
   server->registerGet("/async/msg", asyncMsg(request));
@@ -542,9 +583,10 @@ TEST_F(HttpTest, testReportOnBodyStatsFunc) {
 
   HttpClientFactory clientFactory;
   auto client = clientFactory.newClient(
-      serverAddress, std::chrono::milliseconds(1'000), [&](size_t bufferBytes) {
-        reportedCount.fetch_add(bufferBytes);
-      });
+      serverAddress,
+      std::chrono::milliseconds(1'000),
+      useHttps,
+      [&](size_t bufferBytes) { reportedCount.fetch_add(bufferBytes); });
 
   auto [reqPromise, reqFuture] = folly::makePromiseContract<bool>();
   request->requestPromise = std::move(reqPromise);
@@ -562,6 +604,11 @@ TEST_F(HttpTest, testReportOnBodyStatsFunc) {
   ASSERT_EQ(reportedCount, responseData.size());
   wrapper.stop();
 }
+
+INSTANTIATE_TEST_CASE_P(
+    HTTPTest,
+    HttpTestSuite,
+    ::testing::Values(true, false));
 
 // Initialize singleton for the reporter
 folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
