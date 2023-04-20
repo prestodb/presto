@@ -15,20 +15,20 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
+import com.facebook.presto.hive.metastore.Database;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager;
 import com.facebook.presto.spark.execution.NativeExecutionModule;
 import com.facebook.presto.spark.execution.TestNativeExecutionModule;
-import com.facebook.presto.testing.ExpectedQueryRunner;
+import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.shuffle.ShuffleHandle;
 import org.apache.spark.shuffle.sort.BypassMergeSortShuffleHandle;
-import org.testng.annotations.BeforeClass;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -37,28 +37,24 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public class AbstractTestPrestoSparkQueries
-        extends AbstractTestQueryFramework
+public class PrestoSparkNativeQueryRunnerUtils
 {
+    private static final int AVAILABLE_CPU_COUNT = 4;
     private static final String SPARK_SHUFFLE_MANAGER = "spark.shuffle.manager";
     private static final String FALLBACK_SPARK_SHUFFLE_MANAGER = "spark.fallback.shuffle.manager";
-    private static Path baseDataPath;
+    private static Optional<Path> dataDirectory = Optional.empty();
 
-    @BeforeClass
-    public void init()
-            throws Exception
-    {
-        baseDataPath = getBaseDataPath();
-        super.init();
-    }
+    private PrestoSparkNativeQueryRunnerUtils() {}
 
-    @Override
-    protected QueryRunner createQueryRunner()
+    public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner()
     {
         ImmutableMap.Builder<String, String> builder = new ImmutableMap.Builder<String, String>()
                 // Do not use default Prestissimo config files. Presto-Spark will generate the configs on-the-fly.
@@ -71,12 +67,12 @@ public class AbstractTestPrestoSparkQueries
         if (System.getProperty("NATIVE_PORT") == null) {
             String path = requireNonNull(System.getProperty("PRESTO_SERVER"),
                     "Native worker binary path is missing. " +
-                    "Add -DPRESTO_SERVER=/path/to/native/process/bin to your JVM arguments.");
+                            "Add -DPRESTO_SERVER=/path/to/native/process/bin to your JVM arguments.");
             builder.put("native-execution-executable-path", path);
         }
 
-        PrestoSparkQueryRunner queryRunner = PrestoSparkNativeQueryRunner.createPrestoSparkNativeQueryRunner(
-                Optional.of(baseDataPath),
+        PrestoSparkQueryRunner queryRunner = createPrestoSparkNativeQueryRunner(
+                Optional.of(getBaseDataPath()),
                 builder.build(),
                 getNativeExecutionShuffleConfigs(),
                 getNativeExecutionModules());
@@ -84,15 +80,37 @@ public class AbstractTestPrestoSparkQueries
         return queryRunner;
     }
 
-    @Override
-    protected ExpectedQueryRunner createExpectedQueryRunner()
+    public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner(Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
+    {
+        String dataDirectory = System.getProperty("DATA_DIR");
+
+        ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
+        configBuilder.putAll(getNativeWorkerSystemProperties()).putAll(additionalConfigProperties);
+
+        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner(
+                "hive",
+                configBuilder.build(),
+                getNativeWorkerHiveProperties(),
+                additionalSparkProperties,
+                baseDir,
+                nativeModules,
+                AVAILABLE_CPU_COUNT);
+
+        ExtendedHiveMetastore metastore = queryRunner.getMetastore();
+        if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
+            metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("tpch"));
+        }
+        return queryRunner;
+    }
+
+    public static QueryRunner createJavaQueryRunner()
             throws Exception
     {
         String dataDirectory = System.getProperty("DATA_DIR");
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.ofNullable(dataDirectory).map(Paths::get), "legacy");
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy");
     }
 
-    protected void assertShuffleMetadata()
+    public static void assertShuffleMetadata()
     {
         assertNotNull(SparkEnv.get());
         assertTrue(SparkEnv.get().shuffleManager() instanceof PrestoSparkNativeExecutionShuffleManager);
@@ -106,13 +124,16 @@ public class AbstractTestPrestoSparkQueries
         }
     }
 
-    protected void assertQuery(String sql)
+    private static Database createDatabaseMetastoreObject(String name)
     {
-        super.assertQuery(sql);
-        assertShuffleMetadata();
+        return Database.builder()
+                .setDatabaseName(name)
+                .setOwnerName("public")
+                .setOwnerType(PrincipalType.ROLE)
+                .build();
     }
 
-    protected Map<String, String> getNativeExecutionShuffleConfigs()
+    private static Map<String, String> getNativeExecutionShuffleConfigs()
     {
         ImmutableMap.Builder<String, String> sparkConfigs = ImmutableMap.builder();
         sparkConfigs.put(SPARK_SHUFFLE_MANAGER, "com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager");
@@ -120,7 +141,7 @@ public class AbstractTestPrestoSparkQueries
         return sparkConfigs.build();
     }
 
-    private void setupJsonFunctionNamespaceManager(QueryRunner queryRunner)
+    private static void setupJsonFunctionNamespaceManager(QueryRunner queryRunner)
     {
         queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
         queryRunner.loadFunctionNamespaceManager(
@@ -132,7 +153,7 @@ public class AbstractTestPrestoSparkQueries
                         "json-based-function-manager.path-to-function-definition", "src/test/resources/external_functions.json"));
     }
 
-    protected ImmutableList<Module> getNativeExecutionModules()
+    private static ImmutableList<Module> getNativeExecutionModules()
     {
         ImmutableList.Builder<Module> moduleBuilder = ImmutableList.builder();
         if (System.getProperty("NATIVE_PORT") != null) {
@@ -145,18 +166,23 @@ public class AbstractTestPrestoSparkQueries
         return moduleBuilder.build();
     }
 
-    protected Path getBaseDataPath()
+    private static synchronized Path getBaseDataPath()
     {
-        String dataDirectory = System.getProperty("DATA_DIR");
-        if (dataDirectory == null) {
+        if (dataDirectory.isPresent()) {
+            return dataDirectory.get();
+        }
+        String dataDirectoryStr = System.getProperty("DATA_DIR");
+        if (dataDirectoryStr.isEmpty()) {
             try {
-                return createTempDirectory("PrestoTest").toAbsolutePath();
+                dataDirectory = Optional.of(createTempDirectory("PrestoTest").toAbsolutePath());
             }
             catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
-
-        return Paths.get(dataDirectory);
+        else {
+            dataDirectory = Optional.of(Paths.get(dataDirectoryStr));
+        }
+        return dataDirectory.get();
     }
 }
