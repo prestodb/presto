@@ -63,6 +63,13 @@ class ShuffleWriteOperator : public Operator {
   void noMoreInput() override {
     Operator::noMoreInput();
     shuffle_->noMoreData(true);
+
+    {
+      auto lockedStats = stats_.wlock();
+      for (const auto& [name, value] : shuffle_->stats()) {
+        lockedStats->runtimeStats[name] = RuntimeMetric(value);
+      }
+    }
   }
 
   RowVectorPtr getOutput() override {
