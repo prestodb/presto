@@ -1365,7 +1365,7 @@ TEST_F(DateTimeFunctionsTest, dateTruncDate) {
   EXPECT_THROW(dateTrunc("minute", Date(0)), VeloxUserError);
   EXPECT_THROW(dateTrunc("hour", Date(0)), VeloxUserError);
 
-  // Date(18297) is 2020-02-04
+  // Date(18297) is 2020-02-05.
   EXPECT_EQ(Date(18297), dateTrunc("day", Date(18297)));
   EXPECT_EQ(Date(18293), dateTrunc("month", Date(18297)));
   EXPECT_EQ(Date(18262), dateTrunc("quarter", Date(18297)));
@@ -1374,7 +1374,7 @@ TEST_F(DateTimeFunctionsTest, dateTruncDate) {
   EXPECT_THROW(dateTrunc("minute", Date(18297)), VeloxUserError);
   EXPECT_THROW(dateTrunc("hour", Date(18297)), VeloxUserError);
 
-  // Date(-18297) is 1919-11-27
+  // Date(-18297) is 1919-11-28.
   EXPECT_EQ(Date(-18297), dateTrunc("day", Date(-18297)));
   EXPECT_EQ(Date(-18324), dateTrunc("month", Date(-18297)));
   EXPECT_EQ(Date(-18355), dateTrunc("quarter", Date(-18297)));
@@ -2846,4 +2846,164 @@ TEST_F(DateTimeFunctionsTest, dateParse) {
       dateParse("1", "%y+"), "Invalid format: \"1\" is malformed at \"1\"");
   VELOX_ASSERT_THROW(
       dateParse("116", "%y+"), "Invalid format: \"116\" is malformed at \"6\"");
+}
+
+TEST_F(DateTimeFunctionsTest, dateFunctionVarchar) {
+  const auto dateFunction = [&](const std::optional<std::string>& dateString) {
+    return evaluateOnce<Date>("date(c0)", dateString);
+  };
+
+  // Date(0) is 1970-01-01.
+  EXPECT_EQ(Date(), dateFunction("1970-01-01"));
+  // Date(18297) is 2020-02-05.
+  EXPECT_EQ(Date(18297), dateFunction("2020-02-05"));
+  // Date(-18297) is 1919-11-28.
+  EXPECT_EQ(Date(-18297), dateFunction("1919-11-28"));
+
+  // Illegal date format.
+  VELOX_ASSERT_THROW(
+      dateFunction("2020-02-05 11:00"),
+      "Unable to parse date value: \"2020-02-05 11:00\", expected format is (YYYY-MM-DD)");
+}
+
+TEST_F(DateTimeFunctionsTest, dateFunctionTimestamp) {
+  static const int64_t kSecondsInDay = 86'400;
+  static const uint64_t kNanosInSecond = 1'000'000'000;
+
+  const auto dateFunction = [&](std::optional<Timestamp> timestamp) {
+    return evaluateOnce<Date>("date(c0)", timestamp);
+  };
+
+  EXPECT_EQ(Date(), dateFunction(Timestamp()));
+  EXPECT_EQ(Date(1), dateFunction(Timestamp(kSecondsInDay, 0)));
+  EXPECT_EQ(Date(-1), dateFunction(Timestamp(-kSecondsInDay, 0)));
+  EXPECT_EQ(Date(18297), dateFunction(Timestamp(18297 * kSecondsInDay, 0)));
+  EXPECT_EQ(Date(18297), dateFunction(Timestamp(18297 * kSecondsInDay, 123)));
+  EXPECT_EQ(Date(-18297), dateFunction(Timestamp(-18297 * kSecondsInDay, 0)));
+  EXPECT_EQ(Date(-18297), dateFunction(Timestamp(-18297 * kSecondsInDay, 123)));
+
+  // Last second of day 0
+  EXPECT_EQ(Date(), dateFunction(Timestamp(kSecondsInDay - 1, 0)));
+  // Last nanosecond of day 0
+  EXPECT_EQ(
+      Date(), dateFunction(Timestamp(kSecondsInDay - 1, kNanosInSecond - 1)));
+
+  // Last second of day -1
+  EXPECT_EQ(Date(-1), dateFunction(Timestamp(-1, 0)));
+  // Last nanosecond of day -1
+  EXPECT_EQ(Date(-1), dateFunction(Timestamp(-1, kNanosInSecond - 1)));
+
+  // Last second of day 18297
+  EXPECT_EQ(
+      Date(18297),
+      dateFunction(Timestamp(18297 * kSecondsInDay + kSecondsInDay - 1, 0)));
+  // Last nanosecond of day 18297
+  EXPECT_EQ(
+      Date(18297),
+      dateFunction(Timestamp(
+          18297 * kSecondsInDay + kSecondsInDay - 1, kNanosInSecond - 1)));
+
+  // Last second of day -18297
+  EXPECT_EQ(
+      Date(-18297),
+      dateFunction(Timestamp(-18297 * kSecondsInDay + kSecondsInDay - 1, 0)));
+  // Last nanosecond of day -18297
+  EXPECT_EQ(
+      Date(-18297),
+      dateFunction(Timestamp(
+          -18297 * kSecondsInDay + kSecondsInDay - 1, kNanosInSecond - 1)));
+}
+
+TEST_F(DateTimeFunctionsTest, dateFunctionTimestampWithTimezone) {
+  static const int64_t kSecondsInDay = 86'400;
+
+  const auto dateFunction =
+      [&](std::optional<int64_t> timestamp,
+          const std::optional<std::string>& timeZoneName) {
+        return evaluateWithTimestampWithTimezone<Date>(
+            "date(c0)", timestamp, timeZoneName);
+      };
+
+  // 1970-01-01 00:00:00.000 +00:00
+  EXPECT_EQ(Date(), dateFunction(0, "+00:00"));
+  EXPECT_EQ(Date(), dateFunction(0, "Europe/London"));
+  // 1970-01-01 00:00:00.000 -08:00
+  EXPECT_EQ(Date(-1), dateFunction(0, "-08:00"));
+  EXPECT_EQ(Date(-1), dateFunction(0, "America/Los_Angeles"));
+  // 1970-01-01 00:00:00.000 +08:00
+  EXPECT_EQ(Date(), dateFunction(0, "+08:00"));
+  EXPECT_EQ(Date(), dateFunction(0, "Asia/Chongqing"));
+  // 1970-01-01 18:00:00.000 +08:00
+  EXPECT_EQ(Date(1), dateFunction(18 * 3'600 * 1'000, "+08:00"));
+  EXPECT_EQ(Date(1), dateFunction(18 * 3'600 * 1'000, "Asia/Chongqing"));
+  // 1970-01-01 06:00:00.000 -08:00
+  EXPECT_EQ(Date(-1), dateFunction(6 * 3'600 * 1'000, "-08:00"));
+  EXPECT_EQ(Date(-1), dateFunction(6 * 3'600 * 1'000, "America/Los_Angeles"));
+
+  // 2020-02-05 10:00:00.000 +08:00
+  EXPECT_EQ(
+      Date(18297),
+      dateFunction((18297 * kSecondsInDay + 10 * 3'600) * 1'000, "+08:00"));
+  EXPECT_EQ(
+      Date(18297),
+      dateFunction(
+          (18297 * kSecondsInDay + 10 * 3'600) * 1'000, "Asia/Chongqing"));
+  // 2020-02-05 20:00:00.000 +08:00
+  EXPECT_EQ(
+      Date(18298),
+      dateFunction((18297 * kSecondsInDay + 20 * 3'600) * 1'000, "+08:00"));
+  EXPECT_EQ(
+      Date(18298),
+      dateFunction(
+          (18297 * kSecondsInDay + 20 * 3'600) * 1'000, "Asia/Chongqing"));
+  // 2020-02-05 16:00:00.000 -08:00
+  EXPECT_EQ(
+      Date(18297),
+      dateFunction((18297 * kSecondsInDay + 16 * 3'600) * 1'000, "-08:00"));
+  EXPECT_EQ(
+      Date(18297),
+      dateFunction(
+          (18297 * kSecondsInDay + 16 * 3'600) * 1'000, "America/Los_Angeles"));
+  // 2020-02-05 06:00:00.000 -08:00
+  EXPECT_EQ(
+      Date(18296),
+      dateFunction((18297 * kSecondsInDay + 6 * 3'600) * 1'000, "-08:00"));
+  EXPECT_EQ(
+      Date(18296),
+      dateFunction(
+          (18297 * kSecondsInDay + 6 * 3'600) * 1'000, "America/Los_Angeles"));
+
+  // 1919-11-28 10:00:00.000 +08:00
+  EXPECT_EQ(
+      Date(-18297),
+      dateFunction((-18297 * kSecondsInDay + 10 * 3'600) * 1'000, "+08:00"));
+  EXPECT_EQ(
+      Date(-18297),
+      dateFunction(
+          (-18297 * kSecondsInDay + 10 * 3'600) * 1'000, "Asia/Chongqing"));
+  // 1919-11-28 20:00:00.000 +08:00
+  EXPECT_EQ(
+      Date(-18296),
+      dateFunction((-18297 * kSecondsInDay + 20 * 3'600) * 1'000, "+08:00"));
+  EXPECT_EQ(
+      Date(-18296),
+      dateFunction(
+          (-18297 * kSecondsInDay + 20 * 3'600) * 1'000, "Asia/Chongqing"));
+  // 1919-11-28 16:00:00.000 -08:00
+  EXPECT_EQ(
+      Date(-18297),
+      dateFunction((-18297 * kSecondsInDay + 16 * 3'600) * 1'000, "-08:00"));
+  EXPECT_EQ(
+      Date(-18297),
+      dateFunction(
+          (-18297 * kSecondsInDay + 16 * 3'600) * 1'000,
+          "America/Los_Angeles"));
+  // 1919-11-28 06:00:00.000 -08:00
+  EXPECT_EQ(
+      Date(-18298),
+      dateFunction((-18297 * kSecondsInDay + 6 * 3'600) * 1'000, "-08:00"));
+  EXPECT_EQ(
+      Date(-18298),
+      dateFunction(
+          (-18297 * kSecondsInDay + 6 * 3'600) * 1'000, "America/Los_Angeles"));
 }

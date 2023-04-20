@@ -2,6 +2,10 @@
 Date and Time Functions
 =====================================
 
+.. function:: date(x) -> date
+
+    This is an alias for ``CAST(x AS date)``.
+
 .. function:: from_unixtime(unixtime) -> timestamp
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp.

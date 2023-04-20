@@ -84,6 +84,33 @@ struct TimestampWithTimezoneSupport {
 } // namespace
 
 template <typename T>
+struct DateFunction : public TimestampWithTimezoneSupport<T> {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Date>& result,
+      const arg_type<Varchar>& date) {
+    bool nullOutput;
+    result = util::Converter<TypeKind::DATE>::cast(date, nullOutput);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Date>& result,
+      const arg_type<Timestamp>& timestamp) {
+    bool nullOutput;
+    result = util::Converter<TypeKind::DATE>::cast(timestamp, nullOutput);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Date>& result,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    bool nullOutput;
+    result = util::Converter<TypeKind::DATE>::cast(
+        this->toTimestamp(timestampWithTimezone), nullOutput);
+  }
+};
+
+template <typename T>
 struct WeekFunction : public InitSessionTimezone<T>,
                       public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);

@@ -438,7 +438,14 @@ struct Converter<TypeKind::DATE, void, TRUNCATE> {
 
   static T cast(const Timestamp& t, bool& nullOutput) {
     static const int32_t kSecsPerDay{86'400};
-    return Date(t.getSeconds() / kSecsPerDay);
+    auto seconds = t.getSeconds();
+    if (seconds >= 0 || seconds % kSecsPerDay == 0) {
+      return Date(seconds / kSecsPerDay);
+    }
+    // For division with negatives, minus 1 to compensate the discarded
+    // fractional part. e.g. -1/86'400 yields 0, yet it should be considered as
+    // -1 day.
+    return Date(seconds / kSecsPerDay - 1);
   }
 };
 
