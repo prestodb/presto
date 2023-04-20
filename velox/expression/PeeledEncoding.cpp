@@ -20,7 +20,7 @@
 
 namespace facebook::velox::exec {
 
-std::shared_ptr<PeeledEncoding> PeeledEncoding::Peel(
+std::shared_ptr<PeeledEncoding> PeeledEncoding::peel(
     const std::vector<VectorPtr>& vectorsToPeel,
     const SelectivityVector& rows,
     LocalDecodedVector& decodedVector,
@@ -255,7 +255,7 @@ bool PeeledEncoding::peelInternal(
   return true;
 }
 
-VectorEncoding::Simple PeeledEncoding::getWrapEncoding() const {
+VectorEncoding::Simple PeeledEncoding::wrapEncoding() const {
   return wrapEncoding_;
 }
 

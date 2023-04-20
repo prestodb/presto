@@ -644,7 +644,7 @@ void CastExpr::apply(
 
     LocalDecodedVector localDecoded(context);
     std::vector<VectorPtr> peeledVectors;
-    auto peeledEncoding = PeeledEncoding::Peel(
+    auto peeledEncoding = PeeledEncoding::peel(
         {input}, *nonNullRows, localDecoded, true, peeledVectors);
     VELOX_CHECK_EQ(peeledVectors.size(), 1);
     auto newRows =

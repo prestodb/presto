@@ -183,7 +183,7 @@ struct AsJson {
 
         exec::LocalDecodedVector localDecoded(context);
         std::vector<VectorPtr> peeledVectors;
-        auto peeledEncoding = exec::PeeledEncoding::Peel(
+        auto peeledEncoding = exec::PeeledEncoding::peel(
             {input}, rows, localDecoded, true, peeledVectors);
         VELOX_CHECK_EQ(peeledVectors.size(), 1);
         auto newRows =

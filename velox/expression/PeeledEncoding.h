@@ -45,13 +45,13 @@ class LocalSelectivityVector;
 ///    Input Vectors: Dict1(Dict2(Flat1)), Dict1(Dict2(Const1)),
 ///                   Dict1(Dict2(Dict3(Flat2)))
 ///    Peeled Vectors: Flat, Const1, Dict3(Flat2)
-///    Peel: Dict1(Dict2) => collapsed into one dictionary
+///    peel: Dict1(Dict2) => collapsed into one dictionary
 ///
 /// 2. Common dictionary layers are peeled
 ///    Input Vectors: Dict1(Dict2(Flat1)), Dict1(Const1)),
 ///                   Dict1(Dict2(Dict3(Flat2)))
 ///    Peeled Vectors: Dict2(Flat), Const1, Dict2(Dict3(Flat2))
-///    Peel: Dict1
+///    peel: Dict1
 ///
 /// 3. Common dictionary layers are peeled while constant is ignored
 ///    (since all valid rows translated via the common dictionary layers would
@@ -59,39 +59,39 @@ class LocalSelectivityVector;
 ///    Input Vectors: Dict1(Dict2(Flat1)), Const1,
 ///                   Dict1(Dict2(Dict3(Flat2)))
 ///    Peeled Vectors: Flat, Const1, Dict3(Flat2)
-///    Peel: Dict1(Dict2) => collapsed into one dictionary
+///    peel: Dict1(Dict2) => collapsed into one dictionary
 ///
 /// 4. A single vector with constant encoding layer over a complex vector can
 ///    be peeled.
 ///    Input Vectors: Const1(Complex1)
 ///    Peeled Vectors: Complex
-///    Peel: Const1
+///    peel: Const1
 ///
 /// 5. A single vector with arbitrary dictionary layers over a constant
 ///    encoding layer over a NULL complex vector can be peeled and the peels can
 ///    be merged into a single constant layer.
 ///    Input Vectors: Dict1(Const1(NullComplex))
 ///    Peeled Vectors: Null Complex vector
-///    Peel: Const(generic constant index)
+///    peel: Const(generic constant index)
 ///
 /// 6. All constant inputs where the peel is just a constant pointing to the
 ///    first valid row. The peel itself is irrelevant but allows us to translate
 ///    input rows into a single row.
 ///    Input Vectors: Const1(Complex1), Const2, Const3
 ///    Peeled Vectors: Const1(Complex1), Const2, Const3
-///    Peel: Const(generic constant index)
+///    peel: Const(generic constant index)
 ///
 /// 7. No inputs. This is considered as constant encoding since its expected
 ///    to produce the same result for all valid rows.
 ///    Input Vectors: <empty>
 ///    Peeled Vectors: <empty>
-///    Peel: Const(generic constant index)
+///    peel: Const(generic constant index)
 ///
 /// 8. A single vector with dictionary over constant encoding layer over a
 ///    complex vector can be peeled all the way to the complex vector.
 ///    Input Vectors: Dict1(Const1(Complex1))
 ///    Peeled Vectors: Complex
-///    Peel: Dict1(Const1) => collapsed into one dictionary
+///    peel: Dict1(Const1) => collapsed into one dictionary
 ///
 /// 9. One of the middle wraps adds nulls but 'canPeelsHaveNulls' is set to
 ///    false.
@@ -99,7 +99,7 @@ class LocalSelectivityVector;
 ///                   DictNoNulls(DictWithNulls((Flat2))
 ///    Peeled Vectors: DictWithNulls(Flat1), Const1,
 ///                    DictWithNulls(Dict3(Flat2))
-///    Peel: DictNoNulls
+///    peel: DictNoNulls
 class PeeledEncoding {
  public:
   /// Factory method for constructing a PeeledEncoding object only if peeling
@@ -110,7 +110,7 @@ class PeeledEncoding {
   /// peels). Returns a nullptr if peeling was unsuccessful, otherwise returns a
   /// valid PeeledEncoding object and populates 'peeledVectors' with the peeled
   /// vectors.
-  static std::shared_ptr<PeeledEncoding> Peel(
+  static std::shared_ptr<PeeledEncoding> peel(
       const std::vector<VectorPtr>& vectorsToPeel,
       const SelectivityVector& rows,
       LocalDecodedVector& decodedVector,
@@ -130,7 +130,7 @@ class PeeledEncoding {
   }
 
   /// Return the encoding of the peeled wrap.
-  VectorEncoding::Simple getWrapEncoding() const;
+  VectorEncoding::Simple wrapEncoding() const;
 
   /// Translates row numbers of the outer vector via the peel into row numbers
   /// of the inner vector. Returns a pointer to the selectivityVector

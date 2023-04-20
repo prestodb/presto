@@ -739,7 +739,7 @@ Expr::PeelEncodingsResult Expr::peelEncodings(
   // Attempt peeling.
   VELOX_CHECK(!vectorsToPeel.empty());
   std::vector<VectorPtr> peeledVectors;
-  auto peeledEncoding = PeeledEncoding::Peel(
+  auto peeledEncoding = PeeledEncoding::peel(
       vectorsToPeel, rowsToPeel, localDecoded, propagatesNulls_, peeledVectors);
 
   if (!peeledEncoding) {
@@ -1269,7 +1269,7 @@ bool Expr::applyFunctionWithPeeling(
   ScopedContextSaver saver;
   // Attempt peeling.
   std::vector<VectorPtr> peeledVectors;
-  auto peeledEncoding = PeeledEncoding::Peel(
+  auto peeledEncoding = PeeledEncoding::peel(
       inputValues_,
       applyRows,
       localDecoded,

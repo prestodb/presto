@@ -276,6 +276,6 @@ ScopedFinalSelectionSetter::~ScopedFinalSelectionSetter() {
 
 VectorEncoding::Simple EvalCtx::wrapEncoding() const {
   return !peeledEncoding_ ? VectorEncoding::Simple::FLAT
-                          : peeledEncoding_->getWrapEncoding();
+                          : peeledEncoding_->wrapEncoding();
 }
 } // namespace facebook::velox::exec
