@@ -114,6 +114,10 @@ Mathematical Functions
 
     Returns a pseudo-random value in the range 0.0 <= x < 1.0.
 
+.. function:: random(n) -> [same as n]
+
+    Returns a pseudo-random value in the range 0.0 <= x < n.
+
 .. function:: round(x) -> [same as x]
 
     Returns ``x`` rounded to the nearest integer.

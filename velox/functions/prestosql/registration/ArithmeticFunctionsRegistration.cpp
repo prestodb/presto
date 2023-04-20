@@ -90,6 +90,7 @@ void registerSimpleFunctions(const std::string& prefix) {
   registerFunction<IsNanFunction, bool, double>({prefix + "is_nan"});
   registerFunction<NanFunction, double>({prefix + "nan"});
   registerFunction<RandFunction, double>({prefix + "rand", prefix + "random"});
+  registerUnaryIntegral<RandFunction>({prefix + "random"});
   registerFunction<FromBaseFunction, int64_t, Varchar, int64_t>(
       {prefix + "from_base"});
   registerFunction<ToBaseFunction, Varchar, int64_t, int64_t>(
