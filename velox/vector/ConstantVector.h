@@ -16,6 +16,7 @@
 #pragma once
 
 #include <folly/container/F14Map.h>
+#include <stdexcept>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SimdUtil.h"
@@ -146,15 +147,19 @@ class ConstantVector final : public SimpleVector<T> {
     VELOX_FAIL("setNull not supported on ConstantVector");
   }
 
-  const T valueAtFast(vector_size_t /*idx*/) const {
+  const T value() const {
     VELOX_DCHECK(initialized_);
     return value_;
   }
 
-  virtual const T valueAt(vector_size_t idx) const override {
+  const T valueAtFast(vector_size_t /*idx*/) const {
+    return value();
+  }
+
+  virtual const T valueAt(vector_size_t /*idx*/) const override {
     VELOX_DCHECK(initialized_);
     SimpleVector<T>::checkElementSize();
-    return valueAtFast(idx);
+    return value();
   }
 
   BufferPtr getStringBuffer() const {
@@ -290,12 +295,20 @@ class ConstantVector final : public SimpleVector<T> {
     return SimpleVector<T>::compare(other, index, otherIndex, flags);
   }
 
-  std::string toString(vector_size_t index) const override {
+  std::string toString() const {
     if (valueVector_) {
       return valueVector_->toString(index_);
     }
 
-    return SimpleVector<T>::toString(index);
+    if (isNull_) {
+      return "null";
+    } else {
+      return SimpleVector<T>::valueToString(value());
+    }
+  }
+
+  std::string toString(vector_size_t /*index*/) const override {
+    return toString();
   }
 
   bool isNullsWritable() const override {
@@ -307,7 +320,8 @@ class ConstantVector final : public SimpleVector<T> {
     std::stringstream out;
     out << "[" << BaseVector::encoding() << " "
         << BaseVector::type()->toString() << ": " << BaseVector::size()
-        << " elements, " << toString(index_) << "]";
+        << " elements, " << toString() << "]";
+
     return out.str();
   }
 

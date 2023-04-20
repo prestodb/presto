@@ -146,23 +146,27 @@ class SimpleVector : public BaseVector {
 
   using BaseVector::toString;
 
+  std::string valueToString(T value) const {
+    if constexpr (std::is_same_v<T, bool>) {
+      return value ? "true" : "false";
+    } else if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
+      return "<opaque>";
+    } else if constexpr (
+        std::is_same_v<T, UnscaledShortDecimal> ||
+        std::is_same_v<T, UnscaledLongDecimal>) {
+      return DecimalUtil::toString(value, type());
+    } else {
+      return velox::to<std::string>(value);
+    }
+  }
+
   std::string toString(vector_size_t index) const override {
     VELOX_CHECK_LT(index, length_, "Vector index should be less than length.");
     std::stringstream out;
     if (isNullAt(index)) {
       out << "null";
     } else {
-      if constexpr (std::is_same_v<T, bool>) {
-        out << (valueAt(index) ? "true" : "false");
-      } else if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
-        out << "<opaque>";
-      } else if constexpr (
-          std::is_same_v<T, UnscaledShortDecimal> ||
-          std::is_same_v<T, UnscaledLongDecimal>) {
-        out << DecimalUtil::toString(valueAt(index), type());
-      } else {
-        out << velox::to<std::string>(valueAt(index));
-      }
+      out << valueToString(valueAt(index));
     }
     return out.str();
   }

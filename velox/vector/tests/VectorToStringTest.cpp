@@ -308,4 +308,27 @@ TEST_F(VectorToStringTest, indexOverflow) {
   auto flat = makeFlatVector<int32_t>({1, 2, 3});
   ASSERT_THROW(flat->toString(4), VeloxException);
 }
+
+TEST_F(VectorToStringTest, constantgPrimitiveTypes) {
+  auto flat = makeFlatVector<int64_t>(100, [](vector_size_t i) { return i; });
+
+  // Index in values vector > constant vector size.
+  auto constantVector = BaseVector::wrapInConstant(10, 20, flat);
+  EXPECT_EQ(
+      constantVector->toString(true), "[CONSTANT BIGINT: 10 elements, 20]");
+
+  // Empty vector.
+  constantVector->resize(0);
+  EXPECT_EQ(
+      constantVector->toString(true), "[CONSTANT BIGINT: 0 elements, 20]");
+
+  // Null constant.
+  auto nulls = vectorMaker_.flatVectorNullable<int64_t>({std::nullopt});
+  auto nullConstant = BaseVector::wrapInConstant(20, 0, nulls);
+  EXPECT_EQ(
+      nullConstant->toString(true), "[CONSTANT BIGINT: 20 elements, null]");
+  nullConstant->resize(0);
+  EXPECT_EQ(
+      nullConstant->toString(true), "[CONSTANT BIGINT: 0 elements, null]");
+}
 } // namespace facebook::velox::test
