@@ -48,7 +48,7 @@ The Velox library installs other dependencies not listed below.
 * After installing the above dependencies, from the
 `presto/presto-native-execution` directory, run `make`
 * For development, use
-`make debug` to build a non-optimized debug version. 
+`make debug` to build a non-optimized debug version.
 * Use `make unittest` to build
 and run tests.
 
@@ -105,15 +105,15 @@ Run IntelliJ IDEA:
   * Working directory: `$MODULE_DIR$`
   * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
   * Use classpath of module: choose `presto-native-execution` module.
-* Edit/Create `TestHiveQueriesUsingJSON` Test Run/Debug Configuration (alter paths accordingly).
-  * Class: `com.facebook.presto.nativeworker.TestHiveQueriesUsingJSON`
+* Edit/Create `TestPrestoNativeGeneralQueriesJSON` Test Run/Debug Configuration (alter paths accordingly).
+  * Class: `com.facebook.presto.nativeworker.TestPrestoNativeGeneralQueriesJSON`
   * VM Options: `-ea -DPRESTO_SERVER=/Users/<user>/git/presto_cpp/cmake-build-debug/presto_cpp/main/presto_server -DDATA_DIR=/Users/<user>/Desktop/data`
   * Working directory: `$MODULE_WORKING_DIR$`
 * Edit/Create `Presto Client` Application Run/Debug Configuration (alter paths accordingly).
   * Main class: `com.facebook.presto.cli.Presto`
   * Program arguments: `--catalog hive --schema tpch`
   * Use classpath of module: choose `presto-cli` module.
-  
+
 Run CLion:
 * File->Close Project if any is open.
 * Open `presto/presto-native-execution` directory as CMake project and wait till CLion loads/generates cmake files, symbols, etc.
