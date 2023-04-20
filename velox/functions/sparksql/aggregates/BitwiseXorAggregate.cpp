@@ -16,14 +16,14 @@
 
 #include "velox/functions/sparksql/aggregates/BitwiseXorAggregate.h"
 
-#include "velox/functions/lib/BitwiseAggregateBase.h"
+#include "velox/functions/lib/aggregates/BitwiseAggregateBase.h"
 
-namespace facebook::velox::functions::sparksql::aggregates {
+namespace facebook::velox::functions::aggregate::sparksql {
 
 namespace {
 
 template <typename T>
-class BitwiseXorAggregate : public aggregate::BitwiseAggregateBase<T> {
+class BitwiseXorAggregate : public BitwiseAggregateBase<T> {
  public:
   explicit BitwiseXorAggregate(TypePtr resultType)
       : aggregate::BitwiseAggregateBase<T>(
@@ -66,7 +66,7 @@ class BitwiseXorAggregate : public aggregate::BitwiseAggregateBase<T> {
 } // namespace
 
 bool registerBitwiseXorAggregate(const std::string& name) {
-  return aggregate::registerBitwise<BitwiseXorAggregate>(name);
+  return functions::aggregate::registerBitwise<BitwiseXorAggregate>(name);
 }
 
-} // namespace facebook::velox::functions::sparksql::aggregates
+} // namespace facebook::velox::functions::aggregate::sparksql

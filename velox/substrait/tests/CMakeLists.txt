@@ -37,7 +37,7 @@ target_link_libraries(
   velox_exec
   velox_dwio_common
   velox_aggregates
-  velox_aggregates_test_lib
+  velox_functions_aggregates_test_lib
   velox_functions_lib
   velox_functions_prestosql
   velox_hive_connector

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/aggregates/SingleValueAccumulator.h"
+#include "velox/functions/lib/aggregates/SingleValueAccumulator.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::functions::aggregate {
 
 // An accumulator for a single variable-width value (a string, a map, an array
 // or a struct).
@@ -67,4 +67,4 @@ void SingleValueAccumulator::destroy(HashStringAllocator* allocator) {
   }
 }
 
-} // namespace facebook::velox::aggregate
+} // namespace facebook::velox::functions::aggregate

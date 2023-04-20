@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include "velox/functions/lib/BitwiseAggregateBase.h"
-
+#include "velox/functions/lib/aggregates/BitwiseAggregateBase.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+
+using namespace facebook::velox::functions::aggregate;
 
 namespace facebook::velox::aggregate::prestosql {
 

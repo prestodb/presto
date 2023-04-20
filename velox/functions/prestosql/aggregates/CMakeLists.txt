@@ -14,7 +14,6 @@
 
 add_library(
   velox_aggregates
-  AggregateNames.h
   ApproxDistinctAggregate.cpp
   ApproxMostFrequentAggregate.cpp
   ApproxPercentileAggregate.cpp
@@ -28,7 +27,6 @@ add_library(
   ChecksumAggregate.cpp
   HistogramAggregate.cpp
   MapAggAggregate.cpp
-  MapAggregateBase.h
   MapAggregateBase.cpp
   MapUnionAggregate.cpp
   MapUnionSumAggregate.cpp
@@ -36,9 +34,7 @@ add_library(
   MinMaxByAggregates.cpp
   CountAggregate.cpp
   PrestoHasher.cpp
-  SingleValueAccumulator.cpp
   SumAggregate.cpp
-  SumAggregate.h
   ValueList.cpp
   VarianceAggregates.cpp
   MaxSizeForStatsAggregate.cpp
@@ -49,6 +45,7 @@ target_link_libraries(
   velox_common_hyperloglog
   velox_exec
   velox_presto_serializer
+  velox_functions_aggregates
   velox_functions_lib
   velox_functions_util
   ${FOLLY_WITH_DEPENDENCIES})

@@ -22,7 +22,7 @@ namespace facebook::velox::exec::test {
 class AssertQueryBuilder;
 }
 
-namespace facebook::velox::aggregate::test {
+namespace facebook::velox::functions::aggregate::test {
 
 class AggregationTestBase : public exec::test::OperatorTestBase {
  protected:
@@ -151,4 +151,4 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
   bool allowInputShuffle_{false};
 };
 
-} // namespace facebook::velox::aggregate::test
+} // namespace facebook::velox::functions::aggregate::test

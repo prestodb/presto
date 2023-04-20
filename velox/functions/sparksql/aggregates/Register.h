@@ -17,6 +17,6 @@
 
 #include <string>
 
-namespace facebook::velox::functions::sparksql::aggregates {
+namespace facebook::velox::functions::aggregate::sparksql {
 void registerAggregateFunctions(const std::string& prefix);
-} // namespace facebook::velox::functions::sparksql::aggregates
+} // namespace facebook::velox::functions::aggregate::sparksql

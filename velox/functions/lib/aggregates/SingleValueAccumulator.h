@@ -15,10 +15,11 @@
  */
 
 #pragma once
+
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/ContainerRowSerde.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::functions::aggregate {
 
 // An accumulator for a single variable-width value (a string, a map, an array
 // or a struct).
@@ -44,4 +45,4 @@ struct SingleValueAccumulator {
   HashStringAllocator::Header* begin_{nullptr};
 };
 
-} // namespace facebook::velox::aggregate
+} // namespace facebook::velox::functions::aggregate

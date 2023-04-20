@@ -21,7 +21,7 @@
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/LazyVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::functions::aggregate {
 
 template <typename TInput, typename TAccumulator, typename TResult>
 class SimpleNumericAggregate : public exec::Aggregate {
@@ -96,13 +96,14 @@ class SimpleNumericAggregate : public exec::Aggregate {
     DecodedVector decoded(*arg, rows, !mayPushdown);
     auto encoding = decoded.base()->encoding();
     if (encoding == VectorEncoding::Simple::LAZY) {
-      SimpleCallableHook<TValue, TData, UpdateSingleValue> hook(
-          exec::Aggregate::offset_,
-          exec::Aggregate::nullByte_,
-          exec::Aggregate::nullMask_,
-          groups,
-          &this->exec::Aggregate::numNulls_,
-          updateSingleValue);
+      velox::aggregate::SimpleCallableHook<TValue, TData, UpdateSingleValue>
+          hook(
+              exec::Aggregate::offset_,
+              exec::Aggregate::nullByte_,
+              exec::Aggregate::nullMask_,
+              groups,
+              &this->exec::Aggregate::numNulls_,
+              updateSingleValue);
 
       auto indices = decoded.indices();
       decoded.base()->as<const LazyVector>()->load(
@@ -240,4 +241,4 @@ class SimpleNumericAggregate : public exec::Aggregate {
   }
 };
 
-} // namespace facebook::velox::aggregate
+} // namespace facebook::velox::functions::aggregate

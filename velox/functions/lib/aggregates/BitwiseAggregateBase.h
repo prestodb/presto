@@ -17,9 +17,9 @@
 
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
-#include "velox/functions/lib/SimpleNumericAggregate.h"
+#include "velox/functions/lib/aggregates/SimpleNumericAggregate.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::functions::aggregate {
 
 template <typename T>
 class BitwiseAggregateBase : public SimpleNumericAggregate<T, T, T> {
@@ -109,4 +109,4 @@ bool registerBitwise(const std::string& name) {
   return true;
 }
 
-} // namespace facebook::velox::aggregate
+} // namespace facebook::velox::functions::aggregate

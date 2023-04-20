@@ -17,12 +17,12 @@
 #include <string>
 
 #include "velox/expression/FunctionSignature.h"
-#include "velox/functions/lib/SimpleNumericAggregate.h"
-#include "velox/functions/prestosql/aggregates/SingleValueAccumulator.h"
+#include "velox/functions/lib/aggregates/SimpleNumericAggregate.h"
+#include "velox/functions/lib/aggregates/SingleValueAccumulator.h"
 
-using namespace facebook::velox::aggregate;
+using namespace facebook::velox::functions::aggregate;
 
-namespace facebook::velox::functions::sparksql::aggregates {
+namespace facebook::velox::functions::aggregate::sparksql {
 
 namespace {
 
@@ -336,4 +336,4 @@ void registerFirstLastAggregates(const std::string& prefix) {
   registerFirstLast<LastAggregate, true>(prefix + "last_ignore_null");
 }
 
-} // namespace facebook::velox::functions::sparksql::aggregates
+} // namespace facebook::velox::functions::aggregate::sparksql

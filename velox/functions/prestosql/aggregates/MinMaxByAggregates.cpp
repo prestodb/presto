@@ -16,11 +16,12 @@
 
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
+#include "velox/functions/lib/aggregates/SingleValueAccumulator.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/aggregates/SingleValueAccumulator.h"
-#include "velox/vector/ComplexVector.h"
-#include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
+
+using namespace facebook::velox::functions::aggregate;
+
 namespace facebook::velox::aggregate::prestosql {
 
 namespace {

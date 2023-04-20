@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
+#include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
@@ -27,7 +27,7 @@ using facebook::velox::exec::test::AssertQueryBuilder;
 using facebook::velox::exec::test::CursorParameters;
 using facebook::velox::exec::test::PlanBuilder;
 
-namespace facebook::velox::aggregate::test {
+namespace facebook::velox::functions::aggregate::test {
 
 std::vector<RowVectorPtr> AggregationTestBase::makeVectors(
     const RowTypePtr& rowType,
@@ -439,4 +439,4 @@ VectorPtr AggregationTestBase::testStreaming(
   return result;
 }
 
-} // namespace facebook::velox::aggregate::test
+} // namespace facebook::velox::functions::aggregate::test

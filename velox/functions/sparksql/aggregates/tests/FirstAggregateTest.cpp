@@ -15,12 +15,12 @@
  */
 
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
+#include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
 #include "velox/functions/sparksql/aggregates/Register.h"
 
-using namespace facebook::velox::aggregate::test;
+using namespace facebook::velox::functions::aggregate::test;
 
-namespace facebook::velox::functions::sparksql::aggregates::test {
+namespace facebook::velox::functions::aggregate::sparksql::test {
 
 namespace {
 
@@ -28,7 +28,7 @@ class FirstAggregateTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    aggregates::registerAggregateFunctions("spark_");
+    registerAggregateFunctions("spark_");
   }
 
   template <typename T>
@@ -434,4 +434,4 @@ TEST_F(FirstAggregateTest, mapGlobal) {
 }
 
 } // namespace
-} // namespace facebook::velox::functions::sparksql::aggregates::test
+} // namespace facebook::velox::functions::aggregate::sparksql::test

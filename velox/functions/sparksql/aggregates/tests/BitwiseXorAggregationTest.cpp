@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
+#include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
 #include "velox/functions/sparksql/aggregates/Register.h"
 
-namespace facebook::velox::functions::sparksql::aggregates::test {
+namespace facebook::velox::functions::aggregate::sparksql::test {
 
 namespace {
 
@@ -55,4 +55,4 @@ TEST_F(BitwiseXorAggregationTest, bitwiseXor) {
 }
 
 } // namespace
-} // namespace facebook::velox::functions::sparksql::aggregates::test
+} // namespace facebook::velox::functions::aggregate::sparksql::test

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
+#include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
@@ -29,7 +29,7 @@ std::string max(const std::string& column) {
   return fmt::format("max({})", column);
 }
 
-class MinMaxTest : public aggregate::test::AggregationTestBase {
+class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
