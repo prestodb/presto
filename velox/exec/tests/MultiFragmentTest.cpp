@@ -99,7 +99,7 @@ class MultiFragmentTest : public HiveConnectorTestBase {
     task->noMoreSplits("0");
   }
 
-  void assertQuery(
+  std::shared_ptr<Task> assertQuery(
       const std::shared_ptr<const core::PlanNode>& plan,
       const std::vector<std::string>& remoteTaskIds,
       const std::string& duckDbSql,
@@ -108,7 +108,7 @@ class MultiFragmentTest : public HiveConnectorTestBase {
     for (auto& taskId : remoteTaskIds) {
       splits.push_back(std::make_shared<RemoteConnectorSplit>(taskId));
     }
-    OperatorTestBase::assertQuery(plan, splits, duckDbSql, sortingKeys);
+    return OperatorTestBase::assertQuery(plan, splits, duckDbSql, sortingKeys);
   }
 
   void assertQueryOrdered(
@@ -126,6 +126,16 @@ class MultiFragmentTest : public HiveConnectorTestBase {
       writeToFile(filePaths_[i]->path, vectors_[i]);
     }
     createDuckDbTable(vectors_);
+  }
+
+  void verifyExchangeStats(
+      const std::shared_ptr<Task>& task,
+      int32_t expectedCount) const {
+    auto exchangeStats =
+        task->taskStats().pipelineStats[0].operatorStats[0].runtimeStats;
+    ASSERT_EQ(1, exchangeStats.count("localExchangeSource.numPages"));
+    ASSERT_EQ(
+        expectedCount, exchangeStats.at("localExchangeSource.numPages").count);
   }
 
   RowTypePtr rowType_{
@@ -287,7 +297,10 @@ TEST_F(MultiFragmentTest, distributedTableScan) {
     addHiveSplits(leafTask, filePaths_);
 
     auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
-    assertQuery(op, {leafTaskId}, "SELECT c2, c1 % 2, c0 % 10 FROM tmp");
+    auto task =
+        assertQuery(op, {leafTaskId}, "SELECT c2, c1 % 2, c0 % 10 FROM tmp");
+
+    verifyExchangeStats(task, 1);
 
     ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
   }
@@ -432,7 +445,10 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
 
     auto op = PlanBuilder().exchange(intermediatePlan->outputType()).planNode();
 
-    assertQuery(op, intermediateTaskIds, "SELECT c3, c0, c2 FROM tmp");
+    auto task =
+        assertQuery(op, intermediateTaskIds, "SELECT c3, c0, c2 FROM tmp");
+
+    verifyExchangeStats(task, kFanout);
 
     ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
   }

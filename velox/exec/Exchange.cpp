@@ -131,6 +131,7 @@ class LocalExchangeSource : public ExchangeSource {
                 std::make_unique<SerializedPage>(std::move(inputPage), pool_));
             inputPage = nullptr;
           }
+          numPages_ += pages.size();
           int64_t ackSequence;
           {
             std::vector<ContinuePromise> promises;
@@ -164,8 +165,15 @@ class LocalExchangeSource : public ExchangeSource {
     buffers->deleteResults(taskId_, destination_);
   }
 
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return {{"localExchangeSource.numPages", numPages_}};
+  }
+
  private:
   static constexpr uint64_t kMaxBytes = 32 * 1024 * 1024; // 32 MB
+
+  // Records the total number of pages fetched from sources.
+  int64_t numPages_{0};
 };
 
 std::unique_ptr<ExchangeSource> createLocalExchangeSource(
@@ -237,6 +245,16 @@ void ExchangeClient::close() {
   queue_->close();
 }
 
+folly::F14FastMap<std::string, RuntimeMetric> ExchangeClient::stats() const {
+  folly::F14FastMap<std::string, RuntimeMetric> stats;
+  for (const auto& source : sources_) {
+    for (const auto& [name, value] : source->stats()) {
+      stats[name].addValue(value);
+    }
+  }
+  return stats;
+}
+
 std::unique_ptr<SerializedPage> ExchangeClient::next(
     bool* atEnd,
     ContinueFuture* future) {
@@ -306,6 +324,7 @@ bool Exchange::getSplits(ContinueFuture* future) {
         if (atEnd_) {
           operatorCtx_->task()->multipleSplitsFinished(
               stats_.rlock()->numSplits);
+          recordStats();
         }
         return false;
       }
@@ -333,6 +352,7 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
     if (atEnd_ && noMoreSplits_) {
       const auto numSplits = stats_.rlock()->numSplits;
       operatorCtx_->task()->multipleSplitsFinished(numSplits);
+      recordStats();
     }
     return BlockingReason::kNotBlocked;
   }
@@ -384,6 +404,13 @@ RowVectorPtr Exchange::getOutput() {
   }
 
   return result_;
+}
+
+void Exchange::recordStats() {
+  auto lockedStats = stats_.wlock();
+  for (const auto& [name, value] : exchangeClient_->stats()) {
+    lockedStats->runtimeStats[name].merge(value);
+  }
 }
 
 VectorSerde* Exchange::getSerde() {

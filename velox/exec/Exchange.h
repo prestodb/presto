@@ -297,6 +297,16 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   // once it received enough data.
   virtual void close() = 0;
 
+// TODO Remove after updating Prestissimo.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  virtual folly::F14FastMap<std::string, int64_t> stats() const {
+    return {};
+  }
+#else
+  // Returns runtime statistics.
+  virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
+#endif
+
   virtual std::string toString() {
     std::stringstream out;
     out << "[ExchangeSource " << taskId_ << ":" << destination_
@@ -324,7 +334,7 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
 
  protected:
   memory::MemoryPool* pool_;
-};
+}; // namespace facebook::velox::exec
 
 struct RemoteConnectorSplit : public connector::ConnectorSplit {
   const std::string taskId;
@@ -369,6 +379,9 @@ class ExchangeClient {
 
   // Closes exchange sources.
   void close();
+
+  // Returns runtime statistics aggregates across all of the exchange sources.
+  folly::F14FastMap<std::string, RuntimeMetric> stats() const;
 
   std::shared_ptr<ExchangeQueue> queue() const {
     return queue_;
@@ -436,6 +449,8 @@ class Exchange : public SourceOperator {
   /// not responsible for fetching splits and adding them to the
   /// exchangeClient_.
   bool getSplits(ContinueFuture* future);
+
+  void recordStats();
 
   const core::PlanNodeId planNodeId_;
   bool noMoreSplits_ = false;
