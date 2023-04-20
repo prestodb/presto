@@ -4,7 +4,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.281-edge8.2-SNAPSHOT</version>
+        <version>0.281-edge8.3-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-clickhouse</artifactId>
