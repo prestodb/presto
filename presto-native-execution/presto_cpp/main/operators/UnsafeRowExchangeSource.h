@@ -38,9 +38,7 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
 
   void close() override {}
 
-  folly::F14FastMap<std::string, int64_t> stats() const override {
-    return {{"unsafeRowExchangeSource.numBatches", numBatches_}};
-  }
+  folly::F14FastMap<std::string, int64_t> stats() const override;
 
   /// url needs to follow below format:
   /// batch://<taskid>?shuffleInfo=<serialized-shuffle-info>

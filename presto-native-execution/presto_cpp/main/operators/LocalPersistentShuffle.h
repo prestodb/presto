@@ -84,13 +84,15 @@ class LocalPersistentShuffleWriter : public ShuffleWriter {
 
   void noMoreData(bool success) override;
 
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    // Fake counter for testing only.
+    return {{"local.write", 2345}};
+  }
+
  private:
   // Finds and creates the next file for writing the next block of the
   // given 'partition'.
   std::unique_ptr<velox::WriteFile> getNextOutputFile(int32_t partition);
-
-  // Returns the number of stored files for a given partition.
-  int getWritePartitionFilesCount(int32_t partition) const;
 
   // Writes the in-progress block to the given partition.
   void storePartitionBlock(int32_t partition);
@@ -131,6 +133,11 @@ class LocalPersistentShuffleReader : public ShuffleReader {
   bool hasNext() override;
 
   velox::BufferPtr next(bool success) override;
+
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    // Fake counter for testing only.
+    return {{"local.read", 123}};
+  }
 
  private:
   // Returns all created shuffle files for 'partition_'.

@@ -28,6 +28,9 @@ class ShuffleWriter {
   /// Tell the shuffle system the writer is done.
   /// @param success set to false to indicate aborted client.
   virtual void noMoreData(bool success) = 0;
+
+  /// Runtime statistics.
+  virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
 };
 
 class ShuffleReader {
@@ -40,6 +43,9 @@ class ShuffleReader {
   /// Read the next block of data.
   /// @param success set to false to indicate aborted client.
   virtual velox::BufferPtr next(bool success) = 0;
+
+  /// Runtime statistics.
+  virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
 };
 
 class ShuffleInterfaceFactory {
