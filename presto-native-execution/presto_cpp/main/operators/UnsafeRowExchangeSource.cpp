@@ -51,6 +51,10 @@ void UnsafeRowExchangeSource::request() {
   }
 }
 
+folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
+  return shuffle_->stats();
+}
+
 namespace {
 std::optional<std::string> getSerializedShuffleInfo(folly::Uri& uri) {
   for (auto& pair : uri.getQueryParams()) {
