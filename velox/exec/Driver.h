@@ -448,9 +448,9 @@ struct DriverFactory {
   /// this pipeline.
   std::vector<core::PlanNodeId> needsHashJoinBridges() const;
 
-  /// Returns plan node IDs for which Cross Join Bridges must be created based
-  /// on this pipeline.
-  std::vector<core::PlanNodeId> needsCrossJoinBridges() const;
+  /// Returns plan node IDs for which Nested Loop Join Bridges must be created
+  /// based on this pipeline.
+  std::vector<core::PlanNodeId> needsNestedLoopJoinBridges() const;
 };
 
 // Begins and ends a section where a thread is running but not

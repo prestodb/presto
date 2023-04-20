@@ -22,11 +22,11 @@
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
-#include "velox/exec/CrossJoinBuild.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/LocalPlanner.h"
 #include "velox/exec/Merge.h"
+#include "velox/exec/NestedLoopJoinBuild.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/Task.h"
@@ -703,7 +703,8 @@ void Task::createSplitGroupStateLocked(uint32_t splitGroupId) {
     }
 
     addHashJoinBridgesLocked(splitGroupId, factory->needsHashJoinBridges());
-    addCrossJoinBridgesLocked(splitGroupId, factory->needsCrossJoinBridges());
+    addNestedLoopJoinBridgesLocked(
+        splitGroupId, factory->needsNestedLoopJoinBridges());
     addCustomJoinBridgesLocked(splitGroupId, factory->planNodes);
   }
 }
@@ -1368,13 +1369,13 @@ std::shared_ptr<JoinBridge> Task::getCustomJoinBridge(
   return getJoinBridgeInternal<JoinBridge>(splitGroupId, planNodeId);
 }
 
-void Task::addCrossJoinBridgesLocked(
+void Task::addNestedLoopJoinBridgesLocked(
     uint32_t splitGroupId,
     const std::vector<core::PlanNodeId>& planNodeIds) {
   auto& splitGroupState = splitGroupStates_[splitGroupId];
   for (const auto& planNodeId : planNodeIds) {
     splitGroupState.bridges.emplace(
-        planNodeId, std::make_shared<CrossJoinBridge>());
+        planNodeId, std::make_shared<NestedLoopJoinBridge>());
   }
 }
 
@@ -1390,10 +1391,10 @@ std::shared_ptr<HashJoinBridge> Task::getHashJoinBridgeLocked(
   return getJoinBridgeInternalLocked<HashJoinBridge>(splitGroupId, planNodeId);
 }
 
-std::shared_ptr<CrossJoinBridge> Task::getCrossJoinBridge(
+std::shared_ptr<NestedLoopJoinBridge> Task::getNestedLoopJoinBridge(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
-  return getJoinBridgeInternal<CrossJoinBridge>(splitGroupId, planNodeId);
+  return getJoinBridgeInternal<NestedLoopJoinBridge>(splitGroupId, planNodeId);
 }
 
 template <class TBridgeType>

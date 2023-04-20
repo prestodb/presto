@@ -29,7 +29,7 @@ namespace facebook::velox::exec {
 class PartitionedOutputBufferManager;
 
 class HashJoinBridge;
-class CrossJoinBridge;
+class NestedLoopJoinBridge;
 class Task : public std::enable_shared_from_this<Task> {
  public:
   /// Creates a task to execute a plan fragment, but doesn't start execution
@@ -397,8 +397,8 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t splitGroupId,
       const std::vector<core::PlanNodeId>& planNodeIds);
 
-  /// Adds CrossJoinBridge's for all the specified plan node IDs.
-  void addCrossJoinBridgesLocked(
+  /// Adds NestedLoopJoinBridge's for all the specified plan node IDs.
+  void addNestedLoopJoinBridgesLocked(
       uint32_t splitGroupId,
       const std::vector<core::PlanNodeId>& planNodeIds);
 
@@ -419,8 +419,8 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 
-  /// Returns a CrossJoinBridge for 'planNodeId'.
-  std::shared_ptr<CrossJoinBridge> getCrossJoinBridge(
+  /// Returns a NestedLoopJoinBridge for 'planNodeId'.
+  std::shared_ptr<NestedLoopJoinBridge> getNestedLoopJoinBridge(
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 

@@ -15,46 +15,55 @@
  */
 #pragma once
 
-#include "velox/exec/CrossJoinBuild.h"
+#include "velox/exec/JoinBridge.h"
 #include "velox/exec/Operator.h"
 
 namespace facebook::velox::exec {
-class CrossJoinProbe : public Operator {
+
+class NestedLoopJoinBridge : public JoinBridge {
  public:
-  CrossJoinProbe(
+  void setData(std::vector<VectorPtr> data);
+
+  std::optional<std::vector<VectorPtr>> dataOrFuture(ContinueFuture* future);
+
+ private:
+  std::optional<std::vector<VectorPtr>> data_;
+};
+
+class NestedLoopJoinBuild : public Operator {
+ public:
+  NestedLoopJoinBuild(
       int32_t operatorId,
       DriverCtx* driverCtx,
-      const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode);
+      std::shared_ptr<const core::NestedLoopJoinNode> joinNode);
 
   void addInput(RowVectorPtr input) override;
 
-  RowVectorPtr getOutput() override;
+  RowVectorPtr getOutput() override {
+    return nullptr;
+  }
 
   bool needsInput() const override {
-    return !noMoreInput_ && !input_ && !buildSideEmpty_;
+    return !noMoreInput_;
   }
+
+  void noMoreInput() override;
 
   BlockingReason isBlocked(ContinueFuture* future) override;
 
   bool isFinished() override;
 
-  void close() override;
+  void close() override {
+    data_.clear();
+    Operator::close();
+  }
 
  private:
-  /// Maximum number of rows in the output batch.
-  const uint32_t outputBatchSize_;
+  std::vector<VectorPtr> data_;
 
-  std::vector<IdentityProjection> buildProjections_;
-
-  std::optional<std::vector<VectorPtr>> buildData_;
-
-  // Index into buildData_ for the build side vector to process on next call to
-  // getOutput().
-  size_t buildIndex_{0};
-
-  // Input row to process on next call to getOutput().
-  vector_size_t probeRow_{0};
-
-  bool buildSideEmpty_{false};
+  // Future for synchronizing with other Drivers of the same pipeline. All build
+  // Drivers must be completed before making data available for the probe side.
+  ContinueFuture future_{ContinueFuture::makeEmpty()};
 };
+
 } // namespace facebook::velox::exec

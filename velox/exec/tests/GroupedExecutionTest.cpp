@@ -277,7 +277,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithOutputBuffer) {
 
 // Here we test various aspects of grouped/bucketed execution involving
 // output buffer and 3 pipelines.
-TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndCrossJoin) {
+TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndNestedLoopJoin) {
   // Create source file - we will read from it in 6 splits.
   auto vectors = makeVectors(4, 20);
   auto filePath = TempFilePath::create();

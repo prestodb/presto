@@ -18,8 +18,6 @@
 #include "velox/exec/ArrowStream.h"
 #include "velox/exec/AssignUniqueId.h"
 #include "velox/exec/CallbackSink.h"
-#include "velox/exec/CrossJoinBuild.h"
-#include "velox/exec/CrossJoinProbe.h"
 #include "velox/exec/EnforceSingleRow.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/FilterProject.h"
@@ -30,6 +28,8 @@
 #include "velox/exec/Limit.h"
 #include "velox/exec/Merge.h"
 #include "velox/exec/MergeJoin.h"
+#include "velox/exec/NestedLoopJoinBuild.h"
+#include "velox/exec/NestedLoopJoinProbe.h"
 #include "velox/exec/OrderBy.h"
 #include "velox/exec/PartitionedOutput.h"
 #include "velox/exec/StreamingAggregation.h"
@@ -106,7 +106,7 @@ OperatorSupplier makeConsumerSupplier(
   if (auto join =
           std::dynamic_pointer_cast<const core::NestedLoopJoinNode>(planNode)) {
     return [join](int32_t operatorId, DriverCtx* ctx) {
-      return std::make_unique<CrossJoinBuild>(operatorId, ctx, join);
+      return std::make_unique<NestedLoopJoinBuild>(operatorId, ctx, join);
     };
   }
 
@@ -440,7 +440,7 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
             std::dynamic_pointer_cast<const core::NestedLoopJoinNode>(
                 planNode)) {
       operators.push_back(
-          std::make_unique<CrossJoinProbe>(id, ctx.get(), joinNode));
+          std::make_unique<NestedLoopJoinProbe>(id, ctx.get(), joinNode));
     } else if (
         auto aggregationNode =
             std::dynamic_pointer_cast<const core::AggregationNode>(planNode)) {
@@ -561,7 +561,8 @@ std::vector<core::PlanNodeId> DriverFactory::needsHashJoinBridges() const {
   return planNodeIds;
 }
 
-std::vector<core::PlanNodeId> DriverFactory::needsCrossJoinBridges() const {
+std::vector<core::PlanNodeId> DriverFactory::needsNestedLoopJoinBridges()
+    const {
   std::vector<core::PlanNodeId> planNodeIds;
   // Ungrouped execution pipelines need to take care of cross-mode bridges.
   if (!groupedExecution && !mixedExecutionModeNestedLoopJoinNodeIds.empty()) {

@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/CrossJoinBuild.h"
+#include "velox/exec/NestedLoopJoinBuild.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
 
-void CrossJoinBridge::setData(std::vector<VectorPtr> data) {
+void NestedLoopJoinBridge::setData(std::vector<VectorPtr> data) {
   std::vector<ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(mutex_);
@@ -29,19 +29,19 @@ void CrossJoinBridge::setData(std::vector<VectorPtr> data) {
   notify(std::move(promises));
 }
 
-std::optional<std::vector<VectorPtr>> CrossJoinBridge::dataOrFuture(
+std::optional<std::vector<VectorPtr>> NestedLoopJoinBridge::dataOrFuture(
     ContinueFuture* future) {
   std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK(!cancelled_, "Getting data after the build side is aborted");
   if (data_.has_value()) {
     return data_;
   }
-  promises_.emplace_back("CrossJoinBridge::tableOrFuture");
+  promises_.emplace_back("NestedLoopJoinBridge::tableOrFuture");
   *future = promises_.back().getSemiFuture();
   return std::nullopt;
 }
 
-CrossJoinBuild::CrossJoinBuild(
+NestedLoopJoinBuild::NestedLoopJoinBuild(
     int32_t operatorId,
     DriverCtx* driverCtx,
     std::shared_ptr<const core::NestedLoopJoinNode> joinNode)
@@ -50,9 +50,9 @@ CrossJoinBuild::CrossJoinBuild(
           nullptr,
           operatorId,
           joinNode->id(),
-          "CrossJoinBuild") {}
+          "NestedLoopJoinBuild") {}
 
-void CrossJoinBuild::addInput(RowVectorPtr input) {
+void NestedLoopJoinBuild::addInput(RowVectorPtr input) {
   if (input->size() > 0) {
     // Load lazy vectors before storing.
     for (auto& child : input->children()) {
@@ -62,7 +62,7 @@ void CrossJoinBuild::addInput(RowVectorPtr input) {
   }
 }
 
-BlockingReason CrossJoinBuild::isBlocked(ContinueFuture* future) {
+BlockingReason NestedLoopJoinBuild::isBlocked(ContinueFuture* future) {
   if (!future_.valid()) {
     return BlockingReason::kNotBlocked;
   }
@@ -70,11 +70,11 @@ BlockingReason CrossJoinBuild::isBlocked(ContinueFuture* future) {
   return BlockingReason::kWaitForJoinBuild;
 }
 
-void CrossJoinBuild::noMoreInput() {
+void NestedLoopJoinBuild::noMoreInput() {
   Operator::noMoreInput();
   std::vector<ContinuePromise> promises;
   std::vector<std::shared_ptr<Driver>> peers;
-  // The last Driver to hit CrossJoinBuild::finish gathers the data from
+  // The last Driver to hit NestedLoopJoinBuild::finish gathers the data from
   // all build Drivers and hands it over to the probe side. At this
   // point all build Drivers are continued and will free their
   // state. allPeersFinished is true only for the last Driver of the
@@ -86,7 +86,7 @@ void CrossJoinBuild::noMoreInput() {
 
   for (auto& peer : peers) {
     auto op = peer->findOperator(planNodeId());
-    auto* build = dynamic_cast<CrossJoinBuild*>(op);
+    auto* build = dynamic_cast<NestedLoopJoinBuild*>(op);
     VELOX_CHECK(build);
     data_.insert(data_.begin(), build->data_.begin(), build->data_.end());
   }
@@ -99,12 +99,12 @@ void CrossJoinBuild::noMoreInput() {
   }
 
   operatorCtx_->task()
-      ->getCrossJoinBridge(
+      ->getNestedLoopJoinBridge(
           operatorCtx_->driverCtx()->splitGroupId, planNodeId())
       ->setData(std::move(data_));
 }
 
-bool CrossJoinBuild::isFinished() {
+bool NestedLoopJoinBuild::isFinished() {
   return !future_.valid() && noMoreInput_;
 }
 } // namespace facebook::velox::exec

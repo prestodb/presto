@@ -19,8 +19,6 @@ add_library(
   AggregateWindow.cpp
   ArrowStream.cpp
   ContainerRowSerde.cpp
-  CrossJoinBuild.cpp
-  CrossJoinProbe.cpp
   Driver.cpp
   EnforceSingleRow.cpp
   Exchange.cpp
@@ -40,6 +38,8 @@ add_library(
   Merge.cpp
   MergeJoin.cpp
   MergeSource.cpp
+  NestedLoopJoinBuild.cpp
+  NestedLoopJoinProbe.cpp
   Operator.cpp
   OperatorUtils.cpp
   OrderBy.cpp
