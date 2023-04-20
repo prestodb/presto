@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.testing.ExpectedQueryRunner;
+import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 /**
@@ -39,9 +42,29 @@ import org.testng.annotations.Test;
  * <p>
  * For test queries requiring shuffle, the disk-based local shuffle will be used.
  */
-public class TestPrestoSparkNativeExecution
-        extends AbstractTestPrestoSparkQueries
+public class TestPrestoSparkNativeSimpleQueries
+        extends AbstractTestQueryFramework
 {
+    @Override
+    protected QueryRunner createQueryRunner()
+    {
+        return PrestoSparkNativeQueryRunnerUtils.createPrestoSparkNativeQueryRunner();
+    }
+
+    @Override
+    protected ExpectedQueryRunner createExpectedQueryRunner()
+            throws Exception
+    {
+        return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+    }
+
+    @Override
+    protected void assertQuery(String sql)
+    {
+        super.assertQuery(sql);
+        PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
+    }
+
     @Test
     public void testMapOnlyQueries()
     {
