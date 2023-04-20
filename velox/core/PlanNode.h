@@ -1422,10 +1422,27 @@ class MergeJoinNode : public AbstractJoinNode {
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
 };
 
-// Cross join.
-class CrossJoinNode : public PlanNode {
+/// Represents inner/outer nested loop joins. Translates to an
+/// exec::CrossJoinProbe and exec::CrossJoinBuild(which will later be renamed to
+/// NestedLoopJoin{Probe, Build}). A separate pipeline is produced for the build
+/// side when generating exec::Operators.
+/// Nested loop join supports both equal and non-equal joins. Expressions
+/// specified in joinCondition are evaluated on every combination of left/right
+/// tuple, to emit result.
+/// This also replaces CrossJoinNode, as cross join is equivalent to inner join
+/// on TRUE. To create a plan node for cross join, use the constructor without
+/// `joinType` and `joinCondition` parameter.
+class NestedLoopJoinNode : public PlanNode {
  public:
-  CrossJoinNode(
+  NestedLoopJoinNode(
+      const PlanNodeId& id,
+      JoinType joinType,
+      TypedExprPtr joinCondition,
+      PlanNodePtr left,
+      PlanNodePtr right,
+      RowTypePtr outputType);
+
+  NestedLoopJoinNode(
       const PlanNodeId& id,
       PlanNodePtr left,
       PlanNodePtr right,
@@ -1440,7 +1457,15 @@ class CrossJoinNode : public PlanNode {
   }
 
   std::string_view name() const override {
-    return "CrossJoin";
+    return "NestedLoopJoin";
+  }
+
+  const TypedExprPtr& joinCondition() const {
+    return joinCondition_;
+  }
+
+  JoinType joinType() const {
+    return joinType_;
   }
 
   folly::dynamic serialize() const override;
@@ -1450,9 +1475,16 @@ class CrossJoinNode : public PlanNode {
  private:
   void addDetails(std::stringstream& stream) const override;
 
+  const JoinType joinType_;
+  const TypedExprPtr joinCondition_;
   const std::vector<PlanNodePtr> sources_;
   const RowTypePtr outputType_;
 };
+
+// TODO Remove after updating Prestissimo.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+using CrossJoinNode = NestedLoopJoinNode;
+#endif
 
 // Represents the 'SortBy' node in the plan.
 class OrderByNode : public PlanNode {

@@ -24,7 +24,7 @@ class CrossJoinProbe : public Operator {
   CrossJoinProbe(
       int32_t operatorId,
       DriverCtx* driverCtx,
-      const std::shared_ptr<const core::CrossJoinNode>& hashJoinNode);
+      const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode);
 
   void addInput(RowVectorPtr input) override;
 

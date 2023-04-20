@@ -20,7 +20,7 @@ using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 
-class CrossJoinTest : public HiveConnectorTestBase {
+class NestedLoopJoinTest : public HiveConnectorTestBase {
  protected:
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
@@ -39,7 +39,7 @@ class CrossJoinTest : public HiveConnectorTestBase {
   }
 };
 
-TEST_F(CrossJoinTest, basic) {
+TEST_F(NestedLoopJoinTest, basic) {
   auto leftVectors = {
       makeRowVector({sequence<int32_t>(10)}),
       makeRowVector({sequence<int32_t>(100, 10)}),
@@ -61,7 +61,7 @@ TEST_F(CrossJoinTest, basic) {
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
-                .crossJoin(
+                .nestedLoopJoin(
                     PlanBuilder(planNodeIdGenerator)
                         .values({rightVectors})
                         .filter("c0 < 13")
@@ -77,7 +77,7 @@ TEST_F(CrossJoinTest, basic) {
   op = PlanBuilder(planNodeIdGenerator)
            .values({leftVectors})
            .filter("c0 < 13")
-           .crossJoin(
+           .nestedLoopJoin(
                PlanBuilder(planNodeIdGenerator)
                    .values({rightVectors})
                    .project({"c0 AS u_c0"})
@@ -91,7 +91,7 @@ TEST_F(CrossJoinTest, basic) {
   planNodeIdGenerator->reset();
   op = PlanBuilder(planNodeIdGenerator)
            .values({leftVectors})
-           .crossJoin(
+           .nestedLoopJoin(
                PlanBuilder(planNodeIdGenerator)
                    .values({vectorMaker_.rowVector(ROW({}, {}), 13)})
                    .planNode(),
@@ -105,7 +105,7 @@ TEST_F(CrossJoinTest, basic) {
   op = PlanBuilder(planNodeIdGenerator)
            .values({leftVectors})
            .filter("c0 < 13")
-           .crossJoin(
+           .nestedLoopJoin(
                PlanBuilder(planNodeIdGenerator)
                    .values({vectorMaker_.rowVector(ROW({}, {}), 1121)})
                    .planNode(),
@@ -120,7 +120,7 @@ TEST_F(CrossJoinTest, basic) {
   planNodeIdGenerator->reset();
   op = PlanBuilder(planNodeIdGenerator)
            .values({leftVectors})
-           .crossJoin(
+           .nestedLoopJoin(
                PlanBuilder(planNodeIdGenerator)
                    .values({rightVectors})
                    .filter("c0 < 0")
@@ -137,7 +137,7 @@ TEST_F(CrossJoinTest, basic) {
   params.maxDrivers = 4;
   params.planNode = PlanBuilder(planNodeIdGenerator)
                         .values({leftVectors})
-                        .crossJoin(
+                        .nestedLoopJoin(
                             PlanBuilder(planNodeIdGenerator, pool_.get())
                                 .values({rightVectors}, true)
                                 .filter("c0 in (10, 17)")
@@ -152,7 +152,7 @@ TEST_F(CrossJoinTest, basic) {
       "SELECT * FROM t, (SELECT * FROM UNNEST (ARRAY[10, 17, 10, 17, 10, 17, 10, 17])) u");
 }
 
-TEST_F(CrossJoinTest, lazyVectors) {
+TEST_F(NestedLoopJoinTest, lazyVectors) {
   auto leftVectors = {
       makeRowVector({lazySequence<int32_t>(10)}),
       makeRowVector({lazySequence<int32_t>(100, 10)}),
@@ -173,7 +173,7 @@ TEST_F(CrossJoinTest, lazyVectors) {
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
-                .crossJoin(
+                .nestedLoopJoin(
                     PlanBuilder(planNodeIdGenerator)
                         .values({rightVectors})
                         .project({"c0 AS u_c0"})
@@ -186,7 +186,7 @@ TEST_F(CrossJoinTest, lazyVectors) {
 }
 
 // Test cross join with a build side that has rows, but no columns.
-TEST_F(CrossJoinTest, zeroColumnBuild) {
+TEST_F(NestedLoopJoinTest, zeroColumnBuild) {
   auto leftVectors = {
       makeRowVector({sequence<int32_t>(10)}),
       makeRowVector({sequence<int32_t>(100, 10)}),
@@ -204,7 +204,7 @@ TEST_F(CrossJoinTest, zeroColumnBuild) {
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
-                .crossJoin(
+                .nestedLoopJoin(
                     PlanBuilder(planNodeIdGenerator)
                         .values({rightVectors})
                         .project({})
@@ -219,7 +219,7 @@ TEST_F(CrossJoinTest, zeroColumnBuild) {
   planNodeIdGenerator->reset();
   op = PlanBuilder(planNodeIdGenerator)
            .values({leftVectors})
-           .crossJoin(
+           .nestedLoopJoin(
                PlanBuilder(planNodeIdGenerator)
                    .values({rightVectors})
                    .filter("c0 = 1")
@@ -232,13 +232,13 @@ TEST_F(CrossJoinTest, zeroColumnBuild) {
 }
 
 // Test multi-threaded build and probe sides.
-TEST_F(CrossJoinTest, parallelism) {
+TEST_F(NestedLoopJoinTest, parallelism) {
   // Setup 5 threads for build and probe. Each build thread gets 3 identical
   // rows of input from the Values operator. The build thread that finishes last
   // combines data from all other threads making it 3x5=15 rows and puts them
-  // into the CrossJoinBridge. All probe threads get 2 identical ros of input
-  // from the Values operator and join them with 15 rows of build side data from
-  // the bridge. Each probe thread is expected to produce 30 rows.
+  // into the NestedLoopJoinBridge. All probe threads get 2 identical ros of
+  // input from the Values operator and join them with 15 rows of build side
+  // data from the bridge. Each probe thread is expected to produce 30 rows.
 
   auto left = {makeRowVector({sequence<int32_t>(2)})};
   auto right = {makeRowVector({"u_c0"}, {sequence<int32_t>(3)})};
@@ -249,7 +249,7 @@ TEST_F(CrossJoinTest, parallelism) {
   params.planNode =
       PlanBuilder(planNodeIdGenerator)
           .values({left}, true)
-          .crossJoin(
+          .nestedLoopJoin(
               PlanBuilder(planNodeIdGenerator).values({right}, true).planNode(),
               {"c0", "u_c0"})
           .partialAggregation({}, {"count(1)"})

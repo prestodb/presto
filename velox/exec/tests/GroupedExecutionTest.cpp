@@ -291,7 +291,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndCrossJoin) {
     core::PlanNodePtr pipe0Node;
     core::PlanNodePtr pipe1Node;
 
-    // Hash or Cross join.
+    // Hash or Nested Loop join.
     if (i == 0) {
       pipe0Node =
           PlanBuilder(planNodeIdGenerator)
@@ -320,7 +320,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndCrossJoin) {
               .tableScan(rowType_)
               .capturePlanNodeId(probeScanNodeId)
               .project({"c3 as x", "c2 as y", "c1 as z", "c0 as w", "c4", "c5"})
-              .crossJoin(
+              .nestedLoopJoin(
                   PlanBuilder(planNodeIdGenerator)
                       .tableScan(rowType_, {"c0 > 0"})
                       .capturePlanNodeId(buildScanNodeId)

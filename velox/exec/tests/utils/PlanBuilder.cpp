@@ -1026,13 +1026,13 @@ PlanBuilder& PlanBuilder::mergeJoin(
   return *this;
 }
 
-PlanBuilder& PlanBuilder::crossJoin(
+PlanBuilder& PlanBuilder::nestedLoopJoin(
     const core::PlanNodePtr& right,
     const std::vector<std::string>& outputLayout) {
   auto resultType = concat(planNode_->outputType(), right->outputType());
   auto outputType = extract(resultType, outputLayout);
 
-  planNode_ = std::make_shared<core::CrossJoinNode>(
+  planNode_ = std::make_shared<core::NestedLoopJoinNode>(
       nextPlanNodeId(), std::move(planNode_), right, outputType);
   return *this;
 }

@@ -72,7 +72,7 @@ TEST_F(PlanNodeSerdeTest, assignUniqueId) {
   testSerde(plan);
 }
 
-TEST_F(PlanNodeSerdeTest, crossJoin) {
+TEST_F(PlanNodeSerdeTest, nestedLoopJoin) {
   auto left = makeRowVector(
       {"t0", "t1", "t2"},
       {
@@ -93,7 +93,7 @@ TEST_F(PlanNodeSerdeTest, crossJoin) {
   auto plan =
       PlanBuilder(planNodeIdGenerator)
           .values({left})
-          .crossJoin(
+          .nestedLoopJoin(
               PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
               {"t0", "u1", "t2", "t1"})
           .planNode();

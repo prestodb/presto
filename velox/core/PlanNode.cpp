@@ -846,35 +846,94 @@ PlanNodePtr MergeJoinNode::create(const folly::dynamic& obj, void* context) {
       outputType);
 }
 
-CrossJoinNode::CrossJoinNode(
+NestedLoopJoinNode::NestedLoopJoinNode(
     const PlanNodeId& id,
+    JoinType joinType,
+    TypedExprPtr joinCondition,
     PlanNodePtr left,
     PlanNodePtr right,
     RowTypePtr outputType)
     : PlanNode(id),
+      joinType_(joinType),
+      joinCondition_(std::move(joinCondition)),
       sources_({std::move(left), std::move(right)}),
-      outputType_(std::move(outputType)) {}
+      outputType_(std::move(outputType)) {
+  VELOX_USER_CHECK(
+      core::isInnerJoin(joinType_) || core::isLeftJoin(joinType_) ||
+          core::isRightJoin(joinType_) || core::isFullJoin(joinType_),
+      "{} unsupported, NestedLoopJoin only supports inner and outer join",
+      joinTypeName(joinType_));
+  if (joinCondition_ != nullptr) {
+    VELOX_NYI("NestedLoopJoin does not support join condition.");
+  }
 
-void CrossJoinNode::addDetails(std::stringstream& /* stream */) const {
-  // Nothing to add.
+  auto leftType = sources_[0]->outputType();
+  auto rightType = sources_[1]->outputType();
+  for (const auto& name : outputType_->names()) {
+    const bool leftContains = leftType->containsChild(name);
+    const bool rightContains = rightType->containsChild(name);
+    VELOX_USER_CHECK(
+        !(leftContains && rightContains),
+        "Duplicate column name found on join's left and right sides: {}",
+        name);
+    VELOX_USER_CHECK(
+        leftContains || rightContains,
+        "Join's output column not found in either left or right sides: {}",
+        name);
+  }
 }
 
-folly::dynamic CrossJoinNode::serialize() const {
+NestedLoopJoinNode::NestedLoopJoinNode(
+    const PlanNodeId& id,
+    PlanNodePtr left,
+    PlanNodePtr right,
+    RowTypePtr outputType)
+    : NestedLoopJoinNode(
+          id,
+          JoinType::kInner,
+          nullptr,
+          left,
+          right,
+          outputType) {}
+
+void NestedLoopJoinNode::addDetails(std::stringstream& stream) const {
+  stream << joinTypeName(joinType_);
+  if (joinCondition_) {
+    stream << ", joinCondition: " << joinCondition_->toString();
+  }
+}
+
+folly::dynamic NestedLoopJoinNode::serialize() const {
   auto obj = PlanNode::serialize();
+  obj["joinType"] = joinTypeName(joinType_);
+  if (joinCondition_) {
+    obj["joinCondition"] = joinCondition_->serialize();
+  }
   obj["outputType"] = outputType_->serialize();
   return obj;
 }
 
-// static
-PlanNodePtr CrossJoinNode::create(const folly::dynamic& obj, void* context) {
+PlanNodePtr NestedLoopJoinNode::create(
+    const folly::dynamic& obj,
+    void* context) {
   auto sources = deserializeSources(obj, context);
   VELOX_CHECK_EQ(2, sources.size());
 
-  return std::make_shared<CrossJoinNode>(
+  TypedExprPtr joinCondition;
+  if (obj.count("joinCondition")) {
+    joinCondition =
+        ISerializable::deserialize<ITypedExpr>(obj["joinCondition"], context);
+  }
+
+  auto outputType = deserializeRowType(obj["outputType"]);
+
+  return std::make_shared<NestedLoopJoinNode>(
       deserializePlanNodeId(obj),
-      std::move(sources[0]),
-      std::move(sources[1]),
-      deserializeRowType(obj["outputType"]));
+      joinTypeFromName(obj["joinType"].asString()),
+      joinCondition,
+      sources[0],
+      sources[1],
+      outputType);
 }
 
 AssignUniqueIdNode::AssignUniqueIdNode(
@@ -1521,7 +1580,6 @@ void PlanNode::registerSerDe() {
 
   registry.Register("AggregationNode", AggregationNode::create);
   registry.Register("AssignUniqueIdNode", AssignUniqueIdNode::create);
-  registry.Register("CrossJoinNode", CrossJoinNode::create);
   registry.Register("EnforceSingleRowNode", EnforceSingleRowNode::create);
   registry.Register("ExchangeNode", ExchangeNode::create);
   registry.Register("FilterNode", FilterNode::create);
@@ -1529,6 +1587,7 @@ void PlanNode::registerSerDe() {
   registry.Register("HashJoinNode", HashJoinNode::create);
   registry.Register("MergeExchangeNode", MergeExchangeNode::create);
   registry.Register("MergeJoinNode", MergeJoinNode::create);
+  registry.Register("NestedLoopJoinNode", NestedLoopJoinNode::create);
   registry.Register("LimitNode", LimitNode::create);
   registry.Register("LocalMergeNode", LocalMergeNode::create);
   registry.Register("LocalPartitionNode", LocalPartitionNode::create);

@@ -611,15 +611,15 @@ class PlanBuilder {
       const std::vector<std::string>& outputLayout,
       core::JoinType joinType = core::JoinType::kInner);
 
-  /// Add a CrossJoinNode to produce a cross product of the inputs. First input
-  /// comes from the preceding plan node. Second input is specified in 'right'
-  /// parameter.
+  /// Add a NestedLoopJoinNode to produce a cross product of the inputs. First
+  /// input comes from the preceding plan node. Second input is specified in
+  /// 'right' parameter.
   ///
   /// @param right Right-side input. Typically, to reduce memory usage, the
   /// smaller input is placed on the right-side.
   /// @param outputLayout Output layout consisting of columns from left and
   /// right sides.
-  PlanBuilder& crossJoin(
+  PlanBuilder& nestedLoopJoin(
       const core::PlanNodePtr& right,
       const std::vector<std::string>& outputLayout);
 

@@ -44,7 +44,7 @@ std::optional<std::vector<VectorPtr>> CrossJoinBridge::dataOrFuture(
 CrossJoinBuild::CrossJoinBuild(
     int32_t operatorId,
     DriverCtx* driverCtx,
-    std::shared_ptr<const core::CrossJoinNode> joinNode)
+    std::shared_ptr<const core::NestedLoopJoinNode> joinNode)
     : Operator(
           driverCtx,
           nullptr,

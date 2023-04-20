@@ -387,8 +387,8 @@ struct DriverFactory {
   /// and grouped execution and must be created in ungrouped execution pipeline
   /// and skipped in grouped execution pipeline.
   folly::F14FastSet<core::PlanNodeId> mixedExecutionModeHashJoinNodeIds;
-  /// Same as 'mixedExecutionModeHashJoinNodeIds' but for Cross Joins.
-  folly::F14FastSet<core::PlanNodeId> mixedExecutionModeCrossJoinNodeIds;
+  /// Same as 'mixedExecutionModeHashJoinNodeIds' but for Nested Loop Joins.
+  folly::F14FastSet<core::PlanNodeId> mixedExecutionModeNestedLoopJoinNodeIds;
 
   std::shared_ptr<Driver> createDriver(
       std::unique_ptr<DriverCtx> ctx,

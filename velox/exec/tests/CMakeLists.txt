@@ -20,7 +20,6 @@ add_executable(
   ArrowStreamTest.cpp
   AssignUniqueIdTest.cpp
   AsyncConnectorTest.cpp
-  CrossJoinTest.cpp
   CustomJoinTest.cpp
   EnforceSingleRowTest.cpp
   FilterProjectTest.cpp
@@ -36,6 +35,7 @@ add_executable(
   MergeJoinTest.cpp
   MergeTest.cpp
   MultiFragmentTest.cpp
+  NestedLoopJoinTest.cpp
   OrderByTest.cpp
   PartitionedOutputBufferManagerTest.cpp
   PlanNodeSerdeTest.cpp

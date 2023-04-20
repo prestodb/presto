@@ -21,7 +21,7 @@ namespace facebook::velox::exec {
 CrossJoinProbe::CrossJoinProbe(
     int32_t operatorId,
     DriverCtx* driverCtx,
-    const std::shared_ptr<const core::CrossJoinNode>& joinNode)
+    const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode)
     : Operator(
           driverCtx,
           joinNode->outputType(),

@@ -596,7 +596,7 @@ TEST_F(TaskTest, singleThreadedCrossJoin) {
   auto plan = PlanBuilder(planNodeIdGenerator)
                   .tableScan(asRowType(left->type()))
                   .capturePlanNodeId(leftScanId)
-                  .crossJoin(
+                  .nestedLoopJoin(
                       PlanBuilder(planNodeIdGenerator)
                           .tableScan(asRowType(right->type()))
                           .capturePlanNodeId(rightScanId)

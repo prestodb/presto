@@ -113,7 +113,7 @@ TEST_F(QueryPlannerTest, tableScan) {
       inMemoryTables,
       "-- Project\n"
       "  -- Filter\n"
-      "    -- CrossJoin\n"
+      "    -- NestedLoopJoin\n"
       "      -- Values\n"
       "      -- Values\n");
 }

@@ -35,7 +35,7 @@ class CrossJoinBuild : public Operator {
   CrossJoinBuild(
       int32_t operatorId,
       DriverCtx* driverCtx,
-      std::shared_ptr<const core::CrossJoinNode> joinNode);
+      std::shared_ptr<const core::NestedLoopJoinNode> joinNode);
 
   void addInput(RowVectorPtr input) override;
 
