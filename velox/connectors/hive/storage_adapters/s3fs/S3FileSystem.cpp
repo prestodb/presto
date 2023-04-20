@@ -16,6 +16,7 @@
 
 #include "velox/connectors/hive/storage_adapters/s3fs/S3FileSystem.h"
 #include "velox/common/file/File.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
 #include "velox/core/Context.h"
 
@@ -170,94 +171,42 @@ class S3ReadFile final : public ReadFile {
   std::string key_;
   int64_t length_ = -1;
 };
+
+Aws::Utils::Logging::LogLevel inferS3LogLevel(std::string level) {
+  // Convert to upper case.
+  std::transform(
+      level.begin(), level.end(), level.begin(), [](unsigned char c) {
+        return std::toupper(c);
+      });
+  if (level == "FATAL") {
+    return Aws::Utils::Logging::LogLevel::Fatal;
+  } else if (level == "TRACE") {
+    return Aws::Utils::Logging::LogLevel::Trace;
+  } else if (level == "OFF") {
+    return Aws::Utils::Logging::LogLevel::Off;
+  } else if (level == "ERROR") {
+    return Aws::Utils::Logging::LogLevel::Error;
+  } else if (level == "WARN") {
+    return Aws::Utils::Logging::LogLevel::Warn;
+  } else if (level == "INFO") {
+    return Aws::Utils::Logging::LogLevel::Info;
+  } else if (level == "DEBUG") {
+    return Aws::Utils::Logging::LogLevel::Debug;
+  }
+  return Aws::Utils::Logging::LogLevel::Fatal;
+}
 } // namespace
 
 namespace filesystems {
-
-class S3Config {
- public:
-  S3Config(const Config* config) : config_(config) {}
-
-  // Virtual addressing is used for AWS S3 and is the default (path-style-access
-  // is false). Path access style is used for some on-prem systems like Minio.
-  bool useVirtualAddressing() const {
-    return !config_->get("hive.s3.path-style-access", false);
-  }
-
-  bool useSSL() const {
-    return config_->get("hive.s3.ssl.enabled", true);
-  }
-
-  bool useInstanceCredentials() const {
-    return config_->get("hive.s3.use-instance-credentials", false);
-  }
-
-  std::string endpoint() const {
-    return config_->get("hive.s3.endpoint", std::string(""));
-  }
-
-  std::optional<std::string> accessKey() const {
-    if (config_->isValueExists("hive.s3.aws-access-key")) {
-      return config_->get("hive.s3.aws-access-key").value();
-    }
-    return {};
-  }
-
-  std::optional<std::string> secretKey() const {
-    if (config_->isValueExists("hive.s3.aws-secret-key")) {
-      return config_->get("hive.s3.aws-secret-key").value();
-    }
-    return {};
-  }
-
-  std::optional<std::string> iamRole() const {
-    if (config_->isValueExists("hive.s3.iam-role")) {
-      return config_->get("hive.s3.iam-role").value();
-    }
-    return {};
-  }
-
-  std::string iamRoleSessionName() const {
-    return config_->get(
-        "hive.s3.iam-role-session-name", std::string("velox-session"));
-  }
-
-  Aws::Utils::Logging::LogLevel getLogLevel() const {
-    auto level = config_->get("hive.s3.log-level", std::string("FATAL"));
-    // Convert to upper case.
-    std::transform(
-        level.begin(), level.end(), level.begin(), [](unsigned char c) {
-          return std::toupper(c);
-        });
-    if (level == "FATAL") {
-      return Aws::Utils::Logging::LogLevel::Fatal;
-    } else if (level == "TRACE") {
-      return Aws::Utils::Logging::LogLevel::Trace;
-    } else if (level == "OFF") {
-      return Aws::Utils::Logging::LogLevel::Off;
-    } else if (level == "ERROR") {
-      return Aws::Utils::Logging::LogLevel::Error;
-    } else if (level == "WARN") {
-      return Aws::Utils::Logging::LogLevel::Warn;
-    } else if (level == "INFO") {
-      return Aws::Utils::Logging::LogLevel::Info;
-    } else if (level == "DEBUG") {
-      return Aws::Utils::Logging::LogLevel::Debug;
-    }
-    return Aws::Utils::Logging::LogLevel::Fatal;
-  }
-
- private:
-  const Config* FOLLY_NONNULL config_;
-};
-
+using namespace connector::hive;
 class S3FileSystem::Impl {
  public:
-  Impl(const Config* config) : s3Config_(config) {
+  Impl(const Config* config) : config_(config) {
     const size_t origCount = initCounter_++;
     if (origCount == 0) {
       Aws::SDKOptions awsOptions;
-      awsOptions.loggingOptions.logLevel = s3Config_.getLogLevel();
+      awsOptions.loggingOptions.logLevel =
+          inferS3LogLevel(HiveConfig::s3GetLogLevel(config_));
       // In some situations, curl triggers a SIGPIPE signal causing the entire
       // process to be terminated without any notification.
       // This behavior is seen via Prestissimo on AmazonLinux2 on AWS EC2.
@@ -274,7 +223,8 @@ class S3FileSystem::Impl {
     const size_t newCount = --initCounter_;
     if (newCount == 0) {
       Aws::SDKOptions awsOptions;
-      awsOptions.loggingOptions.logLevel = s3Config_.getLogLevel();
+      awsOptions.loggingOptions.logLevel =
+          inferS3LogLevel(HiveConfig::s3GetLogLevel(config_));
       Aws::ShutdownAPI(awsOptions);
     }
   }
@@ -307,9 +257,9 @@ class S3FileSystem::Impl {
   // Return an AWSCredentialsProvider based on the config.
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> getCredentialsProvider()
       const {
-    auto accessKey = s3Config_.accessKey();
-    auto secretKey = s3Config_.secretKey();
-    const auto iamRole = s3Config_.iamRole();
+    auto accessKey = HiveConfig::s3AccessKey(config_);
+    auto secretKey = HiveConfig::s3SecretKey(config_);
+    const auto iamRole = HiveConfig::s3IAMRole(config_);
 
     int keyCount = accessKey.has_value() + secretKey.has_value();
     // keyCount=0 means both are not specified
@@ -320,7 +270,7 @@ class S3FileSystem::Impl {
         "Invalid configuration: both access key and secret key must be specified");
 
     int configCount = (accessKey.has_value() && secretKey.has_value()) +
-        iamRole.has_value() + s3Config_.useInstanceCredentials();
+        iamRole.has_value() + HiveConfig::s3UseInstanceCredentials(config_);
     VELOX_USER_CHECK(
         (configCount <= 1),
         "Invalid configuration: specify only one among 'access/secret keys', 'use instance credentials', 'IAM role'");
@@ -330,13 +280,13 @@ class S3FileSystem::Impl {
           accessKey.value(), secretKey.value());
     }
 
-    if (s3Config_.useInstanceCredentials()) {
+    if (HiveConfig::s3UseInstanceCredentials(config_)) {
       return getDefaultCredentialsProvider();
     }
 
     if (iamRole.has_value()) {
       return getIAMRoleCredentialsProvider(
-          iamRole.value(), s3Config_.iamRoleSessionName());
+          iamRole.value(), HiveConfig::s3IAMRoleSessionName(config_));
     }
 
     return getDefaultCredentialsProvider();
@@ -346,9 +296,9 @@ class S3FileSystem::Impl {
   void initializeClient() {
     Aws::Client::ClientConfiguration clientConfig;
 
-    clientConfig.endpointOverride = s3Config_.endpoint();
+    clientConfig.endpointOverride = HiveConfig::s3Endpoint(config_);
 
-    if (s3Config_.useSSL()) {
+    if (HiveConfig::s3UseSSL(config_)) {
       clientConfig.scheme = Aws::Http::Scheme::HTTPS;
     } else {
       clientConfig.scheme = Aws::Http::Scheme::HTTP;
@@ -360,7 +310,7 @@ class S3FileSystem::Impl {
         credentialsProvider,
         clientConfig,
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
-        s3Config_.useVirtualAddressing());
+        HiveConfig::s3UseVirtualAddressing(config_));
   }
 
   // Make it clear that the S3FileSystem instance owns the S3Client.
@@ -371,11 +321,11 @@ class S3FileSystem::Impl {
   }
 
   std::string getLogLevelName() const {
-    return GetLogLevelName(s3Config_.getLogLevel());
+    return GetLogLevelName(inferS3LogLevel(HiveConfig::s3GetLogLevel(config_)));
   }
 
  private:
-  const S3Config s3Config_;
+  const Config* config_;
   std::shared_ptr<Aws::S3::S3Client> client_;
   static std::atomic<size_t> initCounter_;
 };
