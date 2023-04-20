@@ -58,7 +58,7 @@ class UnsafeRowDataBatchIterator {
    * @param idx
    * @return true if element is null.
    */
-  virtual bool isNull(size_t idx) {
+  virtual bool isNull(size_t idx) const {
     return !data_[idx].has_value();
   }
 
@@ -67,25 +67,25 @@ class UnsafeRowDataBatchIterator {
    * @return A primitive value occupies 1 field, so return 0 if the element is
    * null, 1 otherwise.
    */
-  virtual size_t size(size_t idx) {
+  virtual size_t size(size_t idx) const {
     return isNull(idx) ? 0 : 1;
   }
 
   /**
    * @return  return total number of rows.
    */
-  size_t numRows() {
+  size_t numRows() const {
     return numRows_;
   }
 
   /**
    * @return the element type.
    */
-  const TypePtr& type() {
+  const TypePtr& type() const {
     return type_;
   }
 
-  virtual std::string toString(size_t idx) {
+  virtual std::string toString(size_t idx) const {
     std::stringstream str;
     str << "Data iterator of type " << type()->toString() << " of size "
         << size(idx);
@@ -141,11 +141,11 @@ struct PrimitiveBatchIterator : UnsafeRowDataBatchIterator {
    * @return a string_view over the part of the UnsafeRow data buffer that
    * contains the primitive value.
    */
-  std::optional<std::string_view> data(size_t idx = 0) {
+  std::optional<std::string_view> data(size_t idx) const {
     return data_[idx];
   }
 
-  bool hasNext() {
+  bool hasNext() const {
     return currentRow_ < numRows_;
   }
 
@@ -154,7 +154,7 @@ struct PrimitiveBatchIterator : UnsafeRowDataBatchIterator {
     return data_[currentRow_++];
   }
 
-  std::string toString(size_t idx) override {
+  std::string toString(size_t idx) const override {
     std::stringstream str;
     str << "Data iterator of type " << type()->toString() << " of size "
         << size(idx) << " with data "
@@ -195,7 +195,7 @@ struct StructBatchIterator : UnsafeRowDataBatchIterator {
     return idx_ < numElements_;
   }
 
-  std::string toString(size_t idx) override {
+  std::string toString(size_t idx) const override {
     std::stringstream str;
     str << "Data iterator of type " << type()->toString() << " of size "
         << size(idx) << " hasNext " << hasNext();
@@ -240,7 +240,7 @@ struct StructBatchIterator : UnsafeRowDataBatchIterator {
   /**
    * @return the number of elements in the idx-th row.
    */
-  size_t size(size_t idx) override {
+  size_t size(size_t idx) const override {
     return isNull(idx) ? 0 : numElements_;
   }
 
@@ -316,11 +316,11 @@ struct ArrayBatchIterator : UnsafeRowDataBatchIterator {
   /**
    * @return the size of the array
    */
-  size_t size(size_t idx) override {
+  size_t size(size_t idx) const override {
     return isNull(idx) ? 0 : readInt64(data_[idx]->data());
   }
 
-  std::string toString(size_t idx) override {
+  std::string toString(size_t idx) const override {
     std::stringstream str;
     str << "Data iterator of type " << type()->toString() << " of size "
         << size(idx) << " childIsFixedLength " << isFixedLength_;
@@ -454,21 +454,21 @@ struct MapBatchIterator : UnsafeRowDataBatchIterator {
   /**
    * @return the keysIteratorWrapper.
    */
-  ArrayBatchIteratorPtr keysIteratorWrapper() {
+  const ArrayBatchIteratorPtr& keysIteratorWrapper() const {
     return keysIteratorWrapper_;
   }
 
   /**
    * @return the valuesIteratorWrapper.
    */
-  ArrayBatchIteratorPtr valuesIteratorWrapper() {
+  const ArrayBatchIteratorPtr& valuesIteratorWrapper() const {
     return valuesIteratorWrapper_;
   }
 
   /**
    * @return the number of key-value pairs in the map.
    */
-  size_t size(size_t idx) override {
+  size_t size(size_t idx) const override {
     return numElements_[idx];
   }
 
