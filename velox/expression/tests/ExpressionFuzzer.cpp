@@ -104,13 +104,14 @@ DEFINE_double(
 DEFINE_bool(
     velox_fuzzer_enable_column_reuse,
     false,
-    "Enable generation of expressions that re-use already generated columns.");
+    "Enable generation of expressions where one input column can be "
+    "used by multiple subexpressions");
 
 DEFINE_bool(
     velox_fuzzer_enable_expression_reuse,
     false,
-    "Enable re-use already generated expression. Currently it only re-uses "
-    "expressions that do not have nested expressions.");
+    "Enable generation of expressions that re-uses already generated "
+    "subexpressions.");
 
 DEFINE_string(
     assign_function_tickets,

@@ -116,11 +116,46 @@ Fuzzers support a number of powerful command line arguments.
 
 * ``–-batch_size``: The size of input vectors to generate. Default is 100.
 
-In addition, Aggregation Fuzzer supports:
+There are also arguments that toggle certain fuzzer features:
+
+* ``--retry_with_try``: Retry failed expressions by wrapping it using a try() statement. Default is false.
+
+* ``--enable_variadic_signatures``: Enable testing of function signatures with variadic arguments. Default is false.
+
+* ``--velox_fuzzer_enable_complex_types``: Enable testing of function signatures with complex argument or return types. Default is false.
+
+* ``--lazy_vector_generation_ratio``: Specifies the probability with which columns in the input row vector will be selected to be wrapped in lazy encoding (expressed as double from 0 to 1). Default is 0.0.
+
+* ``--velox_fuzzer_enable_column_reuse``: Enable generation of expressions where one input column can be used by multiple subexpressions. Default is false.
+
+* ``--velox_fuzzer_enable_expression_reuse``: Enable generation of expressions that re-uses already generated subexpressions. Default is false.
+
+* ``--assign_function_tickets``: Comma separated list of function names and their tickets in the format <function_name>=<tickets>. Every ticket represents an opportunity for a function to be chosen from a pool of candidates. By default, every function has one ticket, and the likelihood of a function being picked can be increased by allotting it more tickets. Note that in practice, increasing the number of tickets does not proportionally increase the likelihood of selection, as the selection process involves filtering the pool of candidates by a required return type so not all functions may compete against the same number of functions at every instance. Number of tickets must be a positive integer. Example: eq=3,floor=5.
+
+In addition, Aggregation Fuzzer also supports tuning parameters:
+
+* ``--num_batches``: The number of input vectors of size `--batch_size` to generate. Default is 10.
+
+* ``--max_num_varargs``: The maximum number of variadic arguments fuzzer will generate for functions that accept variadic arguments. Fuzzer will generate up to max_num_varargs arguments for the variadic list in addition to the required arguments by the function. Default is 10.
+
+* ``--null_ratio``: Chance of adding a null constant to the plan, or null value in a vector (expressed as double from 0 to 1). Default is 0.1.
+
+* ``--velox_fuzzer_max_level_of_nesting``: Max levels of expression nesting. Default is 10 and minimum is 1.
 
 * ``--num_batches``: The number of input vectors of size `--batch_size` to generate. Default is 10.
 
 If running from CLion IDE, add ``--logtostderr=1`` to see the full output.
+
+An example set of arguments to run the fuzzer with all features enabled is as follows:
+``--duration_sec 60
+--enable_variadic_signatures
+--lazy_vector_generation_ratio 0.2
+--velox_fuzzer_enable_complex_types
+--velox_fuzzer_enable_expression_reuse
+--velox_fuzzer_enable_column_reuse
+--retry_with_try
+--repro_persist_path=<a_valid_local_path>
+--logtostderr=1``
 
 How to reproduce failures
 -------------------------------------
@@ -168,6 +203,13 @@ input vector and expression to files and replay these later.
 input vector, initial result vector, expression SQL, and other relevant data to files in a new directory saved within
 the specified directory. It also prints out the exact paths for these. Fuzzer uses :doc:`VectorSaver <../debugging/vector-saver>`
 for storing vectors on disk while preserving encodings.
+
+If an iteration crashes the process before data can be persisted, run the fuzzer
+with the seed used for that iteration and use the following flag:
+
+``--persist_and_run_once`` Persist repro info before evaluation and only run one iteration.
+This is to rerun with the seed number and persist repro info upon a crash failure.
+Only effective if repro_persist_path is set.
 
 ExpressionRunner needs at the very least a path to input vector and path to expression SQL to run.
 However, you might need more files to reproduce the issue. All of which will be present in the directory
