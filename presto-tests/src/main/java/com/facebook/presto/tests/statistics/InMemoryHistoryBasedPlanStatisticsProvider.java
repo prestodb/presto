@@ -80,6 +80,17 @@ public class InMemoryHistoryBasedPlanStatisticsProvider
         }
     }
 
+    // Returns boolean whether stats writing query events were processed
+    public boolean waitProcessQueryEventsIfAvailable()
+    {
+        try {
+            return semaphore.tryAcquire(10, TimeUnit.SECONDS);
+        }
+        catch (InterruptedException e) {
+            throw new AssertionError("Query events could not be processed in time");
+        }
+    }
+
     @VisibleForTesting
     public void clearCache()
     {

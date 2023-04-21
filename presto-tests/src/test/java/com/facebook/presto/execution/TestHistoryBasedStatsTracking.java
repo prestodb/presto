@@ -47,6 +47,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.HISTORY_CANONICAL_PLAN_NODE_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
@@ -55,6 +56,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.isNaN;
+import static org.testng.Assert.assertFalse;
 
 @Test(singleThreaded = true)
 public class TestHistoryBasedStatsTracking
@@ -299,6 +301,19 @@ public class TestHistoryBasedStatsTracking
         assertPlan(query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
         executeAndTrackHistory(query);
         assertPlan(query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(255)));
+    }
+
+    @Test
+    public void testUseHistoriesWithLimitingPlanNode()
+    {
+        String query = "SELECT orderkey FROM orders where orderkey < 1000 GROUP BY 1 ORDER BY 1 DESC LIMIT 10000";
+        Session session = Session.builder(createSession())
+                .setSystemProperty(HISTORY_CANONICAL_PLAN_NODE_LIMIT, "2")
+                .build();
+        assertPlan(session, query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+        getQueryRunner().execute(session, query);
+        assertFalse(getHistoryProvider().waitProcessQueryEventsIfAvailable());
+        assertPlan(session, query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
     }
 
     @Test

@@ -26,11 +26,14 @@ import com.facebook.presto.sql.planner.StatsEquivalentPlanNodeWithLimit;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.getHistoryCanonicalPlanNodeLimit;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static java.util.Objects.requireNonNull;
@@ -38,6 +41,8 @@ import static java.util.Objects.requireNonNull;
 public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         implements PlanOptimizer
 {
+    private static final Set<Class<? extends PlanNode>> LIMITING_NODES =
+            ImmutableSet.of(TopNNode.class, LimitNode.class, DistinctLimitNode.class, TopNRowNumberNode.class);
     private final StatsCalculator statsCalculator;
 
     public HistoricalStatisticsEquivalentPlanMarkingOptimizer(StatsCalculator statsCalculator)
@@ -55,6 +60,22 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         requireNonNull(idAllocator, "idAllocator is null");
 
         if (!useHistoryBasedPlanStatisticsEnabled(session) && !trackHistoryBasedPlanStatisticsEnabled(session)) {
+            return plan;
+        }
+
+        // Find SUM(subtree_size^2) whenever we find a limiting plan node. This will be proportional to the extra cost
+        // spent by History based optimization framework to canonicalize and hash the plan nodes.
+        int historiesLimitingPlanNodeLimit = PlanNodeSearcher.searchFrom(plan)
+                .recurseOnlyWhen(node -> !LIMITING_NODES.contains(node.getClass()))
+                .where(node -> LIMITING_NODES.contains(node.getClass()))
+                .findAll().stream()
+                .mapToInt(node -> {
+                    int size = PlanNodeSearcher.searchFrom(node).count();
+                    return size * size;
+                })
+                .sum();
+
+        if (historiesLimitingPlanNodeLimit > getHistoryCanonicalPlanNodeLimit(session)) {
             return plan;
         }
 
