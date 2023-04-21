@@ -181,7 +181,10 @@ class HiveDataSource : public DataSource {
       const FileHandle&,
       const dwio::common::ReaderOptions&);
 
-  virtual void configureRowReaderOptions(dwio::common::RowReaderOptions&) const;
+  virtual std::unique_ptr<dwio::common::RowReader> createRowReader(
+      dwio::common::RowReaderOptions& options) {
+    return reader_->createRowReader(options);
+  }
 
   std::shared_ptr<HiveConnectorSplit> split_;
   FileHandleFactory* fileHandleFactory_;
@@ -215,6 +218,8 @@ class HiveDataSource : public DataSource {
   // Clear split_ after split has been fully processed.  Keep readers around to
   // hold adaptation.
   void resetSplit();
+
+  void configureRowReaderOptions(dwio::common::RowReaderOptions&) const;
 
   const RowTypePtr outputType_;
   // Column handles for the partition key columns keyed on partition key column

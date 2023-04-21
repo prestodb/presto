@@ -587,7 +587,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   }
   scanSpec_->resetCachedValues(false);
   configureRowReaderOptions(rowReaderOpts_);
-  rowReader_ = reader_->createRowReader(rowReaderOpts_);
+  rowReader_ = createRowReader(rowReaderOpts_);
 }
 
 void HiveDataSource::setFromDataSource(
