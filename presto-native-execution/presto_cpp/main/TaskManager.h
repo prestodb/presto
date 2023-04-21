@@ -86,6 +86,9 @@ class TaskManager {
   /// Old is being defined by the lifetime of the task.
   size_t cleanOldTasks();
 
+  /// Invoked by Presto server shutdown to wait for all the tasks to complete.
+  void waitForTasksToComplete();
+
   folly::Future<std::unique_ptr<protocol::TaskInfo>> getTaskInfo(
       const protocol::TaskId& taskId,
       bool summarize,
