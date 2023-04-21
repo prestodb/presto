@@ -24,13 +24,13 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.server.remotetask.HttpRemoteTask;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -77,6 +77,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
@@ -449,6 +450,12 @@ public final class SqlStageExecution
                 .collect(toImmutableList());
     }
 
+    @VisibleForTesting
+    public int failedTasksCount()
+    {
+        return failedTasks.size();
+    }
+
     public List<URI> getAllRemoteURI()
     {
         return tasks.values().stream()
@@ -606,6 +613,12 @@ public final class SqlStageExecution
                     try {
                         stageTaskRecoveryCallback.get().recover(taskId, rewrittenFailures);
                         totalRetries.incrementAndGet();
+
+                        RemoteTask failedTask = getAllTasks().stream()
+                                .filter(task -> task.getTaskId().equals(taskId))
+                                .collect(onlyElement());
+                        failedTask.setIsRetried();
+
                         finishedTasks.add(taskId);
                     }
                     catch (Throwable t) {
@@ -654,7 +667,7 @@ public final class SqlStageExecution
                 return false;
             }
         }
-        boolean isRecoverable = stageTaskRecoveryCallback.isPresent() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+        boolean isRecoverable = stageTaskRecoveryCallback.isPresent() && isFailedTasksExceedThreshold();
         log.info("Failure recovery error check , isRecoverable = %s, failure error codes = %s", isRecoverable, failures.stream().map(failure -> failure.getErrorCode()).collect(toImmutableList()));
         return isRecoverable;
     }
@@ -672,37 +685,38 @@ public final class SqlStageExecution
     public synchronized boolean noMoreRetry()
     {
         if (failedTasks.isEmpty()) {
-            List<HttpRemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
-                    .filter(task -> task instanceof HttpRemoteTask)
-                    .map(task -> (HttpRemoteTask) task)
-                    .filter(HttpRemoteTask::isAllSplitsRun)
+            List<RemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
+                    .filter(RemoteTask::isAllSplitsRun)
                     .collect(toList());
             return idleRunningHttpRemoteTasks.size() == allTasks.size();
         }
-        boolean noMoreRetryInternal = noMoreRetryWithFailedTasks();
-        if (!noMoreRetryInternal) {
-            return false;
-        }
-        //delay no more retry decision by a min
-        if (!noMoreRetries.get()) {
-            firstNoMoreRetries.set(System.currentTimeMillis());
-        }
-        noMoreRetries.set(true);
-        if (System.currentTimeMillis() - firstNoMoreRetries.get() >= DELAY_NO_MORE_RETRY) {
-            return true;
-        }
-        return false;
+
+        return noMoreRetryWithFailedTasks();
     }
 
     private boolean noMoreRetryWithFailedTasks()
     {
-        List<HttpRemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
-                .filter(task -> task instanceof HttpRemoteTask)
-                .map(task -> (HttpRemoteTask) task)
+        List<RemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
                 .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
-                .filter(HttpRemoteTask::isAllSplitsRun)
+                .filter(RemoteTask::isAllSplitsRun)
                 .collect(toList());
-        return idleRunningHttpRemoteTasks.size() == allTasks.size() - failedTasks.size() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
+
+        long retriedFailedTaskCount = getAllTasks().stream()
+                .filter(task -> task.getTaskStatus().getState() == TaskState.FAILED)
+                .filter(RemoteTask::isRetried)
+                .count();
+
+        boolean isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks;
+        synchronized (this) {
+            isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks = (idleRunningHttpRemoteTasks.size() == allTasks.size() - failedTasks.size() && retriedFailedTaskCount == failedTasks.size());
+        }
+
+        return isAllTasksEitherIdlingOrFailedTasksHaveBeenRetriedOrTooManyFailedTasks || !isFailedTasksExceedThreshold();
+    }
+    private synchronized boolean isFailedTasksExceedThreshold()
+    {
+        // Even though failedTasks and allTasks are marked as Guard, the whole expression need to be evaluated synchronously to avoid failedTasks and allTasks are updated from the callback thread in the middle of the expression evaluation.
+        return failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
     }
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)

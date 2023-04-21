@@ -194,6 +194,7 @@ public final class HttpRemoteTask
     private OptionalLong whenSplitQueueHasSpaceThreshold = OptionalLong.empty();
 
     private final boolean summarizeTaskInfo;
+    private boolean isRetriedOnFailure;
 
     private final HttpClient httpClient;
     private final Executor executor;
@@ -663,6 +664,16 @@ public final class HttpRemoteTask
     public synchronized boolean isAllSplitsRun()
     {
         return unprocessedSplits.values().stream().allMatch(Map::isEmpty);
+    }
+
+    public synchronized void setIsRetried()
+    {
+        isRetriedOnFailure = true;
+    }
+
+    public synchronized boolean isRetried()
+    {
+        return isRetriedOnFailure;
     }
 
     public synchronized boolean isOnlyOneSplitLeft(PlanNodeId planNodeId)
