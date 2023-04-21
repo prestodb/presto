@@ -106,7 +106,6 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
-import static com.facebook.presto.sql.relational.Expressions.uniqueSubExpressions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -312,15 +311,6 @@ public class PredicatePushDown
 
         private boolean isInliningCandidate(RowExpression expression, ProjectNode node)
         {
-            // TryExpressions should not be pushed down. However they are now being handled as lambda
-            // passed to a FunctionCall now and should not affect predicate push down. So we want to make
-            // sure the conjuncts are not TryExpressions.
-            FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
-            verify(uniqueSubExpressions(expression)
-                    .stream()
-                    .noneMatch(subExpression -> subExpression instanceof CallExpression &&
-                            functionResolution.isTryFunction(((CallExpression) subExpression).getFunctionHandle())));
-
             // candidate symbols for inlining are
             //   1. references to simple constants
             //   2. references to complex expressions that appear only once
