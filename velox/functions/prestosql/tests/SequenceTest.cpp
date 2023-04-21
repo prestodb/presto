@@ -117,3 +117,37 @@ TEST_F(SequenceTest, invalidStep) {
       {startVector, stopVector, stepVector},
       expected);
 }
+
+TEST_F(SequenceTest, dateArguments) {
+  const auto startVector =
+      makeFlatVector<Date>({Date(1991), Date(1992), Date(1992)});
+  const auto stopVector =
+      makeFlatVector<Date>({Date(1996), Date(1988), Date(1992)});
+  const auto expected = makeArrayVector<Date>(
+      {{Date(1991), Date(1992), Date(1993), Date(1994), Date(1995), Date(1996)},
+       {Date(1992), Date(1991), Date(1990), Date(1989), Date(1988)},
+       {Date(1992)}});
+  testExpression("sequence(C0, C1)", {startVector, stopVector}, expected);
+}
+
+TEST_F(SequenceTest, dateArgumentsExceedMaxEntries) {
+  const auto startVector =
+      makeFlatVector<Date>({Date(1991), Date(1992), Date(1992)});
+  const auto stopVector =
+      makeFlatVector<Date>({Date(1996), Date(198800), Date(1992)});
+  testExpressionWithError(
+      "sequence(C0, C1)",
+      {startVector, stopVector},
+      "result of sequence function must not have more than 10000 entries");
+
+  auto expected = makeNullableArrayVector<Date>(
+      {{{Date(1991),
+         Date(1992),
+         Date(1993),
+         Date(1994),
+         Date(1995),
+         Date(1996)}},
+       std::nullopt,
+       {{Date(1992)}}});
+  testExpression("try(sequence(C0, C1))", {startVector, stopVector}, expected);
+}
