@@ -119,6 +119,20 @@ class StringTest : public SparkFunctionBaseTest {
       const std::optional<std::string>& pattern) {
     return evaluateOnce<bool>("contains(c0, c1)", str, pattern);
   }
+
+  std::optional<std::string> substring(
+      std::optional<std::string> str,
+      std::optional<int32_t> start) {
+    return evaluateOnce<std::string>("substring(c0, c1)", str, start);
+  }
+
+  std::optional<std::string> substring(
+      std::optional<std::string> str,
+      std::optional<int32_t> start,
+      std::optional<int32_t> length) {
+    return evaluateOnce<std::string>(
+        "substring(c0, c1, c2)", str, start, length);
+  }
 };
 
 TEST_F(StringTest, Ascii) {
@@ -367,6 +381,41 @@ TEST_F(StringTest, rtrim) {
   EXPECT_EQ(
       rtrim("\u6570", "\u6574\u6570 \u6570\u636E!"),
       "\u6574\u6570 \u6570\u636E!");
+}
+
+TEST_F(StringTest, substring) {
+  EXPECT_EQ(substring("example", 0, 2), "ex");
+  EXPECT_EQ(substring("example", 1, -1), "");
+  EXPECT_EQ(substring("example", 1, 0), "");
+  EXPECT_EQ(substring("example", 1, 2), "ex");
+  EXPECT_EQ(substring("example", 1, 7), "example");
+  EXPECT_EQ(substring("example", 1, 100), "example");
+  EXPECT_EQ(substring("example", 2, 2), "xa");
+  EXPECT_EQ(substring("example", 8, 2), "");
+  EXPECT_EQ(substring("example", -2, 2), "le");
+  EXPECT_EQ(substring("example", -7, 2), "ex");
+  EXPECT_EQ(substring("example", -8, 2), "e");
+  EXPECT_EQ(substring("example", -9, 2), "");
+  EXPECT_EQ(substring("example", -7, 7), "example");
+  EXPECT_EQ(substring("example", -9, 9), "example");
+  EXPECT_EQ(substring("example", 4, 2147483645), "mple");
+  EXPECT_EQ(substring("example", 2147483645, 4), "");
+  EXPECT_EQ(substring("example", -2147483648, 1), "");
+  EXPECT_EQ(substring("da\u6570\u636Eta", 2, 4), "a\u6570\u636Et");
+  EXPECT_EQ(substring("da\u6570\u636Eta", -3, 2), "\u636Et");
+
+  EXPECT_EQ(substring("example", 0), "example");
+  EXPECT_EQ(substring("example", 1), "example");
+  EXPECT_EQ(substring("example", 2), "xample");
+  EXPECT_EQ(substring("example", 8), "");
+  EXPECT_EQ(substring("example", 2147483647), "");
+  EXPECT_EQ(substring("example", -2), "le");
+  EXPECT_EQ(substring("example", -7), "example");
+  EXPECT_EQ(substring("example", -8), "example");
+  EXPECT_EQ(substring("example", -9), "example");
+  EXPECT_EQ(substring("example", -2147483647), "example");
+  EXPECT_EQ(substring("da\u6570\u636Eta", 3), "\u6570\u636Eta");
+  EXPECT_EQ(substring("da\u6570\u636Eta", -3), "\u636Eta");
 }
 
 } // namespace

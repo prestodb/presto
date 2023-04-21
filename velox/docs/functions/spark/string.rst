@@ -106,19 +106,25 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
 
     Returns the rest of ``string`` from the starting position ``start``.
     Positions start with ``1``. A negative starting position is interpreted
-    as being relative to the end of the string. Type of 'start' must be an INTEGER. 
+    as being relative to the end of the string. When the starting position is 0,
+    the meaning is to refer to the first character.Type of 'start' must be an INTEGER. 
 
 .. spark:function:: substring(string, start, length) -> varchar
 
     Returns a substring from ``string`` of length ``length`` from the starting
     position ``start``. Positions start with ``1``. A negative starting
     position is interpreted as being relative to the end of the string.
+    When the starting position is 0, the meaning is to refer to the first character.
     Type of 'start' must be an INTEGER. ::
 
-        SELECT substring('Spark SQL', 5, 1); -- k
+        SELECT substring('Spark SQL', 0, 2); -- Sp
+        SELECT substring('Spark SQL', 1, 2); -- Sp
         SELECT substring('Spark SQL', 5, 0); -- ""
         SELECT substring('Spark SQL', 5, -1); -- ""
         SELECT substring('Spark SQL', 5, 10000); -- "k SQL"
+        SELECT substring('Spark SQL', -9, 3); -- "Spa"
+        SELECT substring('Spark SQL', -10, 3); -- "Sp"
+        SELECT substring('Spark SQL', -20, 3); -- ""
 
 .. spark:function:: trim(string) -> varchar
 

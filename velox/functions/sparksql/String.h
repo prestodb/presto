@@ -359,4 +359,95 @@ struct LTrimSpaceFunction : public TrimSpaceFunctionBase<T, true, false> {};
 template <typename T>
 struct RTrimSpaceFunction : public TrimSpaceFunctionBase<T, false, true> {};
 
+/// substr(string, start) -> varchar
+///
+///     Returns the rest of string from the starting position start.
+///     Positions start with 1. A negative starting position is interpreted as
+///     being relative to the end of the string. When the starting position is
+///     0, the meaning is to refer to the first character.
+
+///
+/// substr(string, start, length) -> varchar
+///
+///     Returns a substring from string of length length from the
+///     starting position start. Positions start with 1. A negative starting
+///     position is interpreted as being relative to the end of the string.
+///     When the starting position is 0, the meaning is to refer to the
+///     first character.
+template <typename T>
+struct SubstrFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // Results refer to strings in the first argument.
+  static constexpr int32_t reuse_strings_from_arg = 0;
+
+  // ASCII input always produces ASCII result.
+  static constexpr bool is_default_ascii_behavior = true;
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      int32_t start,
+      int32_t length = std::numeric_limits<int32_t>::max()) {
+    doCall<false>(result, input, start, length);
+  }
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      int32_t start,
+      int32_t length = std::numeric_limits<int32_t>::max()) {
+    doCall<true>(result, input, start, length);
+  }
+
+  template <bool isAscii>
+  FOLLY_ALWAYS_INLINE void doCall(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      int32_t start,
+      int32_t length = std::numeric_limits<int32_t>::max()) {
+    if (length <= 0) {
+      result.setEmpty();
+      return;
+    }
+    // Following Spark semantics
+    if (start == 0) {
+      start = 1;
+    }
+
+    int32_t numCharacters = stringImpl::length<isAscii>(input);
+
+    // negative starting position
+    if (start < 0) {
+      start = numCharacters + start + 1;
+    }
+
+    // Adjusting last
+    int32_t last;
+    bool lastOverflow = __builtin_add_overflow(start, length - 1, &last);
+    if (lastOverflow || last > numCharacters) {
+      last = numCharacters;
+    }
+
+    // Following Spark semantics
+    if (start <= 0) {
+      start = 1;
+    }
+
+    // Adjusting length
+    length = last - start + 1;
+    if (length <= 0) {
+      result.setEmpty();
+      return;
+    }
+
+    auto byteRange =
+        stringCore::getByteRange<isAscii>(input.data(), start, length);
+
+    // Generating output string
+    result.setNoCopy(StringView(
+        input.data() + byteRange.first, byteRange.second - byteRange.first));
+  }
+};
+
 } // namespace facebook::velox::functions::sparksql
