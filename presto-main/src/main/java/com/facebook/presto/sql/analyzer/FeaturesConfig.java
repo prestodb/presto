@@ -90,6 +90,7 @@ public class FeaturesConfig
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
     private boolean usePerfectlyConsistentHistories;
+    private int historyCanonicalPlanNodeLimit = 1000;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -781,6 +782,20 @@ public class FeaturesConfig
     public FeaturesConfig setUsePerfectlyConsistentHistories(boolean usePerfectlyConsistentHistories)
     {
         this.usePerfectlyConsistentHistories = usePerfectlyConsistentHistories;
+        return this;
+    }
+
+    @Min(0)
+    public int getHistoryCanonicalPlanNodeLimit()
+    {
+        return historyCanonicalPlanNodeLimit;
+    }
+
+    @Config("optimizer.history-canonical-plan-node-limit")
+    @ConfigDescription("Use history based optimizations only when number of nodes in canonical plan is within this limit. Size of canonical plan can become much larger than original plan leading to increased planning time, particularly in cases when limiting nodes like LimitNode, TopNNode etc. are present.")
+    public FeaturesConfig setHistoryCanonicalPlanNodeLimit(int historyCanonicalPlanNodeLimit)
+    {
+        this.historyCanonicalPlanNodeLimit = historyCanonicalPlanNodeLimit;
         return this;
     }
 
