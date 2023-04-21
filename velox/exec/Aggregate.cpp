@@ -15,6 +15,9 @@
  */
 
 #include "velox/exec/Aggregate.h"
+
+#include <unordered_map>
+#include "velox/exec/AggregateCompanionAdapter.h"
 #include "velox/exec/AggregateWindow.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
@@ -36,9 +39,8 @@ AggregateFunctionMap& aggregateFunctions() {
   return functions;
 }
 
-namespace {
-std::optional<const AggregateFunctionEntry*> getAggregateFunctionEntry(
-    const std::string& name) {
+const AggregateFunctionEntry* FOLLY_NULLABLE
+getAggregateFunctionEntry(const std::string& name) {
   auto sanitizedName = sanitizeName(name);
 
   auto& functionsMap = aggregateFunctions();
@@ -46,22 +48,28 @@ std::optional<const AggregateFunctionEntry*> getAggregateFunctionEntry(
   if (it != functionsMap.end()) {
     return &it->second;
   }
-
-  return std::nullopt;
+  return nullptr;
 }
-} // namespace
 
 bool registerAggregateFunction(
     const std::string& name,
     std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
-    AggregateFunctionFactory factory) {
+    AggregateFunctionFactory factory,
+    bool registerCompanionFunctions) {
   auto sanitizedName = sanitizeName(name);
 
-  aggregateFunctions()[sanitizedName] = {
-      std::move(signatures), std::move(factory)};
+  aggregateFunctions()[sanitizedName] = {signatures, std::move(factory)};
 
   // Register the aggregate as a window function also.
   registerAggregateWindowFunction(sanitizedName);
+
+  // Register companion function if needed.
+  if (registerCompanionFunctions) {
+    CompanionFunctionsRegistrar::registerPartialFunction(name, signatures);
+    CompanionFunctionsRegistrar::registerMergeFunction(name, signatures);
+    CompanionFunctionsRegistrar::registerExtractFunction(name, signatures);
+    CompanionFunctionsRegistrar::registerMergeExtractFunction(name, signatures);
+  }
   return true;
 }
 
@@ -83,7 +91,7 @@ getAggregateFunctionSignatures() {
 std::optional<std::vector<std::shared_ptr<AggregateFunctionSignature>>>
 getAggregateFunctionSignatures(const std::string& name) {
   if (auto func = getAggregateFunctionEntry(name)) {
-    return func.value()->signatures;
+    return func->signatures;
   }
 
   return std::nullopt;
@@ -96,7 +104,7 @@ std::unique_ptr<Aggregate> Aggregate::create(
     const TypePtr& resultType) {
   // Lookup the function in the new registry first.
   if (auto func = getAggregateFunctionEntry(name)) {
-    return func.value()->factory(step, argTypes, resultType);
+    return func->factory(step, argTypes, resultType);
   }
 
   VELOX_USER_FAIL("Aggregate function not registered: {}", name);
@@ -121,7 +129,7 @@ TypePtr Aggregate::intermediateType(
   VELOX_FAIL("Could not infer intermediate type for aggregate {}", name);
 }
 
-int32_t Aggregate::combineAlignment(int32_t otherAlignment) const {
+int32_t Aggregate::combineAlignmentInternal(int32_t otherAlignment) const {
   auto thisAlignment = accumulatorAlignmentSize();
   VELOX_CHECK_EQ(
       __builtin_popcount(thisAlignment), 1, "Alignment can only be power of 2");
@@ -130,6 +138,25 @@ int32_t Aggregate::combineAlignment(int32_t otherAlignment) const {
       1,
       "Alignment can only be power of 2");
   return std::max(thisAlignment, otherAlignment);
+}
+
+void Aggregate::setAllocatorInternal(HashStringAllocator* allocator) {
+  allocator_ = allocator;
+}
+
+void Aggregate::setOffsetsInternal(
+    int32_t offset,
+    int32_t nullByte,
+    uint8_t nullMask,
+    int32_t rowSizeOffset) {
+  nullByte_ = nullByte;
+  nullMask_ = nullMask;
+  offset_ = offset;
+  rowSizeOffset_ = rowSizeOffset;
+}
+
+void Aggregate::clearInternal() {
+  numNulls_ = 0;
 }
 
 } // namespace facebook::velox::exec

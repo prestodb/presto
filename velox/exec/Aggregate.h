@@ -17,6 +17,7 @@
 
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/core/PlanNode.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/vector/BaseVector.h"
 
 namespace facebook::velox::exec {
@@ -55,7 +56,9 @@ class Aggregate {
 
   /// Return an alignment that satisfies both the accumulator alignment
   /// requirement of this function and the alignment passed in.
-  int32_t combineAlignment(int32_t alignment) const;
+  int32_t combineAlignment(int32_t alignment) const {
+    return combineAlignmentInternal(alignment);
+  }
 
   // Return true if accumulator is allocated from external memory, e.g. memory
   // not managed by Velox.
@@ -76,7 +79,7 @@ class Aggregate {
   }
 
   void setAllocator(HashStringAllocator* allocator) {
-    allocator_ = allocator;
+    setAllocatorInternal(allocator);
   }
 
   // Sets the offset and null indicator position of 'this'.
@@ -92,10 +95,7 @@ class Aggregate {
       int32_t nullByte,
       uint8_t nullMask,
       int32_t rowSizeOffset) {
-    nullByte_ = nullByte;
-    nullMask_ = nullMask;
-    offset_ = offset;
-    rowSizeOffset_ = rowSizeOffset;
+    setOffsetsInternal(offset, nullByte, nullMask, rowSizeOffset);
   }
 
   // Initializes null flags and accumulators for newly encountered groups.  This
@@ -209,7 +209,7 @@ class Aggregate {
   // the aggregation operator's state after flushing a partial
   // aggregation.
   void clear() {
-    numNulls_ = 0;
+    clearInternal();
   }
 
   static std::unique_ptr<Aggregate> create(
@@ -225,6 +225,21 @@ class Aggregate {
       const std::vector<TypePtr>& argTypes);
 
  protected:
+  // The following internal function should not be overriden by any user-defined
+  // aggregation function. They shall only be overridden by
+  // AggregateCompanionAdapter.
+  virtual int32_t combineAlignmentInternal(int32_t otherAlignment) const;
+
+  virtual void setAllocatorInternal(HashStringAllocator* allocator);
+
+  virtual void setOffsetsInternal(
+      int32_t offset,
+      int32_t nullByte,
+      uint8_t nullMask,
+      int32_t rowSizeOffset);
+
+  virtual void clearInternal();
+
   // Shorthand for maintaining accumulator variable length size in
   // accumulator update methods. Use like: { auto tracker =
   // trackRowSize(group); update(group); }
@@ -324,11 +339,14 @@ using AggregateFunctionFactory = std::function<std::unique_ptr<Aggregate>(
     const std::vector<TypePtr>& argTypes,
     const TypePtr& resultType)>;
 
-/// Register an aggregate function with the specified name and signatures.
+/// Register an aggregate function with the specified name and signatures. If
+/// registerCompanionFunctions is true, also register companion aggregate and
+/// scalar functions with it.
 bool registerAggregateFunction(
     const std::string& name,
     std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
-    AggregateFunctionFactory factory);
+    AggregateFunctionFactory factory,
+    bool registerCompanionFunctions = false);
 
 /// Returns signatures of the aggregate function with the specified name.
 /// Returns empty std::optional if function with that name is not found.
@@ -352,4 +370,8 @@ using AggregateFunctionMap =
     std::unordered_map<std::string, AggregateFunctionEntry>;
 
 AggregateFunctionMap& aggregateFunctions();
+
+const AggregateFunctionEntry* FOLLY_NULLABLE
+getAggregateFunctionEntry(const std::string& name);
+
 } // namespace facebook::velox::exec

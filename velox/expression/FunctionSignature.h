@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <boost/algorithm/string.hpp>
 #include <memory>
 #include <optional>
 #include <string>
@@ -28,7 +29,7 @@ namespace facebook::velox::exec {
 std::string sanitizeName(const std::string& name);
 
 inline bool isCommonDecimalName(const std::string& typeName) {
-  return (typeName == "DECIMAL");
+  return boost::iequals(typeName, "DECIMAL");
 }
 
 /// Return a list of primitive type names.
@@ -131,6 +132,8 @@ class FunctionSignature {
       std::vector<bool> constantArguments,
       bool variableArity);
 
+  virtual ~FunctionSignature() = default;
+
   const TypeSignature& returnType() const {
     return returnType_;
   }
@@ -147,7 +150,7 @@ class FunctionSignature {
     return variableArity_;
   }
 
-  std::string toString() const;
+  virtual std::string toString() const;
 
   const auto& variables() const {
     return variables_;
@@ -196,6 +199,9 @@ class AggregateFunctionSignature : public FunctionSignature {
  private:
   const TypeSignature intermediateType_;
 };
+
+using AggregateFunctionSignaturePtr =
+    std::shared_ptr<AggregateFunctionSignature>;
 
 namespace {
 
