@@ -386,9 +386,7 @@ TEST_F(PartitionedOutputBufferManagerTest, setQueueErrorWithPendingPages) {
   std::memcpy(iobuf->writableData(), payload.data(), payloadSize);
   iobuf->append(payloadSize);
 
-  auto pool = memory::addDefaultLeafMemoryPool();
-  auto page = std::make_unique<SerializedPage>(std::move(iobuf), pool.get());
-  ASSERT_EQ(payloadSize, pool->getCurrentBytes());
+  auto page = std::make_unique<SerializedPage>(std::move(iobuf));
 
   auto queue = std::make_shared<ExchangeQueue>(1 << 20);
   std::vector<ContinuePromise> promises;
@@ -399,52 +397,11 @@ TEST_F(PartitionedOutputBufferManagerTest, setQueueErrorWithPendingPages) {
 
   queue->setError("error");
 
-  pool.reset();
-
   // Expect a throw on dequeue after the queue has been set error.
   ContinueFuture future;
   bool atEnd = false;
   ASSERT_THROW(
       auto page = queue->dequeueLocked(&atEnd, &future), std::runtime_error);
-}
-
-TEST_F(PartitionedOutputBufferManagerTest, serializedPage) {
-  const uint64_t kBufferSize = 128;
-  // IOBuf managed memory case
-  {
-    auto iobuf = folly::IOBuf::create(kBufferSize);
-    std::string payload = "abcdefghijklmnopq";
-    size_t payloadSize = payload.size();
-    std::memcpy(iobuf->writableData(), payload.data(), payloadSize);
-    iobuf->append(payloadSize);
-
-    EXPECT_EQ(0, pool_->getCurrentBytes());
-    {
-      auto serializedPage =
-          std::make_shared<SerializedPage>(std::move(iobuf), pool_.get());
-      EXPECT_EQ(payloadSize, pool_->getCurrentBytes());
-    }
-    EXPECT_EQ(0, pool_->getCurrentBytes());
-  }
-
-  // External managed memory case
-  {
-    auto allocator = memory::MemoryAllocator::getInstance();
-    void* buffer = allocator->allocateBytes(kBufferSize);
-    auto iobuf = folly::IOBuf::wrapBuffer(buffer, kBufferSize);
-    std::string payload = "abcdefghijklmnopq";
-    std::memcpy(iobuf->writableData(), payload.data(), payload.size());
-
-    EXPECT_EQ(0, pool_->getCurrentBytes());
-    {
-      auto serializedPage = std::make_shared<SerializedPage>(
-          std::move(iobuf), pool_.get(), [allocator, kBufferSize](auto& iobuf) {
-            allocator->freeBytes(iobuf.writableData(), kBufferSize);
-          });
-      EXPECT_EQ(kBufferSize, pool_->getCurrentBytes());
-    }
-    EXPECT_EQ(0, pool_->getCurrentBytes());
-  }
 }
 
 TEST_F(PartitionedOutputBufferManagerTest, getDataOnFailedTask) {

@@ -36,7 +36,6 @@ HashAggregation::HashAggregation(
       isPartialOutput_(isPartialOutput(aggregationNode->step())),
       isDistinct_(aggregationNode->aggregates().empty()),
       isGlobal_(aggregationNode->groupingKeys().empty()),
-      memoryTracker_(operatorCtx_->pool()->getMemoryUsageTracker()),
       maxExtendedPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxExtendedPartialAggregationMemoryUsage()),
       spillConfig_(
@@ -45,7 +44,7 @@ HashAggregation::HashAggregation(
               : std::nullopt),
       maxPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxPartialAggregationMemoryUsage()) {
-  VELOX_CHECK_NOT_NULL(memoryTracker_, "Memory usage tracker is not set");
+  VELOX_CHECK(pool()->trackUsage());
   auto inputType = aggregationNode->sources()[0]->outputType();
 
   auto numHashers = aggregationNode->groupingKeys().size();
@@ -254,7 +253,7 @@ void HashAggregation::maybeIncreasePartialAggregationMemoryUsage(
   const int64_t memoryToReserve = std::max<int64_t>(
       0,
       extendedPartialAggregationMemoryUsage - groupingSet_->allocatedBytes());
-  if (!memoryTracker_->maybeReserve(memoryToReserve)) {
+  if (!pool()->maybeReserve(memoryToReserve)) {
     return;
   }
   // Update the aggregation memory usage size limit on memory reservation

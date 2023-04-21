@@ -144,20 +144,7 @@ Operator::Operator(
           driverCtx->pipelineId,
           std::move(planNodeId),
           std::move(operatorType)}),
-      outputType_(std::move(outputType)) {
-  auto memoryUsageTracker = pool()->getMemoryUsageTracker();
-  if (memoryUsageTracker) {
-    memoryUsageTracker->setMakeMemoryCapExceededMessage(
-        [&](memory::MemoryUsageTracker& tracker) {
-          VELOX_DCHECK(pool()->getMemoryUsageTracker().get() == &tracker);
-          std::stringstream out;
-          out << "\nFailed Operator: " << this->operatorType() << "."
-              << this->operatorId() << ": "
-              << succinctBytes(tracker.currentBytes());
-          return out.str();
-        });
-  }
-}
+      outputType_(std::move(outputType)) {}
 
 std::vector<std::unique_ptr<Operator::PlanNodeTranslator>>&
 Operator::translators() {

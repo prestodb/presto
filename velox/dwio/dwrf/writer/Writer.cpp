@@ -506,7 +506,7 @@ void Writer::flushStripe(bool close) {
       context.getMemoryUsage(MemoryUsageCategory::DICTIONARY);
   metrics.dictionaryMemory = dictionaryDataMemoryUsage.getCurrentBytes();
   // TODO: what does this try to capture?
-  metrics.maxDictSize = dictionaryDataMemoryUsage.getMaxBytes();
+  metrics.maxDictSize = dictionaryDataMemoryUsage.stats().peakBytes;
 
   metrics.stripeIndex = context.stripeIndex;
   metrics.rawStripeSize = context.stripeRawSize;

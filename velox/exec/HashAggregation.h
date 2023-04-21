@@ -67,7 +67,6 @@ class HashAggregation : public Operator {
   const bool isPartialOutput_;
   const bool isDistinct_;
   const bool isGlobal_;
-  const std::shared_ptr<memory::MemoryUsageTracker> memoryTracker_;
   const int64_t maxExtendedPartialAggregationMemoryUsage_;
   const std::optional<Spiller::Config> spillConfig_;
 

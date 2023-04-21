@@ -27,7 +27,6 @@
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/memory/Allocation.h"
-#include "velox/common/memory/MemoryUsageTracker.h"
 #include "velox/common/time/Timer.h"
 
 DECLARE_bool(velox_use_malloc);

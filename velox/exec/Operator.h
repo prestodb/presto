@@ -46,16 +46,14 @@ struct MemoryStats {
   uint64_t peakTotalMemoryReservation{0};
   uint64_t numMemoryAllocations{0};
 
-  void update(const std::shared_ptr<memory::MemoryUsageTracker>& tracker) {
-    if (tracker == nullptr) {
-      return;
-    }
-    userMemoryReservation = tracker->currentBytes();
+  void update(memory::MemoryPool* pool) {
+    const memory::MemoryPool::Stats stats = pool->stats();
+    userMemoryReservation = stats.currentBytes;
     systemMemoryReservation = 0;
-    peakUserMemoryReservation = tracker->peakBytes();
+    peakUserMemoryReservation = stats.peakBytes;
     peakSystemMemoryReservation = 0;
-    peakTotalMemoryReservation = tracker->peakBytes();
-    numMemoryAllocations = tracker->numAllocs();
+    peakTotalMemoryReservation = stats.peakBytes;
+    numMemoryAllocations = stats.numAllocs;
   }
 
   void add(const MemoryStats& other) {
@@ -381,10 +379,8 @@ class Operator : public BaseRuntimeStatWriter {
   virtual void close() {
     input_ = nullptr;
     results_.clear();
-    if (operatorCtx_->pool()->getMemoryUsageTracker() != nullptr) {
-      // Release the unused memory reservation on close.
-      operatorCtx_->pool()->getMemoryUsageTracker()->release();
-    }
+    // Release the unused memory reservation on close.
+    operatorCtx_->pool()->release();
   }
 
   // Returns true if 'this' never has more output rows than input rows.

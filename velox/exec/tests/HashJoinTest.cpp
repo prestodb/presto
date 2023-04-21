@@ -3386,10 +3386,9 @@ TEST_F(HashJoinTest, memory) {
                         .singleAggregation({}, {"sum(k1)", "sum(k2)"})
                         .planNode();
   params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
-  auto tracker = params.queryCtx->pool()->getMemoryUsageTracker();
   auto [taskCursor, rows] = readCursor(params, [](Task*) {});
-  EXPECT_GT(3'500, tracker->numAllocs());
-  EXPECT_GT(7'500'000, tracker->cumulativeBytes());
+  EXPECT_GT(3'500, params.queryCtx->pool()->stats().numAllocs);
+  EXPECT_GT(7'500'000, params.queryCtx->pool()->stats().cumulativeBytes);
 }
 
 TEST_F(HashJoinTest, lazyVectors) {
@@ -4312,7 +4311,7 @@ TEST_F(HashJoinTest, memoryUsage) {
         // Verify number of memory allocations. Should not be too high if
         // hash join is able to re-use output vectors that contain
         // build-side data.
-        ASSERT_GT(40, task->pool()->getMemoryUsageTracker()->numAllocs());
+        ASSERT_GT(40, task->pool()->stats().numAllocs);
       })
       .run();
 }
@@ -4444,11 +4443,9 @@ DEBUG_ONLY_TEST_F(HashJoinTest, buildReservationReleaseCheck) {
   // Set up a testvalue to trigger task abort when hash build tries to reserve
   // memory.
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::MemoryUsageTracker::maybeReserve",
-      std::function<void(memory::MemoryUsageTracker*)>(
-          [&](memory::MemoryUsageTracker* /*unused*/) {
-            task->requestAbort();
-          }));
+      "facebook::velox::memory::MemoryPoolImpl::maybeReserve",
+      std::function<void(memory::MemoryPool*)>(
+          [&](memory::MemoryPool* /*unused*/) { task->requestAbort(); }));
   auto runTask = [&]() {
     while (cursor->moveNext()) {
     }

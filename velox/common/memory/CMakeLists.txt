@@ -25,10 +25,8 @@ add_library(
   MemoryAllocator.cpp
   MemoryArbitrator.cpp
   MemoryPool.cpp
-  MemoryUsage.cpp
   MmapAllocator.cpp
   MmapArena.cpp
-  MemoryUsageTracker.cpp
   StreamArena.cpp)
 
 target_link_libraries(

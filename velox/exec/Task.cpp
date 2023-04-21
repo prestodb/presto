@@ -189,16 +189,7 @@ Task::Task(
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
       splitsStates_(buildSplitStates(planFragment_.planNode)),
-      bufferManager_(PartitionedOutputBufferManager::getInstance()) {
-  auto memoryUsageTracker = pool_->getMemoryUsageTracker();
-  if (memoryUsageTracker) {
-    memoryUsageTracker->setMakeMemoryCapExceededMessage(
-        [&](memory::MemoryUsageTracker& tracker) {
-          VELOX_DCHECK(pool()->getMemoryUsageTracker().get() == &tracker);
-          return this->getErrorMsgOnMemCapExceeded(tracker);
-        });
-  }
-}
+      bufferManager_(PartitionedOutputBufferManager::getInstance()) {}
 
 Task::~Task() {
   try {
@@ -2108,157 +2099,6 @@ std::shared_ptr<ExchangeClient> Task::getExchangeClientLocked(
   return exchangeClients_[pipelineId];
 }
 
-namespace {
-// Describes memory usage stats of a Memory Pool (optionally aggregated).
-struct MemoryUsage {
-  int64_t totalBytes{0};
-  int64_t minBytes{std::numeric_limits<int64_t>::max()};
-  int64_t maxBytes{0};
-  size_t numEntries{0};
-
-  void update(int64_t bytes) {
-    maxBytes = std::max(maxBytes, bytes);
-    minBytes = std::min(minBytes, bytes);
-    totalBytes += bytes;
-    ++numEntries;
-  }
-
-  void toString(std::stringstream& out, const char* entriesName = "entries")
-      const {
-    out << succinctBytes(totalBytes) << " in " << numEntries << " "
-        << entriesName << ", min " << succinctBytes(minBytes) << ", max "
-        << succinctBytes(maxBytes);
-  }
-};
-
-// Aggregated memory usage stats of a single task plan node memory pool.
-struct NodeMemoryUsage {
-  MemoryUsage total;
-  std::unordered_map<std::string, MemoryUsage> operators;
-};
-
-// Aggregated memory usage stats of a single Task Pipeline Memory Pool.
-struct TaskMemoryUsage {
-  std::string taskId;
-  MemoryUsage total;
-  // The map from node id to its collected memory usage.
-  std::map<std::string, NodeMemoryUsage> nodes;
-
-  void toString(std::stringstream& out) const {
-    // Using 4 spaces for indent in the output.
-    out << "\n    ";
-    out << taskId;
-    out << ": ";
-    total.toString(out, "nodes");
-    for (const auto& [nodeId, nodeMemoryUsage] : nodes) {
-      out << "\n        ";
-      out << nodeId;
-      out << ": ";
-      nodeMemoryUsage.total.toString(out, "operators");
-      for (const auto& it : nodeMemoryUsage.operators) {
-        out << "\n            ";
-        out << it.first;
-        out << ": ";
-        it.second.toString(out, "instances");
-      }
-    }
-  }
-};
-
-void collectOperatorMemoryUsage(
-    NodeMemoryUsage& nodeMemoryUsage,
-    memory::MemoryPool* operatorPool) {
-  const auto numBytes = operatorPool->getMemoryUsageTracker()->currentBytes();
-  nodeMemoryUsage.total.update(numBytes);
-  auto& operatorMemoryUsage = nodeMemoryUsage.operators[operatorPool->name()];
-  operatorMemoryUsage.update(numBytes);
-}
-
-void collectNodeMemoryUsage(
-    TaskMemoryUsage& taskMemoryUsage,
-    memory::MemoryPool* nodePool) {
-  // Update task's stats from each node.
-  taskMemoryUsage.total.update(
-      nodePool->getMemoryUsageTracker()->currentBytes());
-
-  // NOTE: we use a plan node id as the node memory pool's name.
-  const auto& poolName = nodePool->name();
-  auto& nodeMemoryUsage = taskMemoryUsage.nodes[poolName];
-
-  // Run through the node's child operator pools and update the memory usage.
-  nodePool->visitChildren([&nodeMemoryUsage](memory::MemoryPool* operatorPool) {
-    collectOperatorMemoryUsage(nodeMemoryUsage, operatorPool);
-    return true;
-  });
-}
-
-void collectTaskMemoryUsage(
-    TaskMemoryUsage& taskMemoryUsage,
-    memory::MemoryPool* taskPool) {
-  taskMemoryUsage.taskId = taskPool->name();
-  taskPool->visitChildren([&taskMemoryUsage](memory::MemoryPool* nodePool) {
-    collectNodeMemoryUsage(taskMemoryUsage, nodePool);
-    return true;
-  });
-}
-
-std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
-  // Collect the memory usage numbers from query's tasks, nodes and operators.
-  std::vector<TaskMemoryUsage> taskMemoryUsages;
-  taskMemoryUsages.reserve(queryPool->getChildCount());
-  queryPool->visitChildren([&taskMemoryUsages](memory::MemoryPool* taskPool) {
-    taskMemoryUsages.emplace_back(TaskMemoryUsage{});
-    collectTaskMemoryUsage(taskMemoryUsages.back(), taskPool);
-    return true;
-  });
-
-  // We will collect each operator's aggregated memory usage to later show the
-  // largest memory consumers.
-  struct TopMemoryUsage {
-    int64_t totalBytes;
-    std::string description;
-  };
-  std::vector<TopMemoryUsage> topOperatorMemoryUsages;
-
-  // Build the query memory use tree (task->node->operator).
-  std::stringstream out;
-  out << "\n";
-  out << queryPool->name();
-  out << ": total: ";
-  out << succinctBytes(queryPool->getMemoryUsageTracker()->currentBytes());
-  for (const auto& taskMemoryUsage : taskMemoryUsages) {
-    taskMemoryUsage.toString(out);
-    // Collect each operator's memory usage into the vector.
-    for (const auto& [nodeId, nodeMemUsage] : taskMemoryUsage.nodes) {
-      for (const auto& it : nodeMemUsage.operators) {
-        const MemoryUsage& operatorMemoryUsage = it.second;
-        // Ignore operators with zero memory for top memory users.
-        if (operatorMemoryUsage.totalBytes > 0) {
-          topOperatorMemoryUsages.emplace_back(TopMemoryUsage{
-              operatorMemoryUsage.totalBytes,
-              fmt::format(
-                  "{}.{}.{}", taskMemoryUsage.taskId, nodeId, it.first)});
-        }
-      }
-    }
-  }
-
-  // Sort and show top memory users.
-  out << "\nTop operator memory usages:";
-  std::sort(
-      topOperatorMemoryUsages.begin(),
-      topOperatorMemoryUsages.end(),
-      [](const TopMemoryUsage& left, const TopMemoryUsage& right) {
-        return left.totalBytes > right.totalBytes;
-      });
-  for (const auto& top : topOperatorMemoryUsages) {
-    out << "\n    " << top.description << ": " << succinctBytes(top.totalBytes);
-  }
-
-  return out.str();
-}
-} // namespace
-
 std::shared_ptr<SpillOperatorGroup> Task::getSpillOperatorGroupLocked(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
@@ -2272,11 +2112,6 @@ std::shared_ptr<SpillOperatorGroup> Task::getSpillOperatorGroupLocked(
       planNodeId,
       splitGroupId);
   return group;
-}
-
-std::string Task::getErrorMsgOnMemCapExceeded(
-    memory::MemoryUsageTracker& /*tracker*/) {
-  return getQueryMemoryUsageString(queryCtx()->pool());
 }
 
 // static

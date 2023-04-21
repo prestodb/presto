@@ -545,7 +545,7 @@ void Driver::initializeOperatorStats(std::vector<OperatorStats>& stats) {
 void Driver::addStatsToTask() {
   for (auto& op : operators_) {
     auto stats = op->stats(true);
-    stats.memoryStats.update(op->pool()->getMemoryUsageTracker());
+    stats.memoryStats.update(op->pool());
     stats.numDrivers = 1;
     task()->addOperatorStats(stats);
   }

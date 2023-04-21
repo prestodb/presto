@@ -44,6 +44,7 @@ OrderBy::OrderBy(
           orderByNode->canSpill(driverCtx->queryConfig())
               ? operatorCtx_->makeSpillConfig(Spiller::Type::kOrderBy)
               : std::nullopt) {
+  VELOX_CHECK(pool()->trackUsage());
   std::vector<TypePtr> keyTypes;
   std::vector<TypePtr> dependentTypes;
   std::vector<TypePtr> types;
@@ -153,9 +154,7 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
     return;
   }
 
-  auto tracker = pool()->getMemoryUsageTracker();
-  VELOX_CHECK_NOT_NULL(tracker);
-  const auto currentUsage = tracker->currentBytes();
+  const auto currentUsage = pool()->getCurrentBytes();
   if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
     const int64_t bytesToSpill =
         currentUsage * spillConfig.spillableReservationGrowthPct / 100;
@@ -182,7 +181,7 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
       data_->sizeIncrement(input->size(), outOfLineBytes ? flatInputBytes : 0);
 
   // There must be at least 2x the increment in reservation.
-  if (tracker->availableReservation() > 2 * incrementBytes) {
+  if (pool()->availableReservation() > 2 * incrementBytes) {
     return;
   }
 
@@ -192,7 +191,7 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
   const auto targetIncrementBytes = std::max<int64_t>(
       incrementBytes * 2,
       currentUsage * spillConfig.spillableReservationGrowthPct / 100);
-  if (tracker->maybeReserve(targetIncrementBytes)) {
+  if (pool()->maybeReserve(targetIncrementBytes)) {
     return;
   }
   const int64_t rowsToSpill = std::max<int64_t>(
@@ -208,7 +207,6 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
   VELOX_CHECK_GE(targetBytes, 0);
 
   if (spiller_ == nullptr) {
-    VELOX_DCHECK_NOT_NULL(pool()->getMemoryUsageTracker());
     const auto& spillConfig = spillConfig_.value();
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kOrderBy,

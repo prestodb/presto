@@ -40,7 +40,6 @@
 #include "velox/common/memory/Allocation.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MemoryPool.h"
-#include "velox/common/memory/MemoryUsage.h"
 
 DECLARE_int32(memory_usage_aggregation_interval_millis);
 DECLARE_bool(velox_memory_leak_check_enabled);

@@ -29,14 +29,20 @@ class SerializedPage {
  public:
   static constexpr int kSerializedPageOwner = -11;
 
-  // Construct from IOBuf chain. The external memory usage of 'iobuf' will be
-  // tracked if 'pool' is not null.
-  //
-  // TODO: consider to enforce setting memory pool if possible.
+  // Construct from IOBuf chain.
+  explicit SerializedPage(
+      std::unique_ptr<folly::IOBuf> iobuf,
+      std::function<void(folly::IOBuf&)> onDestructionCb = nullptr);
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   explicit SerializedPage(
       std::unique_ptr<folly::IOBuf> iobuf,
       memory::MemoryPool* pool = nullptr,
-      std::function<void(folly::IOBuf&)> onDestructionCb = nullptr);
+      std::function<void(folly::IOBuf&)> onDestructionCb = nullptr)
+      : SerializedPage(std::move(iobuf), std::move(onDestructionCb)) {
+    VELOX_CHECK_NULL(pool);
+  }
+#endif
 
   ~SerializedPage();
 
@@ -70,7 +76,6 @@ class SerializedPage {
 
   // Number of payload bytes in 'iobuf_'.
   const int64_t iobufBytes_;
-  memory::MemoryPool* pool_;
 
   // Callback that will be called on destruction of the SerializedPage,
   // primarily used to free externally allocated memory backing folly::IOBuf

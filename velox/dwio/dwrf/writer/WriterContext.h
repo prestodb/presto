@@ -244,9 +244,7 @@ class WriterContext : public CompressionBufferPool {
   }
 
   int64_t getMemoryBudget() const {
-    auto memoryUsageTracker = pool_->getMemoryUsageTracker();
-    return memoryUsageTracker ? memoryUsageTracker->maxMemory()
-                              : std::numeric_limits<int64_t>::max();
+    return pool_->capacity();
   }
 
   const encryption::EncryptionHandler& getEncryptionHandler() const {

@@ -23,16 +23,11 @@ namespace facebook::velox::exec {
 
 SerializedPage::SerializedPage(
     std::unique_ptr<folly::IOBuf> iobuf,
-    memory::MemoryPool* pool,
     std::function<void(folly::IOBuf&)> onDestructionCb)
     : iobuf_(std::move(iobuf)),
       iobufBytes_(chainBytes(*iobuf_.get())),
-      pool_(pool),
       onDestructionCb_(onDestructionCb) {
   VELOX_CHECK_NOT_NULL(iobuf_);
-  if (pool_ != nullptr) {
-    pool_->reserve(iobufBytes_);
-  }
   for (auto& buf : *iobuf_) {
     int32_t bufSize = buf.size();
     ranges_.push_back(ByteRange{
@@ -45,10 +40,6 @@ SerializedPage::SerializedPage(
 SerializedPage::~SerializedPage() {
   if (onDestructionCb_) {
     onDestructionCb_(*iobuf_.get());
-  }
-  if (pool_) {
-    // Release the tracked memory consumption for the query
-    pool_->release(iobufBytes_);
   }
 }
 
@@ -128,7 +119,7 @@ class LocalExchangeSource : public ExchangeSource {
             }
             inputPage->unshare();
             pages.push_back(
-                std::make_unique<SerializedPage>(std::move(inputPage), pool_));
+                std::make_unique<SerializedPage>(std::move(inputPage)));
             inputPage = nullptr;
           }
           numPages_ += pages.size();

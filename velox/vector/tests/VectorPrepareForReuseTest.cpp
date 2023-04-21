@@ -28,28 +28,27 @@ class VectorPrepareForReuseTest : public testing::Test,
 class MemoryAllocationChecker {
  public:
   explicit MemoryAllocationChecker(memory::MemoryPool* pool)
-      : tracker_{pool->getMemoryUsageTracker().get()},
-        numAllocations_{tracker_->numAllocs()} {}
+      : pool_{pool}, numAllocations_{pool_->stats().numAllocs} {}
 
   bool assertOne() {
-    bool ok = numAllocations_ + 1 == tracker_->numAllocs();
-    numAllocations_ = tracker_->numAllocs();
+    bool ok = numAllocations_ + 1 == pool_->stats().numAllocs;
+    numAllocations_ = pool_->stats().numAllocs;
     return ok;
   }
 
   bool assertAtLeastOne() {
-    bool ok = numAllocations_ < tracker_->numAllocs();
-    numAllocations_ = tracker_->numAllocs();
+    bool ok = numAllocations_ < pool_->stats().numAllocs;
+    numAllocations_ = pool_->stats().numAllocs;
     return ok;
   }
 
   ~MemoryAllocationChecker() {
-    EXPECT_EQ(numAllocations_, tracker_->numAllocs());
+    EXPECT_EQ(numAllocations_, pool_->stats().numAllocs);
   }
 
  private:
-  memory::MemoryUsageTracker* tracker_;
-  int64_t numAllocations_;
+  memory::MemoryPool* const pool_;
+  uint64_t numAllocations_;
 };
 
 TEST_F(VectorPrepareForReuseTest, strings) {

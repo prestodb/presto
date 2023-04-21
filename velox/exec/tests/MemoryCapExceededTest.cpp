@@ -35,19 +35,19 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
   // We look for these lines separately, since their order can change (not sure
   // why).
   std::array<std::string, 14> expectedTexts = {
-      "Exceeded memory cap of 5.00MB when requesting 2.00MB.",
-      "node.0: 0B in 1 operators, min 0B, max 0B",
-      "op.0.0.0.Values: 0B in 1 instances, min 0B, max 0B",
-      "node.1: 12.00KB in 1 operators, min 12.00KB, max 12.00KB",
-      "op.1.0.0.FilterProject: 12.00KB in 1 instances, min 12.00KB, max 12.00KB",
-      "node.2: 3.77MB in 1 operators, min 3.77MB, max 3.77MB",
-      "op.2.0.0.Aggregation: 3.77MB in 1 instances, min 3.77MB, max 3.77MB",
-      "node.3: 0B in 1 operators, min 0B, max 0B",
-      "op.3.0.0.OrderBy: 0B in 1 instances, min 0B, max 0B",
-      "node.N/A: 0B in 1 operators, min 0B, max 0B",
-      "op.N/A.0.0.CallbackSink: 0B in 1 instances, min 0B, max 0B",
-      "Top operator memory usages:",
-      "Failed Operator: Aggregation.2: 3.77MB"};
+      "Exceeded memory cap of 5.00MB when requesting 2.00MB",
+      "node.0 usage 0B peak 0B",
+      "op.0.0.0.Values usage 0B peak 0B",
+      "node.1 usage 1.00MB peak 1.00MB",
+      "op.1.0.0.FilterProject usage 12.00KB peak 12.00KB",
+      "node.2 usage 4.00MB peak 4.00MB",
+      "op.2.0.0.Aggregation usage 3.77MB peak 3.77MB",
+      "node.3 usage 0B peak 0B",
+      "op.3.0.0.OrderBy usage 0B peak 0B",
+      "node.N/A usage 0B peak 0B",
+      "op.N/A.0.0.CallbackSink usage 0B peak 0B",
+      "Top 5 leaf memory pool usages:",
+      "Failed memory pool: op.2.0.0.Aggregation: 3.77MB"};
 
   std::vector<RowVectorPtr> data;
   for (auto i = 0; i < 100; ++i) {
@@ -91,9 +91,9 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
   // Executes a plan that runs with ten drivers and query memory limit that
   // forces it to throw MEM_CAP_EXCEEDED exception. Verifies that the error
   // message contains information that acknowledges the existence of N
-  // operators. Rest of the message is not verified as the contents are
-  // non-deterministic with respect to which operators make it to the top 3 and
-  // their memory usage.
+  // operator memory pool instances. Rest of the message is not verified as the
+  // contents are non-deterministic with respect to which operators make it to
+  // the top 3 and their memory usage.
   vector_size_t size = 1'024;
   const int32_t numSplits = 100;
   constexpr int64_t kMaxBytes = 12LL << 20; // 12MB
@@ -106,6 +106,22 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
     });
     data.push_back(rowVector);
   }
+
+  std::array<std::string, 28> expectedTexts = {
+      "op.N/A.0.8.CallbackSink usage", "op.N/A.0.7.CallbackSink usage",
+      "op.N/A.0.6.CallbackSink usage", "op.N/A.0.5.CallbackSink usage",
+      "op.N/A.0.4.CallbackSink usage", "op.N/A.0.3.CallbackSink usage",
+      "op.N/A.0.2.CallbackSink usage", "op.N/A.0.1.CallbackSink usage",
+      "op.N/A.0.0.CallbackSink usage", "op.1.0.9.Aggregation usage",
+      "op.1.0.8.Aggregation usage",    "op.1.0.7.Aggregation usage",
+      "op.1.0.6.Aggregation usage",    "op.1.0.5.Aggregation usage",
+      "op.1.0.4.Aggregation usage",    "op.1.0.3.Aggregation usage",
+      "op.1.0.2.Aggregation usage",    "op.1.0.1.Aggregation usage",
+      "op.0.0.9.Values usage",         "op.0.0.8.Values usage",
+      "op.0.0.7.Values usage",         "op.0.0.6.Values usage",
+      "op.0.0.5.Values usage",         "op.0.0.4.Values usage",
+      "op.0.0.3.Values usage",         "op.0.0.2.Values usage",
+      "op.0.0.1.Values usage"};
 
   auto plan = PlanBuilder()
                   .values(data, true)
@@ -121,9 +137,17 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
   params.planNode = plan;
   params.queryCtx = queryCtx;
   params.maxDrivers = numDrivers;
-  VELOX_ASSERT_THROW(
-      readCursor(params, [](Task*) {}),
-      fmt::format("{} operators", numDrivers));
+  try {
+    readCursor(params, [](Task*) {});
+    FAIL() << "Expected a MEM_CAP_EXCEEDED RuntimeException.";
+  } catch (const VeloxException& e) {
+    auto errorMessage = e.message();
+    for (const auto& expectedText : expectedTexts) {
+      ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
+          << "Expected error message to contain '" << expectedText
+          << "', but received '" << errorMessage << "'.";
+    }
+  }
 }
 
 } // namespace

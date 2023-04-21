@@ -63,6 +63,7 @@ HashBuild::HashBuild(
                                operatorCtx_->driverCtx()->splitGroupId,
                                planNodeId())
                          : nullptr) {
+  VELOX_CHECK(pool()->trackUsage());
   VELOX_CHECK_NOT_NULL(joinBridge_);
   joinBridge_->addBuilder();
 
@@ -437,9 +438,8 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
   const auto increment =
       rows->sizeIncrement(input->size(), outOfLineBytes ? flatBytes : 0);
 
-  auto tracker = pool()->getMemoryUsageTracker();
   // There must be at least 2x the increments in reservation.
-  if (tracker->availableReservation() > 2 * increment) {
+  if (pool()->availableReservation() > 2 * increment) {
     return true;
   }
 
@@ -448,9 +448,9 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
   // 'spillableReservationGrowthPct_' of the current reservation.
   auto targetIncrement = std::max<int64_t>(
       increment * 2,
-      tracker->currentBytes() * spillConfig()->spillableReservationGrowthPct /
+      pool()->getCurrentBytes() * spillConfig()->spillableReservationGrowthPct /
           100);
-  if (tracker->maybeReserve(targetIncrement)) {
+  if (pool()->maybeReserve(targetIncrement)) {
     return true;
   }
   numSpillRows_ = std::max<int64_t>(
@@ -779,7 +779,7 @@ void HashBuild::postHashBuildProcess() {
 
   // Release the unused memory reservation since we have finished the table
   // build.
-  pool()->getMemoryUsageTracker()->release();
+  pool()->release();
 
   if (!spillEnabled()) {
     setState(State::kFinish);

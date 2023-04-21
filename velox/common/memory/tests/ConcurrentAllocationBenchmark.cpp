@@ -47,7 +47,6 @@ class MemoryOperator {
  public:
   MemoryOperator(
       MemoryManager* memoryManager,
-      std::shared_ptr<MemoryUsageTracker> tracker,
       uint64_t maxMemory,
       uint64_t allocationSize,
       uint32_t maxOps)
@@ -154,7 +153,7 @@ class MemoryAllocationBenchMark {
   };
 
   explicit MemoryAllocationBenchMark(const Options& options)
-      : options_(options), tracker_(MemoryUsageTracker::create()) {
+      : options_(options) {
     const int64_t maxMemory = options_.maxMemory + (256 << 20);
     switch (options_.allocatorType) {
       case Type::kMmap: {
@@ -189,7 +188,6 @@ class MemoryAllocationBenchMark {
   };
 
   const Options options_;
-  const std::shared_ptr<MemoryUsageTracker> tracker_;
   std::shared_ptr<MmapAllocator> allocator_;
   std::shared_ptr<MemoryManager> manager_;
   std::vector<Result> results_;
@@ -207,7 +205,6 @@ void MemoryAllocationBenchMark::run() {
     for (int i = 0; i < options_.numThreads; ++i) {
       auto memOp = std::make_unique<MemoryOperator>(
           manager_.get(),
-          tracker_,
           options_.maxMemory / options_.numThreads,
           options_.allocationBytes,
           options_.numOpsPerThread);

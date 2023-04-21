@@ -832,8 +832,8 @@ TEST_F(AggregationTest, partialAggregationMaybeReservationReleaseCheck) {
        std::to_string(kMaxPartialMemoryUsage)},
   });
   {
-    params.queryCtx->pool()->getMemoryUsageTracker()->testingUpdateMaxMemory(
-        kMaxUserMemoryUsage);
+    static_cast<memory::MemoryPoolImpl*>(params.queryCtx->pool())
+        ->testingSetCapacity(kMaxUserMemoryUsage);
   }
   core::PlanNodeId aggNodeId;
   params.planNode = PlanBuilder()
@@ -849,10 +849,8 @@ TEST_F(AggregationTest, partialAggregationMaybeReservationReleaseCheck) {
   EXPECT_EQ(0, runtimeStats.count("maxExtendedPartialAggregationMemoryUsage"));
   EXPECT_EQ(0, runtimeStats.count("partialAggregationPct"));
   // Check all the reserved memory have been released.
-  EXPECT_EQ(0, task->pool()->getMemoryUsageTracker()->availableReservation());
-  EXPECT_GT(
-      kMaxPartialMemoryUsage,
-      task->pool()->getMemoryUsageTracker()->currentBytes());
+  EXPECT_EQ(0, task->pool()->availableReservation());
+  EXPECT_GT(kMaxPartialMemoryUsage, task->pool()->getCurrentBytes());
 }
 
 TEST_F(AggregationTest, spillWithMemoryLimit) {

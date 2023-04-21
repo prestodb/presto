@@ -39,9 +39,6 @@ class SimpleFunctionTest : public functions::test::FunctionBaseTest {
       return std::accumulate(data[row].begin(), data[row].end(), 0);
     });
   }
-
-  std::shared_ptr<memory::MemoryUsageTracker> tracker_{
-      memory::MemoryUsageTracker::create()};
 };
 
 template <typename T>
@@ -902,10 +899,10 @@ TEST_F(SimpleFunctionTest, reuseArgVector) {
   auto exprSet =
       compileExpressions({"(c0 - 0.5::REAL) * 2.0::REAL + 0.3::REAL"}, rowType);
 
-  auto prevAllocations = pool_->getMemoryUsageTracker()->numAllocs();
+  auto prevAllocations = pool_->stats().numAllocs;
 
   evaluate(*exprSet, data);
-  auto currAllocations = pool_->getMemoryUsageTracker()->numAllocs();
+  auto currAllocations = pool_->stats().numAllocs;
 
   // Expect a single allocation for the result. Intermediate results should
   // reuse memory.
