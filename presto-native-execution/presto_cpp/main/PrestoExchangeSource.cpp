@@ -333,7 +333,7 @@ PrestoExchangeSource::createExchangeSource(
     const auto systemConfig = SystemConfig::instance();
     const auto clientCertAndKeyPath =
         systemConfig->httpsClientCertAndKeyPath().value_or("");
-    const auto ciphers = systemConfig->httpsClientCertAndKeyPath().value_or("");
+    const auto ciphers = systemConfig->httpsSupportedCiphers();
     return std::make_unique<PrestoExchangeSource>(
         folly::Uri(url),
         destination,
