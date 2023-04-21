@@ -41,7 +41,7 @@ void UnsafeRowExchangeSource::request() {
       // 'ioBuf' attached to SerializedPage on destruction.
       queue_->enqueueLocked(
           std::make_unique<velox::exec::SerializedPage>(
-              std::move(ioBuf), pool_, [buffer](auto&) {}),
+              std::move(ioBuf), [buffer](auto& /*unused*/) {}),
           promises);
     }
   }

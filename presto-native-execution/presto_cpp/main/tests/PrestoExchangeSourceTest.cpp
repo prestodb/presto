@@ -516,7 +516,7 @@ TEST_F(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
   producer->enqueue(smallPayload);
   requestNextPage(queue, exchangeSource);
   auto smallPage = waitForNextPage(queue);
-  ASSERT_EQ(leafPool->getMemoryUsageTracker()->numAllocs(), 2);
+  ASSERT_EQ(leafPool->stats().numAllocs, 2);
   int64_t currMemoryBytes;
   int64_t peakMemoryBytes;
   PrestoExchangeSource::getMemoryUsage(currMemoryBytes, peakMemoryBytes);
