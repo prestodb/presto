@@ -923,4 +923,19 @@ std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
   return res;
 }
 
+void TaskManager::waitForTasksToComplete() {
+  size_t numTasks;
+  auto taskNumbers = getTaskNumbers(numTasks);
+  size_t seconds = 0;
+  while (taskNumbers[velox::exec::TaskState::kRunning] > 0) {
+    LOG(INFO) << "Waiting (" << seconds
+              << " seconds so far) for 'Running' tasks to complete. "
+              << numTasks << " tasks left: "
+              << PrestoTask::taskNumbersToString(taskNumbers);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    taskNumbers = getTaskNumbers(numTasks);
+    ++seconds;
+  }
+}
+
 } // namespace facebook::presto
