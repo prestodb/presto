@@ -162,6 +162,10 @@ class DwrfRowReader : public StrideIndexProvider,
   }
 
   void checkSkipStrides(const StatsContext& context, uint64_t strideSize);
+
+  void readNext(uint64_t rowsToRead, VectorPtr& result);
+
+  void readWithRowNumber(uint64_t rowsToRead, VectorPtr& result);
 };
 
 class DwrfReader : public dwio::common::Reader {

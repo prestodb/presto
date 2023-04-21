@@ -334,6 +334,7 @@ add_test(
 target_link_libraries(
   velox_dwio_dwrf_reader_test
   velox_dwrf_test_utils
+  velox_vector_test_lib
   ${VELOX_LINK_LIBS}
   ${FOLLY_WITH_DEPENDENCIES}
   ${FMT}

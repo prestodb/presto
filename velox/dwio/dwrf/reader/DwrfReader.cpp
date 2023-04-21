@@ -17,6 +17,7 @@
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/common/TypeUtils.h"
 #include "velox/dwio/common/exception/Exception.h"
+#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::dwrf {
 
@@ -227,6 +228,82 @@ void DwrfRowReader::checkSkipStrides(
   }
 }
 
+void DwrfRowReader::readNext(uint64_t rowsToRead, VectorPtr& result) {
+  if (!selectiveColumnReader_) {
+    // TODO: Move row number appending logic here.  Currently this is done in
+    // the wrapper reader.
+    columnReader_->next(rowsToRead, result);
+    return;
+  }
+  if (!options_.getAppendRowNumberColumn()) {
+    selectiveColumnReader_->next(rowsToRead, result);
+    return;
+  }
+  readWithRowNumber(rowsToRead, result);
+}
+
+void DwrfRowReader::readWithRowNumber(uint64_t rowsToRead, VectorPtr& result) {
+  auto* rowVector = result->asUnchecked<RowVector>();
+  auto numChildren = options_.getScanSpec()->children().size();
+  VectorPtr rowNumVector;
+  if (rowVector->childrenSize() != numChildren) {
+    VELOX_CHECK_EQ(rowVector->childrenSize(), numChildren + 1);
+    rowNumVector = rowVector->childAt(numChildren);
+    auto& rowType = rowVector->type()->asRow();
+    auto names = rowType.names();
+    auto types = rowType.children();
+    auto children = rowVector->children();
+    VELOX_DCHECK(!names.empty() && !types.empty() && !children.empty());
+    names.pop_back();
+    types.pop_back();
+    children.pop_back();
+    result = std::make_shared<RowVector>(
+        rowVector->pool(),
+        ROW(std::move(names), std::move(types)),
+        rowVector->nulls(),
+        rowVector->size(),
+        std::move(children));
+  }
+  selectiveColumnReader_->next(rowsToRead, result);
+  FlatVector<int64_t>* flatRowNum = nullptr;
+  if (rowNumVector && BaseVector::isVectorWritable(rowNumVector)) {
+    flatRowNum = rowNumVector->asFlatVector<int64_t>();
+  }
+  if (flatRowNum) {
+    flatRowNum->clearAllNulls();
+    flatRowNum->resize(result->size());
+  } else {
+    rowNumVector = std::make_shared<FlatVector<int64_t>>(
+        result->pool(),
+        BIGINT(),
+        nullptr,
+        result->size(),
+        AlignedBuffer::allocate<int64_t>(result->size(), result->pool()),
+        std::vector<BufferPtr>());
+    flatRowNum = rowNumVector->asUnchecked<FlatVector<int64_t>>();
+  }
+  auto rowOffsets = selectiveColumnReader_->outputRows();
+  VELOX_DCHECK_EQ(rowOffsets.size(), result->size());
+  auto* rawRowNum = flatRowNum->mutableRawValues();
+  for (int i = 0; i < rowOffsets.size(); ++i) {
+    rawRowNum[i] = previousRow + rowOffsets[i];
+  }
+  rowVector = result->asUnchecked<RowVector>();
+  auto& rowType = rowVector->type()->asRow();
+  auto names = rowType.names();
+  auto types = rowType.children();
+  auto children = rowVector->children();
+  names.emplace_back();
+  types.push_back(BIGINT());
+  children.push_back(rowNumVector);
+  result = std::make_shared<RowVector>(
+      rowVector->pool(),
+      ROW(std::move(names), std::move(types)),
+      rowVector->nulls(),
+      rowVector->size(),
+      std::move(children));
+}
+
 uint64_t DwrfRowReader::next(uint64_t size, VectorPtr& result) {
   DWIO_ENSURE_GT(size, 0);
   auto& footer = getReader().getFooter();
@@ -253,6 +330,7 @@ uint64_t DwrfRowReader::next(uint64_t size, VectorPtr& result) {
       checkSkipStrides(context, strideSize);
     }
 
+    previousRow = firstRowOfStripe[currentStripe] + currentRowInStripe;
     uint64_t rowsToRead = std::min(
         static_cast<uint64_t>(size), rowsInCurrentStripe - currentRowInStripe);
 
@@ -267,15 +345,10 @@ uint64_t DwrfRowReader::next(uint64_t size, VectorPtr& result) {
       // reading of the data.
       setStrideIndex(strideSize > 0 ? currentRowInStripe / strideSize : 0);
 
-      if (selectiveColumnReader_) {
-        selectiveColumnReader_->next(rowsToRead, result);
-      } else {
-        columnReader_->next(rowsToRead, result);
-      }
+      readNext(rowsToRead, result);
     }
 
     // update row number
-    previousRow = firstRowOfStripe[currentStripe] + currentRowInStripe;
     currentRowInStripe += rowsToRead;
     if (currentRowInStripe >= rowsInCurrentStripe) {
       currentStripe += 1;

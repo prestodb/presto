@@ -172,6 +172,25 @@ class HiveDataSource : public DataSource {
       const std::vector<const HiveColumnHandle*>& columnHandles,
       memory::MemoryPool* pool);
 
+ protected:
+  virtual uint64_t readNext(uint64_t size) {
+    return rowReader_->next(size, output_);
+  }
+
+  std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
+      const FileHandle&,
+      const dwio::common::ReaderOptions&);
+
+  virtual void configureRowReaderOptions(dwio::common::RowReaderOptions&) const;
+
+  std::shared_ptr<HiveConnectorSplit> split_;
+  FileHandleFactory* fileHandleFactory_;
+  dwio::common::ReaderOptions readerOpts_;
+  memory::MemoryPool* pool_;
+  VectorPtr output_;
+  RowTypePtr readerOutputType_;
+  std::unique_ptr<dwio::common::RowReader> rowReader_;
+
  private:
   // Evaluates remainingFilter_ on the specified vector. Returns number of rows
   // passed. Populates filterEvalCtx_.selectedIndices and selectedBits if only
@@ -193,7 +212,8 @@ class HiveDataSource : public DataSource {
       const std::string& partitionKey,
       const std::optional<std::string>& value) const;
 
-  /// Clear split_, reader_ and rowReader_ after split has been fully processed.
+  // Clear split_ after split has been fully processed.  Keep readers around to
+  // hold adaptation.
   void resetSplit();
 
   const RowTypePtr outputType_;
@@ -201,23 +221,16 @@ class HiveDataSource : public DataSource {
   // name.
   std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>
       partitionKeys_;
-  FileHandleFactory* FOLLY_NONNULL fileHandleFactory_;
-  velox::memory::MemoryPool* FOLLY_NONNULL pool_;
   std::shared_ptr<dwio::common::IoStatistics> ioStats_;
   std::shared_ptr<common::ScanSpec> scanSpec_;
   std::shared_ptr<common::MetadataFilter> metadataFilter_;
-  std::shared_ptr<HiveConnectorSplit> split_;
-  dwio::common::ReaderOptions readerOpts_;
   dwio::common::RowReaderOptions rowReaderOpts_;
   std::unique_ptr<dwio::common::Reader> reader_;
-  std::unique_ptr<dwio::common::RowReader> rowReader_;
   std::unique_ptr<exec::ExprSet> remainingFilterExprSet_;
-  RowTypePtr readerOutputType_;
   bool emptySplit_;
 
   dwio::common::RuntimeStatistics runtimeStats_;
 
-  VectorPtr output_;
   FileHandleCachedPtr fileHandle_;
   ExpressionEvaluator* FOLLY_NONNULL expressionEvaluator_;
   uint64_t completedRows_ = 0;
@@ -232,7 +245,7 @@ class HiveDataSource : public DataSource {
   folly::Executor* FOLLY_NULLABLE executor_;
 };
 
-class HiveConnector final : public Connector {
+class HiveConnector : public Connector {
  public:
   explicit HiveConnector(
       const std::string& id,
@@ -249,7 +262,7 @@ class HiveConnector final : public Connector {
       const std::unordered_map<
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
-      ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx) override final {
+      ConnectorQueryCtx* connectorQueryCtx) override {
     return std::make_shared<HiveDataSource>(
         outputType,
         tableHandle,
@@ -293,7 +306,7 @@ class HiveConnector final : public Connector {
     return fileHandleFactory_.clearCache();
   }
 
- private:
+ protected:
   FileHandleFactory fileHandleFactory_;
   folly::Executor* FOLLY_NULLABLE executor_;
 };

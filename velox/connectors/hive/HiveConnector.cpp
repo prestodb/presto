@@ -257,10 +257,10 @@ HiveDataSource::HiveDataSource(
     memory::MemoryAllocator* allocator,
     const std::string& scanId,
     folly::Executor* executor)
-    : outputType_(outputType),
-      fileHandleFactory_(fileHandleFactory),
-      pool_(pool),
+    : fileHandleFactory_(fileHandleFactory),
       readerOpts_(pool),
+      pool_(pool),
+      outputType_(outputType),
       expressionEvaluator_(expressionEvaluator),
       allocator_(allocator),
       scanId_(scanId),
@@ -449,6 +449,50 @@ void HiveDataSource::addDynamicFilter(
   scanSpec_->resetCachedValues(true);
 }
 
+std::unique_ptr<dwio::common::BufferedInput>
+HiveDataSource::createBufferedInput(
+    const FileHandle& fileHandle,
+    const dwio::common::ReaderOptions& readerOpts) {
+  if (auto* asyncCache = dynamic_cast<cache::AsyncDataCache*>(allocator_)) {
+    return std::make_unique<dwio::common::CachedBufferedInput>(
+        fileHandle.file,
+        readerOpts.getMemoryPool(),
+        dwio::common::MetricsLog::voidLog(),
+        fileHandle.uuid.id(),
+        asyncCache,
+        Connector::getTracker(scanId_, readerOpts.loadQuantum()),
+        fileHandle.groupId.id(),
+        ioStats_,
+        executor_,
+        readerOpts.loadQuantum(),
+        readerOpts.maxCoalesceDistance());
+  }
+  return std::make_unique<dwio::common::BufferedInput>(
+      fileHandle.file,
+      readerOpts.getMemoryPool(),
+      dwio::common::MetricsLog::voidLog(),
+      ioStats_.get());
+}
+
+void HiveDataSource::configureRowReaderOptions(
+    dwio::common::RowReaderOptions& options) const {
+  std::vector<std::string> columnNames;
+  for (auto& spec : scanSpec_->children()) {
+    if (!spec->isConstant()) {
+      columnNames.push_back(spec->fieldName());
+    }
+  }
+  std::shared_ptr<dwio::common::ColumnSelector> cs;
+  if (columnNames.empty()) {
+    static const RowTypePtr kEmpty{ROW({}, {})};
+    cs = std::make_shared<dwio::common::ColumnSelector>(kEmpty);
+  } else {
+    cs = std::make_shared<dwio::common::ColumnSelector>(
+        reader_->rowType(), columnNames);
+  }
+  options.select(cs).range(split_->start, split_->length);
+}
+
 void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   VELOX_CHECK(
       split_ == nullptr,
@@ -459,27 +503,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   VLOG(1) << "Adding split " << split_->toString();
 
   fileHandle_ = fileHandleFactory_->generate(split_->filePath);
-  std::unique_ptr<dwio::common::BufferedInput> input;
-  if (auto* asyncCache = dynamic_cast<cache::AsyncDataCache*>(allocator_)) {
-    input = std::make_unique<dwio::common::CachedBufferedInput>(
-        fileHandle_->file,
-        readerOpts_.getMemoryPool(),
-        dwio::common::MetricsLog::voidLog(),
-        fileHandle_->uuid.id(),
-        asyncCache,
-        Connector::getTracker(scanId_, readerOpts_.loadQuantum()),
-        fileHandle_->groupId.id(),
-        ioStats_,
-        executor_,
-        readerOpts_.loadQuantum(),
-        readerOpts_.maxCoalesceDistance());
-  } else {
-    input = std::make_unique<dwio::common::BufferedInput>(
-        fileHandle_->file,
-        readerOpts_.getMemoryPool(),
-        dwio::common::MetricsLog::voidLog(),
-        ioStats_.get());
-  }
+  auto input = createBufferedInput(*fileHandle_, readerOpts_);
 
   if (readerOpts_.getFileFormat() != dwio::common::FileFormat::UNKNOWN) {
     VELOX_CHECK(
@@ -513,7 +537,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
     return;
   }
 
-  auto fileType = reader_->rowType();
+  auto& fileType = reader_->rowType();
 
   for (int i = 0; i < readerOutputType_->size(); i++) {
     auto fieldName = readerOutputType_->nameOf(i);
@@ -562,23 +586,8 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
         velox::variant(split_->tableBucketNumber.value()));
   }
   scanSpec_->resetCachedValues(false);
-  std::vector<std::string> columnNames;
-  for (auto& spec : scanSpec_->children()) {
-    if (!spec->isConstant()) {
-      columnNames.push_back(spec->fieldName());
-    }
-  }
-
-  std::shared_ptr<dwio::common::ColumnSelector> cs;
-  if (columnNames.empty()) {
-    static const RowTypePtr kEmpty{ROW({}, {})};
-    cs = std::make_shared<dwio::common::ColumnSelector>(kEmpty);
-  } else {
-    cs = std::make_shared<dwio::common::ColumnSelector>(fileType, columnNames);
-  }
-
-  rowReader_ = reader_->createRowReader(
-      rowReaderOpts_.select(cs).range(split_->start, split_->length));
+  configureRowReaderOptions(rowReaderOpts_);
+  rowReader_ = reader_->createRowReader(rowReaderOpts_);
 }
 
 void HiveDataSource::setFromDataSource(
@@ -617,7 +626,7 @@ std::optional<RowVectorPtr> HiveDataSource::next(
   // column, e.g. rand() < 0.1. Evaluate that conjunct first, then scan only
   // rows that passed.
 
-  auto rowsScanned = rowReader_->next(size, output_);
+  auto rowsScanned = readNext(size);
   completedRows_ += rowsScanned;
 
   if (rowsScanned) {

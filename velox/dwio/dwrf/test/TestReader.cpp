@@ -30,6 +30,7 @@
 #include "velox/type/Type.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 #include <fmt/core.h>
 #include <array>
@@ -1548,5 +1549,158 @@ TEST(TestReader, testOrcReaderDate) {
     }
 
     year++;
+  }
+}
+
+namespace {
+
+std::vector<VectorPtr> createBatches(
+    const std::vector<std::vector<int32_t>>& integerValues,
+    memory::MemoryPool& pool) {
+  std::vector<VectorPtr> batches;
+  VectorMaker maker(&pool);
+  for (auto i = 0; i < integerValues.size(); ++i) {
+    auto vector = maker.flatVector<int32_t>(integerValues[i]);
+    auto rowVector = maker.rowVector({vector});
+    batches.push_back(rowVector);
+  }
+  return batches;
+}
+
+/*
+ * Verifies that row numbers are equal to values in first column
+ */
+void verifyRowNumbers(
+    RowReader& rowReader,
+    memory::MemoryPool* pool,
+    int expectedNumRows) {
+  auto result = BaseVector::create(ROW({{"c0", INTEGER()}}), 0, pool);
+  int numRows = 0;
+  while (rowReader.next(10, result) > 0) {
+    auto* rowVector = result->asUnchecked<RowVector>();
+    ASSERT_EQ(2, rowVector->childrenSize());
+    ASSERT_EQ(rowVector->type()->asRow().nameOf(1), "");
+    DecodedVector values(*rowVector->childAt(0));
+    DecodedVector rowNumbers(*rowVector->childAt(1));
+    for (size_t i = 0; i < rowVector->size(); ++i) {
+      ASSERT_EQ(values.valueAt<int32_t>(i), rowNumbers.valueAt<int64_t>(i));
+    }
+    numRows += result->size();
+  }
+  ASSERT_EQ(numRows, expectedNumRows);
+}
+
+std::pair<std::unique_ptr<Writer>, std::unique_ptr<DwrfReader>>
+createWriterReader(
+    const std::vector<VectorPtr>& batches,
+    memory::MemoryPool& pool) {
+  auto sink = std::make_unique<MemorySink>(pool, 1 << 20);
+  auto* sinkPtr = sink.get();
+  auto writer = E2EWriterTestUtil::writeData(
+      std::move(sink),
+      asRowType(batches[0]->type()),
+      batches,
+      std::make_shared<Config>(),
+      E2EWriterTestUtil::simpleFlushPolicyFactory(true));
+  std::string_view data(sinkPtr->getData(), sinkPtr->size());
+  auto input = std::make_unique<BufferedInput>(
+      std::make_shared<InMemoryReadFile>(data), pool);
+  ReaderOptions readerOpts(&pool);
+  readerOpts.setFileFormat(FileFormat::DWRF);
+  auto reader = DwrfReader::create(std::move(input), readerOpts);
+  return std::make_pair(std::move(writer), std::move(reader));
+}
+
+} // namespace
+
+TEST(TestReader, appendRowNumberColumn) {
+  std::vector<std::vector<int32_t>> integerValues{
+      {0, 1, 2, 3, 4},
+      {5, 6, 7},
+      {8},
+      {},
+      {9, 10, 11, 12, 13, 14, 15},
+  };
+  auto& pool = defaultPool;
+  auto batches = createBatches(integerValues, *pool);
+  auto schema = asRowType(batches[0]->type());
+  auto [writer, reader] = createWriterReader(batches, *pool);
+
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*schema);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+  rowReaderOpts.setAppendRowNumberColumn(true);
+  {
+    SCOPED_TRACE("Selective no filter");
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    verifyRowNumbers(*rowReader, pool.get(), 16);
+  }
+  spec->childByName("c0")->setFilter(
+      common::createBigintValues({1, 4, 5, 7, 11, 14}, false));
+  spec->resetCachedValues(true);
+  {
+    SCOPED_TRACE("Selective with filter");
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    verifyRowNumbers(*rowReader, pool.get(), 6);
+  }
+}
+
+TEST(TestReader, reuseRowNumberColumn) {
+  std::vector<std::vector<int32_t>> integerValues{{0, 1, 2, 3, 4}};
+  auto& pool = defaultPool;
+  auto batches = createBatches(integerValues, *pool);
+  auto schema = asRowType(batches[0]->type());
+  auto [writer, reader] = createWriterReader(batches, *pool);
+
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*schema);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+  rowReaderOpts.setAppendRowNumberColumn(true);
+  {
+    SCOPED_TRACE("Reuse passed in");
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    auto result = BaseVector::create(
+        ROW({{"c0", INTEGER()}, {"", BIGINT()}}), 0, pool.get());
+    auto* rowNum = result->asUnchecked<RowVector>()->childAt(1).get();
+    ASSERT_EQ(rowReader->next(3, result), 3);
+    ASSERT_EQ(rowNum, result->asUnchecked<RowVector>()->childAt(1).get());
+  }
+  {
+    SCOPED_TRACE("Reuse generated");
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    auto result = BaseVector::create(ROW({{"c0", INTEGER()}}), 0, pool.get());
+    ASSERT_EQ(rowReader->next(3, result), 3);
+    auto* rowNum = result->asUnchecked<RowVector>()->childAt(1).get();
+    ASSERT_EQ(rowReader->next(3, result), 2);
+    ASSERT_EQ(rowNum, result->asUnchecked<RowVector>()->childAt(1).get());
+  }
+  {
+    SCOPED_TRACE("No reuse passed in");
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    auto result = BaseVector::create(
+        ROW({{"c0", INTEGER()}, {"", BIGINT()}}), 0, pool.get());
+    auto rowNum = result->asUnchecked<RowVector>()->childAt(1);
+    ASSERT_EQ(rowReader->next(3, result), 3);
+    ASSERT_NE(rowNum.get(), result->asUnchecked<RowVector>()->childAt(1).get());
+  }
+  {
+    SCOPED_TRACE("No reuse generated");
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    auto result = BaseVector::create(ROW({{"c0", INTEGER()}}), 0, pool.get());
+    ASSERT_EQ(rowReader->next(3, result), 3);
+    auto rowNum = result->asUnchecked<RowVector>()->childAt(1);
+    ASSERT_EQ(rowReader->next(3, result), 2);
+    ASSERT_NE(rowNum.get(), result->asUnchecked<RowVector>()->childAt(1).get());
+  }
+  {
+    SCOPED_TRACE("No reuse type mismatch");
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    auto result = BaseVector::create(
+        ROW({{"c0", INTEGER()}, {"", INTEGER()}}), 0, pool.get());
+    auto rowNum = result->asUnchecked<RowVector>()->childAt(1);
+    ASSERT_EQ(rowReader->next(3, result), 3);
+    ASSERT_NE(rowNum.get(), result->asUnchecked<RowVector>()->childAt(1).get());
   }
 }

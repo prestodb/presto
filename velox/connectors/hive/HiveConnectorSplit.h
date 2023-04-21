@@ -30,6 +30,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
   const std::unordered_map<std::string, std::optional<std::string>>
       partitionKeys;
   std::optional<int32_t> tableBucketNumber;
+  std::unordered_map<std::string, std::string> customSplitInfo;
+  std::shared_ptr<std::string> extraFileInfo;
 
   HiveConnectorSplit(
       const std::string& connectorId,
@@ -39,14 +41,18 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
       uint64_t _length = std::numeric_limits<uint64_t>::max(),
       const std::unordered_map<std::string, std::optional<std::string>>&
           _partitionKeys = {},
-      std::optional<int32_t> _tableBucketNumber = std::nullopt)
+      std::optional<int32_t> _tableBucketNumber = std::nullopt,
+      const std::unordered_map<std::string, std::string>& _customSplitInfo = {},
+      const std::shared_ptr<std::string>& _extraFileInfo = {})
       : ConnectorSplit(connectorId),
         filePath(_filePath),
         fileFormat(_fileFormat),
         start(_start),
         length(_length),
         partitionKeys(_partitionKeys),
-        tableBucketNumber(_tableBucketNumber) {}
+        tableBucketNumber(_tableBucketNumber),
+        customSplitInfo(_customSplitInfo),
+        extraFileInfo(_extraFileInfo) {}
 
   std::string toString() const override {
     if (tableBucketNumber.has_value()) {
@@ -58,6 +64,11 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
           tableBucketNumber.value());
     }
     return fmt::format("[file {} {} - {}]", filePath, start, length);
+  }
+
+  std::string getFileName() const {
+    auto i = filePath.rfind('/');
+    return i == std::string::npos ? filePath : filePath.substr(i + 1);
   }
 };
 
