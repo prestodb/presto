@@ -525,18 +525,7 @@ void PrestoServer::stop() {
     // any tasks.
     std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
 
-    size_t numTasks{0};
-    auto taskNumbers = taskManager_->getTaskNumbers(numTasks);
-    size_t seconds = 0;
-    while (taskNumbers[velox::exec::TaskState::kRunning] > 0) {
-      LOG(INFO) << "SHUTDOWN: Waiting (" << seconds
-                << " seconds so far) for 'Running' tasks to complete. "
-                << numTasks << " tasks left: "
-                << PrestoTask::taskNumbersToString(taskNumbers);
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-      taskNumbers = taskManager_->getTaskNumbers(numTasks);
-      ++seconds;
-    }
+    taskManager_->waitForTasksToComplete();
 
     // Give coordinator some time to request tasks stats for completed or failed
     // tasks.
