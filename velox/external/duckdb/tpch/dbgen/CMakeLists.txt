@@ -7,16 +7,6 @@ include_directories(include)
 
 add_definitions(-DDBNAME=dss -DMAC -DORACLE -DTPCH)
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  set_source_files_properties(
-    build.cpp dbgen.cpp permute.cpp
-    PROPERTIES COMPILE_FLAGS "-Wno-writable-strings -Wno-deprecated-declarations")
-elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  set_source_files_properties(
-    build.cpp dbgen.cpp permute.cpp
-    PROPERTIES COMPILE_FLAGS -Wno-write-strings)
-endif()
-
 add_library(
   dbgen STATIC
   dbgen.cpp
@@ -28,3 +18,6 @@ add_library(
   rng64.cpp
   speed_seed.cpp
   text.cpp)
+
+# Suppress warnings when compiling dbgen.
+target_compile_options(dbgen PRIVATE -w)

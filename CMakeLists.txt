@@ -17,6 +17,14 @@ cmake_minimum_required(VERSION 3.14)
 cmake_policy(SET CMP0077 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
+# Sets new behavior for CMP0135, which controls how timestamps are extracted
+# when using ExternalProject_Add():
+# https://cmake.org/cmake/help/latest/policy/CMP0135.html
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+  set(CMAKE_POLICY_DEFAULT_CMP0135 NEW)
+endif()
+
 # set the project name
 project(velox)
 
@@ -277,7 +285,8 @@ if("${ENABLE_ALL_WARNINGS}")
          -Wno-format-overflow \
          -Wno-strict-aliasing \
          -Wno-type-limits \
-         -Wno-stringop-overflow")
+         -Wno-stringop-overflow \
+         -Wno-return-type")
   endif()
 
   set(KNOWN_WARNINGS

@@ -23,25 +23,9 @@ set(VELOX_FOLLY_SOURCE_URL
 resolve_dependency_url(FOLLY)
 
 message(STATUS "Building Folly from source")
-# FOLLY_CXX_FLAGS is used internally on folly to define some extra
-# CMAKE_CXX_FLAGS for some known warnings to avoid possible errors on some
-# OS/archs
-set(EXTRA_CXX_FLAGS -Wno-deprecated-declarations)
-check_cxx_compiler_flag(-Wnullability-completeness
-                        COMPILER_HAS_W_NULLABILITY_COMPLETENESS)
-if(COMPILER_HAS_W_NULLABILITY_COMPLETENESS)
-  list(APPEND EXTRA_CXX_FLAGS -Wno-nullability-completeness)
-endif()
-check_cxx_compiler_flag(-Wstringop-overflow COMPILER_HAS_W_STRINGOP_OVERFLOW)
-if(COMPILER_HAS_W_STRINGOP_OVERFLOW)
-  list(APPEND EXTRA_CXX_FLAGS -Wno-stringop-overflow)
-endif()
-check_cxx_compiler_flag(-Wundef-prefix COMPILER_HAS_W_UNDEF_PREFIX)
-if(COMPILER_HAS_W_UNDEF_PREFIX)
-  list(APPEND EXTRA_CXX_FLAGS -Wno-undef-prefix)
-endif()
-set(FOLLY_CXX_FLAGS -Wno-unused -Wno-unused-parameter -Wno-overloaded-virtual
-                    ${EXTRA_CXX_FLAGS})
+
+# Suppress warnings when compiling folly.
+set(FOLLY_CXX_FLAGS -w)
 
 if(gflags_SOURCE STREQUAL "BUNDLED")
   set(glog_patch && git apply
