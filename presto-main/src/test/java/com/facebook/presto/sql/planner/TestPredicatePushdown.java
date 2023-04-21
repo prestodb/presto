@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
@@ -429,6 +430,17 @@ public class TestPredicatePushdown
                                                         tableScan(
                                                                 "orders",
                                                                 ImmutableMap.of("CUST_KEY", "custkey"))))))));
+    }
+
+    @Test
+    public void testNoPushdownWithTry()
+    {
+        assertPlan(
+                "SELECT * FROM (" +
+                        "SELECT custkey, orderkey, rank() OVER (PARTITION BY custkey  ORDER BY orderdate ASC)" +
+                        "FROM orders" +
+                        ") WHERE try(custkey) = 1",
+                anyTree(node(FilterNode.class, anyTree(node(WindowNode.class, anyTree(tableScan("orders")))))));
     }
 
     @Test
