@@ -93,14 +93,12 @@ void SelectiveStructColumnReaderBase::read(
   auto& childSpecs = scanSpec_->children();
   const uint64_t* structNulls =
       nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
-  bool hasFilter = false;
   // a struct reader may have a null/non-null filter
   if (scanSpec_->filter()) {
     auto kind = scanSpec_->filter()->kind();
     VELOX_CHECK(
         kind == velox::common::FilterKind::kIsNull ||
         kind == velox::common::FilterKind::kIsNotNull);
-    hasFilter = true;
     filterNulls<int32_t>(
         rows, kind == velox::common::FilterKind::kIsNull, false);
     if (outputRows_.empty()) {
@@ -125,7 +123,6 @@ void SelectiveStructColumnReaderBase::read(
     }
     advanceFieldReader(reader, offset);
     if (childSpec->hasFilter()) {
-      hasFilter = true;
       {
         SelectivityTimer timer(childSpec->selectivity(), activeRows.size());
 
@@ -149,7 +146,7 @@ void SelectiveStructColumnReaderBase::read(
   // here.
   recordParentNullsInChildren(offset, rows);
 
-  if (hasFilter) {
+  if (scanSpec_->hasFilter()) {
     setOutputRows(activeRows);
   }
   lazyVectorReadOffset_ = offset;
