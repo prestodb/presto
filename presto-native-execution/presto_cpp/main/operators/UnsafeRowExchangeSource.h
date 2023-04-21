@@ -38,6 +38,10 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
 
   void close() override {}
 
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return {{"unsafeRowExchangeSource.numBatches", numBatches_}};
+  }
+
   /// url needs to follow below format:
   /// batch://<taskid>?shuffleInfo=<serialized-shuffle-info>
   static std::unique_ptr<velox::exec::ExchangeSource> createExchangeSource(
@@ -48,5 +52,8 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
 
  private:
   const std::shared_ptr<ShuffleReader> shuffle_;
+
+  // The number of batches read from 'shuffle_'.
+  uint64_t numBatches_{0};
 };
 } // namespace facebook::presto::operators
