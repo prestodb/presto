@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_executable(presto_operators_test PlanNodeSerdeTest.cpp
-                                     UnsaferowShuffleTest.cpp)
+                                     UnsafeRowShuffleTest.cpp)
 
 add_test(presto_operators_test presto_operators_test)
 

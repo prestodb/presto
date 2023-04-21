@@ -174,7 +174,7 @@ void PrestoExchangeSource::processDataResponse(
     PrestoExchangeSource::updateMemoryUsage(totalBytes);
 
     page = std::make_unique<exec::SerializedPage>(
-        std::move(singleChain), nullptr, [pool = pool_](folly::IOBuf& iobuf) {
+        std::move(singleChain), [pool = pool_](folly::IOBuf& iobuf) {
           int64_t freedBytes{0};
           // Free the backed memory from MemoryAllocator on page dtor
           folly::IOBuf* start = &iobuf;
@@ -198,6 +198,7 @@ void PrestoExchangeSource::processDataResponse(
       if (page) {
         VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_
                 << ": " << page->size() << " bytes";
+        ++numPages_;
         queue_->enqueueLocked(std::move(page), promises);
       }
       if (complete) {

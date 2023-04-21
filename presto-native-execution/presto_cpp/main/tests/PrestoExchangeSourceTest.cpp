@@ -363,6 +363,11 @@ TEST_F(PrestoExchangeSourceTest, basic) {
   producer->waitForDeleteResults();
   serverWrapper.stop();
   EXPECT_EQ(pool_->getCurrentBytes(), 0);
+
+  const auto stats = exchangeSource->stats();
+  ASSERT_EQ(stats.size(), 1);
+  const auto it = stats.find("prestoExchangeSource.numPages");
+  ASSERT_EQ(it->second, 2);
 }
 
 TEST_F(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
@@ -392,6 +397,11 @@ TEST_F(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
   producer->waitForDeleteResults();
   serverWrapper.stop();
   EXPECT_EQ(pool_->getCurrentBytes(), 0);
+
+  const auto stats = exchangeSource->stats();
+  ASSERT_EQ(stats.size(), 1);
+  const auto it = stats.find("prestoExchangeSource.numPages");
+  ASSERT_EQ(it->second, 0);
 }
 
 TEST_F(PrestoExchangeSourceTest, slowProducer) {
@@ -430,6 +440,11 @@ TEST_F(PrestoExchangeSourceTest, slowProducer) {
   producer->waitForDeleteResults();
   serverWrapper.stop();
   EXPECT_EQ(pool_->getCurrentBytes(), 0);
+
+  const auto stats = exchangeSource->stats();
+  ASSERT_EQ(stats.size(), 1);
+  const auto it = stats.find("prestoExchangeSource.numPages");
+  ASSERT_EQ(it->second, pages.size());
 }
 
 TEST_F(PrestoExchangeSourceTest, failedProducer) {

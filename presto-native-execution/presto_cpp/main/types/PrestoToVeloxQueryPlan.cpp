@@ -1731,7 +1731,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto joinType = toJoinType(node->type);
 
   if (node->criteria.empty() && core::isInnerJoin(joinType) && !node->filter) {
-    return std::make_shared<core::CrossJoinNode>(
+    return std::make_shared<core::NestedLoopJoinNode>(
         node->id,
         toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
         toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
