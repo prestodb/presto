@@ -32,6 +32,7 @@ void UnsafeRowExchangeSource::request() {
       queue_->enqueueLocked(nullptr, promises);
     } else {
       auto buffer = shuffle_->next(true);
+      ++numBatches_;
 
       auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
       // NOTE: SerializedPage's onDestructionCb_ captures one reference on

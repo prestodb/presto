@@ -41,6 +41,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   void close() override;
 
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return {{"prestoExchangeSource.numPages", numPages_}};
+  }
+
   int testingFailedAttempts() const {
     return failedAttempts_;
   }
@@ -93,14 +97,16 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const std::string basePath_;
   const std::string host_;
   const uint16_t port_;
+  const std::string clientCertAndKeyPath_;
+  const std::string ciphers_;
 
   std::unique_ptr<http::HttpClient> httpClient_;
   int failedAttempts_;
+  // The number of pages received from this presto exchange source.
+  uint64_t numPages_{0};
   std::atomic_bool closed_{false};
   // A boolean indicating whether abortResults() call was issued and was
   // successfully processed by the remote server.
   std::atomic_bool abortResultsSucceeded_{false};
-  const std::string clientCertAndKeyPath_;
-  const std::string ciphers_;
 };
 } // namespace facebook::presto
