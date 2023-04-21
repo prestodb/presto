@@ -643,14 +643,14 @@ AbstractJoinNode::AbstractJoinNode(
     TypedExprPtr filter,
     PlanNodePtr left,
     PlanNodePtr right,
-    const RowTypePtr outputType)
+    RowTypePtr outputType)
     : PlanNode(id),
       joinType_(joinType),
       leftKeys_(leftKeys),
       rightKeys_(rightKeys),
       filter_(std::move(filter)),
       sources_({std::move(left), std::move(right)}),
-      outputType_(outputType) {
+      outputType_(std::move(outputType)) {
   VELOX_CHECK(!leftKeys_.empty(), "JoinNode requires at least one join key");
   VELOX_CHECK_EQ(
       leftKeys_.size(),
@@ -686,7 +686,7 @@ AbstractJoinNode::AbstractJoinNode(
 
     // Verify that 'match' column name doesn't match any column from left or
     // right source.
-    const auto& name = outputType->nameOf(numOutputColumms);
+    const auto& name = outputType_->nameOf(numOutputColumms);
     VELOX_CHECK(!leftType->containsChild(name));
     VELOX_CHECK(!rightType->containsChild(name));
   }
