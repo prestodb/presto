@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 
 class LocalPartitionTest : public HiveConnectorTestBase {
@@ -277,6 +279,67 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
 
   task = queryBuilder.assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
   verifyExchangeSourceOperatorStats(task, 2100, 42);
+}
+
+TEST_F(LocalPartitionTest, blockingOnLocalExchangeQueue) {
+  auto localExchangeBufferSize = "1024";
+  auto baseVector =
+      vectorMaker_.flatVector<int64_t>(1024, [](auto row) { return row; });
+  // Make a small dictionary vector of one row and roughly 8 bytes that is
+  // smaller than the localExchangeBufferSize.
+  auto smallInput = vectorMaker_.rowVector(
+      {"c0"}, {wrapInDictionary(makeIndices({0}), baseVector)});
+  // Make a large dictionary vector of 1024 rows and roughly 8KB that is larger
+  // than the localExchangeBufferSize.
+  auto largeInput = vectorMaker_.rowVector(
+      {"c0"},
+      {wrapInDictionary(
+          makeIndices(baseVector->size(), [](auto row) { return row; }),
+          baseVector)});
+
+  struct {
+    RowVectorPtr input;
+    int64_t numBlocked;
+
+    std::string debugString() const {
+      return fmt::format(
+          "inputBatchBytes: {}, numBlocked: {}",
+          input->estimateFlatSize(),
+          numBlocked);
+    }
+  } testSettings[] = {
+      {smallInput, 0}, // Small input will not make LocalPartition blocked.
+      {largeInput, 1}}; // Large input will make LocalPartition blocked.
+
+  for (const auto& test : testSettings) {
+    SCOPED_TRACE(test.debugString());
+
+    createDuckDbTable({test.input});
+
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId nodeId;
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .localPartition(
+                        {"c0"},
+                        {PlanBuilder(planNodeIdGenerator)
+                             .values({test.input})
+                             .planNode()})
+                    .capturePlanNodeId(nodeId)
+                    .planNode();
+    auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                    .plan(plan)
+                    .maxDrivers(4)
+                    .config(
+                        core::QueryConfig::kMaxLocalExchangeBufferSize,
+                        localExchangeBufferSize)
+                    .assertResults("SELECT * FROM tmp");
+    ASSERT_EQ(
+        exec::toPlanStats(task->taskStats())
+            .at(nodeId)
+            .customStats["blockedWaitForConsumerTimes"]
+            .sum,
+        test.numBlocked);
+  }
 }
 
 TEST_F(LocalPartitionTest, multipleExchanges) {
