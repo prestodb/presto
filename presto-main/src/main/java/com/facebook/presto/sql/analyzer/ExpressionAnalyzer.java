@@ -268,7 +268,7 @@ public class ExpressionAnalyzer
         this.parameters = requireNonNull(parameters, "parameterMap is null");
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.outerScopeSymbolTypes = ImmutableMap.copyOf(requireNonNull(outerScopeSymbolTypes, "outerScopeSymbolTypes is null"));
+        this.outerScopeSymbolTypes = requireNonNull(outerScopeSymbolTypes, "outerScopeSymbolTypes is null");
     }
 
     public Map<NodeRef<FunctionCall>, FunctionHandle> getResolvedFunctions()
