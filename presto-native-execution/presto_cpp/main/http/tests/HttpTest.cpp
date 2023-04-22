@@ -267,7 +267,7 @@ class HttpTestSuite : public ::testing::TestWithParam<bool> {};
 TEST_P(HttpTestSuite, basic) {
   auto memoryPool = defaultMemoryManager().addLeafPool("basic");
 
-  bool useHttps = GetParam();
+  const bool useHttps = GetParam();
   auto server = getServer(useHttps);
 
   server->registerGet("/ping", ping);
@@ -328,7 +328,7 @@ TEST_P(HttpTestSuite, httpResponseAllocationFailure) {
       "httpResponseAllocationFailure", memoryCapBytes);
   auto leafPool = rootPool->addLeafChild("httpResponseAllocationFailure");
 
-  bool useHttps = GetParam();
+  const bool useHttps = GetParam();
   auto server = getServer(useHttps);
 
   server->registerGet(R"(/echo.*)", echo);
@@ -357,7 +357,7 @@ TEST_P(HttpTestSuite, httpResponseAllocationFailure) {
 TEST_P(HttpTestSuite, serverRestart) {
   auto memoryPool = defaultMemoryManager().addLeafPool("serverRestart");
 
-  bool useHttps = GetParam();
+  const bool useHttps = GetParam();
   auto server = getServer(useHttps);
 
   server->registerGet("/ping", ping);
@@ -468,7 +468,7 @@ http::EndpointRequestHandlerFactory asyncMsg(
 TEST_P(HttpTestSuite, asyncRequests) {
   auto memoryPool = defaultMemoryManager().addLeafPool("asyncRequests");
 
-  bool useHttps = GetParam();
+  const bool useHttps = GetParam();
   auto server = getServer(useHttps);
 
   auto request = std::make_shared<AsyncMsgRequestState>();
@@ -502,7 +502,7 @@ TEST_P(HttpTestSuite, asyncRequests) {
 TEST_P(HttpTestSuite, timedOutRequests) {
   auto memoryPool = defaultMemoryManager().addLeafPool("timedOutRequests");
 
-  bool useHttps = GetParam();
+  const bool useHttps = GetParam();
   auto server = getServer(useHttps);
 
   auto request = std::make_shared<AsyncMsgRequestState>();
@@ -538,7 +538,7 @@ TEST_P(HttpTestSuite, DISABLED_outstandingRequests) {
   auto memoryPool =
       defaultMemoryManager().addLeafPool("DISABLED_outstandingRequests");
 
-  bool useHttps = GetParam();
+  const bool useHttps = GetParam();
   auto server = getServer(useHttps);
 
   auto request = std::make_shared<AsyncMsgRequestState>();
@@ -572,7 +572,7 @@ TEST_P(HttpTestSuite, testReportOnBodyStatsFunc) {
   std::atomic<int> reportedCount = 0;
   auto memoryPool = defaultMemoryManager().addLeafPool("asyncRequests");
 
-  bool useHttps = GetParam();
+  const bool useHttps = GetParam();
   auto server = getServer(useHttps);
 
   auto request = std::make_shared<AsyncMsgRequestState>();
