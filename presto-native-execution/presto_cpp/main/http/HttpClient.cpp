@@ -104,6 +104,15 @@ void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
   bodyChain_.back()->trimEnd(roundedSize - dataLength);
 }
 
+void HttpResponse::freeBuffers() {
+  for (auto& iobuf : bodyChain_) {
+    if (iobuf != nullptr) {
+      pool_->free(iobuf->writableData(), iobuf->capacity());
+    }
+  }
+  bodyChain_.clear();
+}
+
 FOLLY_ALWAYS_INLINE size_t
 HttpResponse::nextAllocationSize(uint64_t dataLength) const {
   const size_t minAllocSize = velox::bits::nextPowerOfTwo(
