@@ -47,7 +47,10 @@ class SsdFileTest : public testing::Test {
     }
   }
 
-  void initializeCache(int64_t maxBytes, int64_t ssdBytes = 0) {
+  void initializeCache(
+      int64_t maxBytes,
+      int64_t ssdBytes = 0,
+      bool setNoCowFlag = false) {
     // tmpfs does not support O_DIRECT, so turn this off for testing.
     FLAGS_ssd_odirect = false;
     cache_ = std::make_shared<AsyncDataCache>(
@@ -58,8 +61,10 @@ class SsdFileTest : public testing::Test {
     tempDirectory_ = exec::test::TempDirectoryPath::create();
     ssdFile_ = std::make_unique<SsdFile>(
         fmt::format("{}/ssdtest", tempDirectory_->path),
-        0,
-        bits::roundUp(ssdBytes, SsdFile::kRegionSize) / SsdFile::kRegionSize);
+        0, // shardId
+        bits::roundUp(ssdBytes, SsdFile::kRegionSize) / SsdFile::kRegionSize,
+        0, // checkpointInternalBytes
+        setNoCowFlag);
   }
 
   static void initializeContents(int64_t sequence, memory::Allocation& alloc) {
@@ -291,3 +296,17 @@ TEST_F(SsdFileTest, writeAndRead) {
     }
   }
 }
+
+#ifdef VELOX_SSD_FILE_TEST_SET_NO_COW_FLAG
+TEST_F(SsdFileTest, disabledCow) {
+  constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
+  initializeCache(128 * kMB, kSsdSize, true);
+  EXPECT_TRUE(ssdFile_->testingIsCowDisabled());
+}
+
+TEST_F(SsdFileTest, notDisabledCow) {
+  constexpr int64_t kSsdSize = 16 * SsdFile::kRegionSize;
+  initializeCache(128 * kMB, kSsdSize, false);
+  EXPECT_FALSE(ssdFile_->testingIsCowDisabled());
+}
+#endif // VELOX_SSD_FILE_TEST_SET_NO_COW_FLAG

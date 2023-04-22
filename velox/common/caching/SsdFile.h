@@ -164,6 +164,7 @@ class SsdFile {
       int32_t shardId,
       int32_t maxRegions,
       int64_t checkpointInternalBytes = 0,
+      bool disableFileCow = false,
       folly::Executor* FOLLY_NULLABLE executor = nullptr);
 
   // Adds entries of  'pins'  to this file. 'pins' must be in read mode and
@@ -229,6 +230,9 @@ class SsdFile {
   // rechecks that at least 'checkpointIntervalBytes_' have been
   // written since last checkpoint and silently returns if not.
   void checkpoint(bool force = false);
+
+  /// Returns true if copy on write is disabled for this file. Used in testing.
+  bool testingIsCowDisabled() const;
 
  private:
   // 4 first bytes of a checkpoint file. Allows distinguishing between format

@@ -27,7 +27,8 @@ SsdCache::SsdCache(
     uint64_t maxBytes,
     int32_t numShards,
     folly::Executor* executor,
-    int64_t checkpointIntervalBytes)
+    int64_t checkpointIntervalBytes,
+    bool disableFileCow)
     : filePrefix_(filePrefix),
       numShards_(numShards),
       groupStats_(std::make_unique<FileGroupStats>()),
@@ -42,7 +43,8 @@ SsdCache::SsdCache(
         fmt::format("{}{}", filePrefix_, i),
         i,
         fileMaxRegions,
-        checkpointIntervalBytes / numShards));
+        checkpointIntervalBytes / numShards,
+        disableFileCow));
   }
 }
 

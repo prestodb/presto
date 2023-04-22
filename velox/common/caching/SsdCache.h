@@ -22,22 +22,30 @@ namespace facebook::velox::cache {
 
 class SsdCache {
  public:
-  //  Constructs a cache with backing files at path
-  //  'filePrefix'.<ordinal>. <ordinal> ranges from 0 to 'numShards' -
-  //  1. '. 'maxBytes' is the total capacity of the cache. This is
-  //  rounded up to the next multiple of kRegionSize *
-  //  'numShards'. This means that all the shards have an equal number
-  //  of regions. For 2 shards and 200MB size, the size rounds up to
-  //  256M with 2 shards each of 128M (2 regions). If
-  //  'checkpointIntervalBytes' is non-0, the cache makes a durable
-  //  checkpointed state that survives restart after each
-  //  'checkpointIntervalBytes' written.
+  /// Constructs a cache with backing files at path 'filePrefix'.<ordinal>.
+  /// <ordinal> ranges from 0 to 'numShards' - 1.
+  /// 'maxBytes' is the total capacity of the cache. This is rounded up to the
+  /// next multiple of kRegionSize * 'numShards'. This means that all the shards
+  /// have an equal number of regions. For 2 shards and 200MB size, the size
+  /// rounds up to 256M with 2 shards each of 128M (2 regions).
+  /// If 'checkpointIntervalBytes' is non-0, the cache makes a durable
+  /// checkpointed state that survives restart after each
+  /// 'checkpointIntervalBytes' written.
+  /// If 'setNoCowFlagForSsdFiles' is true, the cache sets 'no copy on write'
+  /// flag to each file. This prevents the cache to go over the 'maxBytes',
+  /// eventually use up all disk space and stop working. Should be set to true
+  /// for file systems supporting COW (like brtfs).
+  /// If 'disableFileCow' is true, the cache disables the file COW (copy on
+  /// write) feature if the underlying filesystem (such as brtfs) supports it.
+  /// This prevents the actual cache space usage on disk from exceeding the
+  /// 'maxBytes' limit and stop working.
   SsdCache(
       std::string_view filePrefix,
       uint64_t maxBytes,
       int32_t numShards,
       folly::Executor* executor,
-      int64_t checkpointIntervalBytes = 0);
+      int64_t checkpointIntervalBytes = 0,
+      bool disableFileCow = false);
 
   // Returns the shard corresponding to 'fileId'. 'fileId' is a
   //  file id from e.g. FileCacheKey.

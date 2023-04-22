@@ -21,16 +21,44 @@
 #include "velox/common/caching/FileIds.h"
 
 #include <fcntl.h>
+#ifdef linux
+#include <linux/fs.h>
+#endif // linux
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <numeric>
-
 #include <fstream>
+#include <numeric>
 
 DEFINE_bool(ssd_odirect, true, "Use O_DIRECT for SSD cache IO");
 DEFINE_bool(ssd_verify_write, false, "Read back data after writing to SSD");
 
 namespace facebook::velox::cache {
+
+namespace {
+// Disable 'copy on write' on the given file. Will throw if failed for any
+// reason, including file system not supporting cow feature.
+void disableCow(int32_t fd) {
+#ifdef linux
+  int attr{0};
+  auto res = ioctl(fd, FS_IOC_GETFLAGS, &attr);
+  VELOX_CHECK_EQ(
+      0,
+      res,
+      "ioctl(FS_IOC_GETFLAGS) failed: {}, {}",
+      res,
+      folly::errnoStr(errno));
+  attr |= FS_NOCOW_FL;
+  res = ioctl(fd, FS_IOC_SETFLAGS, &attr);
+  VELOX_CHECK_EQ(
+      0,
+      res,
+      "ioctl(FS_IOC_SETFLAGS, FS_NOCOW_FL) failed: {}, {}",
+      res,
+      folly::errnoStr(errno));
+#endif // linux
+}
+} // namespace
 
 SsdPin::SsdPin(SsdFile& file, SsdRun run) : file_(&file), run_(run) {
   file_->checkPinned(run_.offset());
@@ -72,6 +100,7 @@ SsdFile::SsdFile(
     int32_t shardId,
     int32_t maxRegions,
     int64_t checkpointIntervalBytes,
+    bool disableFileCow,
     folly::Executor* FOLLY_NULLABLE executor)
     : fileName_(filename),
       shardId_(shardId),
@@ -82,12 +111,19 @@ SsdFile::SsdFile(
   int32_t oDirect = 0;
 #ifdef linux
   oDirect = FLAGS_ssd_odirect ? O_DIRECT : 0;
-#endif
+#endif // linux
   fd_ = open(filename_.c_str(), O_CREAT | O_RDWR | oDirect, S_IRUSR | S_IWUSR);
-  if (fd_ < 0) {
-    LOG(ERROR) << "Cannot open or create " << filename << " error " << errno;
-    exit(1);
+  VELOX_CHECK_GE(
+      fd_,
+      0,
+      "Cannot open or create {}. Error: {}",
+      filename,
+      folly::errnoStr(errno));
+
+  if (disableFileCow) {
+    disableCow(fd_);
   }
+
   readFile_ = std::make_unique<LocalReadFile>(fd_);
   uint64_t size = lseek(fd_, 0, SEEK_END);
   numRegions_ = size / kRegionSize;
@@ -641,6 +677,23 @@ void SsdFile::initializeCheckpoint() {
     } catch (const std::exception& e) {
     }
   }
+}
+
+bool SsdFile::testingIsCowDisabled() const {
+#ifdef linux
+  int attr{0};
+  const auto res = ioctl(fd_, FS_IOC_GETFLAGS, &attr);
+  VELOX_CHECK_EQ(
+      0,
+      res,
+      "ioctl(FS_IOC_GETFLAGS) failed: {}, {}",
+      res,
+      folly::errnoStr(errno));
+
+  return (attr & FS_NOCOW_FL) == FS_NOCOW_FL;
+#else
+  return false;
+#endif // linux
 }
 
 namespace {
