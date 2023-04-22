@@ -156,6 +156,10 @@ TypePtr typeFromString(const std::string& typeName) {
     upper = "DOUBLE";
   }
 
+  if (upper == INTERVAL_DAY_TIME()->toString()) {
+    return INTERVAL_DAY_TIME();
+  }
+
   return createScalarType(mapNameToTypeKind(upper));
 }
 
