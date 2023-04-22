@@ -16,7 +16,6 @@
 
 #include <proxygen/httpserver/Filters.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
-#include <time.h>
 
 namespace facebook::presto::http::filters {
 
