@@ -23,6 +23,7 @@
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/StatsReporter.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Operator.h"
 
 using namespace facebook::velox;
@@ -106,9 +107,11 @@ void PrestoExchangeSource::doRequest() {
       .method(proxygen::HTTPMethod::GET)
       .url(path)
       .header(protocol::PRESTO_MAX_SIZE_HTTP_HEADER, "32MB")
-      .send(httpClient_.get(), pool_)
+      .send(httpClient_.get(), pool_.get())
       .via(driverCPUExecutor())
       .thenValue([path, self](std::unique_ptr<http::HttpResponse> response) {
+        velox::common::testutil::TestValue::adjust(
+            "facebook::presto::PrestoExchangeSource::doRequest", self.get());
         auto* headers = response->headers();
         if (headers->getStatusCode() != http::kHttpOk &&
             headers->getStatusCode() != http::kHttpNoContent) {
@@ -133,6 +136,13 @@ void PrestoExchangeSource::doRequest() {
 
 void PrestoExchangeSource::processDataResponse(
     std::unique_ptr<http::HttpResponse> response) {
+  if (closed_.load()) {
+    // If PrestoExchangeSource is already closed, just free all buffers
+    // allocated without doing any processing. This can happen when a super slow
+    // response comes back after its owning 'Task' gets destroyed.
+    response->freeBuffers();
+    return;
+  }
   auto* headers = response->headers();
   VELOX_CHECK(
       !headers->getIsChunked(),
@@ -263,7 +273,7 @@ void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
   http::RequestBuilder()
       .method(proxygen::HTTPMethod::GET)
       .url(ackPath)
-      .send(httpClient_.get(), pool_)
+      .send(httpClient_.get(), pool_.get())
       .via(driverCPUExecutor())
       .thenValue([self](std::unique_ptr<http::HttpResponse> response) {
         VLOG(1) << "Ack " << response->headers()->getStatusCode();
@@ -282,7 +292,7 @@ void PrestoExchangeSource::abortResults() {
   http::RequestBuilder()
       .method(proxygen::HTTPMethod::DELETE)
       .url(basePath_)
-      .send(httpClient_.get(), pool_)
+      .send(httpClient_.get(), pool_.get())
       .via(driverCPUExecutor())
       .thenValue([queue, self](std::unique_ptr<http::HttpResponse> response) {
         auto statusCode = response->headers()->getStatusCode();
