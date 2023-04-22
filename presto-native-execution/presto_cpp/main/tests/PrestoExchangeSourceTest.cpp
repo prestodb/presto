@@ -24,10 +24,12 @@
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/MmapAllocator.h"
+#include "velox/common/testutil/TestValue.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
 using namespace facebook::velox::memory;
+using namespace facebook::velox::common::testutil;
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
@@ -79,7 +81,7 @@ class Producer {
             auto [promise, future] = folly::makePromiseContract<bool>();
 
             std::move(future)
-                .via(folly::EventBaseManager().getEventBase())
+                .via(folly::EventBaseManager::get()->getEventBase())
                 .thenValue([this, downstream, taskId, sequence](
                                bool /*value*/) {
                   auto [data, noMoreData] = getData(sequence);
@@ -188,6 +190,10 @@ class Producer {
     }
 
     std::move(future).get(std::chrono::microseconds(120'000));
+  }
+
+  folly::Promise<bool>& promise() {
+    return promise_;
   }
 
  private:
@@ -303,10 +309,12 @@ class PrestoExchangeSourceTest : public testing::Test {
     options.capacity = 1L << 30;
     allocator_ = std::make_unique<memory::MmapAllocator>(options);
     memory::MemoryAllocator::setDefaultInstance(allocator_.get());
+    TestValue::enable();
   }
 
   void TearDown() override {
     memory::MemoryAllocator::setDefaultInstance(nullptr);
+    TestValue::disable();
   }
 
   void requestNextPage(
@@ -445,6 +453,59 @@ TEST_F(PrestoExchangeSourceTest, slowProducer) {
   ASSERT_EQ(stats.size(), 1);
   const auto it = stats.find("prestoExchangeSource.numPages");
   ASSERT_EQ(it->second, pages.size());
+}
+
+TEST_F(PrestoExchangeSourceTest, slowProducerAndEarlyTerminatingConsumer) {
+  std::atomic<bool> codePointHit{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::PrestoExchangeSource::doRequest",
+      std::function<void(const PrestoExchangeSource*)>(
+          ([&](const auto* prestoExchangeSource) { codePointHit = true; })));
+  auto producer = std::make_unique<Producer>();
+
+  auto producerServer = std::make_unique<http::HttpServer>(
+      std::make_unique<http::HttpConfig>(folly::SocketAddress("127.0.0.1", 0)));
+  producer->registerEndpoints(producerServer.get());
+
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+
+  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  queue->addSourceLocked();
+  queue->noMoreSources();
+  auto exchangeSource = std::make_shared<PrestoExchangeSource>(
+      makeProducerUri(producerAddress), 3, queue, pool_.get());
+
+  requestNextPage(queue, exchangeSource);
+
+  // Simulation of an early destruction of 'Task' will release following
+  // resources, including pool_
+  exchangeSource->close();
+  queue->close();
+  exchangeSource.reset();
+  queue.reset();
+  pool_.reset();
+
+  // We want to wait a bit on the promise state to be valid. That way we are
+  // sure getResults() on the server side (producer) goes into empty data
+  // condition because we did not enqueue any data in producer yet. This allows
+  // us to have full control to simulate a super late response return by
+  // enqueuing a result afterwards.
+  while (!producer->promise().valid()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+
+  // We shall not crash here when response comes back super late.
+  producer->enqueue("I'm a super slow response");
+
+  // We need to wait a bit for response handling mechanism to happen in the
+  // background. There is no way to know where we are for response handling as
+  // all resources have been cleaned up, so explicitly waiting is the only way
+  // to allow the execution of background processing. We expect the test to not
+  // crash.
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  EXPECT_TRUE(codePointHit);
+  serverWrapper.stop();
 }
 
 TEST_F(PrestoExchangeSourceTest, failedProducer) {
