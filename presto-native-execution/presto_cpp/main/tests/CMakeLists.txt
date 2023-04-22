@@ -11,15 +11,18 @@
 # limitations under the License.
 add_executable(
   presto_server_test
-  PrestoExchangeSourceTest.cpp
-  TaskManagerTest.cpp
-  HttpServerWrapper.cpp
-  PrestoTaskTest.cpp
   AnnouncerTest.cpp
+  HttpServerWrapper.cpp
+  PrestoExchangeSourceTest.cpp
+  PrestoTaskTest.cpp
   QueryContextCacheTest.cpp
-  ServerOperationTest.cpp)
+  ServerOperationTest.cpp
+  TaskManagerTest.cpp)
 
-add_test(presto_server_test presto_server_test)
+add_test(
+  NAME presto_server_test
+  COMMAND presto_server_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(
   presto_server_test
