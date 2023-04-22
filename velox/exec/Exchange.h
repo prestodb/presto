@@ -272,7 +272,7 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
       : taskId_(taskId),
         destination_(destination),
         queue_(std::move(queue)),
-        pool_(pool) {}
+        pool_(pool->shared_from_this()) {}
 
   virtual ~ExchangeSource() = default;
 
@@ -338,8 +338,15 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   bool atEnd_ = false;
 
  protected:
-  memory::MemoryPool* pool_;
-}; // namespace facebook::velox::exec
+  // Holds a shared reference on the memory pool as it might be still possible
+  // to be accessed by external components after the query task is destroyed.
+  // For instance, in Prestissimo, there might be a pending http request issued
+  // by PrestoExchangeSource to fetch data from the remote task. When the http
+  // response returns back, the task might have already terminated and deleted
+  // so we need to hold an additional shared reference on the memory pool to
+  // keeps it alive.
+  const std::shared_ptr<memory::MemoryPool> pool_;
+};
 
 struct RemoteConnectorSplit : public connector::ConnectorSplit {
   const std::string taskId;
