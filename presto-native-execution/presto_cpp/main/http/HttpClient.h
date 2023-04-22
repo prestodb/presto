@@ -70,6 +70,8 @@ class HttpResponse {
     return std::move(bodyChain_);
   }
 
+  void freeBuffers();
+
   std::string dumpBodyChain() const;
 
  private:
@@ -78,15 +80,6 @@ class HttpResponse {
     VELOX_CHECK(!hasError())
     error_ = exception.what();
     freeBuffers();
-  }
-
-  void freeBuffers() {
-    for (auto& iobuf : bodyChain_) {
-      if (iobuf != nullptr) {
-        pool_->free(iobuf->writableData(), iobuf->capacity());
-      }
-    }
-    bodyChain_.clear();
   }
 
   // Returns the next buffer allocation size given the new request 'dataLength'.
