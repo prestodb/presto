@@ -108,6 +108,11 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kAsyncCacheSsdCheckpointGb{
       "async-cache-ssd-checkpoint-gb"};
   static constexpr std::string_view kAsyncCacheSsdPath{"async-cache-ssd-path"};
+  /// In file systems, such as btrfs, supporting cow (copy on write), the ssd
+  /// cache can use all ssd space and stop working. To prevent that, use this
+  /// option to disable cow for cache files.
+  static constexpr std::string_view kAsyncCacheSsdDisableFileCow{
+      "async-cache-ssd-disable-file-cow"};
   static constexpr std::string_view kEnableSerializedPageChecksum{
       "enable-serialized-page-checksum"};
   static constexpr std::string_view kUseMmapArena{"use-mmap-arena"};
@@ -150,6 +155,7 @@ class SystemConfig : public ConfigBase {
   static constexpr uint64_t kAsyncCacheSsdCheckpointGbDefault = 0;
   static constexpr std::string_view kAsyncCacheSsdPathDefault{
       "/mnt/flash/async_cache."};
+  static constexpr bool kAsyncCacheSsdDisableFileCowDefault{false};
   static constexpr std::string_view kShuffleNameDefault{""};
   static constexpr bool kEnableSerializedPageChecksumDefault = true;
   static constexpr bool kEnableVeloxTaskLoggingDefault = false;
@@ -224,6 +230,8 @@ class SystemConfig : public ConfigBase {
   uint64_t localShuffleMaxPartitionBytes() const;
 
   std::string asyncCacheSsdPath() const;
+
+  bool asyncCacheSsdDisableFileCow() const;
 
   std::string shuffleName() const;
 
