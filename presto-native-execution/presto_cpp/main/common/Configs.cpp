@@ -155,6 +155,11 @@ std::string SystemConfig::asyncCacheSsdPath() const {
   return opt.hasValue() ? opt.value() : std::string(kAsyncCacheSsdPathDefault);
 }
 
+bool SystemConfig::asyncCacheSsdDisableFileCow() const {
+  auto opt = optionalProperty<bool>(std::string(kAsyncCacheSsdDisableFileCow));
+  return opt.value_or(kAsyncCacheSsdDisableFileCowDefault);
+}
+
 std::string SystemConfig::shuffleName() const {
   auto opt = optionalProperty<std::string>(std::string(kShuffleName));
   return opt.hasValue() ? opt.value() : std::string(kShuffleNameDefault);
