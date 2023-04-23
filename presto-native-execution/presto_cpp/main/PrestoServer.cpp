@@ -492,7 +492,8 @@ void PrestoServer::initializeVeloxMemory() {
         asyncCacheSsdGb << 30,
         kNumSsdShards,
         cacheExecutor_.get(),
-        systemConfig->asyncCacheSsdCheckpointGb() << 30);
+        systemConfig->asyncCacheSsdCheckpointGb() << 30,
+        systemConfig->asyncCacheSsdDisableFileCow());
   }
   const int64_t memoryBytes = memoryGb << 30;
   std::shared_ptr<memory::MemoryAllocator> allocator;
