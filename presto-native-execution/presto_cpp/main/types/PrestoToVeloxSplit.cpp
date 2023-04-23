@@ -53,7 +53,15 @@ velox::exec::Split toVeloxSplit(
           entry.value == nullptr ? std::nullopt
                                  : std::optional<std::string>{*entry.value});
     }
-
+    std::unordered_map<std::string, std::string> customSplitInfo;
+    for (const auto& [key, value] : hiveSplit->fileSplit.customSplitInfo) {
+      customSplitInfo[key] = value;
+    }
+    std::shared_ptr<std::string> extraFileInfo;
+    if (hiveSplit->fileSplit.extraFileInfo) {
+      extraFileInfo = std::make_shared<std::string>(
+          velox::encoding::Base64::decode(*hiveSplit->fileSplit.extraFileInfo));
+    }
     return velox::exec::Split(
         std::make_shared<connector::hive::HiveConnectorSplit>(
             scheduledSplit.split.connectorId,
@@ -64,7 +72,9 @@ velox::exec::Split toVeloxSplit(
             partitionKeys,
             hiveSplit->tableBucketNumber
                 ? std::optional<int>(*hiveSplit->tableBucketNumber)
-                : std::nullopt),
+                : std::nullopt,
+            customSplitInfo,
+            extraFileInfo),
         splitGroupId);
   }
   if (auto remoteSplit = std::dynamic_pointer_cast<const protocol::RemoteSplit>(
