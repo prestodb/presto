@@ -58,6 +58,9 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   /// PrestoExchangeSource.
   static void getMemoryUsage(int64_t& currentBytes, int64_t& peakBytes);
 
+  /// Used by test to clear the node-wise memory usage tracking.
+  static void testingClearMemoryUsage();
+
  private:
   void request() override;
 
