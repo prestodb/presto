@@ -372,4 +372,9 @@ void PrestoExchangeSource::getMemoryUsage(
   currentBytes = currQueuedMemoryBytes();
   peakBytes = peakQueuedMemoryBytes();
 }
+
+void PrestoExchangeSource::testingClearMemoryUsage() {
+  currQueuedMemoryBytes() = 0;
+  peakQueuedMemoryBytes() = 0;
+}
 } // namespace facebook::presto
