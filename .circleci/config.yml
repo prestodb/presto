@@ -189,7 +189,7 @@ executors:
     resource_class: macos.x86.medium.gen2
   macos-m1:
     macos:
-      xcode: "14.3.0"
+      xcode: "14.2.0"
     resource_class: macos.m1.large.gen1
 
 jobs:
