@@ -24,7 +24,7 @@ workflows:
       - macos-build:
           matrix:
             parameters:
-              os: [macos-intel, macos-m1]
+              os: [macos-intel]
       - format-check
       - header-check
 
@@ -47,6 +47,10 @@ workflows:
       - docker-compose-ubuntu-cpp
       - docker-compose-centos-cpp
       - docker-compose-presto-native
+      - macos-build:
+          matrix:
+            parameters:
+              os: [ macos-m1 ]
 
 
   # Hourly build on weekdays
@@ -66,7 +70,7 @@ workflows:
       - macos-build:
           matrix:
             parameters:
-              os: [macos-intel, macos-m1]
+              os: [macos-intel]
 
 commands:
   update-submodules:
