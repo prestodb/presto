@@ -283,8 +283,8 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
 
 TEST_F(LocalPartitionTest, blockingOnLocalExchangeQueue) {
   auto localExchangeBufferSize = "1024";
-  auto baseVector =
-      vectorMaker_.flatVector<int64_t>(1024, [](auto row) { return row; });
+  auto baseVector = vectorMaker_.flatVector<int64_t>(
+      1024 * 1024, [](auto row) { return row; });
   // Make a small dictionary vector of one row and roughly 8 bytes that is
   // smaller than the localExchangeBufferSize.
   auto smallInput = vectorMaker_.rowVector(
