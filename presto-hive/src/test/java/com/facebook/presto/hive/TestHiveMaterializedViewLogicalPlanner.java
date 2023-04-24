@@ -43,6 +43,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.common.predicate.Domain.create;
 import static com.facebook.presto.common.predicate.Domain.multipleValues;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
@@ -201,7 +202,9 @@ public class TestHiveMaterializedViewLogicalPlanner
             MaterializedResult baseTable = computeActual(baseQuery);
             assertEquals(viewTable, baseTable);
 
-            assertPlan(getSession(), viewQuery, anyTree(
+            // Otherwise the empty values node will be optimized
+            Session disableEmptyInputOptimization = Session.builder(getSession()).setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false").build();
+            assertPlan(disableEmptyInputOptimization, viewQuery, anyTree(
                     anyTree(values("orderkey")), // Alias for the filter column
                     anyTree(filter("orderkey_17 < BIGINT'10000'", constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("orderkey_17", "orderkey"))))));
         }
@@ -978,6 +981,7 @@ public class TestHiveMaterializedViewLogicalPlanner
     {
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())
                 .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false")
                 .build();
         QueryRunner queryRunner = getQueryRunner();
         String table = "orders_partitioned";
@@ -1025,7 +1029,9 @@ public class TestHiveMaterializedViewLogicalPlanner
                             ImmutableMap.of("orderkey_25", "orderkey")))));
 
             assertPlan(queryOptimizationWithMaterializedView, baseQuery, expectedPattern);
-            assertPlan(getSession(), viewQuery, expectedPattern);
+
+            Session disableEmptyInputOptimization = Session.builder(getSession()).setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false").build();
+            assertPlan(disableEmptyInputOptimization, viewQuery, expectedPattern);
 
             // Try optimizing the base query when all candidates are incompatible
             setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view1, view3));
@@ -1173,6 +1179,7 @@ public class TestHiveMaterializedViewLogicalPlanner
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())
                 .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
                 .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false")
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false")
                 .build();
         QueryRunner queryRunner = getQueryRunner();
 

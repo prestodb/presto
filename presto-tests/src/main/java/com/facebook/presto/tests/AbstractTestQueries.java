@@ -65,6 +65,7 @@ import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_T
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -6562,5 +6563,33 @@ public abstract class AbstractTestQueries
         resultWithOptimization = computeActual(enableOptimization, sql);
         resultWithoutOptimization = computeActual(disableOptimization, sql);
         assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
+    }
+
+    @Test
+    public void testQueryWithEmptyInput()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "true")
+                .build();
+
+        assertQuery(enableOptimization, "select o.orderkey, o.custkey, l.linenumber from orders o join (select orderkey, linenumber from lineitem where false) l on o.orderkey = l.orderkey");
+        assertQuery(enableOptimization, "select o.orderkey, o.custkey, l.linenumber from orders o left join (select orderkey, linenumber from lineitem where false) l on o.orderkey = l.orderkey");
+        assertQuery(enableOptimization, "select o.orderkey, o.custkey, l.linenumber from (select orderkey, linenumber from lineitem where false) l right join orders o on l.orderkey = o.orderkey");
+        assertQuery(enableOptimization, "select orderkey, partkey from lineitem union all select orderkey, custkey as partkey from orders where false");
+        assertQuery(enableOptimization, "select orderkey, partkey from lineitem where orderkey in (select orderkey from orders where false)");
+        assertQuery(enableOptimization, "select orderkey, partkey from lineitem where orderkey not in (select orderkey from orders where false)");
+        assertQuery(enableOptimization, "select count(*) as count from (select orderkey from orders where false)");
+        assertQuery(enableOptimization, "select orderkey, count(*) as count from (select orderkey from orders where false) group by orderkey");
+        assertQuery(enableOptimization, "select o.orderkey, o.custkey, l.linenumber from orders o join (select orderkey, max(linenumber) as linenumber from lineitem where false group by orderkey) l on o.orderkey = l.orderkey");
+        assertQuery(enableOptimization, "select orderkey from orders where orderkey = (select orderkey from lineitem where false)");
+        assertQuery(enableOptimization, "SELECT (SELECT 1 FROM orders WHERE false LIMIT 1) FROM lineitem");
+        assertQuery(enableOptimization, "SELECT (SELECT 1 FROM orders WHERE false LIMIT 1) FROM lineitem");
+        assertQuery(enableOptimization, "WITH emptyorders as (select orderkey, totalprice, orderdate from orders where false) SELECT orderkey, orderdate, totalprice, " +
+                "ROW_NUMBER() OVER (ORDER BY orderdate) as row_num FROM emptyorders WHERE totalprice > 10 ORDER BY orderdate ASC LIMIT 10");
+        assertQuery(enableOptimization, "WITH emptyorders as (select * from orders where false) SELECT p.name, l.orderkey, l.partkey, l.quantity, RANK() OVER (PARTITION BY p.name ORDER BY l.quantity DESC) AS rank_quantity " +
+                "FROM lineitem l JOIN emptyorders o ON l.orderkey = o.orderkey JOIN part p ON l.partkey = p.partkey WHERE o.orderdate BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' " +
+                "AND l.shipdate BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' AND p.size = 15 ORDER BY p.name, rank_quantity LIMIT 100");
+
+        emptyJoinQueries(enableOptimization);
     }
 }

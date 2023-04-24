@@ -36,6 +36,7 @@ import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATI
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PRECISION_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT;
 import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.ALL;
@@ -485,6 +486,8 @@ public class TestAddExchangesPlans
                         .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.toString())
                         .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.toString())
                         .setSystemProperty(PARTITIONING_PRECISION_STRATEGY, PREFER_EXACT_PARTITIONING.toString())
+                        // Set for testSemiJoinExactlyPartitioned, which will be simplified if set to true
+                        .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false")
                         .build(),
                 pattern);
     }
