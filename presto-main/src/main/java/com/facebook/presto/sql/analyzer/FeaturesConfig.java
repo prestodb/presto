@@ -254,6 +254,7 @@ public class FeaturesConfig
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     private boolean mergeDuplicateAggregationsEnabled = true;
     private boolean mergeAggregationsWithAndWithoutFilter;
+    private boolean simplifyPlanWithEmptyInput = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2466,6 +2467,19 @@ public class FeaturesConfig
     public FeaturesConfig setMergeAggregationsWithAndWithoutFilter(boolean mergeAggregationsWithAndWithoutFilter)
     {
         this.mergeAggregationsWithAndWithoutFilter = mergeAggregationsWithAndWithoutFilter;
+        return this;
+    }
+
+    public boolean isSimplifyPlanWithEmptyInput()
+    {
+        return this.simplifyPlanWithEmptyInput;
+    }
+
+    @Config("optimizer.simplify-plan-with-empty-input")
+    @ConfigDescription("Enable simplifying query plans with empty input")
+    public FeaturesConfig setSimplifyPlanWithEmptyInput(boolean simplifyPlanWithEmptyInput)
+    {
+        this.simplifyPlanWithEmptyInput = simplifyPlanWithEmptyInput;
         return this;
     }
 }
