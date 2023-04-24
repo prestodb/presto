@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.hive.metastore.Database;
@@ -37,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
@@ -45,6 +47,30 @@ import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+/**
+ * Following JVM argument is needed to run Spark native tests.
+ * <p>
+ * - PRESTO_SERVER
+ * - This tells Spark where to find the Presto native binary to launch the process.
+ * Example: -DPRESTO_SERVER=/path/to/native/process/bin
+ * <p>
+ * - DATA_DIR
+ * - Optional path to store TPC-H tables used in the test. If this directory is empty, it will be
+ * populated. If tables already exists, they will be reused.
+ * <p>
+ * Tests can be running in Interactive Debugging Mode that allows for easier debugging
+ * experience. Instead of launching its own native process, the test will connect to an existing
+ * native process. This gives developers flexibility to connect IDEA and debuggers to the native process.
+ * Enable this mode by setting NATIVE_PORT JVM argument.
+ * <p>
+ * - NATIVE_PORT
+ * - This is the port your externally launched native process listens to. It is used to tell Spark where to send
+ * requests. This port number has to be the same as to which your externally launched process listens.
+ * Example: -DNATIVE_PORT=7777.
+ * When NATIVE_PORT is specified, PRESTO_SERVER argument is not requires and is ignored if specified.
+ * <p>
+ * For test queries requiring shuffle, the disk-based local shuffle will be used.
+ */
 public class PrestoSparkNativeQueryRunnerUtils
 {
     private static final int AVAILABLE_CPU_COUNT = 4;
@@ -62,6 +88,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                 .put("native-execution-enabled", "true")
                 .put("spark.initial-partition-count", "1")
                 .put("register-test-functions", "true")
+                .put("native-execution-program-arguments", "--logtostderr=1 --minloglevel=3")
                 .put("spark.partition-count-auto-tune-enabled", "false");
 
         if (System.getProperty("NATIVE_PORT") == null) {
@@ -77,13 +104,14 @@ public class PrestoSparkNativeQueryRunnerUtils
                 getNativeExecutionShuffleConfigs(),
                 getNativeExecutionModules());
         setupJsonFunctionNamespaceManager(queryRunner);
+
+        // Increases log level to reduce log spamming while running test.
+        customizeLogging();
         return queryRunner;
     }
 
     public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner(Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
     {
-        String dataDirectory = System.getProperty("DATA_DIR");
-
         ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
         configBuilder.putAll(getNativeWorkerSystemProperties()).putAll(additionalConfigProperties);
 
@@ -106,7 +134,6 @@ public class PrestoSparkNativeQueryRunnerUtils
     public static QueryRunner createJavaQueryRunner()
             throws Exception
     {
-        String dataDirectory = System.getProperty("DATA_DIR");
         return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy");
     }
 
@@ -122,6 +149,13 @@ public class PrestoSparkNativeQueryRunnerUtils
             assertTrue(shuffleHandle.isPresent());
             assertTrue(shuffleHandle.get() instanceof BypassMergeSortShuffleHandle);
         }
+    }
+
+    private static void customizeLogging()
+    {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.spark", WARN);
+        logging.setLevel("com.facebook.presto.spark", WARN);
     }
 
     private static Database createDatabaseMetastoreObject(String name)
