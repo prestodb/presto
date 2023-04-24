@@ -15,7 +15,9 @@
 package com.facebook.presto.hudi;
 
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -23,20 +25,27 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hudi.HudiMetadata.fromPartitionColumns;
 import static com.facebook.presto.hudi.HudiMetadata.toMetastoreContext;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class HudiPartitionManager
 {
@@ -51,12 +60,11 @@ public class HudiPartitionManager
     public List<String> getEffectivePartitions(
             ConnectorSession connectorSession,
             ExtendedHiveMetastore metastore,
-            String schemaName,
-            String tableName,
-            TupleDomain<ColumnHandle> tupleDomain)
+            SchemaTableName schemaTableName,
+            TupleDomain<ColumnHandle> constraintSummary)
     {
         MetastoreContext metastoreContext = toMetastoreContext(connectorSession);
-        Optional<Table> table = metastore.getTable(metastoreContext, schemaName, tableName);
+        Optional<Table> table = metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName());
         Verify.verify(table.isPresent());
         List<Column> partitionColumns = table.get().getPartitionColumns();
         if (partitionColumns.isEmpty()) {
@@ -64,10 +72,8 @@ public class HudiPartitionManager
         }
 
         Map<Column, Domain> partitionPredicate = new HashMap<>();
-        Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElse(ImmutableMap.of());
-
+        Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().orElseGet(ImmutableMap::of);
         List<HudiColumnHandle> hudiColumnHandles = fromPartitionColumns(partitionColumns);
-
         for (int i = 0; i < hudiColumnHandles.size(); i++) {
             HudiColumnHandle column = hudiColumnHandles.get(i);
             Column partitionColumn = partitionColumns.get(i);
@@ -78,6 +84,59 @@ public class HudiPartitionManager
                 partitionPredicate.put(partitionColumn, Domain.all(column.getHiveType().getType(typeManager)));
             }
         }
-        return metastore.getPartitionNamesByFilter(metastoreContext, schemaName, tableName, partitionPredicate);
+        List<String> partitionNames = metastore.getPartitionNamesByFilter(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionPredicate);
+        List<Type> partitionTypes = partitionColumns.stream()
+                .map(column -> typeManager.getType(column.getType().getTypeSignature()))
+                .collect(toList());
+
+        return partitionNames.stream()
+                // Apply extra filters which could not be done by getPartitionNamesByFilter, similar to filtering in HivePartitionManager#getPartitionsIterator
+                .filter(partitionName -> parseValuesAndFilterPartition(
+                        partitionName,
+                        hudiColumnHandles,
+                        partitionTypes,
+                        constraintSummary))
+                .collect(toList());
+    }
+
+    private boolean parseValuesAndFilterPartition(
+            String partitionName,
+            List<HudiColumnHandle> partitionColumns,
+            List<Type> partitionColumnTypes,
+            TupleDomain<ColumnHandle> constraintSummary)
+    {
+        if (constraintSummary.isNone()) {
+            return false;
+        }
+
+        Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().orElseGet(ImmutableMap::of);
+        Map<HudiColumnHandle, NullableValue> partitionValues = parsePartition(partitionName, partitionColumns, partitionColumnTypes);
+        for (HudiColumnHandle column : partitionColumns) {
+            NullableValue value = partitionValues.get(column);
+            Domain allowedDomain = domains.get(column);
+            if (allowedDomain != null && !allowedDomain.includesNullableValue(value.getValue())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static Map<HudiColumnHandle, NullableValue> parsePartition(
+            String partitionName,
+            List<HudiColumnHandle> partitionColumns,
+            List<Type> partitionColumnTypes)
+    {
+        List<String> partitionColumnNames = partitionColumns.stream()
+                .map(HudiColumnHandle::getName)
+                .collect(Collectors.toList());
+        List<String> partitionValues = extractPartitionValues(partitionName, Optional.of(partitionColumnNames));
+        ImmutableMap.Builder<HudiColumnHandle, NullableValue> builder = ImmutableMap.builder();
+        for (int i = 0; i < partitionColumns.size(); i++) {
+            HudiColumnHandle column = partitionColumns.get(i);
+            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), partitionColumnTypes.get(i), ZoneId.of(TimeZone.getDefault().getID()));
+            builder.put(column, parsedValue);
+        }
+        return builder.build();
     }
 }
