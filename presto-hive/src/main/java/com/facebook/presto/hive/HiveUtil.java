@@ -79,7 +79,6 @@ import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.hadoop.HoodieParquetInputFormat;
 import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
-import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -254,7 +253,7 @@ public final class HiveUtil
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, getInputFormatName(schema), true);
         JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
-        if (!customSplitInfo.isEmpty() && isHudiRealtimeSplit(customSplitInfo)) {
+        if (!customSplitInfo.isEmpty()) {
             fileSplit = recreateSplitWithCustomInfo(fileSplit, customSplitInfo);
 
             // Add additional column information for record reader
@@ -308,12 +307,6 @@ public final class HiveUtil
                     firstNonNull(e.getMessage(), e.getClass().getName())),
                     e);
         }
-    }
-
-    public static boolean isHudiRealtimeSplit(Map<String, String> customSplitInfo)
-    {
-        String customSplitClass = customSplitInfo.get(CUSTOM_FILE_SPLIT_CLASS_KEY);
-        return HoodieRealtimeFileSplit.class.getName().equals(customSplitClass);
     }
 
     public static void setReadColumns(Configuration configuration, List<Integer> readHiveColumnIndexes)
