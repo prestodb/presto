@@ -38,7 +38,7 @@ import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR_REMOVE_TABLESCAN_CONSTANTS;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
@@ -89,20 +89,20 @@ public class TestHiveCanonicalPlanHashes
             assertSamePlanHash(
                     "SELECT orderkey from test_orders",
                     "SELECT orderkey from test_orders",
-                    CONNECTOR);
+                    CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
             assertSamePlanHash(
                     "SELECT orderkey from test_orders where ds > '2020-09-01'",
                     "SELECT orderkey from test_orders where ds = '2020-09-02'",
-                    CONNECTOR);
+                    CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
             assertSamePlanHash(
                     "SELECT orderkey from test_orders where ds = '2020-09-01' AND orderkey < 10 AND ts >= '00:01'",
                     "SELECT orderkey from test_orders where ds = '2020-09-02' AND orderkey < 10 AND ts >= '00:02'",
-                    CONNECTOR);
+                    CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
 
             assertDifferentPlanHash(
                     "SELECT orderkey from test_orders where ds = '2020-09-01' AND orderkey < 10",
                     "SELECT orderkey from test_orders where ds = '2020-09-02' AND orderkey < 20",
-                    CONNECTOR);
+                    CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
 
             assertSamePlanHash(
                     "SELECT orderkey, CAST(1 AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey < 10",
@@ -116,7 +116,7 @@ public class TestHiveCanonicalPlanHashes
             assertSamePlanHash(
                     "INSERT INTO test_orders select * from test_orders",
                     "INSERT INTO test_orders select * from test_orders",
-                    CONNECTOR);
+                    CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_orders");

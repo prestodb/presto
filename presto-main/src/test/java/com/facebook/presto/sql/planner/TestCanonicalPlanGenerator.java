@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR_REMOVE_TABLESCAN_CONSTANTS;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
@@ -179,19 +179,19 @@ public class TestCanonicalPlanGenerator
     public void testTableScanAndProjectWithStrategy()
             throws Exception
     {
-        assertSameCanonicalLeafPlan("SELECT 1 from orders", "SELECT 1 from orders", CONNECTOR);
-        assertDifferentCanonicalLeafPlan("SELECT 1 from orders", "SELECT 2 from orders", CONNECTOR);
+        assertSameCanonicalLeafPlan("SELECT 1 from orders", "SELECT 1 from orders", CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+        assertDifferentCanonicalLeafPlan("SELECT 1 from orders", "SELECT 2 from orders", CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertSameCanonicalLeafPlan("SELECT 1 from orders", "SELECT 2 from orders", REMOVE_SAFE_CONSTANTS);
         assertSameCanonicalLeafPlan("SELECT CAST(1 AS VARCHAR) from orders", "SELECT CAST(2 AS VARCHAR) from orders", REMOVE_SAFE_CONSTANTS);
 
         assertSameCanonicalLeafPlan(
                 "SELECT totalprice, custkey + (totalprice / 10) from orders",
                 "SELECT custkey + (totalprice / 10), totalprice from orders",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentCanonicalLeafPlan(
                 "SELECT totalprice, custkey + (totalprice / 10) from orders",
                 "SELECT custkey + (totalprice / 5), totalprice from orders",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertSameCanonicalLeafPlan(
                 "SELECT totalprice, custkey + (totalprice / 10) from orders",
                 "SELECT custkey + (totalprice / 5), totalprice from orders",
@@ -205,11 +205,11 @@ public class TestCanonicalPlanGenerator
         assertSameCanonicalLeafPlan(
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 120",
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 120",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentCanonicalLeafPlan(
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 110",
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 120",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentCanonicalLeafPlan(
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 120",
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 110",
@@ -218,7 +218,7 @@ public class TestCanonicalPlanGenerator
         assertSameCanonicalLeafPlan(
                 "SELECT totalprice from orders WHERE custkey IN (10,20,30)",
                 "SELECT totalprice from orders WHERE custkey IN (10,30,20)",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentCanonicalLeafPlan(
                 "SELECT totalprice from orders WHERE custkey IN (10,20,30)",
                 "SELECT totalprice from orders WHERE custkey IN (10,30,40)",

@@ -332,8 +332,12 @@ public class HiveTableLayoutHandle
                 .transform(getPredicateColumns()::get)
                 .transform(ColumnHandle.class::cast)
                 .intersect(constraint);
-
-        constraint = constraint.canonicalize(HiveTableLayoutHandle::isPartitionKey);
+        if (canonicalizationStrategy == PlanCanonicalizationStrategy.CONNECTOR_EXACT) {
+            constraint = constraint.canonicalize(ignored -> false);
+        }
+        else {
+            constraint = constraint.canonicalize(HiveTableLayoutHandle::isPartitionKey);
+        }
         return constraint;
     }
 

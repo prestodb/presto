@@ -29,7 +29,7 @@ import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR_REMOVE_TABLESCAN_CONSTANTS;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -50,7 +50,7 @@ public class TestCanonicalPlanHashes
         assertSamePlanHash(
                 "SELECT totalprice, coalesce(orderkey, custkey) from orders WHERE custkey > 100 AND custkey < 120",
                 "SELECT totalprice, coalesce(orderkey, custkey) from orders WHERE custkey > 100 AND custkey < 120",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertSamePlanHash(
                 "SELECT totalprice, orderkey / 2 from orders WHERE custkey > 100 AND custkey < 120",
                 "SELECT totalprice, orderkey / 4 from orders WHERE custkey > 100 AND custkey < 120",
@@ -59,7 +59,7 @@ public class TestCanonicalPlanHashes
         assertDifferentPlanHash(
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 110",
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 120",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentPlanHash(
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 110",
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 120",
@@ -77,11 +77,11 @@ public class TestCanonicalPlanHashes
         assertSamePlanHash(
                 "SELECT COUNT_IF(totalprice > 0) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey, orderstatus",
                 "SELECT COUNT_IF(totalprice > 0) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey, orderstatus",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertSamePlanHash(
                 "SELECT shippriority, custkey, sum(totalprice) FROM orders GROUP BY GROUPING SETS ((shippriority), (shippriority, custkey))",
                 "SELECT shippriority, custkey, sum(totalprice) FROM orders GROUP BY GROUPING SETS ((shippriority), (shippriority, custkey))",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentPlanHash(
                 "SELECT COUNT_IF(totalprice > 0) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey, orderstatus",
                 "SELECT COUNT_IF(totalprice > 5) from orders WHERE custkey > 100 AND custkey < 250 GROUP BY orderkey, orderstatus",
@@ -94,15 +94,15 @@ public class TestCanonicalPlanHashes
         assertDifferentPlanHash(
                 "SELECT COUNT(totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
                 "SELECT SUM(totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentPlanHash(
                 "SELECT COUNT(totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
                 "SELECT COUNT(DISTINCT totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentPlanHash(
                 "SELECT shippriority, custkey, sum(totalprice) FROM orders GROUP BY GROUPING SETS ((shippriority), (shippriority, custkey))",
                 "SELECT shippriority, custkey, sum(totalprice) FROM orders GROUP BY GROUPING SETS ((shippriority), (custkey))",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
 
         assertDifferentPlanHash(
                 "SELECT COUNT(totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
@@ -125,12 +125,12 @@ public class TestCanonicalPlanHashes
         assertSamePlanHash(
                 "SELECT a.custkey, t.e FROM (SELECT custkey, ARRAY[1, 2, 3] AS my_array FROM orders) a CROSS JOIN UNNEST(my_array) AS t(e)",
                 "SELECT a.custkey, t.e FROM (SELECT custkey, ARRAY[1, 2, 3] AS my_array FROM orders) a CROSS JOIN UNNEST(my_array) AS t(e)",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
 
         assertDifferentPlanHash(
                 "SELECT a.custkey, t.e FROM (SELECT custkey, ARRAY[1, 2, 3, 4] AS my_array FROM orders) a CROSS JOIN UNNEST(my_array) AS t(e)",
                 "SELECT a.custkey, t.e FROM (SELECT custkey, ARRAY[1, 2, 3] AS my_array FROM orders) a CROSS JOIN UNNEST(my_array) AS t(e)",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
 
         assertSamePlanHash(
                 "SELECT a.custkey, t.e FROM (SELECT custkey, ARRAY[1, 2, 3, 4] AS my_array FROM orders) a CROSS JOIN UNNEST(my_array) AS t(e)",
@@ -157,11 +157,11 @@ public class TestCanonicalPlanHashes
         assertSamePlanHash(
                 "SELECT orderkey, custkey FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey >= 1000 and orderkey < 2000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey >= 2000 and orderkey < 3000",
                 "SELECT orderkey, custkey FROM orders where orderkey >= 2000 and orderkey < 3000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey >= 1000 and orderkey < 2000",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentPlanHash(
                 "SELECT orderkey, custkey, 1 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 1000 and orderkey < 2000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 2000 and orderkey < 3000",
                 "SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 2000 and orderkey < 3000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 1000 and orderkey < 2000",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertSamePlanHash(
                 "SELECT orderkey, custkey, 1 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 1000 and orderkey < 2000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 2000 and orderkey < 3000",
                 "SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 2000 and orderkey < 3000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 1000 and orderkey < 2000",
@@ -175,11 +175,11 @@ public class TestCanonicalPlanHashes
         String query1 = "SELECT orderkey, SUM(custkey) OVER (PARTITION BY orderstatus ORDER BY totalprice) FROM orders where orderkey < 1000";
         String query2 = "SELECT orderkey, SUM(custkey) OVER (PARTITION BY orderstatus ORDER BY totalprice) FROM orders where orderkey < 2000";
 
-        assertSamePlanHash(query1 + " UNION ALL " + query2, query2 + " UNION ALL " + query1, CONNECTOR);
+        assertSamePlanHash(query1 + " UNION ALL " + query2, query2 + " UNION ALL " + query1, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
 
         assertDifferentPlanHash(query1,
                 "SELECT orderkey, SUM(custkey) OVER (PARTITION BY totalprice ORDER BY totalprice) FROM orders where orderkey < 1000",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
@@ -190,8 +190,8 @@ public class TestCanonicalPlanHashes
         String query2 = "SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c')) AS t(idd, name)";
         String query3 = "SELECT * FROM ( VALUES (1, 'a'), (3, 'b'), (2, 'c')) AS t(id, name)";
 
-        assertSamePlanHash(query1, query2, CONNECTOR);
-        assertDifferentPlanHash(query1, query3, CONNECTOR);
+        assertSamePlanHash(query1, query2, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+        assertDifferentPlanHash(query1, query3, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
@@ -201,8 +201,8 @@ public class TestCanonicalPlanHashes
         String query1 = "SELECT * FROM nation where substr(name, 1, 1) = 'A' ORDER BY regionkey";
         String query2 = "SELECT * FROM nation where substr(name, 1, 1) = 'A' ORDER BY nationkey";
 
-        assertSamePlanHash(query1, query1, CONNECTOR);
-        assertDifferentPlanHash(query1, query2, CONNECTOR);
+        assertSamePlanHash(query1, query1, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+        assertDifferentPlanHash(query1, query2, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
@@ -210,7 +210,7 @@ public class TestCanonicalPlanHashes
             throws Exception
     {
         String query = "SELECT count(*), count(distinct orderstatus) FROM (SELECT * FROM orders WHERE orderstatus = 'F')";
-        assertSamePlanHash(query, query, CONNECTOR);
+        assertSamePlanHash(query, query, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
@@ -218,7 +218,7 @@ public class TestCanonicalPlanHashes
             throws Exception
     {
         String query = "SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation";
-        assertSamePlanHash(query, query, CONNECTOR);
+        assertSamePlanHash(query, query, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
@@ -226,7 +226,7 @@ public class TestCanonicalPlanHashes
             throws Exception
     {
         String query = "SELECT (SELECT regionkey FROM nation WHERE name = 'nosuchvalue') AS sub";
-        assertSamePlanHash(query, query, CONNECTOR);
+        assertSamePlanHash(query, query, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
@@ -236,32 +236,32 @@ public class TestCanonicalPlanHashes
         assertSamePlanHash(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995",
                 "SELECT N.name, O.totalprice, C.name FROM nation N, orders O, customer C WHERE C.nationkey = N.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertSamePlanHash(
                 "SELECT O.totalprice, C.name FROM orders O JOIN customer C ON C.custkey = O.custkey WHERE year(O.orderdate) = 1995",
                 "SELECT O.totalprice, C.name FROM customer C JOIN orders O ON C.custkey = O.custkey WHERE year(O.orderdate) = 1995",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertSamePlanHash(
                 "SELECT O.totalprice, C.name FROM orders O FULL OUTER JOIN customer C ON C.custkey = O.custkey WHERE year(O.orderdate) = 1995",
                 "SELECT O.totalprice, C.name FROM customer C FULL OUTER JOIN orders O ON C.custkey = O.custkey WHERE year(O.orderdate) = 1995",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertSamePlanHash(
                 "SELECT O.totalprice, C.name FROM orders O LEFT JOIN customer C ON C.custkey = O.custkey and year(O.orderdate) = 1995",
                 "SELECT O.totalprice, C.name FROM customer C RIGHT JOIN orders O ON C.custkey = O.custkey and year(O.orderdate) = 1995",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
 
         assertDifferentPlanHash(
                 "SELECT O.totalprice, C.name FROM orders O LEFT JOIN customer C ON C.custkey = O.custkey and year(O.orderdate) = 1995",
                 "SELECT O.totalprice, C.name FROM orders O RIGHT JOIN customer C ON C.custkey = O.custkey and year(O.orderdate) = 1995",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentPlanHash(
                 "SELECT * FROM orders O FULL OUTER JOIN customer C ON O.custkey = C.custkey FULL OUTER JOIN nation N ON C.nationkey = N.nationkey",
                 "SELECT * FROM nation N FULL OUTER JOIN customer C ON C.nationkey = N.nationkey FULL OUTER JOIN orders O ON O.custkey = C.custkey",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentPlanHash(
                 "SELECT * FROM orders O LEFT OUTER JOIN customer C ON O.custkey = C.custkey LEFT OUTER JOIN nation N ON C.nationkey = N.nationkey",
                 "SELECT * FROM nation N LEFT OUTER JOIN customer C ON C.nationkey = N.nationkey LEFT OUTER JOIN orders O ON O.custkey = C.custkey",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
@@ -269,8 +269,8 @@ public class TestCanonicalPlanHashes
             throws Exception
     {
         String query = "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 2))";
-        assertSamePlanHash(query, query, CONNECTOR);
-        assertDifferentPlanHash(query, "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 1))", CONNECTOR);
+        assertSamePlanHash(query, query, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+        assertDifferentPlanHash(query, "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 1))", CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
@@ -279,17 +279,17 @@ public class TestCanonicalPlanHashes
     {
         String query1 = "SELECT nationkey, ROW_NUMBER() OVER (PARTITION BY regionkey) from nation";
         String query2 = "SELECT nationkey, ROW_NUMBER() OVER (PARTITION BY name) from nation";
-        assertSamePlanHash(query1, query1, CONNECTOR);
-        assertDifferentPlanHash(query1, query2, CONNECTOR);
+        assertSamePlanHash(query1, query1, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+        assertDifferentPlanHash(query1, query2, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
     public void testLimit()
             throws Exception
     {
-        assertSamePlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 1000", CONNECTOR);
-        assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation", CONNECTOR);
-        assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", CONNECTOR);
+        assertSamePlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 1000", CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+        assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation", CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+        assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
         assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", REMOVE_SAFE_CONSTANTS);
     }
 
@@ -298,8 +298,8 @@ public class TestCanonicalPlanHashes
             throws Exception
     {
         String query = "SELECT orderkey FROM orders GROUP BY 1 ORDER BY 1 DESC LIMIT 1";
-        assertSamePlanHash(query, query, CONNECTOR);
-        assertDifferentPlanHash(query, "SELECT orderkey FROM orders GROUP BY 1 ORDER BY 1 DESC LIMIT 2", CONNECTOR);
+        assertSamePlanHash(query, query, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+        assertDifferentPlanHash(query, "SELECT orderkey FROM orders GROUP BY 1 ORDER BY 1 DESC LIMIT 2", CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
@@ -308,8 +308,8 @@ public class TestCanonicalPlanHashes
     {
         String query1 = "SELECT orderstatus FROM (SELECT orderstatus, row_number() OVER (PARTITION BY orderstatus ORDER BY custkey) n FROM orders) WHERE n = 1";
         String query2 = "SELECT orderstatus FROM (SELECT orderstatus, row_number() OVER (PARTITION BY orderstatus ORDER BY custkey) n FROM orders) WHERE n <= 2";
-        assertSamePlanHash(query1, query1, CONNECTOR);
-        assertDifferentPlanHash(query1, query2, CONNECTOR);
+        assertSamePlanHash(query1, query1, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+        assertDifferentPlanHash(query1, query2, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
@@ -318,8 +318,8 @@ public class TestCanonicalPlanHashes
     {
         String query1 = "SELECT distinct regionkey from nation limit 2";
         String query2 = "SELECT distinct regionkey from nation limit 3";
-        assertSamePlanHash(query1, query1, CONNECTOR);
-        assertDifferentPlanHash(query1, query2, CONNECTOR);
+        assertSamePlanHash(query1, query1, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+        assertDifferentPlanHash(query1, query2, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     @Test
@@ -328,7 +328,7 @@ public class TestCanonicalPlanHashes
     {
         assertSamePlanHash("INSERT INTO nation SELECT * from nation",
                 "INSERT INTO nation SELECT * from nation",
-                CONNECTOR);
+                CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
     }
 
     private Session createSession()
