@@ -25,7 +25,10 @@ import org.apache.hadoop.fs.HadoopExtendedFileSystem;
 import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
+import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
+import org.apache.hudi.hadoop.realtime.HoodieRealtimeBootstrapBaseFileSplit;
+import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
@@ -43,6 +46,16 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY;
+import static com.facebook.presto.hive.util.HudiRealtimeBootstrapBaseFileSplitConverter.BASE_PATH_KEY;
+import static com.facebook.presto.hive.util.HudiRealtimeBootstrapBaseFileSplitConverter.BOOTSTRAP_FILE_SPLIT_LEN;
+import static com.facebook.presto.hive.util.HudiRealtimeBootstrapBaseFileSplitConverter.BOOTSTRAP_FILE_SPLIT_PATH;
+import static com.facebook.presto.hive.util.HudiRealtimeBootstrapBaseFileSplitConverter.BOOTSTRAP_FILE_SPLIT_START;
+import static com.facebook.presto.hive.util.HudiRealtimeBootstrapBaseFileSplitConverter.DELTA_FILE_PATHS_KEY;
+import static com.facebook.presto.hive.util.HudiRealtimeBootstrapBaseFileSplitConverter.MAX_COMMIT_TIME_KEY;
+import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_BASEPATH_KEY;
+import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_DELTA_FILEPATHS_KEY;
+import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_MAX_COMMIT_TIME_KEY;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_DDL;
@@ -60,44 +73,43 @@ public class TestGenericHiveRecordCursorProvider
     public static final HiveColumnHandle ID = new HiveColumnHandle("id", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), 5, REGULAR, Optional.empty(), Optional.empty());
     public static final HiveColumnHandle LAST_UPDATE_MONTH = new HiveColumnHandle("last_update_month", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), 6, REGULAR, Optional.empty(), Optional.empty());
     public static final HiveColumnHandle LAST_UPDATE_TIME = new HiveColumnHandle("last_update_time", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), 7, REGULAR, Optional.empty(), Optional.empty());
-    public static final String CUSTOM_SPLIT_CLASS = "custom_split_class";
-    public static final String HUDI_DELTA_FILEPATHS = "hudi_delta_filepaths";
-    public static final String HUDI_BASEPATH = "hudi_basepath";
-    public static final String HUDI_MAX_COMMIT_TIME = "hudi_max_commit_time";
     public static final String TABLE_NAME = "hudi_part_mor_rt";
     public static final String FILE_NAME = "b3711ddf-8c11-4666-82ec-fbc952e1dc72-0_1-61-24052_20210524095413.parquet";
 
     @Test
-    public void shouldReturnHudiRecordCursorWithCopyOnFirstWriteEnabled()
+    public void shouldReturnHudiRecordCursorForRealtimeFileSplitWithCopyOnFirstWriteEnabled()
     {
-        Optional<RecordCursor> recordCursor = getRecordCursor(true);
+        Optional<RecordCursor> recordCursor = getRecordCursor(HoodieRealtimeFileSplit.class, true);
         assertTrue(recordCursor.isPresent());
     }
 
     @Test
-    public void shouldReturnHudiRecordCursorWithCopyOnFirstWriteDisabled()
+    public void shouldReturnHudiRecordCursorForRealtimeFileSplitWithCopyOnFirstWriteDisabled()
     {
-        Optional<RecordCursor> recordCursor = getRecordCursor(false);
+        Optional<RecordCursor> recordCursor = getRecordCursor(HoodieRealtimeFileSplit.class, false);
         assertTrue(recordCursor.isPresent());
     }
 
-    private static Optional<RecordCursor> getRecordCursor(Boolean isCopyOnFirstWriteConfigurationEnabled)
+    @Test
+    public void shouldReturnHudiRecordCursorForRealtimeBootstrapBaseFileSplitWithCopyOnFirstWriteEnabled()
+    {
+        Optional<RecordCursor> recordCursor = getRecordCursor(HoodieRealtimeBootstrapBaseFileSplit.class, true);
+        assertTrue(recordCursor.isPresent());
+    }
+
+    @Test
+    public void shouldReturnHudiRecordCursorForRealtimeBootstrapBaseFileSplitWithCopyOnFirstWriteDisabled()
+    {
+        Optional<RecordCursor> recordCursor = getRecordCursor(HoodieRealtimeBootstrapBaseFileSplit.class, false);
+        assertTrue(recordCursor.isPresent());
+    }
+
+    private static Optional<RecordCursor> getRecordCursor(Class<? extends FileSplit> fileSplitClass, Boolean isCopyOnFirstWriteConfigurationEnabled)
     {
         GenericHiveRecordCursorProvider genericHiveRecordCursorProvider = new GenericHiveRecordCursorProvider(
                 new TestBackgroundHiveSplitLoader.TestingHdfsEnvironment(new ArrayList<>()));
 
-        HiveFileSplit fileSplit = new HiveFileSplit(
-                getTableBasePath(TABLE_NAME) + "/testPartition/" + FILE_NAME,
-                0,
-                435165,
-                435165,
-                1621850079,
-                Optional.empty(),
-                ImmutableMap.of(
-                        CUSTOM_SPLIT_CLASS, "org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit",
-                        HUDI_DELTA_FILEPATHS, "",
-                        HUDI_BASEPATH, getTableBasePath(TABLE_NAME),
-                        HUDI_MAX_COMMIT_TIME, "20210524095413"));
+        HiveFileSplit fileSplit = getHiveFileSplit(fileSplitClass);
 
         return genericHiveRecordCursorProvider.createRecordCursor(
                 isCopyOnFirstWriteConfigurationEnabled ? getHadoopConfWithCopyOnFirstWriteEnabled() : getHadoopConfWithCopyOnFirstWriteDisabled(),
@@ -109,6 +121,44 @@ public class TestGenericHiveRecordCursorProvider
                 DateTimeZone.forID(SESSION.getSqlFunctionProperties().getTimeZoneKey().getId()),
                 FUNCTION_AND_TYPE_MANAGER,
                 false);
+    }
+
+    private static HiveFileSplit getHiveFileSplit(Class<? extends FileSplit> fileSplitClass)
+    {
+        switch (fileSplitClass.getName()) {
+            case "org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit":
+                return new HiveFileSplit(
+                        getTableBasePath(TABLE_NAME) + "/testPartition/" + FILE_NAME,
+                        0,
+                        435165,
+                        435165,
+                        1621850079,
+                        Optional.empty(),
+                        ImmutableMap.of(
+                                CUSTOM_FILE_SPLIT_CLASS_KEY, HoodieRealtimeFileSplit.class.getName(),
+                                HUDI_DELTA_FILEPATHS_KEY, "",
+                                HUDI_BASEPATH_KEY, getTableBasePath(TABLE_NAME),
+                                HUDI_MAX_COMMIT_TIME_KEY, "20210524095413"));
+            case "org.apache.hudi.hadoop.realtime.HoodieRealtimeBootstrapBaseFileSplit":
+                ImmutableMap.Builder<String, String> customSplitInfo = new ImmutableMap.Builder<>();
+                customSplitInfo.put(CUSTOM_FILE_SPLIT_CLASS_KEY, HoodieRealtimeBootstrapBaseFileSplit.class.getName());
+                customSplitInfo.put(DELTA_FILE_PATHS_KEY, "");
+                customSplitInfo.put(BASE_PATH_KEY, getTableBasePath(TABLE_NAME));
+                customSplitInfo.put(MAX_COMMIT_TIME_KEY, "20210524095413");
+                customSplitInfo.put(BOOTSTRAP_FILE_SPLIT_PATH, getTableBasePath(TABLE_NAME) + "/testPartition/" + FILE_NAME);
+                customSplitInfo.put(BOOTSTRAP_FILE_SPLIT_START, "0");
+                customSplitInfo.put(BOOTSTRAP_FILE_SPLIT_LEN, "435165");
+                return new HiveFileSplit(
+                    getTableBasePath(TABLE_NAME) + "/testPartition/" + FILE_NAME,
+                    0,
+                    435165,
+                    435165,
+                    1621850079,
+                    Optional.empty(),
+                    customSplitInfo.build());
+            default:
+                throw new IllegalArgumentException("Unknown file split class " + fileSplitClass.getName());
+        }
     }
 
     private static Configuration getHadoopConfWithCopyOnFirstWriteEnabled()
