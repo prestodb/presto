@@ -114,11 +114,6 @@ class PrestoServer {
   void initializeVeloxMemory();
 
  protected:
-  virtual std::shared_ptr<velox::connector::Connector> connectorWithCache(
-      const std::string& connectorName,
-      const std::string& connectorId,
-      std::shared_ptr<const velox::Config> properties);
-
   void reportMemoryInfo(proxygen::ResponseHandler* downstream);
 
   void reportServerInfo(proxygen::ResponseHandler* downstream);
@@ -166,9 +161,6 @@ class PrestoServer {
   std::string nodeId_;
   std::string address_;
   std::string nodeLocation_;
-
-  /// Total capacity of all caches in the connectors
-  size_t cacheRamCapacityGb_{0};
 };
 
 } // namespace facebook::presto
