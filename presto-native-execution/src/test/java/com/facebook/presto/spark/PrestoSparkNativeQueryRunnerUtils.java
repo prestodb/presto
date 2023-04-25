@@ -82,8 +82,6 @@ public class PrestoSparkNativeQueryRunnerUtils
 
     public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner(Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
     {
-        String dataDirectory = System.getProperty("DATA_DIR");
-
         ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
         configBuilder.putAll(getNativeWorkerSystemProperties()).putAll(additionalConfigProperties);
 
@@ -106,7 +104,6 @@ public class PrestoSparkNativeQueryRunnerUtils
     public static QueryRunner createJavaQueryRunner()
             throws Exception
     {
-        String dataDirectory = System.getProperty("DATA_DIR");
         return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy");
     }
 
@@ -141,7 +138,7 @@ public class PrestoSparkNativeQueryRunnerUtils
         return sparkConfigs.build();
     }
 
-    private static void setupJsonFunctionNamespaceManager(QueryRunner queryRunner)
+    public static void setupJsonFunctionNamespaceManager(QueryRunner queryRunner)
     {
         queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
         queryRunner.loadFunctionNamespaceManager(
@@ -153,7 +150,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                         "json-based-function-manager.path-to-function-definition", "src/test/resources/external_functions.json"));
     }
 
-    private static ImmutableList<Module> getNativeExecutionModules()
+    public static ImmutableList<Module> getNativeExecutionModules()
     {
         ImmutableList.Builder<Module> moduleBuilder = ImmutableList.builder();
         if (System.getProperty("NATIVE_PORT") != null) {
@@ -166,7 +163,7 @@ public class PrestoSparkNativeQueryRunnerUtils
         return moduleBuilder.build();
     }
 
-    private static synchronized Path getBaseDataPath()
+    public static synchronized Path getBaseDataPath()
     {
         if (dataDirectory.isPresent()) {
             return dataDirectory.get();
