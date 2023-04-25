@@ -131,6 +131,18 @@ velox::variant VeloxExprConverter::getConstantValue(
       return velox::variant::binary(
           valueVector->as<velox::SimpleVector<velox::StringView>>()->valueAt(
               0));
+    case TypeKind::SHORT_DECIMAL:
+      return velox::variant::shortDecimal(
+          valueVector->as<velox::SimpleVector<velox::UnscaledShortDecimal>>()
+              ->valueAt(0)
+              .unscaledValue(),
+          type);
+    case TypeKind::LONG_DECIMAL:
+      return velox::variant::longDecimal(
+          valueVector->as<velox::SimpleVector<velox::UnscaledLongDecimal>>()
+              ->valueAt(0)
+              .unscaledValue(),
+          type);
     default:
       throw std::invalid_argument(
           "Unexpected Block type: " + mapTypeKindToName(typeKind));

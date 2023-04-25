@@ -183,6 +183,22 @@ int64_t dateToInt64(
   return value.value<Date>().days();
 }
 
+int64_t decimalToInt64(
+    const std::shared_ptr<protocol::Block>& block,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  auto value = exprConverter.getConstantValue(type, *block);
+  return value.value<TypeKind::SHORT_DECIMAL>().value().unscaledValue();
+}
+
+int128_t decimalToInt128(
+    const std::shared_ptr<protocol::Block>& block,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  auto value = exprConverter.getConstantValue(type, *block);
+  return value.value<TypeKind::LONG_DECIMAL>().value().unscaledValue();
+}
+
 double toDouble(
     const std::shared_ptr<protocol::Block>& block,
     const VeloxExprConverter& exprConverter,
@@ -390,6 +406,53 @@ std::unique_ptr<common::BigintRange> dateRangeToFilter(
   return std::make_unique<common::BigintRange>(low, high, nullAllowed);
 }
 
+
+std::unique_ptr<common::BigintRange> shortDecimalRangeToFilter(
+    const protocol::Range& range,
+    bool nullAllowed,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  bool lowUnbounded = range.low.valueBlock == nullptr;
+  auto low = lowUnbounded
+      ? UnscaledShortDecimal::min().unscaledValue()
+      : decimalToInt64(range.low.valueBlock, exprConverter, type);
+  if (!lowUnbounded && range.low.bound == protocol::Bound::ABOVE) {
+    low++;
+  }
+
+  bool highUnbounded = range.high.valueBlock == nullptr;
+  auto high = highUnbounded
+      ? UnscaledShortDecimal::max().unscaledValue()
+      : decimalToInt64(range.high.valueBlock, exprConverter, type);
+  if (!highUnbounded && range.high.bound == protocol::Bound::BELOW) {
+    high--;
+  }
+  return std::make_unique<common::BigintRange>(low, high, nullAllowed);
+}
+
+std::unique_ptr<common::HugeintRange> longDecimalRangeToFilter(
+    const protocol::Range& range,
+    bool nullAllowed,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  bool lowUnbounded = range.low.valueBlock == nullptr;
+  auto low = lowUnbounded
+      ? UnscaledLongDecimal::min().unscaledValue()
+      : decimalToInt128(range.low.valueBlock, exprConverter, type);
+  if (!lowUnbounded && range.low.bound == protocol::Bound::ABOVE) {
+    low++;
+  }
+
+  bool highUnbounded = range.high.valueBlock == nullptr;
+  auto high = highUnbounded
+      ? UnscaledLongDecimal::max().unscaledValue()
+      : decimalToInt128(range.high.valueBlock, exprConverter, type);
+  if (!highUnbounded && range.high.bound == protocol::Bound::BELOW) {
+    high--;
+  }
+  return std::make_unique<common::HugeintRange>(low, high, nullAllowed);
+}
+
 std::unique_ptr<common::Filter> combineIntegerRanges(
     std::vector<std::unique_ptr<common::BigintRange>>& bigintFilters,
     bool nullAllowed) {
@@ -556,6 +619,10 @@ std::unique_ptr<common::Filter> toFilter(
       return floatRangeToFilter(range, nullAllowed, exprConverter, type);
     case TypeKind::DATE:
       return dateRangeToFilter(range, nullAllowed, exprConverter, type);
+    case TypeKind::SHORT_DECIMAL:
+      return shortDecimalRangeToFilter(range, nullAllowed, exprConverter, type);
+    case TypeKind::LONG_DECIMAL:
+      return longDecimalRangeToFilter(range, nullAllowed, exprConverter, type);
     default:
       VELOX_UNSUPPORTED("Unsupported range type: {}", type->toString());
   }
