@@ -201,6 +201,11 @@ public class PrestoNativeQueryRunnerUtils
                                         "cache.enabled=true%n" +
                                         "cache.max-cache-size=32").getBytes());
 
+                        // Add a Glue catalog that is used in "TestHiveGlueMetastoreUsingThrift".
+                        Files.write(catalogDirectoryPath.resolve("test_glue.properties"),
+                                format("connector.name=hive%n" +
+                                        "hive.metastore=glue%n").getBytes());
+
                         // Add a tpch catalog.
                         Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
                                 format("connector.name=tpch%n").getBytes());

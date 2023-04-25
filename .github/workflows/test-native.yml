@@ -105,3 +105,14 @@ jobs:
         run: |
           rm -rf /tmp/hive_data/tpch/
           ./mvnw test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${GITHUB_WORKSPACE}/presto-native-execution/_build/debug/presto_cpp/main/presto_server -DDATA_DIR=/tmp/ -Duser.timezone=America/Bahia_Banderas
+
+      - name: Run Hive Glue e2e tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.HIVE_AWS_ACCESSKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.HIVE_AWS_SECRETKEY }}
+        run: |
+          if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
+            rm -rf /tmp/glue_data
+            mkdir -p /tmp/glue_data
+            ./mvnw test ${MAVEN_TEST} -pl 'presto-native-execution' -P test-hive-glue -DPRESTO_SERVER=${GITHUB_WORKSPACE}/presto-native-execution/_build/debug/presto_cpp/main/presto_server -DDATA_DIR=/tmp/glue_data -Duser.timezone=America/Bahia_Banderas
+          fi

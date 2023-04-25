@@ -490,6 +490,12 @@ public abstract class AbstractTestQueryFramework
         return queryRunner;
     }
 
+    protected ExpectedQueryRunner getExpectedQueryRunner()
+    {
+        checkState(expectedQueryRunner != null, "expectedQueryRunner not set");
+        return expectedQueryRunner;
+    }
+
     public interface QueryRunnerSupplier
     {
         QueryRunner get()
