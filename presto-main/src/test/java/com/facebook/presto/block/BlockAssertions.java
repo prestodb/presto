@@ -236,8 +236,8 @@ public final class BlockAssertions
         BlockBuilder blockBuilder = type.createBlockBuilder(null, map.size());
         for (Map.Entry<K, V> entry : map.entrySet()) {
             BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-            appendToBlockBuilder(BIGINT, entry.getKey(), entryBuilder);
-            appendToBlockBuilder(BIGINT, entry.getValue(), entryBuilder);
+            appendToBlockBuilder(type.getKeyType(), entry.getKey(), entryBuilder);
+            appendToBlockBuilder(type.getValueType(), entry.getValue(), entryBuilder);
             blockBuilder.closeEntry();
         }
         return blockBuilder.build();
