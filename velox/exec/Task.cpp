@@ -78,6 +78,17 @@ std::string errorMessageImpl(const std::exception_ptr& exception) {
   return message;
 }
 
+// Add 'running time' metrics from CpuWallTiming structures to have them
+// available aggregated per thread.
+void addRunningTimeOperatorMetrics(exec::OperatorStats& op) {
+  op.runtimeStats["runningAddInputWallNanos"] =
+      RuntimeMetric(op.addInputTiming.wallNanos, RuntimeCounter::Unit::kNanos);
+  op.runtimeStats["runningGetOutputWallNanos"] =
+      RuntimeMetric(op.getOutputTiming.wallNanos, RuntimeCounter::Unit::kNanos);
+  op.runtimeStats["runningFinishWallNanos"] =
+      RuntimeMetric(op.finishTiming.wallNanos, RuntimeCounter::Unit::kNanos);
+}
+
 } // namespace
 
 std::atomic<uint64_t> Task::numCreatedTasks_ = 0;
@@ -1617,6 +1628,7 @@ void Task::addOperatorStats(OperatorStats& stats) {
       stats.operatorId <
           taskStats_.pipelineStats[stats.pipelineId].operatorStats.size());
   aggregateOperatorRuntimeStats(stats.runtimeStats);
+  addRunningTimeOperatorMetrics(stats);
   taskStats_.pipelineStats[stats.pipelineId]
       .operatorStats[stats.operatorId]
       .add(stats);
@@ -1642,6 +1654,7 @@ TaskStats Task::taskStats() const {
     for (auto& op : driver->operators()) {
       auto statsCopy = op->stats(false);
       aggregateOperatorRuntimeStats(statsCopy.runtimeStats);
+      addRunningTimeOperatorMetrics(statsCopy);
       taskStats.pipelineStats[statsCopy.pipelineId]
           .operatorStats[statsCopy.operatorId]
           .add(statsCopy);
