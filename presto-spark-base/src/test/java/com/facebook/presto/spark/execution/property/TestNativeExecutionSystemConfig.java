@@ -31,7 +31,7 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class TestProperties
+public class TestNativeExecutionSystemConfig
 {
     @Test
     public void testNativeExecutionSystemConfig()
@@ -44,6 +44,11 @@ public class TestProperties
                 .setHttpServerReusePort(true)
                 .setHttpServerPort(7777)
                 .setHttpExecThreads(32)
+                .setHttpsServerPort(7778)
+                .setEnableHttpsCommunication(false)
+                .setHttpsCiphers("AES128-SHA,AES128-SHA256,AES256-GCM-SHA384")
+                .setHttpsCertPath("")
+                .setHttpsKeyPath("")
                 .setNumIoThreads(30)
                 .setShutdownOnsetSec(10)
                 .setSystemMemoryGb(10)
@@ -63,6 +68,11 @@ public class TestProperties
                 .setHttpServerReusePort(false)
                 .setHttpServerPort(8080)
                 .setHttpExecThreads(256)
+                .setHttpsServerPort(8081)
+                .setEnableHttpsCommunication(true)
+                .setHttpsCiphers("AES128-SHA")
+                .setHttpsCertPath("/tmp/non_existent.cert")
+                .setHttpsKeyPath("/tmp/non_existent.key")
                 .setNumIoThreads(50)
                 .setPrestoVersion("presto-version")
                 .setShutdownOnsetSec(30)
