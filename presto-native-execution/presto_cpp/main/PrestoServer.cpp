@@ -67,8 +67,6 @@ constexpr char const* kHttps = "https";
 constexpr char const* kTaskUriFormat =
     "{}://{}:{}"; // protocol, address and port
 constexpr char const* kConnectorName = "connector.name";
-constexpr char const* kCacheEnabled = "cache.enabled";
-constexpr char const* kCacheMaxCacheSize = "cache.max-cache-size";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -480,20 +478,27 @@ void PrestoServer::initializeVeloxMemory() {
   auto systemConfig = SystemConfig::instance();
   uint64_t memoryGb = nodeConfig->nodeMemoryGb(
       [&]() { return systemConfig->systemMemoryGb(); });
-  LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
+  LOG(INFO) << "STARTUP: Starting with node memory " << memoryGb << "GB";
   std::unique_ptr<cache::SsdCache> ssd;
   const auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
   if (asyncCacheSsdGb) {
     constexpr int32_t kNumSsdShards = 16;
     cacheExecutor_ =
         std::make_unique<folly::IOThreadPoolExecutor>(kNumSsdShards);
+    auto asyncCacheSsdCheckpointGb = systemConfig->asyncCacheSsdCheckpointGb();
+    auto asyncCacheSsdDisableFileCow =
+        systemConfig->asyncCacheSsdDisableFileCow();
+    LOG(INFO) << "STARTUP: Initializing SSD cache with capacity "
+              << asyncCacheSsdGb << "GB, checkpoint size "
+              << asyncCacheSsdCheckpointGb << "GB, file cow "
+              << (asyncCacheSsdDisableFileCow ? "DISABLED" : "ENABLED");
     ssd = std::make_unique<cache::SsdCache>(
         systemConfig->asyncCacheSsdPath(),
         asyncCacheSsdGb << 30,
         kNumSsdShards,
         cacheExecutor_.get(),
-        systemConfig->asyncCacheSsdCheckpointGb() << 30,
-        systemConfig->asyncCacheSsdDisableFileCow());
+        asyncCacheSsdCheckpointGb << 30,
+        asyncCacheSsdDisableFileCow);
   }
   const int64_t memoryBytes = memoryGb << 30;
   std::shared_ptr<memory::MemoryAllocator> allocator;
@@ -621,25 +626,18 @@ std::vector<std::string> PrestoServer::registerConnectors(
               std::move(connectorConf));
 
       auto connectorName = util::requiredProperty(*properties, kConnectorName);
-      const bool cacheEnabled = properties->get(kCacheEnabled, false);
-      const size_t cacheSize = properties->get(kCacheMaxCacheSize, 0);
 
       catalogNames.emplace_back(catalogName);
 
       LOG(INFO) << "STARTUP: Registering catalog " << catalogName
-                << " using connector " << connectorName
-                << ", cache enabled: " << cacheEnabled
-                << ", cache size: " << cacheSize;
+                << " using connector " << connectorName;
 
-      std::shared_ptr<velox::connector::Connector> connector;
-      if (cacheEnabled && cacheSize > 0) {
-        connector = connectorWithCache(connectorName, catalogName, properties);
-        cacheRamCapacityGb_ += cacheSize / 1024; // cacheSize is in Mb.
-      } else {
-        connector =
-            facebook::velox::connector::getConnectorFactory(connectorName)
-                ->newConnector(catalogName, std::move(properties));
-      }
+      std::shared_ptr<velox::connector::Connector> connector =
+          facebook::velox::connector::getConnectorFactory(connectorName)
+              ->newConnector(
+                  catalogName,
+                  std::move(properties),
+                  connectorIoExecutor_.get());
       velox::connector::registerConnector(connector);
     }
   }
@@ -676,21 +674,9 @@ void PrestoServer::registerStatsCounters() {
   registerVeloxCounters();
 }
 
-std::shared_ptr<velox::connector::Connector> PrestoServer::connectorWithCache(
-    const std::string& connectorName,
-    const std::string& catalogName,
-    std::shared_ptr<const velox::Config> properties) {
-  VELOX_CHECK_NOT_NULL(cache_.get());
-  LOG(INFO) << "STARTUP: Using AsyncDataCache";
-  return facebook::velox::connector::getConnectorFactory(connectorName)
-      ->newConnector(
-          catalogName, std::move(properties), connectorIoExecutor_.get());
-}
-
 void PrestoServer::populateMemAndCPUInfo() {
   auto systemConfig = SystemConfig::instance();
-  const int64_t nodeMemoryGb =
-      systemConfig->systemMemoryGb() - cacheRamCapacityGb_;
+  const int64_t nodeMemoryGb = systemConfig->systemMemoryGb();
   protocol::MemoryInfo memoryInfo{
       {double(nodeMemoryGb), protocol::DataUnit::GIGABYTE}};
 
@@ -791,8 +777,7 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   auto systemConfig = SystemConfig::instance();
-  const int64_t nodeMemoryGb =
-      systemConfig->systemMemoryGb() - cacheRamCapacityGb_;
+  const int64_t nodeMemoryGb = systemConfig->systemMemoryGb();
 
   const double cpuLoadPct{cpuMon_.getCPULoadPct()};
 
