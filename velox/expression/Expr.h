@@ -71,6 +71,77 @@ struct ExprStats {
   }
 };
 
+/// Maintains a set of rows for evaluation and removes rows with
+/// nulls or errors as needed. Helps to avoid copying SelectivityVector in cases
+/// when evaluation doesn't encounter nulls or errors.
+class MutableRemainingRows {
+ public:
+  /// @param rows Initial set of rows.
+  MutableRemainingRows(const SelectivityVector& rows, EvalCtx& context)
+      : context_{context},
+        originalRows_{&rows},
+        rows_{&rows},
+        mutableRowsHolder_{context} {}
+
+  const SelectivityVector& originalRows() const {
+    return *originalRows_;
+  }
+
+  /// @return current set of rows which may be different from the initial set if
+  /// deselectNulls or deselectErrors were called.
+  const SelectivityVector& rows() const {
+    return *rows_;
+  }
+
+  SelectivityVector& mutableRows() {
+    ensureMutableRemainingRows();
+    return *mutableRows_;
+  }
+
+  /// Removes rows with nulls.
+  /// @return true if at least one row remains.
+  bool deselectNulls(const uint64_t* rawNulls) {
+    ensureMutableRemainingRows();
+    mutableRows_->deselectNulls(rawNulls, rows_->begin(), rows_->end());
+
+    return mutableRows_->hasSelections();
+  }
+
+  /// Removes rows with errors (as recorded in EvalCtx::errors).
+  /// @return true if at least one row remains.
+  bool deselectErrors() {
+    ensureMutableRemainingRows();
+    context_.deselectErrors(*mutableRows_);
+
+    return mutableRows_->hasSelections();
+  }
+
+  /// @return true if current set of rows might be different from the original
+  /// set of rows, which may happen if deselectNull() or deselectErrors() were
+  /// called. May return 'true' even if current set of rows is the same as
+  /// original set. Returns 'false' only if current set of rows is for sure the
+  /// same as original.
+  bool mayHaveChanged() const {
+    return mutableRows_ != nullptr && !mutableRows_->isAllSelected();
+  }
+
+ private:
+  void ensureMutableRemainingRows() {
+    if (mutableRows_ == nullptr) {
+      mutableRows_ = mutableRowsHolder_.get(*rows_);
+      rows_ = mutableRows_;
+    }
+  }
+
+  EvalCtx& context_;
+  const SelectivityVector* const originalRows_;
+
+  const SelectivityVector* rows_;
+
+  SelectivityVector* mutableRows_{nullptr};
+  LocalSelectivityVector mutableRowsHolder_;
+};
+
 // An executable expression.
 class Expr {
  public:
@@ -363,6 +434,11 @@ class Expr {
       VectorPtr& result,
       TEval eval);
 
+  /// Return true if errors in evaluation 'vectorFunction_' arguments should be
+  /// thrown as soon as they happen. False if argument errors will be converted
+  /// into a null if another argument for the same row is null.
+  bool throwArgumentErrors(const EvalCtx& context) const;
+
   void evalSimplifiedImpl(
       const SelectivityVector& rows,
       EvalCtx& context,
@@ -383,6 +459,39 @@ class Expr {
   /// Release 'inputValues_' back to vector pool in 'evalCtx' so they can be
   /// reused.
   void releaseInputValues(EvalCtx& evalCtx);
+
+  // Evaluates arguments of 'this' for 'rows'. 'rows' is updated to
+  // remove rows where an argument is null. If an argument gets an
+  // error and a subsequent argument has a null for the same row the
+  // error is masked and the row is removed from 'rows'. If
+  // 'context.throwOnError()' is true, an error in arguments that is
+  // not cancelled by a null will be thrown. Otherwise the errors
+  // found in arguments are left in place and added to errors that may
+  // have been in 'context' on entry. The rows where an argument had a
+  // null or error are removed from 'rows' at before returning. If
+  // 'rows' goes empty, we return false as soon as 'rows' is empty and set
+  // 'result' to nulls for initial 'rows'.. 'evalArg(i)' is called for
+  // evaluating the 'ith' argument.
+  template <typename EvalArg>
+  bool evalArgsDefaultNulls(
+      MutableRemainingRows& rows,
+      EvalArg evalArg,
+      EvalCtx& context,
+      VectorPtr& result);
+
+  // Evaluates arguments of 'this'. A null or does not remove its row
+  // from 'rows'. If 'context.throwOnError()' is false, errors are
+  // accumulated in 'context' adding themselves or overwriting
+  // previous errors for the same row. An error removes the
+  // corresponding row from 'rows.  Returns false if 'rows' goes
+  // empty and sets 'result'  to null for initial 'rows'. . 'evalArgs(i)' is
+  // called for evaluating the 'ith' argument.
+  template <typename EvalArg>
+  bool evalArgsWithNulls(
+      MutableRemainingRows& rows,
+      EvalArg evalArg,
+      EvalCtx& context,
+      VectorPtr& result);
 
   /// Returns an instance of CpuWallTimer if cpu usage tracking is enabled. Null
   /// otherwise.
