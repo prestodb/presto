@@ -38,6 +38,18 @@ pipeline {
                     }
                 }
 
+                stage('PR Update') {
+                    when { changeRequest() }
+                    steps {
+                        echo 'reset one commit for a PR branch, because Jenkins does an auto merge from the target branch'
+                        sh '''
+                            git log -n 3
+                            git reset HEAD~1
+                            git log -n 3
+                        '''
+                    }
+                }
+
                 stage('Maven') {
                     steps {
                         sh 'unset MAVEN_CONFIG && ./mvnw versions:set -DremoveSnapshot'
