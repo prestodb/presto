@@ -517,6 +517,45 @@ public abstract class AbstractTestNativeGeneralQueries
         // from_base64, to_base64.
         assertQuery("SELECT from_base64(to_base64(cast(comment as varbinary))) FROM orders");
 
+        // from_big_endian_32, to_big_endian_32.
+        assertQuery("SELECT to_big_endian_32(null)");
+        assertQuery("SELECT to_big_endian_32(1)");
+        assertQuery("SELECT to_big_endian_32(-1)");
+        assertQuery("SELECT to_big_endian_32(12345678)");
+        assertQuery("SELECT to_big_endian_32(-12345678)");
+        assertQuery("SELECT to_big_endian_32(cast(orderkey as INT)) FROM orders");
+
+        assertQuery("SELECT from_big_endian_32(to_big_endian_32(null))");
+        assertQuery("SELECT from_big_endian_32(to_big_endian_32(0))");
+        assertQuery("SELECT from_big_endian_32(to_big_endian_32(1))");
+        assertQuery("SELECT from_big_endian_32(to_big_endian_32(-1))");
+        assertQuery("SELECT from_big_endian_32(to_big_endian_32(12345678))");
+        assertQuery("SELECT from_big_endian_32(to_big_endian_32(-12345678))");
+        assertQuery("SELECT from_big_endian_32(to_big_endian_32(INT '" + Integer.MAX_VALUE + "'))");
+        assertQuery("SELECT from_big_endian_32(to_big_endian_32(INT '" + Integer.MIN_VALUE + "'))");
+        assertQuery("SELECT from_big_endian_32(to_big_endian_32(cast(orderkey as INT))) FROM orders");
+
+        // from_big_endian_64, to_big_endian_64.
+        assertQuery("SELECT to_big_endian_64(null)");
+        assertQuery("SELECT to_big_endian_64(1)");
+        assertQuery("SELECT to_big_endian_64(-1)");
+        assertQuery("SELECT to_big_endian_64(12345678)");
+        assertQuery("SELECT to_big_endian_64(-12345678)");
+        assertQuery("SELECT to_big_endian_64(orderkey) FROM orders");
+
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(null))");
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(0))");
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(1))");
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(-1))");
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(12345678))");
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(-12345678))");
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(BIGINT '" + Integer.MAX_VALUE + "'))");
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(BIGINT '" + Integer.MIN_VALUE + "'))");
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(BIGINT '" + Long.MAX_VALUE + "'))");
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(BIGINT '" + Long.MIN_VALUE + "'))");
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(orderkey)) FROM orders");
+        assertQuery("SELECT from_big_endian_64(to_big_endian_64(custkey)) FROM orders");
+
         // from_hex, to_hex.
         assertQuery("SELECT from_hex(to_hex(cast(comment as varbinary))) FROM orders");
 
