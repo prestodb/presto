@@ -54,6 +54,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFa
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
 import com.facebook.presto.spark.execution.NativeExecutionModule;
+import com.facebook.presto.spark.execution.PrestoSparkAccessControlCheckerExecution;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -531,6 +532,17 @@ public class PrestoSparkQueryRunner
                         OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
                         ImmutableList.of());
             }
+        }
+        else if (execution instanceof PrestoSparkAccessControlCheckerExecution) {
+            PrestoSparkAccessControlCheckerExecution accessControlCheckerExecution = (PrestoSparkAccessControlCheckerExecution) execution;
+            return new MaterializedResult(
+                    rows,
+                    accessControlCheckerExecution.getOutputTypes(),
+                    ImmutableMap.of(),
+                    ImmutableSet.of(),
+                    Optional.empty(),
+                    OptionalLong.empty(),
+                    ImmutableList.of());
         }
         else {
             return new MaterializedResult(
