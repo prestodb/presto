@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.sql.planner.PlannerUtils.createMapType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
@@ -79,7 +80,7 @@ public class TestSimplifyCardinalityMap
     private void assertRewriteDoesNotFire(String expression)
     {
         RowExpression inputExpression = testSqlToRowExpressionTranslator.translate(expression, ImmutableMap.of());
-        tester().assertThat(new SimplifyCardinalityMap().projectRowExpressionRewriteRule())
+        tester().assertThat(new SimplifyCardinalityMap(createTestFunctionAndTypeManager()).projectRowExpressionRewriteRule())
                 .on(p -> p.project(assignment(p.variable("x"), inputExpression), p.values()))
                 .doesNotFire();
     }
@@ -91,7 +92,7 @@ public class TestSimplifyCardinalityMap
         Map<String, Type> types = ImmutableMap.of("m", mapType, "m_1", mapType, "m_2", mapType);
         RowExpression inputExpression = testSqlToRowExpressionTranslator.translate(inputExpressionStr, types);
 
-        tester().assertThat(new SimplifyCardinalityMap().projectRowExpressionRewriteRule())
+        tester().assertThat(new SimplifyCardinalityMap(createTestFunctionAndTypeManager()).projectRowExpressionRewriteRule())
                 .on(p -> p.project(assignment(p.variable("x"), inputExpression), p.values(p.variable("m", mapType), p.variable("m_1", mapType), p.variable("m_2", mapType))))
                 .matches(project(ImmutableMap.of("x", expression(expectedExpressionStr)), values("m", "m_1", "m_2")));
     }
