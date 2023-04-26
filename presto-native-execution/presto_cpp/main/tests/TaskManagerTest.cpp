@@ -984,4 +984,17 @@ TEST_F(TaskManagerTest, getResultsErrorPropagation) {
       VeloxException);
 }
 
+TEST_F(TaskManagerTest, testCumulativeMemory) {
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .partitionedOutput({}, 1, {"c0", "c1"})
+                          .planFragment();
+
+  const protocol::TaskId taskId = "task.0.0.1";
+  const auto taskInfo =
+      taskManager_->createOrUpdateTask(taskId, planFragment, {}, {}, {}, {});
+
+  EXPECT_GT(taskInfo->stats.cumulativeUserMemory, 0);
+}
+
 // TODO: add disk spilling test for order by and hash join later.
