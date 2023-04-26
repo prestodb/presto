@@ -24,6 +24,7 @@ import com.facebook.presto.sql.analyzer.utils.StatementUtils;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
+import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +45,7 @@ import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verify
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.utils.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.utils.ParameterExtractor.getParameterCount;
+import static com.facebook.presto.sql.tree.ExplainType.Type.VALIDATE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -162,6 +164,20 @@ public class BuiltInQueryPreparer
         public boolean isTransactionControlStatement()
         {
             return StatementUtils.isTransactionControlStatement(getStatement());
+        }
+
+        @Override
+        public boolean isExplainTypeValidate()
+        {
+            if (!(statement instanceof Explain)) {
+                return false;
+            }
+
+            return ((Explain) statement).getOptions()
+                    .stream()
+                    .filter(option -> option instanceof ExplainType)
+                    .map(option -> (ExplainType) option)
+                    .anyMatch(explainType -> explainType.getType() == VALIDATE);
         }
     }
 }
