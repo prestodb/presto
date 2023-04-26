@@ -39,6 +39,18 @@ pipeline {
                     }
                 }
 
+                stage('PR Update') {
+                    when { changeRequest() }
+                    steps {
+                        echo 'reset one commit for a PR branch, because Jenkins does an auto merge from the base branch'
+                        sh '''
+                            git log -n 3
+                            git reset HEAD~1
+                            git log -n 3
+                        '''
+                    }
+                }
+
                 stage('Maven') {
                     steps {
                         sh 'unset MAVEN_CONFIG && ./mvnw versions:set -DremoveSnapshot'
@@ -48,9 +60,10 @@ pipeline {
                                 returnStdout: true).trim()
                             env.PRESTO_PKG = "presto-server-${PRESTO_VERSION}.tar.gz"
                             env.PRESTO_CLI_JAR = "presto-cli-${PRESTO_VERSION}-executable.jar"
+                            env.PRESTO_COMMIT_SHA = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
                             env.PRESTO_BUILD_VERSION = env.PRESTO_VERSION + '-' +
                                 sh(script: "git show -s --format=%cd --date=format:'%Y%m%d%H%M%S'", returnStdout: true).trim() + "-" +
-                                env.GIT_COMMIT.substring(0, 7)
+                                env.PRESTO_COMMIT_SHA.substring(0, 7)
                             env.DOCKER_IMAGE = env.AWS_ECR + "/oss-presto/presto:${PRESTO_BUILD_VERSION}"
                             env.DOCKER_NATIVE_IMAGE = env.AWS_ECR + "/oss-presto/presto-native:${PRESTO_BUILD_VERSION}"
                         }
