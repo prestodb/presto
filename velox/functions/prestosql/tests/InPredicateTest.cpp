@@ -317,3 +317,14 @@ TEST_F(InPredicateTest, varbinary) {
   auto result = evaluate<SimpleVector<bool>>(predicate, input);
   assertEqualVectors(makeConstant(true, input->size()), result);
 }
+
+TEST_F(InPredicateTest, reusableResult) {
+  std::string predicate = "c0 IN (1, 2)";
+  auto input = makeRowVector({makeNullableFlatVector<int32_t>({0, 1, 2, 3})});
+  SelectivityVector rows(input->size());
+  VectorPtr result =
+      makeNullableFlatVector<bool>({false, true, std::nullopt, false});
+  auto actual = evaluate<SimpleVector<bool>>(predicate, input, rows, result);
+  auto expected = makeFlatVector<bool>({false, true, true, false});
+  assertEqualVectors(expected, actual);
+}

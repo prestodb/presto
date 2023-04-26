@@ -276,6 +276,7 @@ class InPredicate : public exec::VectorFunction {
     auto rawValues = flatArg->rawValues();
 
     context.ensureWritable(rows, BOOLEAN(), result);
+    result->clearNulls(rows);
     auto* boolResult = result->asUnchecked<FlatVector<bool>>();
 
     auto* rawResults = boolResult->mutableRawValues<uint64_t>();
