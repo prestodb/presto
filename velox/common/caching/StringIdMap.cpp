@@ -59,9 +59,8 @@ uint64_t StringIdMap::makeId(std::string_view string) {
   if (it != stringToId_.end()) {
     auto entry = idToString_.find(it->second);
     VELOX_CHECK(entry != idToString_.end());
-    if (++entry->second.numInUse == 1) {
-      pinnedSize_ += entry->second.string.size();
-    }
+    VELOX_CHECK_LT(0, entry->second.numInUse);
+    ++entry->second.numInUse;
 
     return it->second;
   }
@@ -74,12 +73,13 @@ uint64_t StringIdMap::makeId(std::string_view string) {
   // be in the 100K range.
   do {
     entry.id = ++lastId_;
-  } while (idToString_.find(entry.id) != idToString_.end());
+  } while (entry.id == kNoId ||
+           idToString_.find(entry.id) != idToString_.end());
   entry.numInUse = 1;
   pinnedSize_ += entry.string.size();
-  auto id = entry.id;
+  const auto id = entry.id;
   auto& entryInTable = idToString_[id] = std::move(entry);
-  stringToId_[entryInTable.string] = entry.id;
+  stringToId_[entryInTable.string] = id;
   return lastId_;
 }
 

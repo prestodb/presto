@@ -63,6 +63,10 @@ class StringIdMap {
     return it == idToString_.end() ? "" : it->second.string;
   }
 
+  void testingSetLastId(uint64_t lastId) {
+    lastId_ = lastId;
+  }
+
  private:
   struct Entry {
     std::string string;
