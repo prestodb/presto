@@ -191,6 +191,7 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
        {"          numPrefetch         [ ]* sum: .+, count: 1, min: .+, max: .+"},
        {"          numRamRead          [ ]* sum: 40, count: 1, min: 40, max: 40"},
        {"          numStorageRead      [ ]* sum: .+, count: 1, min: .+, max: .+"},
+       {"          overreadBytes[ ]* sum: 0B, count: 1, min: 0B, max: 0B"},
        {"          prefetchBytes       [ ]* sum: .+, count: 1, min: .+, max: .+"},
        {"          preloadedSplits[ ]+sum: .+, count: .+, min: .+, max: .+",
         true},
@@ -277,6 +278,8 @@ TEST_F(PrintPlanWithStatsTest, partialAggregateWithTableScan) {
          {"        numPrefetch      [ ]* sum: .+, count: .+, min: .+, max: .+"},
          {"        numRamRead       [ ]* sum: 6, count: 1, min: 6, max: 6"},
          {"        numStorageRead   [ ]* sum: .+, count: 1, min: .+, max: .+"},
+         {"        overreadBytes[ ]* sum: 0B, count: 1, min: 0B, max: 0B"},
+
          {"        prefetchBytes    [ ]* sum: .+, count: 1, min: .+, max: .+"},
          {"        preloadedSplits[ ]+sum: .+, count: .+, min: .+, max: .+",
           true},

@@ -16,8 +16,11 @@
 #include "velox/exec/tests/utils/TpchQueryBuilder.h"
 
 #include "velox/common/base/Fs.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/tpch/gen/TpchGen.h"
+
+#include <fstream>
 
 namespace facebook::velox::exec::test {
 
@@ -68,10 +71,48 @@ std::vector<std::string> mergeColumnNames(
 };
 } // namespace
 
+void TpchQueryBuilder::readFileSchema(
+    const std::string& tableName,
+    const std::string& filePath,
+    const std::vector<std::string>& columns) {
+  dwio::common::ReaderOptions readerOptions{pool_.get()};
+  readerOptions.setFileFormat(format_);
+  auto uniqueReadFile =
+      filesystems::getFileSystem(filePath, nullptr)->openFileForRead(filePath);
+  std::shared_ptr<ReadFile> readFile;
+  readFile.reset(uniqueReadFile.release());
+  auto input = std::make_unique<dwio::common::BufferedInput>(
+      readFile, readerOptions.getMemoryPool());
+  std::unique_ptr<dwio::common::Reader> reader =
+      dwio::common::getReaderFactory(readerOptions.getFileFormat())
+          ->createReader(std::move(input), readerOptions);
+  const auto fileType = reader->rowType();
+  const auto fileColumnNames = fileType->names();
+  // There can be extra columns in the file towards the end.
+  VELOX_CHECK_GE(fileColumnNames.size(), columns.size());
+  std::unordered_map<std::string, std::string> fileColumnNamesMap(
+      columns.size());
+  std::transform(
+      columns.begin(),
+      columns.end(),
+      fileColumnNames.begin(),
+      std::inserter(fileColumnNamesMap, fileColumnNamesMap.begin()),
+      [](std::string a, std::string b) { return std::make_pair(a, b); });
+  auto columnNames = columns;
+  auto types = fileType->children();
+  types.resize(columnNames.size());
+  tableMetadata_[tableName].type =
+      std::make_shared<RowType>(std::move(columnNames), std::move(types));
+  tableMetadata_[tableName].fileColumnNames = std::move(fileColumnNamesMap);
+}
+
 void TpchQueryBuilder::initialize(const std::string& dataPath) {
   for (const auto& [tableName, columns] : kTables_) {
     const fs::path tablePath{dataPath + "/" + tableName};
-    for (auto const& dirEntry : fs::directory_iterator{tablePath}) {
+    std::error_code error;
+    bool anyFound = false;
+    for (auto const& dirEntry : fs::directory_iterator{
+             tablePath, std::filesystem::directory_options(), error}) {
       if (!dirEntry.is_regular_file()) {
         continue;
       }
@@ -80,35 +121,20 @@ void TpchQueryBuilder::initialize(const std::string& dataPath) {
         continue;
       }
       if (tableMetadata_[tableName].dataFiles.empty()) {
-        dwio::common::ReaderOptions readerOptions{pool_.get()};
-        readerOptions.setFileFormat(format_);
-        auto input = std::make_unique<dwio::common::BufferedInput>(
-            std::make_shared<LocalReadFile>(dirEntry.path().string()),
-            readerOptions.getMemoryPool());
-        std::unique_ptr<dwio::common::Reader> reader =
-            dwio::common::getReaderFactory(readerOptions.getFileFormat())
-                ->createReader(std::move(input), readerOptions);
-        const auto fileType = reader->rowType();
-        const auto fileColumnNames = fileType->names();
-        // There can be extra columns in the file towards the end.
-        VELOX_CHECK_GE(fileColumnNames.size(), columns.size());
-        std::unordered_map<std::string, std::string> fileColumnNamesMap(
-            columns.size());
-        std::transform(
-            columns.begin(),
-            columns.end(),
-            fileColumnNames.begin(),
-            std::inserter(fileColumnNamesMap, fileColumnNamesMap.begin()),
-            [](std::string a, std::string b) { return std::make_pair(a, b); });
-        auto columnNames = columns;
-        auto types = fileType->children();
-        types.resize(columnNames.size());
-        tableMetadata_[tableName].type =
-            std::make_shared<RowType>(std::move(columnNames), std::move(types));
-        tableMetadata_[tableName].fileColumnNames =
-            std::move(fileColumnNamesMap);
+        anyFound = true;
+        readFileSchema(tableName, dirEntry.path().string(), columns);
       }
       tableMetadata_[tableName].dataFiles.push_back(dirEntry.path());
+    }
+    if (!anyFound && error) {
+      std::ifstream file(tablePath);
+      std::string line;
+      while (std::getline(file, line)) {
+        if (tableMetadata_[tableName].dataFiles.empty()) {
+          readFileSchema(tableName, line, columns);
+        }
+        tableMetadata_[tableName].dataFiles.push_back(line);
+      }
     }
   }
 }
@@ -1963,6 +1989,57 @@ TpchPlan TpchQueryBuilder::getQ22Plan() const {
   context.dataFiles[ordersScanNodeId] = getTableFilePaths(kOrders);
   context.dataFiles[customerScanNodeId] = getTableFilePaths(kCustomer);
   context.dataFiles[customerScanNodeIdWithKey] = getTableFilePaths(kCustomer);
+  context.dataFileFormat = format_;
+  return context;
+}
+
+TpchPlan TpchQueryBuilder::getIoMeterPlan(int columnPct) const {
+  VELOX_CHECK(columnPct > 0 && columnPct <= 100);
+  auto columns = getFileColumnNames(kLineitem);
+  std::vector<std::string> names;
+  for (auto& pair : columns) {
+    names.push_back(pair.first);
+  }
+  std::sort(names.begin(), names.end());
+  names.resize(names.size() * columnPct / 100);
+  if (std::find(names.begin(), names.end(), "l_partkey") == names.end()) {
+    names.push_back("l_partkey");
+  }
+
+  const auto selectedRowType = getRowType(kLineitem, names);
+  std::vector<std::string> aggregates;
+  std::vector<std::string> projectExprs;
+
+  for (auto i = 0; i < selectedRowType->size(); ++i) {
+    if (selectedRowType->childAt(i)->kind() == TypeKind::VARCHAR) {
+      projectExprs.push_back(
+          fmt::format("length({}) as l{}", selectedRowType->nameOf(i), i));
+      aggregates.push_back(fmt::format("max(l{})", i));
+    } else {
+      projectExprs.push_back(selectedRowType->nameOf(i));
+      aggregates.push_back(fmt::format("max({})", selectedRowType->nameOf(i)));
+    }
+  }
+
+  std::string filter = "l_partkey between 2000000 and 2500000";
+
+  core::PlanNodeId lineitemPlanNodeId;
+  std::unordered_map<std::string, std::string> aliases;
+  for (auto& name : names) {
+    aliases[name] = name;
+  }
+  auto plan = PlanBuilder()
+                  .tableScan(kLineitem, selectedRowType, aliases, {filter})
+                  .capturePlanNodeId(lineitemPlanNodeId)
+                  .project(projectExprs)
+                  .partialAggregation({}, aggregates)
+                  .localPartition({})
+                  .finalAggregation()
+                  .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[lineitemPlanNodeId] = getTableFilePaths(kLineitem);
   context.dataFileFormat = format_;
   return context;
 }

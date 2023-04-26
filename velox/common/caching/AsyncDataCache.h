@@ -427,6 +427,9 @@ class CoalescedLoad {
     setEndState(LoadState::kCancelled);
   }
 
+  /// Returns the cache space 'this' will occupy after loaded.
+  virtual int64_t size() const = 0;
+
   virtual std::string toString() const {
     return "<CoalescedLoad>";
   }

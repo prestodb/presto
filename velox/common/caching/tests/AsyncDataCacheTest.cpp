@@ -254,6 +254,14 @@ class TestingCoalescedLoad : public CoalescedLoad {
     return pins;
   }
 
+  int64_t size() const override {
+    int64_t sum = 0;
+    for (auto& request : requests_) {
+      sum += request.size;
+    }
+    return sum;
+  }
+
  protected:
   std::shared_ptr<AsyncDataCache> cache_;
   std::vector<Request> requests_;

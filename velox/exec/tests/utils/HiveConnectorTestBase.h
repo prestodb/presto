@@ -65,7 +65,8 @@ class HiveConnectorTestBase : public OperatorTestBase {
       uint64_t start = 0,
       uint64_t length = std::numeric_limits<uint64_t>::max());
 
-  /// Split file at path 'filePath' into 'splitCount' splits.
+  /// Split file at path 'filePath' into 'splitCount' splits. If not local file,
+  /// file size can be given as 'externalSize'.
   static std::vector<std::shared_ptr<connector::hive::HiveConnectorSplit>>
   makeHiveConnectorSplits(
       const std::string& filePath,

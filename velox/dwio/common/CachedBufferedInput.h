@@ -164,6 +164,10 @@ class CachedBufferedInput : public BufferedInput {
     return executor_;
   }
 
+  int64_t prefetchSize() const override {
+    return prefetchSize_;
+  }
+
  private:
   // Sorts requests and makes CoalescedLoads for nearby requests. If 'prefetch'
   // is true, starts background loading.
@@ -198,6 +202,7 @@ class CachedBufferedInput : public BufferedInput {
   const uint64_t fileSize_;
   const int32_t loadQuantum_;
   const int32_t maxCoalesceDistance_;
+  int64_t prefetchSize_{0};
 };
 
 } // namespace facebook::velox::dwio::common
