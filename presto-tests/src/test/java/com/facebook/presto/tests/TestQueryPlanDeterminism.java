@@ -182,6 +182,11 @@ public class TestQueryPlanDeterminism
     }
 
     @Override
+    public void testExplainValidate()
+    {
+    }
+
+    @Override
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
     {
     }
