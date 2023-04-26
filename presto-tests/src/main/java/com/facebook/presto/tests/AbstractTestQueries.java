@@ -58,7 +58,6 @@ import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WIT
 import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
@@ -175,19 +174,6 @@ public abstract class AbstractTestQueries
         result = computeActual("SELECT INTERVAL '" + Short.MAX_VALUE + "' YEAR");
         assertEquals(result.getRowCount(), 1);
         assertEquals(result.getMaterializedRows().get(0).getField(0), new SqlIntervalYearMonth(Short.MAX_VALUE, 0));
-    }
-
-    @Test(enabled = false)
-    public void testEmptyJoins()
-    {
-        Session sessionWithEmptyJoin = Session.builder(getSession())
-                .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, "true")
-                .build();
-        Session sessionWithoutEmptyJoin = Session.builder(getSession())
-                .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, "false")
-                .build();
-        emptyJoinQueries(sessionWithEmptyJoin);
-        emptyJoinQueries(sessionWithoutEmptyJoin);
     }
 
     private void emptyJoinQueries(Session session)
