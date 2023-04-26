@@ -89,6 +89,10 @@ final class ExplainRewrite
         protected Node visitExplain(Explain node, Void context)
                 throws SemanticException
         {
+            if (isTypeValidate(node)) {
+                return node.getStatement();
+            }
+
             if (node.isAnalyze()) {
                 Statement statement = (Statement) process(node.getStatement(), context);
                 return new Explain(statement, node.isAnalyze(), node.isVerbose(), node.getOptions());
@@ -124,11 +128,6 @@ final class ExplainRewrite
         {
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
             BuiltInPreparedQuery preparedQuery = queryPreparer.prepareQuery(analyzerOptions, node.getStatement(), session.getPreparedStatements());
-            if (planType == VALIDATE) {
-                queryExplainer.get().analyze(session, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);
-                return singleValueQuery("Valid", true);
-            }
-
             String plan;
             switch (planFormat) {
                 case GRAPHVIZ:
@@ -150,6 +149,19 @@ final class ExplainRewrite
         protected Node visitNode(Node node, Void context)
         {
             return node;
+        }
+
+        private boolean isTypeValidate(Statement statement)
+        {
+            if (!(statement instanceof Explain)) {
+                return false;
+            }
+
+            return ((Explain) statement).getOptions()
+                    .stream()
+                    .filter(option -> option instanceof ExplainType)
+                    .map(option -> (ExplainType) option)
+                    .anyMatch(explainType -> explainType.getType() == VALIDATE);
         }
     }
 }

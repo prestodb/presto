@@ -104,7 +104,7 @@ Validate:
 .. code-block:: none
 
     presto:tiny> EXPLAIN (TYPE VALIDATE) SELECT regionkey, count(*) FROM nation GROUP BY 1;
-     Valid
+     result
     -------
      true
 
