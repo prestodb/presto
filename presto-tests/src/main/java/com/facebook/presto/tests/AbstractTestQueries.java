@@ -2532,7 +2532,7 @@ public abstract class AbstractTestQueries
     public void testExplainValidate()
     {
         MaterializedResult result = computeActual("EXPLAIN (TYPE VALIDATE) SELECT 1");
-        assertEquals(result.getOnlyValue(), true);
+        assertEquals(result.getOnlyValue(), 1);
     }
 
     @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "line 1:32: Column 'x' cannot be resolved")

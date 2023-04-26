@@ -62,7 +62,24 @@ final class ExplainRewrite
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
+        if (isTypeValidate(node)) {
+            return ((Explain) node).getStatement();
+        }
+
         return (Statement) new Visitor(session, parser, queryExplainer, warningCollector).process(node, null);
+    }
+
+    private boolean isTypeValidate(Statement statement)
+    {
+        if (!(statement instanceof Explain)) {
+            return false;
+        }
+
+        return ((Explain) statement).getOptions()
+                .stream()
+                .filter(option -> option instanceof ExplainType)
+                .map(option -> (ExplainType) option)
+                .anyMatch(explainType -> explainType.getType() == VALIDATE);
     }
 
     private static final class Visitor
@@ -124,11 +141,6 @@ final class ExplainRewrite
         {
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
             BuiltInPreparedQuery preparedQuery = queryPreparer.prepareQuery(analyzerOptions, node.getStatement(), session.getPreparedStatements());
-            if (planType == VALIDATE) {
-                queryExplainer.get().analyze(session, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);
-                return singleValueQuery("Valid", true);
-            }
-
             String plan;
             switch (planFormat) {
                 case GRAPHVIZ:
