@@ -1182,7 +1182,7 @@ public final class SystemSessionProperties
                         object -> object),
                 booleanProperty(
                         OPTIMIZE_JOINS_WITH_EMPTY_SOURCES,
-                        "Simplify joins with one or more empty sources",
+                        "(Deprecated) Simplify joins with one or more empty sources",
                         featuresConfig.isEmptyJoinOptimization(),
                         false),
                 booleanProperty(
@@ -1523,11 +1523,6 @@ public final class SystemSessionProperties
                         "Simplify the query plan with empty input",
                         featuresConfig.isSimplifyPlanWithEmptyInput(),
                         false));
-    }
-
-    public static boolean isEmptyJoinOptimization(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, Boolean.class);
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -2556,6 +2551,6 @@ public final class SystemSessionProperties
 
     public static boolean isSimplifyPlanWithEmptyInputEnabled(Session session)
     {
-        return session.getSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, Boolean.class);
+        return session.getSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, Boolean.class) || session.getSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, Boolean.class);
     }
 }
