@@ -150,7 +150,7 @@ class SystemConfig : public ConfigBase {
   static constexpr int32_t kShutdownOnsetSecDefault = 10;
   static constexpr int32_t kSystemMemoryGbDefault = 40;
   static constexpr int32_t kMmapArenaCapacityRatioDefault = 10;
-  static constexpr uint64_t kLocalShuffleMaxPartitionBytesDefault = 1 << 15;
+  static constexpr uint64_t kLocalShuffleMaxPartitionBytesDefault = 1 << 28;
   static constexpr uint64_t kAsyncCacheSsdGbDefault = 0;
   static constexpr uint64_t kAsyncCacheSsdCheckpointGbDefault = 0;
   static constexpr std::string_view kAsyncCacheSsdPathDefault{
