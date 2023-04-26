@@ -352,7 +352,7 @@ class PrestoExchangeSourceTestSuite : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() override {
     auto& defaultManager = memory::MemoryManager::getInstance();
-    pool_ = memory::addDefaultLeafMemoryPool("PrestoExchangeSourceTest");
+    pool_ = memory::addDefaultLeafMemoryPool();
     memory::MmapAllocator::Options options;
     options.capacity = 1L << 30;
     allocator_ = std::make_unique<memory::MmapAllocator>(options);
