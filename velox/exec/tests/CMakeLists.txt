@@ -125,7 +125,6 @@ target_link_libraries(
   gtest_main
   gmock
   ${FOLLY_WITH_DEPENDENCIES}
-  ${DOUBLE_CONVERSION}
   gflags::gflags
   glog::glog
   ${FMT}
@@ -160,7 +159,6 @@ target_link_libraries(
   gtest_main
   gmock
   ${FOLLY_WITH_DEPENDENCIES}
-  ${DOUBLE_CONVERSION}
   gflags::gflags
   glog::glog
   ${FMT}

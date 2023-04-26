@@ -37,7 +37,6 @@ target_link_libraries(
   gtest
   gtest_main
   ${FOLLY_WITH_DEPENDENCIES}
-  ${DOUBLE_CONVERSION}
   gflags::gflags
   glog::glog
   ${FMT}

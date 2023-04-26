@@ -167,6 +167,10 @@ if(VELOX_ENABLE_CCACHE
   endif()
 endif()
 
+# At the moment we prefer static linking but by default cmake looks for shared
+# libs first. This will still fallback to shared libs when static ones are not
+# found
+list(INSERT CMAKE_FIND_LIBRARY_SUFFIXES 0 a)
 if(VELOX_ENABLE_S3)
   # Set AWS_ROOT_DIR if you have a custom install location of AWS SDK CPP.
   if(AWSSDK_ROOT_DIR)
@@ -359,18 +363,20 @@ resolve_dependency(glog)
 set_source(fmt)
 resolve_dependency(fmt)
 
-find_library(EVENT event)
-
-find_library(DOUBLE_CONVERSION double-conversion)
-
-# Required for boost.
-find_package(ZLIB)
-
 if(NOT ${VELOX_BUILD_MINIMAL})
-  find_library(LZ4 lz4)
-  find_library(LZO lzo2)
-  find_library(ZSTD zstd)
-  find_library(SNAPPY snappy)
+  find_package(ZLIB REQUIRED)
+  find_package(lz4 REQUIRED)
+  find_package(lzo2 REQUIRED)
+  find_package(zstd REQUIRED)
+  find_package(Snappy REQUIRED)
+  if(NOT TARGET zstd::zstd)
+    if(TARGET zstd::libzstd_static)
+      set(ZSTD_TYPE static)
+    else()
+      set(ZSTD_TYPE shared)
+    endif()
+    add_library(zstd::zstd ALIAS zstd::libzstd_${ZSTD_TYPE})
+  endif()
 endif()
 
 set_source(re2)
@@ -393,13 +399,8 @@ if(NOT DEFINED Boost_LIBRARIES)
 endif()
 
 set(FOLLY_WITH_DEPENDENCIES
-    ${FOLLY_LIBRARIES}
-    ${Boost_LIBRARIES}
-    ${DOUBLE_CONVERSION}
-    ${EVENT}
-    ${SNAPPY}
-    ${CMAKE_DL_LIBS}
-    ${FMT})
+    ${FOLLY_LIBRARIES} ${Boost_LIBRARIES} ${DOUBLE_CONVERSION} ${SNAPPY}
+    ${CMAKE_DL_LIBS} ${FMT})
 
 if(DEFINED FOLLY_BENCHMARK_STATIC_LIB)
   set(FOLLY_BENCHMARK ${FOLLY_BENCHMARK_STATIC_LIB})
