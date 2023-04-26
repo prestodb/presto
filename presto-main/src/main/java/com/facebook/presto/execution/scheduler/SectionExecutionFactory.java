@@ -36,7 +36,6 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.server.remotetask.HttpRemoteTask;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
@@ -327,21 +326,16 @@ public class SectionExecutionFactory
                 stageExecution.registerStageTaskRecoveryCallback((taskId, executionFailureInfos) -> {
                     Set<String> activeNodeIDs = nodeManager.getNodes(ACTIVE).stream().map(InternalNode::getNodeIdentifier).collect(toImmutableSet());
                     log.warn("Going to recover task - %s", taskId);
-                    HttpRemoteTask remoteTask = stageExecution.getAllTasks().stream()
+                    RemoteTask remoteTask = stageExecution.getAllTasks().stream()
                             .filter(task -> task.getTaskId().equals(taskId))
-                            .filter(task -> task instanceof HttpRemoteTask)
-                            .map(task -> (HttpRemoteTask) task)
                             .collect(onlyElement());
                     String failingNodeID = remoteTask.getNodeId();
 
-                    List<HttpRemoteTask> httpRemoteTasks = stageExecution.getAllTasks().stream()
+                    List<RemoteTask> httpRemoteTasks = stageExecution.getAllTasks().stream()
                             .filter(task -> !task.getTaskId().equals(taskId))
                             .filter(task -> !task.getNodeId().equals(failingNodeID))
                             .filter(task -> activeNodeIDs.contains(task.getNodeId()))
-                            .filter(task -> task instanceof HttpRemoteTask)
-                            .map(task -> (HttpRemoteTask) task)
                             .filter(task -> task.getTaskStatus().getState() != TaskState.FAILED)
-//                            .filter(task -> !task.isNoMoreSplits(planNodeId))
                             .collect(toList());
 
                     if (httpRemoteTasks.isEmpty()) {
@@ -359,7 +353,7 @@ public class SectionExecutionFactory
 
                         while (splits.hasNext()) {
                             for (int i = 0; i < httpRemoteTasks.size() && splits.hasNext(); i++) {
-                                HttpRemoteTask httpRemoteTask = httpRemoteTasks.get(i);
+                                RemoteTask httpRemoteTask = httpRemoteTasks.get(i);
                                 List<Split> scheduledSplit = splits.next();
                                 Multimap<PlanNodeId, Split> splitsToAdd = HashMultimap.create();
                                 splitsToAdd.putAll(planNodeId, scheduledSplit);

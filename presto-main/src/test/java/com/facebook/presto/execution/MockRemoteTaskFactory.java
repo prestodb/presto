@@ -50,23 +50,29 @@ import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.net.SocketException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -78,6 +84,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
@@ -180,11 +187,16 @@ public class MockRemoteTaskFactory
 
         private final PlanFragment fragment;
 
+        private boolean isRetriedOnFailure;
+
         @GuardedBy("this")
         private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
 
         @GuardedBy("this")
-        private final Multimap<PlanNodeId, Split> splits = HashMultimap.create();
+        private final SetMultimap<PlanNodeId, ScheduledSplit> pendingSplits = HashMultimap.create();
+
+        @GuardedBy("this")
+        private final Map<PlanNodeId, Long2ObjectMap<ScheduledSplit>> unprocessedSplits = new HashMap<>();
 
         @GuardedBy("this")
         private int runningDrivers;
@@ -197,6 +209,7 @@ public class MockRemoteTaskFactory
         @GuardedBy("this")
         private SettableFuture<?> whenSplitQueueHasSpace = SettableFuture.create();
 
+        private final AtomicLong nextSplitId = new AtomicLong();
         private final NodeStatsTracker nodeStatsTracker;
 
         public MockRemoteTask(TaskId taskId,
@@ -245,7 +258,16 @@ public class MockRemoteTaskFactory
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
-            splits.putAll(initialSplits);
+
+            for (Map.Entry<PlanNodeId, Split> entry : initialSplits.entries()) {
+                ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), entry.getValue());
+                if (pendingSplits.put(entry.getKey(), scheduledSplit)) {
+                    unprocessedSplits
+                            .computeIfAbsent(entry.getKey(), (k) -> new Long2ObjectOpenHashMap<>())
+                            .put(scheduledSplit.getSequenceId(), scheduledSplit);
+                }
+            }
+
             this.nodeStatsTracker = requireNonNull(nodeStatsTracker, "nodeStatsTracker is null");
             updateTaskStats();
             updateSplitQueueSpace();
@@ -374,15 +396,50 @@ public class MockRemoteTaskFactory
             }
         }
 
+        public synchronized boolean isAllSplitsRun()
+        {
+            return unprocessedSplits.values().stream().allMatch(Map::isEmpty);
+        }
+
+        public synchronized boolean isOnlyOneSplitLeft(PlanNodeId planNodeId)
+        {
+            return unprocessedSplits.keySet().size() == 1
+                    && unprocessedSplits.keySet().iterator().next().equals(planNodeId);
+        }
+
+        public synchronized Collection<ScheduledSplit> getAllSplits(PlanNodeId planNodeId)
+        {
+            return unprocessedSplits.get(planNodeId).values();
+        }
+
+        public synchronized void setIsRetried()
+        {
+            isRetriedOnFailure = true;
+        }
+
+        public synchronized boolean isRetried()
+        {
+            return isRetriedOnFailure;
+        }
+
+        @VisibleForTesting
+        public synchronized void markAllSplitsRun()
+        {
+            clearSplits();
+        }
+
         public synchronized void finishSplits(int splits)
         {
-            List<Map.Entry<PlanNodeId, Split>> toRemove = new ArrayList<>();
-            Iterator<Map.Entry<PlanNodeId, Split>> iterator = this.splits.entries().iterator();
+            List<Map.Entry<PlanNodeId, ScheduledSplit>> toRemove = new ArrayList<>();
+            Iterator<Map.Entry<PlanNodeId, ScheduledSplit>> iterator = this.pendingSplits.entries().iterator();
             while (toRemove.size() < splits && iterator.hasNext()) {
                 toRemove.add(iterator.next());
             }
-            for (Map.Entry<PlanNodeId, Split> entry : toRemove) {
-                this.splits.remove(entry.getKey(), entry.getValue());
+            for (Map.Entry<PlanNodeId, ScheduledSplit> entry : toRemove) {
+                this.pendingSplits.remove(entry.getKey(), entry.getValue());
+            }
+            for (Map.Entry<PlanNodeId, ScheduledSplit> entry : toRemove) {
+                this.unprocessedSplits.get(entry.getKey()).remove(entry.getValue().getSequenceId());
             }
             updateSplitQueueSpace();
         }
@@ -390,7 +447,8 @@ public class MockRemoteTaskFactory
         public synchronized void clearSplits()
         {
             unacknowledgedSplits = 0;
-            splits.clear();
+            pendingSplits.clear();
+            unprocessedSplits.clear();
             updateTaskStats();
             runningDrivers = 0;
             updateSplitQueueSpace();
@@ -398,7 +456,7 @@ public class MockRemoteTaskFactory
 
         public synchronized void startSplits(int maxRunning)
         {
-            runningDrivers = splits.size();
+            runningDrivers = pendingSplits.size();
             runningDrivers = Math.min(runningDrivers, maxRunning);
             updateSplitQueueSpace();
         }
@@ -431,7 +489,15 @@ public class MockRemoteTaskFactory
         public void addSplits(Multimap<PlanNodeId, Split> splits)
         {
             synchronized (this) {
-                this.splits.putAll(splits);
+                for (Map.Entry<PlanNodeId, Split> entry : splits.entries()) {
+                    ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), entry.getValue());
+
+                    if (pendingSplits.put(entry.getKey(), scheduledSplit)) {
+                        unprocessedSplits
+                                .computeIfAbsent(entry.getKey(), (k) -> new Long2ObjectOpenHashMap<>())
+                                .put(scheduledSplit.getSequenceId(), scheduledSplit);
+                    }
+                }
             }
             updateTaskStats();
             updateSplitQueueSpace();
@@ -508,6 +574,11 @@ public class MockRemoteTaskFactory
             taskStateMachine.cancel();
         }
 
+        public void failed()
+        {
+            taskStateMachine.failed(new SocketException("Socket connect error"));
+        }
+
         @Override
         public void abort()
         {
@@ -525,7 +596,7 @@ public class MockRemoteTaskFactory
                 int count = 0;
                 long weight = 0;
                 for (PlanNodeId tableScanPlanNodeId : fragment.getTableScanSchedulingOrder()) {
-                    Collection<Split> partitionedSplits = splits.get(tableScanPlanNodeId);
+                    Collection<Split> partitionedSplits = pendingSplits.get(tableScanPlanNodeId).stream().map(ScheduledSplit::getSplit).collect(Collectors.toList());
                     count += partitionedSplits.size();
                     weight = addExact(weight, SplitWeight.rawValueSum(partitionedSplits, Split::getSplitWeight));
                 }
@@ -544,13 +615,13 @@ public class MockRemoteTaskFactory
             int queuedCount = 0;
             long queuedWeight = 0;
             for (PlanNodeId tableScanPlanNodeId : fragment.getTableScanSchedulingOrder()) {
-                for (Split split : splits.get(tableScanPlanNodeId)) {
+                for (ScheduledSplit split : pendingSplits.get(tableScanPlanNodeId)) {
                     if (remainingRunning > 0) {
                         remainingRunning--;
                     }
                     else {
                         queuedCount++;
-                        queuedWeight = addExact(queuedWeight, split.getSplitWeight().getRawValue());
+                        queuedWeight = addExact(queuedWeight, split.getSplit().getSplitWeight().getRawValue());
                     }
                 }
             }
