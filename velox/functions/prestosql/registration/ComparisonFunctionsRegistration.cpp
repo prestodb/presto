@@ -58,47 +58,8 @@ void registerComparisonFunctions(const std::string& prefix) {
       {prefix + "between"});
   registerFunction<BetweenFunction, bool, Date, Date, Date>(
       {prefix + "between"});
-  registerFunction<
-      BetweenFunction,
-      bool,
-      UnscaledShortDecimal,
-      UnscaledShortDecimal,
-      UnscaledShortDecimal>({prefix + "between"});
-  registerFunction<
-      BetweenFunction,
-      bool,
-      UnscaledLongDecimal,
-      UnscaledLongDecimal,
-      UnscaledLongDecimal>({prefix + "between"});
-  registerFunction<
-      GtFunction,
-      bool,
-      UnscaledShortDecimal,
-      UnscaledShortDecimal>({prefix + "gt"});
-  registerFunction<GtFunction, bool, UnscaledLongDecimal, UnscaledLongDecimal>(
-      {prefix + "gt"});
-  registerFunction<
-      LtFunction,
-      bool,
-      UnscaledShortDecimal,
-      UnscaledShortDecimal>({prefix + "lt"});
-  registerFunction<LtFunction, bool, UnscaledLongDecimal, UnscaledLongDecimal>(
-      {prefix + "lt"});
 
-  registerFunction<
-      GteFunction,
-      bool,
-      UnscaledShortDecimal,
-      UnscaledShortDecimal>({prefix + "gte"});
-  registerFunction<GteFunction, bool, UnscaledLongDecimal, UnscaledLongDecimal>(
-      {prefix + "gte"});
-  registerFunction<
-      LteFunction,
-      bool,
-      UnscaledShortDecimal,
-      UnscaledShortDecimal>({prefix + "lte"});
-  registerFunction<LteFunction, bool, UnscaledLongDecimal, UnscaledLongDecimal>(
-      {prefix + "lte"});
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_between, prefix + "between");
 }
 
 } // namespace facebook::velox::functions

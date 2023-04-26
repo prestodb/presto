@@ -107,7 +107,7 @@ TEST_F(ComparisonsTest, betweenDecimal) {
                            VectorPtr input,
                            VectorPtr expectedResult) {
     auto actual = evaluate<SimpleVector<bool>>(exprStr, makeRowVector({input}));
-    test::assertEqualVectors(actual, expectedResult);
+    test::assertEqualVectors(expectedResult, actual);
   };
 
   auto shortFlat = makeNullableShortDecimalFlatVector(
@@ -119,6 +119,11 @@ TEST_F(ComparisonsTest, betweenDecimal) {
 
   auto longFlat = makeNullableLongDecimalFlatVector(
       {100, 250, 300, 500, std::nullopt}, DECIMAL(20, 2));
+
+  runAndCompare(
+      "c0 between cast(2.00 as DECIMAL(20, 2)) and cast(3.00 as DECIMAL(20, 2))",
+      longFlat,
+      expectedResult);
 
   // Comparing LONG_DECIMAL and SHORT_DECIMAL must throw error.
   VELOX_ASSERT_THROW(
@@ -159,7 +164,7 @@ TEST_F(ComparisonsTest, gtLtDecimal) {
                            std::vector<VectorPtr>& inputs,
                            VectorPtr expectedResult) {
     auto actual = evaluate<SimpleVector<bool>>(expr, makeRowVector(inputs));
-    test::assertEqualVectors(actual, expectedResult);
+    test::assertEqualVectors(expectedResult, actual);
   };
 
   // Short Decimals test.

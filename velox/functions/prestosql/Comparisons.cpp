@@ -97,9 +97,10 @@ struct SimdComparator {
   template <
       TypeKind kind,
       typename std::enable_if_t<
-          xsimd::has_simd_register<
-              typename TypeTraits<kind>::NativeType>::value &&
-              kind != TypeKind::BOOLEAN,
+          (xsimd::has_simd_register<
+               typename TypeTraits<kind>::NativeType>::value &&
+           kind != TypeKind::BOOLEAN) ||
+              kind == TypeKind::SHORT_DECIMAL || kind == TypeKind::LONG_DECIMAL,
           int> = 0>
   void applyComparison(
       const SelectivityVector& rows,
@@ -112,11 +113,16 @@ struct SimdComparator {
     auto resultVector = result->asUnchecked<FlatVector<bool>>();
     auto rawResult = resultVector->mutableRawValues<uint8_t>();
 
+    // UnscaledShortDecimal and UnscaledLongDecimal will soon be replaced with
+    // int64_t and int128_t respectively. This change will be removed then.
+    constexpr bool isDecimal =
+        (std::is_same_v<T, UnscaledShortDecimal> ||
+         std::is_same_v<T, UnscaledLongDecimal>);
     auto isSimdizable = (lhs.isConstantEncoding() || lhs.isFlatEncoding()) &&
         (rhs.isConstantEncoding() || rhs.isFlatEncoding()) &&
         rows.isAllSelected();
 
-    if (!isSimdizable) {
+    if (!isSimdizable || isDecimal) {
       exec::LocalDecodedVector lhsDecoded(context, lhs, rows);
       exec::LocalDecodedVector rhsDecoded(context, rhs, rows);
 
@@ -128,38 +134,40 @@ struct SimdComparator {
       });
       return;
     }
+    if constexpr (!isDecimal) {
+      if (lhs.isConstantEncoding() && rhs.isConstantEncoding()) {
+        auto l = lhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
+        auto r = rhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
+        applySimdComparison<T, true, true>(
+            rows.begin(), rows.end(), &l, &r, rawResult);
+      } else if (lhs.isConstantEncoding()) {
+        auto l = lhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
+        auto rawRhs = rhs.asUnchecked<FlatVector<T>>()->rawValues();
+        applySimdComparison<T, true, false>(
+            rows.begin(), rows.end(), &l, rawRhs, rawResult);
+      } else if (rhs.isConstantEncoding()) {
+        auto rawLhs = lhs.asUnchecked<FlatVector<T>>()->rawValues();
+        auto r = rhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
+        applySimdComparison<T, false, true>(
+            rows.begin(), rows.end(), rawLhs, &r, rawResult);
+      } else {
+        auto rawLhs = lhs.asUnchecked<FlatVector<T>>()->rawValues();
+        auto rawRhs = rhs.asUnchecked<FlatVector<T>>()->rawValues();
+        applySimdComparison<T, false, false>(
+            rows.begin(), rows.end(), rawLhs, rawRhs, rawResult);
+      }
 
-    if (lhs.isConstantEncoding() && rhs.isConstantEncoding()) {
-      auto l = lhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
-      auto r = rhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
-      applySimdComparison<T, true, true>(
-          rows.begin(), rows.end(), &l, &r, rawResult);
-    } else if (lhs.isConstantEncoding()) {
-      auto l = lhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
-      auto rawRhs = rhs.asUnchecked<FlatVector<T>>()->rawValues();
-      applySimdComparison<T, true, false>(
-          rows.begin(), rows.end(), &l, rawRhs, rawResult);
-    } else if (rhs.isConstantEncoding()) {
-      auto rawLhs = lhs.asUnchecked<FlatVector<T>>()->rawValues();
-      auto r = rhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
-      applySimdComparison<T, false, true>(
-          rows.begin(), rows.end(), rawLhs, &r, rawResult);
-    } else {
-      auto rawLhs = lhs.asUnchecked<FlatVector<T>>()->rawValues();
-      auto rawRhs = rhs.asUnchecked<FlatVector<T>>()->rawValues();
-      applySimdComparison<T, false, false>(
-          rows.begin(), rows.end(), rawLhs, rawRhs, rawResult);
+      resultVector->clearNulls(rows);
     }
-
-    resultVector->clearNulls(rows);
   }
 
   template <
       TypeKind kind,
       typename std::enable_if_t<
-          !xsimd::has_simd_register<
-              typename TypeTraits<kind>::NativeType>::value ||
-              kind == TypeKind::BOOLEAN,
+          (!xsimd::has_simd_register<
+               typename TypeTraits<kind>::NativeType>::value ||
+           kind == TypeKind::BOOLEAN) &&
+              kind != TypeKind::SHORT_DECIMAL && kind != TypeKind::LONG_DECIMAL,
           int> = 0>
   void applyComparison(
       const SelectivityVector& /* rows */,
@@ -187,6 +195,16 @@ class ComparisonSimdFunction : public exec::VectorFunction {
     context.ensureWritable(rows, outputType, result);
     auto comparator = SimdComparator<ComparisonOp>{};
 
+    if (args[0]->type()->isShortDecimal()) {
+      comparator.template applyComparison<TypeKind::SHORT_DECIMAL>(
+          rows, *args[0], *args[1], context, result);
+      return;
+    } else if (args[0]->type()->isLongDecimal()) {
+      comparator.template applyComparison<TypeKind::LONG_DECIMAL>(
+          rows, *args[0], *args[1], context, result);
+      return;
+    }
+
     VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
         comparator.template applyComparison,
         args[0]->typeKind(),
@@ -208,7 +226,13 @@ class ComparisonSimdFunction : public exec::VectorFunction {
                                .argumentType(inputType)
                                .build());
     }
-
+    signatures.push_back(exec::FunctionSignatureBuilder()
+                             .integerVariable("a_precision")
+                             .integerVariable("a_scale")
+                             .returnType("boolean")
+                             .argumentType("DECIMAL(a_precision, a_scale)")
+                             .argumentType("DECIMAL(a_precision, a_scale)")
+                             .build());
     return signatures;
   }
 

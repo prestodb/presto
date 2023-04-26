@@ -146,8 +146,57 @@ class DecimalUnaryBaseFunction : public exec::VectorFunction {
     return result->asUnchecked<FlatVector<R>>()->mutableRawValues();
   }
 
- private:
   const uint8_t aRescale_;
+};
+
+template <typename A /* Argument */>
+class DecimalBetweenFunction : public exec::VectorFunction {
+ public:
+  DecimalBetweenFunction() {}
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& resultType,
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    prepareResults(rows, resultType, context, result);
+    // Second and third arguments must always be constant.
+    VELOX_CHECK(args[1]->isConstantEncoding() && args[2]->isConstantEncoding());
+    auto constantB = args[1]->asUnchecked<SimpleVector<A>>()->valueAt(0);
+    auto constantC = args[2]->asUnchecked<SimpleVector<A>>()->valueAt(0);
+    if (args[0]->isFlatEncoding()) {
+      // Fast path if first argument is flat.
+      auto flatA = args[0]->asUnchecked<FlatVector<A>>();
+      auto rawA = flatA->mutableRawValues();
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
+        result->asUnchecked<FlatVector<bool>>()->set(
+            row,
+            rawA[row].unscaledValue() >= constantB.unscaledValue() &&
+                rawA[row].unscaledValue() <= constantC.unscaledValue());
+      });
+    } else {
+      // Path if first argument is encoded.
+      exec::DecodedArgs decodedArgs(rows, args, context);
+      auto a = decodedArgs.at(0);
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
+        auto value = a->valueAt<A>(row);
+        result->asUnchecked<FlatVector<bool>>()->set(
+            row,
+            value.unscaledValue() >= constantB.unscaledValue() &&
+                value.unscaledValue() <= constantC.unscaledValue());
+      });
+    }
+  }
+
+ private:
+  void prepareResults(
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      exec::EvalCtx& context,
+      VectorPtr& result) const {
+    context.ensureWritable(rows, resultType, result);
+    result->clearNulls(rows);
+  }
 };
 
 class Addition {
@@ -431,6 +480,18 @@ decimalAbsNegateSignature() {
               .build()};
 }
 
+std::vector<std::shared_ptr<exec::FunctionSignature>>
+decimalBetweenSignature() {
+  return {exec::FunctionSignatureBuilder()
+              .integerVariable("a_precision")
+              .integerVariable("a_scale")
+              .returnType("BOOLEAN")
+              .argumentType("DECIMAL(a_precision, a_scale)")
+              .argumentType("DECIMAL(a_precision, a_scale)")
+              .argumentType("DECIMAL(a_precision, a_scale)")
+              .build()};
+}
+
 template <typename Operation>
 std::shared_ptr<exec::VectorFunction> createDecimalUnary(
     const std::string& /*name*/,
@@ -516,6 +577,26 @@ std::shared_ptr<exec::VectorFunction> createDecimalFunction(
   }
   VELOX_UNSUPPORTED();
 }
+
+std::shared_ptr<exec::VectorFunction> createDecimalBetweenFunction(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  auto aType = inputArgs[0].type;
+  auto bType = inputArgs[1].type;
+  auto cType = inputArgs[2].type;
+  if (aType->kind() == TypeKind::SHORT_DECIMAL) {
+    VELOX_CHECK(bType->kind() == TypeKind::SHORT_DECIMAL);
+    VELOX_CHECK(cType->kind() == TypeKind::SHORT_DECIMAL);
+    // Arguments are short decimals.
+    return std::make_shared<DecimalBetweenFunction<UnscaledShortDecimal>>();
+  } else {
+    VELOX_CHECK(bType->kind() == TypeKind::LONG_DECIMAL);
+    VELOX_CHECK(cType->kind() == TypeKind::LONG_DECIMAL);
+    // Arguments are long decimals.
+    return std::make_shared<DecimalBetweenFunction<UnscaledLongDecimal>>();
+  }
+  VELOX_UNSUPPORTED();
+}
 }; // namespace
 
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
@@ -552,4 +633,9 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_decimal_negate,
     decimalAbsNegateSignature(),
     createDecimalUnary<Negate>);
+
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+    udf_decimal_between,
+    decimalBetweenSignature(),
+    createDecimalBetweenFunction);
 }; // namespace facebook::velox::functions

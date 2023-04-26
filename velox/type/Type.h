@@ -723,8 +723,6 @@ inline bool isDecimalKind(TypeKind typeKind) {
 
 bool isDecimalName(const std::string& typeName);
 
-bool isDecimalTypeSignature(const std::string& arg);
-
 std::pair<int, int> getDecimalPrecisionScale(const Type& type);
 
 class UnknownType : public TypeBase<TypeKind::UNKNOWN> {
