@@ -62,6 +62,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                 .put("native-execution-enabled", "true")
                 .put("spark.initial-partition-count", "1")
                 .put("register-test-functions", "true")
+                .put("inherit-native-execution-log", "false")
                 .put("spark.partition-count-auto-tune-enabled", "false");
 
         if (System.getProperty("NATIVE_PORT") == null) {

@@ -272,6 +272,8 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
 
+    public static final String INHERIT_NATIVE_EXECUTION_LOG = "inherit_native_execution_log";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     public SystemSessionProperties()
@@ -1446,6 +1448,11 @@ public final class SystemSessionProperties
                         true,
                         false),
                 booleanProperty(
+                        INHERIT_NATIVE_EXECUTION_LOG,
+                        "Redirect native execution process logs to the same stderr and stdout as the running Spark Java process",
+                        featuresConfig.isInheritNativeExecutionLog(),
+                        false),
+                booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "(Deprecated) Randomize null join key for outer join",
                         false,
@@ -2476,6 +2483,11 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionProcessReuseEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_PROCESS_REUSE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isInheritNativeExecutionLog(Session session)
+    {
+        return session.getSystemProperty(INHERIT_NATIVE_EXECUTION_LOG, Boolean.class);
     }
 
     public static RandomizeOuterJoinNullKeyStrategy getRandomizeOuterJoinNullKeyStrategy(Session session)

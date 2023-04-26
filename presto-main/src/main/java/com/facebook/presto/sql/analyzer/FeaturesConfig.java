@@ -239,6 +239,7 @@ public class FeaturesConfig
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
+    private boolean inheritNativeExecutionLog = true;
     private String nativeExecutionExecutablePath = "./presto_server";
     private String nativeExecutionProgramArguments = "";
     private boolean nativeExecutionProcessReuseEnabled = true;
@@ -2270,6 +2271,19 @@ public class FeaturesConfig
     public boolean isNativeExecutionEnabled()
     {
         return this.nativeExecutionEnabled;
+    }
+
+    @Config("inherit-native-execution-log")
+    @ConfigDescription("Redirect native execution process logs to the same stderr and stdout as the running Spark Java process")
+    public FeaturesConfig setInheritNativeExecutionLog(boolean inheritNatiaveExecutionLog)
+    {
+        this.inheritNativeExecutionLog = inheritNatiaveExecutionLog;
+        return this;
+    }
+
+    public boolean isInheritNativeExecutionLog()
+    {
+        return this.inheritNativeExecutionLog;
     }
 
     @Config("native-execution-executable-path")

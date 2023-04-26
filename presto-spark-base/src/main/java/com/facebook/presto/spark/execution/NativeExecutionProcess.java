@@ -123,8 +123,10 @@ public class NativeExecutionProcess
         }
 
         ProcessBuilder processBuilder = new ProcessBuilder(getLaunchCommand());
-        processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
+        if (SystemSessionProperties.isInheritNativeExecutionLog(session)) {
+            processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+            processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
+        }
         try {
             process = processBuilder.start();
         }
