@@ -312,7 +312,7 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new InlineSqlFunctions(metadata, sqlParser).rules())
                                 .addAll(new DesugarLambdaExpression().rules())
-                                .addAll(new SimplifyCardinalityMap().rules())
+                                .addAll(new SimplifyCardinalityMap(metadata.getFunctionAndTypeManager()).rules())
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,
