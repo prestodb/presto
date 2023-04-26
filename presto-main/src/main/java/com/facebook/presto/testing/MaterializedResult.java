@@ -28,6 +28,7 @@ import com.facebook.presto.common.type.SqlTime;
 import com.facebook.presto.common.type.SqlTimeWithTimeZone;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
@@ -401,6 +402,9 @@ public class MaterializedResult
         }
         else if (prestoValue instanceof ArrayList) {
             convertedValue = newArrayList(((ArrayList) prestoValue).stream().map(x -> convertPrestoValueToTestType(x)).toArray());
+        }
+        else if (prestoValue instanceof SqlVarbinary) {
+            convertedValue = ((SqlVarbinary) prestoValue).getBytes();
         }
         else {
             convertedValue = prestoValue;
