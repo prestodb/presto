@@ -500,6 +500,7 @@ public class PrestoSparkModule
         binder.bind(PrestoSparkExecutionExceptionFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkSettingsRequirements.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkQueryPlanner.class).in(Scopes.SINGLETON);
+        binder.bind(PrestoSparkAccessControlChecker.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkPlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkRddFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkTaskExecutorFactory.class).in(Scopes.SINGLETON);
