@@ -265,7 +265,27 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
 
   // TODO(venkatra): Populate these memory stats as well.
   prestoTaskStats.revocableMemoryReservationInBytes = {};
-  prestoTaskStats.cumulativeUserMemory = {};
+
+  // Set the lastTaskStatsUpdateMs to execution start time if it is 0.
+  if (lastTaskStatsUpdateMs == 0) {
+    lastTaskStatsUpdateMs = taskStats.executionStartTimeMs;
+  }
+
+  const uint64_t currentTimeMs = velox::getCurrentTimeMs();
+  const uint64_t sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
+
+  const int64_t currentBytes = stats.currentBytes;
+
+  int64_t averageMemoryForLastPeriod =
+      (currentBytes + lastMemoryReservation) / 2;
+
+  prestoTaskStats.cumulativeUserMemory +=
+      (averageMemoryForLastPeriod * sinceLastPeriodMs) / 1000;
+
+  prestoTaskStats.cumulativeTotalMemory = prestoTaskStats.cumulativeUserMemory;
+
+  lastTaskStatsUpdateMs = currentTimeMs;
+  lastMemoryReservation = currentBytes;
 
   prestoTaskStats.peakNodeTotalMemoryInBytes =
       task->queryCtx()->pool()->getMaxBytes();
