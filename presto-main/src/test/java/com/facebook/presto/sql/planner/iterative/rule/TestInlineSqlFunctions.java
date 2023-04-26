@@ -42,6 +42,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
@@ -199,7 +200,7 @@ public class TestInlineSqlFunctions
     private void assertNotInlined(String expression, Map<String, String> sessionValues, String variable, Type type)
     {
         RowExpression inputExpression = new TestingRowExpressionTranslator(tester.getMetadata()).translate(expression, ImmutableMap.of(variable, type));
-        RuleAssert ruleAssert = tester.assertThat(new SimplifyCardinalityMap().projectRowExpressionRewriteRule());
+        RuleAssert ruleAssert = tester.assertThat(new SimplifyCardinalityMap(createTestFunctionAndTypeManager()).projectRowExpressionRewriteRule());
         sessionValues.forEach((k, v) -> ruleAssert.setSystemProperty(k, v));
         ruleAssert
                 .on(p -> p.project(assignment(p.variable("var"), inputExpression), p.values(p.variable(variable, type))))
