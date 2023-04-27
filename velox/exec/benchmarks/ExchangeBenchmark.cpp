@@ -224,6 +224,7 @@ class ExchangeBenchmark : public VectorTestBase {
     printMax("Producer", totalProducer, waitProducer);
     printMax("Consumer", totalConsumer, waitConsumer);
     std::sort(wallMs.begin(), wallMs.end());
+    assert(!wallMs.empty());
     std::cout << "Wall ms: " << wallMs.back() << " / "
               << wallMs[wallMs.size() / 2] << " / " << wallMs.front()
               << std::endl;
@@ -281,6 +282,7 @@ class ExchangeBenchmark : public VectorTestBase {
       int64_t total,
       std::vector<RuntimeMetric>& metrics) {
     sortByMax(metrics);
+    assert(!metrics.empty());
     std::cout << title << " Total " << succinctNanos(total)
               << " Max: " << metrics.front().toString()
               << " Median: " << metrics[metrics.size() / 2].toString()
@@ -351,6 +353,7 @@ int main(int argc, char** argv) {
   // flat_batch_mb in flat size.
   while (flatSize * 10000 < static_cast<int64_t>(FLAGS_flat_batch_mb) << 20) {
     flatNames.push_back(fmt::format("c{}", flatNames.size()));
+    assert(!flatNames.empty());
     flatTypes.push_back(typeSelection[flatTypes.size() % typeSelection.size()]);
     if (flatTypes.back()->isFixedWidth()) {
       flatSize += flatTypes.back()->cppSizeInBytes();

@@ -238,6 +238,7 @@ void ExchangeClient::close() {
 
 folly::F14FastMap<std::string, RuntimeMetric> ExchangeClient::stats() const {
   folly::F14FastMap<std::string, RuntimeMetric> stats;
+  std::lock_guard<std::mutex> l(queue_->mutex());
   for (const auto& source : sources_) {
     for (const auto& [name, value] : source->stats()) {
       stats[name].addValue(value);
