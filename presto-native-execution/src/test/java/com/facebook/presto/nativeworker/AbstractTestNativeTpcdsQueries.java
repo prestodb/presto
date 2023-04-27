@@ -196,7 +196,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(getTpcdsQuery("11"));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTpcdsQ12()
             throws Exception
     {
@@ -214,8 +214,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ14_1()
             throws Exception
     {
-        assertQueryFails(getTpcdsQuery("14_1"),
-                "[\\s\\S]*Unexpected parameters[\\s\\S]*for function sum[\\s\\S]*");
+        assertQuery(getTpcdsQuery("14_1"));
     }
 
     @Test
@@ -236,7 +235,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ16()
             throws Exception
     {
-        assertQueryFails(getTpcdsQuery("16"), "[\\s\\S]*mismatched input \'\"total shipping cost\"\'[\\s\\S]*");
+        assertQuery(getTpcdsQuery("16"));
     }
 
     @Test
@@ -250,8 +249,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ18()
             throws Exception
     {
-        // Results not equal
-        assertQuerySucceeds(getTpcdsQuery("18"));
+        assertQuery(getTpcdsQuery("18"));
     }
 
     @Test
@@ -261,8 +259,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(getTpcdsQuery("19"));
     }
 
-    // Disabled this case since it might crash the worker
-    @Test(enabled = false)
+    @Test
     public void testTpcdsQ20()
             throws Exception
     {
@@ -330,20 +327,14 @@ public abstract class AbstractTestNativeTpcdsQueries
             throws Exception
 
     {
-        // Results not equal
-        assertQuerySucceeds(getTpcdsQuery("27"));
+        assertQuery(getTpcdsQuery("27"));
     }
 
     @Test
     public void testTpcdsQ28()
             throws Exception
     {
-        // Results not equal
-        // Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):
-        //    [77.93, 1468, 1468, 69.55, 1518, 1518, 134.06, 1167, 1167, 81.56, 1258, 1258, 60.27, 1523, 1523, 38.99, 1322, 1322]
-        //Expected rows (up to 100 of 1 missing rows shown, 1 rows in total):
-        //    [77.93, 1468, 1345, 69.55, 1518, 1331, 134.06, 1167, 1107, 81.56, 1258, 1158, 60.27, 1523, 1342, 38.99, 1322, 1152]
-        assertQuerySucceeds(getTpcdsQuery("28"));
+        assertQuery(getTpcdsQuery("28"));
     }
 
     @Test
@@ -367,8 +358,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(getTpcdsQuery("31"));
     }
 
-    // Disabled this case since it might crash the worker
-    @Test(enabled = false)
+    @Test
     public void testTpcdsQ32()
             throws Exception
     {
@@ -470,7 +460,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ45()
             throws Exception
     {
-        assertQueryFails(getTpcdsQuery("45"), "([\\s\\S]*Field not found:[\\s\\S]*)|([\\s\\S]*Exhausted retries:[\\s\\S]*)|([\\s\\S]*Unsupported Filter over SemiJoin[\\s\\S]*)");
+        assertQuery(getTpcdsQuery("45"));
     }
 
     @Test
@@ -484,7 +474,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ47()
             throws Exception
     {
-        assertQueryFails(getTpcdsQuery("47"), "[\\s\\S]*Cannot nest aggregations inside aggregation[\\s\\S]*");
+        assertQuery(getTpcdsQuery("47"));
     }
 
     @Test
@@ -512,7 +502,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ51()
             throws Exception
     {
-        assertQueryFails(getTpcdsQuery("51"), "[\\s\\S]*Cannot nest aggregations inside aggregation[\\s\\S]*");
+        assertQuery(getTpcdsQuery("51"));
     }
 
     @Test
@@ -526,7 +516,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ53()
             throws Exception
     {
-        assertQueryFails(getTpcdsQuery("53"), "[\\s\\S]*Cannot nest aggregations inside aggregation[\\s\\S]*");
+        assertQuery(getTpcdsQuery("53"));
     }
 
     @Test
@@ -554,7 +544,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ57()
             throws Exception
     {
-        assertQueryFails(getTpcdsQuery("57"), "[\\s\\S]*Cannot nest aggregations inside aggregation[\\s\\S]*");
+        assertQuery(getTpcdsQuery("57"));
     }
 
     @Test
@@ -596,7 +586,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ63()
             throws Exception
     {
-        assertQueryFails(getTpcdsQuery("63"), "[\\s\\S]*Cannot nest aggregations inside aggregation[\\s\\S]*");
+        assertQuery(getTpcdsQuery("63"));
     }
 
     @Test
@@ -638,7 +628,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ69()
             throws Exception
     {
-        assertQuerySucceeds(getTpcdsQuery("69"));
+        assertQuery(getTpcdsQuery("69"));
     }
 
     @Test
@@ -778,7 +768,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     public void testTpcdsQ89()
             throws Exception
     {
-        assertQueryFails(getTpcdsQuery("89"), "[\\s\\S]*Cannot nest aggregations inside aggregation[\\s\\S]*");
+        assertQuery(getTpcdsQuery("89"));
     }
 
     @Test
@@ -837,7 +827,7 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(getTpcdsQuery("97"));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTpcdsQ98()
             throws Exception
     {
