@@ -152,6 +152,9 @@ public class FeaturesConfig
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean printStatsForNonJoinQuery;
     private boolean defaultFilterFactorEnabled;
+    // Give a default 10% selectivity coefficient factor to avoid hitting unknown stats in join stats estimates
+    // which could result in syntactic join order. Set it to 0 to disable this feature
+    private double defaultJoinSelectivityCoefficient;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -1317,6 +1320,21 @@ public class FeaturesConfig
     public boolean isDefaultFilterFactorEnabled()
     {
         return defaultFilterFactorEnabled;
+    }
+
+    @Config("optimizer.default-join-selectivity-coefficient")
+    @ConfigDescription("Used when join selectivity estimation is unknown. Default 0 to disable the use of join selectivity, this will allow planner to fall back to FROM-clause join order when the join cardinality is unknown")
+    public FeaturesConfig setDefaultJoinSelectivityCoefficient(double defaultJoinSelectivityCoefficient)
+    {
+        this.defaultJoinSelectivityCoefficient = defaultJoinSelectivityCoefficient;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getDefaultJoinSelectivityCoefficient()
+    {
+        return defaultJoinSelectivityCoefficient;
     }
 
     public DataSize getTopNOperatorUnspillMemoryLimit()

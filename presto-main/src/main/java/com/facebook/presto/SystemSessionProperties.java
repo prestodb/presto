@@ -52,6 +52,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -180,6 +181,7 @@ public final class SystemSessionProperties
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
+    public static final String DEFAULT_JOIN_SELECTIVITY_COEFFICIENT = "default_join_selectivity_coefficient";
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
     public static final String OPTIMIZE_CONSTANT_GROUPING_KEYS = "optimize_constant_grouping_keys";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
@@ -986,6 +988,15 @@ public final class SystemSessionProperties
                         "use a default filter factor for unknown filters in a filter node",
                         featuresConfig.isDefaultFilterFactorEnabled(),
                         false),
+                new PropertyMetadata<>(
+                        DEFAULT_JOIN_SELECTIVITY_COEFFICIENT,
+                        "use a default join selectivity coefficient factor when column statistics are not available in a join node",
+                        DOUBLE,
+                        Double.class,
+                        featuresConfig.getDefaultJoinSelectivityCoefficient(),
+                        false,
+                        value -> validateDoubleValueWithinSelectivityRange(value, DEFAULT_JOIN_SELECTIVITY_COEFFICIENT),
+                        object -> object),
                 booleanProperty(
                         PUSH_LIMIT_THROUGH_OUTER_JOIN,
                         "push limits to the outer side of an outer join",
@@ -2143,6 +2154,20 @@ public final class SystemSessionProperties
         }
         return intValue;
     }
+    private static Double validateDoubleValueWithinSelectivityRange(Object value, String property)
+    {
+        Double number = (Double) value;
+        if (number == null) {
+            return null;
+        }
+        double doubleValue = number.doubleValue();
+        if (doubleValue < 0 || doubleValue > 1) {
+            throw new PrestoException(
+                    INVALID_SESSION_PROPERTY,
+                    format("%s must be within the range of 0 and 1.0: %s", property, doubleValue));
+        }
+        return doubleValue;
+    }
 
     public static boolean isStatisticsCpuTimerEnabled(Session session)
     {
@@ -2172,6 +2197,11 @@ public final class SystemSessionProperties
     public static boolean isDefaultFilterFactorEnabled(Session session)
     {
         return session.getSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, Boolean.class);
+    }
+
+    public static double getDefaultJoinSelectivityCoefficient(Session session)
+    {
+        return session.getSystemProperty(DEFAULT_JOIN_SELECTIVITY_COEFFICIENT, Double.class);
     }
 
     public static boolean isPushLimitThroughOuterJoin(Session session)
