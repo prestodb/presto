@@ -58,6 +58,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -79,7 +80,6 @@ import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
 import static com.facebook.presto.sql.util.AstUtils.nodeContains;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -557,12 +557,14 @@ class SubqueryPlanner
         if (mapping.isEmpty()) {
             return planNode;
         }
-        Map<RowExpression, RowExpression> rowExpressionMapping = mapping.entrySet().stream()
-                .collect(toImmutableMap(
-                        entry -> context.getTranslatorContext().getRowExpressionMap().get(entry.getKey()),
-                        entry -> rowExpression(entry.getValue(), context)));
+        // There can be duplicates Expressions here.
+        Map<RowExpression, RowExpression> rowExpressionMapping = new HashMap<>();
+        mapping.forEach((key, value) ->
+                rowExpressionMapping.put(
+                        context.getTranslatorContext().getRowExpressionMap().get(key),
+                        rowExpression(value, context)));
 
-        return SimplePlanRewriter.rewriteWith(new ExpressionReplacer(idAllocator, rowExpressionMapping), planNode, null);
+        return SimplePlanRewriter.rewriteWith(new ExpressionReplacer(idAllocator, ImmutableMap.copyOf(rowExpressionMapping)), planNode, null);
     }
 
     private static class ColumnReferencesExtractor
