@@ -94,7 +94,6 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -273,7 +272,7 @@ public final class SqlToRowExpressionTranslator
                 SqlFunctionProperties sqlFunctionProperties,
                 Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
         {
-            this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
+            this.types = requireNonNull(types, "types is null");
             this.layout = layout;
             this.functionAndTypeResolver = functionAndTypeResolver;
             this.user = user;
