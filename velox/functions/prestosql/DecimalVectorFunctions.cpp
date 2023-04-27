@@ -485,7 +485,7 @@ decimalBetweenSignature() {
   return {exec::FunctionSignatureBuilder()
               .integerVariable("a_precision")
               .integerVariable("a_scale")
-              .returnType("BOOLEAN")
+              .returnType("boolean")
               .argumentType("DECIMAL(a_precision, a_scale)")
               .argumentType("DECIMAL(a_precision, a_scale)")
               .argumentType("DECIMAL(a_precision, a_scale)")
