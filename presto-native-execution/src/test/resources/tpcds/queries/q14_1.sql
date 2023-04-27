@@ -102,7 +102,7 @@ FROM
       AND ("d_year" = (1999 + 2))
       AND ("d_moy" = 11)
    GROUP BY "i_brand_id", "i_class_id", "i_category_id"
-   HAVING ("round"("sum"(("ss_quantity" * "ss_list_price"), 2)) > (
+   HAVING ("round"("sum"(("ss_quantity" * "ss_list_price")), 2) > (
          SELECT "average_sales"
          FROM
            avg_sales

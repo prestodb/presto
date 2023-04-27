@@ -3,8 +3,8 @@ FROM
   (
    SELECT
      "i_manager_id"
-   , "round"("sum"("ss_sales_price"), 2) "sum_sales"
-   , "round"("avg"("sum"("ss_sales_price")), 2) OVER (PARTITION BY "i_manager_id") "avg_monthly_sales"
+   , "sum"("ss_sales_price") "sum_sales"
+   , "avg"("sum"("ss_sales_price")) OVER (PARTITION BY "i_manager_id") "avg_monthly_sales"
    FROM
      item
    , store_sales

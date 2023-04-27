@@ -1,13 +1,13 @@
 SELECT
   "count"(DISTINCT "cs_order_number") "order count"
-, "round"("sum"("cs_ext_ship_cost") "total shipping cost", 2)
-, "round"("sum"("cs_net_profit") "total net profit", 2)
+, "sum"("cs_ext_ship_cost") "total shipping cost"
+, "sum"("cs_net_profit") "total net profit"
 FROM
   catalog_sales cs1
 , date_dim
 , customer_address
 , call_center
-WHERE ("d_date" BETWEEN CAST('2002-2-01' AS DATE) AND (CAST('2002-2-01' AS DATE) + INTERVAL  '60' DAY))
+WHERE (CAST("d_date" AS DATE) BETWEEN DATE '2002-2-01' AND (DATE '2002-2-01' + INTERVAL '60' DAY))
    AND ("cs1"."cs_ship_date_sk" = "d_date_sk")
    AND ("cs1"."cs_ship_addr_sk" = "ca_address_sk")
    AND ("ca_state" = 'GA')

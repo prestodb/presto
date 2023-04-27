@@ -8,8 +8,8 @@ FROM
    , "s_store_name"
    , "s_company_name"
    , "d_moy"
-   , "round"("sum"("ss_sales_price"), 2) "sum_sales"
-   , "round"("avg"("sum"("ss_sales_price")), 2) OVER (PARTITION BY "i_category", "i_brand", "s_store_name", "s_company_name") "avg_monthly_sales"
+   , "sum"("ss_sales_price") "sum_sales"
+   , "avg"("sum"("ss_sales_price")) OVER (PARTITION BY "i_category", "i_brand", "s_store_name", "s_company_name") "avg_monthly_sales"
    FROM
      item
    , store_sales

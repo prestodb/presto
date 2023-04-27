@@ -3,7 +3,7 @@ WITH
    SELECT
      "ws_item_sk" "item_sk"
    , "d_date"
-   , "round"("sum"("sum"("ws_sales_price")), 2) OVER (PARTITION BY "ws_item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "cume_sales"
+   , "sum"("sum"("ws_sales_price")) OVER (PARTITION BY "ws_item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "cume_sales"
    FROM
      web_sales
    , date_dim
@@ -16,7 +16,7 @@ WITH
    SELECT
      "ss_item_sk" "item_sk"
    , "d_date"
-   , "round"("sum"("sum"("ss_sales_price")), 2) OVER (PARTITION BY "ss_item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "cume_sales"
+   , "sum"("sum"("ss_sales_price")) OVER (PARTITION BY "ss_item_sk" ORDER BY "d_date" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "cume_sales"
    FROM
      store_sales
    , date_dim

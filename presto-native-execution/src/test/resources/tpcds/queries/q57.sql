@@ -6,8 +6,8 @@ WITH
    , "cc_name"
    , "d_year"
    , "d_moy"
-   , "round"("sum"("cs_sales_price"), 2) "sum_sales"
-   , "round"("avg"("sum"("cs_sales_price")), 2) OVER (PARTITION BY "i_category", "i_brand", "cc_name", "d_year") "avg_monthly_sales"
+   , "sum"("cs_sales_price") "sum_sales"
+   , "avg"("sum"("cs_sales_price")) OVER (PARTITION BY "i_category", "i_brand", "cc_name", "d_year") "avg_monthly_sales"
    , "rank"() OVER (PARTITION BY "i_category", "i_brand", "cc_name" ORDER BY "d_year" ASC, "d_moy" ASC) "rn"
    FROM
      item
