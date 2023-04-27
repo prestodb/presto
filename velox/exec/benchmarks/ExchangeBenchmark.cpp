@@ -16,6 +16,7 @@
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
 
+#include "velox/core/QueryConfig.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/PlanNodeStats.h"
@@ -28,6 +29,16 @@
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 DEFINE_int32(width, 16, "Number of parties in shuffle");
+DEFINE_int32(task_width, 4, "Number of threads in each task in shuffle");
+
+DEFINE_int32(num_local_tasks, 8, "Number of concurrent local shuffles");
+DEFINE_int32(num_local_repeat, 8, "Number of repeats of local exchange query");
+DEFINE_int32(flat_batch_mb, 1, "MB in a 10k row flat batch.");
+DEFINE_int64(
+    local_exchange_buffer_mb,
+    32,
+    "task-wide buffer in local exchange");
+DEFINE_int64(exchange_buffer_mb, 32, "task-wide buffer in remote exchange");
 
 /// Benchmarks repartition/exchange with different batch sizes,
 /// numbers of destinations and data type mixes.  Generates a plan
@@ -66,13 +77,18 @@ class ExchangeBenchmark : public VectorTestBase {
     return vectors;
   }
 
-  void
-  run(std::vector<RowVectorPtr>& vectors, int32_t width, Counters& counters) {
+  void run(
+      std::vector<RowVectorPtr>& vectors,
+      int32_t width,
+      int32_t taskWidth,
+      Counters& counters) {
     assert(!vectors.empty());
+    configSettings_[core::QueryConfig::kMaxPartitionedOutputBufferSize] =
+        fmt::format("{}", FLAGS_exchange_buffer_mb << 20);
     std::vector<std::shared_ptr<Task>> tasks;
     std::vector<std::string> leafTaskIds;
     auto leafPlan = exec::test::PlanBuilder()
-                        .values(vectors)
+                        .values(vectors, true)
                         .partitionedOutput({"c0"}, width)
                         .planNode();
 
@@ -82,7 +98,7 @@ class ExchangeBenchmark : public VectorTestBase {
       leafTaskIds.push_back(leafTaskId);
       auto leafTask = makeTask(leafTaskId, leafPlan, counter);
       tasks.push_back(leafTask);
-      Task::start(leafTask, 1);
+      Task::start(leafTask, taskWidth);
     }
 
     core::PlanNodePtr finalAggPlan;
@@ -100,7 +116,7 @@ class ExchangeBenchmark : public VectorTestBase {
           exec::Split(std::make_shared<exec::RemoteConnectorSplit>(taskId)));
       auto task = makeTask(taskId, finalAggPlan, i);
       tasks.push_back(task);
-      Task::start(task, 1);
+      Task::start(task, taskWidth);
       addRemoteSplits(task, leafTaskIds);
     }
 
@@ -111,7 +127,7 @@ class ExchangeBenchmark : public VectorTestBase {
 
     auto expected =
         makeRowVector({makeFlatVector<int64_t>(1, [&](auto /*row*/) {
-          return vectors.size() * vectors[0]->size() * width;
+          return vectors.size() * vectors[0]->size() * width * taskWidth;
         })});
 
     exec::test::AssertQueryBuilder(plan)
@@ -133,6 +149,84 @@ class ExchangeBenchmark : public VectorTestBase {
     counters.bytes += bytes;
     counters.rows += width * vectors.size() * vectors[0]->size();
     counters.usec += elapsed;
+  }
+
+  void runLocal(
+      std::vector<RowVectorPtr>& vectors,
+      int32_t taskWidth,
+      int32_t numTasks,
+      Counters& counters) {
+    assert(!vectors.empty());
+    std::vector<std::shared_ptr<Task>> tasks;
+    counters.bytes = vectors[0]->retainedSize() * vectors.size() * numTasks *
+        FLAGS_num_local_repeat;
+    std::vector<std::string> aggregates = {"count(1)"};
+    auto& rowType = vectors[0]->type()->as<TypeKind::ROW>();
+    for (auto i = 1; i < rowType.size(); ++i) {
+      aggregates.push_back(fmt::format("checksum({})", rowType.nameOf(i)));
+    }
+    core::PlanNodeId exchangeId;
+    auto plan = exec::test::PlanBuilder()
+                    .values(vectors, true)
+                    .localPartition({"c0"})
+                    .capturePlanNodeId(exchangeId)
+                    .singleAggregation({}, aggregates)
+                    .localPartition({})
+                    .singleAggregation({}, {"sum(a0)"})
+                    .planNode();
+    auto startMicros = getCurrentTimeMicro();
+
+    std::vector<std::thread> threads;
+    threads.reserve(numTasks);
+    auto expected =
+        makeRowVector({makeFlatVector<int64_t>(1, [&](auto /*row*/) {
+          return vectors.size() * vectors[0]->size() * taskWidth;
+        })});
+
+    std::mutex mutex;
+    for (int32_t i = 0; i < numTasks; ++i) {
+      threads.push_back(std::thread([&]() {
+        for (auto repeat = 0; repeat < FLAGS_num_local_repeat; ++repeat) {
+          auto task =
+              exec::test::AssertQueryBuilder(plan)
+                  .config(
+                      core::QueryConfig::kMaxLocalExchangeBufferSize,
+                      fmt::format("{}", FLAGS_local_exchange_buffer_mb << 20))
+                  .maxDrivers(taskWidth)
+                  .assertResults(expected);
+          {
+            std::lock_guard<std::mutex> l(mutex);
+            tasks.push_back(task);
+          }
+        }
+      }));
+    }
+    for (auto& thread : threads) {
+      thread.join();
+    }
+    counters.usec = getCurrentTimeMicro() - startMicros;
+    int64_t totalProducer = 0;
+    int64_t totalConsumer = 0;
+    std::vector<RuntimeMetric> waitConsumer;
+    std::vector<RuntimeMetric> waitProducer;
+    std::vector<int64_t> wallMs;
+    for (auto& task : tasks) {
+      auto taskStats = task->taskStats();
+      wallMs.push_back(
+          taskStats.executionEndTimeMs - taskStats.executionStartTimeMs);
+      auto planStats = toPlanStats(taskStats);
+      auto runtimeStats = planStats.at(exchangeId).customStats;
+      waitProducer.push_back(runtimeStats["blockedWaitForProducerWallNanos"]);
+      waitConsumer.push_back(runtimeStats["blockedWaitForConsumerWallNanos"]);
+      totalConsumer += waitConsumer.back().sum;
+      totalProducer += waitProducer.back().sum;
+    }
+    printMax("Producer", totalProducer, waitProducer);
+    printMax("Consumer", totalConsumer, waitConsumer);
+    std::sort(wallMs.begin(), wallMs.end());
+    std::cout << "Wall ms: " << wallMs.back() << " / "
+              << wallMs[wallMs.size() / 2] << " / " << wallMs.front()
+              << std::endl;
   }
 
  private:
@@ -173,6 +267,26 @@ class ExchangeBenchmark : public VectorTestBase {
     task->noMoreSplits("0");
   }
 
+  void sortByMax(std::vector<RuntimeMetric>& metrics) {
+    std::sort(
+        metrics.begin(),
+        metrics.end(),
+        [](const RuntimeMetric& left, const RuntimeMetric& right) {
+          return left.max > right.max;
+        });
+  }
+
+  void printMax(
+      const char* title,
+      int64_t total,
+      std::vector<RuntimeMetric>& metrics) {
+    sortByMax(metrics);
+    std::cout << title << " Total " << succinctNanos(total)
+              << " Max: " << metrics.front().toString()
+              << " Median: " << metrics[metrics.size() / 2].toString()
+              << " Min: " << metrics.back().toString() << std::endl;
+  }
+
   std::unordered_map<std::string, std::string> configSettings_;
 };
 
@@ -187,22 +301,29 @@ Counters flat10kCounters;
 Counters deep10kCounters;
 Counters flat50Counters;
 Counters deep50Counters;
+Counters localFlat10kCounters;
 
 BENCHMARK(exchanegeFlat10k) {
-  bm.run(flat10k, FLAGS_width, flat10kCounters);
+  bm.run(flat10k, FLAGS_width, FLAGS_task_width, flat10kCounters);
 }
 
 BENCHMARK_RELATIVE(exchanegeFlat50) {
-  bm.run(flat50, FLAGS_width, flat50Counters);
+  bm.run(flat50, FLAGS_width, FLAGS_task_width, flat50Counters);
 }
 
 BENCHMARK(exchanegeDeep10k) {
-  bm.run(deep10k, FLAGS_width, deep10kCounters);
+  bm.run(deep10k, FLAGS_width, FLAGS_task_width, deep10kCounters);
 }
 
 BENCHMARK_RELATIVE(exchanegeDeep50) {
-  bm.run(deep50, FLAGS_width, deep50Counters);
+  bm.run(deep50, FLAGS_width, FLAGS_task_width, deep50Counters);
 }
+
+BENCHMARK(localFlat10k) {
+  bm.runLocal(
+      flat10k, FLAGS_width, FLAGS_num_local_tasks, localFlat10kCounters);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -212,20 +333,33 @@ int main(int argc, char** argv) {
   parse::registerTypeResolver();
   serializer::presto::PrestoVectorSerde::registerVectorSerde();
   exec::ExchangeSource::registerFactory();
+  std::vector<std::string> flatNames = {"c0"};
+  std::vector<TypePtr> flatTypes = {BIGINT()};
+  std::vector<TypePtr> typeSelection = {
+      BOOLEAN(),
+      TINYINT(),
+      LONG_DECIMAL(20, 3),
+      INTEGER(),
+      BIGINT(),
+      REAL(),
+      SHORT_DECIMAL(10, 2),
+      DOUBLE(),
+      VARCHAR()};
 
-  auto flatType = ROW({
-      {"c0", BIGINT()},
-      {"bool_val", BOOLEAN()},
-      {"tiny_val", TINYINT()},
-      {"long_decimal_val", LONG_DECIMAL(20, 3)},
-      {"small_val", SMALLINT()},
-      {"int_val", INTEGER()},
-      {"long_val", BIGINT()},
-      {"float_val", REAL()},
-      {"short_decimal_val", SHORT_DECIMAL(10, 2)},
-      {"double_val", DOUBLE()},
-      {"string_val", VARCHAR()},
-  });
+  int64_t flatSize = 0;
+  // Add enough columns of different types to make a 10K row batch be
+  // flat_batch_mb in flat size.
+  while (flatSize * 10000 < static_cast<int64_t>(FLAGS_flat_batch_mb) << 20) {
+    flatNames.push_back(fmt::format("c{}", flatNames.size()));
+    flatTypes.push_back(typeSelection[flatTypes.size() % typeSelection.size()]);
+    if (flatTypes.back()->isFixedWidth()) {
+      flatSize += flatTypes.back()->cppSizeInBytes();
+    } else {
+      flatSize += 20;
+    }
+  }
+  auto flatType = ROW(std::move(flatNames), std::move(flatTypes));
+
   auto deepType = ROW(
       {{"c0", BIGINT()},
        {"long_array_val", ARRAY(ARRAY(BIGINT()))},
