@@ -17,6 +17,27 @@ import unittest
 
 
 class TestVeloxVector(unittest.TestCase):
+    def test_inheritance(self):
+        v1 = pv.from_list([1, 2, 3])
+        v2 = pv.from_list(["hello", "world"])
+        v3 = pv.constant_vector(1000, 10)
+
+        self.assertTrue(isinstance(v1, pv.BaseVector))
+        self.assertTrue(isinstance(v2, pv.BaseVector))
+        self.assertTrue(isinstance(v3, pv.BaseVector))
+
+        self.assertTrue(isinstance(v1, pv.SimpleVector_BIGINT))
+        self.assertTrue(isinstance(v2, pv.SimpleVector_VARBINARY))
+        self.assertTrue(isinstance(v3, pv.SimpleVector_BIGINT))
+
+        self.assertTrue(isinstance(v1, pv.FlatVector_BIGINT))
+        self.assertTrue(isinstance(v2, pv.FlatVector_VARBINARY))
+        self.assertTrue(isinstance(v3, pv.ConstantVector_BIGINT))
+
+        self.assertFalse(isinstance(v1, pv.ConstantVector_BIGINT))
+        self.assertFalse(isinstance(v2, pv.ConstantVector_VARBINARY))
+        self.assertFalse(isinstance(v3, pv.FlatVector_BIGINT))
+
     def test_from_list(self):
         self.assertTrue(isinstance(pv.from_list([1, 2, 3]), pv.BaseVector))
         self.assertTrue(isinstance(pv.from_list([1, None, None]), pv.BaseVector))
@@ -27,6 +48,49 @@ class TestVeloxVector(unittest.TestCase):
             pv.from_list([None, None, None])
         with self.assertRaises(ValueError):
             pv.from_list([])
+
+    def test_constant_encoding(self):
+        ints = pv.constant_vector(1000, 10)
+        strings = pv.constant_vector("hello", 100)
+        null = pv.constant_vector(None, 1000, pv.SmallintType())
+        floats = pv.constant_vector(-3.14, 499)
+        self.assertEqual(ints.encoding(), pv.VectorEncodingSimple.CONSTANT)
+        self.assertEqual(strings.encoding(), pv.VectorEncodingSimple.CONSTANT)
+        self.assertEqual(null.encoding(), pv.VectorEncodingSimple.CONSTANT)
+        self.assertEqual(floats.encoding(), pv.VectorEncodingSimple.CONSTANT)
+        self.assertEqual(len(ints), 10)
+        self.assertEqual(len(strings), 100)
+        self.assertEqual(len(null), 1000)
+        self.assertEqual(len(floats), 499)
+        self.assertEqual(ints.typeKind(), pv.TypeKind.BIGINT)
+        self.assertEqual(strings.typeKind(), pv.TypeKind.VARCHAR)
+        self.assertEqual(null.typeKind(), pv.TypeKind.SMALLINT)
+        self.assertEqual(floats.typeKind(), pv.TypeKind.DOUBLE)
+
+        for i in range(len(ints)):
+            self.assertEqual(ints[i], 1000)
+        for x in ints:
+            self.assertEqual(x, 1000)
+
+        for i in range(len(strings)):
+            self.assertEqual(strings[i], "hello")
+        for x in strings:
+            self.assertEqual(x, "hello")
+
+        for i in range(len(null)):
+            self.assertEqual(null[i], None)
+        for x in null:
+            self.assertEqual(x, None)
+
+        for i in range(len(floats)):
+            self.assertEqual(floats[i], -3.14)
+        for x in floats:
+            self.assertEqual(x, -3.14)
+
+        with self.assertRaises(IndexError):
+            ints[10]
+        with self.assertRaises(TypeError):
+            ints[1] = -1
 
     def test_to_string(self):
         self.assertEqual(

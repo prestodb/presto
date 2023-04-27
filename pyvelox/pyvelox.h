@@ -80,7 +80,8 @@ struct PyVeloxContext {
 static std::string serializeType(
     const std::shared_ptr<const velox::Type>& type);
 
-inline void checkBounds(VectorPtr& v, vector_size_t idx) {
+template <typename VecPtr>
+inline void checkBounds(VecPtr& v, vector_size_t idx) {
   if (idx < 0 || idx >= v->size()) {
     throw std::out_of_range("Index out of range");
   }
@@ -108,119 +109,31 @@ inline velox::variant pyToVariant(const py::handle& obj) {
   }
 }
 
+static VectorPtr pyToConstantVector(
+    const py::handle& obj,
+    vector_size_t length,
+    facebook::velox::memory::MemoryPool* pool,
+    TypePtr type = nullptr);
+
 template <TypeKind T>
-static inline VectorPtr variantsToFlatVector(
+static VectorPtr variantsToFlatVector(
     const std::vector<velox::variant>& variants,
-    facebook::velox::memory::MemoryPool* pool) {
-  using NativeType = typename TypeTraits<T>::NativeType;
-  constexpr bool kNeedsHolder =
-      (T == TypeKind::VARCHAR || T == TypeKind::VARBINARY);
+    facebook::velox::memory::MemoryPool* pool);
 
-  TypePtr type = fromKindToScalerType(T);
-  auto result =
-      BaseVector::create<FlatVector<NativeType>>(type, variants.size(), pool);
-
-  std::conditional_t<
-      kNeedsHolder,
-      velox::StringViewBufferHolder,
-      velox::memory::MemoryPool*>
-      holder{pool};
-  for (int i = 0; i < variants.size(); i++) {
-    if (variants[i].isNull()) {
-      result->setNull(i, true);
-    } else {
-      if constexpr (kNeedsHolder) {
-        velox::StringView view =
-            holder.getOwnedValue(variants[i].value<std::string>());
-        result->set(i, view);
-      } else {
-        result->set(i, variants[i].value<NativeType>());
-      }
-    }
-  }
-  return result;
-}
-
-static inline VectorPtr pyListToVector(
+static VectorPtr pyListToVector(
     const py::list& list,
-    facebook::velox::memory::MemoryPool* pool) {
-  std::vector<velox::variant> variants;
-  variants.reserve(list.size());
-  for (auto item : list) {
-    variants.push_back(pyToVariant(item));
-  }
+    facebook::velox::memory::MemoryPool* pool);
 
-  if (variants.empty()) {
-    throw py::value_error("Can't create a Velox vector from an empty list");
-  }
+template <typename NativeType>
+static py::object getItemFromSimpleVector(
+    SimpleVectorPtr<NativeType>& vector,
+    vector_size_t idx);
 
-  velox::TypeKind first_kind = velox::TypeKind::INVALID;
-  for (velox::variant& var : variants) {
-    if (var.hasValue()) {
-      if (first_kind == velox::TypeKind::INVALID) {
-        first_kind = var.kind();
-      } else if (var.kind() != first_kind) {
-        throw py::type_error(
-            "Velox Vector must consist of items of the same type");
-      }
-    }
-  }
-
-  if (first_kind == velox::TypeKind::INVALID) {
-    throw py::value_error(
-        "Can't create a Velox vector consisting of only None");
-  }
-
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      variantsToFlatVector, first_kind, variants, pool);
-}
-
-template <TypeKind T>
-inline py::object getItemFromVector(VectorPtr& v, vector_size_t idx) {
-  using NativeType = typename TypeTraits<T>::NativeType;
-  if (std::is_same_v<NativeType, velox::StringView>) {
-    const auto* flat = v->asFlatVector<velox::StringView>();
-    const velox::StringView value = flat->valueAt(idx);
-    py::str result = std::string_view(value);
-    return result;
-  } else {
-    const auto* flat = v->asFlatVector<NativeType>();
-    py::object result = py::cast(flat->valueAt(idx));
-    return result;
-  }
-}
-
-inline py::object getItemFromVector(VectorPtr& v, vector_size_t idx) {
-  checkBounds(v, idx);
-  if (v->isNullAt(idx)) {
-    return py::none();
-  }
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      getItemFromVector, v->typeKind(), v, idx);
-}
-
-template <TypeKind T>
-inline void
-setItemInVector(VectorPtr& v, vector_size_t idx, velox::variant& var) {
-  using NativeType = typename TypeTraits<T>::NativeType;
-  auto* flat = v->asFlatVector<NativeType>();
-  flat->set(idx, NativeType{var.value<NativeType>()});
-}
-
-inline void setItemInVector(VectorPtr& v, vector_size_t idx, py::handle& obj) {
-  checkBounds(v, idx);
-
-  velox::variant var = pyToVariant(obj);
-  if (var.kind() == velox::TypeKind::INVALID) {
-    return v->setNull(idx, true);
-  }
-
-  if (var.kind() != v->typeKind()) {
-    throw py::type_error("Attempted to insert value of mismatched types");
-  }
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      setItemInVector, v->typeKind(), v, idx, var);
-}
+template <typename NativeType>
+inline void setItemInFlatVector(
+    FlatVectorPtr<NativeType>& vector,
+    vector_size_t idx,
+    py::handle& obj);
 
 inline void appendVectors(VectorPtr& u, VectorPtr& v) {
   if (u->typeKind() != v->typeKind()) {
@@ -362,7 +275,44 @@ inline void addDataTypeBindings(
   rowType.def("names", &RowType::names, "Return the names of the columns");
 }
 
-inline void addVectorBindings(
+// Currently PyVelox will only register vectors for primitive types.
+template <TypeKind T>
+static void registerTypedVectors(
+    py::module& m,
+    bool asModuleLocalDefinitions = true) {
+  using NativeType = typename TypeTraits<T>::NativeType;
+  const std::string typeName = TypeTraits<T>::name;
+  py::class_<SimpleVector<NativeType>, SimpleVectorPtr<NativeType>, BaseVector>(
+      m,
+      ("SimpleVector_" + typeName).c_str(),
+      py::module_local(asModuleLocalDefinitions))
+      .def("__getitem__", [](SimpleVectorPtr<NativeType> v, vector_size_t idx) {
+        return getItemFromSimpleVector(v, idx);
+      });
+
+  py::class_<
+      FlatVector<NativeType>,
+      FlatVectorPtr<NativeType>,
+      SimpleVector<NativeType>>(
+      m,
+      ("FlatVector_" + typeName).c_str(),
+      py::module_local(asModuleLocalDefinitions))
+      .def(
+          "__setitem__",
+          [](FlatVectorPtr<NativeType> v, vector_size_t idx, py::handle& obj) {
+            setItemInFlatVector(v, idx, obj);
+          });
+
+  py::class_<
+      ConstantVector<NativeType>,
+      ConstantVectorPtr<NativeType>,
+      SimpleVector<NativeType>>(
+      m,
+      ("ConstantVector_" + typeName).c_str(),
+      py::module_local(asModuleLocalDefinitions));
+}
+
+static void addVectorBindings(
     py::module& m,
     bool asModuleLocalDefinitions = true) {
   using namespace facebook::velox;
@@ -385,16 +335,6 @@ inline void addVectorBindings(
       .def("__str__", [](VectorPtr& v) { return v->toString(); })
       .def("__len__", &BaseVector::size)
       .def("size", &BaseVector::size)
-      .def(
-          "__getitem__",
-          [](VectorPtr& v, vector_size_t idx) {
-            return getItemFromVector(v, idx);
-          })
-      .def(
-          "__setitem__",
-          [](VectorPtr& v, vector_size_t idx, py::handle& obj) {
-            setItemInVector(v, idx, obj);
-          })
       .def("dtype", &BaseVector::type)
       .def("typeKind", &BaseVector::typeKind)
       .def("mayHaveNulls", &BaseVector::mayHaveNulls)
@@ -413,9 +353,36 @@ inline void addVectorBindings(
           })
       .def("encoding", &BaseVector::encoding)
       .def("append", [](VectorPtr& u, VectorPtr& v) { appendVectors(u, v); });
+
+  constexpr TypeKind supportedTypes[] = {
+      TypeKind::BOOLEAN,
+      TypeKind::TINYINT,
+      TypeKind::SMALLINT,
+      TypeKind::INTEGER,
+      TypeKind::BIGINT,
+      TypeKind::REAL,
+      TypeKind::DOUBLE,
+      TypeKind::VARBINARY,
+      TypeKind::TIMESTAMP,
+      TypeKind::DATE};
+
+  for (int i = 0; i < sizeof(supportedTypes) / sizeof(supportedTypes[0]); i++) {
+    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        registerTypedVectors, supportedTypes[i], m, asModuleLocalDefinitions);
+  }
+
   m.def("from_list", [](const py::list& list) mutable {
     return pyListToVector(list, PyVeloxContext::getInstance().pool());
   });
+  m.def(
+      "constant_vector",
+      [](const py::handle& obj, vector_size_t length, TypePtr type) {
+        return pyToConstantVector(
+            obj, length, PyVeloxContext::getInstance().pool(), type);
+      },
+      py::arg("value"),
+      py::arg("length"),
+      py::arg("type") = nullptr);
 }
 
 static void addExpressionBindings(

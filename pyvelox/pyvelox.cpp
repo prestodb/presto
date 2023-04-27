@@ -27,6 +27,163 @@ static std::string serializeType(
   return folly::json::serialize(obj, velox::getSerializationOptions());
 }
 
+template <TypeKind T>
+static VectorPtr variantToConstantVector(
+    const velox::variant& variant,
+    vector_size_t length,
+    facebook::velox::memory::MemoryPool* pool) {
+  using NativeType = typename TypeTraits<T>::NativeType;
+
+  TypePtr typePtr = fromKindToScalerType(T);
+  if (!variant.hasValue()) {
+    return std::make_shared<ConstantVector<NativeType>>(
+        pool,
+        length,
+        /*isNull=*/true,
+        typePtr,
+        NativeType{});
+  }
+
+  NativeType value;
+  if constexpr (std::is_same_v<NativeType, StringView>) {
+    const std::string& str = variant.value<std::string>();
+    value = StringView(str);
+  } else {
+    value = variant.value<NativeType>();
+  }
+  auto result = std::make_shared<ConstantVector<NativeType>>(
+      pool,
+      length,
+      /*isNull=*/false,
+      typePtr,
+      std::move(value));
+  return result;
+}
+
+static VectorPtr pyToConstantVector(
+    const py::handle& obj,
+    vector_size_t length,
+    facebook::velox::memory::MemoryPool* pool,
+    TypePtr type) {
+  if (obj.is_none() && !type) {
+    throw py::type_error("Cannot infer type of constant None vector");
+  }
+  velox::variant variant = pyToVariant(obj);
+  TypeKind kind = variant.kind();
+  if (type) {
+    kind = type->kind();
+    if (!obj.is_none()) {
+      variant = VariantConverter::convert(variant, type->kind());
+    }
+  }
+  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      variantToConstantVector, kind, variant, length, pool);
+}
+
+template <TypeKind T>
+static VectorPtr variantsToFlatVector(
+    const std::vector<velox::variant>& variants,
+    facebook::velox::memory::MemoryPool* pool) {
+  using NativeType = typename TypeTraits<T>::NativeType;
+  constexpr bool kNeedsHolder =
+      (T == TypeKind::VARCHAR || T == TypeKind::VARBINARY);
+
+  TypePtr type = fromKindToScalerType(T);
+  auto result =
+      BaseVector::create<FlatVector<NativeType>>(type, variants.size(), pool);
+
+  std::conditional_t<
+      kNeedsHolder,
+      velox::StringViewBufferHolder,
+      velox::memory::MemoryPool*>
+      holder{pool};
+  for (int i = 0; i < variants.size(); i++) {
+    if (variants[i].isNull()) {
+      result->setNull(i, true);
+    } else {
+      if constexpr (kNeedsHolder) {
+        velox::StringView view =
+            holder.getOwnedValue(variants[i].value<std::string>());
+        result->set(i, view);
+      } else {
+        result->set(i, variants[i].value<NativeType>());
+      }
+    }
+  }
+  return result;
+}
+
+static VectorPtr pyListToVector(
+    const py::list& list,
+    facebook::velox::memory::MemoryPool* pool) {
+  std::vector<velox::variant> variants;
+  variants.reserve(list.size());
+  for (auto item : list) {
+    variants.push_back(pyToVariant(item));
+  }
+
+  if (variants.empty()) {
+    throw py::value_error("Can't create a Velox vector from an empty list");
+  }
+
+  velox::TypeKind first_kind = velox::TypeKind::INVALID;
+  for (velox::variant& var : variants) {
+    if (var.hasValue()) {
+      if (first_kind == velox::TypeKind::INVALID) {
+        first_kind = var.kind();
+      } else if (var.kind() != first_kind) {
+        throw py::type_error(
+            "Velox Vector must consist of items of the same type");
+      }
+    }
+  }
+
+  if (first_kind == velox::TypeKind::INVALID) {
+    throw py::value_error(
+        "Can't create a Velox vector consisting of only None");
+  }
+
+  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      variantsToFlatVector, first_kind, variants, pool);
+}
+
+template <typename NativeType>
+static py::object getItemFromSimpleVector(
+    SimpleVectorPtr<NativeType>& vector,
+    vector_size_t idx) {
+  checkBounds(vector, idx);
+  if (vector->isNullAt(idx)) {
+    return py::none();
+  }
+  if constexpr (std::is_same_v<NativeType, velox::StringView>) {
+    const velox::StringView value = vector->valueAt(idx);
+    py::str result = std::string_view(value);
+    return result;
+  } else {
+    py::object result = py::cast(vector->valueAt(idx));
+    return result;
+  }
+}
+
+template <typename NativeType>
+inline void setItemInFlatVector(
+    FlatVectorPtr<NativeType>& vector,
+    vector_size_t idx,
+    py::handle& obj) {
+  checkBounds(vector, idx);
+
+  velox::variant var = pyToVariant(obj);
+  if (var.kind() == velox::TypeKind::INVALID) {
+    return vector->setNull(idx, true);
+  }
+
+  if (var.kind() != vector->typeKind()) {
+    throw py::type_error("Attempted to insert value of mismatched types");
+  }
+
+  vector->set(idx, NativeType{var.value<NativeType>()});
+}
+
 static VectorPtr evaluateExpression(
     std::shared_ptr<const facebook::velox::core::IExpr>& expr,
     std::vector<std::string> names,
