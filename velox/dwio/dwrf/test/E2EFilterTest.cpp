@@ -299,7 +299,7 @@ TEST_F(E2EFilterTest, listAndMap) {
 
 TEST_F(E2EFilterTest, nullCompactRanges) {
   // Makes a dataset with nulls at the beginning. Tries different
-  // filter ombinations on progressively larger batches. tests for a
+  // filter combinations on progressively larger batches. tests for a
   // bug in null compaction where null bits past end of nulls buffer
   // were compacted while there actually were no nulls.
 
@@ -395,6 +395,10 @@ TEST_F(E2EFilterTest, metadataFilter) {
 
 TEST_F(E2EFilterTest, subfieldsPruning) {
   testSubfieldsPruning();
+}
+
+TEST_F(E2EFilterTest, mutationCornerCases) {
+  testMutationCornerCases();
 }
 
 // Define main so that gflags get processed.

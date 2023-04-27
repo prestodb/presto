@@ -20,6 +20,7 @@
 #include "velox/common/process/ProcessBase.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/FormatData.h"
+#include "velox/dwio/common/Mutation.h"
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/type/Filter.h"
 
@@ -140,10 +141,8 @@ class SelectiveColumnReader {
    * @param numValues the number of values to read
    * @param vector to read into
    */
-  virtual void next(
-      uint64_t /*numValues*/,
-      VectorPtr& /*result*/,
-      const uint64_t* FOLLY_NULLABLE /*incomingNulls*/ = nullptr) {
+  virtual void
+  next(uint64_t /*numValues*/, VectorPtr& /*result*/, const Mutation*) {
     VELOX_UNSUPPORTED("next() is only defined in SelectiveStructColumnReader");
   }
 
@@ -175,7 +174,7 @@ class SelectiveColumnReader {
   // read(). If 'this' has no filter, returns 'rows' passed to last
   // read().
   const RowSet outputRows() const {
-    if (scanSpec_->hasFilter()) {
+    if (scanSpec_->hasFilter() || hasMutation()) {
       return outputRows_;
     }
     return inputRows_;
@@ -505,6 +504,10 @@ class SelectiveColumnReader {
   // Copies 'value' to buffers owned by 'this' and returns the start of the
   // copy.
   char* FOLLY_NONNULL copyStringValue(folly::StringPiece value);
+
+  virtual bool hasMutation() const {
+    return false;
+  }
 
   memory::MemoryPool& memoryPool_;
 

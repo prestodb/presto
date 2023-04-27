@@ -30,10 +30,7 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
 
   uint64_t skip(uint64_t numValues) override;
 
-  void next(
-      uint64_t numValues,
-      VectorPtr& result,
-      const uint64_t* incomingNulls) override;
+  void next(uint64_t numValues, VectorPtr& result, const Mutation*) override;
 
   void filterRowGroups(
       uint64_t rowGroupSize,
@@ -115,6 +112,10 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
   // know how much to skip when seeking forward within the row group.
   void recordParentNullsInChildren(vector_size_t offset, RowSet rows);
 
+  bool hasMutation() const override {
+    return hasMutation_;
+  }
+
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
 
   std::vector<SelectiveColumnReader*> children_;
@@ -127,6 +128,12 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
 
   // Dense set of rows to read in next().
   raw_vector<vector_size_t> rows_;
+
+  const Mutation* mutation_ = nullptr;
+
+  // After read() call mutation_ could go out of scope.  Need to keep this
+  // around for lazy columns.
+  bool hasMutation_ = false;
 
   // Context information obtained from ExceptionContext. Stored here
   // so that LazyVector readers under this can add this to their

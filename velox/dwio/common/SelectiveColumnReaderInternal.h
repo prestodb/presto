@@ -94,7 +94,7 @@ void SelectiveColumnReader::prepareRead(
   numValues_ = 0;
   valueSize_ = sizeof(T);
   inputRows_ = rows;
-  if (scanSpec_->filter()) {
+  if (scanSpec_->filter() || hasMutation()) {
     outputRows_.reserve(rows.size());
   }
   ensureValuesCapacity<T>(rows.size());

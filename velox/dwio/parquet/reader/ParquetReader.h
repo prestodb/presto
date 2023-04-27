@@ -124,7 +124,14 @@ class ParquetRowReader : public dwio::common::RowReader {
       const dwio::common::RowReaderOptions& options);
   ~ParquetRowReader() override = default;
 
-  uint64_t next(uint64_t size, velox::VectorPtr& result) override;
+  int64_t nextRowNumber() override;
+
+  int64_t nextReadSize(uint64_t size) override;
+
+  uint64_t next(
+      uint64_t size,
+      velox::VectorPtr& result,
+      const dwio::common::Mutation* = nullptr) override;
 
   void updateRuntimeStats(
       dwio::common::RuntimeStatistics& stats) const override;
@@ -160,7 +167,8 @@ class ParquetRowReader : public dwio::common::RowReader {
 
   // Indices of row groups where stats match filters.
   std::vector<uint32_t> rowGroupIds_;
-  uint32_t currentRowGroupIdsIdx_;
+  std::vector<uint64_t> firstRowOfRowGroup_;
+  uint32_t nextRowGroupIdsIdx_;
   const thrift::RowGroup* FOLLY_NULLABLE currentRowGroupPtr_{nullptr};
   uint64_t rowsInCurrentRowGroup_;
   uint64_t currentRowInGroup_;

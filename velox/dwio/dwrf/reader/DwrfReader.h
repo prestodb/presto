@@ -82,7 +82,10 @@ class DwrfRowReader : public StrideIndexProvider,
   std::optional<size_t> estimatedRowSize() const override;
 
   // Returns number of rows read. Guaranteed to be less then or equal to size.
-  uint64_t next(uint64_t size, VectorPtr& result) override;
+  uint64_t next(
+      uint64_t size,
+      VectorPtr& result,
+      const dwio::common::Mutation* = nullptr) override;
 
   void updateRuntimeStats(
       dwio::common::RuntimeStatistics& stats) const override {
@@ -107,6 +110,10 @@ class DwrfRowReader : public StrideIndexProvider,
   // Creates column reader tree and may start prefetch of frequently read
   // columns.
   void startNextStripe();
+
+  int64_t nextRowNumber() override;
+
+  int64_t nextReadSize(uint64_t size) override;
 
  private:
   // footer
@@ -157,15 +164,17 @@ class DwrfRowReader : public StrideIndexProvider,
     return (lastStripe == 0);
   }
 
-  void setStrideIndex(uint64_t index) {
-    strideIndex_ = index;
-  }
+  void checkSkipStrides(uint64_t strideSize);
 
-  void checkSkipStrides(const StatsContext& context, uint64_t strideSize);
+  void readNext(
+      uint64_t rowsToRead,
+      const dwio::common::Mutation*,
+      VectorPtr& result);
 
-  void readNext(uint64_t rowsToRead, VectorPtr& result);
-
-  void readWithRowNumber(uint64_t rowsToRead, VectorPtr& result);
+  void readWithRowNumber(
+      uint64_t rowsToRead,
+      const dwio::common::Mutation*,
+      VectorPtr& result);
 };
 
 class DwrfReader : public dwio::common::Reader {

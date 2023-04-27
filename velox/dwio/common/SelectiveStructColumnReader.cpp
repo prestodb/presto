@@ -55,9 +55,12 @@ uint64_t SelectiveStructColumnReaderBase::skip(uint64_t numValues) {
 void SelectiveStructColumnReaderBase::next(
     uint64_t numValues,
     VectorPtr& result,
-    const uint64_t* incomingNulls) {
-  VELOX_CHECK(!incomingNulls, "next may only be called for the root reader.");
+    const Mutation* mutation) {
   if (children_.empty()) {
+    if (mutation && mutation->deletedRows) {
+      numValues -= bits::countBits(mutation->deletedRows, 0, numValues);
+    }
+
     // no readers
     // This can be either count(*) query or a query that select only
     // constant columns (partition keys or columns missing from an old file
@@ -79,6 +82,8 @@ void SelectiveStructColumnReaderBase::next(
   if (numValues > oldSize) {
     std::iota(&rows_[oldSize], &rows_[rows_.size()], oldSize);
   }
+  mutation_ = mutation;
+  hasMutation_ = mutation && mutation->deletedRows;
   read(readOffset_, rows_, nullptr);
   getValues(outputRows(), &result);
 }
@@ -90,7 +95,22 @@ void SelectiveStructColumnReaderBase::read(
   numReads_ = scanSpec_->newRead();
   prepareRead<char>(offset, rows, incomingNulls);
   RowSet activeRows = rows;
-  auto& childSpecs = scanSpec_->children();
+  if (hasMutation_) {
+    // We handle the mutation after prepareRead so that output rows and format
+    // specific initializations (e.g. RepDef in Parquet) are done properly.
+    VELOX_DCHECK(!nullsInReadRange_, "Only top level can have mutation");
+    VELOX_DCHECK_EQ(
+        rows.back(), rows.size() - 1, "Top level should have a dense row set");
+    bits::forEachUnsetBit(
+        mutation_->deletedRows, 0, rows.back() + 1, [&](auto i) {
+          addOutputRow(i);
+        });
+    if (outputRows_.empty()) {
+      readOffset_ = offset + rows.back() + 1;
+      return;
+    }
+    activeRows = outputRows_;
+  }
   const uint64_t* structNulls =
       nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
   // a struct reader may have a null/non-null filter
@@ -100,7 +120,7 @@ void SelectiveStructColumnReaderBase::read(
         kind == velox::common::FilterKind::kIsNull ||
         kind == velox::common::FilterKind::kIsNotNull);
     filterNulls<int32_t>(
-        rows, kind == velox::common::FilterKind::kIsNull, false);
+        activeRows, kind == velox::common::FilterKind::kIsNull, false);
     if (outputRows_.empty()) {
       recordParentNullsInChildren(offset, rows);
       return;
@@ -109,6 +129,7 @@ void SelectiveStructColumnReaderBase::read(
   }
 
   assert(!children_.empty());
+  auto& childSpecs = scanSpec_->children();
   for (size_t i = 0; i < childSpecs.size(); ++i) {
     auto& childSpec = childSpecs[i];
     if (childSpec->isConstant()) {

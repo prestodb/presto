@@ -372,16 +372,22 @@ void FilterGenerator::addToScanSpec(
 SubfieldFilters FilterGenerator::makeSubfieldFilters(
     const std::vector<FilterSpec>& filterSpecs,
     const std::vector<RowVectorPtr>& batches,
+    MutationSpec* mutationSpec,
     std::vector<uint64_t>& hitRows) {
   vector_size_t totalSize = 0;
   for (auto& batch : batches) {
     totalSize += batch->size();
   }
   hitRows.reserve(totalSize);
+  int64_t index = 0;
   for (auto i = 0; i < batches.size(); ++i) {
     auto batch = batches[i];
-    for (auto j = 0; j < batch->size(); ++j) {
-      hitRows.push_back(batchPosition(i, j));
+    for (auto j = 0; j < batch->size(); ++j, ++index) {
+      if (mutationSpec && folly::Random::randDouble01(rng_) < 0.02) {
+        mutationSpec->deletedRows.push_back(index);
+      } else {
+        hitRows.push_back(batchPosition(i, j));
+      }
     }
   }
 

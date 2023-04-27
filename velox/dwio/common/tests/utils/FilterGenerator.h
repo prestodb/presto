@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "velox/common/memory/Memory.h"
+#include "velox/dwio/common/Mutation.h"
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/exception/Exception.h"
 #include "velox/type/Filter.h"
@@ -58,6 +59,10 @@ struct FilterSpec {
   // row groups on min/max.
   bool isForRowGroupSkip{false};
   bool allowNulls_{true};
+};
+
+struct MutationSpec {
+  std::vector<int64_t> deletedRows;
 };
 
 // Encodes a batch number and an index into the batch into an int32_t
@@ -481,6 +486,7 @@ class FilterGenerator {
   SubfieldFilters makeSubfieldFilters(
       const std::vector<FilterSpec>& filterSpecs,
       const std::vector<RowVectorPtr>& batches,
+      MutationSpec*,
       std::vector<uint64_t>& hitRows);
   std::vector<std::string> makeFilterables(uint32_t count, float pct);
   std::vector<FilterSpec> makeRandomSpecs(

@@ -279,7 +279,9 @@ class RowReaderOptions {
 
   /*
    * Set to true, if you want to add a new column to the results containing the
-   * row numbers.
+   * row numbers.  These row numbers are relative to the beginning of file (0 as
+   * first row) and does not affected by filtering or deletion during the read
+   * (it always counts all rows in the file).
    */
   void setAppendRowNumberColumn(bool value) {
     appendRowNumberColumn_ = value;

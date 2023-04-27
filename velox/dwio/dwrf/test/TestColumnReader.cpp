@@ -155,7 +155,7 @@ class ColumnReaderTestBase {
     if (columnReader_) {
       columnReader_->next(numValues, result);
     } else {
-      selectiveColumnReader_->next(numValues, result);
+      selectiveColumnReader_->next(numValues, result, nullptr);
     }
   }
 
@@ -181,7 +181,7 @@ class ColumnReaderTestBase {
     if (columnReader_) {
       columnReader_->next(readSize, batch);
     } else {
-      selectiveColumnReader_->next(readSize, batch);
+      selectiveColumnReader_->next(readSize, batch, nullptr);
     }
 
     ASSERT_EQ(readSize, batch->size());
@@ -1194,7 +1194,7 @@ TEST_P(StringReaderTests, testStringDictSkipNoNulls) {
     if (columnReader_) {
       columnReader_->next(rowsRead, batch);
     } else {
-      selectiveColumnReader_->next(rowsRead, batch);
+      selectiveColumnReader_->next(rowsRead, batch, nullptr);
     }
 
     ASSERT_EQ(rowsRead, batch->size());

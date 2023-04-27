@@ -110,8 +110,8 @@ class ParquetReaderBenchmark {
       std::vector<uint64_t>& hitRows) {
     std::unique_ptr<FilterGenerator> filterGenerator =
         std::make_unique<FilterGenerator>(rowType, 0);
-    auto filters =
-        filterGenerator->makeSubfieldFilters(filterSpecs, batches, hitRows);
+    auto filters = filterGenerator->makeSubfieldFilters(
+        filterSpecs, batches, nullptr, hitRows);
     auto scanSpec = filterGenerator->makeScanSpec(std::move(filters));
     return scanSpec;
   }

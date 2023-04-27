@@ -22,6 +22,7 @@
 #include <string>
 
 #include "velox/dwio/common/InputStream.h"
+#include "velox/dwio/common/Mutation.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/common/TypeWithId.h"
@@ -40,15 +41,43 @@ namespace facebook::velox::dwio::common {
  */
 class RowReader {
  public:
+  static constexpr int64_t kAtEnd = -1;
+
   virtual ~RowReader() = default;
 
   /**
    * Fetch the next portion of rows.
    * @param size Max number of rows to read
    * @param result output vector
-   * @return number of fetched rows, 0 if there are no more rows to read
+   * @param mutation The mutation to be applied during the read, null means no
+   *  mutation
+   * @return number of rows scanned in the file (including any rows filtered out
+   *  or deleted in mutation), 0 if there are no more rows to read.
    */
-  virtual uint64_t next(uint64_t size, velox::VectorPtr& result) = 0;
+  virtual uint64_t next(
+      uint64_t size,
+      velox::VectorPtr& result,
+      const Mutation* mutation = nullptr) = 0;
+
+  /**
+   * Return the next row number that will be scanned in the next next() call,
+   * kAtEnd when at end of file.  This row number is relative to beginning of
+   * the file (0 for the first row), including all rows in the file, no matter
+   * whether it's deleted or filtered during the previous next() call.
+   *
+   * This function is mainly used to compute the bit mask used for mutation.
+   * Given a list of row numbers in the file, we can calculate the offset of
+   * each rows in the bit mask based on value returned from this call.
+   */
+  virtual int64_t nextRowNumber() = 0;
+
+  /**
+   * Given the max number of rows to read, return the actual number of rows that
+   * will be scanned, including any rows to be deleted or filtered.  Return
+   * kAtEnd when at end of file.  This is also used to compute the bit mask used
+   * in mutation.
+   */
+  virtual int64_t nextReadSize(uint64_t size) = 0;
 
   /**
    * Update current reader statistics. The set of updated values is

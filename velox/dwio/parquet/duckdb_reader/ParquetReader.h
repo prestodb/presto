@@ -35,7 +35,18 @@ class ParquetRowReader : public dwio::common::RowReader {
       memory::MemoryPool& pool);
   ~ParquetRowReader() override = default;
 
-  uint64_t next(uint64_t size, velox::VectorPtr& result) override;
+  int64_t nextRowNumber() override {
+    VELOX_NYI();
+  }
+
+  int64_t nextReadSize(uint64_t /*size*/) override {
+    VELOX_NYI();
+  }
+
+  uint64_t next(
+      uint64_t size,
+      velox::VectorPtr& result,
+      const dwio::common::Mutation*) override;
 
   void updateRuntimeStats(
       dwio::common::RuntimeStatistics& stats) const override;
