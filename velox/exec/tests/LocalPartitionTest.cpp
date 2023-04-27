@@ -284,7 +284,7 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
 TEST_F(LocalPartitionTest, blockingOnLocalExchangeQueue) {
   auto localExchangeBufferSize = "1024";
   auto baseVector = vectorMaker_.flatVector<int64_t>(
-      1024 * 1024, [](auto row) { return row; });
+      10240, [](auto row) { return row / 10; });
   // Make a small dictionary vector of one row and roughly 8 bytes that is
   // smaller than the localExchangeBufferSize.
   auto smallInput = vectorMaker_.rowVector(
@@ -325,6 +325,7 @@ TEST_F(LocalPartitionTest, blockingOnLocalExchangeQueue) {
                              .values({test.input})
                              .planNode()})
                     .capturePlanNodeId(nodeId)
+                    .singleAggregation({"c0"}, {"count(1)"})
                     .planNode();
     auto task = AssertQueryBuilder(duckDbQueryRunner_)
                     .plan(plan)
@@ -332,7 +333,7 @@ TEST_F(LocalPartitionTest, blockingOnLocalExchangeQueue) {
                     .config(
                         core::QueryConfig::kMaxLocalExchangeBufferSize,
                         localExchangeBufferSize)
-                    .assertResults("SELECT * FROM tmp");
+                    .assertResults("SELECT c0, count(1) FROM tmp GROUP BY c0");
     ASSERT_EQ(
         exec::toPlanStats(task->taskStats())
             .at(nodeId)
