@@ -14,6 +14,7 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.Session;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -302,6 +303,329 @@ public class NativeQueryRunnerUtils
                     "WITH (bucket_count = 10, bucketed_by = ARRAY['orderkey'], sorted_by = ARRAY['orderkey'], partitioned_by = ARRAY['ds'])");
             queryRunner.execute("INSERT INTO orders_bucketed SELECT orderkey, custkey, orderstatus, '2021-12-20' FROM tpch.tiny.orders");
             queryRunner.execute("INSERT INTO orders_bucketed SELECT orderkey, custkey, orderstatus, '2021-12-21' FROM tpch.tiny.orders");
+        }
+    }
+
+    // TPC-DS tables.
+
+    public static void createTpcdsCallCenter(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "call_center")) {
+            queryRunner.execute(session, "CREATE TABLE call_center AS " +
+                    "SELECT cc_call_center_sk, cast(cc_call_center_id as varchar) as cc_call_center_id, cast(cc_rec_start_date as varchar) as cc_rec_start_date, " +
+                    "   cast(cc_rec_end_date as varchar) as cc_rec_end_date, " +
+                    "   cc_closed_date_sk, cc_open_date_sk, cc_name, cc_class, cc_employees, cc_sq_ft, cast(cc_hours as varchar) as cc_hours, " +
+                    "   cc_manager, cc_mkt_id, cast(cc_mkt_class as varchar) as cc_mkt_class, cc_mkt_desc, cc_market_manager,  " +
+                    "   cc_division, cc_division_name, cc_company, cast(cc_company_name as varchar) as cc_company_name," +
+                    "   cast(cc_street_number as varchar ) as cc_street_number, cc_street_name, cast(cc_street_type as varchar) as cc_street_type, " +
+                    "   cast(cc_suite_number as varchar) as cc_suite_number, cc_city, cc_county, cast(cc_state as varchar) as cc_state, " +
+                    "   cast(cc_zip as varchar) as cc_zip, cc_country, cast(cc_gmt_offset as double) as cc_gmt_offset, " +
+                    "   cast(cc_tax_percentage as double) as cc_tax_percentage " +
+                    "FROM tpcds.tiny.call_center");
+        }
+    }
+
+    public static void createTpcdsCatalogPage(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "catalog_page")) {
+            queryRunner.execute(session, "CREATE TABLE catalog_page AS " +
+                    "SELECT cp_catalog_page_sk, cast(cp_catalog_page_id as varchar) as cp_catalog_page_id, cp_start_date_sk, cp_end_date_sk, " +
+                    "   cp_department, cp_catalog_number, cp_catalog_page_number, cp_description, cp_type " +
+                    "FROM tpcds.tiny.catalog_page");
+        }
+    }
+
+    public static void createTpcdsCatalogReturns(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "catalog_returns")) {
+            queryRunner.execute(session, "CREATE TABLE catalog_returns AS " +
+                    "SELECT cr_returned_date_sk, cr_returned_time_sk, cr_item_sk, cr_refunded_customer_sk, cr_refunded_cdemo_sk,  " +
+                    "   cr_refunded_hdemo_sk, cr_refunded_addr_sk, cr_returning_customer_sk, cr_returning_cdemo_sk, cr_returning_hdemo_sk,  " +
+                    "   cr_returning_addr_sk, cr_call_center_sk, cr_catalog_page_sk, cr_ship_mode_sk, cr_warehouse_sk, cr_reason_sk,  " +
+                    "   cr_order_number, cr_return_quantity, cast(cr_return_amount as double) as cr_return_amount, " +
+                    "   cast(cr_return_tax as double) as cr_return_tax, cast(cr_return_amt_inc_tax as double) as cr_return_amt_inc_tax, " +
+                    "   cast(cr_fee as double) as cr_fee, cast(cr_return_ship_cost as double) as cr_return_ship_cost, " +
+                    "   cast(cr_refunded_cash as double) as cr_refunded_cash, cast(cr_reversed_charge as double) as cr_reversed_charge, " +
+                    "   cast(cr_store_credit as double) as cr_store_credit, cast(cr_net_loss as double) as cr_net_loss " +
+                    "FROM tpcds.tiny.catalog_returns");
+        }
+    }
+
+    public static void createTpcdsCatalogSales(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "catalog_sales")) {
+            queryRunner.execute(session, "CREATE TABLE catalog_sales AS " +
+                    "SELECT cs_sold_date_sk, cs_sold_time_sk, cs_ship_date_sk, cs_bill_customer_sk, cs_bill_cdemo_sk,  " +
+                    "   cs_bill_hdemo_sk, cs_bill_addr_sk, cs_ship_customer_sk, cs_ship_cdemo_sk, cs_ship_hdemo_sk,  " +
+                    "   cs_ship_addr_sk, cs_call_center_sk, cs_catalog_page_sk, cs_ship_mode_sk, cs_warehouse_sk, cs_item_sk,  " +
+                    "   cs_promo_sk, cs_order_number, cs_quantity, cast(cs_wholesale_cost as double) as cs_wholesale_cost, " +
+                    "   cast(cs_list_price as double) as cs_list_price, cast(cs_sales_price as double) as cs_sales_price, " +
+                    "   cast(cs_ext_discount_amt as double) as cs_ext_discount_amt, cast(cs_ext_sales_price as double) as cs_ext_sales_price, " +
+                    "   cast(cs_ext_wholesale_cost as double) as cs_ext_wholesale_cost, cast(cs_ext_list_price as double) as cs_ext_list_price, " +
+                    "   cast(cs_ext_tax as double) as cs_ext_tax, cast(cs_coupon_amt as double) as cs_coupon_amt, " +
+                    "   cast(cs_ext_ship_cost as double) as cs_ext_ship_cost, cast(cs_net_paid as double) as cs_net_paid, " +
+                    "   cast(cs_net_paid_inc_tax as double) as cs_net_paid_inc_tax, cast(cs_net_paid_inc_ship as double) as cs_net_paid_inc_ship, " +
+                    "   cast(cs_net_paid_inc_ship_tax as double) as cs_net_paid_inc_ship_tax, cast(cs_net_profit as double) as cs_net_profit " +
+                    "FROM tpcds.tiny.catalog_sales");
+        }
+    }
+
+    public static void createTpcdsCustomer(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "customer")) {
+            queryRunner.execute(session, "CREATE TABLE customer AS " +
+                    "SELECT c_customer_sk, cast(c_customer_id as varchar) as c_customer_id, c_current_cdemo_sk, c_current_hdemo_sk,  " +
+                    "   c_current_addr_sk, c_first_shipto_date_sk, c_first_sales_date_sk, cast(c_salutation as varchar) as c_salutation,  " +
+                    "   cast(c_first_name as varchar) as c_first_name, cast(c_last_name as varchar) as c_last_name, " +
+                    "   cast(c_preferred_cust_flag as varchar) as c_preferred_cust_flag, c_birth_day, c_birth_month, c_birth_year, " +
+                    "   c_birth_country,  cast(c_login as varchar) as c_login, cast(c_email_address as varchar) as c_email_address,  " +
+                    "   c_last_review_date_sk " +
+                    "FROM tpcds.tiny.customer");
+        }
+    }
+
+    public static void createTpcdsCustomerAddress(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "customer_address")) {
+            queryRunner.execute(session, "CREATE TABLE customer_address AS " +
+                    "SELECT ca_address_sk, cast(ca_address_id as varchar) as ca_address_id, cast(ca_street_number as varchar) as ca_street_number,  " +
+                    "   ca_street_name, cast(ca_street_type as varchar) as ca_street_type, cast(ca_suite_number as varchar) as ca_suite_number,  " +
+                    "   ca_city, ca_county, cast(ca_state as varchar) as ca_state, cast(ca_zip as varchar) as ca_zip, " +
+                    "   ca_country, cast(ca_gmt_offset as double) as ca_gmt_offset, " +
+                    "   cast(ca_location_type as varchar) as ca_location_type " +
+                    "FROM tpcds.tiny.customer_address");
+        }
+    }
+
+    public static void createTpcdsCustomerDemographics(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "customer_demographics")) {
+            queryRunner.execute(session, "CREATE TABLE customer_demographics AS " +
+                    "SELECT cd_demo_sk, cast(cd_gender as varchar) as cd_gender, cast(cd_marital_status as varchar) as cd_marital_status,  " +
+                    "   cast(cd_education_status as varchar) as cd_education_status, cd_purchase_estimate,  " +
+                    "   cast(cd_credit_rating as varchar) as cd_credit_rating, cd_dep_count, cd_dep_employed_count, cd_dep_college_count " +
+                    "FROM tpcds.tiny.customer_demographics");
+        }
+    }
+
+    public static void createTpcdsDateDim(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "date_dim")) {
+            queryRunner.execute(session, "CREATE TABLE date_dim AS " +
+                    "SELECT d_date_sk, cast(d_date_id as varchar) as d_date_id, cast(d_date as varchar) as d_date, " +
+                    "   d_month_seq, d_week_seq, d_quarter_seq, d_year, d_dow, d_moy, d_dom, d_qoy, d_fy_year, " +
+                    "   d_fy_quarter_seq, d_fy_week_seq, cast(d_day_name as varchar) as d_day_name, cast(d_quarter_name as varchar) as d_quarter_name, " +
+                    "   cast(d_holiday as varchar) as d_holiday,  cast(d_weekend as varchar) as d_weekend, " +
+                    "   cast(d_following_holiday as varchar) as d_following_holiday, d_first_dom, d_last_dom, d_same_day_ly, d_same_day_lq,  " +
+                    "   cast(d_current_day as varchar) as d_current_day, cast(d_current_week as varchar) as d_current_week, " +
+                    "   cast(d_current_month as varchar) as d_current_month,  cast(d_current_quarter as varchar) as d_current_quarter, " +
+                    "   cast(d_current_year as varchar) as d_current_year " +
+                    "FROM tpcds.tiny.date_dim");
+        }
+    }
+
+    public static void createTpcdsHouseholdDemographics(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "household_demographics")) {
+            queryRunner.execute(session, "CREATE TABLE household_demographics AS " +
+                    "SELECT hd_demo_sk, hd_income_band_sk, cast(hd_buy_potential as varchar) as hd_buy_potential, hd_dep_count, hd_vehicle_count " +
+                    "FROM tpcds.tiny.household_demographics");
+        }
+    }
+
+    public static void createTpcdsIncomeBand(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "income_band")) {
+            queryRunner.execute(session, "CREATE TABLE income_band AS " +
+                    "SELECT * FROM tpcds.tiny.income_band");
+        }
+    }
+
+    public static void createTpcdsInventory(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "inventory")) {
+            queryRunner.execute(session, "CREATE TABLE inventory AS " +
+                    "SELECT * FROM tpcds.tiny.inventory");
+        }
+    }
+
+    public static void createTpcdsItem(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "item")) {
+            queryRunner.execute(session, "CREATE TABLE item AS " +
+                    "SELECT i_item_sk, cast(i_item_id as varchar) as i_item_id, cast(i_rec_start_date as varchar) as i_rec_start_date, " +
+                    "   cast(i_rec_end_date as varchar) as i_rec_end_date, i_item_desc, cast(i_current_price as double) as i_current_price, " +
+                    "   cast(i_wholesale_cost as double) as i_wholesale_cost, i_brand_id, cast(i_brand as varchar) as i_brand, " +
+                    "   i_class_id,  cast(i_class as varchar) as i_class, i_category_id, cast(i_category as varchar) as i_category, i_manufact_id, " +
+                    "   cast(i_manufact as varchar) as i_manufact, cast(i_size as varchar) as i_size, cast(i_formulation as varchar) as i_formulation, " +
+                    "   cast(i_color as varchar) as i_color, cast(i_units as varchar) as i_units, cast(i_container as varchar) as i_container, i_manager_id, " +
+                    "   cast(i_product_name as varchar) as i_product_name " +
+                    "FROM tpcds.tiny.item");
+        }
+    }
+
+    public static void createTpcdsPromotion(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "promotion")) {
+            queryRunner.execute(session, "CREATE TABLE promotion AS " +
+                    "SELECT p_promo_sk, cast(p_promo_id as varchar) as p_promo_id, p_start_date_sk, p_end_date_sk, p_item_sk, " +
+                    "   cast(p_cost as double) as p_cost, p_response_targe, cast(p_promo_name as varchar) as p_promo_name, " +
+                    "   cast(p_channel_dmail as varchar) as p_channel_dmail, cast(p_channel_email as varchar) as p_channel_email, " +
+                    "   cast(p_channel_catalog as varchar) as p_channel_catalog, cast(p_channel_tv as varchar) as p_channel_tv, " +
+                    "   cast(p_channel_radio as varchar) as p_channel_radio, cast(p_channel_press as varchar) as p_channel_press, " +
+                    "   cast(p_channel_event as varchar) as p_channel_event, cast(p_channel_demo as varchar) as p_channel_demo, p_channel_details, " +
+                    "   cast(p_purpose as varchar) as p_purpose, cast(p_discount_active as varchar) as p_discount_active " +
+                    "FROM tpcds.tiny.promotion");
+        }
+    }
+
+    public static void createTpcdsReason(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "reason")) {
+            queryRunner.execute(session, "CREATE TABLE reason AS " +
+                    "SELECT r_reason_sk, cast(r_reason_id as varchar) as r_reason_id, cast(r_reason_desc as varchar) as r_reason_desc " +
+                    "FROM tpcds.tiny.reason");
+        }
+    }
+
+    public static void createTpcdsShipMode(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "ship_mode")) {
+            queryRunner.execute(session, "CREATE TABLE ship_mode AS " +
+                    "SELECT sm_ship_mode_sk, cast(sm_ship_mode_id as varchar) as sm_ship_mode_id, cast(sm_type as varchar) as sm_type, " +
+                    "   cast(sm_code as varchar) as sm_code, cast(sm_carrier as varchar) as sm_carrier, cast(sm_contract as varchar) as sm_contract " +
+                    "FROM tpcds.tiny.ship_mode");
+        }
+    }
+
+    public static void createTpcdsStore(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "store")) {
+            queryRunner.execute(session, "CREATE TABLE store AS " +
+                    "SELECT s_store_sk, cast(s_store_id as varchar) as s_store_id, cast(s_rec_start_date as varchar) as s_rec_start_date, " +
+                    "   cast(s_rec_end_date as varchar) as s_rec_end_date, s_closed_date_sk, s_store_name, s_number_employees, s_floor_space, " +
+                    "   cast(s_hours as varchar) as s_hours, s_manager, s_market_id, s_geography_class, s_market_desc, s_market_manager, " +
+                    "   s_division_id, s_division_name, s_company_id, s_company_name, s_street_number, s_street_name, " +
+                    "   cast(s_street_type as varchar) as s_street_type, cast(s_suite_number as varchar) as s_suite_number, s_city, s_county, " +
+                    "   cast(s_state as varchar ) as s_state, cast(s_zip as varchar) as s_zip, s_country, " +
+                    "   cast(s_gmt_offset as double) as s_gmt_offset, " +
+                    "   cast(s_tax_precentage as double) as s_tax_precentage " +
+                    "FROM tpcds.tiny.store");
+        }
+    }
+
+    public static void createTpcdsStoreReturns(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "store_returns")) {
+            queryRunner.execute(session, "CREATE TABLE store_returns AS " +
+                    "SELECT sr_returned_date_sk, sr_return_time_sk, sr_item_sk, sr_customer_sk, sr_cdemo_sk, sr_hdemo_sk, " +
+                    "   sr_addr_sk, sr_store_sk, sr_reason_sk, sr_ticket_number, sr_return_quantity,  " +
+                    "   cast(sr_return_amt as double) as sr_return_amt, cast(sr_return_tax as double) as sr_return_tax, " +
+                    "   cast(sr_return_amt_inc_tax as double) as sr_return_amt_inc_tax,  cast(sr_fee as double) as sr_fee, " +
+                    "   cast(sr_return_ship_cost as double) as sr_return_ship_cost, cast(sr_refunded_cash as double) as sr_refunded_cash, " +
+                    "   cast(sr_reversed_charge as double) as sr_reversed_charge, cast(sr_store_credit as double) as sr_store_credit, " +
+                    "   cast(sr_net_loss as double) as sr_net_loss " +
+                    "FROM tpcds.tiny.store_returns");
+        }
+    }
+
+    public static void createTpcdsStoreSales(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "store_sales")) {
+            queryRunner.execute(session, "CREATE TABLE store_sales AS " +
+                    "SELECT ss_sold_date_sk, ss_sold_time_sk, ss_item_sk, ss_customer_sk, ss_cdemo_sk, ss_hdemo_sk, " +
+                    "   ss_addr_sk, ss_store_sk, ss_promo_sk, ss_ticket_number, ss_quantity, cast(ss_wholesale_cost as double) as ss_wholesale_cost,  " +
+                    "   cast(ss_list_price as double) as ss_list_price, cast(ss_sales_price as double) as ss_sales_price, " +
+                    "   cast(ss_ext_discount_amt as double) as ss_ext_discount_amt, cast(ss_ext_sales_price as double) as ss_ext_sales_price, " +
+                    "   cast(ss_ext_wholesale_cost as double) as ss_ext_wholesale_cost, cast(ss_ext_list_price as double) as ss_ext_list_price, " +
+                    "   cast(ss_ext_tax as double) as ss_ext_tax, cast(ss_coupon_amt as double) as ss_coupon_amt, " +
+                    "   cast(ss_net_paid as double) as ss_net_paid, cast(ss_net_paid_inc_tax as double) as ss_net_paid_inc_tax," +
+                    "   cast(ss_net_profit as double) as ss_net_profit " +
+                    "FROM tpcds.tiny.store_sales");
+        }
+    }
+
+    public static void createTpcdsTimeDim(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "time_dim")) {
+            queryRunner.execute(session, "CREATE TABLE time_dim AS " +
+                    "SELECT t_time_sk, cast(t_time_id as varchar) as t_time_id, t_time, t_hour, t_minute, t_second,  " +
+                    "   cast(t_am_pm as varchar) as t_am_pm, cast(t_shift as varchar) as t_shift, " +
+                    "   cast(t_sub_shift as varchar) as t_sub_shift, cast(t_meal_time as varchar) as t_meal_time " +
+                    "FROM tpcds.tiny.time_dim");
+        }
+    }
+
+    public static void createTpcdsWarehouse(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "warehouse")) {
+            queryRunner.execute(session, "CREATE TABLE warehouse AS " +
+                    "SELECT w_warehouse_sk, cast(w_warehouse_id as varchar) as w_warehouse_id, w_warehouse_name, w_warehouse_sq_ft, " +
+                    "   cast(w_street_number as varchar) as w_street_number, w_street_name, cast(w_street_type as varchar) as w_street_type, " +
+                    "   cast(w_suite_number as varchar) as w_suite_number, w_city, w_county, cast(w_state as varchar) as w_state," +
+                    "   cast(w_zip as varchar) as w_zip, w_country, cast(w_gmt_offset as double) as w_gmt_offset " +
+                    "FROM tpcds.tiny.warehouse");
+        }
+    }
+
+    public static void createTpcdsWebPage(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "web_page")) {
+            queryRunner.execute(session, "CREATE TABLE web_page AS " +
+                    "SELECT wp_web_page_sk, cast(wp_web_page_id as varchar) as wp_web_page_id, cast(wp_rec_start_date as varchar) as wp_rec_start_date, " +
+                    "   cast(wp_rec_end_date as varchar) as wp_rec_end_date, wp_creation_date_sk, wp_access_date_sk, " +
+                    "   cast(wp_autogen_flag as varchar) as wp_autogen_flag, wp_customer_sk, wp_url, cast(wp_type as varchar) as wp_type, " +
+                    "   wp_char_count, wp_link_count, wp_image_count, wp_max_ad_count " +
+                    "FROM tpcds.tiny.web_page");
+        }
+    }
+
+    public static void createTpcdsWebReturns(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "web_returns")) {
+            queryRunner.execute(session, "CREATE TABLE web_returns AS " +
+                    "SELECT wr_returned_date_sk, wr_returned_time_sk, wr_item_sk, wr_refunded_customer_sk, wr_refunded_cdemo_sk, " +
+                    "   wr_refunded_hdemo_sk, wr_refunded_addr_sk, wr_returning_customer_sk, wr_returning_cdemo_sk, wr_returning_hdemo_sk, " +
+                    "   wr_returning_addr_sk, wr_web_page_sk, wr_reason_sk, wr_order_number, wr_return_quantity, cast(wr_return_amt as double) as wr_return_amt, " +
+                    "   cast(wr_return_tax as double) as wr_return_tax, cast(wr_return_amt_inc_tax as double) as wr_return_amt_inc_tax, " +
+                    "   cast(wr_fee as double) as wr_fee, cast(wr_return_ship_cost as double) as wr_return_ship_cost, " +
+                    "   cast(wr_refunded_cash as double) as wr_refunded_cash, cast(wr_reversed_charge as double) as wr_reversed_charge, " +
+                    "   cast(wr_account_credit as double) as wr_account_credit, cast(wr_net_loss as double) as wr_net_loss " +
+                    "FROM tpcds.tiny.web_returns");
+        }
+    }
+
+    public static void createTpcdsWebSales(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "web_sales")) {
+            queryRunner.execute(session, "CREATE TABLE web_sales AS " +
+                    "SELECT ws_sold_date_sk, ws_sold_time_sk, ws_ship_date_sk, ws_item_sk, ws_bill_customer_sk, " +
+                    "   ws_bill_cdemo_sk, ws_bill_hdemo_sk, ws_bill_addr_sk, ws_ship_customer_sk, ws_ship_cdemo_sk, " +
+                    "   ws_ship_hdemo_sk, ws_ship_addr_sk, ws_web_page_sk, ws_web_site_sk, ws_ship_mode_sk, ws_warehouse_sk, " +
+                    "   ws_promo_sk, ws_order_number, ws_quantity, cast(ws_wholesale_cost as double) as ws_wholesale_cost, " +
+                    "   cast(ws_list_price as double) as ws_list_price, cast(ws_sales_price as double) as ws_sales_price, " +
+                    "   cast(ws_ext_discount_amt as double) as ws_ext_discount_amt, cast(ws_ext_sales_price as double) as ws_ext_sales_price, " +
+                    "   cast(ws_ext_wholesale_cost as double) as ws_ext_wholesale_cost, cast(ws_ext_list_price as double) as ws_ext_list_price, " +
+                    "   cast(ws_ext_tax as double) as ws_ext_tax, cast(ws_coupon_amt as double) as ws_coupon_amt, " +
+                    "   cast(ws_ext_ship_cost as double) as ws_ext_ship_cost, cast(ws_net_paid as double) as ws_net_paid, " +
+                    "   cast(ws_net_paid_inc_tax as double) as ws_net_paid_inc_tax, cast(ws_net_paid_inc_ship as double) as ws_net_paid_inc_ship, " +
+                    "   cast(ws_net_paid_inc_ship_tax as double) as ws_net_paid_inc_ship_tax, cast(ws_net_profit as double) as ws_net_profit " +
+                    "FROM tpcds.tiny.web_sales");
+        }
+    }
+
+    public static void createTpcdsWebSite(QueryRunner queryRunner, Session session)
+    {
+        if (!queryRunner.tableExists(session, "web_site")) {
+            queryRunner.execute(session, "CREATE TABLE web_site AS " +
+                    "SELECT web_site_sk, cast(web_site_id as varchar) as web_site_id, cast(web_rec_start_date as varchar) as web_rec_start_date, " +
+                    "   cast(web_rec_end_date as varchar) as web_rec_end_date, web_name, web_open_date_sk, web_close_date_sk, web_class, " +
+                    "   web_manager, web_mkt_id, web_mkt_class, web_mkt_desc, web_market_manager, web_company_id, cast(web_company_name as varchar) as web_company_name, " +
+                    "   cast(web_street_number as varchar) as web_street_number, web_street_name, cast(web_street_type as varchar) as web_street_type, " +
+                    "   cast(web_suite_number as varchar) as web_suite_number, web_city, web_county, cast(web_state as varchar) as web_state, " +
+                    "   cast(web_zip as varchar) as web_zip, web_country, cast(web_gmt_offset as double) as web_gmt_offset, " +
+                    "   cast(web_tax_percentage as double) as web_tax_percentage " +
+                    "FROM tpcds.tiny.web_site");
         }
     }
 }
