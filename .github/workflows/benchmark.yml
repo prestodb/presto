@@ -36,7 +36,6 @@ jobs:
   benchmark:
     if: github.repository == 'facebookincubator/velox'
     runs-on: 8-core
-    container: ghcr.io/facebookincubator/velox-dev:amd64-ubuntu-22.04-avx
     env:
       CCACHE_DIR: "${{ github.workspace }}/.ccache/"
       CCACHE_BASEDIR: "${{ github.workspace }}"
@@ -46,11 +45,6 @@ jobs:
       BASELINE_OUTPUT_PATH: "${{ github.workspace }}/benchmark-results/baseline/"
       CONTENDER_OUTPUT_PATH: "${{ github.workspace }}/benchmark-results/contender/"
     steps:
-      - name: "Setup ccache and python"
-        run: |
-            # Set up ccache configs .
-            mkdir -p .ccache
-            ccache -sz -M 5Gi
 
       - name: "Restore ccache"
         uses: actions/cache/restore@v3
@@ -70,6 +64,10 @@ jobs:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
           submodules: 'recursive'
+
+      - name: "Install dependencies"
+        if: ${{ github.event_name == 'pull_request' }}
+        run: source velox/scripts/setup-ubuntu.sh
 
       - name: "Checkout Merge Base"
         if: ${{ github.event_name == 'pull_request' }}
@@ -111,6 +109,9 @@ jobs:
           path: 'velox'
           ref: ${{ github.sha }}
           submodules: 'recursive'
+
+      - name: "Install dependencies"
+        run: source velox/scripts/setup-ubuntu.sh
 
       - name: Build Contender Benchmarks
         working-directory: velox
