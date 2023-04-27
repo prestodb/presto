@@ -79,6 +79,22 @@ struct TimestampWithTimezoneSupport {
 
     return timestamp;
   }
+
+  // Get offset in seconds with GMT from timestampWithTimezone
+  FOLLY_ALWAYS_INLINE
+  int64_t getGMTOffsetSec(
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    Timestamp inputTimeStamp = this->toTimestamp(timestampWithTimezone);
+    // Get the given timezone name
+    auto timezone =
+        util::getTimeZoneName(*timestampWithTimezone.template at<1>());
+    auto* timezonePtr = date::locate_zone(timezone);
+    // Create a copy of inputTimeStamp and convert it to GMT
+    auto gmtTimeStamp = inputTimeStamp;
+    gmtTimeStamp.toGMT(*timezonePtr);
+    // Get offset in seconds with GMT and convert to hour
+    return (inputTimeStamp.getSeconds() - gmtTimeStamp.getSeconds());
+  }
 };
 
 } // namespace
@@ -1087,21 +1103,22 @@ struct TimeZoneHourFunction : public TimestampWithTimezoneSupport<T> {
   FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<TimestampWithTimezone>& input) {
-    // Convert timestampWithTimezone input to a timestamp representing the
-    // moment at the zone in timestampWithTimezone.
-    Timestamp inputTimeStamp = this->toTimestamp(input);
-
-    // Get the given timezone name
-    auto timezone = util::getTimeZoneName(*input.template at<1>());
-
-    auto* timezonePtr = date::locate_zone(timezone);
-
-    // Create a copy of inputTimeStamp and convert it to GMT
-    auto gmtTimeStamp = inputTimeStamp;
-    gmtTimeStamp.toGMT(*timezonePtr);
-
     // Get offset in seconds with GMT and convert to hour
-    result = (inputTimeStamp.getSeconds() - gmtTimeStamp.getSeconds()) / 3600;
+    auto offset = this->getGMTOffsetSec(input);
+    result = offset / 3600;
+  }
+};
+
+template <typename T>
+struct TimeZoneMinuteFunction : public TimestampWithTimezoneSupport<T> {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<TimestampWithTimezone>& input) {
+    // Get offset in seconds with GMT and convert to minute
+    auto offset = this->getGMTOffsetSec(input);
+    result = (offset / 60) % 60;
   }
 };
 

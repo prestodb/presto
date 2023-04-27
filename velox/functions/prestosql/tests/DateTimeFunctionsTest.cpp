@@ -3038,3 +3038,27 @@ TEST_F(DateTimeFunctionsTest, timeZoneHour) {
       timezone_hour("123456", "Canada/Atlantic"),
       "Unable to parse timestamp value: \"123456\", expected format is (YYYY-MM-DD HH:MM:SS[.MS])");
 }
+
+TEST_F(DateTimeFunctionsTest, timeZoneMinute) {
+  const auto timezone_minute = [&](const char* time, const char* timezone) {
+    Timestamp ts = util::fromTimestampString(time);
+    auto timestamp = ts.toMillis();
+    auto minute = evaluateWithTimestampWithTimezone<int64_t>(
+                      "timezone_minute(c0)", timestamp, timezone)
+                      .value();
+    return minute;
+  };
+
+  EXPECT_EQ(30, timezone_minute("1970-01-01 03:20:00", "Asia/Kolkata"));
+  EXPECT_EQ(0, timezone_minute("1970-01-01 03:20:00", "America/Los_Angeles"));
+  EXPECT_EQ(0, timezone_minute("1970-05-01 04:20:00", "America/Los_Angeles"));
+  EXPECT_EQ(0, timezone_minute("1970-01-01 03:20:00", "Canada/Atlantic"));
+  EXPECT_EQ(30, timezone_minute("1970-01-01 03:20:00", "Asia/Katmandu"));
+  EXPECT_EQ(45, timezone_minute("1970-01-01 03:20:00", "Pacific/Chatham"));
+  VELOX_ASSERT_THROW(
+      timezone_minute("abc", "Pacific/Chatham"),
+      "Unable to parse timestamp value: \"abc\", expected format is (YYYY-MM-DD HH:MM:SS[.MS])");
+  VELOX_ASSERT_THROW(
+      timezone_minute("2023-", "Pacific/Chatham"),
+      "Unable to parse timestamp value: \"2023-\", expected format is (YYYY-MM-DD HH:MM:SS[.MS])");
+}

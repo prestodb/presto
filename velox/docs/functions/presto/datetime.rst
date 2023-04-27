@@ -206,6 +206,10 @@ This behavior is different from Presto Java that allows arbitrary large timestam
 
     Returns the hour of the time zone offset from ``timestamp``.
 
+.. function:: timezone_minute(timestamp) -> bigint
+
+    Returns the minute of the time zone offset from ``timestamp``.
+
 .. function:: week(x) -> bigint
 
     Returns the `ISO-Week`_ of the year from x. The value ranges from ``1`` to ``53``.

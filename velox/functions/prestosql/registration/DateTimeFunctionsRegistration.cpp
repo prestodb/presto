@@ -34,6 +34,9 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "date"});
   registerFunction<TimeZoneHourFunction, int64_t, TimestampWithTimezone>(
       {prefix + "timezone_hour"});
+
+  registerFunction<TimeZoneMinuteFunction, int64_t, TimestampWithTimezone>(
+      {prefix + "timezone_minute"});
   registerFunction<YearFunction, int64_t, Timestamp>({prefix + "year"});
   registerFunction<YearFunction, int64_t, Date>({prefix + "year"});
   registerFunction<YearFunction, int64_t, TimestampWithTimezone>(
