@@ -64,6 +64,11 @@ class HashAggregation : public Operator {
   // measure of the effectiveness of the partial aggregation.
   void maybeIncreasePartialAggregationMemoryUsage(double aggregationPct);
 
+  // True if we have enough rows and not enough reduction, i.e. more than
+  // 'abandonPartialAggregationMinRows_' rows and more than
+  // 'abandonPartialAggregationMinPct_' % of rows are unique.
+  bool abandonPartialAggregationEarly(int64_t numOutput) const;
+
   const bool isPartialOutput_;
   const bool isDistinct_;
   const bool isGlobal_;
@@ -76,6 +81,17 @@ class HashAggregation : public Operator {
   bool partialFull_ = false;
   bool newDistincts_ = false;
   bool finished_ = false;
+  // True if partial aggregation has been found to be non-reducing.
+  bool abandonedPartialAggregation_{false};
+
+  // Minimum number of rows to see before deciding to give up on partial
+  // aggregation.
+  const int32_t abandonPartialAggregationMinRows_;
+
+  // Min unique rows pct for partial aggregation. If more than this many rows
+  // are unique, the partial aggregation is not worthwhile.
+  const int32_t abandonPartialAggregationMinPct_;
+
   RowContainerIterator resultIterator_;
   bool pushdownChecked_ = false;
   bool mayPushdown_ = false;

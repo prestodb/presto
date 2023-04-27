@@ -187,6 +187,16 @@ class RowContainer {
              : 0);
   }
 
+  /// Sets all fields, aggregates, keys and dependents to null. Used
+  /// when making a row with uninitialized keys for aggregates with
+  /// no-op partial aggregation.
+  void setAllNull(char* FOLLY_NONNULL row) {
+    if (!nullOffsets_.empty()) {
+      memset(row + nullByte(nullOffsets_[0]), 0xff, initialNulls_.size());
+      bits::clearBit(row, freeFlagOffset_);
+    }
+  }
+
   // The row size excluding any out-of-line stored variable length values.
   int32_t fixedRowSize() const {
     return fixedRowSize_;

@@ -74,6 +74,11 @@ class GroupingSet {
   /// based on value ranges to one based on value ids can save a lot.
   bool isPartialFull(int64_t maxBytes);
 
+  /// Returns the count of the hash table, if any.
+  int64_t numDistinct() const {
+    return table_ ? table_->numDistinct() : 0;
+  }
+
   const HashLookup& hashLookup() const;
 
   /// Spills content until under 'targetRows' and under 'targetBytes'
@@ -99,6 +104,14 @@ class GroupingSet {
   int64_t numRows() const {
     return table_ ? table_->rows()->numRows() : 0;
   }
+
+  // Frees hash tables and other state when giving up partial aggregation as
+  // non-productive. Must be called before toIntermediate() is used.
+  void abandonPartialAggregation();
+
+  /// Translates the raw input in input to accumulators initialized from a
+  /// single input row. Passes grouping keys through.
+  void toIntermediate(const RowVectorPtr& input, RowVectorPtr& result);
 
   /// Returns an estimate of the average row size.
   std::optional<int64_t> estimateRowSize() const;
@@ -273,6 +286,19 @@ class GroupingSet {
   // Counts input batches and triggers spilling if folly hash of this % 100 <=
   // 'testSpillPct_';.
   uint64_t spillTestCounter_{0};
+
+  // True if partial aggregation has been given up as non-productive.
+  bool abandonedPartialAggregation_{false};
+
+  // True if partial aggregation and all aggregates have a fast path from raw
+  // input to intermediate. Initialized in abandonPartialAggregation().
+  bool allSupportToIntermediate_;
+
+  // RowContainer for toIntermediate for aggregates that do not have a
+  // toIntermediate() fast path
+  std::unique_ptr<RowContainer> intermediateRows_;
+  std::vector<char*> intermediateGroups_;
+  std::vector<vector_size_t> intermediateRowNumbers_;
 };
 
 } // namespace facebook::velox::exec
