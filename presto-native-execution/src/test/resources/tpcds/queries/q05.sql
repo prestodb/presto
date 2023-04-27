@@ -30,7 +30,7 @@ UNION ALL       SELECT
    , date_dim
    , store
    WHERE ("date_sk" = "d_date_sk")
-      AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '14' DAY))
+      AND (CAST("d_date" AS DATE) BETWEEN DATE '2000-08-23' AND (DATE '2000-08-23' + INTERVAL '14' DAY))
       AND ("store_sk" = "s_store_sk")
    GROUP BY "s_store_id"
 ) 
@@ -65,7 +65,7 @@ UNION ALL       SELECT
    , date_dim
    , catalog_page
    WHERE ("date_sk" = "d_date_sk")
-      AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '14' DAY))
+      AND (CAST("d_date" AS DATE) BETWEEN DATE '2000-08-23' AND (DATE '2000-08-23' + INTERVAL '14' DAY))
       AND ("page_sk" = "cp_catalog_page_sk")
    GROUP BY "cp_catalog_page_id"
 ) 
@@ -102,7 +102,7 @@ UNION ALL       SELECT
    , date_dim
    , web_site
    WHERE ("date_sk" = "d_date_sk")
-      AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '14' DAY))
+      AND (CAST("d_date" AS DATE) BETWEEN DATE '2000-08-23' AND (DATE '2000-08-23' + INTERVAL '14' DAY))
       AND ("wsr_web_site_sk" = "web_site_sk")
    GROUP BY "web_site_id"
 ) 

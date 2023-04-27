@@ -16,7 +16,7 @@ WITH
             SELECT "d_week_seq"
             FROM
               date_dim
-            WHERE ("d_date" = CAST('2000-01-03' AS DATE))
+            WHERE (CAST("d_date" AS DATE) = DATE '2000-01-03')
          ))
    ))
       AND ("ss_sold_date_sk" = "d_date_sk")
@@ -39,7 +39,7 @@ WITH
             SELECT "d_week_seq"
             FROM
               date_dim
-            WHERE ("d_date" = CAST('2000-01-03' AS DATE))
+            WHERE (CAST("d_date" AS DATE) = DATE '2000-01-03')
          ))
    ))
       AND ("cs_sold_date_sk" = "d_date_sk")
@@ -62,7 +62,7 @@ WITH
             SELECT "d_week_seq"
             FROM
               date_dim
-            WHERE ("d_date" = CAST('2000-01-03' AS DATE))
+            WHERE (CAST("d_date" AS DATE) = DATE '2000-01-03')
          ))
    ))
       AND ("ws_sold_date_sk" = "d_date_sk")

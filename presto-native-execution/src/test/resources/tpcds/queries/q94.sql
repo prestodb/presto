@@ -7,7 +7,7 @@ FROM
 , date_dim
 , customer_address
 , web_site
-WHERE ("d_date" BETWEEN CAST('1999-2-01' AS DATE) AND (CAST('1999-2-01' AS DATE) + INTERVAL  '60' DAY))
+WHERE (CAST("d_date" AS DATE) BETWEEN DATE '1999-2-01' AND (DATE '1999-2-01' + INTERVAL '60' DAY))
    AND ("ws1"."ws_ship_date_sk" = "d_date_sk")
    AND ("ws1"."ws_ship_addr_sk" = "ca_address_sk")
    AND ("ca_state" = 'IL')

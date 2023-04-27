@@ -16,7 +16,7 @@ WITH
          SELECT "d_week_seq"
          FROM
            date_dim
-         WHERE ("d_date" IN (CAST('2000-06-30' AS DATE)         , CAST('2000-09-27' AS DATE)         , CAST('2000-11-17' AS DATE)))
+         WHERE (CAST("d_date" AS DATE) IN (DATE '2000-06-30', DATE '2000-09-27', DATE '2000-11-17'))
       ))
    ))
       AND ("sr_returned_date_sk" = "d_date_sk")
@@ -39,7 +39,7 @@ WITH
          SELECT "d_week_seq"
          FROM
            date_dim
-         WHERE ("d_date" IN (CAST('2000-06-30' AS DATE)         , CAST('2000-09-27' AS DATE)         , CAST('2000-11-17' AS DATE)))
+         WHERE (CAST("d_date" AS DATE) IN (DATE '2000-06-30', DATE '2000-09-27', DATE '2000-11-17'))
       ))
    ))
       AND ("cr_returned_date_sk" = "d_date_sk")
@@ -62,7 +62,7 @@ WITH
          SELECT "d_week_seq"
          FROM
            date_dim
-         WHERE ("d_date" IN (CAST('2000-06-30' AS DATE)         , CAST('2000-09-27' AS DATE)         , CAST('2000-11-17' AS DATE)))
+         WHERE (CAST("d_date" AS DATE) IN (DATE '2000-06-30', DATE '2000-09-27', DATE '2000-11-17'))
       ))
    ))
       AND ("wr_returned_date_sk" = "d_date_sk")

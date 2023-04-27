@@ -9,7 +9,7 @@ WITH
    , date_dim
    , store
    WHERE ("ss_sold_date_sk" = "d_date_sk")
-      AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
+      AND (CAST("d_date" AS DATE) BETWEEN DATE '2000-08-23' AND (DATE '2000-08-23' + INTERVAL '30' DAY))
       AND ("ss_store_sk" = "s_store_sk")
    GROUP BY "s_store_sk"
 ) 
@@ -23,7 +23,7 @@ WITH
    , date_dim
    , store
    WHERE ("sr_returned_date_sk" = "d_date_sk")
-      AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
+      AND (CAST("d_date" AS DATE) BETWEEN DATE '2000-08-23' AND (DATE '2000-08-23' + INTERVAL '30' DAY))
       AND ("sr_store_sk" = "s_store_sk")
    GROUP BY "s_store_sk"
 ) 
@@ -36,7 +36,7 @@ WITH
      catalog_sales
    , date_dim
    WHERE ("cs_sold_date_sk" = "d_date_sk")
-      AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
+      AND (CAST("d_date" AS DATE) BETWEEN DATE '2000-08-23' AND (DATE '2000-08-23' + INTERVAL '30' DAY))
    GROUP BY "cs_call_center_sk"
 ) 
 , cr AS (
@@ -48,7 +48,7 @@ WITH
      catalog_returns
    , date_dim
    WHERE ("cr_returned_date_sk" = "d_date_sk")
-      AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
+      AND (CAST("d_date" AS DATE) BETWEEN DATE '2000-08-23' AND (DATE '2000-08-23' + INTERVAL '30' DAY))
    GROUP BY "cr_call_center_sk"
 ) 
 , ws AS (
@@ -61,7 +61,7 @@ WITH
    , date_dim
    , web_page
    WHERE ("ws_sold_date_sk" = "d_date_sk")
-      AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
+      AND (CAST("d_date" AS DATE) BETWEEN DATE '2000-08-23' AND (DATE '2000-08-23' + INTERVAL '30' DAY))
       AND ("ws_web_page_sk" = "wp_web_page_sk")
    GROUP BY "wp_web_page_sk"
 ) 
@@ -75,7 +75,7 @@ WITH
    , date_dim
    , web_page
    WHERE ("wr_returned_date_sk" = "d_date_sk")
-      AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
+      AND (CAST("d_date" AS DATE) BETWEEN DATE '2000-08-23' AND (DATE '2000-08-23' + INTERVAL '30' DAY))
       AND ("wr_web_page_sk" = "wp_web_page_sk")
    GROUP BY "wp_web_page_sk"
 ) 
