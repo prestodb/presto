@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
 
+import static com.facebook.presto.SystemSessionProperties.getDefaultJoinSelectivityCoefficient;
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.VariableStatsEstimate.buildFrom;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
@@ -52,6 +53,8 @@ public class JoinStatsRule
 {
     private static final Pattern<JoinNode> PATTERN = join();
     private static final double DEFAULT_UNMATCHED_JOIN_COMPLEMENT_NDVS_COEFFICIENT = 0.5;
+
+    private static final double DEFAULT_JOIN_SELECTIVITY_DISABLED = 0.0;
 
     private final FilterStatsCalculator filterStatsCalculator;
     private final StatsNormalizer normalizer;
@@ -158,9 +161,14 @@ public class JoinStatsRule
         }
 
         PlanNodeStatsEstimate equiJoinEstimate = filterByEquiJoinClauses(crossJoinStats, node.getCriteria(), session, types);
-
         if (equiJoinEstimate.isOutputRowCountUnknown()) {
-            return PlanNodeStatsEstimate.unknown();
+            double defaultJoinSelectivityFactor = getDefaultJoinSelectivityCoefficient(session);
+            if (Double.compare(defaultJoinSelectivityFactor, DEFAULT_JOIN_SELECTIVITY_DISABLED) != 0) {
+                equiJoinEstimate = crossJoinStats.mapOutputRowCount(joinSourceRowCount -> crossJoinStats.getOutputRowCount() * defaultJoinSelectivityFactor);
+            }
+            else {
+                return PlanNodeStatsEstimate.unknown();
+            }
         }
 
         if (!node.getFilter().isPresent()) {
@@ -360,7 +368,7 @@ public class JoinStatsRule
     {
         double innerJoinRowCount = innerJoinStats.getOutputRowCount();
         double joinComplementRowCount = joinComplementStats.getOutputRowCount();
-        if (joinComplementRowCount == 0) {
+        if (joinComplementRowCount == 0 || joinComplementStats.equals(PlanNodeStatsEstimate.unknown())) {
             return innerJoinStats;
         }
 

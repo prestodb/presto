@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -20,10 +21,13 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getDefaultJoinSelectivityCoefficient;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -35,6 +39,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
 import static org.testng.Assert.assertEquals;
 
@@ -90,6 +95,20 @@ public class TestJoinStatsRule
             NORMALIZER,
             1.0);
 
+    private StatsCalculatorTester defaultJoinSelectivityEnabledTester;
+
+    @BeforeClass
+    public void setupClass()
+    {
+        defaultJoinSelectivityEnabledTester = new StatsCalculatorTester(getTestSession());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDownClass()
+    {
+        defaultJoinSelectivityEnabledTester.close();
+        defaultJoinSelectivityEnabledTester = null;
+    }
     @Test
     public void testStatsForInnerJoin()
     {
@@ -275,6 +294,93 @@ public class TestJoinStatsRule
         assertJoinStats(LEFT, leftStats, rightStats, PlanNodeStatsEstimate.unknown());
     }
 
+    private Session getTestSession()
+    {
+        return testSessionBuilder()
+                .setSystemProperty("default_join_selectivity_coefficient", "0.1")
+                .build();
+    }
+
+    @Test
+    public void testInnerJoinMissingColumnStats()
+    {
+        PlanNodeStatsEstimate leftStats = planNodeStats(
+                100,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        PlanNodeStatsEstimate rightStats = planNodeStats(
+                5,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        double totalRowCount = leftStats.getOutputRowCount() * rightStats.getOutputRowCount() * getDefaultJoinSelectivityCoefficient(getTestSession());
+
+        PlanNodeStatsEstimate resultStats = planNodeStats(
+                totalRowCount,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        assertJoinStats(INNER, LEFT_JOIN_COLUMN, LEFT_OTHER_COLUMN, RIGHT_JOIN_COLUMN, RIGHT_OTHER_COLUMN, leftStats, rightStats, resultStats, defaultJoinSelectivityEnabledTester);
+    }
+
+    @Test
+    public void testLeftJoinMissingColumnStats()
+    {
+        PlanNodeStatsEstimate leftStats = planNodeStats(
+                100,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        PlanNodeStatsEstimate rightStats = planNodeStats(
+                5,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        double totalRowCount = leftStats.getOutputRowCount() * rightStats.getOutputRowCount() * getDefaultJoinSelectivityCoefficient(getTestSession());
+
+        PlanNodeStatsEstimate resultStats = planNodeStats(
+                totalRowCount,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        assertJoinStats(LEFT, LEFT_JOIN_COLUMN, LEFT_OTHER_COLUMN, RIGHT_JOIN_COLUMN, RIGHT_OTHER_COLUMN, leftStats, rightStats, resultStats, defaultJoinSelectivityEnabledTester);
+    }
+
+    @Test
+    public void testRightJoinMissingColumnStats()
+    {
+        PlanNodeStatsEstimate leftStats = planNodeStats(
+                100,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        PlanNodeStatsEstimate rightStats = planNodeStats(
+                5,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        double totalRowCount = leftStats.getOutputRowCount() * rightStats.getOutputRowCount() * getDefaultJoinSelectivityCoefficient(getTestSession());
+
+        PlanNodeStatsEstimate resultStats = planNodeStats(
+                totalRowCount,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        assertJoinStats(RIGHT, LEFT_JOIN_COLUMN, LEFT_OTHER_COLUMN, RIGHT_JOIN_COLUMN, RIGHT_OTHER_COLUMN, leftStats, rightStats, resultStats, defaultJoinSelectivityEnabledTester);
+    }
+
+    @Test
+    public void testFullJoinMissingColumnStats()
+    {
+        PlanNodeStatsEstimate leftStats = planNodeStats(
+                100,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        PlanNodeStatsEstimate rightStats = planNodeStats(
+                5,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        double totalRowCount = leftStats.getOutputRowCount() * rightStats.getOutputRowCount() * getDefaultJoinSelectivityCoefficient(getTestSession());
+
+        PlanNodeStatsEstimate resultStats = planNodeStats(
+                totalRowCount,
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()));
+        assertJoinStats(FULL, LEFT_JOIN_COLUMN, LEFT_OTHER_COLUMN, RIGHT_JOIN_COLUMN, RIGHT_OTHER_COLUMN, leftStats, rightStats, resultStats, defaultJoinSelectivityEnabledTester);
+    }
+
     @Test
     public void testStatsForFullJoin()
     {
@@ -328,7 +434,21 @@ public class TestJoinStatsRule
             PlanNodeStatsEstimate rightStats,
             PlanNodeStatsEstimate resultStats)
     {
-        tester().assertStatsFor(pb -> {
+        assertJoinStats(joinType, leftJoinColumn, leftOtherColumn, rightJoinColumn, rightOtherColumn, leftStats, rightStats, resultStats, tester());
+    }
+
+    private void assertJoinStats(
+            JoinNode.Type joinType,
+            VariableReferenceExpression leftJoinColumn,
+            VariableReferenceExpression leftOtherColumn,
+            VariableReferenceExpression rightJoinColumn,
+            VariableReferenceExpression rightOtherColumn,
+            PlanNodeStatsEstimate leftStats,
+            PlanNodeStatsEstimate rightStats,
+            PlanNodeStatsEstimate resultStats,
+            StatsCalculatorTester tester)
+    {
+        tester.assertStatsFor(pb -> {
             VariableReferenceExpression leftJoinColumnVariable = pb.variable(leftJoinColumn);
             VariableReferenceExpression rightJoinColumnVariable = pb.variable(rightJoinColumn);
             VariableReferenceExpression leftOtherColumnVariable = pb.variable(leftOtherColumn);
