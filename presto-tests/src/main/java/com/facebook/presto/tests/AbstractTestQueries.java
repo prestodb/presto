@@ -839,9 +839,10 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT JSON_FORMAT(CAST(TRY(MAP(ARRAY[NULL], ARRAY[x])) AS JSON)) FROM (VALUES 1, 2) t(x)", "SELECT * FROM (VALUES NULL, NULL)");
 
         assertQuery("SELECT cardinality(m) FROM (SELECT map_agg(orderkey, orderkey) m FROM orders)", "SELECT count(orderkey) FROM orders");
+        assertQuery("SELECT cast(cardinality(m) as varchar) FROM (SELECT map_agg(orderkey, orderkey) m FROM orders)", "SELECT cast(count(orderkey) as varchar) FROM orders");
         assertQuery("SELECT cardinality(map_keys(m)) FROM (SELECT map_agg(orderkey, orderkey) m FROM orders)", "SELECT count(orderkey) FROM orders");
         assertQuery("SELECT cardinality(map_values(m)) FROM (SELECT map_agg(orderkey, orderkey) m FROM orders)", "SELECT count(orderkey) FROM orders");
-        assertQuery("SELECT cardinality(map_keys(m)) + cardinality(map_values(m)) FROM (SELECT map_agg(orderkey, orderkey) m FROM orders)", "SELECT count(orderkey) * 2 FROM orders");
+        assertQuery("SELECT cardinality(map_keys(m)) + cardinality(map_values(m)) FROM (SELECT map_agg(cast(orderkey as varchar), cast(orderkey as varchar)) m FROM orders)", "SELECT count(orderkey) * 2 FROM orders");
         assertQuery("SELECT cardinality(map(array[cardinality(map_values(m))], array[cardinality(map_values(m))])) FROM (SELECT map_agg(orderkey, orderkey) m FROM orders)", "SELECT 1");
     }
 
