@@ -45,7 +45,6 @@ class MetadataFilter {
   class Node;
   class AndNode;
   class OrNode;
-  class NotNode;
 
   std::shared_ptr<Node> root_;
 };

@@ -351,7 +351,9 @@ toInt64List(const VectorPtr& vector, vector_size_t start, vector_size_t size) {
   return values;
 }
 
-std::unique_ptr<common::Filter> makeInFilter(const core::TypedExprPtr& expr) {
+std::unique_ptr<common::Filter> makeInFilter(
+    const core::TypedExprPtr& expr,
+    bool negated) {
   auto queryCtx = std::make_shared<core::QueryCtx>();
   auto vector = toConstant(expr, queryCtx);
   if (!(vector && vector->type()->isArray())) {
@@ -366,19 +368,30 @@ std::unique_ptr<common::Filter> makeInFilter(const core::TypedExprPtr& expr) {
 
   auto elementType = arrayVector->type()->asArray().elementType();
   switch (elementType->kind()) {
-    case TypeKind::TINYINT:
-      return in(toInt64List<int16_t>(elements, offset, size));
-    case TypeKind::SMALLINT:
-      return in(toInt64List<int16_t>(elements, offset, size));
-    case TypeKind::INTEGER:
-      return in(toInt64List<int32_t>(elements, offset, size));
-    case TypeKind::BIGINT:
-      return in(toInt64List<int64_t>(elements, offset, size));
+    case TypeKind::TINYINT: {
+      auto values = toInt64List<int8_t>(elements, offset, size);
+      return negated ? notIn(values) : in(values);
+    }
+    case TypeKind::SMALLINT: {
+      auto values = toInt64List<int16_t>(elements, offset, size);
+      return negated ? notIn(values) : in(values);
+    }
+    case TypeKind::INTEGER: {
+      auto values = toInt64List<int32_t>(elements, offset, size);
+      return negated ? notIn(values) : in(values);
+    }
+    case TypeKind::BIGINT: {
+      auto values = toInt64List<int64_t>(elements, offset, size);
+      return negated ? notIn(values) : in(values);
+    }
     case TypeKind::VARCHAR: {
       auto stringElements = elements->as<SimpleVector<StringView>>();
       std::vector<std::string> values;
       for (auto i = 0; i < size; i++) {
         values.push_back(stringElements->valueAt(offset + i).str());
+      }
+      if (negated) {
+        return notIn(values);
       }
       return in(values);
     }
@@ -389,7 +402,8 @@ std::unique_ptr<common::Filter> makeInFilter(const core::TypedExprPtr& expr) {
 
 std::unique_ptr<common::Filter> makeBetweenFilter(
     const core::TypedExprPtr& lowerExpr,
-    const core::TypedExprPtr& upperExpr) {
+    const core::TypedExprPtr& upperExpr,
+    bool negated) {
   auto queryCtx = std::make_shared<core::QueryCtx>();
   auto lower = toConstant(lowerExpr, queryCtx);
   if (!lower) {
@@ -401,19 +415,40 @@ std::unique_ptr<common::Filter> makeBetweenFilter(
   }
   switch (lower->typeKind()) {
     case TypeKind::BIGINT:
+      if (negated) {
+        return notBetween(
+            singleValue<int64_t>(lower), singleValue<int64_t>(upper));
+      }
       return between(singleValue<int64_t>(lower), singleValue<int64_t>(upper));
     case TypeKind::DOUBLE:
-      return betweenDouble(
-          singleValue<double>(lower), singleValue<double>(upper));
+      return negated
+          ? nullptr
+          : betweenDouble(
+                singleValue<double>(lower), singleValue<double>(upper));
     case TypeKind::REAL:
-      return betweenFloat(singleValue<float>(lower), singleValue<float>(upper));
+      return negated
+          ? nullptr
+          : betweenFloat(singleValue<float>(lower), singleValue<float>(upper));
     case TypeKind::DATE:
+      if (negated) {
+        return notBetween(
+            singleValue<Date>(lower).days(), singleValue<Date>(upper).days());
+      }
       return between(
           singleValue<Date>(lower).days(), singleValue<Date>(upper).days());
     case TypeKind::VARCHAR:
+      if (negated) {
+        return notBetween(
+            singleValue<StringView>(lower), singleValue<StringView>(upper));
+      }
       return between(
           singleValue<StringView>(lower), singleValue<StringView>(upper));
     case TypeKind::SHORT_DECIMAL:
+      if (negated) {
+        notBetween(
+            singleValue<UnscaledShortDecimal>(lower).unscaledValue(),
+            singleValue<UnscaledShortDecimal>(upper).unscaledValue());
+      }
       return between(
           singleValue<UnscaledShortDecimal>(lower).unscaledValue(),
           singleValue<UnscaledShortDecimal>(upper).unscaledValue());
@@ -421,73 +456,74 @@ std::unique_ptr<common::Filter> makeBetweenFilter(
       return nullptr;
   }
 }
+
 } // namespace
 
 std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
     const core::CallTypedExpr& call,
-    common::Subfield& subfield) {
+    common::Subfield& subfield,
+    bool negated) {
   if (call.name() == "eq") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return makeEqualFilter(call.inputs()[1]);
+        return negated ? makeNotEqualFilter(call.inputs()[1])
+                       : makeEqualFilter(call.inputs()[1]);
       }
     }
   } else if (call.name() == "neq") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return makeNotEqualFilter(call.inputs()[1]);
+        return negated ? makeEqualFilter(call.inputs()[1])
+                       : makeNotEqualFilter(call.inputs()[1]);
       }
     }
   } else if (call.name() == "lte") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return makeLessThanOrEqualFilter(call.inputs()[1]);
+        return negated ? makeGreaterThanFilter(call.inputs()[1])
+                       : makeLessThanOrEqualFilter(call.inputs()[1]);
       }
     }
   } else if (call.name() == "lt") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return makeLessThanFilter(call.inputs()[1]);
+        return negated ? makeGreaterThanOrEqualFilter(call.inputs()[1])
+                       : makeLessThanFilter(call.inputs()[1]);
       }
     }
   } else if (call.name() == "gte") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return makeGreaterThanOrEqualFilter(call.inputs()[1]);
+        return negated ? makeLessThanFilter(call.inputs()[1])
+                       : makeGreaterThanOrEqualFilter(call.inputs()[1]);
       }
     }
   } else if (call.name() == "gt") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return makeGreaterThanFilter(call.inputs()[1]);
+        return negated ? makeLessThanOrEqualFilter(call.inputs()[1])
+                       : makeGreaterThanFilter(call.inputs()[1]);
       }
     }
   } else if (call.name() == "between") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return makeBetweenFilter(call.inputs()[1], call.inputs()[2]);
+        return makeBetweenFilter(call.inputs()[1], call.inputs()[2], negated);
       }
     }
   } else if (call.name() == "in") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return makeInFilter(call.inputs()[1]);
+        return makeInFilter(call.inputs()[1], negated);
       }
     }
   } else if (call.name() == "is_null") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return isNull();
-      }
-    }
-  } else if (call.name() == "not") {
-    if (auto nestedCall = asCall(call.inputs()[0].get())) {
-      if (nestedCall->name() == "is_null") {
-        if (auto field = asField(nestedCall, 0)) {
-          if (toSubfield(field, subfield)) {
-            return isNotNull();
-          }
+        if (negated) {
+          return isNotNull();
         }
+        return isNull();
       }
     }
   }
@@ -506,7 +542,15 @@ std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
           makeOrFilter(std::move(left.second), std::move(right.second))};
     }
     common::Subfield subfield;
-    if (auto filter = leafCallToSubfieldFilter(*call, subfield)) {
+    std::unique_ptr<common::Filter> filter;
+    if (call->name() == "not") {
+      if (auto* inner = asCall(call->inputs()[0].get())) {
+        filter = leafCallToSubfieldFilter(*inner, subfield, true);
+      }
+    } else {
+      filter = leafCallToSubfieldFilter(*call, subfield, false);
+    }
+    if (filter) {
       return std::make_pair(std::move(subfield), std::move(filter));
     }
   }

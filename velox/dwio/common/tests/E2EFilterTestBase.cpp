@@ -460,17 +460,17 @@ void E2EFilterTestBase::testMetadataFilterImpl(
   int64_t originalIndex = 0;
   auto nextExpectedIndex = [&]() -> int64_t {
     for (;;) {
-      if (originalIndex >= batches.size() * kRowsInGroup) {
+      if (originalIndex >= batches.size() * batchSize_) {
         return -1;
       }
-      auto& batch = batches[originalIndex / kRowsInGroup];
+      auto& batch = batches[originalIndex / batchSize_];
       auto vecA = batch->as<RowVector>()->childAt(0)->asFlatVector<int64_t>();
       auto vecC = batch->as<RowVector>()
                       ->childAt(1)
                       ->as<RowVector>()
                       ->childAt(0)
                       ->asFlatVector<int64_t>();
-      auto j = originalIndex++ % kRowsInGroup;
+      auto j = originalIndex++ % batchSize_;
       auto a = vecA->valueAt(j);
       auto c = vecC->valueAt(j);
       if (validationFilter(a, c)) {
@@ -482,8 +482,8 @@ void E2EFilterTestBase::testMetadataFilterImpl(
     for (int i = 0; i < result->size(); ++i) {
       auto totalIndex = nextExpectedIndex();
       ASSERT_GE(totalIndex, 0);
-      auto& expected = batches[totalIndex / kRowsInGroup];
-      vector_size_t j = totalIndex % kRowsInGroup;
+      auto& expected = batches[totalIndex / batchSize_];
+      vector_size_t j = totalIndex % batchSize_;
       ASSERT_TRUE(result->equalValueAt(expected.get(), i, j))
           << result->toString(i) << " vs " << expected->toString(j);
     }
@@ -492,14 +492,20 @@ void E2EFilterTestBase::testMetadataFilterImpl(
 }
 
 void E2EFilterTestBase::testMetadataFilter() {
+  flushEveryNBatches_ = 1;
+  batchSize_ = 10;
+  test::VectorMaker vectorMaker(leafPool_.get());
+  functions::prestosql::registerAllScalarFunctions();
+  parse::registerTypeResolver();
+
   // a: bigint, b: struct<c: bigint>
   std::vector<RowVectorPtr> batches;
   for (int i = 0; i < 10; ++i) {
     auto a = BaseVector::create<FlatVector<int64_t>>(
-        BIGINT(), kRowsInGroup, leafPool_.get());
+        BIGINT(), batchSize_, leafPool_.get());
     auto c = BaseVector::create<FlatVector<int64_t>>(
-        BIGINT(), kRowsInGroup, leafPool_.get());
-    for (int j = 0; j < kRowsInGroup; ++j) {
+        BIGINT(), batchSize_, leafPool_.get());
+    for (int j = 0; j < batchSize_; ++j) {
       a->set(j, i);
       c->set(j, i);
     }
@@ -516,10 +522,8 @@ void E2EFilterTestBase::testMetadataFilter() {
         a->size(),
         std::vector<VectorPtr>({a, b})));
   }
-  writeToMemory(batches[0]->type(), batches, true);
+  writeToMemory(batches[0]->type(), batches, false);
 
-  functions::prestosql::registerAllScalarFunctions();
-  parse::registerTypeResolver();
   testMetadataFilterImpl(
       batches,
       common::Subfield("a"),
@@ -540,6 +544,29 @@ void E2EFilterTestBase::testMetadataFilter() {
       nullptr,
       "a in (1, 3, 8) or a >= 9",
       [](int64_t a, int64_t) { return a == 1 || a == 3 || a == 8 || a >= 9; });
+  testMetadataFilterImpl(
+      batches,
+      common::Subfield("a"),
+      nullptr,
+      "not (a not in (2, 3, 5, 7))",
+      [](int64_t a, int64_t) {
+        return !!(a == 2 || a == 3 || a == 5 || a == 7);
+      });
+
+  {
+    SCOPED_TRACE("Values not unique in row group");
+    auto a = vectorMaker.flatVector<int64_t>(batchSize_, folly::identity);
+    auto c = vectorMaker.flatVector<int64_t>(batchSize_, folly::identity);
+    auto b = vectorMaker.rowVector({"c"}, {c});
+    batches = {vectorMaker.rowVector({"a", "b"}, {a, b})};
+    writeToMemory(batches[0]->type(), batches, false);
+    testMetadataFilterImpl(
+        batches,
+        common::Subfield("a"),
+        nullptr,
+        "not (a = 1 and b.c = 2)",
+        [](int64_t a, int64_t c) { return !(a == 1 && c == 2); });
+  }
 }
 
 void E2EFilterTestBase::testSubfieldsPruning() {

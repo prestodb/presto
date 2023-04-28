@@ -28,9 +28,8 @@ using LeafResults =
 }
 
 struct MetadataFilter::Node {
-  static std::unique_ptr<Node> fromExpression(
-      ScanSpec&,
-      const core::ITypedExpr&);
+  static std::unique_ptr<Node>
+  fromExpression(ScanSpec&, const core::ITypedExpr&, bool negated);
   virtual ~Node() = default;
   virtual uint64_t* eval(LeafResults&, int size) const = 0;
 };
@@ -59,6 +58,18 @@ class MetadataFilter::LeafNode : public Node {
 };
 
 struct MetadataFilter::AndNode : Node {
+  static std::unique_ptr<Node> create(
+      std::unique_ptr<Node> lhs,
+      std::unique_ptr<Node> rhs) {
+    if (!lhs) {
+      return rhs;
+    }
+    if (!rhs) {
+      return lhs;
+    }
+    return std::make_unique<AndNode>(std::move(lhs), std::move(rhs));
+  }
+
   AndNode(std::unique_ptr<Node> lhs, std::unique_ptr<Node> rhs)
       : lhs_(std::move(lhs)), rhs_(std::move(rhs)) {}
 
@@ -81,6 +92,15 @@ struct MetadataFilter::AndNode : Node {
 };
 
 struct MetadataFilter::OrNode : Node {
+  static std::unique_ptr<Node> create(
+      std::unique_ptr<Node> lhs,
+      std::unique_ptr<Node> rhs) {
+    if (!lhs || !rhs) {
+      return nullptr;
+    }
+    return std::make_unique<OrNode>(std::move(lhs), std::move(rhs));
+  }
+
   OrNode(std::unique_ptr<Node> lhs, std::unique_ptr<Node> rhs)
       : lhs_(std::move(lhs)), rhs_(std::move(rhs)) {}
 
@@ -97,23 +117,6 @@ struct MetadataFilter::OrNode : Node {
  private:
   std::unique_ptr<Node> lhs_;
   std::unique_ptr<Node> rhs_;
-};
-
-struct MetadataFilter::NotNode : Node {
-  explicit NotNode(std::unique_ptr<Node> negated)
-      : negated_(std::move(negated)) {}
-
-  uint64_t* eval(LeafResults& leafResults, int size) const override {
-    auto* bits = negated_->eval(leafResults, size);
-    if (!bits) {
-      return nullptr;
-    }
-    bits::negate(reinterpret_cast<char*>(bits), size);
-    return bits;
-  }
-
- private:
-  std::unique_ptr<Node> negated_;
 };
 
 namespace {
@@ -133,40 +136,30 @@ const core::CallTypedExpr* asCall(const core::ITypedExpr* expr) {
 
 std::unique_ptr<MetadataFilter::Node> MetadataFilter::Node::fromExpression(
     ScanSpec& scanSpec,
-    const core::ITypedExpr& expr) {
+    const core::ITypedExpr& expr,
+    bool negated) {
   auto* call = asCall(&expr);
   if (!call) {
     return nullptr;
   }
   if (call->name() == "and") {
-    auto lhs = fromExpression(scanSpec, *call->inputs()[0]);
-    auto rhs = fromExpression(scanSpec, *call->inputs()[1]);
-    if (!lhs) {
-      return rhs;
-    }
-    if (!rhs) {
-      return lhs;
-    }
-    return std::make_unique<AndNode>(std::move(lhs), std::move(rhs));
+    auto lhs = fromExpression(scanSpec, *call->inputs()[0], negated);
+    auto rhs = fromExpression(scanSpec, *call->inputs()[1], negated);
+    return negated ? OrNode::create(std::move(lhs), std::move(rhs))
+                   : AndNode::create(std::move(lhs), std::move(rhs));
   }
   if (call->name() == "or") {
-    auto lhs = fromExpression(scanSpec, *call->inputs()[0]);
-    auto rhs = fromExpression(scanSpec, *call->inputs()[1]);
-    if (!lhs || !rhs) {
-      return nullptr;
-    }
-    return std::make_unique<OrNode>(std::move(lhs), std::move(rhs));
+    auto lhs = fromExpression(scanSpec, *call->inputs()[0], negated);
+    auto rhs = fromExpression(scanSpec, *call->inputs()[1], negated);
+    return negated ? AndNode::create(std::move(lhs), std::move(rhs))
+                   : OrNode::create(std::move(lhs), std::move(rhs));
   }
   if (call->name() == "not") {
-    auto negated = fromExpression(scanSpec, *call->inputs()[0]);
-    if (!negated) {
-      return nullptr;
-    }
-    return std::make_unique<NotNode>(std::move(negated));
+    return fromExpression(scanSpec, *call->inputs()[0], !negated);
   }
   try {
     Subfield subfield;
-    auto filter = exec::leafCallToSubfieldFilter(*call, subfield);
+    auto filter = exec::leafCallToSubfieldFilter(*call, subfield, negated);
     if (!filter) {
       return nullptr;
     }
@@ -180,7 +173,7 @@ std::unique_ptr<MetadataFilter::Node> MetadataFilter::Node::fromExpression(
 }
 
 MetadataFilter::MetadataFilter(ScanSpec& scanSpec, const core::ITypedExpr& expr)
-    : root_(Node::fromExpression(scanSpec, expr)) {}
+    : root_(Node::fromExpression(scanSpec, expr, false)) {}
 
 void MetadataFilter::eval(
     std::vector<std::pair<LeafNode*, std::vector<uint64_t>>>& leafNodeResults,

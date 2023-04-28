@@ -380,6 +380,7 @@ std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
 /// execution.
 std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
     const core::CallTypedExpr&,
-    common::Subfield&);
+    common::Subfield&,
+    bool negated = false);
 
 } // namespace facebook::velox::exec

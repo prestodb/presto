@@ -193,8 +193,7 @@ TEST_F(ExprToSubfieldFilterTest, isNull) {
 
 TEST_F(ExprToSubfieldFilterTest, isNotNull) {
   auto call = parseCallExpr("a is not null", ROW({{"a", BIGINT()}}));
-  Subfield subfield;
-  auto filter = leafCallToSubfieldFilter(*call, subfield);
+  auto [subfield, filter] = toSubfieldFilter(call);
   ASSERT_TRUE(filter);
   validateSubfield(subfield, {"a"});
   ASSERT_TRUE(filter->testInt64(0));
