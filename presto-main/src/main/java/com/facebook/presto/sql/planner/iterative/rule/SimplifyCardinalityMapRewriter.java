@@ -31,7 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -72,41 +72,37 @@ public class SimplifyCardinalityMapRewriter
         @Override
         public RowExpression rewriteCall(CallExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
         {
+            if (node.getDisplayName().equals("cardinality") && node.getArguments().size() == 1) {
+                RowExpression argument = getOnlyElement(node.getArguments());
+                if (argument instanceof CallExpression) {
+                    CallExpression callExpression = (CallExpression) argument;
+                    if (MAP_FUNCTIONS.contains(callExpression.getDisplayName()) && callExpression.getArguments().size() == 1) {
+                        RowExpression rewrittenArgument = treeRewriter.rewrite(getOnlyElement(callExpression.getArguments()), context);
+                        List<Type> types = ImmutableList.of(rewrittenArgument.getType());
+                        // rewrite the FunctionHandle, as the input types may have changed
+                        // e.g. from ArrayCardinalityFunction for cardinality(map_keys(x)) to
+                        // MapCardinalityFunction for cardinality(x)
+                        FunctionHandle rewrittenFunctionHandle = functionAndTypeManager.resolveFunction(
+                                Optional.of(session.getSessionFunctions()),
+                                session.getTransactionId(),
+                                QualifiedObjectName.valueOf(node.getFunctionHandle().getName()),
+                                fromTypes(types));
+                        return newFunctionIfRewritten(rewrittenFunctionHandle, node, ImmutableList.of(rewrittenArgument));
+                    }
+                }
+            }
+
             ImmutableList.Builder<RowExpression> rewrittenArguments = ImmutableList.builder();
 
-            if (node.getDisplayName().equals("cardinality")) {
-                for (RowExpression argument : node.getArguments()) {
-                    if (argument instanceof CallExpression) {
-                        CallExpression callExpression = (CallExpression) argument;
-                        if (MAP_FUNCTIONS.contains(callExpression.getDisplayName()) && callExpression.getArguments().size() == 1) {
-                            rewrittenArguments.add(treeRewriter.rewrite(callExpression.getArguments().get(0), context));
-                            continue;
-                        }
-                    }
-                    rewrittenArguments.add(treeRewriter.rewrite(argument, context));
-                }
-                return newFunctionIfRewritten(node, rewrittenArguments.build());
-            }
             for (RowExpression argument : node.getArguments()) {
                 rewrittenArguments.add(treeRewriter.rewrite(argument, context));
             }
-            return newFunctionIfRewritten(node, rewrittenArguments.build());
+            return newFunctionIfRewritten(node.getFunctionHandle(), node, rewrittenArguments.build());
         }
 
-        private RowExpression newFunctionIfRewritten(CallExpression node, List<RowExpression> rewrittenArguments)
+        private RowExpression newFunctionIfRewritten(FunctionHandle rewrittenFunctionHandle, CallExpression node, List<RowExpression> rewrittenArguments)
         {
-            if (!node.getArguments().equals(rewrittenArguments)) {
-                List<Type> types = rewrittenArguments.stream()
-                        .map(RowExpression::getType)
-                        .collect(toImmutableList());
-                // rewrite the FunctionHandle, as the input types may have changed
-                // e.g. from ArrayCardinalityFunction for cardinality(map_keys(x)) to
-                // MapCardinalityFunction for cardinality(x)
-                FunctionHandle rewrittenFunctionHandle = functionAndTypeManager.resolveFunction(
-                        Optional.of(session.getSessionFunctions()),
-                        session.getTransactionId(),
-                        QualifiedObjectName.valueOf(node.getFunctionHandle().getName()),
-                        fromTypes(types));
+            if (!node.getArguments().equals(rewrittenArguments) || !rewrittenFunctionHandle.equals(node.getFunctionHandle())) {
                 return new CallExpression(
                         node.getSourceLocation(),
                         node.getDisplayName(),
