@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pyvelox.pyvelox as pv
 import unittest
+
+import pyvelox.pyvelox as pv
 
 
 class TestVeloxVector(unittest.TestCase):
@@ -21,22 +22,27 @@ class TestVeloxVector(unittest.TestCase):
         v1 = pv.from_list([1, 2, 3])
         v2 = pv.from_list(["hello", "world"])
         v3 = pv.constant_vector(1000, 10)
+        v4 = pv.dictionary_vector(pv.from_list([1, 2, 3]), [0, 0, 1])
 
         self.assertTrue(isinstance(v1, pv.BaseVector))
         self.assertTrue(isinstance(v2, pv.BaseVector))
         self.assertTrue(isinstance(v3, pv.BaseVector))
+        self.assertTrue(isinstance(v4, pv.BaseVector))
 
         self.assertTrue(isinstance(v1, pv.SimpleVector_BIGINT))
         self.assertTrue(isinstance(v2, pv.SimpleVector_VARBINARY))
         self.assertTrue(isinstance(v3, pv.SimpleVector_BIGINT))
+        self.assertTrue(isinstance(v4, pv.SimpleVector_BIGINT))
 
         self.assertTrue(isinstance(v1, pv.FlatVector_BIGINT))
         self.assertTrue(isinstance(v2, pv.FlatVector_VARBINARY))
         self.assertTrue(isinstance(v3, pv.ConstantVector_BIGINT))
+        self.assertTrue(isinstance(v4, pv.DictionaryVector_BIGINT))
 
         self.assertFalse(isinstance(v1, pv.ConstantVector_BIGINT))
         self.assertFalse(isinstance(v2, pv.ConstantVector_VARBINARY))
         self.assertFalse(isinstance(v3, pv.FlatVector_BIGINT))
+        self.assertFalse(isinstance(v4, pv.ConstantVector_BIGINT))
 
     def test_from_list(self):
         self.assertTrue(isinstance(pv.from_list([1, 2, 3]), pv.BaseVector))
@@ -91,6 +97,34 @@ class TestVeloxVector(unittest.TestCase):
             ints[10]
         with self.assertRaises(TypeError):
             ints[1] = -1
+
+    def test_dictionary_encoding(self):
+        base_indices = [0, 0, 1, 0, 2]
+        vec = pv.dictionary_vector(pv.from_list([1, 2, 3]), base_indices)
+        self.assertTrue(isinstance(vec, pv.DictionaryVector_BIGINT))
+        expected_values = [1, 1, 2, 1, 3]
+        self.assertEqual(len(vec), len(expected_values))
+        for i in range(len(vec)):
+            self.assertEqual(vec[i], expected_values[i])
+
+        indices = vec.indices()
+        self.assertTrue(isinstance(indices, pv.DictionaryIndices))
+        self.assertEqual(len(indices), len(base_indices))
+        for i in range(len(indices)):
+            self.assertEqual(indices[i], base_indices[i])
+
+        base_vector = pv.from_list([1, 2, 3, 4, 5, 6, 7])
+        base_indices = [6, 6]
+        vec = pv.dictionary_vector(base_vector, base_indices)
+        expected_values = [7, 7]
+        for i in range(len(vec)):
+            self.assertEqual(vec[i], expected_values[i])
+
+        with self.assertRaises(TypeError):
+            pv.dictionary_vector(pv.from_list([1, 2, 3]), ["a", 0, 0, "b"])
+        with self.assertRaises(IndexError):
+            pv.dictionary_vector(pv.from_list([1, 2, 3]), [1, 2, 1000000])
+            pv.dictionary_vector(pv.from_list([1, 2, 3]), [0, -1, -2])
 
     def test_to_string(self):
         self.assertEqual(

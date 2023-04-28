@@ -21,8 +21,6 @@ import re
 import subprocess
 import sys
 import tempfile
-import traceback
-import uuid
 
 from collections import defaultdict
 

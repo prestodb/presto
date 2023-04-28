@@ -14,9 +14,10 @@
 # limitations under the License.
 
 
+import argparse
 import os
 import sys
-import argparse
+
 import util
 
 CIRCLECI_V2 = "https://circleci.com/api/v2"

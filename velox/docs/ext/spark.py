@@ -18,10 +18,12 @@ from __future__ import annotations
 
 import ast
 import re
+from inspect import Parameter
+from typing import Any, Iterable, Iterator, NamedTuple, Tuple, cast
+
 from docutils import nodes
 from docutils.nodes import Element, Node
 from docutils.parsers.rst import directives
-from inspect import Parameter
 from sphinx import addnodes
 from sphinx.addnodes import desc_signature, pending_xref
 from sphinx.application import Sphinx
@@ -40,7 +42,6 @@ from sphinx.util.nodes import (
     make_refnode,
 )
 from sphinx.util.typing import OptionSpec
-from typing import Any, Iterable, Iterator, NamedTuple, Tuple, cast
 
 logger = logging.getLogger(__name__)
 

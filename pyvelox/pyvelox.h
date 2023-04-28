@@ -27,6 +27,7 @@
 #include <velox/parse/TypeResolver.h>
 #include <velox/type/Type.h>
 #include <velox/type/Variant.h>
+#include <velox/vector/DictionaryVector.h>
 #include <velox/vector/FlatVector.h>
 #include "folly/json.h"
 
@@ -120,9 +121,24 @@ static VectorPtr variantsToFlatVector(
     const std::vector<velox::variant>& variants,
     facebook::velox::memory::MemoryPool* pool);
 
-static VectorPtr pyListToVector(
+static inline VectorPtr pyListToVector(
     const py::list& list,
     facebook::velox::memory::MemoryPool* pool);
+
+template <TypeKind T>
+static VectorPtr createDictionaryVector(
+    BufferPtr baseVector,
+    VectorPtr values,
+    facebook::velox::memory::MemoryPool* pool) {
+  using NativeType = typename TypeTraits<T>::NativeType;
+  size_t length = baseVector->size() / sizeof(vector_size_t);
+  return std::make_shared<DictionaryVector<NativeType>>(
+      pool,
+      /*nulls=*/nullptr,
+      length,
+      std::move(values),
+      std::move(baseVector));
+}
 
 template <typename NativeType>
 static py::object getItemFromSimpleVector(
@@ -275,6 +291,17 @@ inline void addDataTypeBindings(
   rowType.def("names", &RowType::names, "Return the names of the columns");
 }
 
+struct DictionaryIndices {
+  const BufferPtr indices;
+};
+
+template <>
+inline void checkBounds(DictionaryIndices& indices, vector_size_t idx) {
+  if (idx < 0 || idx >= (indices.indices->size() / sizeof(vector_size_t))) {
+    throw std::out_of_range("Index out of range");
+  }
+}
+
 // Currently PyVelox will only register vectors for primitive types.
 template <TypeKind T>
 static void registerTypedVectors(
@@ -310,6 +337,20 @@ static void registerTypedVectors(
       m,
       ("ConstantVector_" + typeName).c_str(),
       py::module_local(asModuleLocalDefinitions));
+
+  py::class_<
+      DictionaryVector<NativeType>,
+      DictionaryVectorPtr<NativeType>,
+      SimpleVector<NativeType>>(
+      m,
+      ("DictionaryVector_" + typeName).c_str(),
+      py::module_local(asModuleLocalDefinitions))
+      .def(
+          "indices",
+          [](DictionaryVectorPtr<NativeType> vec) {
+            return DictionaryIndices{vec->indices()};
+          })
+      .def("values", &DictionaryVector<NativeType>::valueVector);
 }
 
 static void addVectorBindings(
@@ -352,7 +393,8 @@ static void addVectorBindings(
             return v->hashValueAt(idx);
           })
       .def("encoding", &BaseVector::encoding)
-      .def("append", [](VectorPtr& u, VectorPtr& v) { appendVectors(u, v); });
+      .def("append", [](VectorPtr& u, VectorPtr& v) { appendVectors(u, v); })
+      .def("resize", &BaseVector::resize);
 
   constexpr TypeKind supportedTypes[] = {
       TypeKind::BOOLEAN,
@@ -371,6 +413,18 @@ static void addVectorBindings(
         registerTypedVectors, supportedTypes[i], m, asModuleLocalDefinitions);
   }
 
+  py::class_<DictionaryIndices>(
+      m, "DictionaryIndices", py::module_local(asModuleLocalDefinitions))
+      .def(
+          "__len__",
+          [](DictionaryIndices indices) {
+            return (indices.indices->size()) / sizeof(vector_size_t);
+          })
+      .def("__getitem__", [](DictionaryIndices indices, vector_size_t idx) {
+        checkBounds(indices, idx);
+        return indices.indices->as<vector_size_t>()[idx];
+      });
+
   m.def("from_list", [](const py::list& list) mutable {
     return pyListToVector(list, PyVeloxContext::getInstance().pool());
   });
@@ -383,6 +437,27 @@ static void addVectorBindings(
       py::arg("value"),
       py::arg("length"),
       py::arg("type") = nullptr);
+
+  m.def(
+      "dictionary_vector",
+      [](VectorPtr baseVector, const py::list& indices_list) {
+        BufferPtr indices_buffer = AlignedBuffer::allocate<vector_size_t>(
+            indices_list.size(), PyVeloxContext::getInstance().pool());
+        vector_size_t* indices_ptr = indices_buffer->asMutable<vector_size_t>();
+        for (size_t i = 0; i < indices_list.size(); i++) {
+          if (!py::isinstance<py::int_>(indices_list[i]))
+            throw py::type_error("Found an index that's not an integer");
+          vector_size_t idx = py::cast<vector_size_t>(indices_list[i]);
+          checkBounds(baseVector, idx);
+          indices_ptr[i] = py::cast<vector_size_t>(indices_list[i]);
+        }
+        return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+            createDictionaryVector,
+            baseVector->typeKind(),
+            std::move(indices_buffer),
+            std::move(baseVector),
+            PyVeloxContext::getInstance().pool());
+      });
 }
 
 static void addExpressionBindings(
