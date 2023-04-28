@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.280-edge8.5-SNAPSHOT</version>
+        <version>0.280-edge8.6-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-teradata-functions</artifactId>
