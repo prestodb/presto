@@ -297,7 +297,7 @@ class DwrfReader : public dwio::common::Reader {
 
  private:
   std::shared_ptr<ReaderBase> readerBase_;
-  const dwio::common::ReaderOptions& options_;
+  const dwio::common::ReaderOptions options_;
 
   friend class E2EEncryptionTest;
 };
