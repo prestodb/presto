@@ -67,6 +67,9 @@ public class TestSimplifyCardinalityMap
         assertRewritten(
                 "cardinality(map(ARRAY[cardinality(map_keys(m_1)),3], ARRAY[2,cardinality(map_keys(m_2))]))",
                 "cardinality(map(ARRAY[cardinality(m_1),3], ARRAY[2,cardinality(m_2)]))");
+        assertRewritten(
+                "cast(cardinality(map_keys(m)) as varchar)",
+                "cast(cardinality(m) as varchar)");
     }
 
     @Test
