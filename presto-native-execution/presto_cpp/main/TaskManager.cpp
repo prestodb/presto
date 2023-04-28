@@ -351,8 +351,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
   for (const auto& source : sources) {
     // Add all splits from the source to the task.
-    LOG(INFO) << "Adding " << source.splits.size() << " splits to " << taskId
-              << " for node " << source.planNodeId;
+    VLOG(1) << "Adding " << source.splits.size() << " splits to " << taskId
+            << " for node " << source.planNodeId;
     // Keep track of the max sequence for this batch of splits.
     long maxSplitSequenceId{-1};
     for (const auto& protocolSplit : source.splits) {
