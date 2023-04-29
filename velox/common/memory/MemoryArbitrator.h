@@ -42,13 +42,14 @@ class MemoryArbitrator {
   /// Defines the kind of memory arbitrators.
   enum class Kind {
     /// Used to enforce the fixed query memory isolation across running queries.
-    /// When a memory pool exceeds the fixed capacity limit, the arbitrator
-    /// fails the query with memory capacity exceeded error. This is used to
-    /// implement the memory isolation mechanism currently used by Prestissimo.
+    /// When a memory pool exceeds the fixed capacity limit, the query just
+    /// fails with memory capacity exceeded error without arbitration. This is
+    /// used to match the current memory isolation behavior adopted by
+    /// Prestissimo.
     ///
     /// TODO: deprecate this legacy policy with kShared policy for Prestissimo
     /// later.
-    kFixed,
+    kNoOp,
     /// Used to achieve dynamic memory sharing among running queries. When a
     /// memory pool exceeds its current memory capacity, the arbitrator tries to
     /// grow its capacity by reclaim the overused memory from the query with
@@ -61,12 +62,20 @@ class MemoryArbitrator {
   };
 
   struct Config {
-    Kind kind;
+    Kind kind{Kind::kNoOp};
+
     /// The total memory capacity in bytes of all the running queries.
     ///
     /// NOTE: this should be same capacity as we set in the associated memory
     /// manager.
     int64_t capacity;
+
+    /// The initial memory capacity to reserve for a newly created memory pool.
+    uint64_t initMemoryPoolCapacity{128 << 20};
+
+    /// The minimal memory capacity to transfer out of or into a memory pool
+    /// during the memory arbitration.
+    uint64_t minMemoryPoolCapacityTransferSize{32 << 20};
   };
   static std::unique_ptr<MemoryArbitrator> create(const Config& config);
 
@@ -77,21 +86,22 @@ class MemoryArbitrator {
 
   virtual ~MemoryArbitrator() = default;
 
-  /// Indicates if this arbitrator allows to grow a memory pool's capacity or
-  /// not.
-  virtual bool canGrow() = 0;
-
   /// Invoked by the memory manager to reserve up to 'bytes' memory capacity
   /// without actually freeing memory for a newly created memory pool. The
-  /// function returns the actual reserved memory capacity in bytes.
+  /// function will set the memory pool's capacity based on the actually
+  /// reserved memory.
   ///
   /// NOTE: the memory arbitrator can decides how much memory capacity is
   /// actually reserved for a newly created memory pool. The latter can trigger
   /// the memory arbitration on demand when actual memory allocation happens.
-  virtual int64_t reserveMemory(int64_t bytes) = 0;
+  virtual void reserveMemory(MemoryPool* pool, uint64_t bytes) = 0;
+
+  /// Invoked by the memory manager to return back all the reserved memory
+  /// capacity of a destroying memory pool.
+  virtual void releaseMemory(MemoryPool* pool) = 0;
 
   /// Invoked by the memory manager to grow a memory pool's capacity.
-  /// 'requestor' is the memory pool to request to grow. 'candidates' is a list
+  /// 'pool' is the memory pool to request to grow. 'candidates' is a list
   /// of query root pools to participate in the memory arbitration. The memory
   /// arbitrator picks up a number of pools to either shrink its memory capacity
   /// without actually freeing memory or reclaim its used memory to free up
@@ -103,13 +113,9 @@ class MemoryArbitrator {
   /// NOTE: the memory manager keeps 'candidates' valid during the arbitration
   /// processing.
   virtual bool growMemory(
-      MemoryPool* requestor,
-      const std::vector<MemoryPool*>& candidates,
+      MemoryPool* pool,
+      const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
       uint64_t targetBytes) = 0;
-
-  /// Invoked by the memory manager to return back the reserved memory capacity
-  /// of a destroying memory pool.
-  virtual void releaseMemory(MemoryPool* releasor) = 0;
 
   /// The internal execution stats of the memory arbitrator.
   struct Stats {
@@ -117,9 +123,6 @@ class MemoryArbitrator {
     uint64_t numRequests{0};
     /// The number of arbitration request failures.
     uint64_t numFailures{0};
-    /// The number of arbitration requests that has been queued waiting for
-    /// execution.
-    uint64_t numQueuedRequests{0};
     /// The sum of all the arbitration request queue times in microseconds.
     uint64_t queueTimeUs{0};
     /// The sum of all the arbitration run times in microseconds.
@@ -129,6 +132,10 @@ class MemoryArbitrator {
     uint64_t numShrunkBytes{0};
     /// The amount of memory bytes freed by memory reclamation.
     uint64_t numReclaimedBytes{0};
+    /// The max memory capacity in bytes.
+    uint64_t maxCapacityBytes{0};
+    /// The free memory capacity in bytes.
+    uint64_t freeCapacityBytes{0};
 
     /// Returns the debug string of this stats.
     std::string toString() const;
@@ -140,12 +147,16 @@ class MemoryArbitrator {
 
  protected:
   explicit MemoryArbitrator(const Config& config)
-      : kind_(config.kind), capacity_(config.capacity) {}
+      : kind_(config.kind),
+        capacity_(config.capacity),
+        initMemoryPoolCapacity_(config.initMemoryPoolCapacity),
+        minMemoryPoolCapacityTransferSize_(
+            config.minMemoryPoolCapacityTransferSize) {}
 
   const Kind kind_;
   const uint64_t capacity_;
-
-  Stats stats_;
+  const uint64_t initMemoryPoolCapacity_;
+  const uint64_t minMemoryPoolCapacityTransferSize_;
 };
 
 std::ostream& operator<<(std::ostream& out, const MemoryArbitrator::Kind& kind);
@@ -191,15 +202,13 @@ class MemoryReclaimer {
   /// enterArbitration has been called.
   virtual void leaveArbitration() noexcept {}
 
-  /// Invoked by the memory arbitrator to check if the associated memory 'pool'
-  /// can reclaim memory or not. As for now, only spillable operator's memory
-  /// pool can reclaim memory. We will support to reclaim memory from partial
-  /// aggregation and persistent shuffle writer by flushing the buffered data.
-  virtual bool canReclaim(const MemoryPool& pool) const;
-
   /// Invoked by the memory arbitrator to get the amount of memory bytes that
-  /// can be reclaimed from 'pool'.
-  virtual uint64_t reclaimableBytes(const MemoryPool& pool) const;
+  /// can be reclaimed from 'pool'. The function returns true if 'pool' is
+  /// reclaimable and returns the estimated reclaimable bytes in
+  /// 'reclaimableBytes'.
+  virtual bool reclaimableBytes(
+      const MemoryPool& pool,
+      uint64_t& reclaimableBytes) const;
 
   /// Invoked by the memory arbitrator to reclaim from memory 'pool' with
   /// specified 'targetBytes'. It is expected to reclaim at least that amount of

@@ -79,6 +79,9 @@ class IMemoryManager {
 
     /// Specifies the backing memory allocator.
     MemoryAllocator* allocator{MemoryAllocator::getInstance()};
+
+    /// Specifies the memory arbitration config.
+    MemoryArbitrator::Config arbitratorConfig{};
   };
 
   virtual ~IMemoryManager() = default;
@@ -91,13 +94,13 @@ class IMemoryManager {
   /// Returns the memory allocation alignment of this memory manager.
   virtual uint16_t alignment() const = 0;
 
-  /// Creates a root memory pool with specified 'name' and 'maxBytes'. If 'name'
+  /// Creates a root memory pool with specified 'name' and 'capacity'. If 'name'
   /// is missing, the memory manager generates a default name internally to
   /// ensure uniqueness. If 'trackUsage' is true, then set the memory usage
   /// tracker in the created root memory pool.
   virtual std::shared_ptr<MemoryPool> addRootPool(
       const std::string& name = "",
-      int64_t maxBytes = kMaxMemory,
+      int64_t capacity = kMaxMemory,
       bool trackUsage = true,
       std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) = 0;
 
@@ -111,6 +114,10 @@ class IMemoryManager {
       const std::string& name = "",
       bool threadSafe = true,
       std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) = 0;
+
+  /// Invoked to grows a memory pool's free capacity with at least
+  /// 'incrementBytes'. The function returns true on success, otherwise false.
+  virtual bool growPool(MemoryPool* pool, uint64_t incrementBytes) = 0;
 
   /// Returns the default leaf memory pool for direct memory allocation use. The
   /// pool is created as the child of the memory manager's default root memory
@@ -186,6 +193,8 @@ class MemoryManager final : public IMemoryManager {
       bool threadSafe = true,
       std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) final;
 
+  bool growPool(MemoryPool* pool, uint64_t incrementBytes) final;
+
   MemoryPool& deprecatedLeafPool() final;
 
   int64_t getTotalBytes() const final;
@@ -195,9 +204,11 @@ class MemoryManager final : public IMemoryManager {
 
   size_t numPools() const final;
 
-  std::string toString() const final;
-
   MemoryAllocator& getAllocator();
+
+  MemoryArbitrator* arbitrator();
+
+  std::string toString() const final;
 
   /// Returns the memory manger's internal default root memory pool for testing
   /// purpose.
@@ -208,8 +219,14 @@ class MemoryManager final : public IMemoryManager {
  private:
   void dropPool(MemoryPool* pool);
 
-  const std::shared_ptr<MemoryAllocator> allocator_;
+  //  Returns the shared references to all the alive memory pools in 'pools_'.
+  std::vector<std::shared_ptr<MemoryPool>> getAlivePools() const;
+  std::vector<std::shared_ptr<MemoryPool>> getAlivePoolsLocked() const;
+
   const int64_t memoryQuota_;
+  const std::shared_ptr<MemoryAllocator> allocator_;
+  // If not null, used to arbitrate the memory capacity among 'pools_'.
+  const std::unique_ptr<MemoryArbitrator> arbitrator_;
   const uint16_t alignment_;
   const bool checkUsageLeak_;
   // The destruction callback set for the allocated  root memory pools which are
@@ -225,7 +242,7 @@ class MemoryManager final : public IMemoryManager {
 
   mutable folly::SharedMutex mutex_;
   std::atomic_long totalBytes_{0};
-  std::vector<MemoryPool*> pools_;
+  std::unordered_map<std::string, std::weak_ptr<MemoryPool>> pools_;
 };
 
 IMemoryManager& defaultMemoryManager();

@@ -37,14 +37,13 @@ TEST_F(MemoryArbitrationTest, stats) {
   MemoryArbitrator::Stats stats;
   stats.numRequests = 2;
   stats.numFailures = 100;
-  stats.numQueuedRequests = 1000;
   stats.queueTimeUs = 230'000;
   stats.arbitrationTimeUs = 1020;
   stats.numShrunkBytes = 100'000'000;
   stats.numReclaimedBytes = 10'000;
   ASSERT_EQ(
       stats.toString(),
-      "STATS[numRequests 2 numFailures 100 numQueuedRequests 1000 queueTime 230.00ms arbitrationTime 1.02ms shrunkMemory 95.37MB reclaimedMemory 9.77KB]");
+      "STATS[numRequests 2 numFailures 100 queueTime 230.00ms arbitrationTime 1.02ms shrunkMemory 95.37MB reclaimedMemory 9.77KB maxCapacity 0B freeCapacity 0B]");
 }
 
 TEST_F(MemoryArbitrationTest, kind) {
@@ -56,7 +55,7 @@ TEST_F(MemoryArbitrationTest, kind) {
       return fmt::format("kind:{}, expectedStr:{}", kind, expectedKindStr);
     }
   } testSettings[] = {
-      {MemoryArbitrator::Kind::kFixed, "FIXED"},
+      {MemoryArbitrator::Kind::kNoOp, "NOOP"},
       {MemoryArbitrator::Kind::kShared, "SHARED"},
       {static_cast<MemoryArbitrator::Kind>(100), "UNKNOWN: 100"}};
 
@@ -68,15 +67,22 @@ TEST_F(MemoryArbitrationTest, kind) {
 }
 
 TEST_F(MemoryArbitrationTest, create) {
-  std::vector<MemoryArbitrator::Kind> kinds;
-  kinds.push_back(MemoryArbitrator::Kind::kFixed);
-  kinds.push_back(MemoryArbitrator::Kind::kShared);
-  kinds.push_back(static_cast<MemoryArbitrator::Kind>(100));
+  const std::vector<MemoryArbitrator::Kind> kinds = {
+      MemoryArbitrator::Kind::kNoOp,
+      MemoryArbitrator::Kind::kShared,
+      static_cast<MemoryArbitrator::Kind>(100)};
   for (const auto& kind : kinds) {
     MemoryArbitrator::Config config;
     config.capacity = 1 * GB;
     config.kind = kind;
-    VELOX_ASSERT_THROW(MemoryArbitrator::create(config), "");
+    if (kind == MemoryArbitrator::Kind::kNoOp) {
+      ASSERT_EQ(MemoryArbitrator::create(config), nullptr);
+    } else if (kind == MemoryArbitrator::Kind::kShared) {
+      auto arbitrator = MemoryArbitrator::create(config);
+      ASSERT_EQ(arbitrator->kind(), kind);
+    } else {
+      VELOX_ASSERT_THROW(MemoryArbitrator::create(config), "");
+    }
   }
 }
 
@@ -161,8 +167,9 @@ TEST_F(MemoryReclaimerTest, default) {
       }
     }
     for (auto& pool : pools) {
-      ASSERT_FALSE(pool->canReclaim());
-      ASSERT_EQ(pool->reclaimableBytes(), 0);
+      uint64_t reclaimableBytes;
+      ASSERT_FALSE(pool->reclaimableBytes(reclaimableBytes));
+      ASSERT_EQ(reclaimableBytes, 0);
       ASSERT_EQ(pool->reclaim(0), 0);
       ASSERT_EQ(pool->reclaim(100), 0);
       ASSERT_EQ(pool->reclaim(kMaxMemory), 0);
@@ -182,17 +189,15 @@ class MockLeafMemoryReclaimer : public MemoryReclaimer {
     VELOX_CHECK(allocations_.empty());
   }
 
-  bool canReclaim(const MemoryPool& pool) const override {
+  bool reclaimableBytes(const MemoryPool& pool, uint64_t& bytes)
+      const override {
     VELOX_CHECK_EQ(pool.name(), pool_->name());
+    bytes = reclaimableBytes();
     return true;
   }
 
-  uint64_t reclaimableBytes(const MemoryPool& pool) const override {
-    VELOX_CHECK_EQ(pool.name(), pool_->name());
-    return reclaimableBytes();
-  }
-
-  uint64_t reclaim(MemoryPool* /*unused*/, uint64_t targetBytes) override {
+  uint64_t reclaim(MemoryPool* /*unused*/, uint64_t targetBytes) noexcept
+      override {
     std::lock_guard<std::mutex> l(mu_);
     uint64_t reclaimedBytes{0};
     while (!allocations_.empty() &&
@@ -274,24 +279,26 @@ TEST_F(MemoryReclaimerTest, mockReclaim) {
   ASSERT_EQ(
       numGrandchildren * numChildren * numAllocationsPerLeaf * allocBytes,
       totalUsedBytes);
-  ASSERT_EQ(root->reclaimableBytes(), totalUsedBytes);
-  ASSERT_TRUE(root->canReclaim());
+  uint64_t reclaimableBytes;
+  ASSERT_TRUE(root->reclaimableBytes(reclaimableBytes));
+  ASSERT_EQ(reclaimableBytes, totalUsedBytes);
   const int numReclaims = 5;
   const int numBytesToReclaim = allocBytes * 3;
   for (int iter = 0; iter < numReclaims; ++iter) {
     const auto reclaimedBytes = root->reclaim(numBytesToReclaim);
     ASSERT_EQ(reclaimedBytes, numBytesToReclaim);
-    ASSERT_TRUE(root->canReclaim());
-    ASSERT_EQ(root->reclaimableBytes(), totalUsedBytes);
+    ASSERT_TRUE(root->reclaimableBytes(reclaimableBytes));
+    ASSERT_EQ(reclaimableBytes, totalUsedBytes);
   }
-  ASSERT_EQ(totalUsedBytes, root->reclaimableBytes());
+  ASSERT_TRUE(root->reclaimableBytes(reclaimableBytes));
+  ASSERT_EQ(totalUsedBytes, reclaimableBytes);
   ASSERT_EQ(root->reclaim(allocBytes + 1), 2 * allocBytes);
   ASSERT_EQ(root->reclaim(allocBytes - 1), allocBytes);
   const uint64_t expectedReclaimedBytes = totalUsedBytes;
   ASSERT_EQ(root->reclaim(0), expectedReclaimedBytes);
   ASSERT_EQ(totalUsedBytes, 0);
-  ASSERT_TRUE(root->canReclaim());
-  ASSERT_EQ(root->reclaimableBytes(), 0);
+  ASSERT_TRUE(root->reclaimableBytes(reclaimableBytes));
+  ASSERT_EQ(reclaimableBytes, 0);
 }
 
 TEST_F(MemoryReclaimerTest, mockReclaimMoreThanAvailable) {
@@ -320,13 +327,14 @@ TEST_F(MemoryReclaimerTest, mockReclaimMoreThanAvailable) {
     }
   }
   ASSERT_EQ(numChildren * numAllocationsPerLeaf * allocBytes, totalUsedBytes);
-  ASSERT_EQ(root->reclaimableBytes(), totalUsedBytes);
-  ASSERT_TRUE(root->canReclaim());
+  uint64_t reclaimableBytes;
+  ASSERT_TRUE(root->reclaimableBytes(reclaimableBytes));
+  ASSERT_EQ(reclaimableBytes, totalUsedBytes);
   const uint64_t expectedReclaimedBytes = totalUsedBytes;
   ASSERT_EQ(root->reclaim(totalUsedBytes + 100), expectedReclaimedBytes);
   ASSERT_EQ(totalUsedBytes, 0);
-  ASSERT_TRUE(root->canReclaim());
-  ASSERT_EQ(root->reclaimableBytes(), 0);
+  ASSERT_TRUE(root->reclaimableBytes(reclaimableBytes));
+  ASSERT_EQ(reclaimableBytes, 0);
 }
 
 TEST_F(MemoryReclaimerTest, concurrentRandomMockReclaims) {
@@ -405,13 +413,14 @@ TEST_F(MemoryReclaimerTest, concurrentRandomMockReclaims) {
   }
   reclaimerThread.join();
 
-  ASSERT_TRUE(root->canReclaim());
-  ASSERT_EQ(root->reclaimableBytes(), totalUsedBytes);
+  uint64_t reclaimableBytes;
+  ASSERT_TRUE(root->reclaimableBytes(reclaimableBytes));
+  ASSERT_EQ(reclaimableBytes, totalUsedBytes);
 
   root->reclaim(0);
 
-  ASSERT_TRUE(root->canReclaim());
-  ASSERT_EQ(root->reclaimableBytes(), 0);
+  ASSERT_TRUE(root->reclaimableBytes(reclaimableBytes));
+  ASSERT_EQ(reclaimableBytes, 0);
   ASSERT_EQ(totalUsedBytes, 0);
 }
 } // namespace facebook::velox::memory

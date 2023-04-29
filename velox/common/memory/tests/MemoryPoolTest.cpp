@@ -1945,19 +1945,137 @@ TEST(MemoryPoolTest, visitChildren) {
       ASSERT_EQ(sum, stopSum);
     }
   }
+
+  // Verify there is no deadlock when access back its parent node.
+  root->visitChildren([&](MemoryPool* /*unused*/) {
+    auto child = root->addAggregateChild("DeadlockDetection");
+    return true;
+  });
 }
 
-TEST_P(MemoryPoolTest, shrinkAPIs) {
+TEST_P(MemoryPoolTest, shrinkAndGrowAPIs) {
   MemoryManager manager;
-  std::vector<bool> isLeafs = {true, false};
-  for (const auto isLeaf : isLeafs) {
-    SCOPED_TRACE(fmt::format("is leaf {}", isLeaf));
-    auto pool = isLeaf ? manager.addLeafPool("shrinkAPIs")
-                       : manager.addRootPool("shrinkAPIs");
-    auto* poolPtr = dynamic_cast<MemoryPoolImpl*>(pool.get());
-    VELOX_ASSERT_THROW(poolPtr->freeBytes(), "");
-    VELOX_ASSERT_THROW(poolPtr->shrink(0), "");
-    VELOX_ASSERT_THROW(poolPtr->shrink(100), "");
+  std::vector<uint64_t> capacities = {kMaxMemory, 0, 128 * MB};
+  const int allocationSize = 8 * MB;
+  for (const auto& capacity : capacities) {
+    SCOPED_TRACE(fmt::format("capacity {}", succinctBytes(capacity)));
+    auto rootPool = manager.addRootPool("shrinkAPIs.Root", capacity);
+    auto aggregationPool = rootPool->addAggregateChild("shrinkAPIs.Aggregate");
+    auto leafPool = aggregationPool->addLeafChild("shrinkAPIs");
+    ASSERT_EQ(rootPool->capacity(), capacity);
+    ASSERT_EQ(leafPool->capacity(), capacity);
+    ASSERT_EQ(aggregationPool->capacity(), capacity);
+    if (capacity == 0 || capacity == kMaxMemory) {
+      ASSERT_EQ(rootPool->freeBytes(), 0);
+      ASSERT_EQ(leafPool->freeBytes(), 0);
+      ASSERT_EQ(aggregationPool->freeBytes(), 0);
+    } else {
+      ASSERT_EQ(rootPool->freeBytes(), capacity);
+      ASSERT_EQ(leafPool->freeBytes(), capacity);
+      ASSERT_EQ(aggregationPool->freeBytes(), capacity);
+    }
+    if (capacity == 0) {
+      ASSERT_ANY_THROW(leafPool->allocate(allocationSize));
+      ASSERT_EQ(leafPool->shrink(0), 0);
+      ASSERT_EQ(leafPool->shrink(allocationSize), 0);
+      continue;
+    }
+    void* buffer = leafPool->allocate(allocationSize);
+    if (capacity == kMaxMemory) {
+      ASSERT_EQ(rootPool->freeBytes(), 0);
+      ASSERT_EQ(leafPool->freeBytes(), 0);
+      ASSERT_EQ(aggregationPool->freeBytes(), 0);
+      ASSERT_ANY_THROW(leafPool->shrink(0));
+      ASSERT_ANY_THROW(leafPool->shrink(allocationSize));
+      ASSERT_ANY_THROW(leafPool->shrink(kMaxMemory));
+      ASSERT_ANY_THROW(aggregationPool->shrink(0));
+      ASSERT_ANY_THROW(aggregationPool->shrink(allocationSize));
+      ASSERT_ANY_THROW(aggregationPool->shrink(kMaxMemory));
+      ASSERT_ANY_THROW(rootPool->shrink(0));
+      ASSERT_ANY_THROW(rootPool->shrink(allocationSize));
+      ASSERT_ANY_THROW(rootPool->shrink(kMaxMemory));
+      leafPool->free(buffer, allocationSize);
+      ASSERT_ANY_THROW(leafPool->grow(allocationSize));
+      ASSERT_ANY_THROW(aggregationPool->grow(allocationSize));
+      ASSERT_ANY_THROW(rootPool->grow(allocationSize));
+      continue;
+    }
+    ASSERT_EQ(rootPool->freeBytes(), capacity - allocationSize);
+    ASSERT_EQ(leafPool->freeBytes(), capacity - allocationSize);
+    ASSERT_EQ(aggregationPool->freeBytes(), capacity - allocationSize);
+
+    ASSERT_EQ(leafPool->shrink(allocationSize), allocationSize);
+
+    ASSERT_EQ(leafPool->capacity(), capacity - allocationSize);
+    ASSERT_EQ(aggregationPool->capacity(), capacity - allocationSize);
+    ASSERT_EQ(rootPool->capacity(), capacity - allocationSize);
+
+    ASSERT_EQ(leafPool->freeBytes(), capacity - 2 * allocationSize);
+    ASSERT_EQ(aggregationPool->freeBytes(), capacity - 2 * allocationSize);
+    ASSERT_EQ(rootPool->freeBytes(), capacity - 2 * allocationSize);
+
+    ASSERT_EQ(aggregationPool->shrink(), capacity - 2 * allocationSize);
+    ASSERT_EQ(leafPool->capacity(), allocationSize);
+    ASSERT_EQ(aggregationPool->capacity(), allocationSize);
+    ASSERT_EQ(rootPool->capacity(), allocationSize);
+
+    ASSERT_EQ(leafPool->freeBytes(), 0);
+    ASSERT_EQ(aggregationPool->freeBytes(), 0);
+    ASSERT_EQ(rootPool->freeBytes(), 0);
+
+    ASSERT_EQ(leafPool->shrink(), 0);
+    ASSERT_EQ(aggregationPool->shrink(), 0);
+    ASSERT_EQ(rootPool->shrink(), 0);
+
+    leafPool->free(buffer, allocationSize);
+
+    ASSERT_EQ(leafPool->capacity(), allocationSize);
+    ASSERT_EQ(aggregationPool->capacity(), allocationSize);
+    ASSERT_EQ(rootPool->capacity(), allocationSize);
+
+    ASSERT_EQ(leafPool->freeBytes(), allocationSize);
+    ASSERT_EQ(aggregationPool->freeBytes(), allocationSize);
+    ASSERT_EQ(rootPool->freeBytes(), allocationSize);
+
+    ASSERT_EQ(leafPool->shrink(allocationSize / 2), allocationSize / 2);
+    ASSERT_EQ(leafPool->capacity(), allocationSize / 2);
+    ASSERT_EQ(aggregationPool->capacity(), allocationSize / 2);
+    ASSERT_EQ(rootPool->capacity(), allocationSize / 2);
+
+    ASSERT_EQ(leafPool->shrink(), allocationSize / 2);
+    ASSERT_EQ(aggregationPool->shrink(), 0);
+    ASSERT_EQ(rootPool->shrink(), 0);
+
+    ASSERT_EQ(leafPool->capacity(), 0);
+    ASSERT_EQ(aggregationPool->capacity(), 0);
+    ASSERT_EQ(rootPool->capacity(), 0);
+
+    ASSERT_EQ(leafPool->freeBytes(), 0);
+    ASSERT_EQ(aggregationPool->freeBytes(), 0);
+    ASSERT_EQ(rootPool->freeBytes(), 0);
+
+    ASSERT_EQ(leafPool->shrink(allocationSize), 0);
+    ASSERT_EQ(aggregationPool->shrink(allocationSize), 0);
+    ASSERT_EQ(rootPool->shrink(allocationSize), 0);
+
+    const int step = 10;
+    for (int i = 0; i < step; ++i) {
+      const int expectedCapacity = (i + 1) * allocationSize;
+      if (i % 3 == 0) {
+        ASSERT_EQ(leafPool->grow(allocationSize), expectedCapacity);
+      } else if (i % 3 == 1) {
+        ASSERT_EQ(aggregationPool->grow(allocationSize), expectedCapacity);
+      } else {
+        ASSERT_EQ(rootPool->grow(allocationSize), expectedCapacity);
+      }
+      ASSERT_EQ(leafPool->capacity(), expectedCapacity);
+      ASSERT_EQ(aggregationPool->capacity(), expectedCapacity);
+      ASSERT_EQ(rootPool->capacity(), expectedCapacity);
+
+      ASSERT_EQ(leafPool->freeBytes(), expectedCapacity);
+      ASSERT_EQ(aggregationPool->freeBytes(), expectedCapacity);
+      ASSERT_EQ(rootPool->freeBytes(), expectedCapacity);
+    }
   }
 }
 
@@ -2038,8 +2156,9 @@ TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
       }
     }
     for (auto& pool : pools) {
-      ASSERT_FALSE(pool->canReclaim());
-      ASSERT_EQ(pool->reclaimableBytes(), 0);
+      uint64_t reclaimableBytes{100};
+      ASSERT_FALSE(pool->reclaimableBytes(reclaimableBytes));
+      ASSERT_EQ(reclaimableBytes, 0);
       ASSERT_EQ(pool->reclaim(0), 0);
       ASSERT_EQ(pool->reclaim(100), 0);
       ASSERT_EQ(pool->reclaim(kMaxMemory), 0);
@@ -2437,73 +2556,6 @@ bool grow(int64_t size, int64_t hardLimit, MemoryPool& pool) {
   // We set the new limit to be the requested size.
   static_cast<MemoryPoolImpl*>(&pool)->testingSetCapacity(current + size);
   return true;
-}
-
-DEBUG_ONLY_TEST_P(MemoryPoolTest, grow) {
-  constexpr int64_t kMaxSize = 1 << 30; // 1GB
-  constexpr int64_t kMB = 1 << 20;
-  auto manager = getMemoryManager(kMaxSize);
-  auto root = manager->addRootPool("grow", 10 * kMB);
-
-  auto child = root->addLeafChild("grow", isLeafThreadSafe_);
-  static_cast<MemoryPoolImpl*>(child.get())->testingSetCapacity(5 * kMB);
-  int64_t rootLimit = 100 * kMB;
-  root->setGrowCallback([&](int64_t size, MemoryPool& pool) {
-    return grow(size, rootLimit, pool);
-  });
-
-  int64_t childLimit = 150 * kMB;
-  ASSERT_THROW(
-      child->setGrowCallback([&](int64_t size, MemoryPool& pool) {
-        return grow(size, childLimit, pool);
-      }),
-      VeloxRuntimeError);
-
-  std::vector<Buffer> buffers;
-  {
-    buffers.emplace_back(Buffer{child->allocate(10 * kMB), 10 * kMB});
-    ASSERT_EQ(child->stats().numCollisions, 0);
-  }
-  {
-    std::atomic<bool> injectOnce{true};
-    SCOPED_TESTVALUE_SET(
-        "facebook::velox::memory::MemoryPoolImpl::incrementReservationThreadSafe::AfterGrowCallback",
-        std::function<void(MemoryPool*)>([&](MemoryPool* /*unused*/) {
-          if (injectOnce.exchange(false)) {
-            buffers.emplace_back(Buffer{child->allocate(10 * kMB), 10 * kMB});
-          }
-        }));
-    buffers.emplace_back(Buffer{child->allocate(10 * kMB), 10 * kMB});
-    ASSERT_EQ(child->stats().numCollisions, 1);
-  }
-
-  ASSERT_EQ(root->getCurrentBytes(), 32 * kMB);
-  ASSERT_EQ(child->capacity(), 32 * kMB);
-  ASSERT_THROW(child->allocate(100 * kMB), VeloxRuntimeError);
-  ASSERT_EQ(child->getCurrentBytes(), 30 * kMB);
-  // The parent failed to increase limit, the child'd limit should be unchanged.
-  ASSERT_EQ(child->capacity(), 32 * kMB);
-  ASSERT_EQ(root->capacity(), 32 * kMB);
-  ASSERT_THROW(child->allocate(100 * kMB);, VeloxException);
-  ASSERT_EQ(child->getCurrentBytes(), 30 * kMB);
-
-  // We pass the parent limit but fail te child limit. leaves a raised
-  // limit on the parent. Rolling back the increment of parent limit
-  // is not deterministic if other threads are running at the same
-  // time. Lowering a tracker's limits requires stopping the threads
-  // that may be using the tracker.  Expected uses have one level of
-  // trackers with a limit but we cover this for documentation.
-  rootLimit = 192 * kMB;
-  buffers.emplace_back(Buffer{child->allocate(160 * kMB), 160 * kMB});
-  ASSERT_EQ(child->getCurrentBytes(), 190 * kMB);
-  ASSERT_EQ(child->reservedBytes(), 192 * kMB);
-  ASSERT_EQ(root->getCurrentBytes(), 192 * kMB);
-  // The parent limit got set to 170, rounded up to 176.
-  ASSERT_EQ(root->capacity(), rootLimit);
-  ASSERT_EQ(child->capacity(), rootLimit);
-  for (const auto& buffer : buffers) {
-    child->free(buffer.data, buffer.length);
-  }
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

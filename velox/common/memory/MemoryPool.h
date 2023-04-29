@@ -286,14 +286,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Returns the capacity from the root memory pool.
   virtual int64_t capacity() const = 0;
 
-  /// TODO: deprecate this after the integration with memory arbitrator.
-  using GrowCallback = std::function<bool(int64_t size, MemoryPool& pool)>;
-  virtual void setGrowCallback(GrowCallback func) {
-    VELOX_CHECK_NULL(
-        parent_, "Only root memory pool allows to set memory grow callback");
-    growCallback_ = func;
-  }
-
   /// Returns the currently used memory in bytes of this memory pool.
   virtual int64_t getCurrentBytes() const = 0;
 
@@ -353,17 +345,14 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Invoked by the memory arbitrator to leave memory arbitration processing.
   /// It is a noop if 'reclaimer_' is not set, otherwise invoke the reclaimer's
   /// corresponding method.
-  virtual void leaveArbitration();
-
-  /// Indicates whether we can reclaim memory from this memory pool or not.
-  /// The function returns false if 'reclaimer_' is not set, otherwise invoke
-  /// the reclaimer's corresponding method.
-  virtual bool canReclaim() const;
+  virtual void leaveArbitration() noexcept;
 
   /// Returns how many bytes is reclaimable from this memory pool. The function
-  /// returns zero if 'reclaimer_' is not set, otherwise invoke the reclaimer's
-  /// corresponding methods.
-  virtual uint64_t reclaimableBytes() const;
+  /// returns true if this memory pool is reclaimable, and returns the estimated
+  /// reclaimable bytes in 'reclaimableBytes'. If 'reclaimer_' is not set, the
+  /// function returns false, otherwise invoke the reclaimer's corresponding
+  /// method.
+  virtual bool reclaimableBytes(uint64_t& reclaimableBytes) const;
 
   /// Invoked by the memory arbitrator to reclaim memory from this memory pool
   /// with specified reclaim target bytes. If 'targetBytes' is zero, then it
@@ -445,14 +434,13 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   const bool threadSafe_;
   const std::shared_ptr<MemoryReclaimer> reclaimer_;
   const bool checkUsageLeak_;
-  GrowCallback growCallback_{};
 
-  /// Protects 'children_'.
+  // Protects 'children_'.
   mutable folly::SharedMutex childrenMutex_;
   // NOTE: we use raw pointer instead of weak pointer here to minimize
   // visitChildren() cost as we don't have to upgrade the weak pointer and copy
   // out the upgraded shared pointers.git
-  std::unordered_map<std::string, MemoryPool*> children_;
+  std::unordered_map<std::string, std::weak_ptr<MemoryPool>> children_;
 };
 
 std::ostream& operator<<(std::ostream& out, MemoryPool::Kind kind);
@@ -523,17 +511,11 @@ class MemoryPoolImpl : public MemoryPool {
 
   void release() override;
 
-  uint64_t freeBytes() const override {
-    VELOX_NYI("{} unsupported", __FUNCTION__);
-  }
+  uint64_t freeBytes() const override;
 
-  uint64_t shrink(uint64_t targetBytes = 0) override {
-    VELOX_NYI("{} unsupported", __FUNCTION__);
-  }
+  uint64_t shrink(uint64_t targetBytes = 0) override;
 
-  uint64_t grow(uint64_t bytes) override {
-    VELOX_NYI("{} unsupported", __FUNCTION__);
-  }
+  uint64_t grow(uint64_t bytes) override;
 
   std::string toString() const override {
     std::lock_guard<std::mutex> l(mutex_);
@@ -758,9 +740,10 @@ class MemoryPoolImpl : public MemoryPool {
       uint64_t incrementBytes);
 
   FOLLY_ALWAYS_INLINE void sanityCheckLocked() const {
-    if ((reservationBytes_ < usedReservationBytes_) ||
-        (reservationBytes_ < minReservationBytes_) ||
-        (usedReservationBytes_ < 0)) {
+    if (FOLLY_UNLIKELY(
+            (reservationBytes_ < usedReservationBytes_) ||
+            (reservationBytes_ < minReservationBytes_) ||
+            (usedReservationBytes_ < 0))) {
       VELOX_FAIL("Bad memory usage track state: {}", toStringLocked());
     }
   }

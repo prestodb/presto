@@ -44,6 +44,7 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMaxAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().getAlignment(), manager.alignment());
     ASSERT_EQ(manager.deprecatedLeafPool().getAlignment(), manager.alignment());
+    ASSERT_EQ(manager.arbitrator(), nullptr);
   }
   {
     MemoryManager manager{{.capacity = 8L * 1024 * 1024}};
@@ -65,16 +66,25 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(0, manager.getTotalBytes());
   }
   { ASSERT_ANY_THROW(MemoryManager manager{{.capacity = -1}}); }
+  {
+    IMemoryManager::Options options;
+    options.capacity = 32L << 30;
+    options.arbitratorConfig.kind = MemoryArbitrator::Kind::kShared;
+    // The arbitrator capacity will be overridden by the memory manager's
+    // capacity.
+    options.arbitratorConfig.capacity = folly::Random::rand32();
+    MemoryManager manager{options};
+    auto* arbitrator = manager.arbitrator();
+    ASSERT_EQ(arbitrator->kind(), MemoryArbitrator::Kind::kShared);
+    ASSERT_EQ(arbitrator->stats().maxCapacityBytes, 32L << 30);
+  }
 }
 
 TEST(MemoryManagerTest, addPool) {
   MemoryManager manager{};
 
   auto rootPool = manager.addRootPool("duplicateRootPool", kMaxMemory);
-  {
-    // TODO: add to support avoid duplicate named root pool.
-    auto duplicateRoot = manager.addRootPool("duplicateRootPool", kMaxMemory);
-  }
+  { ASSERT_ANY_THROW(manager.addRootPool("duplicateRootPool", kMaxMemory)); }
   auto threadSafeLeafPool = manager.addLeafPool("leafPool", true);
   auto nonThreadSafeLeafPool = manager.addLeafPool("duplicateLeafPool", true);
   { ASSERT_ANY_THROW(manager.addLeafPool("duplicateLeafPool")); }
