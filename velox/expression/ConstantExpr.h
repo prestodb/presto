@@ -46,6 +46,10 @@ class ConstantExpr : public SpecialForm {
     return sharedConstantValue_;
   }
 
+  VectorPtr& mutableValue() {
+    return sharedConstantValue_;
+  }
+
   std::string toString(bool recursive = true) const override;
 
   std::string toSql(
