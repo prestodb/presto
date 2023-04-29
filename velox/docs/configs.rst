@@ -70,10 +70,6 @@ Spilling
      - boolean
      - false
      - Spill memory to disk to avoid exceeding memory limits for the query.
-   * - spiller-spill-path
-     - string
-     - /tmp
-     - Directory where spilled content is written.
    * - aggregation_spill_enabled
      - boolean
      - false

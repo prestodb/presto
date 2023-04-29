@@ -277,11 +277,6 @@ For storage systems that support time to live (TTL), we can leverage that
 feature to implement the spill file garbage collection. If not, we might need
 to build a lightweight garbage collection (GC) service running out of band.
 
-Configuration property :doc:`spiller-spill-path <../configs>` sets the base path for spilling. It
-can be a directory path on the underlying storage system to store all the
-generated spill files. The spill file name is built by concatenating query task
-id, driver id, and the operator id together which is unique within a query.
-
 .. code-block:: c++
 
   std::string makeOperatorSpillPath(
