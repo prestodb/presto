@@ -142,6 +142,10 @@ TypePtr typeFromString(const std::string& typeName) {
     return TIMESTAMP_WITH_TIME_ZONE();
   }
 
+  if (upper == INTERVAL_DAY_TIME()->toString()) {
+    return INTERVAL_DAY_TIME();
+  }
+
   if (upper == HYPERLOGLOG()->toString()) {
     return HYPERLOGLOG();
   }
