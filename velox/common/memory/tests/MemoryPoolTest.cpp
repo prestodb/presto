@@ -2558,6 +2558,47 @@ bool grow(int64_t size, int64_t hardLimit, MemoryPool& pool) {
   return true;
 }
 
+DEBUG_ONLY_TEST_P(MemoryPoolTest, raceBetweenFreeAndFailedAllocation) {
+  if (!isLeafThreadSafe_) {
+    return;
+  }
+  constexpr int64_t kMaxSize = 1 << 30; // 1GB
+  constexpr int64_t kMB = 1 << 20;
+  auto manager = getMemoryManager(kMaxSize);
+  auto root = manager->addRootPool("grow", 64 * kMB);
+  auto child = root->addLeafChild("grow", isLeafThreadSafe_);
+  void* buffer1 = child->allocate(17 * kMB);
+  ASSERT_EQ(child->capacity(), 64 * kMB);
+  ASSERT_EQ(child->reservedBytes(), 20 * kMB);
+  int reservationAttempts{0};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe",
+      std::function<void(MemoryPool*)>([&](MemoryPool* /*unused*/) {
+        ++reservationAttempts;
+        // On the first reservation attempt for the second buffer allocation,
+        // trigger to free the first allocated buffer which will cause the first
+        // reservation attempt fails. The quantized reservation size of the
+        // first attempt is 16MB which requires 20MB after the first buffer
+        // free.
+        if (reservationAttempts == 1) {
+          // Inject to free the first allocated buffer while the
+          child->free(buffer1, 17 * kMB);
+          return;
+        }
+        // On the second reservation attempt for the second buffer allocation,
+        // reduce the memory pool's capacity to trigger the memory pool capacity
+        // exceeded exception error which might leave unused reservation bytes
+        // but zero used reservation if we don't do the cleanup properly.
+        if (reservationAttempts == 2) {
+          static_cast<MemoryPoolImpl*>(root.get())
+              ->testingSetCapacity(16 * kMB);
+          return;
+        }
+        VELOX_UNREACHABLE("Unexpected code path");
+      }));
+  ASSERT_ANY_THROW(child->allocate(19 * kMB));
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     MemoryPoolTestSuite,
     MemoryPoolTest,

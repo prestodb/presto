@@ -60,9 +60,7 @@ class MockQuery {
             fmt::format("RootPool-{}", poolId_++),
             capacity,
             true,
-            MemoryReclaimer::create())) {
-    rng_.seed(poolId_);
-  }
+            MemoryReclaimer::create())) {}
 
   ~MockQuery();
 
@@ -82,7 +80,7 @@ class MockQuery {
   MockMemoryOperator* memoryOp(int index = -1) {
     VELOX_CHECK(!ops_.empty());
     if (index == -1) {
-      return ops_[folly::Random::rand32(rng_) % ops_.size()].get();
+      return ops_[nextOp_++ % ops_.size()].get();
     } else {
       VELOX_CHECK_LT(index, ops_.size());
       return ops_[index].get();
@@ -92,7 +90,7 @@ class MockQuery {
  private:
   inline static std::atomic<int64_t> poolId_{0};
   const std::shared_ptr<MemoryPool> root_;
-  folly::Random::DefaultGenerator rng_;
+  std::atomic<uint64_t> nextOp_{0};
   std::vector<std::shared_ptr<MemoryPool>> pools_;
   std::vector<std::shared_ptr<MockMemoryOperator>> ops_;
 };
@@ -163,22 +161,28 @@ class MockMemoryOperator {
 
   bool reclaimableBytes(const MemoryPool& pool, uint64_t& reclaimableBytes)
       const {
-    VELOX_CHECK_EQ(pool.name(), pool_->name());
+    reclaimableBytes = 0;
     std::lock_guard<std::mutex> l(mu_);
+    if (pool_ == nullptr) {
+      return false;
+    }
+    VELOX_CHECK_EQ(pool.name(), pool_->name());
     reclaimableBytes = totalBytes_;
     return true;
   }
 
   uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes) {
-    VELOX_CHECK_EQ(pool->name(), pool_->name());
     VELOX_CHECK_GT(targetBytes, 0);
     uint64_t bytesReclaimed{0};
     std::vector<Allocation> allocationsToFree;
     {
       std::lock_guard<std::mutex> l(mu_);
+      VELOX_CHECK_NOT_NULL(pool_);
+      VELOX_CHECK_EQ(pool->name(), pool_->name());
       auto allocIt = allocations_.begin();
       while (allocIt != allocations_.end() &&
              ((targetBytes != 0) && (bytesReclaimed < targetBytes))) {
+        ++numFrees_;
         allocationsToFree.push_back({allocIt->first, allocIt->second});
         bytesReclaimed += allocIt->second;
         allocIt = allocations_.erase(allocIt);
@@ -186,13 +190,13 @@ class MockMemoryOperator {
       totalBytes_ -= bytesReclaimed;
     }
     for (const auto& allocation : allocationsToFree) {
-      ++numFrees_;
       pool_->free(allocation.buffer, allocation.size);
     }
     return pool_->shrink(targetBytes);
   }
 
   void setPool(MemoryPool* pool) {
+    std::lock_guard<std::mutex> l(mu_);
     VELOX_CHECK_NOT_NULL(pool);
     VELOX_CHECK_NULL(pool_);
     pool_ = pool;
@@ -209,8 +213,8 @@ class MockMemoryOperator {
   MockMemoryReclaimer* reclaimer();
 
  private:
-  MemoryPool* pool_;
   mutable std::mutex mu_;
+  MemoryPool* pool_{nullptr};
   uint64_t numAllocs_{0};
   uint64_t numFrees_{0};
   uint64_t totalBytes_{0};
@@ -282,9 +286,9 @@ class MockMemoryReclaimer : public MemoryReclaimer {
   const ReclaimInjectionCallback reclaimInjectCb_;
   const ArbitrationInjectionCallback arbitrationInjectCb_;
 
-  uint64_t numEnterArbitrations_{0};
-  uint64_t numLeaveArbitrations_{0};
-  uint64_t numReclaims_{0};
+  std::atomic<uint64_t> numEnterArbitrations_{0};
+  std::atomic<uint64_t> numLeaveArbitrations_{0};
+  std::atomic<uint64_t> numReclaims_{0};
   std::vector<uint64_t> reclaimTargetBytes_;
 };
 
@@ -839,7 +843,7 @@ TEST_F(MockSharedArbitrationTest, enterArbitrationException) {
   ASSERT_EQ(arbitrator_->stats().numFailures, 0);
 }
 
-TEST_F(MockSharedArbitrationTest, DISABLED_concurrentArbitrations) {
+TEST_F(MockSharedArbitrationTest, concurrentArbitrations) {
   const int numQueries = 10;
   const int numOpsPerQuery = 5;
   std::vector<std::shared_ptr<MockQuery>> queries;
@@ -885,16 +889,14 @@ TEST_F(MockSharedArbitrationTest, DISABLED_concurrentArbitrations) {
   queries.clear();
 }
 
-TEST_F(
-    MockSharedArbitrationTest,
-    DISABLED_concurrentArbitrationWithTransientRoots) {
+TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
   std::mutex mutex;
   std::vector<std::shared_ptr<MockQuery>> queries;
   queries.push_back(addQuery());
   queries.back()->addMemoryOp();
 
   const int numMemThreads = 20;
-  const int numAllocationsPerQuery = 1000;
+  const int numAllocationsPerQuery = 5000;
   std::vector<std::thread> memThreads;
   for (int i = 0; i < numMemThreads; ++i) {
     memThreads.emplace_back([&, i]() {
@@ -930,7 +932,7 @@ TEST_F(
     });
   }
 
-  const int numControlOps = 500;
+  const int numControlOps = 2000;
   const int maxNumQueries = 64;
   std::thread controlThread([&]() {
     folly::Random::DefaultGenerator rng;

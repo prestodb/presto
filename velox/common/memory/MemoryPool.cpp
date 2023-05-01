@@ -648,7 +648,15 @@ void MemoryPoolImpl::reserveThreadSafe(uint64_t size, bool reserveOnly) {
     }
     TestValue::adjust(
         "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe", this);
-    incrementReservationThreadSafe(this, increment);
+    try {
+      incrementReservationThreadSafe(this, increment);
+    } catch (const std::exception& e) {
+      // When race with concurrent memory reservation free, we might end up with
+      // unused reservation but no used reservation if a retry memory
+      // reservation attempt run into memory capacity exceeded error.
+      releaseThreadSafe(0, false);
+      std::rethrow_exception(std::current_exception());
+    }
   }
 
   // NOTE: in case of concurrent reserve and release requests, we might see
@@ -721,23 +729,23 @@ bool MemoryPoolImpl::maybeIncrementReservationLocked(uint64_t size) {
 
 void MemoryPoolImpl::release() {
   CHECK_AND_INC_MEM_OP_STATS(Releases);
-  release(0);
+  release(0, true);
 }
 
-void MemoryPoolImpl::release(uint64_t size) {
-  if (size > 0) {
+void MemoryPoolImpl::release(uint64_t size, bool releaseOnly) {
+  if (!releaseOnly) {
     manager_->release(size);
   }
   if (FOLLY_LIKELY(trackUsage_)) {
     if (FOLLY_LIKELY(threadSafe_)) {
-      releaseThreadSafe(size);
+      releaseThreadSafe(size, releaseOnly);
     } else {
-      releaseNonThreadSafe(size);
+      releaseNonThreadSafe(size, releaseOnly);
     }
   }
 }
 
-void MemoryPoolImpl::releaseThreadSafe(uint64_t size) {
+void MemoryPoolImpl::releaseThreadSafe(uint64_t size, bool releaseOnly) {
   VELOX_CHECK(isLeaf());
   VELOX_DCHECK_NOT_NULL(parent_);
 
@@ -745,7 +753,8 @@ void MemoryPoolImpl::releaseThreadSafe(uint64_t size) {
   {
     std::lock_guard<std::mutex> l(mutex_);
     int64_t newQuantized;
-    if (size == 0) {
+    if (FOLLY_UNLIKELY(releaseOnly)) {
+      VELOX_DCHECK_EQ(size, 0);
       if (minReservationBytes_ == 0) {
         return;
       }

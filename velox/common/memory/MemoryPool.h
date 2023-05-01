@@ -672,19 +672,23 @@ class MemoryPoolImpl : public MemoryPool {
   bool maybeIncrementReservationLocked(uint64_t size);
 
   // Release memory reservation for an allocation free or memory release with
-  // specified 'size'. 'releaseThreadSafe' processes the memory reservation
-  // release with mutex lock protection at the leaf memory pool while
-  // 'reserveThreadSafe' doesn't.
-  void release(uint64_t bytes);
+  // specified 'size'. If 'releaseOnly' is true, then we only release the unused
+  // reservation if 'minReservationBytes_' is set. 'releaseThreadSafe' processes
+  // the memory reservation release with mutex lock protection at the leaf
+  // memory pool while 'reserveThreadSafe' doesn't.
+  void release(uint64_t bytes, bool releaseOnly = false);
 
-  void releaseThreadSafe(uint64_t size);
+  void releaseThreadSafe(uint64_t size, bool releaseOnly);
 
-  FOLLY_ALWAYS_INLINE void releaseNonThreadSafe(uint64_t size) {
+  FOLLY_ALWAYS_INLINE void releaseNonThreadSafe(
+      uint64_t size,
+      bool releaseOnly) {
     VELOX_CHECK(isLeaf());
     VELOX_DCHECK_NOT_NULL(parent_);
 
     int64_t newQuantized;
-    if (FOLLY_UNLIKELY(size == 0)) {
+    if (FOLLY_UNLIKELY(releaseOnly)) {
+      VELOX_DCHECK_EQ(size, 0);
       if (minReservationBytes_ == 0) {
         return;
       }
