@@ -273,6 +273,22 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithOutputBuffer) {
   EXPECT_EQ(exec::TaskState::kFinished, task->state());
   EXPECT_EQ(
       std::unordered_set<int32_t>({1, 5, 8}), getCompletedSplitGroups(task));
+
+  // Check that stats are properly assembled.
+  auto taskStats = task->taskStats();
+
+  // Expect 9 drivers in total: 3 drivers x 3 groups.
+  for (const auto& pipeStats : taskStats.pipelineStats) {
+    for (const auto& opStats : pipeStats.operatorStats) {
+      EXPECT_EQ(
+          9, opStats.runtimeStats.find("runningFinishWallNanos")->second.count);
+    }
+  }
+
+  // Check TableScan for total number of splits.
+  EXPECT_EQ(6, taskStats.pipelineStats[2].operatorStats[0].numSplits);
+  // Check FilterProject for total number of vectors/batches.
+  EXPECT_EQ(18, taskStats.pipelineStats[1].operatorStats[1].inputVectors);
 }
 
 // Here we test various aspects of grouped/bucketed execution involving

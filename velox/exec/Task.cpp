@@ -758,8 +758,8 @@ void Task::createDriversLocked(
   // need to track down initialization of operator stats separately as well.
   if ((groupedExecutionDrivers & !initializedGroupedOpStats_) ||
       (!groupedExecutionDrivers & !initializedUngroupedOpStats_)) {
-    groupedExecutionDrivers ? initializedGroupedOpStats_
-                            : initializedUngroupedOpStats_ = true;
+    (groupedExecutionDrivers ? initializedGroupedOpStats_
+                             : initializedUngroupedOpStats_) = true;
     size_t firstPipelineDriverIndex{0};
     for (auto pipeline = 0; pipeline < numPipelines; ++pipeline) {
       auto& factory = driverFactories_[pipeline];
