@@ -17,6 +17,7 @@
 #include <re2/re2.h>
 #include "velox/functions/Udf.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 
 using namespace facebook::velox;
 
@@ -471,11 +472,27 @@ void register8() {
       std::shared_ptr<UserDefinedObject>,
       std::shared_ptr<UserDefinedObject>>({"my_opaque_func"});
 }
+
+template <typename T>
+struct JsonOutTest {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  FOLLY_ALWAYS_INLINE void call(out_type<Json>& result) {
+    UDFOutputString::assign(result, "hi");
+    UDFOutputString::assign(result, std::string("hi"));
+    result.copy_from("hi");
+    result += "hi";
+    result = "hi";
+  }
+};
+
+void register9() {
+  registerFunction<JsonOutTest, Json>({"json_out"});
+}
 } // namespace
 
 int main(int argc, char** argv) {
-  // These registration functions are only split for presentation purposes; one
-  // could obviously merge them into a single method.
+  // These registration functions are only split for presentation purposes;
+  // one could obviously merge them into a single method.
   register1();
   register2();
   register3();
@@ -484,5 +501,6 @@ int main(int argc, char** argv) {
   register6();
   register7();
   register8();
+  register9();
   return 0;
 }
