@@ -282,6 +282,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
             shuffleName, std::move(serializedShuffleWriteInfo), pool_.get());
         planFragment = converter.toVeloxQueryPlan(
             prestoPlan, taskUpdateRequest.tableWriteInfo, taskId);
+        LOG(INFO) << "veloxPlan: " << planFragment.planNode->toString(true, true);
       });
 }
 

@@ -2320,8 +2320,12 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     const protocol::PlanFragment& fragment,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
-  auto planFragment = VeloxQueryPlanConverterBase::toVeloxQueryPlan(
-      fragment, tableWriteInfo, taskId);
+
+  auto planFragment = VeloxQueryPlanConverterBase::toVeloxQueryPlan(fragment, tableWriteInfo, taskId);
+
+  if (serializedShuffleWriteInfo_ == nullptr) {
+    return planFragment;
+  }
 
   // If the serializedShuffleWriteInfo is not nullptr, it means this fragment
   // ends with a shuffle stage. We convert the PartitionedOutputNode to a
@@ -2334,8 +2338,31 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   // can't guarantee the query has shuffle stage, for example a plan with
   // TableWriteNode can also have PartitionedOutputNode to distribute the
   // metadata to coordinator.
-  if (serializedShuffleWriteInfo_ == nullptr) {
-    return planFragment;
+
+  // Since we would be introducing a shuffle we also need to ensure that
+  // the exchange output schema matches with the schema of the last operator
+  std::vector<std::shared_ptr<core::ProjectNode>> projectSourceNodes;
+  auto sourcesNodes = planFragment.planNode->sources();
+  projectSourceNodes.reserve(sourcesNodes.size());
+
+  auto outputType = planFragment.planNode->outputType();
+
+  for (int sourceIndex = 0; sourceIndex < sourcesNodes.size(); sourceIndex++) {
+    auto source = sourcesNodes[sourceIndex];
+    std::vector<core::TypedExprPtr> projections;
+    projections.reserve(outputType->size());
+
+    auto desiredSourceOutput = source->outputType();
+    for (auto j = 0; j < outputType->size(); j++) {
+      projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+          outputType->childAt(j), desiredSourceOutput->nameOf(j)));
+    }
+
+    projectSourceNodes.emplace_back(std::make_shared<core::ProjectNode>(
+        fmt::format("{}.{}", planFragment.planNode->id(), sourceIndex),
+        std::move(outputType->names()),
+        std::move(projections),
+        source));
   }
 
   auto partitionedOutputNode =
@@ -2343,6 +2370,21 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
           planFragment.planNode);
   VELOX_CHECK(
       partitionedOutputNode != nullptr, "PartitionedOutputNode is required");
+
+  planFragment.planNode = std::make_shared<core::PartitionedOutputNode>(
+      partitionedOutputNode->id(),
+      partitionedOutputNode->keys(),
+      partitionedOutputNode->numPartitions(),
+      partitionedOutputNode->isBroadcast(),
+      partitionedOutputNode->isReplicateNullsAndAny(),
+      partitionedOutputNode->partitionFunctionSpecPtr(),
+      partitionedOutputNode->outputType(),
+      projectSourceNodes.at(0)
+      );
+  partitionedOutputNode =
+      std::dynamic_pointer_cast<const core::PartitionedOutputNode>(
+          planFragment.planNode);
+
   if (partitionedOutputNode->isBroadcast()) {
     VELOX_UNSUPPORTED(
         "Broadcast partitioned output node in batch is currently not "

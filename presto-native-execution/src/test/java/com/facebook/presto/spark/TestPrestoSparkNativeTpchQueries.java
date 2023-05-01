@@ -16,7 +16,6 @@ package com.facebook.presto.spark;
 import com.facebook.presto.nativeworker.AbstractTestNativeTpchQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
-import org.testng.annotations.Ignore;
 
 public class TestPrestoSparkNativeTpchQueries
         extends AbstractTestNativeTpchQueries
@@ -43,46 +42,79 @@ public class TestPrestoSparkNativeTpchQueries
 
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
-    @Ignore
-    public void testTpchQ1() {}
+    public void testTpchQ1()
+            throws Exception
+    {
+        super.testTpchQ1();
+    }
 
     @Override
-    @Ignore
-    public void testTpchQ7() {}
+    public void testTpchQ7()
+            throws Exception
+    {
+        super.testTpchQ7();
+    }
 
     @Override
-    @Ignore
-    public void testTpchQ8() {}
+    public void testTpchQ8()
+            throws Exception
+    {
+        super.testTpchQ8();
+    }
 
     @Override
-    @Ignore
-    public void testTpchQ11() {}
+    public void testTpchQ11()
+            throws Exception
+    {
+        super.testTpchQ11();
+    }
 
     @Override
-    @Ignore
-    public void testTpchQ12() {}
+    public void testTpchQ12()
+            throws Exception
+    {
+        super.testTpchQ12();
+    }
 
     @Override
-    @Ignore
-    public void testTpchQ14() {}
+    public void testTpchQ14()
+            throws Exception
+    {
+        super.testTpchQ14();
+    }
 
     @Override
-    @Ignore
-    public void testTpchQ15() {}
+    public void testTpchQ15()
+            throws Exception
+    {
+        super.testTpchQ15();
+    }
 
     @Override
-    @Ignore
-    public void testTpchQ18() {}
+    public void testTpchQ18()
+            throws Exception
+    {
+        super.testTpchQ18();
+    }
 
     @Override
-    @Ignore
-    public void testTpchQ20() {}
+    public void testTpchQ20()
+            throws Exception
+    {
+        super.testTpchQ20();
+    }
 
     @Override
-    @Ignore
-    public void testTpchQ21() {}
+    public void testTpchQ21()
+            throws Exception
+    {
+        super.testTpchQ21();
+    }
 
     @Override
-    @Ignore
-    public void testTpchQ22() {}
+    public void testTpchQ22()
+            throws Exception
+    {
+        super.testTpchQ22();
+    }
 }
