@@ -44,10 +44,6 @@ public class TestPrestoSparkNativeTpchQueries
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
     @Ignore
-    public void testTpchQ1() {}
-
-    @Override
-    @Ignore
     public void testTpchQ7() {}
 
     @Override
