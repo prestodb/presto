@@ -37,7 +37,7 @@ DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 MACOS_DEPS="ninja flex bison cmake ccache protobuf icu4c boost gflags glog libevent lz4 lzo snappy xz zstd openssl@1.1"
 
 function run_and_time {
-  time "$@"
+  time "$@" || (echo "Failed to run $* ." ; exit 1 )
   { echo "+ Finished running $*"; } 2> /dev/null
 }
 
@@ -77,9 +77,9 @@ function install_build_prerequisites {
       tap="velox/local-${pkg}"
       brew tap-new "${tap}"
       brew extract "--version=${ver}" "${pkg}" "${tap}"
-      brew install "${tap}/${pkg}@${ver}"
+      brew install "${tap}/${pkg}@${ver}" || ( echo "Failed to install ${tap}/${pkg}@${ver}" ; exit 1 )
     else
-      brew install --formula "${pkg}" && echo "Installation of ${pkg} is successful" || brew upgrade --formula "$pkg"
+      ( brew install --formula "${pkg}" && echo "Installation of ${pkg} is successful" || brew upgrade --formula "$pkg" ) || ( echo "Failed to install ${pkg}" ; exit 1 )
     fi
   done
 
