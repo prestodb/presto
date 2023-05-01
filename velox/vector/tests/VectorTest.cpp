@@ -16,6 +16,7 @@
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <functional>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/serializers/PrestoSerializer.h"
@@ -1916,6 +1917,112 @@ TEST_F(VectorTest, acquireSharedStringBuffers) {
   EXPECT_EQ(2, flatVector->stringBuffers().size());
   flatVector->acquireSharedStringBuffers(sourceVectors[0].get());
   EXPECT_EQ(2, flatVector->stringBuffers().size());
+
+  // Function does not throw if the input is not varchar or varbinary.
+  flatVector->setStringBuffers({buffers[0]});
+  auto arrayVector = makeArrayVector<int32_t>({});
+  ASSERT_NO_THROW(flatVector->acquireSharedStringBuffers(arrayVector.get()));
+
+  auto unkownVector = BaseVector::create(UNKNOWN(), 100, pool_.get());
+  ASSERT_NO_THROW(flatVector->acquireSharedStringBuffers(unkownVector.get()));
+}
+
+TEST_F(VectorTest, acquireSharedStringBuffersRecursive) {
+  auto vector = BaseVector::create(VARCHAR(), 100, pool_.get());
+  auto flatVector = vector->as<FlatVector<StringView>>();
+
+  auto testWithEncodings = [&](const VectorPtr& source,
+                               const std::function<void()>& check) {
+    flatVector->setStringBuffers({});
+    flatVector->acquireSharedStringBuffersRecursive(source.get());
+    check();
+
+    // Constant vector.
+    auto constantVector = BaseVector::wrapInConstant(10, 0, source);
+    flatVector->setStringBuffers({});
+    flatVector->acquireSharedStringBuffersRecursive(constantVector.get());
+    check();
+
+    // Dictionary Vector.
+    BufferPtr indices =
+        AlignedBuffer::allocate<vector_size_t>(source->size(), pool_.get());
+    for (int32_t i = 0; i < source->size(); ++i) {
+      indices->asMutable<vector_size_t>()[i] = source->size() - i - 1;
+    }
+    auto dictionaryVector =
+        BaseVector::wrapInDictionary(nullptr, indices, source->size(), source);
+    flatVector->setStringBuffers({});
+    flatVector->acquireSharedStringBuffersRecursive(dictionaryVector.get());
+    check();
+  };
+
+  // Acquiring buffer from array
+
+  { // Array<int>
+    auto arrayVector = makeArrayVector<int32_t>({{1, 2, 3}});
+    testWithEncodings(arrayVector, [&]() {
+      ASSERT_EQ(flatVector->stringBuffers().size(), 0);
+    });
+  }
+
+  { // Array<Varchar>
+    auto arrayVector = makeArrayVector<StringView>(
+        {{"This is long enough not to be inlined !!!", "b"}});
+
+    testWithEncodings(arrayVector, [&]() {
+      EXPECT_EQ(1, flatVector->stringBuffers().size());
+      ASSERT_EQ(
+          flatVector->stringBuffers()[0],
+          arrayVector->as<ArrayVector>()
+              ->elements()
+              ->asFlatVector<StringView>()
+              ->stringBuffers()[0]);
+    });
+  }
+
+  // Array<Array<Varchar>>
+  auto arrayVector = makeNullableNestedArrayVector<StringView>(
+      {{{{{"This is long enough not to be inlined !!!"_sv}}}}});
+
+  testWithEncodings(arrayVector, [&]() {
+    EXPECT_EQ(1, flatVector->stringBuffers().size());
+    ASSERT_EQ(
+        flatVector->stringBuffers()[0],
+        arrayVector->as<ArrayVector>()
+            ->elements()
+            ->as<ArrayVector>()
+            ->elements()
+            ->asFlatVector<StringView>()
+            ->stringBuffers()[0]);
+  });
+
+  // Map<Varchar,Varchar>
+  auto mapVector = makeMapVector<StringView, StringView>(
+      {{{"This is long enough not to be inlined !!!"_sv,
+         "This is long enough not to be inlined !!!"_sv}}});
+
+  testWithEncodings(mapVector, [&]() {
+    EXPECT_EQ(2, flatVector->stringBuffers().size());
+    ASSERT_EQ(
+        flatVector->stringBuffers()[0],
+        mapVector->as<MapVector>()
+            ->mapKeys()
+            ->asFlatVector<StringView>()
+            ->stringBuffers()[0]);
+    ASSERT_EQ(
+        flatVector->stringBuffers()[1],
+        mapVector->as<MapVector>()
+            ->mapValues()
+            ->asFlatVector<StringView>()
+            ->stringBuffers()[0]);
+  });
+
+  // Row
+  flatVector->setStringBuffers({});
+  auto rowVector =
+      makeRowVector({mapVector, arrayVector, makeFlatVector<int32_t>({1, 2})});
+  testWithEncodings(
+      rowVector, [&]() { EXPECT_EQ(3, flatVector->stringBuffers().size()); });
 }
 
 /// Test MapVector::canonicalize for a MapVector with 'values' vector shorter

@@ -15,6 +15,7 @@
  */
 
 #include "velox/vector/FlatVector.h"
+#include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/TypeAliases.h"
 
@@ -286,22 +287,25 @@ void FlatVector<StringView>::setNoCopy(
 template <>
 void FlatVector<StringView>::acquireSharedStringBuffers(
     const BaseVector* source) {
-  auto leaf = source->wrappedVector();
-  if (leaf->typeKind() == TypeKind::UNKNOWN) {
-    // If the source is all nulls, it can be of unknown type.
+  if (!source) {
     return;
   }
-  switch (leaf->encoding()) {
+  if (source->typeKind() != TypeKind::VARBINARY &&
+      source->typeKind() != TypeKind::VARCHAR) {
+    return;
+  }
+  source = source->wrappedVector();
+  switch (source->encoding()) {
     case VectorEncoding::Simple::FLAT: {
-      auto* flat = leaf->asUnchecked<FlatVector<StringView>>();
+      auto* flat = source->asUnchecked<FlatVector<StringView>>();
       for (auto& buffer : flat->stringBuffers_) {
         addStringBuffer(buffer);
       }
       break;
     }
     case VectorEncoding::Simple::CONSTANT: {
-      if (!leaf->isNullAt(0)) {
-        auto* constant = leaf->asUnchecked<ConstantVector<StringView>>();
+      if (!source->isNullAt(0)) {
+        auto* constant = source->asUnchecked<ConstantVector<StringView>>();
         auto buffer = constant->getStringBuffer();
         if (buffer != nullptr) {
           addStringBuffer(buffer);
@@ -311,9 +315,83 @@ void FlatVector<StringView>::acquireSharedStringBuffers(
     }
 
     default:
-      VELOX_CHECK(
-          false,
-          "Assigning a non-flat, non-constant vector to a string vector");
+      VELOX_UNREACHABLE(
+          "unexpected encoding inside acquireSharedStringBuffers: {}",
+          source->toString());
+  }
+}
+
+template <>
+void FlatVector<StringView>::acquireSharedStringBuffersRecursive(
+    const BaseVector* source) {
+  if (!source) {
+    return;
+  }
+  source = source->wrappedVector();
+
+  switch (source->encoding()) {
+    case VectorEncoding::Simple::FLAT: {
+      if (source->typeKind() != TypeKind::VARCHAR &&
+          source->typeKind() != TypeKind::VARBINARY) {
+        // Nothing to acquire.
+        return;
+      }
+      auto* flat = source->asUnchecked<FlatVector<StringView>>();
+      for (auto& buffer : flat->stringBuffers_) {
+        addStringBuffer(buffer);
+      }
+      return;
+    }
+
+    case VectorEncoding::Simple::ARRAY: {
+      acquireSharedStringBuffersRecursive(
+          source->asUnchecked<ArrayVector>()->elements().get());
+      return;
+    }
+
+    case VectorEncoding::Simple::MAP: {
+      acquireSharedStringBuffersRecursive(
+          source->asUnchecked<MapVector>()->mapKeys().get());
+      acquireSharedStringBuffersRecursive(
+          source->asUnchecked<MapVector>()->mapValues().get());
+      return;
+    }
+
+    case VectorEncoding::Simple::ROW: {
+      for (auto& child : source->asUnchecked<RowVector>()->children()) {
+        acquireSharedStringBuffersRecursive(child.get());
+      }
+      return;
+    }
+
+    case VectorEncoding::Simple::CONSTANT: {
+      // wrappedVector can be constant vector only if the underlying type is
+      // primitive.
+      if (source->typeKind() != TypeKind::VARCHAR &&
+          source->typeKind() != TypeKind::VARBINARY) {
+        // Nothing to acquire.
+        return;
+      }
+      auto* constantVector = source->asUnchecked<ConstantVector<StringView>>();
+      if (constantVector->isNullAt(0)) {
+        return;
+      }
+      auto* constant = source->asUnchecked<ConstantVector<StringView>>();
+      auto buffer = constant->getStringBuffer();
+      if (buffer != nullptr) {
+        addStringBuffer(buffer);
+      }
+      return;
+    }
+
+    case VectorEncoding::Simple::LAZY:
+    case VectorEncoding::Simple::DICTIONARY:
+    case VectorEncoding::Simple::SEQUENCE:
+    case VectorEncoding::Simple::BIASED:
+    case VectorEncoding::Simple::FUNCTION:
+      VELOX_UNREACHABLE(
+          "unexpected encoding inside acquireSharedStringBuffersRecursive: {}",
+          source->toString());
   }
 }
 

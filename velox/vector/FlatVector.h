@@ -394,7 +394,14 @@ class FlatVector final : public SimpleVector<T> {
     return true;
   }
 
+  // Acquire ownership for any string buffer that appears in source, the
+  // function does nothing if the vector type is not Varchar or Varbinary.
+  // The function throws if input encoding is lazy.
   void acquireSharedStringBuffers(const BaseVector* source);
+
+  // Acquire ownership for any string buffer that appears in source or any
+  // of its children recursively. The function throws if input encoding is lazy.
+  void acquireSharedStringBuffersRecursive(const BaseVector* source);
 
   Buffer* getBufferWithSpace(vector_size_t /* unused */) {
     return nullptr;
