@@ -2,6 +2,10 @@
 Date and Time Functions
 =====================================
 
+.. function:: current_date() -> date
+
+    Returns the current date.
+
 .. function:: date(x) -> date
 
     This is an alias for ``CAST(x AS date)``.
