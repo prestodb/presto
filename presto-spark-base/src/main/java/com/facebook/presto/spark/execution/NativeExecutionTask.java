@@ -66,7 +66,8 @@ public class NativeExecutionTask
     private final List<TaskSource> sources;
     private final Executor executor;
     private final HttpNativeExecutionTaskInfoFetcher taskInfoFetcher;
-    private final HttpNativeExecutionTaskResultFetcher taskResultFetcher;
+    // Results will be fetched only if not written to shuffle.
+    private final Optional<HttpNativeExecutionTaskResultFetcher> taskResultFetcher;
 
     public NativeExecutionTask(
             Session session,
@@ -106,9 +107,14 @@ public class NativeExecutionTask
                 this.workerClient,
                 this.executor,
                 taskManagerConfig.getInfoUpdateInterval());
-        this.taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
-                updateScheduledExecutor,
-                this.workerClient);
+        if (!shuffleWriteInfo.isPresent()) {
+            this.taskResultFetcher = Optional.of(new HttpNativeExecutionTaskResultFetcher(
+                    updateScheduledExecutor,
+                    this.workerClient));
+        }
+        else {
+            this.taskResultFetcher = Optional.empty();
+        }
     }
 
     /**
@@ -130,7 +136,10 @@ public class NativeExecutionTask
     public Optional<SerializedPage> pollResult()
             throws InterruptedException
     {
-        return taskResultFetcher.pollPage();
+        if (!taskResultFetcher.isPresent()) {
+            return Optional.empty();
+        }
+        return taskResultFetcher.get().pollPage();
     }
 
     /**
@@ -144,7 +153,7 @@ public class NativeExecutionTask
 
         if (!taskInfo.getTaskStatus().getState().isDone()) {
             log.info("Starting TaskInfoFetcher and TaskResultFetcher.");
-            taskResultFetcher.start();
+            taskResultFetcher.ifPresent(fetcher -> fetcher.start());
             taskInfoFetcher.start();
         }
 
@@ -157,7 +166,7 @@ public class NativeExecutionTask
     public void stop()
     {
         taskInfoFetcher.stop();
-        taskResultFetcher.stop();
+        taskResultFetcher.ifPresent(fetcher -> fetcher.stop());
         workerClient.abortResults();
     }
 
