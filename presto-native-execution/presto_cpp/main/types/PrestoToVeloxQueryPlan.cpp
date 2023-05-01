@@ -2316,6 +2316,34 @@ velox::core::PlanNodePtr VeloxInteractiveQueryPlanConverter::toVeloxQueryPlan(
   return std::make_shared<core::ExchangeNode>(node->id, rowType);
 }
 
+namespace {
+
+/// Returns ProjectNode(planNode) that produces columns in the order specified
+/// by outputType. Returns planNode as is if it produces columns in the desired
+/// order already.
+core::PlanNodePtr addProjectIfNeeded(
+    core::PlanNodePtr planNode,
+    const RowTypePtr& outputType) {
+  const auto& inputType = planNode->outputType();
+  if (inputType->names() == outputType->names()) {
+    return std::move(planNode);
+  }
+
+  auto outputNames = outputType->names();
+  std::vector<core::TypedExprPtr> projections;
+  projections.reserve(outputType->size());
+  for (auto i = 0; i < outputType->size(); ++i) {
+    projections.push_back(std::make_shared<core::FieldAccessTypedExpr>(
+        outputType->childAt(i), outputType->nameOf(i)));
+  }
+  return std::make_shared<core::ProjectNode>(
+      fmt::format("{}.project", planNode->id()),
+      outputNames,
+      projections,
+      std::move(planNode));
+}
+} // namespace
+
 velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     const protocol::PlanFragment& fragment,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -2349,6 +2377,9 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
         "supported.");
   }
 
+  auto source = addProjectIfNeeded(
+      partitionedOutputNode->sources()[0], partitionedOutputNode->outputType());
+
   auto partitionAndSerializeNode = std::make_shared<
       operators::PartitionAndSerializeNode>(
       "shuffle-partition-serialize",
@@ -2359,7 +2390,7 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
            std::string(
                operators::PartitionAndSerializeNode::kDataColumnNameDefault)},
           {INTEGER(), VARBINARY()}),
-      partitionedOutputNode->sources().back(),
+      std::move(source),
       partitionedOutputNode->partitionFunctionSpecPtr());
 
   auto shuffleWriteNode = std::make_shared<operators::ShuffleWriteNode>(
