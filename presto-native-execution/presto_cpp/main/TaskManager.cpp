@@ -482,20 +482,6 @@ struct ZombieTaskCounts {
   }
 
   void logZombieTaskStatus(const std::string& hangingClassName) {
-    auto length = 0;
-    for (auto& id : taskIds) {
-      length += id.length() + 2; // for comma and space
-    }
-    std::string taskIdsStr;
-    taskIdsStr.reserve(length);
-    for (auto i = 0; i < taskIds.size(); i++) {
-      if (i == taskIds.size() - 1) {
-        taskIdsStr.append(taskIds[i]);
-      } else {
-        taskIdsStr.append(taskIds[i]).append(", ");
-      }
-    }
-
     LOG(ERROR) << "There are " << numTotal << " zombie " << hangingClassName
                << " that satisfy cleanup conditions but could not be "
                   "cleaned up, because the "
@@ -504,7 +490,8 @@ struct ZombieTaskCounts {
                << numRunning << "] FINISHED[" << numFinished << "] CANCELED["
                << numCanceled << "] ABORTED[" << numAborted << "] FAILED["
                << numFailed << "]  Sample task IDs (shows only "
-               << numSampleTaskId << " IDs): {" << taskIdsStr << "}";
+               << numSampleTaskId << " IDs): {" << folly::join(',', taskIds)
+               << "}";
   }
 };
 
