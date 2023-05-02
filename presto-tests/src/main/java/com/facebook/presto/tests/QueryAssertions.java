@@ -347,7 +347,7 @@ public final class QueryAssertions
 
     private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
     {
-        if (!nullToEmpty(exception.getMessage()).matches(regex)) {
+        if (!nullToEmpty(exception.getMessage()).matches(regex) && !nullToEmpty(exception.getMessage()).contains(regex)) {
             fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
         }
     }

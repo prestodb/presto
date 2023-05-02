@@ -394,7 +394,9 @@ public abstract class AbstractPrestoSparkQueryExecution
         List<Type> types = getOutputTypes();
         ImmutableList.Builder<List<Object>> result = ImmutableList.builder();
         for (Tuple2<MutablePartitionId, PrestoSparkSerializedPage> tuple : rddResults) {
+            // temporary testing hack
             if (tuple == null) {
+                log.error("Got Null tuple. Not expected..");
                 continue;
             }
             Page page = pagesSerde.deserialize(toSerializedPage(tuple._2));
@@ -481,6 +483,7 @@ public abstract class AbstractPrestoSparkQueryExecution
             long currentFragmentOutputUncompressedSizeInBytes = 0;
             for (Tuple2<MutablePartitionId, PrestoSparkSerializedPage> tuple : tuples) {
                 PrestoSparkSerializedPage page = tuple._2;
+                // temporary testing hack
                 if (page != null) {
                     currentFragmentOutputCompressedSizeInBytes += page.getSize();
                     currentFragmentOutputUncompressedSizeInBytes += page.getUncompressedSizeInBytes();

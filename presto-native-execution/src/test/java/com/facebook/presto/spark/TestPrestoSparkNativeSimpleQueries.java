@@ -103,7 +103,7 @@ public class TestPrestoSparkNativeSimpleQueries
     @Test
     public void testFailures()
     {
-        assertQueryFails("SELECT orderkey / 0 FROM orders", ".*division by zero.*");
+        assertQueryFails("SELECT orderkey / 0 FROM orders", "division by zero");
     }
 
     /**

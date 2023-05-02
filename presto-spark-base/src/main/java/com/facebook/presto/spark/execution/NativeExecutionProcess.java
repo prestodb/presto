@@ -149,7 +149,7 @@ public class NativeExecutionProcess
     @Override
     public void close()
     {
-        if (isAlive()) {
+        if (process != null && process.isAlive()) {
             process.destroy();
             try {
                 // This 1 sec is arbitrary. Ideally, we do not need to be give any heads up
@@ -169,11 +169,6 @@ public class NativeExecutionProcess
                 }
             }
         }
-    }
-
-    public boolean isAlive()
-    {
-        return process != null && process.isAlive();
     }
 
     public int getPort()

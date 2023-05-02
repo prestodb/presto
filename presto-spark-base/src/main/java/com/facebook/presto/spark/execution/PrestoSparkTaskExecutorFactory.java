@@ -361,11 +361,6 @@ public class PrestoSparkTaskExecutorFactory
     {
         requireNonNull(processFactory, "Trying to instantiate native process but factory is null");
 
-        if (nativeExecutionProcess != null && nativeExecutionProcess.isAlive()) {
-            log.info("NativeExecutionProcess already alive");
-            return;
-        }
-
         try {
             // create the CPP sidecar process if it doesn't exist.
             // We create this when the first task is scheduled
@@ -470,7 +465,9 @@ public class PrestoSparkTaskExecutorFactory
                     format("PrestoSparkNativeTaskInputs is required for native execution, but %s is provided", inputs.getClass().getName()));
             PrestoSparkNativeTaskInputs nativeInputs = (PrestoSparkNativeTaskInputs) inputs;
             fillNativeExecutionTaskInputs(fragment, session, nativeInputs, shuffleReadInfos);
-            shuffleWriteInfo = nativeInputs.getShuffleWriteDescriptor().isPresent() && !findTableWriteNode(fragment.getRoot()).isPresent() ?
+            shuffleWriteInfo = nativeInputs.getShuffleWriteDescriptor().isPresent()
+                    && !findTableWriteNode(fragment.getRoot()).isPresent()
+                    && !(fragment.getRoot() instanceof OutputNode) ?
                     Optional.of(shuffleInfoTranslator.createShuffleWriteInfo(session, nativeInputs.getShuffleWriteDescriptor().get())) : Optional.empty();
             taskSources = getNativeExecutionShuffleSources(session, taskId, fragment, shuffleReadInfos.build(), getTaskSources(serializedTaskSources));
 
@@ -1397,12 +1394,11 @@ public class PrestoSparkTaskExecutorFactory
         @Override
         public Tuple2<MutablePartitionId, T> next()
         {
-
             try {
                 Optional<SerializedPage> page = nativeExecutionTask.pollResult();
                 if (page.isPresent()) {
                     log.info("Page is present but returning null");
-                    return new Tuple2<>(new MutablePartitionId(), (T)new PrestoSparkMutableRow());
+                    return new Tuple2<>(new MutablePartitionId(), (T) toPrestoSparkSerializedPage(page.get()));
                 }
 
                 Optional<TaskInfo> taskInfo = nativeExecutionTask.getTaskInfo();
