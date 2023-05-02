@@ -79,7 +79,7 @@ public class PrestoSparkNativeQueryRunnerUtils
 
     private PrestoSparkNativeQueryRunnerUtils() {}
 
-    public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner()
+    public static Map<String, String> getNativeExecutionSessionConfigs()
     {
         ImmutableMap.Builder<String, String> builder = new ImmutableMap.Builder<String, String>()
                 // Do not use default Prestissimo config files. Presto-Spark will generate the configs on-the-fly.
@@ -97,9 +97,14 @@ public class PrestoSparkNativeQueryRunnerUtils
             builder.put("native-execution-executable-path", path);
         }
 
+        return builder.build();
+    }
+
+    public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner()
+    {
         PrestoSparkQueryRunner queryRunner = createPrestoSparkNativeQueryRunner(
                 Optional.of(getBaseDataPath()),
-                builder.build(),
+                getNativeExecutionSessionConfigs(),
                 getNativeExecutionShuffleConfigs(),
                 ImmutableList.of(new NativeExecutionModule()));
         setupJsonFunctionNamespaceManager(queryRunner);
@@ -150,7 +155,7 @@ public class PrestoSparkNativeQueryRunnerUtils
         }
     }
 
-    private static void customizeLogging()
+    public static void customizeLogging()
     {
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.spark", WARN);
