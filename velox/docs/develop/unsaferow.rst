@@ -110,3 +110,16 @@ A row with a singe struct of BIGINT and DOUBLE has fixed serialized size of 40 b
 * 8 bytes for null flags of the struct fields.
 * 8 bytes for the value of the first struct field.
 * 8 bytes for the value of the second struct field.
+
+Batches of Rows
+---------------
+
+It is common for engines to require the serialization of a batch of rows. In
+these cases, a batch of serialized UnsafeRows can be created by successively
+serializing the row size then the UnsafeRow buffer, in the following manner:
+
+row size | UnsafeRow | row size | UnsafeRow | ...
+
+Be careful that the `row size` integer needs to be of **4 bytes**, and encoded using
+**big endian** format. Note that this is different from the other integers serialized as
+part of the UnsafeRow payload, which are all expected to be little endian.

@@ -20,7 +20,8 @@
 
 using namespace facebook::velox;
 
-class UnsafeRowSerializerTest : public ::testing::Test {
+class UnsafeRowSerializerTest : public ::testing::Test,
+                                public test::VectorTestBase {
  protected:
   void SetUp() override {
     pool_ = memory::addDefaultLeafMemoryPool();
@@ -44,7 +45,7 @@ class UnsafeRowSerializerTest : public ::testing::Test {
     serializer->flush(&out);
   }
 
-  std::unique_ptr<ByteStream> toByteStream(const std::string& input) {
+  std::unique_ptr<ByteStream> toByteStream(const std::string_view& input) {
     auto byteStream = std::make_unique<ByteStream>();
     ByteRange byteRange{
         reinterpret_cast<uint8_t*>(const_cast<char*>(input.data())),
@@ -56,7 +57,7 @@ class UnsafeRowSerializerTest : public ::testing::Test {
 
   RowVectorPtr deserialize(
       std::shared_ptr<const RowType> rowType,
-      const std::string& input) {
+      const std::string_view& input) {
     auto byteStream = toByteStream(input);
 
     RowVectorPtr result;
@@ -73,9 +74,101 @@ class UnsafeRowSerializerTest : public ::testing::Test {
     test::assertEqualVectors(deserialized, rowVector);
   }
 
+  void
+  testSerialize(RowVectorPtr rowVector, int8_t* expectedData, size_t dataSize) {
+    std::ostringstream out;
+    serialize(rowVector, &out);
+    EXPECT_EQ(std::memcmp(expectedData, out.str().data(), dataSize), 0);
+  }
+
+  void
+  testDeserialize(int8_t* data, size_t dataSize, RowVectorPtr expectedVector) {
+    auto results = deserialize(
+        asRowType(expectedVector->type()),
+        std::string_view(reinterpret_cast<const char*>(data), dataSize));
+    test::assertEqualVectors(expectedVector, results);
+  }
+
   std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<VectorSerde> serde_;
 };
+
+// These expected binary buffers were samples taken using Spark's java code.
+TEST_F(UnsafeRowSerializerTest, tinyint) {
+  int8_t data[20] = {0, 0, 0,   16, 0, 0, 0, 0, 0, 0,
+                     0, 0, 123, 0,  0, 0, 0, 0, 0, 0};
+  auto expected = makeRowVector({makeFlatVector(std::vector<int8_t>{123})});
+
+  testSerialize(expected, data, 20);
+  testDeserialize(data, 20, expected);
+}
+
+TEST_F(UnsafeRowSerializerTest, bigint) {
+  int8_t data[20] = {0, 0, 0,  16, 0,   0,   0, 0, 0, 0,
+                     0, 0, 62, 28, -36, -33, 2, 0, 0, 0};
+  auto expected =
+      makeRowVector({makeFlatVector(std::vector<int64_t>{12345678910})});
+
+  testSerialize(expected, data, 20);
+  testDeserialize(data, 20, expected);
+}
+
+TEST_F(UnsafeRowSerializerTest, double) {
+  int8_t data[20] = {0, 0, 0,   16, 0,  0,  0,   0,  0,    0,
+                     0, 0, 125, 63, 53, 94, -70, 73, -109, 64};
+  auto expected =
+      makeRowVector({makeFlatVector(std::vector<double>{1234.432})});
+
+  testSerialize(expected, data, 20);
+  testDeserialize(data, 20, expected);
+}
+
+TEST_F(UnsafeRowSerializerTest, boolean) {
+  int8_t data[20] = {0, 0, 0, 16, 0, 0, 0, 0, 0, 0,
+                     0, 0, 1, 0,  0, 0, 0, 0, 0, 0};
+  auto expected = makeRowVector({makeFlatVector(std::vector<bool>{true})});
+
+  testSerialize(expected, data, 20);
+  testDeserialize(data, 20, expected);
+}
+
+TEST_F(UnsafeRowSerializerTest, string) {
+  int8_t data[28] = {0, 0, 0,  24, 0, 0, 0,  0,  0,  0,  0,  0, 5, 0,
+                     0, 0, 16, 0,  0, 0, 72, 69, 76, 76, 79, 0, 0, 0};
+  auto expected =
+      makeRowVector({makeFlatVector(std::vector<StringView>{"HELLO"})});
+
+  testSerialize(expected, data, 28);
+  testDeserialize(data, 28, expected);
+}
+
+TEST_F(UnsafeRowSerializerTest, null) {
+  int8_t data[20] = {0, 0, 0, 16, 1, 0, 0, 0, 0, 0,
+                     0, 0, 0, 0,  0, 0, 0, 0, 0, 0};
+  auto expected = makeRowVector({makeNullableFlatVector(
+      std::vector<std::optional<int64_t>>{std::nullopt})});
+
+  testSerialize(expected, data, 20);
+  testDeserialize(data, 20, expected);
+}
+
+TEST_F(UnsafeRowSerializerTest, manyRows) {
+  int8_t data[140] = {0, 0, 0,  24, 0, 0, 0,   0,   0,   0,   0,   0,  4,   0,
+                      0, 0, 16, 0,  0, 0, 109, 97,  110, 121, 0,   0,  0,   0,
+                      0, 0, 0,  24, 0, 0, 0,   0,   0,   0,   0,   0,  4,   0,
+                      0, 0, 16, 0,  0, 0, 114, 111, 119, 115, 0,   0,  0,   0,
+                      0, 0, 0,  24, 0, 0, 0,   0,   0,   0,   0,   0,  2,   0,
+                      0, 0, 16, 0,  0, 0, 105, 110, 0,   0,   0,   0,  0,   0,
+                      0, 0, 0,  24, 0, 0, 0,   0,   0,   0,   0,   0,  1,   0,
+                      0, 0, 16, 0,  0, 0, 97,  0,   0,   0,   0,   0,  0,   0,
+                      0, 0, 0,  24, 0, 0, 0,   0,   0,   0,   0,   0,  7,   0,
+                      0, 0, 16, 0,  0, 0, 112, 97,  121, 108, 111, 97, 100, 0};
+  auto expected = makeRowVector({makeFlatVector(
+      std::vector<StringView>{"many", "rows", "in", "a", "payload"})});
+
+  testSerialize(expected, data, 140);
+  testDeserialize(data, 140, expected);
+}
 
 TEST_F(UnsafeRowSerializerTest, types) {
   auto rowType = ROW(

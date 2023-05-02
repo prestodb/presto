@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/serializers/UnsafeRowSerializer.h"
+#include <folly/lang/Bits.h>
 #include "velox/row/UnsafeRowDeserializers.h"
 #include "velox/row/UnsafeRowSerializers.h"
 
@@ -29,6 +30,8 @@ void UnsafeRowVectorSerde::estimateSerializedSize(
 namespace {
 class UnsafeRowVectorSerializer : public VectorSerializer {
  public:
+  using TRowSize = uint32_t;
+
   explicit UnsafeRowVectorSerializer(StreamArena* streamArena)
       : pool_{streamArena->pool()} {}
 
@@ -39,7 +42,7 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
     for (auto& range : ranges) {
       for (auto i = range.begin; i < range.begin + range.size; ++i) {
         auto rowSize = row::UnsafeRowSerializer::getSizeRow(vector.get(), i);
-        totalSize += rowSize + sizeof(size_t);
+        totalSize += rowSize + sizeof(TRowSize);
       }
     }
 
@@ -47,7 +50,7 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
       return;
     }
 
-    auto* buffer = (char*)pool_->allocate(totalSize);
+    auto* buffer = (char*)pool_->allocateZeroFilled(totalSize, 1);
     buffers_.push_back(
         ByteRange{(uint8_t*)buffer, (int32_t)totalSize, (int32_t)totalSize});
 
@@ -56,17 +59,16 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
       for (auto i = range.begin; i < range.begin + range.size; ++i) {
         // Write row data.
         auto rowSize = row::UnsafeRowSerializer::getSizeRow(vector.get(), i);
-        auto size = row::UnsafeRowSerializer::serialize(
-                        vector, buffer + offset + sizeof(size_t), i)
-                        .value_or(0);
+        TRowSize size = row::UnsafeRowSerializer::serialize(
+                            vector, buffer + offset + sizeof(TRowSize), i)
+                            .value_or(0);
 
         // Sanity check.
         VELOX_CHECK_EQ(rowSize, size);
 
-        // Write raw size.
-        *(size_t*)(buffer + offset) = size;
-
-        offset += sizeof(size_t) + size;
+        // Write raw size. Needs to be in big endian order.
+        *(TRowSize*)(buffer + offset) = folly::Endian::big(size);
+        offset += sizeof(TRowSize) + size;
       }
     }
   }
@@ -101,7 +103,9 @@ void UnsafeRowVectorSerde::deserialize(
     const Options* /* options */) {
   std::vector<std::optional<std::string_view>> serializedRows;
   while (!source->atEnd()) {
-    auto rowSize = source->read<size_t>();
+    // First read row size in big endian order.
+    auto rowSize =
+        folly::Endian::big(source->read<UnsafeRowVectorSerializer::TRowSize>());
     auto row = source->nextView(rowSize);
     VELOX_CHECK_EQ(row.size(), rowSize);
     serializedRows.push_back(row);
