@@ -35,6 +35,11 @@ int64_t toInt64(Date value) {
   return value.days();
 }
 
+template <>
+int64_t toInt64(Timestamp value) {
+  return value.toMillis();
+}
+
 template <typename T>
 T add(T value, int64_t steps);
 
@@ -46,6 +51,11 @@ int64_t add(int64_t value, int64_t steps) {
 template <>
 Date add(Date value, int64_t steps) {
   return Date(value.days() + steps);
+}
+
+template <>
+Timestamp add(Timestamp value, int64_t steps) {
+  return Timestamp::fromMillis(value.toMillis() + steps);
 }
 
 // See documentation at https://prestodb.io/docs/current/functions/array.html
@@ -190,6 +200,12 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
           .argumentType("date")
           .argumentType("date")
           .argumentType("interval day to second")
+          .build(),
+      exec::FunctionSignatureBuilder()
+          .returnType("array(timestamp)")
+          .argumentType("timestamp")
+          .argumentType("timestamp")
+          .argumentType("interval day to second")
           .build()};
   return signatures;
 }
@@ -202,6 +218,8 @@ std::shared_ptr<exec::VectorFunction> create(
       return std::make_shared<SequenceFunction<int64_t>>();
     case TypeKind::DATE:
       return std::make_shared<SequenceFunction<Date>>();
+    case TypeKind::TIMESTAMP:
+      return std::make_shared<SequenceFunction<Timestamp>>();
     default:
       VELOX_UNREACHABLE();
   }

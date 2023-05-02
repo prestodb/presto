@@ -201,3 +201,67 @@ TEST_F(SequenceTest, invalidIntervalStep) {
       {startVector, stopVector, stepVector},
       expected);
 }
+
+TEST_F(SequenceTest, timestamp) {
+  const auto startVector =
+      makeFlatVector<Timestamp>({Timestamp(1991, 0), Timestamp(1992, 0)});
+  const auto stopVector =
+      makeFlatVector<Timestamp>({Timestamp(1996, 0), Timestamp(1992, 0)});
+  const auto stepVector =
+      makeFlatVector<int64_t>({1000, 1000}, INTERVAL_DAY_TIME());
+  const auto expected = makeArrayVector<Timestamp>(
+      {{Timestamp(1991, 0),
+        Timestamp(1992, 0),
+        Timestamp(1993, 0),
+        Timestamp(1994, 0),
+        Timestamp(1995, 0),
+        Timestamp(1996, 0)},
+       {Timestamp(1992, 0)}});
+  testExpression(
+      "sequence(C0, C1, C2)", {startVector, stopVector, stepVector}, expected);
+}
+
+TEST_F(SequenceTest, timestampExceedMaxEntries) {
+  const auto startVector =
+      makeFlatVector<Timestamp>({Timestamp(1991, 0), Timestamp(1992, 0)});
+  const auto stopVector =
+      makeFlatVector<Timestamp>({Timestamp(1996, 0), Timestamp(19920, 0)});
+  const auto stepVector =
+      makeFlatVector<int64_t>({1000, 1}, INTERVAL_DAY_TIME());
+  testExpressionWithError(
+      "sequence(C0, C1, C2)",
+      {startVector, stopVector, stepVector},
+      "result of sequence function must not have more than 10000 entries");
+
+  const auto expected = makeNullableArrayVector<Timestamp>(
+      {{{Timestamp(1991, 0),
+         Timestamp(1992, 0),
+         Timestamp(1993, 0),
+         Timestamp(1994, 0),
+         Timestamp(1995, 0),
+         Timestamp(1996, 0)}},
+       std::nullopt});
+  testExpression(
+      "try(sequence(C0, C1, C2))",
+      {startVector, stopVector, stepVector},
+      expected);
+}
+
+TEST_F(SequenceTest, timestampInvalidIntervalStep) {
+  const auto startVector =
+      makeFlatVector<Timestamp>({Timestamp(1991, 0), Timestamp(1992, 0)});
+  const auto stopVector =
+      makeFlatVector<Timestamp>({Timestamp(1996, 0), Timestamp(1992, 0)});
+  const auto stepVector =
+      makeFlatVector<int64_t>({0, 1000}, INTERVAL_DAY_TIME());
+  testExpressionWithError(
+      "sequence(C0, C1, C2)",
+      {startVector, stopVector, stepVector},
+      "(0 vs. 0) step must not be zero");
+  const auto expected = makeNullableArrayVector<Timestamp>(
+      {std::nullopt, {{Timestamp(1992, 0)}}});
+  testExpression(
+      "try(sequence(C0, C1, C2))",
+      {startVector, stopVector, stepVector},
+      expected);
+}
