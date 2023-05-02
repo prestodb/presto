@@ -104,6 +104,9 @@ velox::variant VeloxExprConverter::getConstantValue(
   }
 
   switch (typeKind) {
+    case TypeKind::HUGEINT:
+      return valueVector->as<velox::SimpleVector<velox::int128_t>>()->valueAt(
+          0);
     case TypeKind::BIGINT:
       return valueVector->as<velox::SimpleVector<int64_t>>()->valueAt(0);
     case TypeKind::INTEGER:
@@ -392,14 +395,6 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
       return std::make_shared<ConstantTypedExpr>(
           std::make_shared<velox::ConstantVector<velox::ComplexType>>(
               pool_, 1, 0, valueVector));
-    }
-    case TypeKind::SHORT_DECIMAL:
-    case TypeKind::LONG_DECIMAL: {
-      auto valueVector =
-          protocol::readBlock(type, pexpr->valueBlock.data, pool_);
-      return std::make_shared<ConstantTypedExpr>(
-          velox::BaseVector::wrapInConstant(
-              1 /*length*/, 0 /*index*/, valueVector));
     }
     default: {
       const auto value = getConstantValue(type, pexpr->valueBlock);
