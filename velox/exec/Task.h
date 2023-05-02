@@ -372,23 +372,26 @@ class Task : public std::enable_shared_from_this<Task> {
   void setError(const std::string& message);
 
   /// Synchronizes completion of an Operator across Drivers of 'this'.
-  /// 'planNodeId' identifies the Operator within all
-  /// Operators/pipelines of 'this'.  Each Operator instance calls this
-  /// once. All but the last get a false return value and 'future' is
-  /// set to a future the caller should block on. At this point the
-  /// caller should go off thread as in any blocking situation.  The
-  /// last to call gets a true return value and 'peers' is set to all
-  /// Drivers except 'caller'. 'promises' coresponds pairwise to
-  /// 'peers'. Realizing the promise will continue the peer. This
-  /// effects a synchronization barrier between Drivers of a pipeline
-  /// inside one worker. This is used for example for multithreaded
-  /// hash join build to ensure all build threads are completed before
-  /// allowing the probe pipeline to proceed. Throws a cancelled error
-  /// if 'this' is in an error state.
+  /// 'planNodeId' identifies the Operator within all Operators/pipelines of
+  /// 'this'.  Each Operator instance calls this once. All but the last get a
+  /// false return value and 'future' is set to a future the caller should block
+  /// on. At this point the caller should go off thread as in any blocking
+  /// situation.  The last to call gets a true return value and 'peers' is set
+  /// to all Drivers except 'caller'. 'promises' corresponds pairwise to
+  /// 'peers'. Realizing the promise will continue the peer. This effects a
+  /// synchronization barrier between Drivers of a pipeline inside one worker.
+  /// This is used for example for multithreaded hash join build to ensure all
+  /// build threads are completed before allowing the probe pipeline to proceed.
+  /// Throws a cancelled error if 'this' is in an error state.
+  ///
+  /// NOTE: if 'future' is null, then the caller doesn't intend to wait for the
+  /// other peers to finish. The function won't set its promise and record it in
+  /// peers. This is used in scenario that the caller only needs to know whether
+  /// it is the last one to reach the barrier.g
   bool allPeersFinished(
       const core::PlanNodeId& planNodeId,
-      Driver* FOLLY_NONNULL caller,
-      ContinueFuture* FOLLY_NONNULL future,
+      Driver* caller,
+      ContinueFuture* future,
       std::vector<ContinuePromise>& promises,
       std::vector<std::shared_ptr<Driver>>& peers);
 

@@ -1329,13 +1329,16 @@ bool Task::allPeersFinished(
       break;
     }
   }
-  VELOX_CHECK(
+  VELOX_CHECK_NOT_NULL(
       callerShared, "Caller of Task::allPeersFinished is not a valid Driver");
-  state.drivers.push_back(callerShared);
-  state.promises.emplace_back(
-      fmt::format("Task::allPeersFinished {}", taskId_));
-  *future = state.promises.back().getSemiFuture();
-
+  // NOTE: we only set promise for the driver caller if it wants to wait for all
+  // the peers to finish.
+  if (future != nullptr) {
+    state.drivers.push_back(callerShared);
+    state.promises.emplace_back(
+        fmt::format("Task::allPeersFinished {}", taskId_));
+    *future = state.promises.back().getSemiFuture();
+  }
   return false;
 }
 

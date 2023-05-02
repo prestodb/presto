@@ -1366,20 +1366,25 @@ void HashProbe::noMoreInputInternal() {
   std::vector<std::shared_ptr<Driver>> peers;
   // The last operator to finish processing inputs is responsible for producing
   // build-side rows based on the join.
-  ContinueFuture future;
   if (!operatorCtx_->task()->allPeersFinished(
           planNodeId(),
           operatorCtx_->driver(),
-          hasSpillData ? &future_ : &future,
+          hasSpillData ? &future_ : nullptr,
           hasSpillData ? promises_ : promises,
           peers)) {
     if (hasSpillData) {
       VELOX_CHECK(future_.valid());
       setState(State::kWaitForPeers);
     }
+    DCHECK(promises.empty());
     return;
   }
-
+  // NOTE: if 'hasSpillData' is false, then this is the last built table to
+  // probe. Correspondingly, the hash probe operator except the last one can
+  // simply finish its processing without waiting the other peers to reach the
+  // barrier.
+  VELOX_CHECK(promises.empty());
+  VELOX_CHECK(hasSpillData || peers.empty());
   lastProber_ = true;
 }
 
