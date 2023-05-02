@@ -381,6 +381,12 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
 std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
     std::shared_ptr<protocol::ConstantExpression> pexpr) const {
   const auto type = parseTypeSignature(pexpr->type);
+  if (type->isDecimal()) {
+    auto valueVector = protocol::readBlock(type, pexpr->valueBlock.data, pool_);
+    return std::make_shared<ConstantTypedExpr>(
+        velox::BaseVector::wrapInConstant(
+            1 /*length*/, 0 /*index*/, valueVector));
+  }
   switch (type->kind()) {
     case TypeKind::ROW:
       FOLLY_FALLTHROUGH;
@@ -392,14 +398,6 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
       return std::make_shared<ConstantTypedExpr>(
           std::make_shared<velox::ConstantVector<velox::ComplexType>>(
               pool_, 1, 0, valueVector));
-    }
-    case TypeKind::SHORT_DECIMAL:
-    case TypeKind::LONG_DECIMAL: {
-      auto valueVector =
-          protocol::readBlock(type, pexpr->valueBlock.data, pool_);
-      return std::make_shared<ConstantTypedExpr>(
-          velox::BaseVector::wrapInConstant(
-              1 /*length*/, 0 /*index*/, valueVector));
     }
     default: {
       const auto value = getConstantValue(type, pexpr->valueBlock);
