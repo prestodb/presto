@@ -124,6 +124,7 @@ std::vector<KeyNode<T>> getKeyNodes(
         if (sequence == 0 || processed.count(sequence) > 0) {
           return;
         }
+        processed.insert(sequence);
         EncodingKey seqEk(dataValueType->id, sequence);
         const auto& keyInfo = stripe.getEncoding(seqEk).key();
         auto key = extractKey<T>(keyInfo);
@@ -162,7 +163,6 @@ std::vector<KeyNode<T>> getKeyNodes(
             requestedValueType, dataValueType, childParams, *childSpec);
         keyNodes.emplace_back(
             key, sequence, std::move(reader), std::move(inMapDecoder));
-        processed.insert(sequence);
       });
 
   VLOG(1) << "[Flat-Map] Initialized a flat-map column reader for node "
