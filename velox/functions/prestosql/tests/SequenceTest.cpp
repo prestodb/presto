@@ -151,3 +151,53 @@ TEST_F(SequenceTest, dateArgumentsExceedMaxEntries) {
        {{Date(1992)}}});
   testExpression("try(sequence(C0, C1))", {startVector, stopVector}, expected);
 }
+
+TEST_F(SequenceTest, intervalStep) {
+  int64_t day = 86400000; // 24 * 60 * 60 * 1000
+  const auto startVector = makeFlatVector<Date>({Date(1991), Date(1992)});
+  const auto stopVector = makeFlatVector<Date>({Date(1996), Date(2000)});
+
+  const auto stepVector =
+      makeFlatVector<int64_t>({day, 2 * day}, INTERVAL_DAY_TIME());
+  const auto expected = makeArrayVector<Date>(
+      {{Date(1991), Date(1992), Date(1993), Date(1994), Date(1995), Date(1996)},
+       {Date(1992), Date(1994), Date(1996), Date(1998), Date(2000)}});
+  testExpression(
+      "sequence(C0, C1, C2)", {startVector, stopVector, stepVector}, expected);
+}
+
+TEST_F(SequenceTest, invalidIntervalStep) {
+  int64_t day = 86400000; // 24 * 60 * 60 * 1000
+  const auto startVector =
+      makeFlatVector<Date>({Date(1991), Date(1992), Date(1992)});
+  const auto stopVector =
+      makeFlatVector<Date>({Date(1996), Date(2000), Date(2000)});
+  auto stepVector =
+      makeFlatVector<int64_t>({-1 * day, 0, 1}, INTERVAL_DAY_TIME());
+  testExpressionWithError(
+      "sequence(C0, C1, C2)",
+      {startVector, stopVector, stepVector},
+      "sequence stop value should be greater than or equal to start value if "
+      "step is greater than zero otherwise stop should be less than or equal to "
+      "start");
+
+  stepVector = makeFlatVector<int64_t>({0, 1, -1 * day}, INTERVAL_DAY_TIME());
+  testExpressionWithError(
+      "sequence(C0, C1, C2)",
+      {startVector, stopVector, stepVector},
+      "(0 vs. 0) step must not be zero");
+
+  stepVector = makeFlatVector<int64_t>({1, -1 * day, 0}, INTERVAL_DAY_TIME());
+  testExpressionWithError(
+      "sequence(C0, C1, C2)",
+      {startVector, stopVector, stepVector},
+      "sequence step must be a day interval if start and end values are dates");
+
+  stepVector = makeFlatVector<int64_t>({1, -1 * day, 0}, INTERVAL_DAY_TIME());
+  auto expected =
+      makeNullableArrayVector<Date>({std::nullopt, std::nullopt, std::nullopt});
+  testExpression(
+      "try(sequence(C0, C1, C2))",
+      {startVector, stopVector, stepVector},
+      expected);
+}
