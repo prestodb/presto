@@ -15,74 +15,54 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public abstract class AbstractTestNativeJoinQueries
         extends AbstractTestQueryFramework
 {
-    @Test
-    public void testInnerJoin()
+    @Test(dataProvider = "joinTypeProvider")
+    public void testInnerJoin(Session joinTypeSession)
     {
-        Session partitionedJoin = partitionedJoin();
-
-        assertQuery(partitionedJoin, "SELECT o.orderstatus, l.linenumber FROM orders o, lineitem l WHERE o.orderkey = l.orderkey");
-        assertQuery(partitionedJoin, "SELECT count(*) FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey > 10000");
-        assertQuery(partitionedJoin, "SELECT count(*) FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
-
-        Session broadcastJoin = broadcastJoin();
-
-        assertQuery(broadcastJoin, "SELECT o.orderstatus, l.linenumber FROM orders o, lineitem l WHERE o.orderkey = l.orderkey");
-        assertQuery(broadcastJoin, "SELECT count(*) FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey > 10000");
-        assertQuery(broadcastJoin, "SELECT count(*) FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
+        assertQuery(joinTypeSession, "SELECT o.orderstatus, l.linenumber FROM orders o, lineitem l WHERE o.orderkey = l.orderkey");
+        assertQuery(joinTypeSession, "SELECT count(*) FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey > 10000");
+        assertQuery(joinTypeSession, "SELECT count(*) FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
     }
 
-    @Test
-    public void testBucketedInnerJoin()
+    @Test(dataProvider = "joinTypeProvider")
+    public void testBucketedInnerJoin(Session joinTypeSession)
     {
-        assertQuery("SELECT b.name, c.name FROM customer_bucketed b, customer c WHERE b.name=c.name");
+        assertQuery(joinTypeSession, "SELECT b.name, c.name FROM customer_bucketed b, customer c WHERE b.name=c.name");
     }
 
-    @Test
-    public void testSemiJoin()
+    @Test(dataProvider = "joinTypeProvider")
+    public void testSemiJoin(Session joinTypeSession)
     {
-        Session partitionedJoin = partitionedJoin();
-        Session broadcastJoin = broadcastJoin();
-
-        assertQuery(partitionedJoin, "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
-        assertQuery(broadcastJoin, "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
-
-        assertQuery(partitionedJoin, "SELECT * FROM lineitem " +
-                "WHERE linenumber = 3 OR orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
-        assertQuery(broadcastJoin, "SELECT linenumber, quantity FROM lineitem " +
+        assertQuery(joinTypeSession, "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
+        assertQuery(joinTypeSession, "SELECT * FROM lineitem " +
                 "WHERE linenumber = 3 OR orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
     }
 
+    @Test(dataProvider = "joinTypeProvider")
+    public void testAntiJoin(Session joinTypeSession)
+    {
+        assertQuery(joinTypeSession, "SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
+        assertQuery(joinTypeSession, "SELECT * FROM lineitem " +
+                "WHERE linenumber = 3 OR orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
+    }
+
+    @Test(dataProvider = "joinTypeProvider")
+    public void testLeftJoin(Session joinTypeSession)
+    {
+        assertQuery(joinTypeSession, "SELECT * FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey AND l.linenumber > 5");
+    }
+
     @Test
-    public void testAntiJoin()
+    public void testRightJoinPartitioned()
     {
         Session partitionedJoin = partitionedJoin();
-        Session broadcastJoin = broadcastJoin();
-
-        assertQuery(partitionedJoin, "SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
-        assertQuery(broadcastJoin, "SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
-
-        assertQuery(partitionedJoin, "SELECT * FROM lineitem " +
-                "WHERE linenumber = 3 OR orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
-        assertQuery(broadcastJoin, "SELECT * FROM lineitem " +
-                "WHERE linenumber = 3 OR orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
-    }
-
-    @Test
-    public void testLeftJoin()
-    {
-        assertQuery("SELECT * FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey AND l.linenumber > 5");
-    }
-
-    @Test
-    public void testRightJoin()
-    {
-        assertQuery("SELECT * FROM nation n RIGHT JOIN region r ON n.regionkey = r.regionkey");
-        assertQuery("SELECT * FROM (SELECT * FROM nation WHERE regionkey % 2 = 1) n RIGHT JOIN region r ON n.regionkey = r.regionkey");
+        assertQuery(partitionedJoin, "SELECT * FROM nation n RIGHT JOIN region r ON n.regionkey = r.regionkey");
+        assertQuery(partitionedJoin, "SELECT * FROM (SELECT * FROM nation WHERE regionkey % 2 = 1) n RIGHT JOIN region r ON n.regionkey = r.regionkey");
     }
 
     @Test
@@ -106,14 +86,25 @@ public abstract class AbstractTestNativeJoinQueries
         assertQuery(mergeJoin(), sql, getSession(), sql);
     }
 
-    private Session partitionedJoin()
+    @DataProvider(name = "joinTypeProvider")
+    public Object[][] joinTypeProvider()
+    {
+        return joinTypeProviderImpl();
+    }
+
+    protected Object[][] joinTypeProviderImpl()
+    {
+        return new Object[][] {{partitionedJoin()}, {broadcastJoin()}};
+    }
+
+    protected Session partitionedJoin()
     {
         return Session.builder(getSession())
                 .setSystemProperty("join_distribution_type", "PARTITIONED")
                 .build();
     }
 
-    private Session broadcastJoin()
+    protected Session broadcastJoin()
     {
         return Session.builder(getSession())
                 .setSystemProperty("join_distribution_type", "BROADCAST")
