@@ -32,17 +32,23 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isSizeBasedJoinDistributionTypeEnabled;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isAdaptiveJoinSideSwitchingEnabled;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.isBelowBroadcastLimit;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.isSmallerThanThreshold;
+import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.createRuntimeSwappedJoinNode;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This optimizer chooses the build and probe side of the join based on the size of the
@@ -66,6 +72,15 @@ public class PickJoinSides
                     // changing the distribution type too
                     && !(joinNode.getCriteria().isEmpty() && (joinNode.getType() == LEFT || joinNode.getType() == RIGHT)));
 
+    private Metadata metadata;
+    private SqlParser sqlParser;
+
+    public PickJoinSides(Metadata metadata, SqlParser sqlParser)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+    }
+
     @Override
     public Pattern<JoinNode> getPattern()
     {
@@ -85,17 +100,14 @@ public class PickJoinSides
         double leftSize = statsProvider.getStats(joinNode.getLeft()).getOutputSizeInBytes();
         double rightSize = statsProvider.getStats(joinNode.getRight()).getOutputSizeInBytes();
 
-        if (rightSize > leftSize) {
-            return Result.ofPlanNode(joinNode.flipChildren());
-        }
-
+        Optional<JoinNode> rewrittenNode = Optional.empty();
         // if we don't have exact costs for the join, but based on source tables we think the left side
         // is very small or much smaller than the right, then flip the join.
-        if (isSizeBasedJoinDistributionTypeEnabled(context.getSession()) && (Double.isNaN(leftSize) || Double.isNaN(rightSize)) && isLeftSideSmall(joinNode, context)) {
-            return Result.ofPlanNode(joinNode.flipChildren());
+        if (rightSize > leftSize || (isSizeBasedJoinDistributionTypeEnabled(context.getSession()) && (Double.isNaN(leftSize) || Double.isNaN(rightSize)) && isLeftSideSmall(joinNode, context))) {
+            rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, sqlParser, context.getLookup(), context.getSession(), context.getVariableAllocator(), context.getIdAllocator());
         }
 
-        return Result.empty();
+        return rewrittenNode.map(Result::ofPlanNode).orElseGet(Result::empty);
     }
 
     // This logic is based on DetermineJoinDistributionType.getSizeBasedJoin(),
