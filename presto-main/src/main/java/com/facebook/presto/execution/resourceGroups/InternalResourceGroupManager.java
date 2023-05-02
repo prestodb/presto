@@ -302,7 +302,7 @@ public final class InternalResourceGroupManager<C>
             }
         }
         catch (Throwable t) {
-            log.error(t, "Error while executing refreshAndStartQueries");
+            log.error(t, "Error while executing refreshResourceGroupRuntimeInfo");
         }
     }
 
