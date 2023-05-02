@@ -31,7 +31,7 @@ void UnsafeRowExchangeSource::request() {
       atEnd_ = true;
       queue_->enqueueLocked(nullptr, promises);
     } else {
-      auto buffer = shuffle_->next(true);
+      auto buffer = shuffle_->next();
       ++numBatches_;
 
       auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());

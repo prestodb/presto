@@ -41,8 +41,7 @@ class ShuffleReader {
   virtual bool hasNext() = 0;
 
   /// Read the next block of data.
-  /// @param success set to false to indicate aborted client.
-  virtual velox::BufferPtr next(bool success) = 0;
+  virtual velox::BufferPtr next() = 0;
 
   /// Runtime statistics.
   virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;

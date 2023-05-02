@@ -208,8 +208,7 @@ class TestShuffleReader : public ShuffleReader {
     return !(*readyPartitions_)[partition_].empty();
   }
 
-  BufferPtr next(bool success) override {
-    VELOX_CHECK(success, "Unexpected error")
+  BufferPtr next() override {
     VELOX_CHECK(!(*readyPartitions_)[partition_].empty());
 
     auto buffer = (*readyPartitions_)[partition_].back();

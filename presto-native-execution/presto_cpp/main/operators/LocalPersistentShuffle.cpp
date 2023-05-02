@@ -166,12 +166,7 @@ bool LocalPersistentShuffleReader::hasNext() {
   return readPartitionFileIndex_ < readPartitionFiles_.size();
 }
 
-BufferPtr LocalPersistentShuffleReader::next(bool success) {
-  // On failure, reset the index of the files to be read.
-  if (!success) {
-    readPartitionFileIndex_ = 0;
-  }
-
+BufferPtr LocalPersistentShuffleReader::next() {
   auto filename = readPartitionFiles_[readPartitionFileIndex_];
   auto file = fileSystem_->openFileForRead(filename);
   auto buffer = AlignedBuffer::allocate<char>(file->size(), pool_, 0);
