@@ -146,6 +146,19 @@ class ExpressionFuzzer {
 
   void reSeed();
 
+  // Parse --assign_function_tickets startup flag into a map that maps function
+  // name to its number of tickets.
+  void getTicketsForFunctions();
+
+  // Get tickets for one function assigned by the --assign_function_tickets
+  // flag. This function should be called after getTicketsForFunctions().
+  int getTickets(const std::string& funcName);
+
+  // Add `funcName` that returns `type` to typeToExpressionList_.
+  void addToTypeToExpressionListByTicketTimes(
+      const std::string& type,
+      const std::string& funcName);
+
   void appendConjunctSignatures();
 
   TypePtr generateRootType();
@@ -163,6 +176,11 @@ class ExpressionFuzzer {
   core::TypedExprPtr generateArg(const TypePtr& arg);
 
   std::vector<core::TypedExprPtr> generateArgs(const CallableSignature& input);
+
+  std::vector<core::TypedExprPtr> generateArgs(
+      const std::vector<TypePtr>& argTypes,
+      const std::vector<bool>& constantArgs,
+      uint32_t numVarArgs = 0);
 
   core::TypedExprPtr generateArg(const TypePtr& arg, bool isConstant);
 
@@ -295,6 +313,10 @@ class ExpressionFuzzer {
       std::string,
       std::unordered_map<std::string, std::vector<const SignatureTemplate*>>>
       expressionToTemplatedSignature_;
+
+  // A map that maps function name to its number of tickets parsed from the
+  // --assign_function_tickets startup flag .
+  std::unordered_map<std::string, int> functionsToTickets_;
 
   /// The remaining levels of expression nesting. It's initialized by
   /// FLAGS_max_level_of_nesting and updated in generateExpression(). When its

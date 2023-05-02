@@ -331,48 +331,6 @@ RowVectorPtr wrapChildren(
       rowVector->pool(), rowVector->type(), nullptr, size, newInputs);
 }
 
-// Parse --assign_function_tickets startup flag into a map that maps function
-// name to its number of tickets.
-std::unordered_map<std::string, int> getTicketsForFunctions() {
-  std::unordered_map<std::string, int> functionToTickets;
-  if (FLAGS_assign_function_tickets.empty()) {
-    return functionToTickets;
-  }
-  std::vector<std::string> results;
-  boost::algorithm::split(
-      results, FLAGS_assign_function_tickets, boost::is_any_of(","));
-
-  for (auto& entry : results) {
-    std::vector<std::string> separated;
-    boost::algorithm::split(separated, entry, boost::is_any_of("="));
-    if (separated.size() != 2) {
-      LOG(FATAL)
-          << "Invalid format. Expected a function name and its number of "
-             "tickets separated by '=', instead found: "
-          << entry;
-    }
-    int tickets = 0;
-    try {
-      tickets = stoi(separated[1]);
-    } catch (std::exception& e) {
-      LOG(FATAL)
-          << "Invalid number of tickets. Expected a function name and its "
-             "number of tickets separated by '=', instead found: "
-          << entry << " Error encountered: " << e.what();
-    }
-
-    if (tickets < 1) {
-      LOG(FATAL)
-          << "Number of tickets should be a positive integer. Expected a "
-             "function name and its number of tickets separated by '=',"
-             " instead found: "
-          << entry;
-    }
-    functionToTickets.insert({separated[0], tickets});
-  }
-  return functionToTickets;
-}
-
 } // namespace
 
 ExpressionFuzzer::ExpressionFuzzer(
@@ -503,15 +461,8 @@ ExpressionFuzzer::ExpressionFuzzer(
       unsupportedFunctionSignatures,
       (double)unsupportedFunctionSignatures / totalFunctionSignatures * 100);
 
-  auto functionsToTickets = getTicketsForFunctions();
-  auto getTickets = [&functionsToTickets](const std::string& funcName) {
-    auto itr = functionsToTickets.find(funcName);
-    int tickets = 1;
-    if (itr != functionsToTickets.end()) {
-      tickets = itr->second;
-    }
-    return tickets;
-  };
+  getTicketsForFunctions();
+
   // We sort the available signatures before inserting them into
   // typeToExpressionList_ and expressionToSignature_. The purpose of this step
   // is to ensure the vector of function signatures associated with each key in
@@ -527,11 +478,8 @@ ExpressionFuzzer::ExpressionFuzzer(
       // Ensure entries for a function name are added only once. This
       // gives all others a fair chance to be selected. Since signatures
       // are sorted on the function name this check will always work.
-      int tickets = getTickets(it.name);
       // Add multiple entries to increase likelihood of its selection.
-      for (int i = 0; i < tickets; i++) {
-        typeToExpressionList_[returnType].push_back(it.name);
-      }
+      addToTypeToExpressionListByTicketTimes(returnType, it.name);
     }
     expressionToSignature_[it.name][returnType].push_back(&it);
   }
@@ -548,10 +496,7 @@ ExpressionFuzzer::ExpressionFuzzer(
     }
     if (typeToExpressionList_[*returnTypeKey].empty() ||
         typeToExpressionList_[*returnTypeKey].back() != it.name) {
-      int tickets = getTickets(it.name);
-      for (int i = 0; i < tickets; i++) {
-        typeToExpressionList_[*returnTypeKey].push_back(it.name);
-      }
+      addToTypeToExpressionListByTicketTimes(*returnTypeKey, it.name);
     }
     expressionToTemplatedSignature_[it.name][*returnTypeKey].push_back(&it);
   }
@@ -571,6 +516,62 @@ ExpressionFuzzer::ExpressionFuzzer(
   statListener_ = std::make_shared<ExprStatsListener>(exprNameToStats_);
   if (!exec::registerExprSetListener(statListener_)) {
     LOG(WARNING) << "Listener should only be registered once.";
+  }
+}
+
+void ExpressionFuzzer::getTicketsForFunctions() {
+  if (FLAGS_assign_function_tickets.empty()) {
+    return;
+  }
+  std::vector<std::string> results;
+  boost::algorithm::split(
+      results, FLAGS_assign_function_tickets, boost::is_any_of(","));
+
+  for (auto& entry : results) {
+    std::vector<std::string> separated;
+    boost::algorithm::split(separated, entry, boost::is_any_of("="));
+    if (separated.size() != 2) {
+      LOG(FATAL)
+          << "Invalid format. Expected a function name and its number of "
+             "tickets separated by '=', instead found: "
+          << entry;
+    }
+    int tickets = 0;
+    try {
+      tickets = stoi(separated[1]);
+    } catch (std::exception& e) {
+      LOG(FATAL)
+          << "Invalid number of tickets. Expected a function name and its "
+             "number of tickets separated by '=', instead found: "
+          << entry << " Error encountered: " << e.what();
+    }
+
+    if (tickets < 1) {
+      LOG(FATAL)
+          << "Number of tickets should be a positive integer. Expected a "
+             "function name and its number of tickets separated by '=',"
+             " instead found: "
+          << entry;
+    }
+    functionsToTickets_.insert({separated[0], tickets});
+  }
+}
+
+int ExpressionFuzzer::getTickets(const std::string& funcName) {
+  auto itr = functionsToTickets_.find(funcName);
+  int tickets = 1;
+  if (itr != functionsToTickets_.end()) {
+    tickets = itr->second;
+  }
+  return tickets;
+}
+
+void ExpressionFuzzer::addToTypeToExpressionListByTicketTimes(
+    const std::string& type,
+    const std::string& funcName) {
+  int tickets = getTickets(funcName);
+  for (int i = 0; i < tickets; i++) {
+    typeToExpressionList_[type].push_back(funcName);
   }
 }
 
@@ -652,25 +653,31 @@ core::TypedExprPtr ExpressionFuzzer::generateArg(const TypePtr& arg) {
 }
 
 std::vector<core::TypedExprPtr> ExpressionFuzzer::generateArgs(
-    const CallableSignature& input) {
+    const std::vector<TypePtr>& argTypes,
+    const std::vector<bool>& constantArgs,
+    uint32_t numVarArgs) {
   std::vector<core::TypedExprPtr> inputExpressions;
+  inputExpressions.reserve(argTypes.size() + numVarArgs);
+
+  for (auto i = 0; i < argTypes.size(); ++i) {
+    inputExpressions.emplace_back(
+        generateArg(argTypes.at(i), constantArgs.at(i)));
+  }
+  // Append varargs to the argument list.
+  for (int i = 0; i < numVarArgs; i++) {
+    inputExpressions.emplace_back(
+        generateArg(argTypes.back(), constantArgs.back()));
+  }
+  return inputExpressions;
+}
+
+std::vector<core::TypedExprPtr> ExpressionFuzzer::generateArgs(
+    const CallableSignature& input) {
   auto numVarArgs = !input.variableArity
       ? 0
       : boost::random::uniform_int_distribution<uint32_t>(
             0, FLAGS_max_num_varargs)(rng_);
-  inputExpressions.reserve(input.args.size() + numVarArgs);
-
-  for (auto i = 0; i < input.args.size(); ++i) {
-    inputExpressions.emplace_back(
-        generateArg(input.args.at(i), input.constantArgs.at(i)));
-  }
-
-  // Append varargs to the argument list.
-  for (int i = 0; i < numVarArgs; i++) {
-    inputExpressions.emplace_back(
-        generateArg(input.args.back(), input.constantArgs.back()));
-  }
-  return inputExpressions;
+  return generateArgs(input.args, input.constantArgs, numVarArgs);
 }
 
 core::TypedExprPtr ExpressionFuzzer::generateArg(
