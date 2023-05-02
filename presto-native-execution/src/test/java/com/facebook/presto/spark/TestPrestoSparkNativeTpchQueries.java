@@ -56,14 +56,6 @@ public class TestPrestoSparkNativeTpchQueries
 
     @Override
     @Ignore
-    public void testTpchQ12() {}
-
-    @Override
-    @Ignore
-    public void testTpchQ14() {}
-
-    @Override
-    @Ignore
     public void testTpchQ15() {}
 
     @Override
