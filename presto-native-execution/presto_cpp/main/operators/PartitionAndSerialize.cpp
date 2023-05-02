@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
+#include <folly/lang/Bits.h>
 #include "velox/row/UnsafeRowSerializers.h"
 
 using namespace facebook::velox::exec;
@@ -113,7 +114,7 @@ class PartitionAndSerializeOperator : public Operator {
       const size_t rowSize =
           velox::row::UnsafeRowSerializer::getSizeRow(input_.get(), i);
       rowSizes_[i] = rowSize;
-      totalSize += (sizeof(size_t) + rowSize);
+      totalSize += (sizeof(TRowSize) + rowSize);
     }
 
     // Allocate memory.
@@ -127,11 +128,11 @@ class PartitionAndSerializeOperator : public Operator {
     size_t offset = 0;
     for (auto i = 0; i < numInput; ++i) {
       dataVector.setNoCopy(
-          i, StringView(rawBuffer + offset, rowSizes_[i] + sizeof(size_t)));
+          i, StringView(rawBuffer + offset, rowSizes_[i] + sizeof(TRowSize)));
 
       // Write size
-      *(size_t*)(rawBuffer + offset) = rowSizes_[i];
-      offset += sizeof(size_t);
+      *(TRowSize*)(rawBuffer + offset) = folly::Endian::big(rowSizes_[i]);
+      offset += sizeof(TRowSize);
 
       // Write row data.
       auto size = velox::row::UnsafeRowSerializer::serialize(
@@ -142,10 +143,12 @@ class PartitionAndSerializeOperator : public Operator {
     }
   }
 
+  using TRowSize = uint32_t;
+
   const uint32_t numPartitions_;
   std::unique_ptr<core::PartitionFunction> partitionFunction_;
   std::vector<uint32_t> partitions_;
-  std::vector<size_t> rowSizes_;
+  std::vector<TRowSize> rowSizes_;
 };
 } // namespace
 
