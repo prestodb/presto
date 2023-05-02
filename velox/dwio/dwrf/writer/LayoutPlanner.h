@@ -16,8 +16,11 @@
 
 #pragma once
 
+#include "velox/common/base/GTestMacros.h"
 #include "velox/dwio/common/Common.h"
 #include "velox/dwio/dwrf/common/Common.h"
+#include "velox/dwio/dwrf/common/Encryption.h"
+#include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/dwio/dwrf/writer/WriterContext.h"
 
 namespace facebook::velox::dwrf {
@@ -25,6 +28,84 @@ using StreamList =
     std::vector<std::pair<const DwrfStreamIdentifier*, DataBufferHolder*>>;
 
 StreamList getStreamList(WriterContext& context);
+
+class EncodingIter {
+ public:
+  using value_type = const proto::ColumnEncoding;
+  using reference = const proto::ColumnEncoding&;
+  using pointer = const proto::ColumnEncoding*;
+  using iterator_category = std::forward_iterator_tag;
+  using difference_type = int64_t;
+
+  static EncodingIter begin(
+      const proto::StripeFooter& footer,
+      const std::vector<proto::StripeEncryptionGroup>& encryptionGroups);
+
+  static EncodingIter end(
+      const proto::StripeFooter& footer,
+      const std::vector<proto::StripeEncryptionGroup>& encryptionGroups);
+
+  EncodingIter& operator++();
+  EncodingIter operator++(int);
+  bool operator==(const EncodingIter& other) const;
+  bool operator!=(const EncodingIter& other) const;
+  reference operator*() const;
+  pointer operator->() const;
+
+ private:
+  EncodingIter(
+      const proto::StripeFooter& footer,
+      const std::vector<proto::StripeEncryptionGroup>& encryptionGroups,
+      int32_t encryptionGroupIndex,
+      google::protobuf::RepeatedPtrField<proto::ColumnEncoding>::const_iterator
+          current,
+      google::protobuf::RepeatedPtrField<proto::ColumnEncoding>::const_iterator
+          currentEnd);
+
+  void next();
+
+  VELOX_FRIEND_TEST(TestEncodingIter, Ctor);
+  VELOX_FRIEND_TEST(TestEncodingIter, EncodingIterBeginAndEnd);
+  bool emptyEncryptionGroups() const;
+
+  const proto::StripeFooter& footer_;
+  const std::vector<proto::StripeEncryptionGroup>& encryptionGroups_;
+  int32_t encryptionGroupIndex_{-1};
+  google::protobuf::RepeatedPtrField<proto::ColumnEncoding>::const_iterator
+      current_;
+  google::protobuf::RepeatedPtrField<proto::ColumnEncoding>::const_iterator
+      currentEnd_;
+};
+
+class EncodingContainer {
+ public:
+  virtual ~EncodingContainer() = default;
+  virtual EncodingIter begin() const = 0;
+  virtual EncodingIter end() const = 0;
+};
+
+class EncodingManager : public EncodingContainer {
+ public:
+  explicit EncodingManager(
+      const encryption::EncryptionHandler& encryptionHandler);
+  virtual ~EncodingManager() override = default;
+
+  proto::ColumnEncoding& addEncodingToFooter(uint32_t nodeId);
+  proto::Stream* addStreamToFooter(uint32_t nodeId, uint32_t& currentIndex);
+  std::string* addEncryptionGroupToFooter();
+  proto::StripeEncryptionGroup getEncryptionGroup(uint32_t i);
+  const proto::StripeFooter& getFooter() const;
+
+  EncodingIter begin() const override;
+  EncodingIter end() const override;
+
+ private:
+  void initEncryptionGroups();
+
+  const encryption::EncryptionHandler& encryptionHandler_;
+  proto::StripeFooter footer_;
+  std::vector<proto::StripeEncryptionGroup> encryptionGroups_;
+};
 
 class LayoutPlanner {
  public:
