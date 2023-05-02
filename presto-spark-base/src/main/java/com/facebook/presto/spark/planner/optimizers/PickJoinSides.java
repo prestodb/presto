@@ -41,8 +41,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isSizeBasedJoinDistributionTypeEnabled;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isAdaptiveJoinSideSwitchingEnabled;
-import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.isBelowBroadcastLimit;
-import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.isSmallerThanThreshold;
+import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.isBelowBroadcastLimit;
+import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.isSmallerThanThreshold;
 import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.createRuntimeSwappedJoinNode;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;

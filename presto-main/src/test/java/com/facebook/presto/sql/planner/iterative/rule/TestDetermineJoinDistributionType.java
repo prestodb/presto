@@ -54,7 +54,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
-import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.getFirstKnownOutputSizeInBytes;
+import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.getFirstKnownOutputSizeInBytes;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.getSourceTablesSizeInBytes;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;

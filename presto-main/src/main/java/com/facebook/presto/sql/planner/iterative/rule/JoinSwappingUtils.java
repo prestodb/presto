@@ -15,6 +15,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -22,15 +23,23 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
@@ -42,9 +51,14 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.systemPartitionedExchange;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Double.NaN;
+import static java.lang.Double.isNaN;
 
 public class JoinSwappingUtils
 {
+    static final List<Class<? extends PlanNode>> EXPANDING_NODE_CLASSES = ImmutableList.of(JoinNode.class, UnnestNode.class);
+    private static final double SIZE_DIFFERENCE_THRESHOLD = 8;
+
     public static Optional<JoinNode> createRuntimeSwappedJoinNode(
             JoinNode joinNode,
             Metadata metadata,
@@ -167,5 +181,68 @@ public class JoinSwappingUtils
                 .map(source -> derivePropertiesRecursively(source, metadata, parser, lookup, session, variableAllocator))
                 .collect(toImmutableList());
         return StreamPropertyDerivations.deriveProperties(actual, inputProperties, metadata, session, TypeProvider.viewOf(variableAllocator.getVariables()), parser);
+    }
+
+    public static boolean isBelowBroadcastLimit(PlanNode planNode, Rule.Context context)
+    {
+        DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
+        return DetermineJoinDistributionType.getSourceTablesSizeInBytes(planNode, context) <= joinMaxBroadcastTableSize.toBytes();
+    }
+
+    public static boolean isSmallerThanThreshold(PlanNode planNodeA, PlanNode planNodeB, Rule.Context context)
+    {
+        double aOutputSize = getFirstKnownOutputSizeInBytes(planNodeA, context);
+        double bOutputSize = getFirstKnownOutputSizeInBytes(planNodeB, context);
+        return aOutputSize * SIZE_DIFFERENCE_THRESHOLD < bOutputSize;
+    }
+
+    private static double getFirstKnownOutputSizeInBytes(PlanNode node, Rule.Context context)
+    {
+        return getFirstKnownOutputSizeInBytes(node, context.getLookup(), context.getStatsProvider());
+    }
+
+    /**
+     * Recursively looks for the first source node with a known estimate and uses that to return an approximate output size.
+     * Returns NaN if an un-estimated expanding node (Join or Unnest) is encountered.
+     * The amount of reduction in size from un-estimated non-expanding nodes (e.g. an un-estimated filter or aggregation)
+     * is not accounted here. We make use of the first available estimate and make decision about flipping join sides only if
+     * we find a large difference in output size of both sides.
+     */
+    @VisibleForTesting
+    public static double getFirstKnownOutputSizeInBytes(PlanNode node, Lookup lookup, StatsProvider statsProvider)
+    {
+        return Stream.of(node)
+                .flatMap(planNode -> {
+                    if (planNode instanceof GroupReference) {
+                        return lookup.resolveGroup(node);
+                    }
+                    return Stream.of(planNode);
+                })
+                .mapToDouble(resolvedNode -> {
+                    double outputSizeInBytes = statsProvider.getStats(resolvedNode).getOutputSizeInBytes(resolvedNode);
+                    if (!isNaN(outputSizeInBytes)) {
+                        return outputSizeInBytes;
+                    }
+
+                    if (EXPANDING_NODE_CLASSES.stream().anyMatch(clazz -> clazz.isInstance(resolvedNode))) {
+                        return NaN;
+                    }
+
+                    List<PlanNode> sourceNodes = resolvedNode.getSources();
+                    if (sourceNodes.isEmpty()) {
+                        return NaN;
+                    }
+
+                    double sourcesOutputSizeInBytes = 0;
+                    for (PlanNode sourceNode : sourceNodes) {
+                        double firstKnownOutputSizeInBytes = getFirstKnownOutputSizeInBytes(sourceNode, lookup, statsProvider);
+                        if (isNaN(firstKnownOutputSizeInBytes)) {
+                            return NaN;
+                        }
+                        sourcesOutputSizeInBytes += firstKnownOutputSizeInBytes;
+                    }
+                    return sourcesOutputSizeInBytes;
+                })
+                .sum();
     }
 }
