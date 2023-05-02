@@ -47,6 +47,8 @@ option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
 option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
 # Set all Velox options below
+add_compile_definitions(FOLLY_HAVE_INT128_T=1)
+
 if(PRESTO_ENABLE_S3)
   set(VELOX_ENABLE_S3
       ON
