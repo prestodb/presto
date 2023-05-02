@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.nativeworker.AbstractTestNativeJoinQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
@@ -41,14 +42,16 @@ public class TestPrestoSparkNativeJoinQueries
         PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
     }
 
+    @Override
+    public Object[][] joinTypeProviderImpl()
+    {
+        return new Object[][] {{partitionedJoin()}};
+    }
+
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
     @Ignore
-    public void testAntiJoin() {}
-
-    @Override
-    @Ignore
-    public void testBucketedInnerJoin() {}
+    public void testMergeJoin() {}
 
     @Override
     @Ignore
@@ -56,13 +59,5 @@ public class TestPrestoSparkNativeJoinQueries
 
     @Override
     @Ignore
-    public void testInnerJoin() {}
-
-    @Override
-    @Ignore
-    public void testMergeJoin() {}
-
-    @Override
-    @Ignore
-    public void testSemiJoin() {}
+    public void testBucketedInnerJoin(Session joinTypeSession) {}
 }

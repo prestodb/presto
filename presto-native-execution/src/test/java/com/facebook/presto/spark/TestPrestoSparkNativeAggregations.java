@@ -44,9 +44,5 @@ public class TestPrestoSparkNativeAggregations
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
     @Ignore
-    public void testChecksum() {}
-
-    @Override
-    @Ignore
     public void testMinMax() {}
 }
