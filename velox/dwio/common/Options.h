@@ -104,20 +104,6 @@ class RowReaderOptions {
   bool appendRowNumberColumn_ = false;
 
  public:
-  RowReaderOptions(const RowReaderOptions& other) {
-    dataStart = other.dataStart;
-    dataLength = other.dataLength;
-    preloadStripe = other.preloadStripe;
-    projectSelectedType = other.projectSelectedType;
-    errorTolerance_ = other.errorTolerance_;
-    selector_ = other.selector_;
-    scanSpec_ = other.scanSpec_;
-    metadataFilter_ = other.metadataFilter_;
-    returnFlatVector_ = other.returnFlatVector_;
-    flatmapNodeIdAsStruct_ = other.flatmapNodeIdAsStruct_;
-    appendRowNumberColumn_ = other.appendRowNumberColumn_;
-  }
-
   RowReaderOptions() noexcept
       : dataStart(0),
         dataLength(std::numeric_limits<uint64_t>::max()),
