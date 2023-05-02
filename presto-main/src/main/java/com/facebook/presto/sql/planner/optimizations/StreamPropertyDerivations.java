@@ -47,6 +47,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -616,6 +617,19 @@ public final class StreamPropertyDerivations
         public StreamProperties visitSample(SampleNode node, List<StreamProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties);
+        }
+
+        @Override
+        public StreamProperties visitRemoteSource(RemoteSourceNode node, List<StreamProperties> inputProperties)
+        {
+            if (node.getOrderingScheme().isPresent()) {
+                return StreamProperties.ordered();
+            }
+            if (node.isEnsureSourceOrdering()) {
+                return StreamProperties.singleStream();
+            }
+
+            return StreamProperties.fixedStreams();
         }
     }
 
