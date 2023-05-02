@@ -71,6 +71,11 @@ DEFINE_bool(
     false,
     "Enable testing of function signatures with variadic arguments.");
 
+DEFINE_bool(
+    enable_dereference,
+    false,
+    "Allow fuzzer to generate random expressions with dereference and row_constructor functions.");
+
 DEFINE_string(
     repro_persist_path,
     "",
@@ -331,6 +336,33 @@ RowVectorPtr wrapChildren(
       rowVector->pool(), rowVector->type(), nullptr, size, newInputs);
 }
 
+// Return the level of nestin of `type`. Return 0 if `type` is primitive.
+uint32_t levelOfNesting(const TypePtr& type) {
+  if (type->isPrimitiveType()) {
+    return 0;
+  }
+  switch (type->kind()) {
+    case TypeKind::ARRAY:
+      return 1 + levelOfNesting(type->asArray().elementType());
+    case TypeKind::MAP:
+      return 1 +
+          std::max(
+                 levelOfNesting(type->asMap().keyType()),
+                 levelOfNesting(type->asMap().valueType()));
+    case TypeKind::ROW: {
+      auto children = type->asRow().children();
+      VELOX_CHECK(!children.empty());
+      uint32_t maxChildNesting = 0;
+      for (const auto& child : children) {
+        maxChildNesting = std::max(maxChildNesting, levelOfNesting(child));
+      }
+      return 1 + maxChildNesting;
+    }
+    default:
+      VELOX_UNREACHABLE("Not a supported type.");
+  }
+}
+
 } // namespace
 
 ExpressionFuzzer::ExpressionFuzzer(
@@ -499,6 +531,11 @@ ExpressionFuzzer::ExpressionFuzzer(
       addToTypeToExpressionListByTicketTimes(*returnTypeKey, it.name);
     }
     expressionToTemplatedSignature_[it.name][*returnTypeKey].push_back(&it);
+  }
+
+  if (FLAGS_enable_dereference) {
+    addToTypeToExpressionListByTicketTimes("row", "row_constructor");
+    addToTypeToExpressionListByTicketTimes(kTypeParameterName, "dereference");
   }
 
   // Register function override (for cases where we want to restrict the types
@@ -777,6 +814,13 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
 
     if (chosenFunctionName == "cast") {
       expression = generateCastExpression(returnType);
+    } else if (chosenFunctionName == "row_constructor") {
+      // Avoid generating deeply nested types that is rarely used in practice.
+      if (levelOfNesting(returnType) < 3) {
+        expression = generateRowConstructorExpression(returnType);
+      }
+    } else if (chosenFunctionName == "dereference") {
+      expression = generateDereferenceExpression(returnType);
     } else {
       expression = generateExpressionFromConcreteSignatures(
           returnType, chosenFunctionName);
@@ -787,7 +831,7 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
     }
   }
   if (!expression) {
-    LOG(INFO) << "Couldn't find any function to return '"
+    LOG(INFO) << "Couldn't find a proper function to return '"
               << returnType->toString() << "'. Returning a constant instead.";
     return generateArgConstant(returnType);
   }
@@ -805,11 +849,12 @@ std::vector<core::TypedExprPtr> ExpressionFuzzer::getArgsForCallable(
 }
 
 core::TypedExprPtr ExpressionFuzzer::getCallExprFromCallable(
-    const CallableSignature& callable) {
+    const CallableSignature& callable,
+    const TypePtr& type) {
   auto args = getArgsForCallable(callable);
-
-  return std::make_shared<core::CallTypedExpr>(
-      callable.returnType, args, callable.name);
+  // Generate a CallTypedExpr with type because callable.returnType may not have
+  // the required field names.
+  return std::make_shared<core::CallTypedExpr>(type, args, callable.name);
 }
 
 const CallableSignature* ExpressionFuzzer::chooseRandomConcreteSignature(
@@ -852,7 +897,7 @@ core::TypedExprPtr ExpressionFuzzer::generateExpressionFromConcreteSignatures(
   }
 
   markSelected(chosen->name);
-  return getCallExprFromCallable(*chosen);
+  return getCallExprFromCallable(*chosen, returnType);
 }
 
 const SignatureTemplate* ExpressionFuzzer::chooseRandomSignatureTemplate(
@@ -927,7 +972,7 @@ core::TypedExprPtr ExpressionFuzzer::generateExpressionFromSignatureTemplate(
       .constantArgs = constantArguments};
 
   markSelected(chosen->name);
-  return getCallExprFromCallable(callable);
+  return getCallExprFromCallable(callable, returnType);
 }
 
 core::TypedExprPtr ExpressionFuzzer::generateCastExpression(
@@ -943,8 +988,51 @@ core::TypedExprPtr ExpressionFuzzer::generateCastExpression(
   // Generate try_cast expression with 50% chance.
   bool nullOnFailure =
       boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
-  return std::make_shared<core::CastTypedExpr>(
-      callable->returnType, args, nullOnFailure);
+  return std::make_shared<core::CastTypedExpr>(returnType, args, nullOnFailure);
+}
+
+core::TypedExprPtr ExpressionFuzzer::generateRowConstructorExpression(
+    const TypePtr& returnType) {
+  VELOX_CHECK(returnType->isRow());
+  auto argTypes = asRowType(returnType)->children();
+  std::vector<bool> constantArgs(argTypes.size(), false);
+
+  auto inputExpressions = generateArgs(argTypes, constantArgs);
+  return std::make_shared<core::ConcatTypedExpr>(
+      asRowType(returnType)->names(), inputExpressions);
+}
+
+TypePtr ExpressionFuzzer::generateRandomRowTypeWithReferencedField(
+    uint32_t numFields,
+    uint32_t referencedIndex,
+    const TypePtr& referencedType) {
+  std::vector<TypePtr> fieldTypes(numFields);
+  std::vector<std::string> fieldNames(numFields);
+  for (auto i = 0; i < numFields; ++i) {
+    if (i == referencedIndex) {
+      fieldTypes[i] = referencedType;
+    } else {
+      fieldTypes[i] = vectorFuzzer_.randType();
+    }
+    fieldNames[i] = fmt::format("row_field{}", i);
+  }
+  return ROW(std::move(fieldNames), std::move(fieldTypes));
+}
+
+core::TypedExprPtr ExpressionFuzzer::generateDereferenceExpression(
+    const TypePtr& returnType) {
+  auto numFields =
+      boost::random::uniform_int_distribution<uint32_t>(1, 3)(rng_);
+  auto referencedIndex =
+      boost::random::uniform_int_distribution<uint32_t>(0, numFields - 1)(rng_);
+  auto argType = generateRandomRowTypeWithReferencedField(
+      numFields, referencedIndex, returnType);
+
+  auto inputExpressions = generateArgs({argType}, {false});
+  return std::make_shared<core::FieldAccessTypedExpr>(
+      returnType,
+      inputExpressions[0],
+      fmt::format("row_field{}", referencedIndex));
 }
 
 template <typename T>
@@ -1074,13 +1162,19 @@ TypePtr ExpressionFuzzer::generateRootType() {
   chooseFromConcreteSignatures =
       (chooseFromConcreteSignatures && !signatures_.empty()) ||
       (!chooseFromConcreteSignatures && signatureTemplates_.empty());
-
-  if (chooseFromConcreteSignatures) {
+  TypePtr rootType;
+  if (signatures_.empty() && signatureTemplates_.empty() &&
+      FLAGS_enable_dereference) {
+    // Dereference does not have signatures in either list. So even if these
+    // signature lists are both empty, we can still generate a random return
+    // type for dereference.
+    rootType = vectorFuzzer_.randType();
+  } else if (chooseFromConcreteSignatures) {
     // Pick a random signature to choose the root return type.
     VELOX_CHECK(!signatures_.empty(), "No function signature available.");
     size_t idx = boost::random::uniform_int_distribution<uint32_t>(
         0, signatures_.size() - 1)(rng_);
-    return signatures_[idx].returnType;
+    rootType = signatures_[idx].returnType;
   } else {
     // Pick a random concrete return type that can bind to the return type of
     // a chosen signature.
@@ -1089,8 +1183,9 @@ TypePtr ExpressionFuzzer::generateRootType() {
     size_t idx = boost::random::uniform_int_distribution<uint32_t>(
         0, signatureTemplates_.size() - 1)(rng_);
     ArgumentTypeFuzzer typeFuzzer{*signatureTemplates_[idx].signature, rng_};
-    return typeFuzzer.fuzzReturnType();
+    rootType = typeFuzzer.fuzzReturnType();
   }
+  return rootType;
 }
 
 void ExpressionFuzzer::retryWithTry(
