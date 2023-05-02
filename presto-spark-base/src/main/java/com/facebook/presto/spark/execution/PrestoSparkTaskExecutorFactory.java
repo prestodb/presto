@@ -407,8 +407,17 @@ public class PrestoSparkTaskExecutorFactory
         TaskId taskId = new TaskId(new StageExecutionId(stageId, 0), partitionId);
 
         // TODO: Remove this once we can display the plan on Spark UI.
-
-        log.info(PlanPrinter.textPlanFragment(fragment, functionAndTypeManager, session, true));
+        // Currently, `textPlanFragment` throws an exception if json-based UDFs are used in the query, which can only
+        // happen in native execution mode. To resolve this error, `JsonFileBasedFunctionNamespaceManager` must be
+        // loaded on the executors as well (which is actually not required for native execution). To do so, we need a
+        // mechanism to ship the JSON file containing the UDF metadata to workers, which does not exist as of today.
+        // TODO: Address this issue; more details in https://github.com/prestodb/presto/issues/19600
+        if (isNativeExecutionEnabled(session)) {
+            log.info("Logging plan fragment is not supported for presto-on-spark native execution, yet");
+        }
+        else {
+            log.info(PlanPrinter.textPlanFragment(fragment, functionAndTypeManager, session, true));
+        }
 
         DataSize maxUserMemory = getQueryMaxMemoryPerNode(session);
         DataSize maxTotalMemory = getQueryMaxTotalMemoryPerNode(session);
