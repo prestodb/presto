@@ -68,7 +68,7 @@ velox::int128_t ByteStream::read<velox::int128_t>() {
   // 128-bit block to avoid general protection exception.
   auto low = read<int64_t>();
   auto high = read<int64_t>();
-  return velox::buildInt128(high, low);
+  return velox::HugeInt::build(high, low);
 }
 
 velox::BufferPtr
@@ -106,6 +106,15 @@ velox::VectorPtr readScalarBlock(
       rawBuffer[i] = stream.read<T>();
     }
   }
+  if (type->isLongDecimal()) {
+    for (auto i = 0; i < positionCount; i++) {
+      // Convert signed magnitude form to 2's complement.
+      if (rawBuffer[i] < 0) {
+        rawBuffer[i] &= kInt128Mask;
+        rawBuffer[i] *= -1;
+      }
+    }
+  }
 
   switch (type->kind()) {
     case velox::TypeKind::BIGINT:
@@ -116,7 +125,7 @@ velox::VectorPtr readScalarBlock(
     case velox::TypeKind::REAL:
     case velox::TypeKind::VARCHAR:
     case velox::TypeKind::DATE:
-    case velox::TypeKind::SHORT_DECIMAL:
+    case velox::TypeKind::HUGEINT:
       return std::make_shared<velox::FlatVector<U>>(
           pool,
           type,
@@ -124,22 +133,6 @@ velox::VectorPtr readScalarBlock(
           positionCount,
           buffer,
           std::vector<velox::BufferPtr>{});
-    case velox::TypeKind::LONG_DECIMAL: {
-      for (auto i = 0; i < positionCount; i++) {
-        // Convert signed magnitude form to 2's complement.
-        if (rawBuffer[i] < 0) {
-          rawBuffer[i] &= kInt128Mask;
-          rawBuffer[i] *= -1;
-        }
-      }
-      return std::make_shared<velox::FlatVector<velox::UnscaledLongDecimal>>(
-          pool,
-          type,
-          nulls,
-          positionCount,
-          buffer,
-          std::vector<velox::BufferPtr>{});
-    }
     case velox::TypeKind::TIMESTAMP: {
       velox::BufferPtr timestamps =
           velox::AlignedBuffer::allocate<velox::Timestamp>(positionCount, pool);
@@ -354,13 +347,8 @@ velox::VectorPtr readBlockInt(
     return readRleBlock(type, stream, pool);
   }
 
-  if (type->kind() == velox::TypeKind::SHORT_DECIMAL) {
-    return readScalarBlock<velox::TypeKind::SHORT_DECIMAL>(
-        encoding, type, stream, pool);
-  }
-
-  if (type->kind() == velox::TypeKind::LONG_DECIMAL) {
-    return readScalarBlock<velox::TypeKind::LONG_DECIMAL>(
+  if (type->kind() == velox::TypeKind::HUGEINT) {
+    return readScalarBlock<velox::TypeKind::HUGEINT>(
         encoding, type, stream, pool);
   }
 
