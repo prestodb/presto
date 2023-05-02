@@ -37,6 +37,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -51,11 +52,13 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
+import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.remoteSource;
@@ -304,6 +307,7 @@ public class TestPickJoinSides
 
         // same but with join sides reversed
         assertPickJoinSides()
+                .setSystemProperty(TASK_CONCURRENCY, "2")
                 .overrideStats("remoteSourceA", aStatsEstimate)
                 .overrideStats("remoteSourceB", bStatsEstimate)
                 .overrideStats("filterB", PlanNodeStatsEstimate.unknown()) // unestimated term to trigger size based join ordering
@@ -316,7 +320,10 @@ public class TestPickJoinSides
                                     new PlanNodeId("filterB"),
                                     TRUE_CONSTANT,
                                     p.remoteSource(new PlanNodeId("remoteSourceB"), ImmutableList.of(new PlanFragmentId(2)), ImmutableList.of(b1))),
-                            p.remoteSource(new PlanNodeId("remoteSourceA"), ImmutableList.of(new PlanFragmentId(1)), ImmutableList.of(a1)),
+                            p.exchange(e -> e.scope(ExchangeNode.Scope.LOCAL)
+                                    .fixedHashDistributionPartitioningScheme(ImmutableList.of(a1), ImmutableList.of(a1))
+                                    .addInputsSet(a1)
+                                    .addSource(p.remoteSource(new PlanNodeId("remoteSourceA"), ImmutableList.of(new PlanFragmentId(1)), ImmutableList.of(a1)))),
                             ImmutableList.of(new JoinNode.EquiJoinClause(b1, a1)),
                             ImmutableList.of(b1, a1),
                             Optional.empty(),
@@ -331,7 +338,9 @@ public class TestPickJoinSides
                         Optional.empty(),
                         Optional.of(PARTITIONED),
                         remoteSource(ImmutableList.of(new PlanFragmentId(1)), ImmutableMap.of("A1", 0)),
-                        filter("true", remoteSource(ImmutableList.of(new PlanFragmentId(2)), ImmutableMap.of("B1", 0)))));
+                        exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.REPARTITION,
+                                filter("true",
+                                        remoteSource(ImmutableList.of(new PlanFragmentId(2)), ImmutableMap.of("B1", 0))))));
 
         // Don't flip sides when both are similar in size
         bStatsEstimate = PlanNodeStatsEstimate.builder()
@@ -369,7 +378,7 @@ public class TestPickJoinSides
     {
         int aSize = 100;
         int bSize = 10_000;
-        tester.assertThat(new PickJoinSides())
+        tester.assertThat(new PickJoinSides(tester.getMetadata(), tester.getSqlParser()))
                 .setSystemProperty(ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED, "false")
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setTotalSize(aSize)
@@ -460,7 +469,7 @@ public class TestPickJoinSides
 
     private RuleAssert assertPickJoinSides()
     {
-        return tester.assertThat(new PickJoinSides())
+        return tester.assertThat(new PickJoinSides(tester.getMetadata(), tester.getSqlParser()))
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
                 .setSystemProperty(ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED, "true");
     }
