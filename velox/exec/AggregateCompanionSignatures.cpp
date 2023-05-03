@@ -37,7 +37,8 @@ void addUsedVariablesInType(
   }
 }
 
-// Return type variables used in `types`.
+} // namespace
+
 std::unordered_map<std::string, SignatureVariable> usedTypeVariables(
     const std::vector<TypeSignature>& types,
     const std::unordered_map<std::string, SignatureVariable>& allVariables) {
@@ -48,8 +49,6 @@ std::unordered_map<std::string, SignatureVariable> usedTypeVariables(
   return usedVariables;
 }
 
-// Result type is resolvable from intermediate type iff all variables in the
-// result type appears in the intermediate type as well.
 bool isResultTypeResolvableGivenIntermediateType(
     const AggregateFunctionSignaturePtr& signature) {
   auto& allVariables = signature->variables();
@@ -71,8 +70,6 @@ bool isResultTypeResolvableGivenIntermediateType(
   return true;
 }
 
-// Return a string that is preorder traveral of `type`. For example, for
-// row(bigint, array(double)), return a string "row_bigint_array_double".
 std::string toSuffixString(const TypeSignature& type) {
   auto name = type.baseName();
   // For primitive and decimal types, return their names.
@@ -98,8 +95,6 @@ std::string toSuffixString(const TypeSignature& type) {
   }
   VELOX_UNREACHABLE("Unknown type: {}.", type.toString());
 }
-
-} // namespace
 
 std::vector<AggregateFunctionSignaturePtr>
 CompanionSignatures::partialFunctionSignatures(
@@ -265,7 +260,7 @@ TypeSignature CompanionSignatures::normalizeTypeImpl(
     const TypeSignature& type,
     const std::unordered_map<std::string, SignatureVariable>& allVariables,
     std::unordered_map<std::string, std::string>& renamedVariables) {
-  auto baseName = type.baseName();
+  const auto& baseName = type.baseName();
 
   // Already renamed variables.
   if (renamedVariables.count(baseName)) {

@@ -159,4 +159,18 @@ class CompanionSignatures {
   }
 };
 
+// Return type variables used in `types`.
+std::unordered_map<std::string, SignatureVariable> usedTypeVariables(
+    const std::vector<TypeSignature>& types,
+    const std::unordered_map<std::string, SignatureVariable>& allVariables);
+
+// Return true if the result type of `signature` can be resolved from a concrete
+// intermediate type of it.
+bool isResultTypeResolvableGivenIntermediateType(
+    const AggregateFunctionSignaturePtr& signature);
+
+// Return a string that is preorder traveral of `type`. For example, for
+// row(bigint, array(double)), return a string "row_bigint_array_double".
+std::string toSuffixString(const TypeSignature& type);
+
 } // namespace facebook::velox::exec

@@ -13,15 +13,17 @@
 # limitations under the License.
 add_subdirectory(utils)
 
-add_executable(aggregate_companion_adapter_test
-               AggregateCompanionAdapterTest.cpp)
+add_executable(
+  aggregate_companion_functions_test
+  AggregateCompanionAdapterTest.cpp AggregateCompanionSignaturesTest.cpp
+  DummyAggregateFunction.cpp)
 
 add_test(
-  NAME aggregate_companion_adapter_test
-  COMMAND aggregate_companion_adapter_test
+  NAME aggregate_companion_functions_test
+  COMMAND aggregate_companion_functions_test
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(aggregate_companion_adapter_test velox_exec
+target_link_libraries(aggregate_companion_functions_test velox_exec
                       velox_function_registry gtest gtest_main)
 
 add_executable(

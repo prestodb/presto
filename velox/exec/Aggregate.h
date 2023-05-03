@@ -391,4 +391,22 @@ AggregateFunctionMap& aggregateFunctions();
 const AggregateFunctionEntry* FOLLY_NULLABLE
 getAggregateFunctionEntry(const std::string& name);
 
+struct CompanionSignatureEntry {
+  std::string functionName;
+  std::vector<FunctionSignaturePtr> signatures;
+};
+
+struct CompanionFunctionSignatureMap {
+  std::vector<CompanionSignatureEntry> partial;
+  std::vector<CompanionSignatureEntry> merge;
+  std::vector<CompanionSignatureEntry> extract;
+  std::vector<CompanionSignatureEntry> mergeExtract;
+};
+
+// Returns a map of potential companion function signatures the specified
+// aggregation function would have. Notice that the registration of the
+// specified aggregation function needs to register companion functions together
+// for them to be used in queries.
+std::optional<CompanionFunctionSignatureMap> getCompanionFunctionSignatures(
+    const std::string& name);
 } // namespace facebook::velox::exec

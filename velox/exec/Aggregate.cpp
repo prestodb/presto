@@ -18,8 +18,8 @@
 
 #include <unordered_map>
 #include "velox/exec/AggregateCompanionAdapter.h"
+#include "velox/exec/AggregateCompanionSignatures.h"
 #include "velox/exec/AggregateWindow.h"
-#include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
 
 namespace facebook::velox::exec {
@@ -95,6 +95,108 @@ getAggregateFunctionSignatures(const std::string& name) {
   }
 
   return std::nullopt;
+}
+
+namespace {
+
+// return a vector of one single CompanionSignatureEntry instance {name,
+// signatues}.
+std::vector<CompanionSignatureEntry> getCompanionSignatures(
+    std::string&& name,
+    std::vector<AggregateFunctionSignaturePtr>&& signatures) {
+  std::vector<CompanionSignatureEntry> entries;
+  entries.push_back(
+      {std::move(name),
+       std::vector<FunctionSignaturePtr>{
+           signatures.begin(), signatures.end()}});
+  return entries;
+}
+
+std::vector<CompanionSignatureEntry> getCompanionSignatures(
+    std::string&& name,
+    std::vector<FunctionSignaturePtr>&& signatures) {
+  std::vector<CompanionSignatureEntry> entries;
+  entries.push_back({std::move(name), std::move(signatures)});
+  return entries;
+}
+
+// Process original signatures grouped by return type and construct new
+// signatures through `getNewSignatures`. For each signature group, construct a
+// companion function name with suffix of the return type via `getNewName`.
+// Finally, add a vector of the companion function names and their signatures to
+// signatureMap at the key `companionType`.
+template <typename T>
+std::vector<CompanionSignatureEntry> getCompanionSignaturesWithSuffix(
+    const std::string& name,
+    const std::vector<AggregateFunctionSignaturePtr>& signatures,
+    const std::function<std::vector<T>(
+        const std::vector<AggregateFunctionSignaturePtr>&)>& getNewSignatures,
+    const std::function<std::string(const std::string&, const TypeSignature&)>&
+        getNewName) {
+  std::vector<CompanionSignatureEntry> entries;
+  auto groupedSignatures =
+      CompanionSignatures::groupSignaturesByReturnType(signatures);
+  for (const auto& [type, signatureGroup] : groupedSignatures) {
+    auto newSignatures = getNewSignatures(signatureGroup);
+    if (newSignatures.empty()) {
+      continue;
+    }
+
+    if constexpr (std::is_same_v<T, FunctionSignaturePtr>) {
+      entries.push_back({getNewName(name, type), std::move(newSignatures)});
+    } else {
+      entries.push_back(
+          {getNewName(name, type),
+           std::vector<FunctionSignaturePtr>{
+               newSignatures.begin(), newSignatures.end()}});
+    }
+  }
+  return entries;
+}
+
+} // namespace
+
+std::optional<CompanionFunctionSignatureMap> getCompanionFunctionSignatures(
+    const std::string& name) {
+  auto* entry = getAggregateFunctionEntry(name);
+  if (!entry) {
+    return std::nullopt;
+  }
+
+  const auto& signatures = entry->signatures;
+  CompanionFunctionSignatureMap companionSignatures;
+
+  companionSignatures.partial = getCompanionSignatures(
+      CompanionSignatures::partialFunctionName(name),
+      CompanionSignatures::partialFunctionSignatures(signatures));
+
+  companionSignatures.merge = getCompanionSignatures(
+      CompanionSignatures::mergeFunctionName(name),
+      CompanionSignatures::mergeFunctionSignatures(signatures));
+
+  if (CompanionSignatures::hasSameIntermediateTypesAcrossSignatures(
+          signatures)) {
+    companionSignatures.extract =
+        getCompanionSignaturesWithSuffix<FunctionSignaturePtr>(
+            name,
+            signatures,
+            CompanionSignatures::extractFunctionSignatures,
+            CompanionSignatures::extractFunctionNameWithSuffix);
+    companionSignatures.mergeExtract =
+        getCompanionSignaturesWithSuffix<AggregateFunctionSignaturePtr>(
+            name,
+            signatures,
+            CompanionSignatures::mergeExtractFunctionSignatures,
+            CompanionSignatures::mergeExtractFunctionNameWithSuffix);
+  } else {
+    companionSignatures.extract = getCompanionSignatures(
+        CompanionSignatures::extractFunctionName(name),
+        CompanionSignatures::extractFunctionSignatures(signatures));
+    companionSignatures.mergeExtract = getCompanionSignatures(
+        CompanionSignatures::mergeExtractFunctionName(name),
+        CompanionSignatures::mergeExtractFunctionSignatures(signatures));
+  }
+  return companionSignatures;
 }
 
 std::unique_ptr<Aggregate> Aggregate::create(
