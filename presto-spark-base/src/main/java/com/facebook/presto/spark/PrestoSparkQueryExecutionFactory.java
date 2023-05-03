@@ -26,6 +26,7 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.cost.FragmentStatsProvider;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.cost.StatsAndCosts;
@@ -72,12 +73,15 @@ import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner.PlanAndMore;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
+import com.facebook.presto.spark.planner.optimizers.AdaptivePlanOptimizers;
 import com.facebook.presto.spark.util.PrestoSparkTransactionUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
@@ -195,6 +199,8 @@ public class PrestoSparkQueryExecutionFactory
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks;
     private final Optional<ErrorClassifier> errorClassifier;
     private final HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker;
+    private final AdaptivePlanOptimizers adaptivePlanOptimizers;
+    private final FragmentStatsProvider fragmentStatsProvider;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -232,7 +238,9 @@ public class PrestoSparkQueryExecutionFactory
             Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks,
             Optional<ErrorClassifier> errorClassifier,
-            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
+            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
+            AdaptivePlanOptimizers adaptivePlanOptimizers,
+            FragmentStatsProvider fragmentStatsProvider)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -269,6 +277,8 @@ public class PrestoSparkQueryExecutionFactory
         this.ddlTasks = ImmutableMap.copyOf(requireNonNull(ddlTasks, "ddlTasks is null"));
         this.errorClassifier = requireNonNull(errorClassifier, "errorClassifier is null");
         this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null").getHistoryBasedPlanStatisticsTracker();
+        this.adaptivePlanOptimizers = requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null");
+        this.fragmentStatsProvider = requireNonNull(fragmentStatsProvider, "fragmentStatsProvider is null");
     }
 
     public static QueryInfo createQueryInfo(
@@ -651,7 +661,9 @@ public class PrestoSparkQueryExecutionFactory
                 return accessControlChecker.createExecution(session, preparedQuery, queryStateTimer, warningCollector);
             }
             else {
-                planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
+                VariableAllocator variableAllocator = new VariableAllocator();
+                PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
+                planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector, variableAllocator, planNodeIdAllocator);
                 JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
                 taskInfoCollector.register(sparkContext, Option.empty(), false);
@@ -736,6 +748,10 @@ public class PrestoSparkQueryExecutionFactory
                             metadata,
                             partitioningProviderManager,
                             historyBasedPlanStatisticsTracker,
+                            adaptivePlanOptimizers,
+                            variableAllocator,
+                            planNodeIdAllocator,
+                            fragmentStatsProvider,
                             bootstrapMetricsCollector);
                 }
             }
