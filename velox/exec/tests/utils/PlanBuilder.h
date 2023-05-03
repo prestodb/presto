@@ -712,8 +712,6 @@ class PlanBuilder {
     return *this;
   }
 
-  static void registerSerDe();
-
  protected:
   // Users who create custom operators might want to extend the PlanBuilder to
   // customize extended plan builders. Those functions are needed in such

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/exec/PartitionFunction.h"
 #include "velox/exec/WindowFunction.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -36,7 +37,7 @@ class PlanNodeSerdeTest : public testing::Test,
     Type::registerSerDe();
     core::PlanNode::registerSerDe();
     core::ITypedExpr::registerSerDe();
-    PlanBuilder::registerSerDe();
+    registerPartitionFunctionSerDe();
 
     data_ = {makeRowVector({
         makeFlatVector<int64_t>({1, 2, 3}),

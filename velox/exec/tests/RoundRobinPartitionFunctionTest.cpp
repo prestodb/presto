@@ -16,10 +16,15 @@
 #include "velox/exec/RoundRobinPartitionFunction.h"
 #include <gtest/gtest.h>
 #include "velox/vector/tests/utils/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::exec;
 
-TEST(RoundRobinPartitionFunctionTest, basic) {
+class RoundRobinPartitionFunctionTest : public test::VectorTestBase,
+                                        public testing::Test {};
+
+TEST_F(RoundRobinPartitionFunctionTest, basic) {
   exec::RoundRobinPartitionFunction partitionFunction(10);
 
   auto pool = memory::addDefaultLeafMemoryPool();
@@ -36,4 +41,11 @@ TEST(RoundRobinPartitionFunctionTest, basic) {
   for (auto i = 0; i < 31; ++i) {
     ASSERT_EQ((i + 31) % 10, partitions[i]) << "at " << i;
   }
+}
+
+TEST_F(RoundRobinPartitionFunctionTest, spec) {
+  auto roundRobinSpec = std::make_unique<RoundRobinPartitionFunctionSpec>();
+  auto serialized = roundRobinSpec->serialize();
+  auto copy = RoundRobinPartitionFunctionSpec::deserialize(serialized, pool());
+  ASSERT_EQ(roundRobinSpec->toString(), copy->toString());
 }

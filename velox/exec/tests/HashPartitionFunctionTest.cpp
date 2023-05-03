@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/HashPartitionFunction.h"
+#include "velox/core/ITypedExpr.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -112,5 +113,40 @@ TEST_F(HashPartitionFunctionTest, HashPartitionFunction) {
     functionWithBits2.partition(*vector, partitonsWithBits2);
     EXPECT_EQ(partitonsWithBits1, partitonsWithBits2);
     EXPECT_EQ(4, functionWithBits2.numPartitions());
+  }
+}
+
+TEST_F(HashPartitionFunctionTest, spec) {
+  Type::registerSerDe();
+  core::ITypedExpr::registerSerDe();
+
+  RowTypePtr inputType(
+      ROW({"c0", "c1", "c2", "c3", "c4"},
+          {BIGINT(), SMALLINT(), INTEGER(), BIGINT(), VARCHAR()}));
+
+  // The test case with 1 constValues.
+  {
+    auto hashSpec = std::make_unique<exec::HashPartitionFunctionSpec>(
+        inputType,
+        std::vector<column_index_t>{0, 1, 2, 3, 4},
+        std::vector<VectorPtr>{makeConstant(1, 1)});
+
+    auto serialized = hashSpec->serialize();
+    auto copy = HashPartitionFunctionSpec::deserialize(serialized, pool());
+    ASSERT_EQ(serialized["constants"].size(), 1);
+    ASSERT_EQ(hashSpec->toString(), copy->toString());
+  }
+
+  // The test case with 0 constValues.
+  {
+    auto hashSpec = std::make_unique<exec::HashPartitionFunctionSpec>(
+        inputType,
+        std::vector<column_index_t>{0, 1, 2, 3, 4},
+        std::vector<VectorPtr>{});
+
+    auto serialized = hashSpec->serialize();
+    auto copy = HashPartitionFunctionSpec::deserialize(serialized, pool());
+    ASSERT_EQ(serialized["constants"].size(), 0);
+    ASSERT_EQ(hashSpec->toString(), copy->toString());
   }
 }
