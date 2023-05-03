@@ -2340,8 +2340,9 @@ core::PlanNodePtr addProjectIfNeeded(
     projections.push_back(std::make_shared<core::FieldAccessTypedExpr>(
         outputType->childAt(i), outputType->nameOf(i)));
   }
+  const auto planNodeId = planNode->id();
   return std::make_shared<core::ProjectNode>(
-      fmt::format("{}.project", planNode->id()),
+      fmt::format("{}.project", planNodeId),
       outputNames,
       projections,
       std::move(planNode));
