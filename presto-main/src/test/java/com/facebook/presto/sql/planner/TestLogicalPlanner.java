@@ -65,9 +65,9 @@ import static com.facebook.presto.SystemSessionProperties.LEAF_NODE_LIMIT_ENABLE
 import static com.facebook.presto.SystemSessionProperties.MAX_LEAF_NODES_IN_PLAN;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
+import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
@@ -1122,10 +1122,14 @@ public class TestLogicalPlanner
     }
 
     @Test
-    public void testEmptyJoins()
+    public void testSimplifyJoinWithEmptyInput()
     {
         Session applyEmptyJoinOptimization = Session.builder(this.getQueryRunner().getDefaultSession())
-                .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, Boolean.toString(true))
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, Boolean.toString(true))
+                .build();
+
+        Session disableEmptyJoinOptimization = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, Boolean.toString(false))
                 .build();
 
         // Right child empty.
@@ -1167,7 +1171,7 @@ public class TestLogicalPlanner
         assertPlanWithSession(
                 "WITH DT AS (SELECT orderkey FROM (select custkey from orders where 1=0) join orders on 1=1) SELECT * FROM DT LIMIT 2",
                 applyEmptyJoinOptimization, true,
-                output(limit(2, values("orderkey_0"))));
+                output(values("orderkey_0")));
 
         // Left child empty with zero limit
         assertPlanWithSession(
@@ -1186,7 +1190,7 @@ public class TestLogicalPlanner
         assertPlanWithSession(
                 "WITH DT AS (SELECT orderkey FROM (select custkey C from orders limit 0) left outer join orders on orderkey=C) SELECT * FROM DT LIMIT 2",
                 applyEmptyJoinOptimization, true,
-                output(limit(2, values("orderkey_0"))));
+                output(values("orderkey_0")));
 
         // 3 way join with empty non-null producing side for outer join
         assertPlanWithSession(
@@ -1194,13 +1198,13 @@ public class TestLogicalPlanner
                         " left outer join customer C2 on C2.custkey = C) " +
                         " SELECT * FROM DT LIMIT 2",
                 applyEmptyJoinOptimization, true,
-                output(limit(2, values("orderkey_0"))));
+                output(values("orderkey_0")));
 
         // Empty right child with right outer join
         assertPlanWithSession(
                 "WITH DT AS (SELECT orderkey FROM orders right outer join (select custkey C from orders limit 0) on orderkey=C) SELECT * FROM DT LIMIT 2",
                 applyEmptyJoinOptimization, true,
-                output(limit(2, values("orderkey_0"))));
+                output(values("orderkey_0")));
 
         // Empty right child with no projections and left outer join
         assertPlanWithSession(
@@ -1250,8 +1254,9 @@ public class TestLogicalPlanner
                                 anyTree(node(TableScanNode.class)))));
 
         // Negative test with optimization off
-        assertPlan(
+        assertPlanWithSession(
                 "SELECT C, orderkey FROM (select orderkey as C from orders where 1=0) join orders on 1=1",
+                disableEmptyJoinOptimization, true,
                 output(node(JoinNode.class, values("orderkey_0"), values("orderkey_3"))));
     }
 
