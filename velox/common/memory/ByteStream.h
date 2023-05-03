@@ -177,10 +177,10 @@ class ByteStream {
   virtual void next(bool throwIfPastEnd = true) {
     VELOX_CHECK(current_ >= &ranges_[0]);
     size_t position = current_ - &ranges_[0];
-    VELOX_CHECK(position < ranges_.size());
+    VELOX_CHECK_LT(position, ranges_.size());
     if (position == ranges_.size() - 1) {
       if (throwIfPastEnd) {
-        throw std::runtime_error("Reading past end of ByteStream");
+        VELOX_FAIL("Reading past end of ByteStream");
       }
       return;
     }
