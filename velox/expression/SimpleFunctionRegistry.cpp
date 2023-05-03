@@ -38,27 +38,36 @@ void SimpleFunctionRegistry::registerFunctionInternal(
     const std::shared_ptr<const Metadata>& metadata,
     const FunctionFactory& factory) {
   const auto sanitizedName = sanitizeName(name);
-  SignatureMap& signatureMap = registeredFunctions_[sanitizedName];
-  signatureMap[*metadata->signature()] =
-      std::make_unique<const FunctionEntry>(metadata, factory);
+  registeredFunctions_.withWLock([&](auto& map) {
+    SignatureMap& signatureMap = map[sanitizedName];
+    signatureMap[*metadata->signature()] =
+        std::make_unique<const FunctionEntry>(metadata, factory);
+  });
 }
 
-const SignatureMap* SimpleFunctionRegistry::getSignatureMap(
-    const std::string& name) const {
+namespace {
+// This function is not thread safe should be called only from within a
+// syncrhronized read region of registeredFunctions_.
+const SignatureMap* getSignatureMap(
+    const std::string& name,
+    const FunctionMap& registeredFunctions) {
   const auto sanitizedName = sanitizeName(name);
-  const auto it = registeredFunctions_.find(sanitizedName);
-  return it != registeredFunctions_.end() ? &it->second : nullptr;
+  const auto it = registeredFunctions.find(sanitizedName);
+  return it != registeredFunctions.end() ? &it->second : nullptr;
 }
+} // namespace
 
 std::vector<const FunctionSignature*>
 SimpleFunctionRegistry::getFunctionSignatures(const std::string& name) const {
   std::vector<const FunctionSignature*> signatures;
-  if (const auto* signatureMap = getSignatureMap(name)) {
-    signatures.reserve(signatureMap->size());
-    for (const auto& pair : *signatureMap) {
-      signatures.emplace_back(&pair.first);
+  registeredFunctions_.withRLock([&](const auto& map) {
+    if (const auto* signatureMap = getSignatureMap(name, map)) {
+      signatures.reserve(signatureMap->size());
+      for (const auto& pair : *signatureMap) {
+        signatures.emplace_back(&pair.first);
+      }
     }
-  }
+  });
 
   return signatures;
 }
@@ -69,20 +78,22 @@ SimpleFunctionRegistry::resolveFunction(
     const std::vector<TypePtr>& argTypes) const {
   const FunctionEntry* selectedCandidate = nullptr;
   TypePtr selectedCandidateType = nullptr;
-  if (const auto* signatureMap = getSignatureMap(name)) {
-    for (const auto& [candidateSignature, functionEntry] : *signatureMap) {
-      SignatureBinder binder(candidateSignature, argTypes);
-      if (binder.tryBind()) {
-        auto* currentCandidate = functionEntry.get();
-        if (!selectedCandidate ||
-            currentCandidate->getMetadata().priority() <
-                selectedCandidate->getMetadata().priority()) {
-          selectedCandidate = currentCandidate;
-          selectedCandidateType = binder.tryResolveReturnType();
+  registeredFunctions_.withRLock([&](const auto& map) {
+    if (const auto* signatureMap = getSignatureMap(name, map)) {
+      for (const auto& [candidateSignature, functionEntry] : *signatureMap) {
+        SignatureBinder binder(candidateSignature, argTypes);
+        if (binder.tryBind()) {
+          auto* currentCandidate = functionEntry.get();
+          if (!selectedCandidate ||
+              currentCandidate->getMetadata().priority() <
+                  selectedCandidate->getMetadata().priority()) {
+            selectedCandidate = currentCandidate;
+            selectedCandidateType = binder.tryResolveReturnType();
+          }
         }
       }
     }
-  }
+  });
 
   VELOX_DCHECK(!selectedCandidate || selectedCandidateType);
 

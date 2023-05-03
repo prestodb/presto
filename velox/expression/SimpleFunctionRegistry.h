@@ -74,17 +74,18 @@ class SimpleFunctionRegistry {
 
   std::vector<std::string> getFunctionNames() const {
     std::vector<std::string> result;
-    result.reserve(registeredFunctions_.size());
+    registeredFunctions_.withRLock([&](const auto& map) {
+      result.reserve(map.size());
 
-    for (const auto& entry : registeredFunctions_) {
-      result.push_back(entry.first);
-    }
-
+      for (const auto& entry : map) {
+        result.push_back(entry.first);
+      }
+    });
     return result;
   }
 
   void clearRegistry() {
-    registeredFunctions_.clear();
+    registeredFunctions_.withWLock([&](auto& map) { map.clear(); });
   }
 
   std::vector<const FunctionSignature*> getFunctionSignatures(
@@ -129,9 +130,7 @@ class SimpleFunctionRegistry {
       const std::shared_ptr<const Metadata>& metadata,
       const FunctionFactory& factory);
 
-  const SignatureMap* getSignatureMap(const std::string& name) const;
-
-  FunctionMap registeredFunctions_;
+  folly::Synchronized<FunctionMap> registeredFunctions_;
 };
 
 const SimpleFunctionRegistry& simpleFunctions();

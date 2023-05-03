@@ -18,10 +18,12 @@
 #include <optional>
 #include <string>
 
+#include "folly/lang/Hint.h"
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/Udf.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
@@ -1107,4 +1109,29 @@ TEST_F(SimpleFunctionTest, testAllNotNull) {
   assertEqualVectors(expected, result);
 }
 
+// Test that SimpleFunctionRegistry does not crash in multithreaded environment.
+TEST_F(SimpleFunctionTest, simpleFunctionRegistryThreadSafe) {
+  std::vector<std::thread> threads;
+  // create threads
+  for (int i = 1; i <= 200; ++i) {
+    threads.emplace_back(std::thread([]() {
+      for (int i = 0; i < 50; i++) {
+        functions::prestosql::registerArithmeticFunctions();
+        auto x = exec::simpleFunctions().getFunctionSignatures("add");
+        folly::compiler_must_not_elide(x);
+
+        auto y = exec::simpleFunctions().resolveFunction(
+            "plus", {BIGINT(), BIGINT()});
+        folly::compiler_must_not_elide(y);
+
+        auto z = exec::simpleFunctions().getFunctionNames();
+        folly::compiler_must_not_elide(z);
+      }
+    }));
+  }
+  // wait for them to complete
+  for (auto& th : threads) {
+    th.join();
+  }
+}
 } // namespace
