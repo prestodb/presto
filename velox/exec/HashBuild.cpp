@@ -448,7 +448,7 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
   // 'spillableReservationGrowthPct_' of the current reservation.
   auto targetIncrement = std::max<int64_t>(
       increment * 2,
-      pool()->getCurrentBytes() * spillConfig()->spillableReservationGrowthPct /
+      pool()->currentBytes() * spillConfig()->spillableReservationGrowthPct /
           100);
   if (pool()->maybeReserve(targetIncrement)) {
     return true;

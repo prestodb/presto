@@ -850,7 +850,7 @@ TEST_F(AggregationTest, partialAggregationMaybeReservationReleaseCheck) {
   EXPECT_EQ(0, runtimeStats.count("partialAggregationPct"));
   // Check all the reserved memory have been released.
   EXPECT_EQ(0, task->pool()->availableReservation());
-  EXPECT_GT(kMaxPartialMemoryUsage, task->pool()->getCurrentBytes());
+  EXPECT_GT(kMaxPartialMemoryUsage, task->pool()->currentBytes());
 }
 
 TEST_F(AggregationTest, spillWithMemoryLimit) {

@@ -60,8 +60,8 @@ namespace facebook::velox::memory {
       errorMessage);
 
 /// This class provides the interface of memory manager. The memory manager is
-/// responsible for enforcing the memory usage quota as well as managing the
-/// memory pools.
+/// responsible for enforcing the memory capacity is within the capacity as well
+/// as managing the memory pools.
 class IMemoryManager {
  public:
   struct Options {
@@ -86,10 +86,10 @@ class IMemoryManager {
 
   virtual ~IMemoryManager() = default;
 
-  /// Returns the total memory usage allowed under this memory manager.
-  /// The memory manager maintains this quota as a hard cap, and any allocation
-  /// that would exceed the quota throws.
-  virtual int64_t getMemoryQuota() const = 0;
+  /// Returns the memory capacity of this memory manager which puts a hard cap
+  /// on the memory usage, and any allocation that would exceed this capacity
+  /// throws.
+  virtual int64_t capacity() const = 0;
 
   /// Returns the memory allocation alignment of this memory manager.
   virtual uint16_t alignment() const = 0;
@@ -138,15 +138,17 @@ class IMemoryManager {
   virtual int64_t getTotalBytes() const = 0;
 
   /// Reserves size for the allocation. Returns true if the total usage remains
-  /// under quota after the reservation. Caller is responsible for releasing the
-  /// offending reservation.
+  /// under capacity after the reservation. Caller is responsible for releasing
+  /// the offending reservation.
   ///
-  /// TODO: deprecate this and enforce the memory usage quota by memory pool.
+  /// TODO: deprecate this and enforce the memory usage capacity by memory
+  /// allocator.
   virtual bool reserve(int64_t size) = 0;
 
-  /// Subtracts from current total and regain memory quota.
+  /// Subtracts from current total memory usage.
   ///
-  /// TODO: deprecate this and enforce the memory usage quota by memory pool.
+  /// TODO: deprecate this and enforce the memory usage capacity by memory
+  /// allocator.
   virtual void release(int64_t size) = 0;
 
   /// Returns debug string of this memory manager.
@@ -159,14 +161,14 @@ class IMemoryManager {
 class MemoryManager final : public IMemoryManager {
  public:
   /// Tries to get the singleton memory manager. If not previously initialized,
-  /// the process singleton manager will be initialized with the given quota.
+  /// the process singleton manager will be initialized with the given capacity.
   FOLLY_EXPORT static MemoryManager& getInstance(
       const Options& options = Options{},
-      bool ensureQuota = false) {
+      bool ensureCapacity = false) {
     static MemoryManager manager{options};
-    auto actualCapacity = manager.getMemoryQuota();
+    auto actualCapacity = manager.capacity();
     VELOX_USER_CHECK(
-        !ensureQuota || actualCapacity == options.capacity,
+        !ensureCapacity || actualCapacity == options.capacity,
         "Process level manager manager created with input capacity: {}, actual capacity: {}",
         options.capacity,
         actualCapacity);
@@ -178,7 +180,7 @@ class MemoryManager final : public IMemoryManager {
 
   ~MemoryManager();
 
-  int64_t getMemoryQuota() const final;
+  int64_t capacity() const final;
 
   uint16_t alignment() const final;
 
@@ -204,7 +206,7 @@ class MemoryManager final : public IMemoryManager {
 
   size_t numPools() const final;
 
-  MemoryAllocator& getAllocator();
+  MemoryAllocator& allocator();
 
   MemoryArbitrator* arbitrator();
 
@@ -223,7 +225,7 @@ class MemoryManager final : public IMemoryManager {
   std::vector<std::shared_ptr<MemoryPool>> getAlivePools() const;
   std::vector<std::shared_ptr<MemoryPool>> getAlivePoolsLocked() const;
 
-  const int64_t memoryQuota_;
+  const int64_t capacity_;
   const std::shared_ptr<MemoryAllocator> allocator_;
   // If not null, used to arbitrate the memory capacity among 'pools_'.
   const std::unique_ptr<MemoryArbitrator> arbitrator_;

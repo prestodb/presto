@@ -76,7 +76,7 @@ char* AllocationPool::allocateFixed(uint64_t bytes, int32_t alignment) {
 void AllocationPool::newRunImpl(memory::MachinePageCount numPages) {
   ++currentRun_;
   if (currentRun_ >= allocation_.numRuns()) {
-    if (allocation_.numRuns()) {
+    if (allocation_.numRuns() > 0) {
       allocations_.push_back(
           std::make_unique<memory::Allocation>(std::move(allocation_)));
     }
@@ -88,10 +88,7 @@ void AllocationPool::newRunImpl(memory::MachinePageCount numPages) {
 }
 
 void AllocationPool::newRun(int32_t preferredSize) {
-  auto numPages =
-      bits::roundUp(preferredSize, memory::AllocationTraits::kPageSize) /
-      memory::AllocationTraits::kPageSize;
-  newRunImpl(numPages);
+  newRunImpl(memory::AllocationTraits::numPages(preferredSize));
 }
 
 } // namespace facebook::velox

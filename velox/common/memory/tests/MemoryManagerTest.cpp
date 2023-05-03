@@ -39,30 +39,30 @@ TEST(MemoryManagerTest, Ctor) {
   {
     MemoryManager manager{};
     ASSERT_EQ(manager.numPools(), 0);
-    ASSERT_EQ(manager.getMemoryQuota(), kMaxMemory);
+    ASSERT_EQ(manager.capacity(), kMaxMemory);
     ASSERT_EQ(0, manager.getTotalBytes());
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMaxAlignment);
-    ASSERT_EQ(manager.testingDefaultRoot().getAlignment(), manager.alignment());
-    ASSERT_EQ(manager.deprecatedLeafPool().getAlignment(), manager.alignment());
+    ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
+    ASSERT_EQ(manager.deprecatedLeafPool().alignment(), manager.alignment());
     ASSERT_EQ(manager.arbitrator(), nullptr);
   }
   {
     MemoryManager manager{{.capacity = 8L * 1024 * 1024}};
-    ASSERT_EQ(8L * 1024 * 1024, manager.getMemoryQuota());
+    ASSERT_EQ(8L * 1024 * 1024, manager.capacity());
     ASSERT_EQ(manager.numPools(), 0);
     ASSERT_EQ(0, manager.getTotalBytes());
-    ASSERT_EQ(manager.testingDefaultRoot().getAlignment(), manager.alignment());
-    ASSERT_EQ(manager.deprecatedLeafPool().getAlignment(), manager.alignment());
+    ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
+    ASSERT_EQ(manager.deprecatedLeafPool().alignment(), manager.alignment());
   }
   {
     MemoryManager manager{{.alignment = 0, .capacity = 8L * 1024 * 1024}};
 
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMinAlignment);
-    ASSERT_EQ(manager.testingDefaultRoot().getAlignment(), manager.alignment());
-    ASSERT_EQ(manager.deprecatedLeafPool().getAlignment(), manager.alignment());
+    ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
+    ASSERT_EQ(manager.deprecatedLeafPool().alignment(), manager.alignment());
     // TODO: replace with root pool memory tracker quota check.
     ASSERT_EQ(1, manager.testingDefaultRoot().getChildCount());
-    ASSERT_EQ(8L * 1024 * 1024, manager.getMemoryQuota());
+    ASSERT_EQ(8L * 1024 * 1024, manager.capacity());
     ASSERT_EQ(0, manager.getTotalBytes());
   }
   { ASSERT_ANY_THROW(MemoryManager manager{{.capacity = -1}}); }
@@ -111,10 +111,10 @@ TEST(MemoryManagerTest, defaultMemoryManager) {
   ASSERT_EQ(managerB.numPools(), 3);
   ASSERT_EQ(
       managerA.toString(),
-      "Memory Manager[limit 8388608.00TB alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n]");
+      "Memory Manager[capacity 8388608.00TB alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n]");
   ASSERT_EQ(
       managerB.toString(),
-      "Memory Manager[limit 8388608.00TB alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n]");
+      "Memory Manager[capacity 8388608.00TB alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n]");
   child1.reset();
   EXPECT_EQ(2, managerA.testingDefaultRoot().getChildCount());
   child2.reset();
@@ -126,10 +126,10 @@ TEST(MemoryManagerTest, defaultMemoryManager) {
   ASSERT_EQ(managerB.numPools(), 0);
   ASSERT_EQ(
       managerA.toString(),
-      "Memory Manager[limit 8388608.00TB alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\n]");
+      "Memory Manager[capacity 8388608.00TB alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\n]");
   ASSERT_EQ(
       managerB.toString(),
-      "Memory Manager[limit 8388608.00TB alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\n]");
+      "Memory Manager[capacity 8388608.00TB alignment 64B usedBytes 0B number of pools 0\nList of root pools:\n\t__default_root__\n]");
 }
 
 TEST(MemoryHeaderTest, addDefaultLeafMemoryPool) {
@@ -306,7 +306,7 @@ TEST(MemoryManagerTest, GlobalMemoryManagerQuota) {
       velox::VeloxUserError);
 
   auto& coercedManager = MemoryManager::getInstance({.capacity = 42});
-  ASSERT_EQ(manager.getMemoryQuota(), coercedManager.getMemoryQuota());
+  ASSERT_EQ(manager.capacity(), coercedManager.capacity());
 }
 
 TEST(MemoryManagerTest, alignmentOptionCheck) {
@@ -341,18 +341,18 @@ TEST(MemoryManagerTest, alignmentOptionCheck) {
         manager.alignment(),
         std::max(testData.alignment, MemoryAllocator::kMinAlignment));
     ASSERT_EQ(
-        manager.testingDefaultRoot().getAlignment(),
+        manager.testingDefaultRoot().alignment(),
         std::max(testData.alignment, MemoryAllocator::kMinAlignment));
     ASSERT_EQ(
-        manager.deprecatedLeafPool().getAlignment(),
+        manager.deprecatedLeafPool().alignment(),
         std::max(testData.alignment, MemoryAllocator::kMinAlignment));
     auto leafPool = manager.addLeafPool("leafPool");
     ASSERT_EQ(
-        leafPool->getAlignment(),
+        leafPool->alignment(),
         std::max(testData.alignment, MemoryAllocator::kMinAlignment));
     auto rootPool = manager.addRootPool("rootPool");
     ASSERT_EQ(
-        rootPool->getAlignment(),
+        rootPool->alignment(),
         std::max(testData.alignment, MemoryAllocator::kMinAlignment));
   }
 }

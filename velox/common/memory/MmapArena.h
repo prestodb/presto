@@ -39,9 +39,9 @@ class MmapArena {
   MmapArena(size_t capacityBytes);
   ~MmapArena();
 
-  void* FOLLY_NULLABLE allocate(uint64_t bytes);
-  void free(void* FOLLY_NONNULL address, uint64_t bytes);
-  void* FOLLY_NONNULL address() const {
+  void* allocate(uint64_t bytes);
+  void free(void* address, uint64_t bytes);
+  void* address() const {
     return reinterpret_cast<void*>(address_);
   }
 
@@ -85,6 +85,8 @@ class MmapArena {
     return lookupStr.str();
   }
 
+  std::string toString() const;
+
  private:
   // Rounds up size to the next power of 2.
   static uint64_t roundBytes(uint64_t bytes);
@@ -99,11 +101,11 @@ class MmapArena {
 
   void removeFreeBlock(std::map<uint64_t, uint64_t>::iterator& itr);
 
-  // Total capacity size of this arena
+  // Total capacity size of this arena.
   const uint64_t byteSize_;
 
-  // Starting address of this arena
-  uint8_t* FOLLY_NONNULL address_;
+  // Starting address of this arena.
+  uint8_t* address_;
 
   std::atomic<uint64_t> freeBytes_;
 
@@ -123,24 +125,24 @@ class ManagedMmapArenas {
  public:
   ManagedMmapArenas(uint64_t singleArenaCapacity);
 
-  void* FOLLY_NULLABLE allocate(uint64_t bytes);
+  void* allocate(uint64_t bytes);
 
-  void free(void* FOLLY_NONNULL address, uint64_t bytes);
+  void free(void* address, uint64_t bytes);
 
   const std::map<uint64_t, std::shared_ptr<MmapArena>>& arenas() const {
     return arenas_;
   }
 
  private:
-  /// A sorted list of MmapArena by its initial address
+  // Capacity in bytes for a single MmapArena managed by this.
+  const uint64_t singleArenaCapacity_;
+
+  // A sorted list of MmapArena by its initial address
   std::map<uint64_t, std::shared_ptr<MmapArena>> arenas_;
 
-  /// All allocations should come from this MmapArena. When it is no longer able
-  /// to handle allocations it will be updated to a newly created MmapArena.
+  // All allocations should come from this MmapArena. When it is no longer able
+  // to handle allocations it will be updated to a newly created MmapArena.
   std::shared_ptr<MmapArena> currentArena_;
-
-  /// Capacity in bytes for a single MmapArena managed by this.
-  const uint64_t singleArenaCapacity_;
 };
 
 } // namespace facebook::velox::memory

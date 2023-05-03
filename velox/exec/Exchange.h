@@ -34,16 +34,6 @@ class SerializedPage {
       std::unique_ptr<folly::IOBuf> iobuf,
       std::function<void(folly::IOBuf&)> onDestructionCb = nullptr);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  explicit SerializedPage(
-      std::unique_ptr<folly::IOBuf> iobuf,
-      memory::MemoryPool* pool = nullptr,
-      std::function<void(folly::IOBuf&)> onDestructionCb = nullptr)
-      : SerializedPage(std::move(iobuf), std::move(onDestructionCb)) {
-    VELOX_CHECK_NULL(pool);
-  }
-#endif
-
   ~SerializedPage();
 
   // Returns the size of the serialized data in bytes.

@@ -51,7 +51,7 @@ MmapArena::MmapArena(size_t capacityBytes) : byteSize_(capacityBytes) {
 }
 
 MmapArena::~MmapArena() {
-  munmap(address_, byteSize_);
+  ::munmap(address_, byteSize_);
 }
 
 void* MmapArena::allocate(uint64_t bytes) {
@@ -83,7 +83,7 @@ void* MmapArena::allocate(uint64_t bytes) {
   return result;
 }
 
-void MmapArena::free(void* FOLLY_NONNULL address, uint64_t bytes) {
+void MmapArena::free(void* address, uint64_t bytes) {
   if (address == nullptr || bytes == 0) {
     return;
   }
@@ -267,6 +267,15 @@ bool MmapArena::checkConsistency() const {
   return numErrors == 0;
 }
 
+std::string MmapArena::toString() const {
+  return fmt::format(
+      "MmapArena[byteSize[{}] address[{}] freeBytes[{}] freeList[{}]]]",
+      succinctBytes(byteSize_),
+      reinterpret_cast<uint64_t>(address_),
+      succinctBytes(freeBytes_),
+      freeList_.size());
+}
+
 ManagedMmapArenas::ManagedMmapArenas(uint64_t singleArenaCapacity)
     : singleArenaCapacity_(singleArenaCapacity) {
   auto arena = std::make_shared<MmapArena>(singleArenaCapacity);
@@ -274,7 +283,7 @@ ManagedMmapArenas::ManagedMmapArenas(uint64_t singleArenaCapacity)
   currentArena_ = arena;
 }
 
-void* FOLLY_NULLABLE ManagedMmapArenas::allocate(uint64_t bytes) {
+void* ManagedMmapArenas::allocate(uint64_t bytes) {
   auto* result = currentArena_->allocate(bytes);
   if (result != nullptr) {
     return result;
@@ -289,24 +298,18 @@ void* FOLLY_NULLABLE ManagedMmapArenas::allocate(uint64_t bytes) {
   return currentArena_->allocate(bytes);
 }
 
-void ManagedMmapArenas::free(void* FOLLY_NONNULL address, uint64_t bytes) {
+void ManagedMmapArenas::free(void* address, uint64_t bytes) {
+  VELOX_CHECK(!arenas_.empty());
   const uint64_t addressU64 = reinterpret_cast<uint64_t>(address);
   auto iter = arenas_.lower_bound(addressU64);
-  if (iter == arenas_.end()) {
-    return;
-  }
-  if (iter->first == addressU64) {
-    iter->second->free(address, bytes);
-  } else if (iter == arenas_.begin()) {
-    return;
-  } else {
+  if (iter == arenas_.end() || iter->first != addressU64) {
+    VELOX_CHECK(iter != arenas_.begin());
     --iter;
-    iter->second->free(address, bytes);
+    VELOX_CHECK_GE(iter->first + singleArenaCapacity_, addressU64 + bytes);
   }
-
+  iter->second->free(address, bytes);
   if (iter->second->empty() && iter->second != currentArena_) {
     arenas_.erase(iter);
   }
 }
-
 } // namespace facebook::velox::memory

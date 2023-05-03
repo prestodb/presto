@@ -321,7 +321,7 @@ class AlignedBuffer : public Buffer {
       const std::optional<T>& initValue = std::nullopt) {
     size_t size = checkedMultiply(numElements, sizeof(T));
     size_t preferredSize =
-        pool->getPreferredSize(checkedPlus<size_t>(size, kPaddedSize));
+        pool->preferredSize(checkedPlus<size_t>(size, kPaddedSize));
     void* memory = pool->allocate(preferredSize);
     auto* buffer = new (memory) ImplClass<T>(pool, preferredSize - kPaddedSize);
     // set size explicitly instead of setSize because `fillNewMemory` already
@@ -386,7 +386,7 @@ class AlignedBuffer : public Buffer {
     }
     auto oldCapacity = checkedPlus<size_t>(old->capacity(), kPaddedSize);
     auto preferredSize =
-        pool->getPreferredSize(checkedPlus<size_t>(size, kPaddedSize));
+        pool->preferredSize(checkedPlus<size_t>(size, kPaddedSize));
     // Make the buffer no longer owned by '*buffer' because reallocate
     // may free the old buffer. Reassigning the new buffer to
     // '*buffer' would be a double free.

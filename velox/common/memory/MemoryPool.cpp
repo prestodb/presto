@@ -331,7 +331,7 @@ void MemoryPool::dropChild(const MemoryPool* child) {
       toString());
 }
 
-size_t MemoryPool::getPreferredSize(size_t size) {
+size_t MemoryPool::preferredSize(size_t size) {
   if (size < 8) {
     return 8;
   }
@@ -389,7 +389,7 @@ MemoryPoolImpl::MemoryPoolImpl(
     const Options& options)
     : MemoryPool{name, kind, parent, options},
       manager_{memoryManager},
-      allocator_{&manager_->getAllocator()},
+      allocator_{&manager_->allocator()},
       destructionCb_(std::move(destructionCb)),
       capacity_(parent_ == nullptr ? options.capacity : kMaxMemory) {
   VELOX_CHECK(options.threadSafe || isLeaf());
@@ -621,7 +621,7 @@ void MemoryPoolImpl::reserve(uint64_t size, bool reserveOnly) {
     // is low-pri because we can only have inflated aggregates, and be on the
     // more conservative side.
     release(size);
-    VELOX_MEM_MANAGER_CAP_EXCEEDED(manager_->getMemoryQuota());
+    VELOX_MEM_MANAGER_CAP_EXCEEDED(manager_->capacity());
   }
 }
 
@@ -822,7 +822,7 @@ std::string MemoryPoolImpl::capExceedingMessage(
   }
 
   out << "\nFailed memory pool: " << requestor->name() << ": "
-      << succinctBytes(requestor->getCurrentBytes()) << "\n";
+      << succinctBytes(requestor->currentBytes()) << "\n";
   return out.str();
 }
 

@@ -225,7 +225,7 @@ TEST_F(TestStringDictionaryEncoder, Clear) {
   for (size_t i = 0; i != 2500; ++i) {
     stringDictEncoder.addKey(baseString + genPaddedIntegerString(i, 4), 0);
   }
-  auto peakMemory = pool->getCurrentBytes();
+  auto peakMemory = pool->currentBytes();
   stringDictEncoder.clear();
   EXPECT_EQ(0, stringDictEncoder.size());
   EXPECT_EQ(0, stringDictEncoder.keyIndex_.size());
@@ -237,7 +237,7 @@ TEST_F(TestStringDictionaryEncoder, Clear) {
   EXPECT_EQ(0, stringDictEncoder.counts_.capacity());
   EXPECT_EQ(0, stringDictEncoder.firstSeenStrideIndex_.size());
   EXPECT_EQ(0, stringDictEncoder.firstSeenStrideIndex_.capacity());
-  EXPECT_LT(pool->getCurrentBytes(), peakMemory);
+  EXPECT_LT(pool->currentBytes(), peakMemory);
 }
 
 TEST_F(TestStringDictionaryEncoder, MemBenchmark) {
@@ -248,7 +248,7 @@ TEST_F(TestStringDictionaryEncoder, MemBenchmark) {
     stringDictEncoder.addKey(baseString + genPaddedIntegerString(i, 4), 0);
   }
 
-  LOG(INFO) << "Total memory bytes: " << pool->getCurrentBytes();
+  LOG(INFO) << "Total memory bytes: " << pool->currentBytes();
 }
 
 TEST_F(TestStringDictionaryEncoder, Limit) {

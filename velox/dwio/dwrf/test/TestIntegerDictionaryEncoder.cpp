@@ -141,7 +141,6 @@ TEST_F(TestIntegerDictionaryEncoder, Clear) {
     EXPECT_EQ(2500, intDictEncoder.getTotalCount());
     EXPECT_EQ(1, intDictEncoder.refCount_);
     EXPECT_EQ(0, intDictEncoder.clearCount_);
-    // auto peakMemory = pool.getCurrentBytes();
     intDictEncoder.clear();
     EXPECT_EQ(0, intDictEncoder.size());
     EXPECT_EQ(0, intDictEncoder.keyIndex_.size());
@@ -157,7 +156,7 @@ TEST_F(TestIntegerDictionaryEncoder, Clear) {
     // down. On test experiment it deallocated 4K and rellocated 64K.
     // When not compiled with ASAN, it correctly frees up the memory.
     // so disabling this check in the test for now.
-    // EXPECT_LT(pool.getCurrentBytes(), peakMemory);
+    // EXPECT_LT(pool.currentBytes(), peakMemory);
   }
   {
     IntegerDictionaryEncoder<int64_t> intDictEncoder{*pool, *pool};
@@ -177,7 +176,6 @@ TEST_F(TestIntegerDictionaryEncoder, Clear) {
     EXPECT_EQ(4, intDictEncoder.refCount_);
     EXPECT_EQ(0, intDictEncoder.clearCount_);
 
-    // auto peakMemory = pool.getCurrentBytes();
     intDictEncoder.clear();
     intDictEncoder.clear();
     EXPECT_EQ(2500, intDictEncoder.size());
@@ -204,7 +202,7 @@ TEST_F(TestIntegerDictionaryEncoder, Clear) {
     // down. On test experiment it deallocated 4K and rellocated 64K.
     // When not compiled with ASAN, it correctly frees up the memory.
     // so disabling this check in the test for now.
-    // EXPECT_LT(pool.getCurrentBytes(), peakMemory);
+    // EXPECT_LT(pool.currentBytes(), peakMemory);
   }
 }
 

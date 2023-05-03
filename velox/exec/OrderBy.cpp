@@ -154,7 +154,7 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
     return;
   }
 
-  const auto currentUsage = pool()->getCurrentBytes();
+  const auto currentUsage = pool()->currentBytes();
   if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
     const int64_t bytesToSpill =
         currentUsage * spillConfig.spillableReservationGrowthPct / 100;

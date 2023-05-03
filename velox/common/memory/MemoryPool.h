@@ -272,11 +272,11 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Rounds up to a power of 2 >= size, or to a size halfway between
   /// two consecutive powers of two, i.e 8, 12, 16, 24, 32, .... This
   /// coincides with JEMalloc size classes.
-  virtual size_t getPreferredSize(size_t size);
+  virtual size_t preferredSize(size_t size);
 
   /// Returns the memory allocation alignment size applied internally by this
   /// memory pool object.
-  virtual uint16_t getAlignment() const {
+  virtual uint16_t alignment() const {
     return alignment_;
   }
 
@@ -287,9 +287,11 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual int64_t capacity() const = 0;
 
   /// Returns the currently used memory in bytes of this memory pool.
+  virtual int64_t currentBytes() const = 0;
   virtual int64_t getCurrentBytes() const = 0;
 
   /// Returns the peak memory usage in bytes of this memory pool.
+  virtual int64_t peakBytes() const = 0;
   virtual int64_t getMaxBytes() const = 0;
 
   /// Returns the reserved but not used memory reservation in bytes of this
@@ -402,7 +404,22 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
   virtual std::string toString() const = 0;
 
+  /// Returns the next higher quantized size for the internal memory reservation
+  /// propagation. Small sizes are at MB granularity, larger ones at coarser
+  /// granularity.
+  FOLLY_ALWAYS_INLINE static uint64_t quantizedSize(uint64_t size) {
+    if (size < 16 * kMB) {
+      return bits::roundUp(size, kMB);
+    }
+    if (size < 64 * kMB) {
+      return bits::roundUp(size, 4 * kMB);
+    }
+    return bits::roundUp(size, 8 * kMB);
+  }
+
  protected:
+  static constexpr uint64_t kMB = 1 << 20;
+
   /// Indicates if this is a leaf memory pool or not.
   FOLLY_ALWAYS_INLINE bool isLeaf() const {
     return kind_ == Kind::kLeaf;
@@ -487,9 +504,19 @@ class MemoryPoolImpl : public MemoryPool {
 
   int64_t capacity() const override;
 
+  int64_t currentBytes() const override {
+    std::lock_guard<std::mutex> l(mutex_);
+    return currentBytesLocked();
+  }
+
   int64_t getCurrentBytes() const override {
     std::lock_guard<std::mutex> l(mutex_);
     return currentBytesLocked();
+  }
+
+  int64_t peakBytes() const override {
+    std::lock_guard<std::mutex> l(mutex_);
+    return peakBytes_;
   }
 
   int64_t getMaxBytes() const override {
@@ -531,8 +558,6 @@ class MemoryPoolImpl : public MemoryPool {
   }
 
  private:
-  static constexpr uint64_t kMB = 1 << 20;
-
   FOLLY_ALWAYS_INLINE static MemoryPoolImpl* toImpl(MemoryPool* pool) {
     return static_cast<MemoryPoolImpl*>(pool);
   }
@@ -573,18 +598,6 @@ class MemoryPoolImpl : public MemoryPool {
   // the MB or 8MB for larger sizes.
   FOLLY_ALWAYS_INLINE static int64_t roundedDelta(int64_t size, int64_t delta) {
     return quantizedSize(size + delta) - size;
-  }
-
-  // Returns the next higher quantized size. Small sizes are at MB granularity,
-  // larger ones at coarser granularity.
-  FOLLY_ALWAYS_INLINE static uint64_t quantizedSize(uint64_t size) {
-    if (size < 16 * kMB) {
-      return bits::roundUp(size, kMB);
-    }
-    if (size < 64 * kMB) {
-      return bits::roundUp(size, 4 * kMB);
-    }
-    return bits::roundUp(size, 8 * kMB);
   }
 
   // Reserve memory for a new allocation/reservation with specified 'size'.

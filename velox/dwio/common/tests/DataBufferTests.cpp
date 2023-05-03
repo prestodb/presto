@@ -162,15 +162,15 @@ TEST(DataBuffer, Move) {
     }
     ASSERT_EQ(15, buffer.size());
     ASSERT_EQ(16, buffer.capacity());
-    const auto usedBytes = pool->getCurrentBytes();
+    const auto usedBytes = pool->currentBytes();
 
     // Expect no double freeing from memory pool.
     DataBuffer<uint8_t> newBuffer{std::move(buffer)};
     ASSERT_EQ(15, newBuffer.size());
     ASSERT_EQ(16, newBuffer.capacity());
-    ASSERT_EQ(usedBytes, pool->getCurrentBytes());
+    ASSERT_EQ(usedBytes, pool->currentBytes());
   }
-  ASSERT_EQ(0, pool->getCurrentBytes());
+  ASSERT_EQ(0, pool->currentBytes());
 }
 } // namespace common
 } // namespace dwio

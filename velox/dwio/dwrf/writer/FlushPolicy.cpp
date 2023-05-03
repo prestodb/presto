@@ -41,8 +41,7 @@ FlushDecision DefaultFlushPolicy::shouldFlushDictionary(
   return shouldFlushDictionary(
       stripeProgressDecision,
       overMemoryBudget,
-      context.getMemoryUsage(MemoryUsageCategory::DICTIONARY)
-          .getCurrentBytes());
+      context.getMemoryUsage(MemoryUsageCategory::DICTIONARY).currentBytes());
 }
 
 RowsPerStripeFlushPolicy::RowsPerStripeFlushPolicy(

@@ -34,11 +34,11 @@ constexpr folly::StringPiece kDefaultLeafName("__default_leaf__");
 } // namespace
 
 MemoryManager::MemoryManager(const Options& options)
-    : memoryQuota_{options.capacity},
+    : capacity_{options.capacity},
       allocator_{options.allocator->shared_from_this()},
       arbitrator_(MemoryArbitrator::create(MemoryArbitrator::Config{
           .kind = options.arbitratorConfig.kind,
-          .capacity = memoryQuota_,
+          .capacity = capacity_,
           .initMemoryPoolCapacity =
               options.arbitratorConfig.initMemoryPoolCapacity,
           .minMemoryPoolCapacityTransferSize =
@@ -53,7 +53,7 @@ MemoryManager::MemoryManager(const Options& options)
           MemoryPool::Kind::kAggregate,
           nullptr,
           nullptr,
-          // NOTE: the default root memory pool has no quota limit, and it is
+          // NOTE: the default root memory pool has no capacity limit, and it is
           // used for system usage in production such as disk spilling.
           MemoryPool::Options{
               .alignment = alignment_,
@@ -63,7 +63,7 @@ MemoryManager::MemoryManager(const Options& options)
       deprecatedDefaultLeafPool_(
           defaultRoot_->addLeafChild(kDefaultLeafName.str())) {
   VELOX_CHECK_NOT_NULL(allocator_);
-  VELOX_USER_CHECK_GE(memoryQuota_, 0);
+  VELOX_USER_CHECK_GE(capacity_, 0);
   MemoryAllocator::alignmentCheck(0, alignment_);
 }
 
@@ -85,8 +85,8 @@ MemoryManager::~MemoryManager() {
   }
 }
 
-int64_t MemoryManager::getMemoryQuota() const {
-  return memoryQuota_;
+int64_t MemoryManager::capacity() const {
+  return capacity_;
 }
 
 uint16_t MemoryManager::alignment() const {
@@ -186,7 +186,7 @@ int64_t MemoryManager::getTotalBytes() const {
 
 bool MemoryManager::reserve(int64_t size) {
   return totalBytes_.fetch_add(size, std::memory_order_relaxed) + size <=
-      memoryQuota_;
+      capacity_;
 }
 
 void MemoryManager::release(int64_t size) {
@@ -205,7 +205,7 @@ size_t MemoryManager::numPools() const {
   return numPools;
 }
 
-MemoryAllocator& MemoryManager::getAllocator() {
+MemoryAllocator& MemoryManager::allocator() {
   return *allocator_;
 }
 
@@ -215,7 +215,7 @@ MemoryArbitrator* MemoryManager::arbitrator() {
 
 std::string MemoryManager::toString() const {
   std::stringstream out;
-  out << "Memory Manager[limit " << succinctBytes(memoryQuota_) << " alignment "
+  out << "Memory Manager[capacity " << succinctBytes(capacity_) << " alignment "
       << succinctBytes(alignment_) << " usedBytes "
       << succinctBytes(totalBytes_) << " number of pools " << numPools()
       << "\n";

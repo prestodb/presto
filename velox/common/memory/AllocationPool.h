@@ -93,7 +93,7 @@ class AllocationPool {
 
   // Returns pointer to first unallocated byte in the current run.
   char* firstFreeInRun() {
-    VELOX_DCHECK(availableInRun() > 0);
+    VELOX_DCHECK_GT(availableInRun(), 0);
     return currentRun().data<char>() + currentOffset_;
   }
 

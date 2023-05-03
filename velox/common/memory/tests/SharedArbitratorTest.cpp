@@ -104,7 +104,7 @@ class MockMemoryOperator {
   }
 
   void* allocate(uint64_t bytes) {
-    VELOX_CHECK_EQ(bytes % pool_->getAlignment(), 0);
+    VELOX_CHECK_EQ(bytes % pool_->alignment(), 0);
     void* buffer = pool_->allocate(bytes);
     std::lock_guard<std::mutex> l(mu_);
     totalBytes_ += bytes;
@@ -509,7 +509,7 @@ TEST_F(MockSharedArbitrationTest, singlePoolGrowCapacityWithArbitration) {
     setupMemory();
     auto op = addMemoryOp(nullptr, isLeafReclaimable);
     const int allocateSize = MB;
-    while (op->pool()->getCurrentBytes() < kMemoryCapacity) {
+    while (op->pool()->currentBytes() < kMemoryCapacity) {
       op->allocate(allocateSize);
     }
     verifyArbitratorStats(arbitrator_->stats(), kMemoryCapacity, 0, 62);
@@ -552,7 +552,7 @@ TEST_F(MockSharedArbitrationTest, arbitrateWithCapacityShrink) {
     ASSERT_GT(freeCapacity, 0);
     reclaimedOp->freeAll();
     ASSERT_GT(reclaimedOp->pool()->freeBytes(), 0);
-    ASSERT_EQ(reclaimedOp->pool()->getCurrentBytes(), 0);
+    ASSERT_EQ(reclaimedOp->pool()->currentBytes(), 0);
     ASSERT_EQ(arbitrator_->stats().freeCapacityBytes, freeCapacity);
 
     auto* arbitrateOp = addMemoryOp(nullptr, isLeafReclaimable);
@@ -579,7 +579,7 @@ TEST_F(MockSharedArbitrationTest, arbitrateWithMemoryReclaim) {
     setupMemory(memoryCapacity, minPoolCapacity);
     auto* reclaimedOp = addMemoryOp(nullptr, isLeafReclaimable);
     const int allocateSize = 8 * MB;
-    while (reclaimedOp->pool()->getCurrentBytes() < memoryCapacity) {
+    while (reclaimedOp->pool()->currentBytes() < memoryCapacity) {
       reclaimedOp->allocate(allocateSize);
     }
     auto* arbitrateOp = addMemoryOp();
@@ -617,7 +617,7 @@ TEST_F(MockSharedArbitrationTest, arbitrateBySelfMemoryReclaim) {
     std::shared_ptr<MockQuery> query = addQuery(kMemoryCapacity);
     auto* memOp = addMemoryOp(query, isLeafReclaimable);
     const int allocateSize = 8 * MB;
-    while (memOp->pool()->getCurrentBytes() < memCapacity / 2) {
+    while (memOp->pool()->currentBytes() < memCapacity / 2) {
       memOp->allocate(allocateSize);
     }
     ASSERT_EQ(memOp->pool()->freeBytes(), 0);
@@ -691,7 +691,7 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, orderedArbitration) {
       memOp->allocate(allocationSize);
       if (testData.freeCapacity) {
         memOp->freeAll();
-        ASSERT_EQ(memOp->pool()->getCurrentBytes(), 0);
+        ASSERT_EQ(memOp->pool()->currentBytes(), 0);
       }
       memOps.push_back(memOp);
     }

@@ -526,7 +526,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
     return;
   }
 
-  const auto currentUsage = pool_.getCurrentBytes();
+  const auto currentUsage = pool_.currentBytes();
   if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
     const int64_t bytesToSpill =
         currentUsage * spillConfig_->spillableReservationGrowthPct / 100;

@@ -173,10 +173,9 @@ bool Writer::shouldFlush(const WriterContext& context, size_t nextWriteLength) {
     VLOG(1) << fmt::format(
         "overMemoryBudget: {}, dictionaryMemUsage: {}, outputStreamSize: {}, generalMemUsage: {}, estimatedStripeSize: {}",
         overBudget,
-        context.getMemoryUsage(MemoryUsageCategory::DICTIONARY)
-            .getCurrentBytes(),
+        context.getMemoryUsage(MemoryUsageCategory::DICTIONARY).currentBytes(),
         context.getEstimatedOutputStreamSize(),
-        context.getMemoryUsage(MemoryUsageCategory::GENERAL).getCurrentBytes(),
+        context.getMemoryUsage(MemoryUsageCategory::GENERAL).currentBytes(),
         context.getEstimatedStripeSize(context.stripeRawSize));
   }
   return decision;
@@ -205,8 +204,7 @@ void Writer::enterLowMemoryMode() {
 void Writer::flushStripe(bool close) {
   auto& context = getContext();
   int64_t preFlushStreamMemoryUsage =
-      context.getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM)
-          .getCurrentBytes();
+      context.getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM).currentBytes();
   if (context.stripeRowCount == 0) {
     return;
   }
@@ -234,7 +232,7 @@ void Writer::flushStripe(bool close) {
   // Collects the memory increment from flushing data to output streams.
   auto flushOverhead =
       context.getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM)
-          .getCurrentBytes() -
+          .currentBytes() -
       preFlushStreamMemoryUsage;
   context.recordFlushOverhead(flushOverhead);
   metrics.flushOverhead = flushOverhead;
@@ -348,7 +346,7 @@ void Writer::flushStripe(bool close) {
 
   auto& dictionaryDataMemoryUsage =
       context.getMemoryUsage(MemoryUsageCategory::DICTIONARY);
-  metrics.dictionaryMemory = dictionaryDataMemoryUsage.getCurrentBytes();
+  metrics.dictionaryMemory = dictionaryDataMemoryUsage.currentBytes();
   // TODO: what does this try to capture?
   metrics.maxDictSize = dictionaryDataMemoryUsage.stats().peakBytes;
 
@@ -480,10 +478,10 @@ void Writer::flushInternal(bool close) {
             .totalMemory = context.getTotalMemoryUsage(),
             .dictionaryMemory =
                 context.getMemoryUsage(MemoryUsageCategory::DICTIONARY)
-                    .getCurrentBytes(),
+                    .currentBytes(),
             .generalMemory =
                 context.getMemoryUsage(MemoryUsageCategory::GENERAL)
-                    .getCurrentBytes()});
+                    .currentBytes()});
   }
 }
 

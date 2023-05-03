@@ -239,8 +239,8 @@ class WriterContext : public CompressionBufferPool {
         getMemoryUsage(MemoryUsageCategory::DICTIONARY);
     const auto& generalPool = getMemoryUsage(MemoryUsageCategory::GENERAL);
 
-    return outputStreamPool.getCurrentBytes() +
-        dictionaryPool.getCurrentBytes() + generalPool.getCurrentBytes();
+    return outputStreamPool.currentBytes() + dictionaryPool.currentBytes() +
+        generalPool.currentBytes();
   }
 
   int64_t getMemoryBudget() const {
@@ -329,7 +329,7 @@ class WriterContext : public CompressionBufferPool {
   void recordFlushOverhead(uint64_t flushOverhead) {
     flushOverheadRatioTracker_.takeSample(
         stripeRawSize +
-            getMemoryUsage(MemoryUsageCategory::DICTIONARY).getCurrentBytes(),
+            getMemoryUsage(MemoryUsageCategory::DICTIONARY).currentBytes(),
         flushOverhead);
   }
 
@@ -362,8 +362,8 @@ class WriterContext : public CompressionBufferPool {
 
   int64_t getEstimatedOutputStreamSize() const {
     return (int64_t)std::ceil(
-        (getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM).getCurrentBytes() +
-         getMemoryUsage(MemoryUsageCategory::DICTIONARY).getCurrentBytes()) /
+        (getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM).currentBytes() +
+         getMemoryUsage(MemoryUsageCategory::DICTIONARY).currentBytes()) /
         getConfig(Config::COMPRESSION_BLOCK_SIZE_EXTEND_RATIO));
   }
 

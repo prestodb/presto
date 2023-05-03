@@ -74,8 +74,7 @@ TEST_F(BufferTest, testAlignedBuffer) {
         testStringLength);
     buffer->setIsMutable(false);
     other = buffer;
-    EXPECT_EQ(
-        pool_->getCurrentBytes(), pool_->getPreferredSize(sizeWithHeader));
+    EXPECT_EQ(pool_->currentBytes(), pool_->preferredSize(sizeWithHeader));
     EXPECT_THROW(other->setIsMutable(true), VeloxException);
     AlignedBuffer::reallocate<char>(&other, size * 3, 'e');
     EXPECT_NE(other, buffer);
@@ -91,19 +90,18 @@ TEST_F(BufferTest, testAlignedBuffer) {
         0);
     EXPECT_EQ(other->as<char>()[buffer->capacity()], 'e');
     EXPECT_EQ(
-        pool_->getCurrentBytes(),
-        pool_->getPreferredSize(sizeWithHeader) +
-            pool_->getPreferredSize(3 * size + kHeaderSize));
+        pool_->currentBytes(),
+        pool_->preferredSize(sizeWithHeader) +
+            pool_->preferredSize(3 * size + kHeaderSize));
   }
   EXPECT_EQ(
-      pool_->getCurrentBytes(),
-      pool_->getPreferredSize(3 * size + kHeaderSize));
+      pool_->currentBytes(), pool_->preferredSize(3 * size + kHeaderSize));
   other = nullptr;
   BufferPtr bits = AlignedBuffer::allocate<bool>(65, pool_.get(), true);
   EXPECT_EQ(bits->size(), 9);
   EXPECT_EQ(bits->as<uint8_t>()[8], 0xff);
   bits = nullptr;
-  EXPECT_EQ(pool_->getCurrentBytes(), 0);
+  EXPECT_EQ(pool_->currentBytes(), 0);
 }
 
 TEST_F(BufferTest, testAsRange) {
@@ -186,7 +184,7 @@ TEST_F(BufferTest, testReallocate) {
     }
   }
   buffers.clear();
-  EXPECT_EQ(pool_->getCurrentBytes(), 0);
+  EXPECT_EQ(pool_->currentBytes(), 0);
   EXPECT_GT(numInPlace, 0);
   EXPECT_GT(numMoved, 0);
 }
@@ -337,9 +335,9 @@ TEST_F(BufferTest, testNonPOD) {
 
 TEST_F(BufferTest, testNonPODMemoryUsage) {
   using T = std::shared_ptr<void>;
-  const int64_t currentBytes = pool_->getCurrentBytes();
+  const int64_t currentBytes = pool_->currentBytes();
   { auto buffer = AlignedBuffer::allocate<T>(0, pool_.get()); }
-  EXPECT_EQ(pool_->getCurrentBytes(), currentBytes);
+  EXPECT_EQ(pool_->currentBytes(), currentBytes);
 }
 
 TEST_F(BufferTest, testAllocateSizeOverflow) {

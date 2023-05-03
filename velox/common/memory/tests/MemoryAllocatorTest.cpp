@@ -1391,4 +1391,159 @@ TEST_F(MmapArenaTest, managedMmapArenas) {
     EXPECT_EQ(managedArenas->arenas().size(), 2);
   }
 }
+
+TEST_F(MmapArenaTest, managedMmapArenasFree) {
+  struct {
+    std::vector<uint64_t> allocSizes;
+    std::vector<int> freeIndexes;
+    std::vector<uint64_t> postFreeAllocSizes;
+    std::vector<uint64_t> postAllocFeeeIndexes;
+    int expectedNumOfAreanas;
+
+    std::string debugString() const {
+      return fmt::format(
+          "allocSizes:{} freeIndexes:{} postFreeAllocSizes:{} postAllocFeeeIndexes:{} expectedNumOfAreanas:{}",
+          folly::join(',', allocSizes),
+          folly::join(',', freeIndexes),
+          folly::join(',', postFreeAllocSizes),
+          folly::join(',', postAllocFeeeIndexes),
+          expectedNumOfAreanas);
+    }
+  } testSettings[] = {
+      {{kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4},
+       {1},
+       {kArenaCapacityBytes / 4},
+       {0, 2, 3},
+       1},
+      {{kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4},
+       {0},
+       {kArenaCapacityBytes / 4},
+       {1, 2, 3},
+       1},
+      {{kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4},
+       {0},
+       {kArenaCapacityBytes / 2},
+       {1, 2, 3},
+       1},
+      {{kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4},
+       {1},
+       {kArenaCapacityBytes / 2},
+       {0, 2, 3},
+       1},
+      {{kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4},
+       {1, 2},
+       {kArenaCapacityBytes / 2},
+       {0, 3},
+       1},
+      {{kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4},
+       {0, 1},
+       {kArenaCapacityBytes / 2},
+       {2, 3},
+       1},
+      {{kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4},
+       {0, 2},
+       {kArenaCapacityBytes / 2},
+       {1, 3},
+       1},
+      {{kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4},
+       {0, 3},
+       {kArenaCapacityBytes / 2},
+       {2, 1},
+       1},
+      {{kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4},
+       {1},
+       {kArenaCapacityBytes / 2},
+       {0, 3},
+       2},
+      {{kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4,
+        kArenaCapacityBytes / 4},
+       {0},
+       {kArenaCapacityBytes / 2},
+       {1, 3},
+       2}};
+  struct Buffer {
+    void* buffer;
+    uint64_t length;
+  };
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    std::unique_ptr<ManagedMmapArenas> managedArenas =
+        std::make_unique<ManagedMmapArenas>(kArenaCapacityBytes);
+    std::vector<Buffer> buffers;
+    buffers.reserve(
+        testData.allocSizes.size() + testData.postFreeAllocSizes.size());
+    for (const auto& allocSize : testData.allocSizes) {
+      buffers.push_back(Buffer{managedArenas->allocate(allocSize), allocSize});
+    }
+    for (const auto& freeIndex : testData.freeIndexes) {
+      managedArenas->free(buffers[freeIndex].buffer, buffers[freeIndex].length);
+      buffers[freeIndex].buffer = nullptr;
+    }
+    for (const auto& allocSize : testData.postFreeAllocSizes) {
+      buffers.push_back(Buffer{managedArenas->allocate(allocSize), allocSize});
+    }
+    for (const auto& freeIndex : testData.postAllocFeeeIndexes) {
+      managedArenas->free(buffers[freeIndex].buffer, buffers[freeIndex].length);
+      buffers[freeIndex].buffer = nullptr;
+    }
+    ASSERT_EQ(managedArenas->arenas().size(), testData.expectedNumOfAreanas);
+  }
+}
+
+TEST_F(MmapArenaTest, managedMmapArenasFreeError) {
+  {
+    std::unique_ptr<ManagedMmapArenas> managedArenas =
+        std::make_unique<ManagedMmapArenas>(kArenaCapacityBytes);
+    ASSERT_EQ(managedArenas->arenas().size(), 1);
+    void* alloc1 = managedArenas->allocate(kArenaCapacityBytes / 2);
+    void* alloc2 = managedArenas->allocate(kArenaCapacityBytes / 2);
+    ASSERT_EQ(managedArenas->arenas().size(), 1);
+    managedArenas->free(alloc1, kArenaCapacityBytes / 2);
+    ASSERT_ANY_THROW(managedArenas->free(alloc1, kArenaCapacityBytes / 2));
+    managedArenas->free(alloc2, kArenaCapacityBytes / 2);
+    ASSERT_ANY_THROW(managedArenas->free(alloc2, kArenaCapacityBytes / 2));
+  }
+  {
+    std::unique_ptr<ManagedMmapArenas> managedArenas =
+        std::make_unique<ManagedMmapArenas>(kArenaCapacityBytes);
+    ASSERT_EQ(managedArenas->arenas().size(), 1);
+    void* alloc1 = managedArenas->allocate(kArenaCapacityBytes);
+    void* alloc2 = managedArenas->allocate(kArenaCapacityBytes);
+    ASSERT_EQ(managedArenas->arenas().size(), 2);
+    managedArenas->free(alloc1, kArenaCapacityBytes);
+    ASSERT_EQ(managedArenas->arenas().size(), 1);
+    ASSERT_ANY_THROW(managedArenas->free(alloc1, kArenaCapacityBytes));
+    managedArenas->free(alloc2, kArenaCapacityBytes);
+    ASSERT_ANY_THROW(managedArenas->free(alloc2, kArenaCapacityBytes));
+  }
+}
 } // namespace facebook::velox::memory

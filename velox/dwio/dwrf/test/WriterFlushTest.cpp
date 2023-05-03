@@ -141,6 +141,10 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     VELOX_UNSUPPORTED("freeContiguous unsupported");
   }
 
+  int64_t currentBytes() const override {
+    return localMemoryUsage_;
+  }
+
   int64_t getCurrentBytes() const override {
     return localMemoryUsage_;
   }
@@ -155,11 +159,12 @@ class MockMemoryPool : public velox::memory::MemoryPool {
         name, kind, parent, parent->capacity());
   }
 
+  MOCK_CONST_METHOD0(peakBytes, int64_t());
   MOCK_CONST_METHOD0(getMaxBytes, int64_t());
 
   MOCK_METHOD1(updateSubtreeMemoryUsage, int64_t(int64_t));
 
-  MOCK_CONST_METHOD0(getAlignment, uint16_t());
+  MOCK_CONST_METHOD0(alignment, uint16_t());
 
   uint64_t freeBytes() const override {
     VELOX_NYI("{} unsupported", __FUNCTION__);
@@ -271,7 +276,7 @@ struct SimulatedFlush {
     auto& generalPool = dynamic_cast<MockMemoryPool&>(
         context.getMemoryPool(MemoryUsageCategory::GENERAL));
     dictPool.setLocalMemoryUsage(dictMemoryUsage);
-    ASSERT_EQ(outputStreamMemoryUsage, outputPool.getCurrentBytes());
+    ASSERT_EQ(outputStreamMemoryUsage, outputPool.currentBytes());
     outputPool.updateLocalMemoryUsage(flushOverhead);
     generalPool.setLocalMemoryUsage(generalMemoryUsage);
 
@@ -368,13 +373,12 @@ class WriterFlushTestHelper {
         ASSERT_EQ(
             0,
             context.getMemoryPool(MemoryUsageCategory::DICTIONARY)
-                .getCurrentBytes());
+                .currentBytes());
         auto outputStreamMemoryUsage =
             context.getMemoryPool(MemoryUsageCategory::OUTPUT_STREAM)
-                .getCurrentBytes();
+                .currentBytes();
         auto generalMemoryUsage =
-            context.getMemoryPool(MemoryUsageCategory::GENERAL)
-                .getCurrentBytes();
+            context.getMemoryPool(MemoryUsageCategory::GENERAL).currentBytes();
 
         uint64_t flushOverhead =
             folly::Random::rand32(0, context.stripeRawSize, gen);
