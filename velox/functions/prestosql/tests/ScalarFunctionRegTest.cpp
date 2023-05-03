@@ -27,7 +27,7 @@ class ScalarFunctionRegTest : public testing::Test {};
 TEST_F(ScalarFunctionRegTest, prefix) {
   // Remove all functions and check for no entries.
   exec::vectorFunctionFactories().wlock()->clear();
-  exec::mutableSimpleFunctions().testingClear();
+  exec::mutableSimpleFunctions().clearRegistry();
   EXPECT_EQ(0, exec::vectorFunctionFactories().rlock()->size());
   EXPECT_EQ(0, exec::simpleFunctions().getFunctionNames().size());
 
@@ -42,7 +42,7 @@ TEST_F(ScalarFunctionRegTest, prefix) {
 
   // Remove all functions and check for no entries.
   exec::vectorFunctionFactories().wlock()->clear();
-  exec::mutableSimpleFunctions().testingClear();
+  exec::mutableSimpleFunctions().clearRegistry();
   EXPECT_EQ(0, exec::vectorFunctionFactories().rlock()->size());
   EXPECT_EQ(0, exec::simpleFunctions().getFunctionNames().size());
 

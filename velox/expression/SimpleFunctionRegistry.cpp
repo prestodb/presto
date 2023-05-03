@@ -33,4 +33,63 @@ SimpleFunctionRegistry& mutableSimpleFunctions() {
   return simpleFunctionsInternal();
 }
 
+void SimpleFunctionRegistry::registerFunctionInternal(
+    const std::string& name,
+    const std::shared_ptr<const Metadata>& metadata,
+    const FunctionFactory& factory) {
+  const auto sanitizedName = sanitizeName(name);
+  SignatureMap& signatureMap = registeredFunctions_[sanitizedName];
+  signatureMap[*metadata->signature()] =
+      std::make_unique<const FunctionEntry>(metadata, factory);
+}
+
+const SignatureMap* SimpleFunctionRegistry::getSignatureMap(
+    const std::string& name) const {
+  const auto sanitizedName = sanitizeName(name);
+  const auto it = registeredFunctions_.find(sanitizedName);
+  return it != registeredFunctions_.end() ? &it->second : nullptr;
+}
+
+std::vector<const FunctionSignature*>
+SimpleFunctionRegistry::getFunctionSignatures(const std::string& name) const {
+  std::vector<const FunctionSignature*> signatures;
+  if (const auto* signatureMap = getSignatureMap(name)) {
+    signatures.reserve(signatureMap->size());
+    for (const auto& pair : *signatureMap) {
+      signatures.emplace_back(&pair.first);
+    }
+  }
+
+  return signatures;
+}
+
+std::optional<SimpleFunctionRegistry::ResolvedSimpleFunction>
+SimpleFunctionRegistry::resolveFunction(
+    const std::string& name,
+    const std::vector<TypePtr>& argTypes) const {
+  const FunctionEntry* selectedCandidate = nullptr;
+  TypePtr selectedCandidateType = nullptr;
+  if (const auto* signatureMap = getSignatureMap(name)) {
+    for (const auto& [candidateSignature, functionEntry] : *signatureMap) {
+      SignatureBinder binder(candidateSignature, argTypes);
+      if (binder.tryBind()) {
+        auto* currentCandidate = functionEntry.get();
+        if (!selectedCandidate ||
+            currentCandidate->getMetadata().priority() <
+                selectedCandidate->getMetadata().priority()) {
+          selectedCandidate = currentCandidate;
+          selectedCandidateType = binder.tryResolveReturnType();
+        }
+      }
+    }
+  }
+
+  VELOX_DCHECK(!selectedCandidate || selectedCandidateType);
+
+  return selectedCandidate
+      ? std::optional<ResolvedSimpleFunction>(
+            ResolvedSimpleFunction(*selectedCandidate, selectedCandidateType))
+      : std::nullopt;
+}
+
 } // namespace facebook::velox::exec
