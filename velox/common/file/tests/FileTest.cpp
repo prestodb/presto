@@ -86,6 +86,27 @@ TEST(InMemoryFile, writeAndRead) {
   readData(&readFile);
 }
 
+TEST(InMemoryFile, preadv) {
+  std::string buf;
+  {
+    InMemoryWriteFile writeFile(&buf);
+    writeData(&writeFile);
+  }
+  // aaaaa bbbbb c*1MB ddddd
+  InMemoryReadFile readFile(buf);
+  std::vector<std::string> buffers = {"1234", "567", "something else", "890"};
+  std::vector<std::string> expected = {"1ab4", "567", "scccdding else", "ddd"};
+  std::vector<ReadFile::Segment> readSegments = std::vector<ReadFile::Segment>{
+      {4, folly::Range<char*>{&buffers[0][1], 2UL}, {}},
+      {0, folly::Range<char*>{&buffers[1][1], 0UL}, {}},
+      {5 + 5 + kOneMB - 3, {&buffers[2][1], 5UL}, {}},
+      {5 + 5 + kOneMB + 2, {&buffers[3][0], 3UL}, {}}};
+
+  readFile.preadv(readSegments);
+
+  EXPECT_EQ(expected, buffers);
+}
+
 TEST(LocalFile, writeAndRead) {
   auto tempFile = ::exec::test::TempFilePath::create();
   const auto& filename = tempFile->path.c_str();

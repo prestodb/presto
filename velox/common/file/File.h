@@ -43,6 +43,22 @@ namespace facebook::velox {
 // A read-only file.
 class ReadFile {
  public:
+  struct Segment {
+    // offset in the file to start reading from.
+    uint64_t offset;
+
+    // Buffer to save the data to. buffer.size() bytes will be read from the
+    // file and stored in it.
+    folly::Range<char*> buffer;
+
+    // optional: label for caching purposes.
+    // It should contain a label stating the column name or whatever logical
+    // identifier of the segment of the file that is being read. The reader can
+    // use this information to decide whether or not to cache this information
+    // if this is a frequently accessed element across the table.
+    std::string_view label;
+  };
+
   virtual ~ReadFile() = default;
 
   // Reads the data at [offset, offset + length) into the provided pre-allocated
@@ -59,6 +75,12 @@ class ReadFile {
   virtual uint64_t preadv(
       uint64_t /*offset*/,
       const std::vector<folly::Range<char*>>& /*buffers*/) const;
+
+  // Vectorized read API. Implementations can coalesce and parallelize.
+  // It is different to the preadv above because we can add a label to the
+  // segment and because the offsets don't need to be sorted.
+  // In the preadv above offsets of buffers are always
+  virtual void preadv(const std::vector<Segment>& segments) const;
 
   // Like preadv but may execute asynchronously and returns the read
   // size or exception via SemiFuture. Use hasPreadvAsync() to check

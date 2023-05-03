@@ -53,6 +53,12 @@ uint64_t ReadFile::preadv(
   return numRead;
 }
 
+void ReadFile::preadv(const std::vector<ReadFile::Segment>& segments) const {
+  for (const auto& segment : segments) {
+    pread(segment.offset, segment.buffer.size(), segment.buffer.data());
+  }
+}
+
 std::string_view
 InMemoryReadFile::pread(uint64_t offset, uint64_t length, void* buf) const {
   bytesRead_ += length;
