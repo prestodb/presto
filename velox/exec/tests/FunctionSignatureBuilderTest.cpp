@@ -202,7 +202,8 @@ TEST_F(FunctionSignatureBuilderTest, aggregateConstantFlags) {
     EXPECT_FALSE(aggSignature->constantArguments().at(0));
     EXPECT_TRUE(aggSignature->constantArguments().at(1));
     EXPECT_FALSE(aggSignature->constantArguments().at(2));
-    EXPECT_EQ("(T,constant bigint,T) -> T", aggSignature->toString());
+    EXPECT_EQ(
+        "(T,constant bigint,T) -> array(T) -> T", aggSignature->toString());
   }
 
   {
@@ -220,7 +221,7 @@ TEST_F(FunctionSignatureBuilderTest, aggregateConstantFlags) {
     EXPECT_TRUE(aggSignature->constantArguments().at(1));
     EXPECT_FALSE(aggSignature->constantArguments().at(2));
     EXPECT_EQ(
-        "(bigint,constant T,T,constant double...) -> T",
+        "(bigint,constant T,T,constant double...) -> array(T) -> T",
         aggSignature->toString());
   }
 }

@@ -206,9 +206,11 @@ TEST_F(FunctionRegistryTest, aggregateWindowFunctionSignature) {
   for (const auto& signature : windowFunctionSignatures.value()) {
     functionSignatures.insert(signature->toString());
   }
-  ASSERT_EQ(functionSignatures.count("(bigint,double) -> bigint"), 1);
-  ASSERT_EQ(functionSignatures.count("() -> date"), 1);
-  ASSERT_EQ(functionSignatures.count("(T,T) -> T"), 1);
+  ASSERT_EQ(
+      functionSignatures.count("(bigint,double) -> array(bigint) -> bigint"),
+      1);
+  ASSERT_EQ(functionSignatures.count("() -> date -> date"), 1);
+  ASSERT_EQ(functionSignatures.count("(T,T) -> array(T) -> T"), 1);
 }
 
 } // namespace facebook::velox::exec::test

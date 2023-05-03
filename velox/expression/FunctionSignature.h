@@ -165,6 +165,10 @@ class FunctionSignature {
         variableArity_ == rhs.variableArity_;
   }
 
+ protected:
+  // Return a string of the list of argument types.
+  std::string argumentsToString() const;
+
  private:
   const std::unordered_map<std::string, SignatureVariable> variables_;
   const TypeSignature returnType_;
@@ -195,6 +199,8 @@ class AggregateFunctionSignature : public FunctionSignature {
   const TypeSignature& intermediateType() const {
     return intermediateType_;
   }
+
+  std::string toString() const override;
 
  private:
   const TypeSignature intermediateType_;
