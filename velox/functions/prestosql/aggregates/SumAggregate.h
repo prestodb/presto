@@ -171,13 +171,12 @@ class SumAggregate
 };
 
 template <typename TInputType>
-class DecimalSumAggregate
-    : public DecimalAggregate<UnscaledLongDecimal, TInputType> {
+class DecimalSumAggregate : public DecimalAggregate<int128_t, TInputType> {
  public:
   explicit DecimalSumAggregate(TypePtr resultType)
-      : DecimalAggregate<UnscaledLongDecimal, TInputType>(resultType) {}
+      : DecimalAggregate<int128_t, TInputType>(resultType) {}
 
-  virtual UnscaledLongDecimal computeFinalValue(
+  virtual int128_t computeFinalValue(
       LongDecimalWithOverflowState* accumulator) final {
     // Value is valid if the conditions below are true.
     int128_t sum = accumulator->sum;
@@ -190,8 +189,8 @@ class DecimalSumAggregate
       VELOX_CHECK(accumulator->overflow == 0, "Decimal overflow");
     }
 
-    VELOX_CHECK(UnscaledLongDecimal::valueInRange(sum), "Decimal overflow");
-    return UnscaledLongDecimal(sum);
+    DecimalUtil::valueInRange(sum);
+    return sum;
   }
 };
 
@@ -241,8 +240,19 @@ bool registerSum(const std::string& name) {
             return std::make_unique<T<int16_t, int64_t, int64_t>>(BIGINT());
           case TypeKind::INTEGER:
             return std::make_unique<T<int32_t, int64_t, int64_t>>(BIGINT());
-          case TypeKind::BIGINT:
+          case TypeKind::BIGINT: {
+            if (inputType->isShortDecimal()) {
+              return std::make_unique<DecimalSumAggregate<int64_t>>(resultType);
+            }
             return std::make_unique<T<int64_t, int64_t, int64_t>>(BIGINT());
+          }
+          case TypeKind::HUGEINT: {
+            if (inputType->isLongDecimal()) {
+              return std::make_unique<DecimalSumAggregate<int128_t>>(
+                  resultType);
+            }
+            VELOX_NYI();
+          }
           case TypeKind::REAL:
             if (resultType->kind() == TypeKind::REAL) {
               return std::make_unique<T<float, double, float>>(resultType);
@@ -253,16 +263,11 @@ bool registerSum(const std::string& name) {
               return std::make_unique<T<double, double, float>>(resultType);
             }
             return std::make_unique<T<double, double, double>>(DOUBLE());
-          case TypeKind::SHORT_DECIMAL:
-            return std::make_unique<DecimalSumAggregate<UnscaledShortDecimal>>(
-                resultType);
           case TypeKind::VARBINARY:
-          // Always use UnscaledLongDecimal template for Varbinary as the result
-          // type is either UnscaledLongDecimal or
-          // UnscaledLongDecimalWithOverflowState.
-          case TypeKind::LONG_DECIMAL:
-            return std::make_unique<DecimalSumAggregate<UnscaledLongDecimal>>(
-                resultType);
+            // Always use int128_t template for Varbinary as the result
+            // type is either int128_t or
+            // UnscaledLongDecimalWithOverflowState.
+            return std::make_unique<DecimalSumAggregate<int128_t>>(resultType);
 
           default:
             VELOX_CHECK(

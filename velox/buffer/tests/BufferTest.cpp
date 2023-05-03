@@ -18,10 +18,6 @@
 
 #include "folly/Range.h"
 #include "velox/type/StringView.h"
-#include "velox/type/UnscaledLongDecimal.h"
-#include "velox/type/UnscaledShortDecimal.h"
-
-#include <sstream>
 
 #include <glog/logging.h>
 #include <gmock/gmock.h>
@@ -34,8 +30,6 @@ namespace velox {
 
 static_assert(Buffer::is_pod_like_v<int64_t>, "");
 static_assert(Buffer::is_pod_like_v<StringView>, "");
-static_assert(Buffer::is_pod_like_v<UnscaledLongDecimal>, "");
-static_assert(Buffer::is_pod_like_v<UnscaledShortDecimal>, "");
 static_assert(Buffer::is_pod_like_v<folly::Range<const char*>>, "");
 static_assert(Buffer::is_pod_like_v<velox::Range<const char*>>, "");
 static_assert(!Buffer::is_pod_like_v<std::shared_ptr<int>>, "");

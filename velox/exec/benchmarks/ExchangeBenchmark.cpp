@@ -340,11 +340,11 @@ int main(int argc, char** argv) {
   std::vector<TypePtr> typeSelection = {
       BOOLEAN(),
       TINYINT(),
-      LONG_DECIMAL(20, 3),
+      DECIMAL(20, 3),
       INTEGER(),
       BIGINT(),
       REAL(),
-      SHORT_DECIMAL(10, 2),
+      DECIMAL(10, 2),
       DOUBLE(),
       VARCHAR()};
 

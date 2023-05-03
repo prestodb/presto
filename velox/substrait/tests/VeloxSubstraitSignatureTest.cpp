@@ -55,8 +55,6 @@ TEST_F(VeloxSubstraitSignatureTest, toSubstraitSignatureWithType) {
   ASSERT_EQ(toSubstraitSignature(VARBINARY()), "vbin");
   ASSERT_EQ(toSubstraitSignature(TIMESTAMP()), "ts");
   ASSERT_EQ(toSubstraitSignature(DATE()), "date");
-  ASSERT_EQ(toSubstraitSignature(SHORT_DECIMAL(18, 2)), "dec");
-  ASSERT_EQ(toSubstraitSignature(LONG_DECIMAL(18, 2)), "dec");
   ASSERT_EQ(toSubstraitSignature(ARRAY(BOOLEAN())), "list");
   ASSERT_EQ(toSubstraitSignature(ARRAY(INTEGER())), "list");
   ASSERT_EQ(toSubstraitSignature(MAP(INTEGER(), BIGINT())), "map");

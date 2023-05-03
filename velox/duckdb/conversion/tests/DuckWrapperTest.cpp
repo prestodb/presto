@@ -219,8 +219,7 @@ TEST_F(BaseDuckWrapperTest, tpchSF1) {
   // test TPC-H loading and querying SF0.01
   execute("CALL dbgen(sf=0.01)");
   // test conversion of date, decimal and string
-  verifyUnaryResult<UnscaledShortDecimal>(
-      "SELECT l_discount FROM lineitem LIMIT 1", {UnscaledShortDecimal(4)});
+  verifyUnaryResult<int64_t>("SELECT l_discount FROM lineitem LIMIT 1", {4});
   verifyUnaryResult<Date>(
       "SELECT l_shipdate FROM lineitem LIMIT 1", {Date(9568)});
   verifyUnaryResult<StringView>(
@@ -230,42 +229,33 @@ TEST_F(BaseDuckWrapperTest, tpchSF1) {
 
 TEST_F(BaseDuckWrapperTest, duckToVeloxDecimal) {
   // Test SMALLINT decimal to UnscaledShortDecimal conversion.
-  verifyDuckToVeloxDecimal<UnscaledShortDecimal>(
+  verifyDuckToVeloxDecimal<int64_t>(
       "select * from (values (NULL), ('1.2'::decimal(2,1)),"
       "('2.2'::decimal(2,1)),('-4.2'::decimal(2,1)), (NULL))",
-      {std::nullopt,
-       UnscaledShortDecimal(12),
-       UnscaledShortDecimal(22),
-       UnscaledShortDecimal(-42),
-       std::nullopt});
+      {std::nullopt, 12, 22, -42, std::nullopt});
 
   // Test INTEGER decimal to UnscaledShortDecimal conversion.
-  verifyDuckToVeloxDecimal<UnscaledShortDecimal>(
+  verifyDuckToVeloxDecimal<int64_t>(
       "select * from (values ('1111.1111'::decimal(8,4)),"
       "('2222.2222'::decimal(8,4)),('-3333.3333'::decimal(8,4)))",
-      {UnscaledShortDecimal(11111111),
-       UnscaledShortDecimal(22222222),
-       UnscaledShortDecimal(-33333333)});
+      {11111111, 22222222, -33333333});
 
   // Test BIGINT decimal to UnscaledLongDecimal conversion.
-  verifyDuckToVeloxDecimal<UnscaledShortDecimal>(
+  verifyDuckToVeloxDecimal<int64_t>(
       "select * from (values ('-111111.111111'::decimal(12,6)),"
       "('222222.222222'::decimal(12,6)),('333333.333333'::decimal(12,6)))",
-      {UnscaledShortDecimal(-111111111111),
-       UnscaledShortDecimal(222222222222),
-       UnscaledShortDecimal(333333333333)});
+      {-111111111111, 222222222222, 333333333333});
 
-  verifyDuckToVeloxDecimal<UnscaledLongDecimal>(
+  verifyDuckToVeloxDecimal<int128_t>(
       "select * from (values (NULL),"
       "('12345678901234.789'::decimal(18,3) * 10000.555::decimal(20,3)),"
       "('-55555555555555.789'::decimal(18,3) * 10000.555::decimal(20,3)), (NULL),"
       "('-22222222222222.789'::decimal(18,3) * 10000.555::decimal(20,3)))",
       {std::nullopt,
-       UnscaledLongDecimal(buildInt128(0X1a24, 0Xfa35bb8777ffff77)),
-       UnscaledLongDecimal(buildInt128(0XFFFFFFFFFFFF8A59, 0X99FC706655BFAC11)),
+       HugeInt::build(0X1a24, 0Xfa35bb8777ffff77),
+       HugeInt::build(0XFFFFFFFFFFFF8A59, 0X99FC706655BFAC11),
        std::nullopt,
-       UnscaledLongDecimal(
-           buildInt128(0XFFFFFFFFFFFFD0F0, 0XA3FE935B081D8D69))});
+       HugeInt::build(0XFFFFFFFFFFFFD0F0, 0XA3FE935B081D8D69)});
 }
 
 TEST_F(BaseDuckWrapperTest, decimalDictCoversion) {
@@ -291,17 +281,10 @@ TEST_F(BaseDuckWrapperTest, decimalDictCoversion) {
 
   auto decimalType = DECIMAL(4, 2);
   auto actual = toVeloxVector(size, data, decimalType, pool_.get());
-  std::vector<UnscaledShortDecimal> expectedData(
-      {UnscaledShortDecimal(1000),
-       UnscaledShortDecimal(2000),
-       UnscaledShortDecimal(5000),
-       UnscaledShortDecimal(2000),
-       UnscaledShortDecimal(1000),
-       UnscaledShortDecimal(5000)});
+  std::vector<int64_t> expectedData({1000, 2000, 5000, 2000, 1000, 5000});
 
   test::VectorMaker maker(pool_.get());
-  auto expectedFlatVector =
-      maker.flatVector<UnscaledShortDecimal>(size, decimalType);
+  auto expectedFlatVector = maker.flatVector<int64_t>(size, decimalType);
 
   for (auto i = 0; i < expectedData.size(); ++i) {
     expectedFlatVector->set(i, expectedData[i]);

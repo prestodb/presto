@@ -337,6 +337,9 @@ bool testFilter(
   if (mayHaveNull && filter->testNull()) {
     return true;
   }
+  if (type->isDecimal()) {
+    return true;
+  }
   switch (type->kind()) {
     case TypeKind::BIGINT:
     case TypeKind::INTEGER:

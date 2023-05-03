@@ -84,7 +84,7 @@ TEST(SignatureBinderTest, decimals) {
             .build();
 
     testSignatureBinder(
-        signature, {DECIMAL(11, 5), DECIMAL(10, 6)}, LONG_DECIMAL(21, 11));
+        signature, {DECIMAL(11, 5), DECIMAL(10, 6)}, DECIMAL(21, 11));
   }
 
   // Decimal Divide.
@@ -105,7 +105,7 @@ TEST(SignatureBinderTest, decimals) {
             .build();
 
     testSignatureBinder(
-        signature, {DECIMAL(11, 5), DECIMAL(10, 6)}, SHORT_DECIMAL(18, 6));
+        signature, {DECIMAL(11, 5), DECIMAL(10, 6)}, DECIMAL(18, 6));
   }
 
   // Decimal Modulus.
@@ -126,9 +126,7 @@ TEST(SignatureBinderTest, decimals) {
             .build();
 
     testSignatureBinder(
-        signature,
-        {SHORT_DECIMAL(11, 5), SHORT_DECIMAL(10, 6)},
-        DECIMAL(10, 6));
+        signature, {DECIMAL(11, 5), DECIMAL(10, 6)}, DECIMAL(10, 6));
   }
   // Aggregate Sum.
   {
@@ -205,6 +203,7 @@ TEST(SignatureBinderTest, decimals) {
 
       const std::vector<TypePtr> argTypes1{DECIMAL(28, 7), DECIMAL(28, 5)};
       exec::SignatureBinder binder1(*signature, argTypes1);
+
       ASSERT_FALSE(binder1.tryBind());
     }
 
@@ -243,7 +242,6 @@ TEST(SignatureBinderTest, decimals) {
 
 TEST(SignatureBinderTest, knownOnly) {
   // map(K,V) -> array(K)
-
   auto signature = exec::FunctionSignatureBuilder()
                        .knownTypeVariable("K")
                        .typeVariable("V")

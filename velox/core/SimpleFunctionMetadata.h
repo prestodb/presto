@@ -182,7 +182,7 @@ std::string strToLowerCopy(const std::string& str);
 } // namespace detail
 
 // A set of structs used to perform analysis on a static type to
-// collect information needed for signatrue construction.
+// collect information needed for signature construction.
 template <typename T>
 struct TypeAnalysis {
   void run(TypeAnalysisResults& results) {

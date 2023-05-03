@@ -182,13 +182,8 @@ void SelectiveColumnReader::getIntValues(
       case TypeKind::DATE:
         getFlatValues<Date, Date>(rows, result, requestedType);
         break;
-      case TypeKind::SHORT_DECIMAL:
-        getFlatValues<UnscaledShortDecimal, UnscaledShortDecimal>(
-            rows, result, requestedType);
-        break;
-      case TypeKind::LONG_DECIMAL:
-        getFlatValues<UnscaledLongDecimal, UnscaledLongDecimal>(
-            rows, result, requestedType);
+      case TypeKind::HUGEINT:
+        getFlatValues<int128_t, int128_t>(rows, result, requestedType);
         break;
       case TypeKind::BIGINT:
         switch (valueSize_) {

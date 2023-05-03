@@ -53,7 +53,7 @@ HiveTypeParser::HiveTypeParser() {
   setupMetadata<TokenType::Date, TypeKind::DATE>("date");
   setupMetadata<TokenType::Float, TypeKind::REAL>({"float", "real"});
   setupMetadata<TokenType::Double, TypeKind::DOUBLE>("double");
-  setupMetadata<TokenType::ShortDecimal, TypeKind::SHORT_DECIMAL>("decimal");
+  setupMetadata<TokenType::Decimal, TypeKind::BIGINT>("decimal");
   setupMetadata<TokenType::String, TypeKind::VARCHAR>({"string", "varchar"});
   setupMetadata<TokenType::Binary, TypeKind::VARBINARY>(
       {"binary", "varbinary"});
@@ -88,7 +88,7 @@ Result HiveTypeParser::parseType() {
   Token nt = nextToken();
   VELOX_CHECK(!nt.isEOS(), "Unexpected end of stream parsing type!!!");
   if (nt.isValidType() && nt.isPrimitiveType()) {
-    if (isDecimalKind(nt.typeKind())) {
+    if (nt.metadata->tokenString[0] == "decimal") {
       eatToken(TokenType::LeftRoundBracket);
       Token precision = nextToken();
       VELOX_CHECK(

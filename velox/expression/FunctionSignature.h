@@ -28,10 +28,6 @@ namespace facebook::velox::exec {
 
 std::string sanitizeName(const std::string& name);
 
-inline bool isCommonDecimalName(const std::string& typeName) {
-  return boost::iequals(typeName, "DECIMAL");
-}
-
 /// Return a list of primitive type names.
 const std::vector<std::string> primitiveTypeNames();
 

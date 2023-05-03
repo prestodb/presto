@@ -575,10 +575,6 @@ VectorPtr newConstant(
   T copy;
   if constexpr (std::is_same_v<T, StringView>) {
     copy = StringView(value.value<kind>());
-  } else if constexpr (
-      std::is_same_v<T, UnscaledShortDecimal> ||
-      std::is_same_v<T, UnscaledLongDecimal>) {
-    copy = value.value<kind>().value();
   } else {
     copy = value.value<T>();
   }

@@ -1098,10 +1098,10 @@ class RowContainer {
 };
 
 template <>
-inline UnscaledLongDecimal RowContainer::valueAt<UnscaledLongDecimal>(
+inline int128_t RowContainer::valueAt<int128_t>(
     const char* FOLLY_NONNULL group,
     int32_t offset) {
-  return UnscaledLongDecimal::deserialize(group + offset);
+  return HugeInt::deserialize(group + offset);
 }
 
 template <>
@@ -1165,28 +1165,26 @@ inline void RowContainer::storeNoNulls<TypeKind::MAP>(
 }
 
 template <>
-inline void RowContainer::storeWithNulls<TypeKind::LONG_DECIMAL>(
+inline void RowContainer::storeWithNulls<TypeKind::HUGEINT>(
     const DecodedVector& decoded,
     vector_size_t index,
     char* FOLLY_NONNULL row,
     int32_t offset,
     int32_t nullByte,
     uint8_t nullMask) {
-  UnscaledLongDecimal::serialize(
-      decoded.valueAt<UnscaledLongDecimal>(index), row + offset);
+  HugeInt::serialize(decoded.valueAt<int128_t>(index), row + offset);
   if (decoded.isNullAt(index)) {
     row[nullByte] |= nullMask;
   }
 }
 
 template <>
-inline void RowContainer::storeNoNulls<TypeKind::LONG_DECIMAL>(
+inline void RowContainer::storeNoNulls<TypeKind::HUGEINT>(
     const DecodedVector& decoded,
     vector_size_t index,
     char* FOLLY_NONNULL row,
     int32_t offset) {
-  UnscaledLongDecimal::serialize(
-      decoded.valueAt<UnscaledLongDecimal>(index), row + offset);
+  HugeInt::serialize(decoded.valueAt<int128_t>(index), row + offset);
 }
 
 template <>

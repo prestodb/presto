@@ -92,7 +92,7 @@ class ConstantTypedExpr : public ITypedExpr {
     if (hasValueVector()) {
       return valueVector_->toString(0);
     }
-    return value_.toJson();
+    return value_.toJson(type());
   }
 
   size_t localHash() const override {

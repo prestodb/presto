@@ -259,18 +259,18 @@ TEST_F(AverageAggregationTest, avgDecimal) {
   // Long decimal aggregation
   testAggregations(
       {makeRowVector({makeNullableLongDecimalFlatVector(
-          {buildInt128(10, 100),
-           buildInt128(10, 200),
-           buildInt128(10, 300),
-           buildInt128(10, 400),
-           buildInt128(10, 500),
+          {HugeInt::build(10, 100),
+           HugeInt::build(10, 200),
+           HugeInt::build(10, 300),
+           HugeInt::build(10, 400),
+           HugeInt::build(10, 500),
            std::nullopt},
           DECIMAL(23, 4))})},
       {},
       {"avg(c0)"},
       {},
       {makeRowVector({makeLongDecimalFlatVector(
-          {buildInt128(10, 300)}, DECIMAL(23, 4))})});
+          {HugeInt::build(10, 300)}, DECIMAL(23, 4))})});
   // Round-up average.
   testAggregations(
       {makeRowVector({makeNullableShortDecimalFlatVector(
@@ -283,7 +283,7 @@ TEST_F(AverageAggregationTest, avgDecimal) {
   // The total sum overflows the max int128_t limit.
   std::vector<int128_t> rawVector;
   for (int i = 0; i < 10; ++i) {
-    rawVector.push_back(UnscaledLongDecimal::max().unscaledValue());
+    rawVector.push_back(DecimalUtil::kLongDecimalMax);
   }
   testAggregations(
       {makeRowVector({makeLongDecimalFlatVector(rawVector, DECIMAL(38, 0))})},
@@ -291,13 +291,13 @@ TEST_F(AverageAggregationTest, avgDecimal) {
       {"avg(c0)"},
       {},
       {makeRowVector({makeLongDecimalFlatVector(
-          {UnscaledLongDecimal::max().unscaledValue()}, DECIMAL(38, 0))})});
+          {DecimalUtil::kLongDecimalMax}, DECIMAL(38, 0))})});
   // The total sum underflows the min int128_t limit.
   rawVector.clear();
-  auto underFlowTestResult = makeLongDecimalFlatVector(
-      {UnscaledLongDecimal::min().unscaledValue()}, DECIMAL(38, 0));
+  auto underFlowTestResult =
+      makeLongDecimalFlatVector({DecimalUtil::kLongDecimalMin}, DECIMAL(38, 0));
   for (int i = 0; i < 10; ++i) {
-    rawVector.push_back(UnscaledLongDecimal::min().unscaledValue());
+    rawVector.push_back(DecimalUtil::kLongDecimalMin);
   }
   testAggregations(
       {makeRowVector({makeLongDecimalFlatVector(rawVector, DECIMAL(38, 0))})},
@@ -310,22 +310,21 @@ TEST_F(AverageAggregationTest, avgDecimal) {
   // result with varying row count.
   // Making sure the error value is consistent.
   for (int i = 0; i < 10; ++i) {
-    rawVector.push_back(UnscaledLongDecimal::min().unscaledValue());
+    rawVector.push_back(DecimalUtil::kLongDecimalMin);
   }
   AssertQueryBuilder assertQueryBuilder(createAvgAggPlanNode(
       {makeLongDecimalFlatVector(rawVector, DECIMAL(38, 0))}, true));
   auto result = assertQueryBuilder.copyResults(pool());
 
-  auto actualResult = result->childAt(0)->asFlatVector<UnscaledLongDecimal>();
+  auto actualResult = result->childAt(0)->asFlatVector<int128_t>();
   ASSERT_NE(actualResult->valueAt(0), underFlowTestResult->valueAt(0));
   ASSERT_EQ(
       underFlowTestResult->valueAt(0) - actualResult->valueAt(0),
-      UnscaledLongDecimal(-13));
+      static_cast<int128_t>(-13));
 
   // Test constant vector.
   testAggregations(
-      {makeRowVector({makeConstant<UnscaledShortDecimal>(
-          UnscaledShortDecimal(100), 10, DECIMAL(3, 2))})},
+      {makeRowVector({makeConstant<int64_t>(100, 10, DECIMAL(3, 2))})},
       {},
       {"avg(c0)"},
       {},

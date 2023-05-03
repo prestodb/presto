@@ -109,22 +109,11 @@ FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::DATE>(
 }
 
 template <>
-FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::SHORT_DECIMAL>(
+FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::HUGEINT>(
     const SelectivityVector& rows,
     BufferPtr& hashes) {
   applyHashFunction(rows, *vector_.get(), hashes, [&](auto row) {
-    return hashInteger(
-        vector_->valueAt<UnscaledShortDecimal>(row).unscaledValue());
-  });
-}
-
-template <>
-FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::LONG_DECIMAL>(
-    const SelectivityVector& rows,
-    BufferPtr& hashes) {
-  applyHashFunction(rows, *vector_.get(), hashes, [&](auto row) {
-    return hashInteger(
-        vector_->valueAt<UnscaledLongDecimal>(row).unscaledValue());
+    return hashInteger(vector_->valueAt<int128_t>(row));
   });
 }
 

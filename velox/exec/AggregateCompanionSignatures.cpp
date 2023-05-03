@@ -73,8 +73,7 @@ bool isResultTypeResolvableGivenIntermediateType(
 std::string toSuffixString(const TypeSignature& type) {
   auto name = type.baseName();
   // For primitive and decimal types, return their names.
-  if (type.parameters().empty() || isCommonDecimalName(name) ||
-      isDecimalName(name)) {
+  if (type.parameters().empty() || isDecimalName(name)) {
     return name;
   }
   auto upperName = boost::algorithm::to_upper_copy(name);

@@ -18,6 +18,8 @@
 #include <cfloat>
 #include "common/encode/Base64.h"
 #include "folly/json.h"
+#include "velox/type/DecimalUtil.h"
+#include "velox/type/HugeInt.h"
 
 namespace facebook::velox {
 
@@ -76,44 +78,6 @@ struct VariantEquality<TypeKind::DATE> {
       return evaluateNullEquality<NullEqualsNull>(a, b);
     } else {
       return a.value<TypeKind::DATE>() == b.value<TypeKind::DATE>();
-    }
-  }
-};
-
-template <>
-struct VariantEquality<TypeKind::SHORT_DECIMAL> {
-  template <bool NullEqualsNull>
-  static bool equals(const variant& a, const variant& b) {
-    const auto lhs = a.value<TypeKind::SHORT_DECIMAL>();
-    const auto rhs = b.value<TypeKind::SHORT_DECIMAL>();
-    const auto lType = DECIMAL(lhs.precision, lhs.scale);
-    const auto rType = DECIMAL(rhs.precision, rhs.scale);
-    if (!lType->equivalent(*rType)) {
-      return false;
-    }
-    if (a.isNull() || b.isNull()) {
-      return evaluateNullEquality<NullEqualsNull>(a, b);
-    } else {
-      return lhs.value() == rhs.value();
-    }
-  }
-};
-
-template <>
-struct VariantEquality<TypeKind::LONG_DECIMAL> {
-  template <bool NullEqualsNull>
-  static bool equals(const variant& a, const variant& b) {
-    const auto lhs = a.value<TypeKind::LONG_DECIMAL>();
-    const auto rhs = b.value<TypeKind::LONG_DECIMAL>();
-    const auto lType = DECIMAL(lhs.precision, lhs.scale);
-    const auto rType = DECIMAL(rhs.precision, rhs.scale);
-    if (!lType->equivalent(*rType)) {
-      return false;
-    }
-    if (a.isNull() || b.isNull()) {
-      return evaluateNullEquality<NullEqualsNull>(a, b);
-    } else {
-      return lhs.value() == rhs.value();
     }
   }
 };
@@ -223,7 +187,7 @@ void variant::throwCheckPtrError() const {
   throw std::invalid_argument{"missing variant value"};
 }
 
-std::string variant::toJson() const {
+std::string variant::toJson(const TypePtr& type) const {
   // todo(youknowjack): consistent story around std::stringifying, converting,
   // and other basic operations. Stringification logic should not be specific
   // to variants; it should be consistent for all map representations
@@ -296,7 +260,16 @@ std::string variant::toJson() const {
     case TypeKind::TINYINT:
     case TypeKind::SMALLINT:
     case TypeKind::INTEGER:
-    case TypeKind::BIGINT:
+    case TypeKind::BIGINT: {
+      if (type && type->isShortDecimal()) {
+        return DecimalUtil::toString(value<TypeKind::BIGINT>(), type);
+      }
+    }
+    case TypeKind::HUGEINT: {
+      if (type && type->isLongDecimal()) {
+        return DecimalUtil::toString(value<TypeKind::HUGEINT>(), type);
+      }
+    }
     case TypeKind::BOOLEAN: {
       auto converted = VariantConverter::convert<TypeKind::VARCHAR>(*this);
       if (converted.isNull()) {
@@ -333,14 +306,6 @@ std::string variant::toJson() const {
       // Return expression that we can't parse back - we use toJson for
       // debugging only. Variant::serialize should actually serialize the data.
       return "\"Opaque<" + value<TypeKind::OPAQUE>().type->toString() + ">\"";
-    }
-    case TypeKind::SHORT_DECIMAL: {
-      return DecimalUtil::toString(
-          value<TypeKind::SHORT_DECIMAL>().value(), inferType());
-    }
-    case TypeKind::LONG_DECIMAL: {
-      return DecimalUtil::toString(
-          value<TypeKind::LONG_DECIMAL>().value(), inferType());
     }
     case TypeKind::FUNCTION:
     case TypeKind::UNKNOWN:
@@ -421,6 +386,10 @@ folly::dynamic variant::serialize() const {
     }
     case TypeKind::BIGINT: {
       objValue = value<TypeKind::BIGINT>();
+      break;
+    }
+    case TypeKind::HUGEINT: {
+      objValue = value<TypeKind::HUGEINT>();
       break;
     }
     case TypeKind::BOOLEAN: {
@@ -528,6 +497,8 @@ variant variant::create(const folly::dynamic& variantobj) {
       return variant::create<TypeKind::INTEGER>(obj.asInt());
     case TypeKind::BIGINT:
       return variant::create<TypeKind::BIGINT>(obj.asInt());
+    case TypeKind::HUGEINT:
+      return variant::create<TypeKind::HUGEINT>(obj.asInt());
     case TypeKind::BOOLEAN: {
       return variant(obj.asBool());
     }
@@ -569,18 +540,14 @@ variant variant::create(const folly::dynamic& variantobj) {
 uint64_t variant::hash() const {
   uint64_t hash = 0;
   if (isNull()) {
-    if (kind_ == TypeKind::SHORT_DECIMAL) {
-      return value<TypeKind::SHORT_DECIMAL>().hash();
-    }
-    if (kind_ == TypeKind::LONG_DECIMAL) {
-      return value<TypeKind::LONG_DECIMAL>().hash();
-    }
     return folly::Hash{}(static_cast<int32_t>(kind_));
   }
 
   switch (kind_) {
     case TypeKind::BIGINT:
       return folly::Hash{}(value<TypeKind::BIGINT>());
+    case TypeKind::HUGEINT:
+      return folly::Hash{}(value<TypeKind::HUGEINT>());
     case TypeKind::INTEGER:
       return folly::Hash{}(value<TypeKind::INTEGER>());
     case TypeKind::SMALLINT:
@@ -623,12 +590,6 @@ uint64_t variant::hash() const {
       auto timestampValue = value<TypeKind::TIMESTAMP>();
       return folly::Hash{}(
           timestampValue.getSeconds(), timestampValue.getNanos());
-    }
-    case TypeKind::SHORT_DECIMAL: {
-      return value<TypeKind::SHORT_DECIMAL>().hash();
-    }
-    case TypeKind::LONG_DECIMAL: {
-      return value<TypeKind::LONG_DECIMAL>().hash();
     }
     case TypeKind::MAP: {
       auto hasher = folly::Hash{};

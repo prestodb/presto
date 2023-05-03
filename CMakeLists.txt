@@ -389,6 +389,7 @@ if(${VELOX_BUILD_PYTHON_PACKAGE})
 endif()
 
 # Locate or build folly.
+add_compile_definitions(FOLLY_HAVE_INT128_T=1)
 set_source(folly)
 resolve_dependency(folly)
 

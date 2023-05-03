@@ -224,7 +224,7 @@ class DecimalVectorMakerTest {
     verifyStats(flatVector, data);
     for (vector_size_t i = 0; i < data.size(); i++) {
       EXPECT_FALSE(flatVector->isNullAt(i));
-      EXPECT_EQ(data[i], flatVector->valueAt(i).unscaledValue());
+      EXPECT_EQ(data[i], flatVector->valueAt(i));
     }
   }
 
@@ -239,7 +239,7 @@ class DecimalVectorMakerTest {
         EXPECT_TRUE(flatVector->isNullAt(i));
       } else {
         EXPECT_FALSE(flatVector->isNullAt(i));
-        EXPECT_EQ(data[i].value(), flatVector->valueAt(i).unscaledValue());
+        EXPECT_EQ(data[i].value(), flatVector->valueAt(i));
       }
     }
   }

@@ -298,7 +298,7 @@ void checkSumCountRowType(TypePtr type, const std::string& errorMessage) {
   }
   VELOX_CHECK(
       type->childAt(0)->kind() == TypeKind::DOUBLE ||
-          type->childAt(0)->kind() == TypeKind::LONG_DECIMAL,
+          type->childAt(0)->isLongDecimal(),
       "{}",
       errorMessage)
   VELOX_CHECK_EQ(
@@ -364,21 +364,27 @@ bool registerAverage(const std::string& name) {
             case TypeKind::INTEGER:
               return std::make_unique<
                   AverageAggregate<int32_t, double, double>>(resultType);
-            case TypeKind::BIGINT:
+            case TypeKind::BIGINT: {
+              if (inputType->isShortDecimal()) {
+                return std::make_unique<DecimalAverageAggregate<int64_t>>(
+                    resultType);
+              }
               return std::make_unique<
                   AverageAggregate<int64_t, double, double>>(resultType);
+            }
+            case TypeKind::HUGEINT: {
+              if (inputType->isLongDecimal()) {
+                return std::make_unique<DecimalAverageAggregate<int128_t>>(
+                    resultType);
+              }
+              VELOX_NYI();
+            }
             case TypeKind::REAL:
               return std::make_unique<AverageAggregate<float, double, float>>(
                   resultType);
             case TypeKind::DOUBLE:
               return std::make_unique<AverageAggregate<double, double, double>>(
                   resultType);
-            case TypeKind::SHORT_DECIMAL:
-              return std::make_unique<
-                  DecimalAverageAggregate<UnscaledShortDecimal>>(resultType);
-            case TypeKind::LONG_DECIMAL:
-              return std::make_unique<
-                  DecimalAverageAggregate<UnscaledLongDecimal>>(resultType);
             default:
               VELOX_FAIL(
                   "Unknown input type for {} aggregation {}",
@@ -397,24 +403,24 @@ bool registerAverage(const std::string& name) {
             case TypeKind::ROW:
               return std::make_unique<
                   AverageAggregate<int64_t, double, double>>(resultType);
-            case TypeKind::SHORT_DECIMAL:
-              return std::make_unique<
-                  DecimalAverageAggregate<UnscaledShortDecimal>>(resultType);
-            case TypeKind::LONG_DECIMAL:
-              return std::make_unique<
-                  DecimalAverageAggregate<UnscaledLongDecimal>>(resultType);
+            case TypeKind::BIGINT:
+              return std::make_unique<DecimalAverageAggregate<int64_t>>(
+                  resultType);
+            case TypeKind::HUGEINT:
+              return std::make_unique<DecimalAverageAggregate<int128_t>>(
+                  resultType);
             case TypeKind::VARBINARY:
-              if (inputType->kind() == TypeKind::LONG_DECIMAL) {
-                return std::make_unique<
-                    DecimalAverageAggregate<UnscaledLongDecimal>>(resultType);
+              if (inputType->isLongDecimal()) {
+                return std::make_unique<DecimalAverageAggregate<int128_t>>(
+                    resultType);
               } else if (
-                  inputType->kind() == TypeKind::SHORT_DECIMAL ||
+                  inputType->isShortDecimal() ||
                   inputType->kind() == TypeKind::VARBINARY) {
                 // If the input and out type are VARBINARY, then the
                 // LongDecimalWithOverflowState is used and the template type
                 // does not matter.
-                return std::make_unique<
-                    DecimalAverageAggregate<UnscaledShortDecimal>>(resultType);
+                return std::make_unique<DecimalAverageAggregate<int64_t>>(
+                    resultType);
               }
             default:
               VELOX_FAIL(

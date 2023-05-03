@@ -116,12 +116,8 @@ class ExtremeValueFunction : public exec::VectorFunction {
         applyTyped<TypeTraits<TypeKind::BIGINT>::NativeType>(
             rows, args, outputType, context, result);
         return;
-      case TypeKind::SHORT_DECIMAL:
-        applyTyped<TypeTraits<TypeKind::SHORT_DECIMAL>::NativeType>(
-            rows, args, outputType, context, result);
-        return;
-      case TypeKind::LONG_DECIMAL:
-        applyTyped<TypeTraits<TypeKind::LONG_DECIMAL>::NativeType>(
+      case TypeKind::HUGEINT:
+        applyTyped<TypeTraits<TypeKind::HUGEINT>::NativeType>(
             rows, args, outputType, context, result);
         return;
       case TypeKind::DOUBLE:

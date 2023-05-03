@@ -432,14 +432,13 @@ class WriterContext : public CompressionBufferPool {
       case TypeKind::SMALLINT:
       case TypeKind::INTEGER:
       case TypeKind::BIGINT:
+      case TypeKind::HUGEINT:
       case TypeKind::REAL:
       case TypeKind::DOUBLE:
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
       case TypeKind::TIMESTAMP:
       case TypeKind::DATE:
-      case TypeKind::SHORT_DECIMAL:
-      case TypeKind::LONG_DECIMAL:
         physicalSizeAggregators_.emplace(
             type.id, std::make_unique<PhysicalSizeAggregator>(parent));
         break;

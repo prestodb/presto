@@ -37,18 +37,17 @@
 #include "velox/common/base/ClassName.h"
 #include "velox/common/serialization/Serializable.h"
 #include "velox/type/Date.h"
+#include "velox/type/HugeInt.h"
 #include "velox/type/StringView.h"
 #include "velox/type/Timestamp.h"
 #include "velox/type/Tree.h"
-#include "velox/type/UnscaledLongDecimal.h"
-#include "velox/type/UnscaledShortDecimal.h"
 
 namespace facebook::velox {
 
 using int128_t = __int128_t;
 
 /// Velox type system supports a small set of SQL-compatible composeable types:
-/// BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, VARCHAR,
+/// BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, HUGEINT, REAL, DOUBLE, VARCHAR,
 /// VARBINARY, TIMESTAMP, DATE, ARRAY, MAP, ROW
 ///
 /// This file has multiple C++ type definitions for each of these logical types.
@@ -73,8 +72,7 @@ enum class TypeKind : int8_t {
   VARBINARY = 8,
   TIMESTAMP = 9,
   DATE = 10,
-  SHORT_DECIMAL = 12,
-  LONG_DECIMAL = 13,
+  HUGEINT = 11,
   // Enum values for ComplexTypes start after 30 to leave
   // some values space to accommodate adding new scalar/native
   // types above.
@@ -100,8 +98,8 @@ std::ostream& operator<<(std::ostream& os, const TypeKind& kind);
 
 template <TypeKind KIND>
 class ScalarType;
-template <TypeKind KIND>
-class DecimalType;
+class ShortDecimalType;
+class LongDecimalType;
 class ArrayType;
 class MapType;
 class RowType;
@@ -280,29 +278,16 @@ struct TypeTraits<TypeKind::DATE> {
 };
 
 template <>
-struct TypeTraits<TypeKind::SHORT_DECIMAL> {
-  using ImplType = DecimalType<TypeKind::SHORT_DECIMAL>;
-  using NativeType = UnscaledShortDecimal;
+struct TypeTraits<TypeKind::HUGEINT> {
+  using ImplType = ScalarType<TypeKind::HUGEINT>;
+  using NativeType = int128_t;
   using DeepCopiedType = NativeType;
   static constexpr uint32_t minSubTypes = 0;
   static constexpr uint32_t maxSubTypes = 0;
-  static constexpr TypeKind typeKind = TypeKind::SHORT_DECIMAL;
+  static constexpr TypeKind typeKind = TypeKind::HUGEINT;
   static constexpr bool isPrimitiveType = true;
   static constexpr bool isFixedWidth = true;
-  static constexpr const char* name = "SHORT_DECIMAL";
-};
-
-template <>
-struct TypeTraits<TypeKind::LONG_DECIMAL> {
-  using ImplType = DecimalType<TypeKind::LONG_DECIMAL>;
-  using NativeType = UnscaledLongDecimal;
-  using DeepCopiedType = NativeType;
-  static constexpr uint32_t minSubTypes = 0;
-  static constexpr uint32_t maxSubTypes = 0;
-  static constexpr TypeKind typeKind = TypeKind::LONG_DECIMAL;
-  static constexpr bool isPrimitiveType = true;
-  static constexpr bool isFixedWidth = true;
-  static constexpr const char* name = "LONG_DECIMAL";
+  static constexpr const char* name = "HUGEINT";
 };
 
 template <>
@@ -548,19 +533,24 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
   VELOX_FLUENT_CAST(Smallint, SMALLINT)
   VELOX_FLUENT_CAST(Integer, INTEGER)
   VELOX_FLUENT_CAST(Bigint, BIGINT)
+  VELOX_FLUENT_CAST(Hugeint, HUGEINT)
   VELOX_FLUENT_CAST(Real, REAL)
   VELOX_FLUENT_CAST(Double, DOUBLE)
   VELOX_FLUENT_CAST(Varchar, VARCHAR)
   VELOX_FLUENT_CAST(Varbinary, VARBINARY)
   VELOX_FLUENT_CAST(Timestamp, TIMESTAMP)
   VELOX_FLUENT_CAST(Date, DATE)
-  VELOX_FLUENT_CAST(ShortDecimal, SHORT_DECIMAL)
-  VELOX_FLUENT_CAST(LongDecimal, LONG_DECIMAL)
   VELOX_FLUENT_CAST(Array, ARRAY)
   VELOX_FLUENT_CAST(Map, MAP)
   VELOX_FLUENT_CAST(Row, ROW)
   VELOX_FLUENT_CAST(Opaque, OPAQUE)
   VELOX_FLUENT_CAST(UnKnown, UNKNOWN)
+
+  const ShortDecimalType& asShortDecimal() const;
+  const LongDecimalType& asLongDecimal() const;
+  bool isShortDecimal() const;
+  bool isLongDecimal() const;
+  bool isDecimal() const;
 
   bool containsUnknown() const;
 
@@ -657,23 +647,9 @@ const std::shared_ptr<const ScalarType<KIND>> ScalarType<KIND>::create() {
 template <TypeKind KIND>
 class DecimalType : public ScalarType<KIND> {
  public:
-  static_assert(
-      KIND == TypeKind::SHORT_DECIMAL || KIND == TypeKind::LONG_DECIMAL);
-  static constexpr uint8_t kMaxPrecision =
-      KIND == TypeKind::SHORT_DECIMAL ? 18 : 38;
-
-  DecimalType(const uint8_t precision = 18, const uint8_t scale = 0)
-      : parameters_{TypeParameter(precision), TypeParameter(scale)} {
-    VELOX_CHECK_LE(
-        scale,
-        precision,
-        "Scale of decimal type must not exceed its precision");
-    VELOX_CHECK_LE(
-        precision,
-        kMaxPrecision,
-        "Precision of decimal type must not exceed {}",
-        kMaxPrecision);
-  }
+  static_assert(KIND == TypeKind::BIGINT || KIND == TypeKind::HUGEINT);
+  static constexpr uint8_t kMaxPrecision = KIND == TypeKind::BIGINT ? 18 : 38;
+  static constexpr uint8_t kMinPrecision = KIND == TypeKind::BIGINT ? 0 : 19;
 
   inline bool equivalent(const Type& other) const override {
     if (!Type::hasSameTypeId(other)) {
@@ -693,12 +669,17 @@ class DecimalType : public ScalarType<KIND> {
     return parameters_[1].longLiteral.value();
   }
 
+  const char* name() const override {
+    return "DECIMAL";
+  }
+
   std::string toString() const override {
     return fmt::format("DECIMAL({},{})", precision(), scale());
   }
 
   folly::dynamic serialize() const override {
     auto obj = ScalarType<KIND>::serialize();
+    obj["type"] = name();
     obj["precision"] = precision();
     obj["scale"] = scale();
     return obj;
@@ -708,20 +689,58 @@ class DecimalType : public ScalarType<KIND> {
     return parameters_;
   }
 
+ protected:
+  DecimalType(const uint8_t precision, const uint8_t scale)
+      : parameters_{TypeParameter(precision), TypeParameter(scale)} {
+    VELOX_CHECK_LE(
+        scale,
+        precision,
+        "Scale of decimal type must not exceed its precision");
+    VELOX_CHECK_LE(
+        precision,
+        kMaxPrecision,
+        "Precision of decimal type must not exceed {}",
+        kMaxPrecision);
+    VELOX_CHECK_GE(
+        precision,
+        kMinPrecision,
+        "Precision of decimal type must be at least {}",
+        kMinPrecision);
+  }
+
  private:
   const std::vector<TypeParameter> parameters_;
 };
 
-using ShortDecimalType = DecimalType<TypeKind::SHORT_DECIMAL>;
-using LongDecimalType = DecimalType<TypeKind::LONG_DECIMAL>;
+class ShortDecimalType : public DecimalType<TypeKind::BIGINT> {
+ public:
+  ShortDecimalType(int precision, int scale)
+      : DecimalType<TypeKind::BIGINT>(precision, scale) {}
+};
 
-inline bool isDecimalKind(TypeKind typeKind) {
-  return (
-      typeKind == TypeKind::SHORT_DECIMAL ||
-      typeKind == TypeKind::LONG_DECIMAL);
+class LongDecimalType : public DecimalType<TypeKind::HUGEINT> {
+ public:
+  LongDecimalType(int precision, int scale)
+      : DecimalType<TypeKind::HUGEINT>(precision, scale) {}
+};
+
+TypePtr DECIMAL(uint8_t precision, uint8_t scale);
+
+FOLLY_ALWAYS_INLINE bool isShortDecimalType(const Type& type) {
+  return dynamic_cast<const ShortDecimalType*>(&type) != nullptr;
 }
 
-bool isDecimalName(const std::string& typeName);
+FOLLY_ALWAYS_INLINE bool isLongDecimalType(const Type& type) {
+  return dynamic_cast<const LongDecimalType*>(&type) != nullptr;
+}
+
+FOLLY_ALWAYS_INLINE bool isDecimalType(const Type& type) {
+  return isShortDecimalType(type) || isLongDecimalType(type);
+}
+
+FOLLY_ALWAYS_INLINE bool isDecimalName(const std::string& name) {
+  return (name == "DECIMAL");
+}
 
 std::pair<int, int> getDecimalPrecisionScale(const Type& type);
 
@@ -1026,6 +1045,7 @@ using BooleanType = ScalarType<TypeKind::BOOLEAN>;
 using TinyintType = ScalarType<TypeKind::TINYINT>;
 using SmallintType = ScalarType<TypeKind::SMALLINT>;
 using BigintType = ScalarType<TypeKind::BIGINT>;
+using HugeintType = ScalarType<TypeKind::HUGEINT>;
 using RealType = ScalarType<TypeKind::REAL>;
 using DoubleType = ScalarType<TypeKind::DOUBLE>;
 using TimestampType = ScalarType<TypeKind::TIMESTAMP>;
@@ -1121,20 +1141,6 @@ struct TypeFactory<TypeKind::UNKNOWN> {
 };
 
 template <>
-struct TypeFactory<TypeKind::SHORT_DECIMAL> {
-  static std::shared_ptr<const ShortDecimalType> create() {
-    VELOX_UNSUPPORTED();
-  }
-};
-
-template <>
-struct TypeFactory<TypeKind::LONG_DECIMAL> {
-  static std::shared_ptr<const LongDecimalType> create() {
-    VELOX_UNSUPPORTED();
-  }
-};
-
-template <>
 struct TypeFactory<TypeKind::ARRAY> {
   static std::shared_ptr<const ArrayType> create(
       std::shared_ptr<const Type> elementType) {
@@ -1176,16 +1182,6 @@ std::shared_ptr<const RowType> ROW(
 std::shared_ptr<const MapType> MAP(
     std::shared_ptr<const Type> keyType,
     std::shared_ptr<const Type> valType);
-
-std::shared_ptr<const ShortDecimalType> SHORT_DECIMAL(
-    uint8_t precision,
-    uint8_t scale);
-
-std::shared_ptr<const LongDecimalType> LONG_DECIMAL(
-    uint8_t precision,
-    uint8_t scale);
-
-TypePtr DECIMAL(uint8_t precision, uint8_t scale);
 
 std::shared_ptr<const FunctionType> FUNCTION(
     std::vector<std::shared_ptr<const Type>>&& argumentTypes,
@@ -1307,12 +1303,8 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
       return TEMPLATE_FUNC<::facebook::velox::TypeKind::UNKNOWN>(__VA_ARGS__); \
     } else if ((typeKind) == ::facebook::velox::TypeKind::OPAQUE) {            \
       return TEMPLATE_FUNC<::facebook::velox::TypeKind::OPAQUE>(__VA_ARGS__);  \
-    } else if ((typeKind) == ::facebook::velox::TypeKind::SHORT_DECIMAL) {     \
-      return TEMPLATE_FUNC<::facebook::velox::TypeKind::SHORT_DECIMAL>(        \
-          __VA_ARGS__);                                                        \
-    } else if ((typeKind) == ::facebook::velox::TypeKind::LONG_DECIMAL) {      \
-      return TEMPLATE_FUNC<::facebook::velox::TypeKind::LONG_DECIMAL>(         \
-          __VA_ARGS__);                                                        \
+    } else if ((typeKind) == ::facebook::velox::TypeKind::HUGEINT) {           \
+      return TEMPLATE_FUNC<::facebook::velox::TypeKind::HUGEINT>(__VA_ARGS__); \
     } else {                                                                   \
       return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(                               \
           TEMPLATE_FUNC, typeKind, __VA_ARGS__);                               \
@@ -1373,12 +1365,8 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
       case ::facebook::velox::TypeKind::ROW: {                                 \
         return PREFIX<::facebook::velox::TypeKind::ROW> SUFFIX(__VA_ARGS__);   \
       }                                                                        \
-      case ::facebook::velox::TypeKind::SHORT_DECIMAL: {                       \
-        return PREFIX<::facebook::velox::TypeKind::SHORT_DECIMAL> SUFFIX(      \
-            __VA_ARGS__);                                                      \
-      }                                                                        \
-      case ::facebook::velox::TypeKind::LONG_DECIMAL: {                        \
-        return PREFIX<::facebook::velox::TypeKind::LONG_DECIMAL> SUFFIX(       \
+      case ::facebook::velox::TypeKind::HUGEINT: {                             \
+        return PREFIX<::facebook::velox::TypeKind::HUGEINT> SUFFIX(            \
             __VA_ARGS__);                                                      \
       }                                                                        \
       default:                                                                 \
@@ -1474,19 +1462,17 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
     }                                                                         \
   }()
 
-#define VELOX_STATIC_FIELD_DYNAMIC_DISPATCH_ALL(CLASS, FIELD, typeKind)    \
-  [&]() {                                                                  \
-    if ((typeKind) == ::facebook::velox::TypeKind::UNKNOWN) {              \
-      return CLASS<::facebook::velox::TypeKind::UNKNOWN>::FIELD;           \
-    } else if ((typeKind) == ::facebook::velox::TypeKind::OPAQUE) {        \
-      return CLASS<::facebook::velox::TypeKind::OPAQUE>::FIELD;            \
-    } else if ((typeKind) == ::facebook::velox::TypeKind::SHORT_DECIMAL) { \
-      return CLASS<::facebook::velox::TypeKind::SHORT_DECIMAL>::FIELD;     \
-    } else if ((typeKind) == ::facebook::velox::TypeKind::LONG_DECIMAL) {  \
-      return CLASS<::facebook::velox::TypeKind::LONG_DECIMAL>::FIELD;      \
-    } else {                                                               \
-      return VELOX_STATIC_FIELD_DYNAMIC_DISPATCH(CLASS, FIELD, typeKind);  \
-    }                                                                      \
+#define VELOX_STATIC_FIELD_DYNAMIC_DISPATCH_ALL(CLASS, FIELD, typeKind)   \
+  [&]() {                                                                 \
+    if ((typeKind) == ::facebook::velox::TypeKind::UNKNOWN) {             \
+      return CLASS<::facebook::velox::TypeKind::UNKNOWN>::FIELD;          \
+    } else if ((typeKind) == ::facebook::velox::TypeKind::OPAQUE) {       \
+      return CLASS<::facebook::velox::TypeKind::OPAQUE>::FIELD;           \
+    } else if ((typeKind) == ::facebook::velox::TypeKind::HUGEINT) {      \
+      return CLASS<::facebook::velox::TypeKind::HUGEINT>::FIELD;          \
+    } else {                                                              \
+      return VELOX_STATIC_FIELD_DYNAMIC_DISPATCH(CLASS, FIELD, typeKind); \
+    }                                                                     \
   }()
 
 // todo: union convenience creators
@@ -1496,6 +1482,7 @@ VELOX_SCALAR_ACCESSOR(BOOLEAN);
 VELOX_SCALAR_ACCESSOR(TINYINT);
 VELOX_SCALAR_ACCESSOR(SMALLINT);
 VELOX_SCALAR_ACCESSOR(BIGINT);
+VELOX_SCALAR_ACCESSOR(HUGEINT);
 VELOX_SCALAR_ACCESSOR(REAL);
 VELOX_SCALAR_ACCESSOR(DOUBLE);
 VELOX_SCALAR_ACCESSOR(TIMESTAMP);
@@ -1535,14 +1522,6 @@ std::shared_ptr<const Type> createType(
   static_assert(TypeTraits<KIND>::isPrimitiveType);
   return ScalarType<KIND>::create();
 }
-
-template <>
-std::shared_ptr<const Type> createType<TypeKind::SHORT_DECIMAL>(
-    std::vector<std::shared_ptr<const Type>>&& children);
-
-template <>
-std::shared_ptr<const Type> createType<TypeKind::LONG_DECIMAL>(
-    std::vector<std::shared_ptr<const Type>>&& children);
 
 template <>
 std::shared_ptr<const Type> createType<TypeKind::ROW>(
@@ -1700,6 +1679,9 @@ template <typename T>
 struct SimpleTypeTrait {};
 
 template <>
+struct SimpleTypeTrait<int128_t> : public TypeTraits<TypeKind::HUGEINT> {};
+
+template <>
 struct SimpleTypeTrait<int64_t> : public TypeTraits<TypeKind::BIGINT> {};
 
 template <>
@@ -1760,14 +1742,6 @@ struct SimpleTypeTrait<Row<T...>> : public TypeTraits<TypeKind::ROW> {};
 template <>
 struct SimpleTypeTrait<DynamicRow> : public TypeTraits<TypeKind::ROW> {};
 
-template <>
-struct SimpleTypeTrait<UnscaledShortDecimal>
-    : public TypeTraits<TypeKind::SHORT_DECIMAL> {};
-
-template <>
-struct SimpleTypeTrait<UnscaledLongDecimal>
-    : public TypeTraits<TypeKind::LONG_DECIMAL> {};
-
 // T is also a simple type that represent the physical type of the custom type.
 template <typename T>
 struct SimpleTypeTrait<CustomType<T>>
@@ -1791,6 +1765,12 @@ struct CppToTypeBase : public TypeTraits<KIND> {
     return TypeFactory<KIND>::create();
   }
 };
+
+template <>
+struct CppToType<int128_t> : public CppToTypeBase<TypeKind::HUGEINT> {};
+
+template <>
+struct CppToType<__uint128_t> : public CppToTypeBase<TypeKind::HUGEINT> {};
 
 template <>
 struct CppToType<int64_t> : public CppToTypeBase<TypeKind::BIGINT> {};
@@ -1901,24 +1881,6 @@ struct CppToType<DynamicRow> : public TypeTraits<TypeKind::ROW> {
 };
 
 template <>
-struct CppToType<UnscaledShortDecimal>
-    : public TypeTraits<TypeKind::SHORT_DECIMAL> {
-  static std::shared_ptr<const Type> create() {
-    throw std::logic_error{
-        "can't determine exact type for UnscaledShortDecimal"};
-  }
-};
-
-template <>
-struct CppToType<UnscaledLongDecimal>
-    : public TypeTraits<TypeKind::LONG_DECIMAL> {
-  static std::shared_ptr<const Type> create() {
-    throw std::logic_error{
-        "can't determine exact type for UnscaledLongDecimal"};
-  }
-};
-
-template <>
 struct CppToType<UnknownValue> : public CppToTypeBase<TypeKind::UNKNOWN> {};
 
 template <typename T>
@@ -1953,16 +1915,6 @@ inline Timestamp to(const std::string& value) {
 }
 
 template <>
-inline UnscaledShortDecimal to(const std::string& value) {
-  VELOX_UNSUPPORTED();
-}
-
-template <>
-inline UnscaledLongDecimal to(const std::string& value) {
-  VELOX_UNSUPPORTED();
-}
-
-template <>
 inline UnknownValue to(const std::string& /* value */) {
   return UnknownValue();
 }
@@ -1973,17 +1925,8 @@ inline std::string to(const Timestamp& value) {
 }
 
 template <>
-inline std::string to(const UnscaledShortDecimal& value) {
-  // UnscaledShortDecimal doesn't have precision and scale information to
-  // be serialized into string.
-  VELOX_UNSUPPORTED();
-}
-
-template <>
-inline std::string to(const UnscaledLongDecimal& value) {
-  // UnscaledLongDecimal doesn't have precision and scale information to
-  // be serialized into string.
-  VELOX_UNSUPPORTED();
+inline std::string to(const int128_t& value) {
+  return std::to_string(value);
 }
 
 template <>

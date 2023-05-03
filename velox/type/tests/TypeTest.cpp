@@ -156,28 +156,18 @@ TEST(TypeTest, intervalDayTime) {
 }
 
 TEST(TypeTest, shortDecimal) {
-  auto shortDecimal = SHORT_DECIMAL(10, 5);
+  auto shortDecimal = DECIMAL(10, 5);
   EXPECT_EQ(shortDecimal->toString(), "DECIMAL(10,5)");
   EXPECT_EQ(shortDecimal->size(), 0);
   EXPECT_THROW(shortDecimal->childAt(0), std::invalid_argument);
-  EXPECT_EQ(shortDecimal->kind(), TypeKind::SHORT_DECIMAL);
-  EXPECT_STREQ(shortDecimal->kindName(), "SHORT_DECIMAL");
+  EXPECT_EQ(shortDecimal->kind(), TypeKind::BIGINT);
   EXPECT_EQ(shortDecimal->begin(), shortDecimal->end());
-  EXPECT_EQ(*SHORT_DECIMAL(10, 5), *shortDecimal);
-  EXPECT_NE(*SHORT_DECIMAL(9, 5), *shortDecimal);
-  EXPECT_NE(*SHORT_DECIMAL(10, 4), *shortDecimal);
-  VELOX_ASSERT_THROW(
-      SHORT_DECIMAL(19, 5), "Precision of decimal type must not exceed 18");
-  VELOX_ASSERT_THROW(
-      SHORT_DECIMAL(5, 6),
-      "Scale of decimal type must not exceed its precision");
-  VELOX_ASSERT_THROW(
-      createScalarType(TypeKind::SHORT_DECIMAL), "not a scalar type");
-  VELOX_ASSERT_THROW(
-      createType(TypeKind::SHORT_DECIMAL, {}),
-      "Not supported for kind: SHORT_DECIMAL");
 
-  EXPECT_STREQ(shortDecimal->name(), "SHORT_DECIMAL");
+  EXPECT_EQ(*DECIMAL(10, 5), *shortDecimal);
+  EXPECT_NE(*DECIMAL(9, 5), *shortDecimal);
+  EXPECT_NE(*DECIMAL(10, 4), *shortDecimal);
+
+  EXPECT_STREQ(shortDecimal->name(), "DECIMAL");
   EXPECT_EQ(shortDecimal->parameters().size(), 2);
   EXPECT_TRUE(
       shortDecimal->parameters()[0].kind == TypeParameterKind::kLongLiteral);
@@ -199,28 +189,21 @@ TEST(TypeTest, shortDecimal) {
 }
 
 TEST(TypeTest, longDecimal) {
-  auto longDecimal = LONG_DECIMAL(30, 5);
+  auto longDecimal = DECIMAL(30, 5);
   EXPECT_EQ(longDecimal->toString(), "DECIMAL(30,5)");
   EXPECT_EQ(longDecimal->size(), 0);
   EXPECT_THROW(longDecimal->childAt(0), std::invalid_argument);
-  EXPECT_EQ(longDecimal->kind(), TypeKind::LONG_DECIMAL);
-  EXPECT_STREQ(longDecimal->kindName(), "LONG_DECIMAL");
+  EXPECT_EQ(longDecimal->kind(), TypeKind::HUGEINT);
   EXPECT_EQ(longDecimal->begin(), longDecimal->end());
-  EXPECT_EQ(*LONG_DECIMAL(30, 5), *longDecimal);
-  EXPECT_NE(*LONG_DECIMAL(9, 5), *longDecimal);
-  EXPECT_NE(*LONG_DECIMAL(30, 3), *longDecimal);
+  EXPECT_EQ(*DECIMAL(30, 5), *longDecimal);
+  EXPECT_NE(*DECIMAL(9, 5), *longDecimal);
+  EXPECT_NE(*DECIMAL(30, 3), *longDecimal);
   VELOX_ASSERT_THROW(
-      LONG_DECIMAL(39, 5), "Precision of decimal type must not exceed 38");
+      DECIMAL(39, 5), "Precision of decimal type must not exceed 38");
   VELOX_ASSERT_THROW(
-      LONG_DECIMAL(5, 6),
-      "Scale of decimal type must not exceed its precision");
-  VELOX_ASSERT_THROW(
-      createScalarType(TypeKind::LONG_DECIMAL), "not a scalar type");
-  VELOX_ASSERT_THROW(
-      createType(TypeKind::LONG_DECIMAL, {}),
-      "Not supported for kind: LONG_DECIMAL");
+      DECIMAL(25, 26), "Scale of decimal type must not exceed its precision");
 
-  EXPECT_STREQ(longDecimal->name(), "LONG_DECIMAL");
+  EXPECT_STREQ(longDecimal->name(), "DECIMAL");
   EXPECT_EQ(longDecimal->parameters().size(), 2);
   EXPECT_TRUE(
       longDecimal->parameters()[0].kind == TypeParameterKind::kLongLiteral);
@@ -643,12 +626,12 @@ TEST(TypeTest, equivalent) {
   EXPECT_TRUE(ARRAY(BIGINT())->equivalent(*ARRAY(BIGINT())));
   EXPECT_FALSE(ARRAY(BIGINT())->equivalent(*ARRAY(INTEGER())));
   EXPECT_FALSE(ARRAY(BIGINT())->equivalent(*ROW({{"a", BIGINT()}})));
-  EXPECT_TRUE(SHORT_DECIMAL(10, 5)->equivalent(*SHORT_DECIMAL(10, 5)));
-  EXPECT_FALSE(SHORT_DECIMAL(10, 6)->equivalent(*SHORT_DECIMAL(10, 5)));
-  EXPECT_FALSE(SHORT_DECIMAL(11, 5)->equivalent(*SHORT_DECIMAL(10, 5)));
-  EXPECT_TRUE(LONG_DECIMAL(30, 5)->equivalent(*LONG_DECIMAL(30, 5)));
-  EXPECT_FALSE(LONG_DECIMAL(30, 6)->equivalent(*LONG_DECIMAL(30, 5)));
-  EXPECT_FALSE(LONG_DECIMAL(31, 5)->equivalent(*LONG_DECIMAL(30, 5)));
+  EXPECT_TRUE(DECIMAL(10, 5)->equivalent(*DECIMAL(10, 5)));
+  EXPECT_FALSE(DECIMAL(10, 6)->equivalent(*DECIMAL(10, 5)));
+  EXPECT_FALSE(DECIMAL(11, 5)->equivalent(*DECIMAL(10, 5)));
+  EXPECT_TRUE(DECIMAL(30, 5)->equivalent(*DECIMAL(30, 5)));
+  EXPECT_FALSE(DECIMAL(30, 6)->equivalent(*DECIMAL(30, 5)));
+  EXPECT_FALSE(DECIMAL(31, 5)->equivalent(*DECIMAL(30, 5)));
   auto complexTypeA = ROW(
       {{"a0", ARRAY(ROW({{"a1", DECIMAL(20, 8)}}))},
        {"a2", MAP(VARCHAR(), ROW({{"a3", DECIMAL(10, 5)}}))}});
@@ -677,12 +660,12 @@ TEST(TypeTest, kindEquals) {
   EXPECT_TRUE(ARRAY(BIGINT())->kindEquals(ARRAY(BIGINT())));
   EXPECT_FALSE(ARRAY(BIGINT())->kindEquals(ARRAY(INTEGER())));
   EXPECT_FALSE(ARRAY(BIGINT())->kindEquals(ROW({{"a", BIGINT()}})));
-  EXPECT_TRUE(SHORT_DECIMAL(10, 5)->kindEquals(SHORT_DECIMAL(10, 5)));
-  EXPECT_TRUE(SHORT_DECIMAL(10, 6)->kindEquals(SHORT_DECIMAL(10, 5)));
-  EXPECT_TRUE(SHORT_DECIMAL(11, 5)->kindEquals(SHORT_DECIMAL(10, 5)));
-  EXPECT_TRUE(LONG_DECIMAL(30, 5)->kindEquals(LONG_DECIMAL(30, 5)));
-  EXPECT_TRUE(LONG_DECIMAL(30, 6)->kindEquals(LONG_DECIMAL(30, 5)));
-  EXPECT_TRUE(LONG_DECIMAL(31, 5)->kindEquals(LONG_DECIMAL(30, 5)));
+  EXPECT_TRUE(DECIMAL(10, 5)->kindEquals(DECIMAL(10, 5)));
+  EXPECT_TRUE(DECIMAL(10, 6)->kindEquals(DECIMAL(10, 5)));
+  EXPECT_TRUE(DECIMAL(11, 5)->kindEquals(DECIMAL(10, 5)));
+  EXPECT_TRUE(DECIMAL(30, 5)->kindEquals(DECIMAL(30, 5)));
+  EXPECT_TRUE(DECIMAL(30, 6)->kindEquals(DECIMAL(30, 5)));
+  EXPECT_TRUE(DECIMAL(31, 5)->kindEquals(DECIMAL(30, 5)));
 }
 
 TEST(TypeTest, kindHash) {
@@ -812,9 +795,7 @@ TEST(TypeTest, fromKindToScalerType) {
   }
 
   for (const TypeKind& kind :
-       {TypeKind::SHORT_DECIMAL,
-        TypeKind::LONG_DECIMAL,
-        TypeKind::ARRAY,
+       {TypeKind::ARRAY,
         TypeKind::MAP,
         TypeKind::ROW,
         TypeKind::OPAQUE,

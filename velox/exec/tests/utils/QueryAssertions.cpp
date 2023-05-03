@@ -67,24 +67,28 @@ template <>
 }
 
 template <>
-::duckdb::Value duckValueAt<TypeKind::SHORT_DECIMAL>(
+::duckdb::Value duckValueAt<TypeKind::BIGINT>(
     const VectorPtr& vector,
     vector_size_t index) {
-  using T = typename KindToFlatVector<TypeKind::SHORT_DECIMAL>::WrapperType;
-  auto type = vector->type()->asShortDecimal();
-  return ::duckdb::Value::DECIMAL(
-      vector->as<SimpleVector<T>>()->valueAt(index).unscaledValue(),
-      type.precision(),
-      type.scale());
+  using T = typename KindToFlatVector<TypeKind::BIGINT>::WrapperType;
+  auto type = vector->type();
+  if (type->isShortDecimal()) {
+    const auto& decimalType = type->asShortDecimal();
+    return ::duckdb::Value::DECIMAL(
+        vector->as<SimpleVector<T>>()->valueAt(index),
+        decimalType.precision(),
+        decimalType.scale());
+  }
+  return ::duckdb::Value(vector->as<SimpleVector<T>>()->valueAt(index));
 }
 
 template <>
-::duckdb::Value duckValueAt<TypeKind::LONG_DECIMAL>(
+::duckdb::Value duckValueAt<TypeKind::HUGEINT>(
     const VectorPtr& vector,
     vector_size_t index) {
-  using T = typename KindToFlatVector<TypeKind::LONG_DECIMAL>::WrapperType;
+  using T = typename KindToFlatVector<TypeKind::HUGEINT>::WrapperType;
   auto type = vector->type()->asLongDecimal();
-  auto val = vector->as<SimpleVector<T>>()->valueAt(index).unscaledValue();
+  auto val = vector->as<SimpleVector<T>>()->valueAt(index);
   auto duckVal = ::duckdb::hugeint_t();
   duckVal.lower = (val << 64) >> 64;
   duckVal.upper = (val >> 64);
@@ -250,15 +254,7 @@ velox::variant variantAt<TypeKind::DATE>(const ::duckdb::Value& value) {
 }
 
 variant nullVariant(const TypePtr& type) {
-  auto typeKind = type->kind();
-  switch (typeKind) {
-    case TypeKind::SHORT_DECIMAL:
-      return variant::shortDecimal(std::nullopt, type);
-    case TypeKind::LONG_DECIMAL:
-      return variant::longDecimal(std::nullopt, type);
-    default:
-      return variant(typeKind);
-  }
+  return variant(type->kind());
 }
 
 velox::variant rowVariantAt(
@@ -373,7 +369,7 @@ std::vector<MaterializedRow> materialize(
         row.push_back(mapVariantAt(dataChunk->GetValue(j, i), type));
       } else if (typeKind == TypeKind::ROW) {
         row.push_back(rowVariantAt(dataChunk->GetValue(j, i), type));
-      } else if (isDecimalKind(typeKind)) {
+      } else if (type->isDecimal()) {
         row.push_back(duckdb::decimalVariant(dataChunk->GetValue(j, i)));
       } else if (isIntervalDayTimeType(type)) {
         auto value = variant(::duckdb::Interval::GetMicro(
@@ -394,26 +390,6 @@ template <TypeKind kind>
 velox::variant variantAt(VectorPtr vector, int32_t row) {
   using T = typename KindToFlatVector<kind>::WrapperType;
   return velox::variant(vector->as<SimpleVector<T>>()->valueAt(row));
-}
-
-template <>
-velox::variant variantAt<TypeKind::SHORT_DECIMAL>(
-    VectorPtr vector,
-    int32_t row) {
-  using T = typename KindToFlatVector<TypeKind::SHORT_DECIMAL>::WrapperType;
-  return velox::variant::shortDecimal(
-      vector->as<SimpleVector<T>>()->valueAt(row).unscaledValue(),
-      vector->type());
-}
-
-template <>
-velox::variant variantAt<TypeKind::LONG_DECIMAL>(
-    VectorPtr vector,
-    int32_t row) {
-  using T = typename KindToFlatVector<TypeKind::LONG_DECIMAL>::WrapperType;
-  return velox::variant::longDecimal(
-      vector->as<SimpleVector<T>>()->valueAt(row).unscaledValue(),
-      vector->type());
 }
 
 variant variantAt(const VectorPtr& vector, vector_size_t row);
@@ -483,12 +459,8 @@ variant variantAt(const VectorPtr& vector, vector_size_t row) {
     return mapVariantAt(vector, row);
   }
 
-  if (typeKind == TypeKind::SHORT_DECIMAL) {
-    return variantAt<TypeKind::SHORT_DECIMAL>(vector, row);
-  }
-
-  if (typeKind == TypeKind::LONG_DECIMAL) {
-    return variantAt<TypeKind::LONG_DECIMAL>(vector, row);
+  if (typeKind == TypeKind::HUGEINT) {
+    return variantAt<TypeKind::HUGEINT>(vector, row);
   }
 
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(variantAt, typeKind, vector, row);
@@ -851,12 +823,10 @@ void DuckDbQueryRunner::createTable(
           appender.Append(duckValueAt<TypeKind::MAP>(columnVector, row));
         } else if (type->isRow()) {
           appender.Append(duckValueAt<TypeKind::ROW>(columnVector, row));
-        } else if (type->isShortDecimal()) {
-          appender.Append(
-              duckValueAt<TypeKind::SHORT_DECIMAL>(columnVector, row));
+        } else if (rowType.childAt(column)->isShortDecimal()) {
+          appender.Append(duckValueAt<TypeKind::BIGINT>(columnVector, row));
         } else if (rowType.childAt(column)->isLongDecimal()) {
-          appender.Append(
-              duckValueAt<TypeKind::LONG_DECIMAL>(columnVector, row));
+          appender.Append(duckValueAt<TypeKind::HUGEINT>(columnVector, row));
         } else if (isIntervalDayTimeType(type)) {
           auto value = ::duckdb::Value::INTERVAL(
               0, 0, columnVector->as<SimpleVector<int64_t>>()->valueAt(row));

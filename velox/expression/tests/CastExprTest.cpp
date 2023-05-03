@@ -889,11 +889,11 @@ TEST_F(CastExprTest, decimalToDecimal) {
   testComplexCast(
       "c0",
       makeNullableLongDecimalFlatVector(
-          {buildInt128(-2, 200),
-           buildInt128(-1, 300),
-           buildInt128(0, 400),
-           buildInt128(1, 1),
-           buildInt128(10, 100),
+          {HugeInt::build(-2, 200),
+           HugeInt::build(-1, 300),
+           HugeInt::build(0, 400),
+           HugeInt::build(1, 1),
+           HugeInt::build(10, 100),
            std::nullopt},
           DECIMAL(23, 8)),
       makeNullableShortDecimalFlatVector(
@@ -911,14 +911,14 @@ TEST_F(CastExprTest, decimalToDecimal) {
       testComplexCast(
           "c0",
           makeNullableLongDecimalFlatVector(
-              {UnscaledLongDecimal::max().unscaledValue()}, DECIMAL(38, 0)),
+              {DecimalUtil::kLongDecimalMax}, DECIMAL(38, 0)),
           makeNullableLongDecimalFlatVector({0}, DECIMAL(38, 1))),
       "Cannot cast DECIMAL '99999999999999999999999999999999999999' to DECIMAL(38,1)");
   VELOX_ASSERT_THROW(
       testComplexCast(
           "c0",
           makeNullableLongDecimalFlatVector(
-              {UnscaledLongDecimal::min().unscaledValue()}, DECIMAL(38, 0)),
+              {DecimalUtil::kLongDecimalMin}, DECIMAL(38, 0)),
           makeNullableLongDecimalFlatVector({0}, DECIMAL(38, 1))),
       "Cannot cast DECIMAL '-99999999999999999999999999999999999999' to DECIMAL(38,1)");
 }

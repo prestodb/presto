@@ -90,9 +90,8 @@ class MinMaxAggregate : public SimpleNumericAggregate<T, T, T> {
 /// uses int128_t type. Some CPUs don't support misaligned access to int128_t
 /// type.
 template <>
-inline int32_t MinMaxAggregate<UnscaledLongDecimal>::accumulatorAlignmentSize()
-    const {
-  return static_cast<int32_t>(sizeof(UnscaledLongDecimal));
+inline int32_t MinMaxAggregate<int128_t>::accumulatorAlignmentSize() const {
+  return static_cast<int32_t>(sizeof(int128_t));
 }
 
 // Truncate timestamps to milliseconds precision.
@@ -506,10 +505,8 @@ bool registerMinMax(const std::string& name) {
             return std::make_unique<TNumeric<Timestamp>>(resultType);
           case TypeKind::DATE:
             return std::make_unique<TNumeric<Date>>(resultType);
-          case TypeKind::LONG_DECIMAL:
-            return std::make_unique<TNumeric<UnscaledLongDecimal>>(resultType);
-          case TypeKind::SHORT_DECIMAL:
-            return std::make_unique<TNumeric<UnscaledShortDecimal>>(resultType);
+          case TypeKind::HUGEINT:
+            return std::make_unique<TNumeric<int128_t>>(resultType);
           case TypeKind::VARCHAR:
           case TypeKind::ARRAY:
           case TypeKind::MAP:

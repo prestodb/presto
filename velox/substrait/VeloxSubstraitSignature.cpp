@@ -44,10 +44,6 @@ std::string VeloxSubstraitSignature::toSubstraitSignature(
       return "ts";
     case TypeKind::DATE:
       return "date";
-    case TypeKind::SHORT_DECIMAL:
-      return "dec";
-    case TypeKind::LONG_DECIMAL:
-      return "dec";
     case TypeKind::ARRAY:
       return "list";
     case TypeKind::MAP:

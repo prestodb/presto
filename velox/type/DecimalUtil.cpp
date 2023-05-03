@@ -15,6 +15,7 @@
  */
 
 #include "velox/type/DecimalUtil.h"
+#include "velox/type/HugeInt.h"
 
 namespace facebook::velox {
 namespace {
@@ -50,62 +51,9 @@ std::string formatDecimal(uint8_t scale, int128_t unscaledValue) {
 }
 } // namespace
 
-const int128_t DecimalUtil::kPowersOfTen[]{
-    1,
-    10,
-    100,
-    1'000,
-    10'000,
-    100'000,
-    1'000'000,
-    10'000'000,
-    100'000'000,
-    1'000'000'000,
-    10'000'000'000,
-    100'000'000'000,
-    1'000'000'000'000,
-    10'000'000'000'000,
-    100'000'000'000'000,
-    1'000'000'000'000'000,
-    10'000'000'000'000'000,
-    100'000'000'000'000'000,
-    1'000'000'000'000'000'000,
-    1'000'000'000'000'000'000 * (int128_t)10,
-    1'000'000'000'000'000'000 * (int128_t)100,
-    1'000'000'000'000'000'000 * (int128_t)1'000,
-    1'000'000'000'000'000'000 * (int128_t)10'000,
-    1'000'000'000'000'000'000 * (int128_t)100'000,
-    1'000'000'000'000'000'000 * (int128_t)1'000'000,
-    1'000'000'000'000'000'000 * (int128_t)10'000'000,
-    1'000'000'000'000'000'000 * (int128_t)100'000'000,
-    1'000'000'000'000'000'000 * (int128_t)1'000'000'000,
-    1'000'000'000'000'000'000 * (int128_t)10'000'000'000,
-    1'000'000'000'000'000'000 * (int128_t)100'000'000'000,
-    1'000'000'000'000'000'000 * (int128_t)1'000'000'000'000,
-    1'000'000'000'000'000'000 * (int128_t)10'000'000'000'000,
-    1'000'000'000'000'000'000 * (int128_t)100'000'000'000'000,
-    1'000'000'000'000'000'000 * (int128_t)1'000'000'000'000'000,
-    1'000'000'000'000'000'000 * (int128_t)10'000'000'000'000'000,
-    1'000'000'000'000'000'000 * (int128_t)100'000'000'000'000'000,
-    1'000'000'000'000'000'000 * (int128_t)1'000'000'000'000'000'000,
-    1'000'000'000'000'000'000 * (int128_t)1'000'000'000'000'000'000 *
-        (int128_t)10,
-    1'000'000'000'000'000'000 * (int128_t)1'000'000'000'000'000'000 *
-        (int128_t)100};
-
-template <>
-std::string DecimalUtil::toString<UnscaledLongDecimal>(
-    const UnscaledLongDecimal& value,
-    const TypePtr& type) {
-  auto decimalType = type->asLongDecimal();
-  return formatDecimal(decimalType.scale(), value.unscaledValue());
+std::string DecimalUtil::toString(const int128_t value, const TypePtr& type) {
+  auto [precision, scale] = getDecimalPrecisionScale(*type);
+  return formatDecimal(scale, value);
 }
 
-template <>
-std::string DecimalUtil::toString<UnscaledShortDecimal>(
-    const UnscaledShortDecimal& value,
-    const TypePtr& type) {
-  auto decimalType = type->asShortDecimal();
-  return formatDecimal(decimalType.scale(), value.unscaledValue());
-}
 } // namespace facebook::velox

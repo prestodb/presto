@@ -29,7 +29,6 @@
 #include "velox/common/base/SimdUtil.h"
 #include "velox/type/StringView.h"
 #include "velox/type/Type.h"
-#include "velox/type/UnscaledShortDecimal.h"
 
 namespace facebook::velox::common {
 
@@ -1737,8 +1736,6 @@ template <typename TFilter, typename T>
 static inline bool applyFilter(TFilter& filter, T value) {
   if constexpr (std::is_same_v<T, int128_t>) {
     return filter.testInt128(value);
-  } else if constexpr (std::is_same_v<T, UnscaledShortDecimal>) {
-    return filter.testInt64(value.unscaledValue());
   } else if constexpr (
       std::is_same_v<T, int8_t> || std::is_same_v<T, int16_t> ||
       std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t>) {

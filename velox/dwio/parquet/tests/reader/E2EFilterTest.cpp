@@ -274,7 +274,7 @@ TEST_F(E2EFilterTest, shortDecimalDictionary) {
     testWithTypes(
         type,
         [&]() {
-          makeIntDistribution<UnscaledShortDecimal>(
+          makeIntDistribution<int64_t>(
               "shortdecimal_val",
               10, // min
               100, // max
@@ -304,7 +304,7 @@ TEST_F(E2EFilterTest, shortDecimalDirect) {
     testWithTypes(
         type,
         [&]() {
-          makeIntDistribution<UnscaledShortDecimal>(
+          makeIntDistribution<int64_t>(
               "shortdecimal_val",
               10, // min
               100, // max
@@ -322,10 +322,7 @@ TEST_F(E2EFilterTest, shortDecimalDirect) {
   testWithTypes(
       "shortdecimal_val:decimal(10, 5)",
       [&]() {
-        useSuppliedValues<UnscaledShortDecimal>(
-            "shortdecimal_val",
-            0,
-            {UnscaledShortDecimal(-479), UnscaledShortDecimal(40000000)});
+        useSuppliedValues<int64_t>("shortdecimal_val", 0, {-479, 40000000});
       },
       false,
       {"shortdecimal_val"},
@@ -342,7 +339,7 @@ TEST_F(E2EFilterTest, longDecimalDictionary) {
     testWithTypes(
         type,
         [&]() {
-          makeIntDistribution<UnscaledLongDecimal>(
+          makeIntDistribution<int128_t>(
               "longdecimal_val",
               10, // min
               100, // max
@@ -372,7 +369,7 @@ TEST_F(E2EFilterTest, longDecimalDirect) {
     testWithTypes(
         type,
         [&]() {
-          makeIntDistribution<UnscaledLongDecimal>(
+          makeIntDistribution<int128_t>(
               "longdecimal_val",
               10, // min
               100, // max
@@ -390,11 +387,10 @@ TEST_F(E2EFilterTest, longDecimalDirect) {
   testWithTypes(
       "longdecimal_val:decimal(30, 10)",
       [&]() {
-        useSuppliedValues<UnscaledLongDecimal>(
+        useSuppliedValues<int128_t>(
             "longdecimal_val",
             0,
-            {UnscaledLongDecimal(-479),
-             UnscaledLongDecimal(buildInt128(1546093991, 4054979645))});
+            {-479, HugeInt::build(1546093991, 4054979645)});
       },
       false,
       {},

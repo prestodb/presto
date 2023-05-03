@@ -187,18 +187,18 @@ TEST_F(ComparisonsTest, gtLtDecimal) {
   // Long Decimals test.
   std::vector<VectorPtr> longDecimalsInputs = {
       makeNullableLongDecimalFlatVector(
-          {UnscaledLongDecimal::max().unscaledValue(),
+          {DecimalUtil::kLongDecimalMax,
            std::nullopt,
            3,
-           UnscaledLongDecimal::min().unscaledValue() + 1,
+           DecimalUtil::kLongDecimalMin + 1,
            std::nullopt,
            4},
           DECIMAL(38, 5)),
       makeNullableLongDecimalFlatVector(
-          {UnscaledLongDecimal::max().unscaledValue() - 1,
+          {DecimalUtil::kLongDecimalMax - 1,
            2,
            3,
-           UnscaledLongDecimal::min().unscaledValue(),
+           DecimalUtil::kLongDecimalMin,
            std::nullopt,
            5},
           DECIMAL(38, 5))};

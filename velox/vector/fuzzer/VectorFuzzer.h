@@ -248,14 +248,16 @@ class VectorFuzzer {
 
   // Generates short decimal TypePtr with random precision and scale.
   inline TypePtr randShortDecimalType() {
-    auto [precision, scale] = randPrecisionScale(TypeKind::SHORT_DECIMAL);
-    return SHORT_DECIMAL(precision, scale);
+    auto [precision, scale] =
+        randPrecisionScale(ShortDecimalType::kMaxPrecision);
+    return DECIMAL(precision, scale);
   }
 
   // Generates long decimal TypePtr with random precision and scale.
   inline TypePtr randLongDecimalType() {
-    auto [precision, scale] = randPrecisionScale(TypeKind::LONG_DECIMAL);
-    return LONG_DECIMAL(precision, scale);
+    auto [precision, scale] =
+        randPrecisionScale(LongDecimalType::kMaxPrecision);
+    return DECIMAL(precision, scale);
   }
 
   // Generate a random non-floating-point primitive type to be used as join keys
@@ -300,10 +302,10 @@ class VectorFuzzer {
   // Generates a flat vector for primitive types.
   VectorPtr fuzzFlatPrimitive(const TypePtr& type, vector_size_t size);
 
-  /// Generates random precision in range [1, max precision for decimal
-  /// TypeKind] and scale in range [0, random precision generated].
-  /// @param kind must be a decimal type kind.
-  std::pair<int8_t, int8_t> randPrecisionScale(TypeKind kind);
+  /// Generates random precision in range [1, maxPrecision]
+  // and scale in range [0, random precision generated].
+  /// @param maximum precision.
+  std::pair<int8_t, int8_t> randPrecisionScale(int8_t maxPrecision);
 
   // Returns a complex vector with randomized data and nulls.  The children and
   // all other descendant vectors will randomly use constant, dictionary, or

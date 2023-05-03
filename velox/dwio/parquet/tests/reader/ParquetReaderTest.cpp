@@ -173,23 +173,21 @@ TEST_F(ParquetReaderTest, parseIntDecimal) {
   EXPECT_EQ(type->size(), 2ULL);
   auto col0 = type->childAt(0);
   auto col1 = type->childAt(1);
-  EXPECT_EQ(col0->type->kind(), TypeKind::SHORT_DECIMAL);
-  EXPECT_EQ(col1->type->kind(), TypeKind::SHORT_DECIMAL);
+  EXPECT_EQ(col0->type->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(col1->type->kind(), TypeKind::BIGINT);
 
   int64_t expectValues[3] = {1111, 2222, 3333};
   auto result = BaseVector::create(rowType, 1, pool_.get());
   rowReader->next(6, result);
   EXPECT_EQ(result->size(), 6ULL);
   auto decimals = result->as<RowVector>();
-  auto a =
-      decimals->childAt(0)->asFlatVector<UnscaledShortDecimal>()->rawValues();
-  auto b =
-      decimals->childAt(1)->asFlatVector<UnscaledShortDecimal>()->rawValues();
+  auto a = decimals->childAt(0)->asFlatVector<int64_t>()->rawValues();
+  auto b = decimals->childAt(1)->asFlatVector<int64_t>()->rawValues();
   for (int i = 0; i < 3; i++) {
     int index = 2 * i;
-    EXPECT_EQ(a[index].unscaledValue(), expectValues[i]);
-    EXPECT_EQ(a[index + 1].unscaledValue(), expectValues[i]);
-    EXPECT_EQ(b[index].unscaledValue(), expectValues[i]);
-    EXPECT_EQ(b[index + 1].unscaledValue(), expectValues[i]);
+    EXPECT_EQ(a[index], expectValues[i]);
+    EXPECT_EQ(a[index + 1], expectValues[i]);
+    EXPECT_EQ(b[index], expectValues[i]);
+    EXPECT_EQ(b[index + 1], expectValues[i]);
   }
 }

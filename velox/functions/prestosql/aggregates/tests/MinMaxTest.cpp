@@ -250,13 +250,19 @@ TEST_F(MinMaxTest, initialValue) {
       "SELECT 1, -1, 1, -1");
 }
 
-TEST_F(MinMaxTest, shortDecimal) {
-  doTest(max, SHORT_DECIMAL(18, 3));
-  doTest(min, SHORT_DECIMAL(3, 1));
+TEST_F(MinMaxTest, maxShortDecimal) {
+  doTest(max, DECIMAL(18, 3));
 }
 
-TEST_F(MinMaxTest, longDecimal) {
-  doTest(max, LONG_DECIMAL(20, 3));
-  doTest(min, LONG_DECIMAL(38, 19));
+TEST_F(MinMaxTest, minShortDecimal) {
+  doTest(min, DECIMAL(3, 1));
+}
+
+TEST_F(MinMaxTest, maxLongDecimal) {
+  doTest(max, DECIMAL(20, 3));
+}
+
+TEST_F(MinMaxTest, minLongDecimal) {
+  doTest(min, DECIMAL(38, 19));
 }
 } // namespace

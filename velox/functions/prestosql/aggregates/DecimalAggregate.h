@@ -18,6 +18,7 @@
 
 #include "velox/common/base/IOUtils.h"
 #include "velox/exec/Aggregate.h"
+#include "velox/type/HugeInt.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate {
@@ -39,7 +40,7 @@ struct LongDecimalWithOverflowState {
     uint64_t lowerSum = stream.read<uint64_t>();
     int64_t upperSum = stream.read<int64_t>();
     overflow += DecimalUtil::addWithOverflow(
-        this->sum, buildInt128(upperSum, lowerSum), this->sum);
+        this->sum, HugeInt::build(upperSum, lowerSum), this->sum);
   }
 
   void serialize(StringView& serialized) {
@@ -48,8 +49,8 @@ struct LongDecimalWithOverflowState {
     common::OutputByteStream outStream(outputBuffer);
     outStream.append((char*)&count, sizeof(int64_t));
     outStream.append((char*)&overflow, sizeof(int64_t));
-    uint64_t lower = LOWER(sum);
-    int64_t upper = UPPER(sum);
+    uint64_t lower = HugeInt::lower(sum);
+    int64_t upper = HugeInt::upper(sum);
     outStream.append((char*)&lower, sizeof(int64_t));
     outStream.append((char*)&upper, sizeof(int64_t));
   }
@@ -151,7 +152,7 @@ class DecimalAggregate : public exec::Aggregate {
       LongDecimalWithOverflowState accumulator;
       rows.applyToSelected([&](vector_size_t i) {
         accumulator.overflow += DecimalUtil::addWithOverflow(
-            accumulator.sum, data[i].unscaledValue(), accumulator.sum);
+            accumulator.sum, data[i], accumulator.sum);
       });
       accumulator.count = rows.countSelected();
       char rawData[LongDecimalWithOverflowState::serializedSize()];
@@ -164,7 +165,7 @@ class DecimalAggregate : public exec::Aggregate {
       rows.applyToSelected([&](vector_size_t i) {
         accumulator.overflow += DecimalUtil::addWithOverflow(
             accumulator.sum,
-            decodedRaw_.valueAt<TInputType>(i).unscaledValue(),
+            decodedRaw_.valueAt<TInputType>(i),
             accumulator.sum);
       });
       accumulator.count = rows.countSelected();
@@ -324,8 +325,8 @@ class DecimalAggregate : public exec::Aggregate {
       exec::Aggregate::clearNull(group);
     }
     auto accumulator = decimalAccumulator(group);
-    accumulator->overflow += DecimalUtil::addWithOverflow(
-        accumulator->sum, value.unscaledValue(), accumulator->sum);
+    accumulator->overflow +=
+        DecimalUtil::addWithOverflow(accumulator->sum, value, accumulator->sum);
     accumulator->count += 1;
   }
 

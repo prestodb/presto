@@ -24,31 +24,31 @@
 namespace facebook::velox {
 
 template <typename T>
-T checkedPlus(const T& a, const T& b) {
+T checkedPlus(const T& a, const T& b, const char* typeName = "integer") {
   T result;
   bool overflow = __builtin_add_overflow(a, b, &result);
   if (UNLIKELY(overflow)) {
-    VELOX_ARITHMETIC_ERROR("integer overflow: {} + {}", a, b);
+    VELOX_ARITHMETIC_ERROR("{} overflow: {} + {}", typeName, a, b);
   }
   return result;
 }
 
 template <typename T>
-T checkedMinus(const T& a, const T& b) {
+T checkedMinus(const T& a, const T& b, const char* typeName = "integer") {
   T result;
   bool overflow = __builtin_sub_overflow(a, b, &result);
   if (UNLIKELY(overflow)) {
-    VELOX_ARITHMETIC_ERROR("integer overflow: {} - {}", a, b);
+    VELOX_ARITHMETIC_ERROR("{} overflow: {} - {}", typeName, a, b);
   }
   return result;
 }
 
 template <typename T>
-T checkedMultiply(const T& a, const T& b) {
+T checkedMultiply(const T& a, const T& b, const char* typeName = "integer") {
   T result;
   bool overflow = __builtin_mul_overflow(a, b, &result);
   if (UNLIKELY(overflow)) {
-    VELOX_ARITHMETIC_ERROR("integer overflow: {} * {}", a, b);
+    VELOX_ARITHMETIC_ERROR("{} overflow: {} * {}", typeName, a, b);
   }
   return result;
 }

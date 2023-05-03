@@ -147,7 +147,7 @@ TEST_F(ArgumentTypeFuzzerTest, signatureTemplate) {
       ASSERT_TRUE(argumentTypes[1]->isArray());
     };
 
-    verifyArgumentTypes(SHORT_DECIMAL(10, 5), ARRAY(SHORT_DECIMAL(10, 5)));
+    verifyArgumentTypes(DECIMAL(10, 5), ARRAY(DECIMAL(10, 5)));
     verifyArgumentTypes(ARRAY(DOUBLE()), ARRAY(ARRAY(DOUBLE())));
   }
 

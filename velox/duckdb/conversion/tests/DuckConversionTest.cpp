@@ -68,24 +68,6 @@ TEST(DuckConversionTest, duckValueToVariant) {
   for (const auto& i : vec) {
     EXPECT_EQ(variant(i), duckValueToVariant(Value(i)));
   }
-
-  // Decimal type inference.
-  EXPECT_EQ(
-      *DECIMAL(4, 2),
-      *duckValueToVariant(Value::DECIMAL(static_cast<int16_t>(10), 4, 2))
-           .inferType());
-  EXPECT_EQ(
-      *DECIMAL(9, 2),
-      *duckValueToVariant(Value::DECIMAL(static_cast<int32_t>(10), 9, 2))
-           .inferType());
-  EXPECT_EQ(
-      *DECIMAL(17, 2),
-      *duckValueToVariant(Value::DECIMAL(static_cast<int64_t>(10), 17, 2))
-           .inferType());
-  EXPECT_EQ(
-      *DECIMAL(20, 2),
-      *duckValueToVariant(Value::DECIMAL(::duckdb::hugeint_t(100), 20, 2))
-           .inferType());
 }
 
 TEST(DuckConversionTest, duckValueToVariantUnsupported) {
@@ -124,8 +106,8 @@ TEST(DuckConversionTest, types) {
   testRoundTrip(DATE());
   testRoundTrip(INTERVAL_DAY_TIME());
 
-  testRoundTrip(LONG_DECIMAL(22, 5));
-  testRoundTrip(SHORT_DECIMAL(16, 8));
+  testRoundTrip(DECIMAL(22, 5));
+  testRoundTrip(DECIMAL(16, 8));
 
   testRoundTrip(ARRAY(BIGINT()));
   testRoundTrip(MAP(VARCHAR(), REAL()));

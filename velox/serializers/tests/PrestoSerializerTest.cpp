@@ -322,13 +322,13 @@ TEST_F(PrestoSerializerTest, timestampWithNanosecondPrecision) {
   assertEqualVectors(deserialized, expectedOutputWithLostPrecision);
 }
 
-TEST_F(PrestoSerializerTest, unscaledLongDecimal) {
+TEST_F(PrestoSerializerTest, longDecimal) {
   std::vector<int128_t> decimalValues(102);
-  decimalValues[0] = UnscaledLongDecimal::min().unscaledValue();
+  decimalValues[0] = DecimalUtil::kLongDecimalMin;
   for (int row = 1; row < 101; row++) {
     decimalValues[row] = row - 50;
   }
-  decimalValues[101] = UnscaledLongDecimal::max().unscaledValue();
+  decimalValues[101] = DecimalUtil::kLongDecimalMax;
   auto vector =
       vectorMaker_->longDecimalFlatVector(decimalValues, DECIMAL(20, 5));
 

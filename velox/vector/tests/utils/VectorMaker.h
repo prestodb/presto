@@ -203,7 +203,7 @@ class VectorMaker {
   /// Examples:
   ///  auto flatVector = shortDecimalFlatVector({1, 2, 3}, DECIMAL(8, 1));
   template <typename T>
-  FlatVectorPtr<UnscaledShortDecimal> shortDecimalFlatVector(
+  FlatVectorPtr<int64_t> shortDecimalFlatVector(
       const std::vector<T>& unscaledValues,
       const TypePtr& ptr);
 
@@ -214,7 +214,7 @@ class VectorMaker {
   /// Examples:
   ///  auto flatVector = longDecimalFlatVector({1, 2, 3}, DECIMAL(20, 4));
   template <typename T>
-  FlatVectorPtr<UnscaledLongDecimal> longDecimalFlatVector(
+  FlatVectorPtr<int128_t> longDecimalFlatVector(
       const std::vector<T>& unscaledValues,
       const TypePtr& ptr);
 
@@ -226,7 +226,7 @@ class VectorMaker {
   ///  auto flatVector = shortDecimalFlatVectorNullable({1, std::nullopt, 3},
   ///  DECIMAL(8, 1));
   template <typename T>
-  FlatVectorPtr<UnscaledShortDecimal> shortDecimalFlatVectorNullable(
+  FlatVectorPtr<int64_t> shortDecimalFlatVectorNullable(
       const std::vector<std::optional<T>>& data,
       const TypePtr& ptr);
 
@@ -238,7 +238,7 @@ class VectorMaker {
   ///  auto flatVector = longDecimalFlatVectorNullable({1, std::nullopt, 3},
   ///  DECIMAL(20, 4));
   template <typename T>
-  FlatVectorPtr<UnscaledLongDecimal> longDecimalFlatVectorNullable(
+  FlatVectorPtr<int128_t> longDecimalFlatVectorNullable(
       const std::vector<std::optional<T>>& data,
       const TypePtr& ptr);
 

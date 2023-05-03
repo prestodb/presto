@@ -75,7 +75,7 @@ struct Converter<
     std::enable_if_t<
         KIND == TypeKind::BOOLEAN || KIND == TypeKind::TINYINT ||
             KIND == TypeKind::SMALLINT || KIND == TypeKind::INTEGER ||
-            KIND == TypeKind::BIGINT,
+            KIND == TypeKind::BIGINT || KIND == TypeKind::HUGEINT,
         void>,
     TRUNCATE> {
   using T = typename TypeTraits<KIND>::NativeType;

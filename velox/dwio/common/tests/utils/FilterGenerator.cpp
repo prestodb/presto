@@ -85,12 +85,6 @@ VectorPtr getChildBySubfield(
 uint32_t AbstractColumnStats::counter_ = 0;
 
 template <>
-int64_t ColumnStats<UnscaledShortDecimal>::getIntegerValue(
-    const UnscaledShortDecimal& value) {
-  return value.unscaledValue();
-}
-
-template <>
 std::unique_ptr<Filter> ColumnStats<bool>::makeRangeFilter(
     const FilterSpec& filterSpec) {
   if (values_.empty()) {
@@ -437,9 +431,6 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
         break;
       // TODO:
       // Add support for TypeKind::TIMESTAMP.
-      case TypeKind::SHORT_DECIMAL:
-        stats = makeStats<TypeKind::SHORT_DECIMAL>(vector->type(), rowType_);
-        break;
       default:
         VELOX_CHECK(
             false,

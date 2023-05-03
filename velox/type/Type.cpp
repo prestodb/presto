@@ -40,11 +40,24 @@ bool isColumnNameRequiringEscaping(const std::string& name) {
 
 namespace facebook::velox {
 
-bool isDecimalName(const std::string& typeName) {
-  auto typeNameUpper = boost::algorithm::to_upper_copy(typeName);
-  return (
-      typeNameUpper == TypeTraits<TypeKind::SHORT_DECIMAL>::name ||
-      typeNameUpper == TypeTraits<TypeKind::LONG_DECIMAL>::name);
+const ShortDecimalType& Type::asShortDecimal() const {
+  return dynamic_cast<const ShortDecimalType&>(*this);
+}
+
+const LongDecimalType& Type::asLongDecimal() const {
+  return dynamic_cast<const LongDecimalType&>(*this);
+}
+
+bool Type::isShortDecimal() const {
+  return isShortDecimalType(*this);
+}
+
+bool Type::isLongDecimal() const {
+  return isLongDecimalType(*this);
+}
+
+bool Type::isDecimal() const {
+  return isDecimalType(*this);
 }
 
 // Static variable intialization is not thread safe for non
@@ -56,14 +69,13 @@ const std::unordered_map<std::string, TypeKind>& getTypeStringMap() {
       {"SMALLINT", TypeKind::SMALLINT},
       {"INTEGER", TypeKind::INTEGER},
       {"BIGINT", TypeKind::BIGINT},
+      {"HUGEINT", TypeKind::HUGEINT},
       {"REAL", TypeKind::REAL},
       {"DOUBLE", TypeKind::DOUBLE},
       {"VARCHAR", TypeKind::VARCHAR},
       {"VARBINARY", TypeKind::VARBINARY},
       {"TIMESTAMP", TypeKind::TIMESTAMP},
       {"DATE", TypeKind::DATE},
-      {"SHORT_DECIMAL", TypeKind::SHORT_DECIMAL},
-      {"LONG_DECIMAL", TypeKind::LONG_DECIMAL},
       {"ARRAY", TypeKind::ARRAY},
       {"MAP", TypeKind::MAP},
       {"ROW", TypeKind::ROW},
@@ -101,14 +113,13 @@ std::string mapTypeKindToName(const TypeKind& typeKind) {
       {TypeKind::SMALLINT, "SMALLINT"},
       {TypeKind::INTEGER, "INTEGER"},
       {TypeKind::BIGINT, "BIGINT"},
+      {TypeKind::HUGEINT, "HUGEINT"},
       {TypeKind::REAL, "REAL"},
       {TypeKind::DOUBLE, "DOUBLE"},
       {TypeKind::VARCHAR, "VARCHAR"},
       {TypeKind::VARBINARY, "VARBINARY"},
       {TypeKind::TIMESTAMP, "TIMESTAMP"},
       {TypeKind::DATE, "DATE"},
-      {TypeKind::SHORT_DECIMAL, "SHORT_DECIMAL"},
-      {TypeKind::LONG_DECIMAL, "LONG_DECIMAL"},
       {TypeKind::ARRAY, "ARRAY"},
       {TypeKind::MAP, "MAP"},
       {TypeKind::ROW, "ROW"},
@@ -127,14 +138,14 @@ std::string mapTypeKindToName(const TypeKind& typeKind) {
 }
 
 std::pair<int, int> getDecimalPrecisionScale(const Type& type) {
-  VELOX_CHECK(type.isShortDecimal() || type.isLongDecimal());
   if (type.isShortDecimal()) {
-    const auto& decimalType = type.asShortDecimal();
+    const auto& decimalType = static_cast<const ShortDecimalType&>(type);
     return {decimalType.precision(), decimalType.scale()};
-  } else {
-    const auto& decimalType = type.asLongDecimal();
+  } else if (type.isLongDecimal()) {
+    const auto& decimalType = static_cast<const LongDecimalType&>(type);
     return {decimalType.precision(), decimalType.scale()};
   }
+  VELOX_FAIL("Type is not Decimal");
 }
 
 namespace {
@@ -172,8 +183,11 @@ TypePtr Type::create(const folly::dynamic& obj) {
     childTypes = deserializeChildTypes(obj);
   }
 
-  // Checks if 'typeName' specifies a custom type.
   auto typeName = obj["type"].asString();
+  if (isDecimalName(typeName)) {
+    return DECIMAL(obj["precision"].asInt(), obj["scale"].asInt());
+  }
+  // Checks if 'typeName' specifies a custom type.
   if (customTypeExists(typeName)) {
     return getCustomType(typeName);
   }
@@ -181,16 +195,6 @@ TypePtr Type::create(const folly::dynamic& obj) {
   // 'typeName' must be a built-in type.
   TypeKind typeKind = mapNameToTypeKind(typeName);
   switch (typeKind) {
-    case TypeKind::SHORT_DECIMAL: {
-      VELOX_USER_CHECK(
-          childTypes.empty(), "Short decimal type should not have child types");
-      return SHORT_DECIMAL(obj["precision"].asInt(), obj["scale"].asInt());
-    }
-    case TypeKind::LONG_DECIMAL: {
-      VELOX_USER_CHECK(
-          childTypes.empty(), "Long decimal type should not have child types");
-      return LONG_DECIMAL(obj["precision"].asInt(), obj["scale"].asInt());
-    }
     case TypeKind::ROW: {
       VELOX_USER_CHECK(obj["names"].isArray());
       std::vector<std::string> names;
@@ -682,23 +686,11 @@ KOSKI_DEFINE_SCALAR_ACCESSOR(UNKNOWN);
 
 #undef KOSKI_DEFINE_SCALAR_ACCESSOR
 
-std::shared_ptr<const ShortDecimalType> SHORT_DECIMAL(
-    const uint8_t precision,
-    const uint8_t scale) {
-  return std::make_shared<ShortDecimalType>(precision, scale);
-}
-
-std::shared_ptr<const LongDecimalType> LONG_DECIMAL(
-    const uint8_t precision,
-    const uint8_t scale) {
-  return std::make_shared<LongDecimalType>(precision, scale);
-}
-
 TypePtr DECIMAL(const uint8_t precision, const uint8_t scale) {
-  if (precision <= DecimalType<TypeKind::SHORT_DECIMAL>::kMaxPrecision) {
-    return SHORT_DECIMAL(precision, scale);
+  if (precision <= ShortDecimalType::kMaxPrecision) {
+    return std::make_shared<ShortDecimalType>(precision, scale);
   }
-  return LONG_DECIMAL(precision, scale);
+  return std::make_shared<LongDecimalType>(precision, scale);
 }
 
 TypePtr createScalarType(TypeKind kind) {
@@ -722,20 +714,6 @@ TypePtr createType(TypeKind kind, std::vector<TypePtr>&& children) {
     return UNKNOWN();
   }
   return VELOX_DYNAMIC_TYPE_DISPATCH(createType, kind, std::move(children));
-}
-
-template <>
-TypePtr createType<TypeKind::SHORT_DECIMAL>(
-    std::vector<TypePtr>&& /*children*/) {
-  std::string name{TypeTraits<TypeKind::SHORT_DECIMAL>::name};
-  VELOX_USER_FAIL("Not supported for kind: {}", name);
-}
-
-template <>
-TypePtr createType<TypeKind::LONG_DECIMAL>(
-    std::vector<TypePtr>&& /*children*/) {
-  std::string name{TypeTraits<TypeKind::LONG_DECIMAL>::name};
-  VELOX_USER_FAIL("Not supported for kind: {}", name);
 }
 
 template <>
@@ -876,18 +854,6 @@ TypePtr fromKindToScalerType(TypeKind kind) {
 
 void toTypeSql(const TypePtr& type, std::ostream& out) {
   switch (type->kind()) {
-    case TypeKind::SHORT_DECIMAL: {
-      const auto& decimal = type->asShortDecimal();
-      out << "DECIMAL(" << std::to_string(decimal.precision()) << ", "
-          << std::to_string(decimal.scale()) << ")";
-      break;
-    }
-    case TypeKind::LONG_DECIMAL: {
-      const auto& decimal = type->asLongDecimal();
-      out << "DECIMAL(" << std::to_string(decimal.precision()) << ", "
-          << std::to_string(decimal.scale()) << ")";
-      break;
-    }
     case TypeKind::ARRAY:
       // Append <type>[], e.g. bigint[].
       toTypeSql(type->childAt(0), out);

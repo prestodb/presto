@@ -100,7 +100,7 @@ struct SimdComparator {
           (xsimd::has_simd_register<
                typename TypeTraits<kind>::NativeType>::value &&
            kind != TypeKind::BOOLEAN) ||
-              kind == TypeKind::SHORT_DECIMAL || kind == TypeKind::LONG_DECIMAL,
+              kind == TypeKind::HUGEINT,
           int> = 0>
   void applyComparison(
       const SelectivityVector& rows,
@@ -113,16 +113,11 @@ struct SimdComparator {
     auto resultVector = result->asUnchecked<FlatVector<bool>>();
     auto rawResult = resultVector->mutableRawValues<uint8_t>();
 
-    // UnscaledShortDecimal and UnscaledLongDecimal will soon be replaced with
-    // int64_t and int128_t respectively. This change will be removed then.
-    constexpr bool isDecimal =
-        (std::is_same_v<T, UnscaledShortDecimal> ||
-         std::is_same_v<T, UnscaledLongDecimal>);
     auto isSimdizable = (lhs.isConstantEncoding() || lhs.isFlatEncoding()) &&
         (rhs.isConstantEncoding() || rhs.isFlatEncoding()) &&
         rows.isAllSelected();
 
-    if (!isSimdizable || isDecimal) {
+    if (!isSimdizable || std::is_same_v<T, int128_t>) {
       exec::LocalDecodedVector lhsDecoded(context, lhs, rows);
       exec::LocalDecodedVector rhsDecoded(context, rhs, rows);
 
@@ -134,7 +129,8 @@ struct SimdComparator {
       });
       return;
     }
-    if constexpr (!isDecimal) {
+
+    if constexpr (!std::is_same_v<T, int128_t>) {
       if (lhs.isConstantEncoding() && rhs.isConstantEncoding()) {
         auto l = lhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
         auto r = rhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
@@ -167,7 +163,7 @@ struct SimdComparator {
           (!xsimd::has_simd_register<
                typename TypeTraits<kind>::NativeType>::value ||
            kind == TypeKind::BOOLEAN) &&
-              kind != TypeKind::SHORT_DECIMAL && kind != TypeKind::LONG_DECIMAL,
+              kind != TypeKind::HUGEINT,
           int> = 0>
   void applyComparison(
       const SelectivityVector& /* rows */,
@@ -195,12 +191,8 @@ class ComparisonSimdFunction : public exec::VectorFunction {
     context.ensureWritable(rows, outputType, result);
     auto comparator = SimdComparator<ComparisonOp>{};
 
-    if (args[0]->type()->isShortDecimal()) {
-      comparator.template applyComparison<TypeKind::SHORT_DECIMAL>(
-          rows, *args[0], *args[1], context, result);
-      return;
-    } else if (args[0]->type()->isLongDecimal()) {
-      comparator.template applyComparison<TypeKind::LONG_DECIMAL>(
+    if (args[0]->type()->isLongDecimal()) {
+      comparator.template applyComparison<TypeKind::HUGEINT>(
           rows, *args[0], *args[1], context, result);
       return;
     }

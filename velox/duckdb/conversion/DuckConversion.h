@@ -114,64 +114,58 @@ struct DuckBlobConversion {
 
 struct DuckInt16DecimalConversion {
   typedef int16_t DUCK_TYPE;
-  typedef UnscaledShortDecimal VELOX_TYPE;
+  typedef int64_t VELOX_TYPE;
 
-  static int16_t toDuck(
-      const UnscaledShortDecimal& input,
-      ::duckdb::Vector& /* unused */) {
-    return input.unscaledValue();
+  static int16_t toDuck(const int64_t& input, ::duckdb::Vector& /* unused */) {
+    return input;
   }
 
-  static UnscaledShortDecimal toVelox(const int16_t input) {
-    return UnscaledShortDecimal(static_cast<int64_t>(input));
+  static int64_t toVelox(const int16_t input) {
+    return static_cast<int64_t>(input);
   }
 };
 
 struct DuckInt32DecimalConversion {
   typedef int32_t DUCK_TYPE;
-  typedef UnscaledShortDecimal VELOX_TYPE;
+  typedef int64_t VELOX_TYPE;
 
-  static int32_t toDuck(
-      const UnscaledShortDecimal& input,
-      ::duckdb::Vector& /* unused */) {
-    return input.unscaledValue();
+  static int32_t toDuck(const int64_t& input, ::duckdb::Vector& /* unused */) {
+    return input;
   }
 
-  static UnscaledShortDecimal toVelox(const int32_t input) {
-    return UnscaledShortDecimal(static_cast<int64_t>(input));
+  static int64_t toVelox(const int32_t input) {
+    return static_cast<int64_t>(input);
   }
 };
 
 struct DuckInt64DecimalConversion {
   typedef int64_t DUCK_TYPE;
-  typedef UnscaledShortDecimal VELOX_TYPE;
+  typedef int64_t VELOX_TYPE;
 
-  static int64_t toDuck(
-      const UnscaledShortDecimal& input,
-      ::duckdb::Vector& /* unused */) {
-    return input.unscaledValue();
+  static int64_t toDuck(const int64_t& input, ::duckdb::Vector& /* unused */) {
+    return input;
   }
 
-  static UnscaledShortDecimal toVelox(const int64_t input) {
-    return UnscaledShortDecimal(input);
+  static int64_t toVelox(const int64_t input) {
+    return input;
   }
 };
 
 struct DuckLongDecimalConversion {
   typedef ::duckdb::hugeint_t DUCK_TYPE;
-  typedef UnscaledLongDecimal VELOX_TYPE;
+  typedef int128_t VELOX_TYPE;
 
   static ::duckdb::hugeint_t toDuck(
-      const UnscaledLongDecimal& input,
+      const int128_t& input,
       ::duckdb::Vector& /* unused */) {
     ::duckdb::hugeint_t duckValue;
-    duckValue.upper = (input.unscaledValue() >> 64);
-    duckValue.lower = input.unscaledValue();
+    duckValue.upper = (input >> 64);
+    duckValue.lower = input;
     return duckValue;
   }
 
-  static UnscaledLongDecimal toVelox(const ::duckdb::hugeint_t input) {
-    return UnscaledLongDecimal(buildInt128(input.upper, input.lower));
+  static int128_t toVelox(const ::duckdb::hugeint_t input) {
+    return HugeInt::build(input.upper, input.lower);
   }
 };
 

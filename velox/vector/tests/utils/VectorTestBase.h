@@ -194,25 +194,25 @@ class VectorTestBase {
     return vectorMaker_.allNullFlatVector<T>(size);
   }
 
-  FlatVectorPtr<UnscaledShortDecimal> makeShortDecimalFlatVector(
+  FlatVectorPtr<int64_t> makeShortDecimalFlatVector(
       const std::vector<int64_t>& unscaledValues,
       const TypePtr& type) {
     return vectorMaker_.shortDecimalFlatVector(unscaledValues, type);
   }
 
-  FlatVectorPtr<UnscaledLongDecimal> makeLongDecimalFlatVector(
+  FlatVectorPtr<int128_t> makeLongDecimalFlatVector(
       const std::vector<int128_t>& unscaledValues,
       const TypePtr& type) {
     return vectorMaker_.longDecimalFlatVector(unscaledValues, type);
   }
 
-  FlatVectorPtr<UnscaledShortDecimal> makeNullableShortDecimalFlatVector(
+  FlatVectorPtr<int64_t> makeNullableShortDecimalFlatVector(
       const std::vector<std::optional<int64_t>>& unscaledValues,
       const TypePtr& type) {
     return vectorMaker_.shortDecimalFlatVectorNullable(unscaledValues, type);
   }
 
-  FlatVectorPtr<UnscaledLongDecimal> makeNullableLongDecimalFlatVector(
+  FlatVectorPtr<int128_t> makeNullableLongDecimalFlatVector(
       const std::vector<std::optional<int128_t>>& unscaledValues,
       const TypePtr& type) {
     return vectorMaker_.longDecimalFlatVectorNullable(unscaledValues, type);

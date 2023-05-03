@@ -45,20 +45,6 @@ struct KindToFlatVector<TypeKind::DATE> {
 };
 
 template <>
-struct KindToFlatVector<TypeKind::SHORT_DECIMAL> {
-  using type = FlatVector<UnscaledShortDecimal>;
-  using WrapperType = UnscaledShortDecimal;
-  using HashRowType = UnscaledShortDecimal;
-};
-
-template <>
-struct KindToFlatVector<TypeKind::LONG_DECIMAL> {
-  using type = FlatVector<UnscaledLongDecimal>;
-  using WrapperType = UnscaledLongDecimal;
-  using HashRowType = UnscaledLongDecimal;
-};
-
-template <>
 struct KindToFlatVector<TypeKind::MAP> {
   using type = MapVector;
   using WrapperType = ComplexType;

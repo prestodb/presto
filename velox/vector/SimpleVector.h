@@ -152,9 +152,12 @@ class SimpleVector : public BaseVector {
     } else if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
       return "<opaque>";
     } else if constexpr (
-        std::is_same_v<T, UnscaledShortDecimal> ||
-        std::is_same_v<T, UnscaledLongDecimal>) {
-      return DecimalUtil::toString(value, type());
+        std::is_same_v<T, int64_t> || std::is_same_v<T, int128_t>) {
+      if (isDecimalType(*type())) {
+        return DecimalUtil::toString(value, type());
+      } else {
+        return velox::to<std::string>(value);
+      }
     } else {
       return velox::to<std::string>(value);
     }

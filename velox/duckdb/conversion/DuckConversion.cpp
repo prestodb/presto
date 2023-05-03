@@ -34,24 +34,19 @@ using ::duckdb::timestamp_t;
 
 variant decimalVariant(const Value& val) {
   VELOX_DCHECK(val.type().id() == LogicalTypeId::DECIMAL)
-  uint8_t precision;
-  uint8_t scale;
-  val.type().GetDecimalProperties(precision, scale);
-  auto decimalType = DECIMAL(precision, scale);
   switch (val.type().InternalType()) {
     case ::duckdb::PhysicalType::INT128: {
       auto unscaledValue = val.GetValueUnsafe<::duckdb::hugeint_t>();
-      return variant::longDecimal(
-          buildInt128(unscaledValue.upper, unscaledValue.lower), decimalType);
+      return variant(HugeInt::build(unscaledValue.upper, unscaledValue.lower));
     }
     case ::duckdb::PhysicalType::INT16: {
-      return variant::shortDecimal(val.GetValueUnsafe<int16_t>(), decimalType);
+      return variant(static_cast<int64_t>(val.GetValueUnsafe<int16_t>()));
     }
     case ::duckdb::PhysicalType::INT32: {
-      return variant::shortDecimal(val.GetValueUnsafe<int32_t>(), decimalType);
+      return variant(static_cast<int64_t>(val.GetValueUnsafe<int32_t>()));
     }
     case ::duckdb::PhysicalType::INT64: {
-      return variant::shortDecimal(val.GetValueUnsafe<int64_t>(), decimalType);
+      return variant(val.GetValueUnsafe<int64_t>());
     }
     default:
       VELOX_UNSUPPORTED();
@@ -60,6 +55,10 @@ variant decimalVariant(const Value& val) {
 
 //! Type mapping for velox -> DuckDB conversions
 LogicalType fromVeloxType(const TypePtr& type) {
+  if (type->isDecimal()) {
+    auto [precision, scale] = getDecimalPrecisionScale(*type);
+    return LogicalType::DECIMAL(precision, scale);
+  }
   switch (type->kind()) {
     case TypeKind::BOOLEAN:
       return LogicalType::BOOLEAN;
@@ -84,12 +83,6 @@ LogicalType fromVeloxType(const TypePtr& type) {
       return LogicalType::TIMESTAMP;
     case TypeKind::DATE:
       return LogicalType::DATE;
-    case TypeKind::LONG_DECIMAL:
-      return LogicalType::DECIMAL(
-          type->asLongDecimal().precision(), type->asLongDecimal().scale());
-    case TypeKind::SHORT_DECIMAL:
-      return LogicalType::DECIMAL(
-          type->asShortDecimal().precision(), type->asShortDecimal().scale());
     case TypeKind::ARRAY:
       return LogicalType::LIST(fromVeloxType(type->childAt(0)));
     case TypeKind::MAP:
