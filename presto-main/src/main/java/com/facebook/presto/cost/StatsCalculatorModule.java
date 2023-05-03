@@ -52,7 +52,7 @@ public class StatsCalculatorModule
         return historyBasedPlanStatisticsManager.getHistoryBasedPlanStatisticsCalculator(delegate);
     }
 
-    private static ComposableStatsCalculator createComposableStatsCalculator(
+    public static ComposableStatsCalculator createComposableStatsCalculator(
             Metadata metadata,
             ScalarStatsCalculator scalarStatsCalculator,
             StatsNormalizer normalizer,
