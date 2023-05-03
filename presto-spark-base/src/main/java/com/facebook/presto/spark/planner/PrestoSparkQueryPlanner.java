@@ -96,10 +96,8 @@ public class PrestoSparkQueryPlanner
         this.planCanonicalInfoProvider = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null").getPlanCanonicalInfoProvider();
     }
 
-    public PlanAndMore createQueryPlan(Session session, BuiltInPreparedQuery preparedQuery, WarningCollector warningCollector)
+    public PlanAndMore createQueryPlan(Session session, BuiltInPreparedQuery preparedQuery, WarningCollector warningCollector, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-
         Analyzer analyzer = new Analyzer(
                 session,
                 metadata,
@@ -112,12 +110,11 @@ public class PrestoSparkQueryPlanner
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
 
-        final VariableAllocator planVariableAllocator = new VariableAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,
                 idAllocator,
                 metadata,
-                planVariableAllocator,
+                variableAllocator,
                 sqlParser);
 
         PlanNode planNode = session.getRuntimeStats().profileNanos(
@@ -130,7 +127,7 @@ public class PrestoSparkQueryPlanner
                 optimizers.getPlanningTimeOptimizers(),
                 planChecker,
                 sqlParser,
-                planVariableAllocator,
+                variableAllocator,
                 idAllocator,
                 warningCollector,
                 statsCalculator,
