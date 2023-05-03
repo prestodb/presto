@@ -113,7 +113,7 @@ public class HistoricalPlanStatisticsUtil
         return Optional.empty();
     }
 
-    private static boolean similarStats(double stats1, double stats2, double threshold)
+    public static boolean similarStats(double stats1, double stats2, double threshold)
     {
         if (isNaN(stats1) && isNaN(stats2)) {
             return true;
