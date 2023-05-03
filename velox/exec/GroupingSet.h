@@ -299,6 +299,9 @@ class GroupingSet {
   std::unique_ptr<RowContainer> intermediateRows_;
   std::vector<char*> intermediateGroups_;
   std::vector<vector_size_t> intermediateRowNumbers_;
+  // Temporary for case where an aggregate in toIntermediate() outputs post-init
+  // state of aggregate for all rows.
+  std::vector<char*> firstGroup_;
 };
 
 } // namespace facebook::velox::exec

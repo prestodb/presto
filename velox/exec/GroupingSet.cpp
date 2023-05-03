@@ -764,10 +764,22 @@ void GroupingSet::toIntermediate(
     VELOX_CHECK(aggregateVector.unique());
     aggregateVector->resize(input->size());
     const auto& rows = getSelectivityVector(i);
-    // Check is mask is false for all rows.
+    // Check if mask is false for all rows.
     if (!rows.hasSelections()) {
-      auto nulls = aggregateVector->mutableNulls(numRows);
-      memset(nulls->asMutable<char>(), bits::kNullByte, bits::nbytes(numRows));
+      // The aggregate produces its initial state for all
+      // rows. Initialize one, then read the same data into each
+      // element of flat result. This is most often a null but for
+      // example count produces a zero, so we use the per-aggregate
+      // functions.
+      aggregates_[i]->initializeNewGroups(
+          intermediateGroups_.data(),
+          folly::Range<const vector_size_t*>(
+              intermediateRowNumbers_.data(), 1));
+      firstGroup_.resize(numRows);
+      std::fill(firstGroup_.begin(), firstGroup_.end(), intermediateGroups_[0]);
+      aggregates_[i]->extractAccumulators(
+          firstGroup_.data(), intermediateGroups_.size(), &aggregateVector);
+      aggregates_[i]->clear();
       continue;
     }
 
