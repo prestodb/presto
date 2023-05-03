@@ -19,6 +19,7 @@
 #include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/HashTable.h"
 #include "velox/exec/Operator.h"
+#include "velox/exec/ProbeOperatorState.h"
 #include "velox/exec/VectorHasher.h"
 
 namespace facebook::velox::exec {
@@ -31,36 +32,9 @@ class HashProbe : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::HashJoinNode>& hashJoinNode);
 
-  /// Define the internal execution state for hash probe. The valid state
-  /// transition is depicted as follows:
-  ///
-  ///                           +--------------------------------+
-  ///                           ^                                |
-  ///                           |                                V
-  ///   kWaitForBuild -->  kRunning  -->  kWaitForPeers --> kFinish
-  ///         ^                                |
-  ///         |                                v
-  ///         +--------------------------------+
-  ///
-  enum class State {
-    /// Wait for hash build operators to build the next hash table to join.
-    kWaitForBuild = 0,
-    /// The running state that join the probe input with the build table.
-    kRunning = 1,
-    /// Wait for all the peer hash probe operators to finish processing inputs.
-    /// This state only applies when disk spilling is enabled. The last finished
-    /// operator will notify the build operators to build the next hash table
-    /// from the spilled data. Then all the peer probe operators will wait for
-    /// the next hash table to build.
-    kWaitForPeers = 2,
-    /// The finishing state.
-    kFinish = 3,
-  };
-  static std::string stateName(State state);
-
   bool needsInput() const override {
-    if (state_ == State::kFinish || noMoreInput_ || noMoreSpillInput_ ||
-        input_ != nullptr) {
+    if (state_ == ProbeOperatorState::kFinish || noMoreInput_ ||
+        noMoreSpillInput_ || input_ != nullptr) {
       return false;
     }
     if (table_) {
@@ -86,8 +60,8 @@ class HashProbe : public Operator {
   void clearDynamicFilters() override;
 
  private:
-  void setState(State state);
-  void checkStateTransition(State state);
+  void setState(ProbeOperatorState state);
+  void checkStateTransition(ProbeOperatorState state);
 
   void setRunning();
   void checkRunning() const;
@@ -268,7 +242,7 @@ class HashProbe : public Operator {
 
   const RowTypePtr probeType_;
 
-  State state_{State::kWaitForBuild};
+  ProbeOperatorState state_{ProbeOperatorState::kWaitForBuild};
 
   // Used for synchronization with the hash probe operators of the same pipeline
   // to handle the last probe processing for certain types of join and notify
@@ -574,8 +548,8 @@ class HashProbe : public Operator {
   SpillPartitionSet spillPartitionSet_;
 };
 
-inline std::ostream& operator<<(std::ostream& os, HashProbe::State state) {
-  os << HashProbe::stateName(state);
+inline std::ostream& operator<<(std::ostream& os, ProbeOperatorState state) {
+  os << probeOperatorStateName(state);
   return os;
 }
 

@@ -54,6 +54,7 @@ add_executable(
   PlanNodeSerdeTest.cpp
   PlanNodeToStringTest.cpp
   PrintPlanWithStatsTest.cpp
+  ProbeOperatorStateTest.cpp
   RoundRobinPartitionFunctionTest.cpp
   RowContainerTest.cpp
   MemoryCapExceededTest.cpp

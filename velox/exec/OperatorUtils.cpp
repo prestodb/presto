@@ -385,4 +385,15 @@ void aggregateOperatorRuntimeStats(
   }
 }
 
+folly::Range<vector_size_t*> initializeRowNumberMapping(
+    BufferPtr& mapping,
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  if (!mapping || !mapping->unique() ||
+      mapping->size() < sizeof(vector_size_t) * size) {
+    mapping = allocateIndices(size, pool);
+  }
+  return folly::Range(mapping->asMutable<vector_size_t>(), size);
+}
+
 } // namespace facebook::velox::exec

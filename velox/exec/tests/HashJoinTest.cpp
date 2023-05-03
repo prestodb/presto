@@ -24,6 +24,7 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/exec/tests/utils/VectorTestUtil.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
@@ -58,87 +59,6 @@ std::function<void(Task* task)> makeAddSplit(
     }
     noMoreSplits = true;
   };
-}
-
-// Shuffle batches.
-void shuffleBatches(std::vector<RowVectorPtr>& batches) {
-  std::default_random_engine rng(1234);
-  std::shuffle(std::begin(batches), std::end(batches), rng);
-}
-
-// Make batches with random data.
-//
-// NOTE: if 'batchSize' is 0, then 'numBatches' is ignored and the function
-// returns a single empty batch.
-std::vector<RowVectorPtr> makeBatches(
-    int32_t batchSize,
-    int32_t numBatches,
-    const RowTypePtr& rowType,
-    memory::MemoryPool* pool,
-    double nullRatio = 0.1,
-    bool shuffle = true) {
-  VELOX_CHECK_GE(batchSize, 0);
-  VELOX_CHECK_GT(numBatches, 0);
-
-  std::vector<RowVectorPtr> batches;
-  batches.reserve(numBatches);
-  if (batchSize != 0) {
-    VectorFuzzer::Options options;
-    options.vectorSize = batchSize;
-    options.nullRatio = nullRatio;
-    VectorFuzzer fuzzer(options, pool);
-    for (int32_t i = 0; i < numBatches; ++i) {
-      batches.push_back(fuzzer.fuzzInputRow(rowType));
-    }
-  } else {
-    batches.push_back(RowVector::createEmpty(rowType, pool));
-  }
-  // NOTE: we generate a number of vectors with a fresh new fuzzer init with
-  // the same fix seed. The purpose is to ensure we have sufficient match if
-  // we use the row type for both build and probe inputs. Here we shuffle the
-  // built vectors to introduce some randomness during the join execution.
-  if (shuffle) {
-    shuffleBatches(batches);
-  }
-  return batches;
-}
-
-std::vector<RowVectorPtr> makeBatches(
-    vector_size_t numBatches,
-    std::function<RowVectorPtr(int32_t)> makeVector,
-    bool shuffle = true) {
-  std::vector<RowVectorPtr> batches;
-  batches.reserve(numBatches);
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(makeVector(i));
-  }
-  if (shuffle) {
-    shuffleBatches(batches);
-  }
-  return batches;
-}
-
-std::vector<RowVectorPtr> mergeBatches(
-    std::vector<RowVectorPtr>&& lhs,
-    std::vector<RowVectorPtr>&& rhs,
-    bool shuffle = false) {
-  std::vector<RowVectorPtr> mergedBatches;
-  mergedBatches.reserve(lhs.size() + rhs.size());
-  std::move(lhs.begin(), lhs.end(), std::back_inserter(mergedBatches));
-  std::move(rhs.begin(), rhs.end(), std::back_inserter(mergedBatches));
-  if (shuffle) {
-    shuffleBatches(mergedBatches);
-  }
-  return mergedBatches;
-}
-
-std::vector<std::string> concat(
-    const std::vector<std::string>& a,
-    const std::vector<std::string>& b) {
-  std::vector<std::string> result;
-  result.insert(result.end(), a.begin(), a.end());
-  result.insert(result.end(), b.begin(), b.end());
-  return result;
 }
 
 // Returns aggregated spilled stats by 'task'.
@@ -291,13 +211,7 @@ class HashJoinBuilder {
     // single threaded. 'allProbeVectors_' contains the value vectors fed to
     // all the hash probe drivers, which will be used to populate the duckdb as
     // well.
-    allProbeVectors_.reserve(probeVectors_.size() * numDrivers_);
-    for (int i = 0; i < numDrivers_; ++i) {
-      std::copy(
-          probeVectors_.begin(),
-          probeVectors_.end(),
-          std::back_inserter(allProbeVectors_));
-    }
+    allProbeVectors_ = makeCopies(probeVectors_, numDrivers_);
     return *this;
   }
 
@@ -341,13 +255,7 @@ class HashJoinBuilder {
     // single threaded. 'allBuildVectors_' contains the value vectors fed to
     // all the hash build drivers, which will be used to populate the duckdb as
     // well.
-    allBuildVectors_.reserve(buildVectors_.size() * numDrivers_);
-    for (int i = 0; i < numDrivers_; ++i) {
-      std::copy(
-          buildVectors_.begin(),
-          buildVectors_.end(),
-          std::back_inserter(allBuildVectors_));
-    }
+    allBuildVectors_ = makeCopies(buildVectors_, numDrivers_);
     return *this;
   }
 

@@ -74,29 +74,18 @@ void extractColumns(
   }
 }
 
-folly::Range<vector_size_t*> initializeRowNumberMapping(
-    BufferPtr& mapping,
-    vector_size_t size,
-    memory::MemoryPool* pool) {
-  if (!mapping || !mapping->unique() ||
-      mapping->size() < sizeof(vector_size_t) * size) {
-    mapping = allocateIndices(size, pool);
-  }
-  return folly::Range(mapping->asMutable<vector_size_t>(), size);
-}
-
-BlockingReason fromStateToBlockingReason(HashProbe::State state) {
+BlockingReason fromStateToBlockingReason(ProbeOperatorState state) {
   switch (state) {
-    case HashProbe::State::kRunning:
+    case ProbeOperatorState::kRunning:
       FOLLY_FALLTHROUGH;
-    case HashProbe::State::kFinish:
+    case ProbeOperatorState::kFinish:
       return BlockingReason::kNotBlocked;
-    case HashProbe::State::kWaitForBuild:
+    case ProbeOperatorState::kWaitForBuild:
       return BlockingReason::kWaitForJoinBuild;
-    case HashProbe::State::kWaitForPeers:
+    case ProbeOperatorState::kWaitForPeers:
       return BlockingReason::kWaitForJoinProbe;
     default:
-      VELOX_UNREACHABLE("Unexpected state: ", HashProbe::stateName(state));
+      VELOX_UNREACHABLE("Unexpected state: ", probeOperatorStateName(state));
   }
 }
 
@@ -279,7 +268,7 @@ void HashProbe::asyncWaitForHashTable() {
   auto hashBuildResult = joinBridge_->tableOrFuture(&future_);
   if (!hashBuildResult.has_value()) {
     VELOX_CHECK(future_.valid());
-    setState(State::kWaitForBuild);
+    setState(ProbeOperatorState::kWaitForBuild);
     return;
   }
 
@@ -448,29 +437,29 @@ void HashProbe::prepareInputIndicesBuffers(
 
 BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
   switch (state_) {
-    case State::kWaitForBuild:
+    case ProbeOperatorState::kWaitForBuild:
       VELOX_CHECK_NULL(table_);
       if (!future_.valid()) {
         setRunning();
         asyncWaitForHashTable();
       }
       break;
-    case State::kRunning:
+    case ProbeOperatorState::kRunning:
       VELOX_CHECK_NOT_NULL(table_);
       if (spillInputReader_ != nullptr) {
         addSpillInput();
       }
       break;
-    case State::kWaitForPeers:
+    case ProbeOperatorState::kWaitForPeers:
       VELOX_CHECK(hasMoreSpillData());
       if (!future_.valid()) {
         setRunning();
       }
       break;
-    case State::kFinish:
+    case ProbeOperatorState::kFinish:
       break;
     default:
-      VELOX_UNREACHABLE(stateName(state_));
+      VELOX_UNREACHABLE(probeOperatorStateName(state_));
       break;
   }
 
@@ -806,32 +795,33 @@ bool HashProbe::needSpillInput() const {
   return !spillInputPartitionIds_.empty();
 }
 
-void HashProbe::setState(State state) {
+void HashProbe::setState(ProbeOperatorState state) {
   checkStateTransition(state);
   state_ = state;
 }
 
-void HashProbe::checkStateTransition(State state) {
+void HashProbe::checkStateTransition(ProbeOperatorState state) {
   VELOX_CHECK_NE(state_, state);
   switch (state) {
-    case State::kRunning:
+    case ProbeOperatorState::kRunning:
       if (!hasMoreSpillData()) {
-        VELOX_CHECK_EQ(state_, State::kWaitForBuild);
+        VELOX_CHECK_EQ(state_, ProbeOperatorState::kWaitForBuild);
       } else {
         VELOX_CHECK(
-            state_ == State::kWaitForBuild || state_ == State::kWaitForPeers)
+            state_ == ProbeOperatorState::kWaitForBuild ||
+            state_ == ProbeOperatorState::kWaitForPeers)
       }
       break;
-    case State::kWaitForPeers:
+    case ProbeOperatorState::kWaitForPeers:
       VELOX_CHECK(hasMoreSpillData());
       FOLLY_FALLTHROUGH;
-    case State::kWaitForBuild:
+    case ProbeOperatorState::kWaitForBuild:
       FOLLY_FALLTHROUGH;
-    case State::kFinish:
-      VELOX_CHECK_EQ(state_, State::kRunning);
+    case ProbeOperatorState::kFinish:
+      VELOX_CHECK_EQ(state_, ProbeOperatorState::kRunning);
       break;
     default:
-      VELOX_UNREACHABLE(stateName(state_));
+      VELOX_UNREACHABLE(probeOperatorStateName(state_));
       break;
   }
 }
@@ -852,7 +842,7 @@ RowVectorPtr HashProbe::getOutput() {
         prepareForSpillRestore();
         asyncWaitForHashTable();
       } else {
-        setState(State::kFinish);
+        setState(ProbeOperatorState::kFinish);
       }
       return nullptr;
     }
@@ -1374,7 +1364,7 @@ void HashProbe::noMoreInputInternal() {
           peers)) {
     if (hasSpillData) {
       VELOX_CHECK(future_.valid());
-      setState(State::kWaitForPeers);
+      setState(ProbeOperatorState::kWaitForPeers);
     }
     DCHECK(promises.empty());
     return;
@@ -1389,34 +1379,19 @@ void HashProbe::noMoreInputInternal() {
 }
 
 bool HashProbe::isFinished() {
-  return state_ == State::kFinish;
+  return state_ == ProbeOperatorState::kFinish;
 }
 
 bool HashProbe::isRunning() const {
-  return state_ == State::kRunning;
+  return state_ == ProbeOperatorState::kRunning;
 }
 
 void HashProbe::checkRunning() const {
-  VELOX_CHECK(isRunning(), stateName(state_));
+  VELOX_CHECK(isRunning(), probeOperatorStateName(state_));
 }
 
 void HashProbe::setRunning() {
-  setState(State::kRunning);
-}
-
-std::string HashProbe::stateName(State state) {
-  switch (state) {
-    case State::kWaitForBuild:
-      return "WAIT_FOR_BUILD";
-    case State::kRunning:
-      return "RUNNING";
-    case State::kWaitForPeers:
-      return "WAIT_FOR_PEERS";
-    case State::kFinish:
-      return "FINISH";
-    default:
-      return fmt::format("UNKNOWN: {}", static_cast<int>(state));
-  }
+  setState(ProbeOperatorState::kRunning);
 }
 
 } // namespace facebook::velox::exec
