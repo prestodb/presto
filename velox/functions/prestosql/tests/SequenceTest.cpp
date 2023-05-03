@@ -51,6 +51,17 @@ TEST_F(SequenceTest, sequence) {
   testExpression("sequence(C0, C1)", {startVector, stopVector}, expected);
 }
 
+TEST_F(SequenceTest, integerOverflow) {
+  // stop - start = 9223372036854775807 - (-2147483648) would overflow
+  const auto startVector = makeFlatVector<int64_t>({int64_t(-2147483648), 1});
+  const auto stopVector =
+      makeFlatVector<int64_t>({int64_t(9223372036854775807), 2});
+  testExpressionWithError(
+      "sequence(C0, C1)",
+      {startVector, stopVector},
+      "result of sequence function must not have more than 10000 entries");
+}
+
 TEST_F(SequenceTest, negative) {
   const auto startVector = makeFlatVector<int64_t>({-1, -2, -10});
   const auto stopVector = makeFlatVector<int64_t>({-2, -5, -9});

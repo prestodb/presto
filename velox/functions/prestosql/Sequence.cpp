@@ -131,7 +131,8 @@ class SequenceFunction : public exec::VectorFunction {
         step > 0 ? stop >= start : stop <= start,
         "sequence stop value should be greater than or equal to start value if "
         "step is greater than zero otherwise stop should be less than or equal to start")
-    auto sequenceCount = (stop - start) / step + 1;
+    int128_t sequenceCount =
+        ((int128_t)stop - (int128_t)start) / step + 1; // prevent overflow
     VELOX_USER_CHECK_LE(
         sequenceCount,
         kMaxResultEntries,
