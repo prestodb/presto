@@ -130,12 +130,12 @@ class HiveDataSource : public DataSource {
       const std::unordered_map<
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
-      FileHandleFactory* FOLLY_NONNULL fileHandleFactory,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool,
-      ExpressionEvaluator* FOLLY_NONNULL expressionEvaluator,
-      memory::MemoryAllocator* FOLLY_NONNULL allocator,
+      FileHandleFactory* fileHandleFactory,
+      velox::memory::MemoryPool* pool,
+      ExpressionEvaluator* expressionEvaluator,
+      memory::MemoryAllocator* allocator,
       const std::string& scanId,
-      folly::Executor* FOLLY_NULLABLE executor);
+      folly::Executor* executor);
 
   void addSplit(std::shared_ptr<ConnectorSplit> split) override;
 
@@ -237,7 +237,7 @@ class HiveDataSource : public DataSource {
   dwio::common::RuntimeStatistics runtimeStats_;
 
   FileHandleCachedPtr fileHandle_;
-  ExpressionEvaluator* FOLLY_NONNULL expressionEvaluator_;
+  ExpressionEvaluator* expressionEvaluator_;
   uint64_t completedRows_ = 0;
 
   // Reusable memory for remaining filter evaluation.
@@ -245,9 +245,9 @@ class HiveDataSource : public DataSource {
   SelectivityVector filterRows_;
   exec::FilterEvalCtx filterEvalCtx_;
 
-  memory::MemoryAllocator* const FOLLY_NONNULL allocator_;
+  memory::MemoryAllocator* const allocator_;
   const std::string& scanId_;
-  folly::Executor* FOLLY_NULLABLE executor_;
+  folly::Executor* executor_;
 };
 
 class HiveConnector : public Connector {
