@@ -985,16 +985,40 @@ TEST_F(TaskManagerTest, getResultsErrorPropagation) {
 }
 
 TEST_F(TaskManagerTest, testCumulativeMemory) {
+  auto filePaths = makeFilePaths(10);
+  auto vectors = makeVectors(10, 1'000);
+  for (int i = 0; i < 10; ++i) {
+    writeToFile(filePaths[i]->path, vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+  const protocol::TaskId taskId = "scan.0.0.0";
+  long splitSequenceId{0};
+  auto source = makeSource("0", filePaths, true, splitSequenceId);
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
                           .partitionedOutput({}, 1, {"c0", "c1"})
                           .planFragment();
-
-  const protocol::TaskId taskId = "task.0.0.1";
-  const auto taskInfo =
-      taskManager_->createOrUpdateTask(taskId, planFragment, {}, {}, {}, {});
-
-  EXPECT_GT(taskInfo->stats.cumulativeUserMemory, 0);
+  auto taskInfo = taskManager_->createOrUpdateTask(
+      taskId, planFragment, {source}, {}, {}, {});
+  std::vector<std::string> tasks;
+  tasks.emplace_back(taskInfo->taskStatus.self);
+  // Wait for the input task to produce data to cause memory allocation.
+  while (taskInfo->stats.cumulativeUserMemory == 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    auto cbState = std::make_shared<http::CallbackRequestHandlerState>();
+    taskInfo =
+        taskManager_
+            ->getTaskInfo(taskId, false, std::nullopt, std::nullopt, cbState)
+            .get();
+  }
+  ASSERT_GT(taskInfo->stats.cumulativeUserMemory, 0);
+  // Presto native doesn't differentiate user and system memory.
+  ASSERT_EQ(
+      taskInfo->stats.cumulativeTotalMemory,
+      taskInfo->stats.cumulativeUserMemory);
+  auto outputTaskInfo = createOutputTask(
+      tasks, planFragment.planNode->outputType(), splitSequenceId);
+  assertResults(outputTaskInfo->taskId, rowType_, "SELECT * FROM tmp");
 }
 
 // TODO: add disk spilling test for order by and hash join later.
