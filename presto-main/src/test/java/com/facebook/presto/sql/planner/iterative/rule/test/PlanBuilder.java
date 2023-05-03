@@ -326,6 +326,18 @@ public class PlanBuilder
         return new RemoteSourceNode(Optional.empty(), idAllocator.getNextId(), sourceFragmentIds, ImmutableList.of(), false, Optional.empty(), REPARTITION);
     }
 
+    public RemoteSourceNode remoteSource(List<PlanFragmentId> sourceFragmentIds, PlanNode statsEquivalentPlanNode)
+    {
+        return new RemoteSourceNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                Optional.of(statsEquivalentPlanNode),
+                sourceFragmentIds, ImmutableList.of(),
+                false,
+                Optional.empty(),
+                REPARTITION);
+    }
+
     public CallExpression binaryOperation(OperatorType operatorType, RowExpression left, RowExpression right)
     {
         FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()).arithmeticFunction(operatorType, left.getType(), right.getType());
