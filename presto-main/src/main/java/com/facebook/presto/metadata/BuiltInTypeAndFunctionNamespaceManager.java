@@ -59,7 +59,6 @@ import com.facebook.presto.operator.aggregation.ClassificationMissRateAggregatio
 import com.facebook.presto.operator.aggregation.ClassificationPrecisionAggregation;
 import com.facebook.presto.operator.aggregation.ClassificationRecallAggregation;
 import com.facebook.presto.operator.aggregation.ClassificationThresholdsAggregation;
-import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.DefaultApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.DoubleCorrelationAggregation;
@@ -73,7 +72,6 @@ import com.facebook.presto.operator.aggregation.IntervalDayToSecondAverageAggreg
 import com.facebook.presto.operator.aggregation.IntervalDayToSecondSumAggregation;
 import com.facebook.presto.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import com.facebook.presto.operator.aggregation.IntervalYearToMonthSumAggregation;
-import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
 import com.facebook.presto.operator.aggregation.MergeQuantileDigestFunction;
@@ -315,9 +313,15 @@ import static com.facebook.presto.operator.aggregation.AlternativeMaxAggregation
 import static com.facebook.presto.operator.aggregation.AlternativeMinAggregationFunction.ALTERNATIVE_MIN;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.IntegerApproximateCountDistinctAggregation.INTEGER_APPROXIMATE_COUNT_DISTINCT_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.IntegerDefaultApproximateCountDistinctAggregation.INTEGER_DEFAULT_APPROXIMATE_COUNT_DISTINCT_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.LongApproximateCountDistinctAggregation.LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.LongDefaultApproximateCountDistinctAggregation.LONG_DEFAULT_APPROXIMATE_COUNT_DISTINCT_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MapUnionAggregation.MAP_UNION;
 import static com.facebook.presto.operator.aggregation.MapUnionSumAggregation.MAP_UNION_SUM;
@@ -636,6 +640,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .window(NthValueFunction.class)
                 .window(LagFunction.class)
                 .window(LeadFunction.class)
+                .functions(INTEGER_APPROXIMATE_COUNT_DISTINCT_AGGREGATION, LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATION)
+                .functions(LONG_DEFAULT_APPROXIMATE_COUNT_DISTINCT_AGGREGATION, INTEGER_DEFAULT_APPROXIMATE_COUNT_DISTINCT_AGGREGATION)
+                .functions(LONG_SUM_AGGREGATION)
+                .functions(COUNT_AGGREGATION)
                 .aggregate(ApproximateCountDistinctAggregation.class)
                 .aggregate(DefaultApproximateCountDistinctAggregation.class)
                 .aggregate(SumDataSizeForStats.class)
@@ -644,7 +652,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregate(GeometryUnionAgg.class)
                 .aggregate(SpatialPartitioningAggregateFunction.class)
                 .aggregate(SpatialPartitioningInternalAggregateFunction.class)
-                .aggregates(CountAggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(CountIfAggregation.class)
@@ -652,7 +659,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(BooleanOrAggregation.class)
                 .aggregates(DoubleSumAggregation.class)
                 .aggregates(RealSumAggregation.class)
-                .aggregates(LongSumAggregation.class)
                 .aggregates(IntervalDayToSecondSumAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
                 .aggregates(AverageAggregations.class)

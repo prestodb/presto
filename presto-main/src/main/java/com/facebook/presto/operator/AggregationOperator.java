@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.SystemSessionProperties.isOptimizeAggregationParitionedRuntimeEnabled;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -103,7 +104,7 @@ public class AggregationOperator
         requireNonNull(accumulatorFactories, "accumulatorFactories is null");
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
         for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
-            builder.add(new Aggregator(accumulatorFactory, step, this::updateMemory));
+            builder.add(new Aggregator(accumulatorFactory, step, this::updateMemory, isOptimizeAggregationParitionedRuntimeEnabled(operatorContext.getSession())));
         }
         aggregates = builder.build();
     }

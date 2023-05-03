@@ -17,6 +17,9 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.PrestoException;
+
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 
 public interface GroupedAccumulator
 {
@@ -28,6 +31,11 @@ public interface GroupedAccumulator
 
     void addInput(GroupByIdBlock groupIdsBlock, Page page);
 
+    default void addBlockInput(GroupByIdBlock groupByIdBlock, Page page)
+    {
+        throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, "addBlockInput is not implemented");
+    }
+
     void addIntermediate(GroupByIdBlock groupIdsBlock, Block block);
 
     void evaluateIntermediate(int groupId, BlockBuilder output);
@@ -35,4 +43,9 @@ public interface GroupedAccumulator
     void evaluateFinal(int groupId, BlockBuilder output);
 
     void prepareFinal();
+
+    default boolean hasAddBlockInput()
+    {
+        return false;
+    }
 }

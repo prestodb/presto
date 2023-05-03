@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.airlift.stats.cardinality.HyperLogLog;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -21,7 +22,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.state.NullableLongState;
+import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
@@ -39,23 +40,25 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata;
-import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static com.facebook.presto.util.Failures.internalError;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-public class LongSumAggregation
+public class LongDefaultApproximateCountDistinctAggregation
         extends SqlAggregationFunction
 {
-    public static final LongSumAggregation LONG_SUM_AGGREGATION = new LongSumAggregation();
-    private static final String NAME = "sum";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(LongSumAggregation.class, "input", NullableLongState.class, long.class);
-    private static final MethodHandle BLOCK_INPUT_FUNCTION = methodHandle(LongSumAggregation.class, "blockInput", NullableLongState.class, Block.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(LongSumAggregation.class, "combine", NullableLongState.class, NullableLongState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(LongSumAggregation.class, "output", NullableLongState.class, BlockBuilder.class);
+    public static final double DEFAULT_STANDARD_ERROR = 0.023;
+    public static final LongDefaultApproximateCountDistinctAggregation LONG_DEFAULT_APPROXIMATE_COUNT_DISTINCT_AGGREGATION = new LongDefaultApproximateCountDistinctAggregation();
+    private static final String NAME = "approx_distinct";
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(LongDefaultApproximateCountDistinctAggregation.class, "input", HyperLogLogState.class, long.class);
+    private static final MethodHandle BLOCK_INPUT_FUNCTION = methodHandle(LongDefaultApproximateCountDistinctAggregation.class, "blockInput", HyperLogLogState.class, Block.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(LongDefaultApproximateCountDistinctAggregation.class, "combine", HyperLogLogState.class, HyperLogLogState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(LongDefaultApproximateCountDistinctAggregation.class, "output", HyperLogLogState.class, BlockBuilder.class);
 
-    public LongSumAggregation()
+    public LongDefaultApproximateCountDistinctAggregation()
     {
         super(NAME,
                 ImmutableList.of(),
@@ -66,10 +69,10 @@ public class LongSumAggregation
 
     private static BuiltInAggregationFunctionImplementation generateAggregation(Type type)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(LongSumAggregation.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(LongDefaultApproximateCountDistinctAggregation.class.getClassLoader());
 
-        AccumulatorStateSerializer<NullableLongState> stateSerializer = StateCompiler.generateStateSerializer(NullableLongState.class, classLoader);
-        AccumulatorStateFactory<NullableLongState> stateFactory = StateCompiler.generateStateFactory(NullableLongState.class, classLoader);
+        AccumulatorStateSerializer<HyperLogLogState> stateSerializer = StateCompiler.generateStateSerializer(HyperLogLogState.class, classLoader);
+        AccumulatorStateFactory<HyperLogLogState> stateFactory = StateCompiler.generateStateFactory(HyperLogLogState.class, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
 
         List<Type> inputTypes = ImmutableList.of(type);
@@ -83,7 +86,7 @@ public class LongSumAggregation
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor(
-                        NullableLongState.class,
+                        HyperLogLogState.class,
                         stateSerializer,
                         stateFactory)),
                 BIGINT);
@@ -107,72 +110,89 @@ public class LongSumAggregation
 
     private static List<ParameterMetadata> createBlockInputParameterMetadata(Type type)
     {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, type));
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type));
     }
 
-    public static void input(NullableLongState state, long value)
+    public static void input(HyperLogLogState state, long value)
     {
-        state.setNull(false);
-        state.setLong(BigintOperators.add(state.getLong(), value));
+        HyperLogLog hll = HyperLogLogUtils.getOrCreateHyperLogLog(state, DEFAULT_STANDARD_ERROR);
+        state.addMemoryUsage(-hll.estimatedInMemorySize());
+        long hash;
+        try {
+            hash = BigintOperators.xxHash64(value);
+        }
+        catch (Throwable t) {
+            throw internalError(t);
+        }
+        hll.addHash(hash);
+        state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
-    public static void blockInput(NullableLongState state, Block value)
+    public static void blockInput(HyperLogLogState state, Block value)
     {
-        long sum = 0;
-        boolean hasNonNull = false;
-        int positions = value.getPositionCount();
+        HyperLogLog hll = HyperLogLogUtils.getOrCreateHyperLogLog(state, DEFAULT_STANDARD_ERROR);
+        state.addMemoryUsage(-hll.estimatedInMemorySize());
         if (value.mayHaveNull()) {
-            int index = 0;
-            while (index < positions) {
-                while (index < positions && !value.isNull(index)) {
-                    sum += BIGINT.getLong(value, index);
-                    index++;
+            for (int i = 0; i < value.getPositionCount(); ++i) {
+                if (value.isNull(i)) {
+                    continue;
                 }
-                if (index > 0) {
-                    hasNonNull = true;
+                long hash;
+                try {
+                    hash = BigintOperators.xxHash64(BIGINT.getLong(value, i));
                 }
-                while (index < positions && value.isNull(index)) {
-                    index++;
+                catch (Throwable t) {
+                    throw internalError(t);
                 }
+                hll.addHash(hash);
             }
         }
         else {
-            hasNonNull = true;
-            for (int i = 0; i < positions; ++i) {
-                sum += BIGINT.getLong(value, i);
+            for (int i = 0; i < value.getPositionCount(); ++i) {
+                long hash;
+                try {
+                    hash = BigintOperators.xxHash64(BIGINT.getLong(value, i));
+                }
+                catch (Throwable t) {
+                    throw internalError(t);
+                }
+                hll.addHash(hash);
             }
         }
-        if (hasNonNull) {
-            state.setNull(false);
-            state.setLong(BigintOperators.add(state.getLong(), sum));
-        }
+        state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
-    public static void combine(NullableLongState state, NullableLongState otherState)
+    public static void combine(HyperLogLogState state, HyperLogLogState otherState)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(otherState.getLong());
-            return;
-        }
-
-        state.setLong(BigintOperators.add(state.getLong(), otherState.getLong()));
+        HyperLogLogUtils.mergeState(state, otherState.getHyperLogLog());
     }
 
-    public static void output(NullableLongState state, BlockBuilder out)
+    public static void output(HyperLogLogState state, BlockBuilder out)
     {
-        NullableLongState.write(BIGINT, state, out);
+        HyperLogLog hyperLogLog = state.getHyperLogLog();
+        if (hyperLogLog == null) {
+            BIGINT.writeLong(out, 0);
+        }
+        else {
+            BIGINT.writeLong(out, hyperLogLog.cardinality());
+        }
     }
 
     @Override
     public String getDescription()
     {
-        return "";
+        return "Approximate distinct count for long";
     }
 
     @Override
     public BuiltInAggregationFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         return generateAggregation(BIGINT);
+    }
+
+    @Override
+    public boolean isCalledOnNullInput()
+    {
+        return true;
     }
 }

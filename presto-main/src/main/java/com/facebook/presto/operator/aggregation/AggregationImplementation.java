@@ -35,6 +35,8 @@ import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nullable;
+
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
@@ -94,6 +96,8 @@ public class AggregationImplementation
     private final Class<?> definitionClass;
     private final Class<?> stateClass;
     private final MethodHandle inputFunction;
+    @Nullable
+    private final MethodHandle blockInputFunction;
     private final MethodHandle outputFunction;
     private final MethodHandle combineFunction;
     private final Optional<MethodHandle> stateSerializerFactory;
@@ -103,12 +107,15 @@ public class AggregationImplementation
     private final List<ImplementationDependency> outputDependencies;
     private final List<ImplementationDependency> stateSerializerFactoryDependencies;
     private final List<ParameterType> inputParameterMetadataTypes;
+    private final List<ParameterType> blockInputParameterMetadataTypes;
+    private final List<TypeSignature> blockInputArgumentTypes;
 
     public AggregationImplementation(
             Signature signature,
             Class<?> definitionClass,
             Class<?> stateClass,
             MethodHandle inputFunction,
+            MethodHandle blockInputFunction,
             MethodHandle outputFunction,
             MethodHandle combineFunction,
             Optional<MethodHandle> stateSerializerFactory,
@@ -117,12 +124,15 @@ public class AggregationImplementation
             List<ImplementationDependency> combineDependencies,
             List<ImplementationDependency> outputDependencies,
             List<ImplementationDependency> stateSerializerFactoryDependencies,
-            List<ParameterType> inputParameterMetadataTypes)
+            List<ParameterType> inputParameterMetadataTypes,
+            List<ParameterType> blockInputParameterMetadataTypes,
+            List<TypeSignature> blockInputArgumentTypes)
     {
         this.signature = requireNonNull(signature, "signature cannot be null");
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
         this.stateClass = requireNonNull(stateClass, "stateClass cannot be null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction cannot be null");
+        this.blockInputFunction = blockInputFunction;
         this.outputFunction = requireNonNull(outputFunction, "outputFunction cannot be null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction cannot be null");
         this.stateSerializerFactory = requireNonNull(stateSerializerFactory, "stateSerializerFactory cannot be null");
@@ -132,6 +142,8 @@ public class AggregationImplementation
         this.combineDependencies = requireNonNull(combineDependencies, "combineDependencies cannot be null");
         this.stateSerializerFactoryDependencies = requireNonNull(stateSerializerFactoryDependencies, "stateSerializerFactoryDependencies cannot be null");
         this.inputParameterMetadataTypes = requireNonNull(inputParameterMetadataTypes, "inputParameterMetadataTypes cannot be null");
+        this.blockInputParameterMetadataTypes = requireNonNull(blockInputParameterMetadataTypes, "blockInputParameterMetadataTypes cannot be null");
+        this.blockInputArgumentTypes = requireNonNull(blockInputArgumentTypes, "blockInputArgumentTypes cannot be null");
     }
 
     @Override
@@ -159,6 +171,12 @@ public class AggregationImplementation
     public MethodHandle getInputFunction()
     {
         return inputFunction;
+    }
+
+    @Nullable
+    public MethodHandle getBlockInputFunction()
+    {
+        return blockInputFunction;
     }
 
     public MethodHandle getOutputFunction()
@@ -201,6 +219,16 @@ public class AggregationImplementation
         return inputParameterMetadataTypes;
     }
 
+    public List<ParameterType> getBlockInputParameterMetadataTypes()
+    {
+        return blockInputParameterMetadataTypes;
+    }
+
+    public List<TypeSignature> getBlockInputArgumentTypes()
+    {
+        return blockInputArgumentTypes;
+    }
+
     public boolean areTypesAssignable(Signature boundSignature, BoundVariables variables, TypeManager typeManager)
     {
         checkState(argumentNativeContainerTypes.size() == boundSignature.getArgumentTypes().size(), "Number of argument assigned to AggregationImplementation is different than number parsed from annotations.");
@@ -228,6 +256,8 @@ public class AggregationImplementation
         private final Class<?> aggregationDefinition;
         private final Class<?> stateClass;
         private final MethodHandle inputHandle;
+        @Nullable
+        private final MethodHandle blockInputHandle;
         private final MethodHandle outputHandle;
         private final MethodHandle combineHandle;
         private final Optional<MethodHandle> stateSerializerFactoryHandle;
@@ -237,10 +267,12 @@ public class AggregationImplementation
         private final List<ImplementationDependency> outputDependencies;
         private final List<ImplementationDependency> stateSerializerFactoryDependencies;
         private final List<ParameterType> parameterMetadataTypes;
+        private final List<ParameterType> blockInputParameterMetadataTypes;
 
         private final List<LongVariableConstraint> longVariableConstraints;
         private final List<TypeVariableConstraint> typeVariableConstraints;
         private final List<TypeSignature> inputTypes;
+        private final List<TypeSignature> blockInputTypes;
         private final TypeSignature returnType;
 
         private final AggregationHeader header;
@@ -252,6 +284,7 @@ public class AggregationImplementation
                 AggregationHeader header,
                 Class<?> stateClass,
                 Method inputFunction,
+                Method blockInputFunction,
                 Method outputFunction,
                 Method combineFunction,
                 Optional<Method> stateSerializerFactoryFunction)
@@ -274,6 +307,12 @@ public class AggregationImplementation
 
             // parse metadata types
             parameterMetadataTypes = parseParameterMetadataTypes(inputFunction);
+            if (blockInputFunction != null) {
+                blockInputParameterMetadataTypes = parseParameterMetadataTypes(blockInputFunction);
+            }
+            else {
+                blockInputParameterMetadataTypes = ImmutableList.of();
+            }
 
             // parse constraints
             longVariableConstraints = FunctionsParserHelper.parseLongVariableConstraints(inputFunction);
@@ -288,6 +327,12 @@ public class AggregationImplementation
 
             // determine TypeSignatures of function declaration
             inputTypes = getInputTypesSignatures(inputFunction);
+            if (blockInputFunction != null) {
+                blockInputTypes = getInputTypesSignatures(blockInputFunction);
+            }
+            else {
+                blockInputTypes = ImmutableList.of();
+            }
             returnType = parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value(), literalParameters);
 
             // unreflect methods for further use
@@ -299,6 +344,12 @@ public class AggregationImplementation
             }
 
             inputHandle = methodHandle(inputFunction);
+            if (blockInputFunction != null) {
+                blockInputHandle = methodHandle(blockInputFunction);
+            }
+            else {
+                blockInputHandle = null;
+            }
             combineHandle = methodHandle(combineFunction);
             outputHandle = methodHandle(outputFunction);
         }
@@ -318,6 +369,7 @@ public class AggregationImplementation
                     aggregationDefinition,
                     stateClass,
                     inputHandle,
+                    blockInputHandle,
                     outputHandle,
                     combineHandle,
                     stateSerializerFactoryHandle,
@@ -326,7 +378,9 @@ public class AggregationImplementation
                     combineDependencies,
                     outputDependencies,
                     stateSerializerFactoryDependencies,
-                    parameterMetadataTypes);
+                    parameterMetadataTypes,
+                    blockInputParameterMetadataTypes,
+                    blockInputTypes);
         }
 
         public static AggregationImplementation parseImplementation(
@@ -334,11 +388,12 @@ public class AggregationImplementation
                 AggregationHeader header,
                 Class<?> stateClass,
                 Method inputFunction,
+                Method blockInputFunction,
                 Method outputFunction,
                 Method combineFunction,
                 Optional<Method> stateSerializerFactoryFunction)
         {
-            return new Parser(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, stateSerializerFactoryFunction).get();
+            return new Parser(aggregationDefinition, header, stateClass, inputFunction, blockInputFunction, outputFunction, combineFunction, stateSerializerFactoryFunction).get();
         }
 
         private static List<ParameterType> parseParameterMetadataTypes(Method method)

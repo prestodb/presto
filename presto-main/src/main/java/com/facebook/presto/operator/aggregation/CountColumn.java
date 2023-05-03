@@ -51,6 +51,7 @@ public class CountColumn
     public static final CountColumn COUNT_COLUMN = new CountColumn();
     private static final String NAME = "count";
     private static final MethodHandle INPUT_FUNCTION = methodHandle(CountColumn.class, "input", LongState.class, Block.class, int.class);
+    private static final MethodHandle BLOCK_INPUT_FUNCTION = methodHandle(CountColumn.class, "blockInput", LongState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(CountColumn.class, "combine", LongState.class, LongState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(CountColumn.class, "output", LongState.class, BlockBuilder.class);
 
@@ -89,7 +90,9 @@ public class CountColumn
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, BIGINT.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(type),
+                createBlockInputParameterMetadata(type),
                 INPUT_FUNCTION,
+                BLOCK_INPUT_FUNCTION,
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor(
@@ -115,9 +118,30 @@ public class CountColumn
         return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
     }
 
+    private static List<ParameterMetadata> createBlockInputParameterMetadata(Type type)
+    {
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
+    }
+
     public static void input(LongState state, Block block, int index)
     {
         state.setLong(state.getLong() + 1);
+    }
+
+    public static void blockInput(LongState state, Block block, int index)
+    {
+        if (block.mayHaveNull()) {
+            long count = 0;
+            for (int i = 0; i < block.getPositionCount(); ++i) {
+                if (!block.isNull(i)) {
+                    count += 1;
+                }
+            }
+            state.setLong(state.getLong() + count);
+        }
+        else {
+            state.setLong(state.getLong() + block.getPositionCount());
+        }
     }
 
     public static void combine(LongState state, LongState otherState)

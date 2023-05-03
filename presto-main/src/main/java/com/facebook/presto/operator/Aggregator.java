@@ -27,8 +27,9 @@ class Aggregator
     private final Accumulator aggregation;
     private final AggregationNode.Step step;
     private final int intermediateChannel;
+    private final boolean optimizeSingleGroupInputPage;
 
-    Aggregator(AccumulatorFactory accumulatorFactory, AggregationNode.Step step, UpdateMemory updateMemory)
+    Aggregator(AccumulatorFactory accumulatorFactory, AggregationNode.Step step, UpdateMemory updateMemory, boolean optimizeSingleGroupInputPage)
     {
         if (step.isInputRaw()) {
             intermediateChannel = -1;
@@ -40,6 +41,7 @@ class Aggregator
             aggregation = accumulatorFactory.createIntermediateAccumulator();
         }
         this.step = step;
+        this.optimizeSingleGroupInputPage = optimizeSingleGroupInputPage;
     }
 
     public Type getType()
@@ -55,7 +57,12 @@ class Aggregator
     public void processPage(Page page)
     {
         if (step.isInputRaw()) {
-            aggregation.addInput(page);
+            if (aggregation.hasAddBlockInput() && optimizeSingleGroupInputPage) {
+                aggregation.addBlockInput(page);
+            }
+            else {
+                aggregation.addInput(page);
+            }
         }
         else {
             aggregation.addIntermediate(page.getBlock(intermediateChannel));
