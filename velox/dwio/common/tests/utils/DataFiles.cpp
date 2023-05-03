@@ -15,22 +15,16 @@
  */
 
 #include "velox/dwio/common/tests/utils/DataFiles.h"
+#include <boost/algorithm/string.hpp>
 #include "velox/common/base/Fs.h"
 
 namespace facebook::velox::test {
-
-namespace {
-bool endsWith(const std::string& s, const std::string& suffix) {
-  return s.length() >= suffix.length() &&
-      s.compare(s.length() - suffix.length(), suffix.length(), suffix) == 0;
-}
-} // namespace
 
 std::string getDataFilePath(
     const std::string& baseDir,
     const std::string& filePath) {
   std::string current_path = fs::current_path().c_str();
-  if (endsWith(current_path, "fbcode")) {
+  if (boost::algorithm::ends_with(current_path, "fbcode")) {
     return current_path + "/" + baseDir + "/" + filePath;
   }
   return current_path + "/" + filePath;
