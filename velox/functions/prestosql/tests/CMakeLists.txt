@@ -60,6 +60,7 @@ add_executable(
   MapTest.cpp
   MapZipWithTest.cpp
   NotTest.cpp
+  ProbabilityTest.cpp
   RandTest.cpp
   ReduceTest.cpp
   RegexpReplaceTest.cpp
