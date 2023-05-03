@@ -932,7 +932,7 @@ VectorPtr testVariadicArgReuse(
   // especially since it requires the caller to register the function as well,
   // but it should be easier to maintain.
   auto function =
-      exec::SimpleFunctions()
+      exec::simpleFunctions()
           .resolveFunction(functionName, {})
           ->createFunction()
           ->createVectorFunction(execCtx->queryCtx()->queryConfig(), {});

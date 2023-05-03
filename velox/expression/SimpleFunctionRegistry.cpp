@@ -17,10 +17,20 @@
 #include "velox/expression/SimpleFunctionRegistry.h"
 
 namespace facebook::velox::exec {
+namespace {
 
-SimpleFunctionRegistry& SimpleFunctions() {
+SimpleFunctionRegistry& simpleFunctionsInternal() {
   static SimpleFunctionRegistry instance;
   return instance;
+}
+} // namespace
+
+const SimpleFunctionRegistry& simpleFunctions() {
+  return simpleFunctionsInternal();
+}
+
+SimpleFunctionRegistry& mutableSimpleFunctions() {
+  return simpleFunctionsInternal();
 }
 
 } // namespace facebook::velox::exec

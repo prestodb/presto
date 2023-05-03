@@ -156,7 +156,7 @@ bool isDeterministic(
 
   // Check if this is a simple function.
   if (auto simpleFunctionEntry =
-          exec::SimpleFunctions().resolveFunction(functionName, argTypes)) {
+          exec::simpleFunctions().resolveFunction(functionName, argTypes)) {
     return simpleFunctionEntry->getMetadata().isDeterministic();
   }
 

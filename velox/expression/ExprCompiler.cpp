@@ -401,7 +401,7 @@ ExprPtr compileExpression(
           trackCpuUsage);
     } else if (
         auto simpleFunctionEntry =
-            SimpleFunctions().resolveFunction(call->name(), inputTypes)) {
+            simpleFunctions().resolveFunction(call->name(), inputTypes)) {
       VELOX_USER_CHECK(
           resultType->equivalent(*simpleFunctionEntry->type().get()),
           "Found incompatible return types for '{}' ({} vs. {}) "
@@ -422,7 +422,7 @@ ExprPtr compileExpression(
       const auto& functionName = call->name();
       auto vectorFunctionSignatures = getVectorFunctionSignatures(functionName);
       auto simpleFunctionSignatures =
-          SimpleFunctions().getFunctionSignatures(functionName);
+          simpleFunctions().getFunctionSignatures(functionName);
       std::vector<std::string> signatures;
 
       if (vectorFunctionSignatures.has_value()) {

@@ -28,12 +28,13 @@ using SimpleFunctionRegistry = exec::FunctionRegistry<
     SimpleFunctionAdapterFactory,
     core::ISimpleFunctionMetadata>;
 
-SimpleFunctionRegistry& SimpleFunctions();
+const SimpleFunctionRegistry& simpleFunctions();
+SimpleFunctionRegistry& mutableSimpleFunctions();
 
 // This function should be called once and alone.
 template <typename UDFHolder>
 void registerSimpleFunction(const std::vector<std::string>& names) {
-  SimpleFunctions()
+  mutableSimpleFunctions()
       .registerFunction<SimpleFunctionAdapterFactoryImpl<UDFHolder>>(names);
 }
 

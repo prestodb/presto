@@ -27,24 +27,24 @@ class ScalarFunctionRegTest : public testing::Test {};
 TEST_F(ScalarFunctionRegTest, prefix) {
   // Remove all functions and check for no entries.
   exec::vectorFunctionFactories().wlock()->clear();
-  exec::SimpleFunctions().testingClear();
+  exec::mutableSimpleFunctions().testingClear();
   EXPECT_EQ(0, exec::vectorFunctionFactories().rlock()->size());
-  EXPECT_EQ(0, exec::SimpleFunctions().getFunctionNames().size());
+  EXPECT_EQ(0, exec::simpleFunctions().getFunctionNames().size());
 
   // Register without prefix and memorize function maps.
   prestosql::registerAllScalarFunctions();
   const std::unordered_map<std::string, exec::VectorFunctionEntry>
       scalarVectorFuncMapBase = *(exec::vectorFunctionFactories().rlock());
   std::unordered_set<std::string> scalarSimpleFuncBaseNames;
-  for (const auto& funcName : exec::SimpleFunctions().getFunctionNames()) {
+  for (const auto& funcName : exec::simpleFunctions().getFunctionNames()) {
     scalarSimpleFuncBaseNames.insert(funcName);
   }
 
   // Remove all functions and check for no entries.
   exec::vectorFunctionFactories().wlock()->clear();
-  exec::SimpleFunctions().testingClear();
+  exec::mutableSimpleFunctions().testingClear();
   EXPECT_EQ(0, exec::vectorFunctionFactories().rlock()->size());
-  EXPECT_EQ(0, exec::SimpleFunctions().getFunctionNames().size());
+  EXPECT_EQ(0, exec::simpleFunctions().getFunctionNames().size());
 
   // Register with prefix and check all functions have the prefix.
   const std::string prefix{"test.abc_schema."};
@@ -62,7 +62,7 @@ TEST_F(ScalarFunctionRegTest, prefix) {
     EXPECT_EQ(
         1, scalarVectorFuncMapBase.count(entry.first.substr(prefix.size())));
   }
-  for (const auto& funcName : exec::SimpleFunctions().getFunctionNames()) {
+  for (const auto& funcName : exec::simpleFunctions().getFunctionNames()) {
     EXPECT_EQ(prefix, funcName.substr(0, prefix.size()));
     EXPECT_EQ(
         1, scalarSimpleFuncBaseNames.count(funcName.substr(prefix.size())));

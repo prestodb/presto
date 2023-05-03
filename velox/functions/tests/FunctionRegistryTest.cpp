@@ -442,7 +442,7 @@ TEST_F(FunctionRegistryTest, registerFunctionTwice) {
   registerFunction<FuncOne, Varchar, Varchar>({"func_one"});
   registerFunction<FuncOne, Varchar, Varchar>({"func_one"});
 
-  auto& simpleFunctions = exec::SimpleFunctions();
+  auto& simpleFunctions = exec::simpleFunctions();
   auto signatures = simpleFunctions.getFunctionSignatures("func_one");
   // The function should only be registered once, despite the multiple calls to
   // registerFunction.

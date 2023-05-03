@@ -247,7 +247,7 @@ TEST_F(FunctionResolutionTest, testGenericOutputTypeResolution) {
   registerFunction<Func1, int64_t, Map<int32_t, int32_t>>({"test_generic_out"});
 
   auto test = [&](const TypePtr& expected, const TypePtr& inputType) {
-    auto type = exec::SimpleFunctions()
+    auto type = exec::simpleFunctions()
                     .resolveFunction("test_generic_out", {inputType})
                     ->type();
     EXPECT_TRUE(type->equivalent(*expected));
@@ -281,7 +281,7 @@ TEST_F(FunctionResolutionTest, resolveCustomTypeHyperLogLog) {
   registerFunction<FuncHyperLogLog, HyperLogLog>({"f_hyper_log_log"});
 
   auto type =
-      exec::SimpleFunctions().resolveFunction("f_hyper_log_log", {})->type();
+      exec::simpleFunctions().resolveFunction("f_hyper_log_log", {})->type();
   EXPECT_EQ(type->toString(), HYPERLOGLOG()->toString());
 }
 
@@ -296,7 +296,7 @@ struct FuncJson {
 TEST_F(FunctionResolutionTest, resolveCustomTypeJson) {
   registerFunction<FuncJson, Json>({"f_json"});
 
-  auto type = exec::SimpleFunctions().resolveFunction("f_json", {})->type();
+  auto type = exec::simpleFunctions().resolveFunction("f_json", {})->type();
   EXPECT_EQ(type->toString(), JSON()->toString());
 }
 
@@ -313,7 +313,7 @@ TEST_F(FunctionResolutionTest, resolveCustomTypeTimestampWithTimeZone) {
       {"f_timestampzone"});
 
   auto type =
-      exec::SimpleFunctions().resolveFunction("f_timestampzone", {})->type();
+      exec::simpleFunctions().resolveFunction("f_timestampzone", {})->type();
   EXPECT_EQ(type->toString(), TIMESTAMP_WITH_TIME_ZONE()->toString());
 }
 } // namespace
