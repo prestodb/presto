@@ -137,12 +137,17 @@ VectorPtr BaseVector::wrapInDictionary(
     if (size == vector->size()) {
       return vector;
     }
-    return BaseVector::wrapInConstant(size, 0, vector);
+    return BaseVector::wrapInConstant(size, 0, std::move(vector));
   }
 
   auto kind = vector->typeKind();
   return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
-      addDictionary, kind, nulls, indices, size, std::move(vector));
+      addDictionary,
+      kind,
+      std::move(nulls),
+      std::move(indices),
+      size,
+      std::move(vector));
 }
 
 template <TypeKind kind>
@@ -175,7 +180,7 @@ VectorPtr BaseVector::wrapInSequence(
     VectorPtr vector) {
   auto kind = vector->typeKind();
   return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
-      addSequence, kind, lengths, size, std::move(vector));
+      addSequence, kind, std::move(lengths), size, std::move(vector));
 }
 
 template <TypeKind kind>
@@ -645,7 +650,7 @@ VectorPtr BaseVector::transpose(BufferPtr indices, VectorPtr&& source) {
       BufferPtr(nullptr),
       indices,
       indices->size() / sizeof(vector_size_t),
-      source);
+      std::move(source));
 }
 
 bool isLazyNotLoaded(const BaseVector& vector) {
