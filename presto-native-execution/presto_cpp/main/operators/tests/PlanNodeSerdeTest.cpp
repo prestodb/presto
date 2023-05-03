@@ -19,6 +19,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/HashPartitionFunction.h"
+#include "velox/exec/PartitionFunction.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -103,7 +104,7 @@ class PlanNodeSerdeTest : public testing::Test,
     Type::registerSerDe();
     core::PlanNode::registerSerDe();
     core::ITypedExpr::registerSerDe();
-    PlanBuilder::registerSerDe();
+    exec::registerPartitionFunctionSerDe();
 
     data_ = {makeRowVector({
         makeFlatVector<int64_t>({1, 2, 3}),
