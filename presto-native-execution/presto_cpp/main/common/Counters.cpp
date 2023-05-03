@@ -161,27 +161,37 @@ void registerPrestoCppCounters() {
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSsdCacheCumulativeReadEntries, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterSsdCacheReadEntries, facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSsdCacheCumulativeReadBytes, facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterSsdCacheReadBytes, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSsdCacheCumulativeWrittenEntries, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterSsdCacheWrittenEntries, facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSsdCacheCumulativeWrittenBytes, facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterSsdCacheWrittenBytes, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSsdCacheCumulativeCachedEntries, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterSsdCacheCachedEntries, facebook::velox::StatType::AVG);
-  REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterSsdCacheCumulativeCachedBytes, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
-      kCounterSsdCacheCachedBytes, facebook::velox::StatType::AVG);
+      kCounterSsdCacheCumulativeOpenSsdErrors, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSsdCacheCumulativeOpenCheckpointErrors,
+      facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSsdCacheCumulativeOpenLogErrors, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSsdCacheCumulativeDeleteCheckpointErrors,
+      facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSsdCacheCumulativeGrowFileErrors, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSsdCacheCumulativeWriteSsdErrors, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSsdCacheCumulativeWriteCheckpointErrors,
+      facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSsdCacheCumulativeReadSsdErrors, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterSsdCacheCumulativeReadCheckpointErrors,
+      facebook::velox::StatType::AVG);
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters
   // have their type exported there:
