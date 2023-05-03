@@ -21,9 +21,9 @@ import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.facebook.presto.tests.statistics.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -42,7 +42,8 @@ public class TestPrestoSparkHistoryBasedTracking
         extends AbstractTestQueryFramework
 {
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         PrestoSparkQueryRunner queryRunner = createHivePrestoSparkQueryRunner(ImmutableList.of(NATION, ORDERS));
         queryRunner.installPlugin(new Plugin()
