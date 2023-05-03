@@ -519,7 +519,6 @@ struct UnsafeRowPrimitiveBatchDeserializer {
    */
   template <typename T>
   static T deserializeFixedWidth(std::string_view data) {
-    assert(std::is_fundamental_v<T>);
     return reinterpret_cast<const T*>(data.data())[0];
   }
 

@@ -209,3 +209,11 @@ TEST_F(UnsafeRowSerializerTest, types) {
   auto data = fuzzer.fuzzRow(rowType);
   testRoundTrip(data);
 }
+
+TEST_F(UnsafeRowSerializerTest, date) {
+  auto rowVector = makeRowVector({
+      makeFlatVector<Date>({Date(0), Date(1)}),
+  });
+
+  testRoundTrip(rowVector);
+}
