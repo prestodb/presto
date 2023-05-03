@@ -106,6 +106,18 @@ public class HistoryBasedPlanStatisticsCalculator
         return planCanonicalInfoProvider;
     }
 
+    @VisibleForTesting
+    public StatsCalculator getDelegate()
+    {
+        return delegate;
+    }
+
+    @VisibleForTesting
+    public Supplier<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProvider()
+    {
+        return historyBasedPlanStatisticsProvider;
+    }
+
     private Map<PlanCanonicalizationStrategy, PlanNodeWithHash> getPlanNodeHashes(PlanNode plan, Session session)
     {
         if (!useHistoryBasedPlanStatisticsEnabled(session) || !plan.getStatsEquivalentPlanNode().isPresent()) {
