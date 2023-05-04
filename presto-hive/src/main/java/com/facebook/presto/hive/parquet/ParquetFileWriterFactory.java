@@ -22,6 +22,7 @@ import com.facebook.presto.hive.HiveFileWriter;
 import com.facebook.presto.hive.HiveFileWriterFactory;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.parquet.writer.ParquetSchemaConverter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -123,11 +124,17 @@ public class ParquetFileWriterFactory
                 return null;
             };
 
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                    fileColumnTypes,
+                    fileColumnNames);
+
             return Optional.of(new ParquetFileWriter(
                     fileSystem.create(path),
                     rollbackAction,
                     fileColumnNames,
                     fileColumnTypes,
+                    schemaConverter.getMessageType(),
+                    schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     fileInputColumnIndexes,
                     compressionCodecName));
