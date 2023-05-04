@@ -1732,7 +1732,9 @@ TEST_F(TableScanTest, bucket) {
   for (int i = 0; i < buckets.size(); ++i) {
     int bucketValue = buckets[i];
     auto connectorSplit = splits[i];
-    auto hsplit = std::dynamic_pointer_cast<HiveConnectorSplit>(connectorSplit);
+    auto hsplit = HiveConnectorSplitBuilder(filePaths[i]->path)
+                      .tableBucketNumber(bucketValue)
+                      .build();
     tableHandle = makeTableHandle();
 
     // Filter on bucket and filter on first column should produce
@@ -1748,6 +1750,9 @@ TEST_F(TableScanTest, bucket) {
 
     // Filter on bucket column, but don't project it out
     auto rowTypes = ROW({"c0", "c1"}, {INTEGER(), BIGINT()});
+    hsplit = HiveConnectorSplitBuilder(filePaths[i]->path)
+                 .tableBucketNumber(bucketValue)
+                 .build();
     op = PlanBuilder().tableScan(rowTypes, tableHandle, assignments).planNode();
     assertQuery(
         op,

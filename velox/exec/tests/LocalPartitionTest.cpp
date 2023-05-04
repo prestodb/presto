@@ -260,24 +260,26 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
                 .partialAggregation({"c0"}, {"count(1)"})
                 .planNode();
 
-  AssertQueryBuilder queryBuilder(op, duckDbQueryRunner_);
-  queryBuilder.maxDrivers(2);
-  for (auto i = 0; i < filePaths.size(); ++i) {
-    queryBuilder.split(
-        scanNodeIds[i % 3], makeHiveConnectorSplit(filePaths[i]->path));
-  }
+  auto makeQueryBuilder = [&](const char* bufferSize) {
+    AssertQueryBuilder queryBuilder(op, duckDbQueryRunner_);
+    queryBuilder.maxDrivers(2);
+    for (auto i = 0; i < filePaths.size(); ++i) {
+      queryBuilder.split(
+          scanNodeIds[i % 3], makeHiveConnectorSplit(filePaths[i]->path));
+    }
+    queryBuilder.config(
+        core::QueryConfig::kMaxLocalExchangeBufferSize, bufferSize);
+    return queryBuilder;
+  };
 
   // Set an artificially low buffer size limit to trigger blocking behavior.
-  queryBuilder.config(core::QueryConfig::kMaxLocalExchangeBufferSize, "100");
-
-  auto task =
-      queryBuilder.assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
+  auto task = makeQueryBuilder("100").assertResults(
+      "SELECT c0, count(1) FROM tmp GROUP BY 1");
   verifyExchangeSourceOperatorStats(task, 2100, 42);
 
   // Re-run with higher memory limit (enough to hold ~10 vectors at a time).
-  queryBuilder.config(core::QueryConfig::kMaxLocalExchangeBufferSize, "10240");
-
-  task = queryBuilder.assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
+  task = makeQueryBuilder("10240").assertResults(
+      "SELECT c0, count(1) FROM tmp GROUP BY 1");
   verifyExchangeSourceOperatorStats(task, 2100, 42);
 }
 

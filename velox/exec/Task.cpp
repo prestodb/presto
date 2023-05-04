@@ -966,12 +966,7 @@ std::unique_ptr<ContinuePromise> Task::addSplitLocked(
   ++taskStats_.numTotalSplits;
   ++taskStats_.numQueuedSplits;
 
-  if (split.connectorSplit) {
-    // Tests may use the same splits list many times. Make sure there
-    // is no async load pending on any, if, for example, a test did
-    // not process all its splits.
-    split.connectorSplit->dataSource.reset();
-  }
+  VELOX_CHECK_NULL(split.connectorSplit->dataSource);
 
   if (!split.hasGroup()) {
     return addSplitToStoreLocked(
