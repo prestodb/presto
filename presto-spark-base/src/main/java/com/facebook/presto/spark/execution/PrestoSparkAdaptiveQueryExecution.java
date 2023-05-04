@@ -345,7 +345,7 @@ public class PrestoSparkAdaptiveQueryExecution
 
         setFinalFragmentedPlan(finalFragment);
 
-        return executeFinalFragment(session, finalFragment, tableWriteInfo);
+        return executeFinalFragment(finalFragment, tableWriteInfo);
     }
 
     private static Set<PlanFragmentId> getRootChildNodeFragmentIDs(PlanNode rootPlanNode)
@@ -383,10 +383,7 @@ public class PrestoSparkAdaptiveQueryExecution
     /**
      * Execute the final fragment of the plan and collect the result.
      */
-    private List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> executeFinalFragment(Session session,
-            SubPlan finalFragment,
-            TableWriteInfo tableWriteInfo
-    )
+    private List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> executeFinalFragment(SubPlan finalFragment, TableWriteInfo tableWriteInfo)
             throws SparkException, TimeoutException
     {
         if (finalFragment.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION)) {
