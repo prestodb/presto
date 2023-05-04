@@ -689,7 +689,7 @@ void PrestoServer::populateMemAndCPUInfo() {
   // TODO(sperhsin): If 'current bytes' is the same as we get by summing up all
   // child contexts below, then use the one we sum up, rather than call
   // 'getCurrentBytes'.
-  poolInfo.reservedBytes = pool->getCurrentBytes();
+  poolInfo.reservedBytes = pool->currentBytes();
   poolInfo.reservedRevocableBytes = 0;
 
   // Fill basic per-query fields.
@@ -697,7 +697,7 @@ void PrestoServer::populateMemAndCPUInfo() {
   size_t numContexts{0};
   queryCtxMgr->visitAllContexts([&](const protocol::QueryId& queryId,
                                     const velox::core::QueryCtx* queryCtx) {
-    const protocol::Long bytes = queryCtx->pool()->getCurrentBytes();
+    const protocol::Long bytes = queryCtx->pool()->currentBytes();
     poolInfo.queryMemoryReservations.insert({queryId, bytes});
     // TODO(spershin): Might want to see what Java exports and export similar
     // info (like child memory pools).
@@ -796,7 +796,7 @@ void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
       (int)std::thread::hardware_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
-      taskResource_->getPool()->getCurrentBytes(),
+      taskResource_->getPool()->currentBytes(),
       nodeMemoryGb * 1024 * 1024 * 1024,
       nonHeapUsed};
 
