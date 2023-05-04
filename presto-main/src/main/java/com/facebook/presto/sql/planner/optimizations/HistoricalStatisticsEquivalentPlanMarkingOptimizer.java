@@ -60,7 +60,7 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         if ((!useHistoryBasedPlanStatisticsEnabled(session) && !trackHistoryBasedPlanStatisticsEnabled(session))
-                || (!isPlanAnalyticsEnabled(session))) {
+                && (!isPlanAnalyticsEnabled(session))) {
             return plan;
         }
 

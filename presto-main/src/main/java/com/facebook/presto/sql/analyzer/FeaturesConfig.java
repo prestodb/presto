@@ -88,7 +88,7 @@ public class FeaturesConfig
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private int maxReorderedJoins = 9;
 
-    private boolean planAnalyticsEnabled = true;
+    private boolean planAnalyticsEnabled;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
     private boolean usePerfectlyConsistentHistories;

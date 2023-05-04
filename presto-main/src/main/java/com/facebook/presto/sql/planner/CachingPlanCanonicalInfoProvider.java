@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -88,7 +89,7 @@ public class CachingPlanCanonicalInfoProvider
                                     Optional.empty()),
                             ImmutableList.copyOf(table.getAssignments().values()),
                             new Constraint<>(table.getCurrentConstraint())))
-                    .map(tableStatistics -> new PlanStatistics(tableStatistics.getRowCount(), tableStatistics.getTotalSize(), 1))
+                    .map(tableStatistics -> new PlanStatistics(tableStatistics.getRowCount(), tableStatistics.getTotalSize(), 1, Estimate.unknown()))
                     .collect(toImmutableList());
             cache.put(new CacheKey(plan, key.getStrategy()), new PlanNodeCanonicalInfo(hashValue, inputTableStatistics));
         });

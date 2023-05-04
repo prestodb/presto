@@ -106,6 +106,12 @@ public class TestHiveCanonicalPlanGenerator
                     pushdownFilterEnabled(),
                     "SELECT orderkey from test_orders where ds = '2020-09-01' AND orderkey < 10",
                     "SELECT orderkey from test_orders where ds = '2020-09-02' AND orderkey < 20",
+                    CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+
+            assertDifferentCanonicalLeafPlan(
+                    pushdownFilterEnabled(),
+                    "SELECT orderkey from test_orders where ds = '2020-09-01' AND orderkey < 10",
+                    "SELECT orderkey from test_orders where ds = '2020-09-02' AND orderkey < 20",
                     REMOVE_SAFE_CONSTANTS);
 
             assertSameCanonicalLeafPlan(

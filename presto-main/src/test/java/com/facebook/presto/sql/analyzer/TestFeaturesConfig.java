@@ -225,7 +225,8 @@ public class TestFeaturesConfig
                 .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(true)
                 .setMergeDuplicateAggregationsEnabled(true)
                 .setMergeAggregationsWithAndWithoutFilter(false)
-                .setSimplifyPlanWithEmptyInput(true));
+                .setSimplifyPlanWithEmptyInput(true)
+                .setPlanAnalyticsEnabled(false));
     }
 
     @Test
@@ -401,6 +402,7 @@ public class TestFeaturesConfig
                 .put("optimizer.merge-duplicate-aggregations", "false")
                 .put("optimizer.merge-aggregations-with-and-without-filter", "true")
                 .put("optimizer.simplify-plan-with-empty-input", "false")
+                .put("optimizer.plan_analytics_enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -573,7 +575,8 @@ public class TestFeaturesConfig
                 .setUseDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(false)
                 .setMergeDuplicateAggregationsEnabled(false)
                 .setMergeAggregationsWithAndWithoutFilter(true)
-                .setSimplifyPlanWithEmptyInput(false);
+                .setSimplifyPlanWithEmptyInput(false)
+                .setPlanAnalyticsEnabled(true);
         assertFullMapping(properties, expected);
     }
 

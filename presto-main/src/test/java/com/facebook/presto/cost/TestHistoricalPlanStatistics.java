@@ -82,7 +82,7 @@ public class TestHistoricalPlanStatistics
 
     private PlanStatistics stats(double rows, double size)
     {
-        return new PlanStatistics(Estimate.of(rows), Estimate.of(size), 1);
+        return new PlanStatistics(Estimate.of(rows), Estimate.of(size), 1, Estimate.unknown());
     }
 
     private static HistoricalPlanStatistics updatePlanStatistics(
