@@ -101,6 +101,10 @@ class PrestoServer {
 
   virtual void registerCustomOperators();
 
+  virtual void registerFunctions();
+
+  virtual void registerRemoteFunctions();
+
   virtual void registerVectorSerdes();
 
   virtual void registerFileSystems();
