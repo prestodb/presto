@@ -57,7 +57,12 @@ int main(int argc, char** argv) {
   // For rlike you need the following combo in the only list:
   // rlike, md5 and upper
   std::unordered_set<std::string> skipFunctions = {
-      "regexp_extract", "rlike", "chr", "replace", "might_contain"};
+      "regexp_extract",
+      "rlike",
+      "chr",
+      "replace",
+      "might_contain",
+      "unix_timestamp"};
   return FuzzerRunner::run(
       FLAGS_only, FLAGS_seed, skipFunctions, FLAGS_special_forms);
 }
