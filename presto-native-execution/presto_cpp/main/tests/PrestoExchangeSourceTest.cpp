@@ -612,8 +612,7 @@ TEST_P(PrestoExchangeSourceTestSuite, failedProducer) {
 TEST_P(PrestoExchangeSourceTestSuite, exceedingMemoryCapacityForHttpResponse) {
   const int64_t memoryCapBytes = 1 << 10;
   const bool useHttps = GetParam();
-  auto rootPool = defaultMemoryManager().addRootPool(
-      "httpResponseAllocationFailure", memoryCapBytes);
+  auto rootPool = defaultMemoryManager().addRootPool("", memoryCapBytes);
   auto leafPool =
       rootPool->addLeafChild("exceedingMemoryCapacityForHttpResponse");
 
@@ -650,8 +649,7 @@ TEST_P(PrestoExchangeSourceTestSuite, exceedingMemoryCapacityForHttpResponse) {
 
 TEST_P(PrestoExchangeSourceTestSuite, memoryAllocationAndUsageCheck) {
   PrestoExchangeSource::testingClearMemoryUsage();
-  auto rootPool =
-      defaultMemoryManager().addRootPool("memoryAllocationAndUsageCheck");
+  auto rootPool = defaultMemoryManager().addRootPool();
   auto leafPool = rootPool->addLeafChild("memoryAllocationAndUsageCheck");
 
   const bool useHttps = GetParam();
