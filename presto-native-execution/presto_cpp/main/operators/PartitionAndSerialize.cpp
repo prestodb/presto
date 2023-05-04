@@ -81,6 +81,8 @@ class PartitionAndSerializeOperator : public Operator {
   }
 
  private:
+  using TRowSize = uint32_t;
+
   void computePartitions(FlatVector<int32_t>& partitionsVector) {
     auto numInput = input_->size();
     partitions_.resize(numInput);
