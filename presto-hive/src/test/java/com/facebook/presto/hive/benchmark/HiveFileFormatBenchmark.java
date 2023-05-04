@@ -227,6 +227,7 @@ public class HiveFileFormatBenchmark
         List<Page> inputPages = data.getPages();
         try (FormatWriter formatWriter = fileFormat.createFileFormatWriter(
                 SESSION,
+                HDFS_ENVIRONMENT,
                 targetFile,
                 data.getColumnNames(),
                 data.getColumnTypes(),

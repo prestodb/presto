@@ -62,6 +62,8 @@ public class RecordFileWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(RecordFileWriter.class).instanceSize();
 
     private final Path path;
+    private final HdfsEnvironment hdfsEnvironment;
+    private final ConnectorSession session;
     private final JobConf conf;
     private final int fieldCount;
     private final Serializer serializer;
@@ -76,6 +78,7 @@ public class RecordFileWriter
 
     public RecordFileWriter(
             Path path,
+            HdfsEnvironment hdfsEnvironment,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
@@ -86,6 +89,8 @@ public class RecordFileWriter
     {
         this.path = requireNonNull(path, "path is null");
         this.conf = requireNonNull(conf, "conf is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.session = requireNonNull(session, "session is null");
 
         // existing tables may have columns in a different order
         List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
@@ -129,7 +134,7 @@ public class RecordFileWriter
 
         if (committed) {
             try {
-                return path.getFileSystem(conf).getFileStatus(path).getLen();
+                return hdfsEnvironment.getFileSystem(session.getUser(), path, conf).getFileStatus(path).getLen();
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -196,7 +201,7 @@ public class RecordFileWriter
             }
             finally {
                 // perform explicit deletion here as implementations of RecordWriter.close() often ignore the abort flag.
-                path.getFileSystem(conf).delete(path, false);
+                hdfsEnvironment.getFileSystem(session.getUser(), path, conf).delete(path, false);
             }
         }
         catch (IOException e) {
