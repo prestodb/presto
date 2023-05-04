@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -89,6 +90,26 @@ public class PlanNodeCanonicalInfo
                 if (hash.isPresent() && inputTableStatistics.isPresent()) {
                     result.add(new CanonicalPlanWithInfo(new CanonicalPlan(statsEquivalentPlanNode, strategy), new PlanNodeCanonicalInfo(hash.get(), inputTableStatistics.get())));
                 }
+            }
+        }
+        return result.build();
+    }
+
+    public static List<CanonicalPlanWithInfo> getPlanAnalyticsCanonicalInfo(
+            Session session,
+            PlanNode root,
+            PlanCanonicalInfoProvider planCanonicalInfoProvider)
+    {
+        ImmutableList.Builder<CanonicalPlanWithInfo> result = ImmutableList.builder();
+        for (PlanNode node : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
+            if (!node.getStatsEquivalentPlanNode().isPresent()) {
+                continue;
+            }
+            PlanNode statsEquivalentPlanNode = node.getStatsEquivalentPlanNode().get();
+            Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, PlanCanonicalizationStrategy.CONNECTOR_EXACT);
+            if (hash.isPresent()) {
+                result.add(new CanonicalPlanWithInfo(new CanonicalPlan(statsEquivalentPlanNode, PlanCanonicalizationStrategy.CONNECTOR_EXACT),
+                        new PlanNodeCanonicalInfo(hash.get(), Collections.emptyList())));
             }
         }
         return result.build();

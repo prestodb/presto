@@ -357,7 +357,8 @@ public class PrestoSparkQueryExecutionFactory
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                planAndMore.map(PlanAndMore::getPlanCanonicalInfo).orElseGet(ImmutableList::of));
+                planAndMore.map(PlanAndMore::getPlanCanonicalInfo).orElseGet(ImmutableList::of),
+                ImmutableList.of());
     }
 
     public static StageInfo createStageInfo(QueryId queryId, SubPlan plan, List<TaskInfo> taskInfos)

@@ -29,6 +29,7 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
+import com.facebook.presto.spi.statistics.PlanAnalyticsSourceInfo;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.sql.planner.CanonicalPlan;
@@ -45,7 +46,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.isPlanAnalyticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR_EXACT;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
 import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
@@ -154,7 +157,7 @@ public class HistoryBasedPlanStatisticsTracker
                                         new PlanStatistics(
                                                 Estimate.of(outputPositions),
                                                 Double.isNaN(outputBytes) ? Estimate.unknown() : Estimate.of(outputBytes),
-                                                1.0),
+                                                1.0, Estimate.unknown()),
                                         new HistoryBasedSourceInfo(Optional.of(hash), Optional.of(inputTableStatistics))));
                     }
                 }
@@ -182,6 +185,69 @@ public class HistoryBasedPlanStatisticsTracker
             outputBytes = Double.NaN;
         }
         return outputBytes;
+    }
+
+    public Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> getPlanAnalyticsQueryStats(QueryInfo queryInfo)
+    {
+        Session session = queryInfo.getSession().toSession(sessionPropertyManager);
+        if (!isPlanAnalyticsEnabled(session)) {
+            return ImmutableMap.of();
+        }
+
+        // Only update statistics for successful queries
+        if (queryInfo.getFailureInfo() != null || !queryInfo.getOutputStage().isPresent() || !queryInfo.getOutputStage().get().getPlan().isPresent()) {
+            return ImmutableMap.of();
+        }
+
+        // Only update statistics for SELECT/INSERT queries
+        if (!queryInfo.getQueryType().isPresent() || !ALLOWED_QUERY_TYPES.contains(queryInfo.getQueryType().get())) {
+            return ImmutableMap.of();
+        }
+
+        if (!queryInfo.isFinalQueryInfo()) {
+            LOG.error("Expected final query info when updating history based statistics: %s", queryInfo);
+            return ImmutableMap.of();
+        }
+
+        StageInfo outputStage = queryInfo.getOutputStage().get();
+        List<StageInfo> allStages = outputStage.getAllStages();
+
+        Map<PlanNodeId, PlanNodeStats> planNodeStatsMap = aggregateStageStats(allStages);
+        Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatistics = new HashMap<>();
+        Map<CanonicalPlan, PlanNodeCanonicalInfo> canonicalInfoMap = new HashMap<>();
+        queryInfo.getPlanAnalyticsCanonicalInfo().forEach(canonicalPlanWithInfo -> {
+            // We can have duplicate stats equivalent plan nodes. It's ok to use any stats in this case
+            canonicalInfoMap.putIfAbsent(canonicalPlanWithInfo.getCanonicalPlan(), canonicalPlanWithInfo.getInfo());
+        });
+
+        for (StageInfo stageInfo : allStages) {
+            if (!stageInfo.getPlan().isPresent()) {
+                continue;
+            }
+            PlanNode root = stageInfo.getPlan().get().getRoot();
+            for (PlanNode planNode : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
+                if (!planNode.getStatsEquivalentPlanNode().isPresent()) {
+                    continue;
+                }
+                PlanNodeStats planNodeStats = planNodeStatsMap.get(planNode.getId());
+                if (planNodeStats == null) {
+                    continue;
+                }
+                PlanNode statsEquivalentPlanNode = planNode.getStatsEquivalentPlanNode().get();
+                Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = Optional.ofNullable(canonicalInfoMap.get(new CanonicalPlan(statsEquivalentPlanNode, CONNECTOR_EXACT)));
+                if (planNodeCanonicalInfo.isPresent()) {
+                    String hash = planNodeCanonicalInfo.get().getHash();
+
+                    long execTime = planNodeStats.getPlanNodeCpuTime().toMillis();
+                    double outputPositions = planNodeStats.getPlanNodeOutputPositions();
+                    double outputBytes = adjustedOutputBytes(planNode, planNodeStats);
+                    planStatistics.putIfAbsent(new PlanNodeWithHash(statsEquivalentPlanNode, Optional.of(hash)), new PlanStatisticsWithSourceInfo(planNode.getId(),
+                            new PlanStatistics(Estimate.of(outputPositions), Double.isNaN(outputBytes) ? Estimate.unknown() : Estimate.of(outputBytes), 1.0, Estimate.of(execTime)),
+                            new PlanAnalyticsSourceInfo(Optional.of(hash))));
+                }
+            }
+        }
+        return ImmutableMap.copyOf(planStatistics);
     }
 
     public void updateStatistics(QueryInfo queryInfo)

@@ -83,6 +83,7 @@ import java.util.function.Consumer;
 import static com.facebook.presto.SystemSessionProperties.getExecutionPolicy;
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.SystemSessionProperties.isLogInvokedFunctionNamesEnabled;
+import static com.facebook.presto.SystemSessionProperties.isPlanAnalyticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseLegacyScheduler;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
@@ -94,6 +95,7 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingO
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
+import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getPlanAnalyticsCanonicalInfo;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static com.facebook.presto.util.AnalyzerUtil.getAnalyzerContext;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -138,6 +140,8 @@ public class SqlQueryExecution
     private final PartialResultQueryManager partialResultQueryManager;
     private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
+
+    private final PlanCanonicalInfoProvider planAnalyticsInfoProvider;
     private final QueryAnalysis queryAnalysis;
     private final AnalyzerContext analyzerContext;
 
@@ -165,7 +169,8 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             PlanChecker planChecker,
             PartialResultQueryManager partialResultQueryManager,
-            PlanCanonicalInfoProvider planCanonicalInfoProvider)
+            PlanCanonicalInfoProvider planCanonicalInfoProvider,
+            PlanCanonicalInfoProvider planAnalyticsInfoProvider)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.queryAnalyzer = requireNonNull(queryAnalyzer, "queryAnalyzer is null");
@@ -189,6 +194,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
             this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planCanonicalInfoProvider is null");
+            this.planAnalyticsInfoProvider = requireNonNull(planAnalyticsInfoProvider, "planAnalyticsInfoProvider is null");
             this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), idAllocator, new VariableAllocator(), stateMachine.getSession());
 
             // analyze query
@@ -541,6 +547,10 @@ public class SqlQueryExecution
 
             queryPlan.set(plan);
             stateMachine.setPlanStatsAndCosts(plan.getStatsAndCosts());
+            if (isPlanAnalyticsEnabled(getSession())) {
+                stateMachine.setPlanAnalyticsCanonicalInfo(getPlanAnalyticsCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
+            }
+
             stateMachine.setPlanCanonicalInfo(getCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
 
             // extract inputs
@@ -938,7 +948,8 @@ public class SqlQueryExecution
                     costCalculator,
                     planChecker,
                     partialResultQueryManager,
-                    historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider());
+                    historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider(),
+                    historyBasedPlanStatisticsManager.getPlanAnalyticsCanonicalInfoProvider());
         }
     }
 }

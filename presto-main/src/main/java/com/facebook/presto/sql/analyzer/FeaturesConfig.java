@@ -87,6 +87,8 @@ public class FeaturesConfig
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private int maxReorderedJoins = 9;
+
+    private boolean planAnalyticsEnabled = true;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
     private boolean usePerfectlyConsistentHistories;
@@ -755,10 +757,22 @@ public class FeaturesConfig
         return useHistoryBasedPlanStatistics;
     }
 
+    public boolean isPlanAnalyticsEnabled()
+    {
+        return planAnalyticsEnabled;
+    }
+
     @Config("optimizer.use-history-based-plan-statistics")
     public FeaturesConfig setUseHistoryBasedPlanStatistics(boolean useHistoryBasedPlanStatistics)
     {
         this.useHistoryBasedPlanStatistics = useHistoryBasedPlanStatistics;
+        return this;
+    }
+
+    @Config("optimizer.plan_analytics_enabled")
+    public FeaturesConfig setPlanAnalyticsEnabled(boolean planAnalyticsEnabled)
+    {
+        this.planAnalyticsEnabled = planAnalyticsEnabled;
         return this;
     }
 

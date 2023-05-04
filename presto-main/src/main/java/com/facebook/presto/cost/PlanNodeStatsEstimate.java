@@ -270,7 +270,8 @@ public class PlanNodeStatsEstimate
                 new PlanStatistics(
                         Double.isNaN(outputRowCount) ? Estimate.unknown() : Estimate.of(outputRowCount),
                         Double.isNaN(totalSize) ? Estimate.unknown() : Estimate.of(totalSize),
-                        sourceInfo.isConfident() ? 1 : 0),
+                        sourceInfo.isConfident() ? 1 : 0,
+                        Estimate.unknown()),
                 sourceInfo);
     }
 

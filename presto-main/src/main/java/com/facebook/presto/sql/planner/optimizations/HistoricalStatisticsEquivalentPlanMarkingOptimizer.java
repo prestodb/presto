@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getHistoryCanonicalPlanNodeLimit;
+import static com.facebook.presto.SystemSessionProperties.isPlanAnalyticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static java.util.Objects.requireNonNull;
@@ -58,8 +59,8 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         requireNonNull(types, "types is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
-
-        if (!useHistoryBasedPlanStatisticsEnabled(session) && !trackHistoryBasedPlanStatisticsEnabled(session)) {
+        if ((!useHistoryBasedPlanStatisticsEnabled(session) && !trackHistoryBasedPlanStatisticsEnabled(session))
+                || (!isPlanAnalyticsEnabled(session))) {
             return plan;
         }
 

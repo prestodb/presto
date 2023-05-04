@@ -39,6 +39,8 @@ public class QueryCompletedEvent
     private final List<PlanStatisticsWithSourceInfo> planStatisticsRead;
     private final List<PlanStatisticsWithSourceInfo> planStatisticsWritten;
 
+    private final List<PlanStatisticsWithSourceInfo> planAnalyticsInfo;
+
     private final Instant createTime;
     private final Instant executionStartTime;
     private final Instant endTime;
@@ -64,6 +66,7 @@ public class QueryCompletedEvent
             List<OperatorStatistics> operatorStatistics,
             List<PlanStatisticsWithSourceInfo> planStatisticsRead,
             List<PlanStatisticsWithSourceInfo> planStatisticsWritten,
+            List<PlanStatisticsWithSourceInfo> planAnalyticsInfo,
             Optional<String> expandedQuery,
             List<PlanOptimizerInformation> optimizerInformation,
             Set<String> scalarFunctions,
@@ -85,6 +88,7 @@ public class QueryCompletedEvent
         this.operatorStatistics = requireNonNull(operatorStatistics, "operatorStatistics is null");
         this.planStatisticsRead = requireNonNull(planStatisticsRead, "planStatisticsRead is null");
         this.planStatisticsWritten = requireNonNull(planStatisticsWritten, "planStatisticsWritten is null");
+        this.planAnalyticsInfo = requireNonNull(planAnalyticsInfo, "planAnalyticsSourceInfo is null");
         this.expandedQuery = requireNonNull(expandedQuery, "expandedQuery is null");
         this.optimizerInformation = requireNonNull(optimizerInformation, "optimizerInformation is null");
         this.scalarFunctions = requireNonNull(scalarFunctions, "scalarFunctions is null");
@@ -165,6 +169,11 @@ public class QueryCompletedEvent
     public List<PlanStatisticsWithSourceInfo> getPlanStatisticsWritten()
     {
         return planStatisticsWritten;
+    }
+
+    public List<PlanStatisticsWithSourceInfo> getPlanAnalyticsInfo()
+    {
+        return planAnalyticsInfo;
     }
 
     public Optional<String> getExpandedQuery()

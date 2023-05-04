@@ -237,6 +237,7 @@ public final class SystemSessionProperties
     public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
     public static final String PREFER_MERGE_JOIN_FOR_SORTED_INPUTS = "prefer_merge_join_for_sorted_inputs";
     public static final String SEGMENTED_AGGREGATION_ENABLED = "segmented_aggregation_enabled";
+    public static final String PLAN_ANALYTICS_ENABLED = "plan_analytics_enabled";
     public static final String USE_HISTORY_BASED_PLAN_STATISTICS = "use_history_based_plan_statistics";
     public static final String TRACK_HISTORY_BASED_PLAN_STATISTICS = "track_history_based_plan_statistics";
     public static final String USE_PERFECTLY_CONSISTENT_HISTORIES = "use_perfectly_consistent_histories";
@@ -1364,6 +1365,11 @@ public final class SystemSessionProperties
                         featuresConfig.isUseHistoryBasedPlanStatistics(),
                         false),
                 booleanProperty(
+                        PLAN_ANALYTICS_ENABLED,
+                        "Use plan analytics service to compute execution time per hash",
+                        featuresConfig.isPlanAnalyticsEnabled(),
+                        false),
+                booleanProperty(
                         TRACK_HISTORY_BASED_PLAN_STATISTICS,
                         "Track history based plan statistics service in query optimizer",
                         featuresConfig.isTrackHistoryBasedPlanStatistics(),
@@ -2448,6 +2454,11 @@ public final class SystemSessionProperties
     public static boolean useHistoryBasedPlanStatisticsEnabled(Session session)
     {
         return session.getSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, Boolean.class);
+    }
+
+    public static boolean isPlanAnalyticsEnabled(Session session)
+    {
+        return session.getSystemProperty(PLAN_ANALYTICS_ENABLED, Boolean.class);
     }
 
     public static boolean trackHistoryBasedPlanStatisticsEnabled(Session session)

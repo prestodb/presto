@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.statistics.EmptyPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.sql.planner.CachingPlanAnalyticsInfoProvider;
 import com.facebook.presto.sql.planner.CachingPlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,6 +31,7 @@ public class HistoryBasedPlanStatisticsManager
     private final SessionPropertyManager sessionPropertyManager;
     private final HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager;
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
+    private final PlanCanonicalInfoProvider planAnalyticsCanonicalInfoProvider;
     private final HistoryBasedOptimizationConfig config;
 
     private HistoryBasedPlanStatisticsProvider historyBasedPlanStatisticsProvider = EmptyPlanStatisticsProvider.getInstance();
@@ -44,6 +46,7 @@ public class HistoryBasedPlanStatisticsManager
         ObjectMapper newObjectMapper = objectMapper.copy().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
         this.planCanonicalInfoProvider = new CachingPlanCanonicalInfoProvider(historyBasedStatisticsCacheManager, newObjectMapper, metadata);
         this.config = requireNonNull(config, "config is null");
+        this.planAnalyticsCanonicalInfoProvider = new CachingPlanAnalyticsInfoProvider(newObjectMapper, metadata);
     }
 
     public void addHistoryBasedPlanStatisticsProviderFactory(HistoryBasedPlanStatisticsProvider historyBasedPlanStatisticsProvider)
@@ -68,5 +71,10 @@ public class HistoryBasedPlanStatisticsManager
     public PlanCanonicalInfoProvider getPlanCanonicalInfoProvider()
     {
         return planCanonicalInfoProvider;
+    }
+
+    public PlanCanonicalInfoProvider getPlanAnalyticsCanonicalInfoProvider()
+    {
+        return planAnalyticsCanonicalInfoProvider;
     }
 }

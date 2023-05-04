@@ -199,6 +199,7 @@ public class TestQueryInfo
                         new CanonicalPlan(
                                 new ValuesNode(Optional.empty(), new PlanNodeId("0"), ImmutableList.of(), ImmutableList.of(), Optional.empty()),
                                 PlanCanonicalizationStrategy.DEFAULT),
-                        new PlanNodeCanonicalInfo("a", ImmutableList.of()))));
+                        new PlanNodeCanonicalInfo("a", ImmutableList.of()))),
+                ImmutableList.of());
     }
 }

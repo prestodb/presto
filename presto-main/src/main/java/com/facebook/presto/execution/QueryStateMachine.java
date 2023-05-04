@@ -151,6 +151,8 @@ public class QueryStateMachine
 
     private final AtomicReference<StatsAndCosts> planStatsAndCosts = new AtomicReference<>();
     private final AtomicReference<List<CanonicalPlanWithInfo>> planCanonicalInfo = new AtomicReference<>();
+
+    private final AtomicReference<List<CanonicalPlanWithInfo>> planAnalyticsCanonicalInfo = new AtomicReference<>();
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
 
@@ -489,7 +491,8 @@ public class QueryStateMachine
                 scalarFunctions.get(),
                 aggregateFunctions.get(),
                 windowsFunctions.get(),
-                Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of));
+                Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of),
+                Optional.ofNullable(planAnalyticsCanonicalInfo.get()).orElseGet(ImmutableList::of));
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage, List<StageInfo> allStages)
@@ -548,6 +551,12 @@ public class QueryStateMachine
     {
         requireNonNull(planCanonicalInfo, "planCanonicalInfo is null");
         this.planCanonicalInfo.set(planCanonicalInfo);
+    }
+
+    public void setPlanAnalyticsCanonicalInfo(List<CanonicalPlanWithInfo> planAnalyticsCanonicalInfo)
+    {
+        requireNonNull(planAnalyticsCanonicalInfo, "planAnalyticsCanonicalInfo is null");
+        this.planAnalyticsCanonicalInfo.set(planAnalyticsCanonicalInfo);
     }
 
     public void setOutput(Optional<Output> output)
@@ -1090,6 +1099,7 @@ public class QueryStateMachine
                 queryInfo.getScalarFunctions(),
                 queryInfo.getAggregateFunctions(),
                 queryInfo.getWindowsFunctions(),
+                ImmutableList.of(),
                 ImmutableList.of());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }

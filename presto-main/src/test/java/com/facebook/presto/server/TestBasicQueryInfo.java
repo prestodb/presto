@@ -149,6 +149,7 @@ public class TestBasicQueryInfo
                         ImmutableSet.of(),
                         ImmutableSet.of(),
                         ImmutableSet.of(),
+                        ImmutableList.of(),
                         ImmutableList.of()));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");

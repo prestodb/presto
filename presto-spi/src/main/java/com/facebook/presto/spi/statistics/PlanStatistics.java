@@ -26,12 +26,14 @@ import static java.util.Objects.requireNonNull;
 @ThriftStruct
 public class PlanStatistics
 {
-    private static final PlanStatistics EMPTY = new PlanStatistics(Estimate.unknown(), Estimate.unknown(), 0);
+    private static final PlanStatistics EMPTY = new PlanStatistics(Estimate.unknown(), Estimate.unknown(), 0, Estimate.unknown());
 
     private final Estimate rowCount;
     private final Estimate outputSize;
     // A number ranging between 0 and 1, reflecting our confidence in the statistics
     private final double confidence;
+
+    private Estimate cpuTime;
 
     public static PlanStatistics empty()
     {
@@ -40,7 +42,8 @@ public class PlanStatistics
 
     @JsonCreator
     @ThriftConstructor
-    public PlanStatistics(@JsonProperty("rowCount") Estimate rowCount, @JsonProperty("outputSize") Estimate outputSize, @JsonProperty("confidence") double confidence)
+    public PlanStatistics(@JsonProperty("rowCount") Estimate rowCount, @JsonProperty("outputSize") Estimate outputSize, @JsonProperty("confidence") double confidence,
+            @JsonProperty("cpuTime") Estimate cpuTime)
     {
         this.rowCount = requireNonNull(rowCount, "rowCount is null");
         this.outputSize = requireNonNull(outputSize, "outputSize is null");
@@ -67,6 +70,13 @@ public class PlanStatistics
     public double getConfidence()
     {
         return confidence;
+    }
+
+    @JsonProperty
+    @ThriftField(4)
+    public Estimate getCpuTime()
+    {
+        return cpuTime;
     }
 
     private static void checkArgument(boolean condition, String message)
@@ -102,6 +112,7 @@ public class PlanStatistics
                 "rowCount=" + rowCount +
                 ", outputSize=" + outputSize +
                 ", confidence=" + confidence +
+                ", cpuTime=" + cpuTime +
                 '}';
     }
 }
