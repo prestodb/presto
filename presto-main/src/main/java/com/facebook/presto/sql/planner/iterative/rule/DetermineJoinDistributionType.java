@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -189,7 +190,7 @@ public class DetermineJoinDistributionType
         }
 
         List<PlanNode> sourceNodes = PlanNodeSearcher.searchFrom(node, lookup)
-                .whereIsInstanceOfAny(ImmutableList.of(TableScanNode.class, ValuesNode.class))
+                .whereIsInstanceOfAny(ImmutableList.of(TableScanNode.class, ValuesNode.class, RemoteSourceNode.class))
                 .findAll();
 
         return sourceNodes.stream()
