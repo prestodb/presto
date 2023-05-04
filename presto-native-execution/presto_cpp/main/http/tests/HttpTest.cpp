@@ -324,8 +324,7 @@ TEST_P(HttpTestSuite, basic) {
 
 TEST_P(HttpTestSuite, httpResponseAllocationFailure) {
   const int64_t memoryCapBytes = 1 << 10;
-  auto rootPool = defaultMemoryManager().addRootPool(
-      "httpResponseAllocationFailure", memoryCapBytes);
+  auto rootPool = defaultMemoryManager().addRootPool("", memoryCapBytes);
   auto leafPool = rootPool->addLeafChild("httpResponseAllocationFailure");
 
   const bool useHttps = GetParam();
