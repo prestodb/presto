@@ -47,6 +47,11 @@ public abstract class PrimitiveValueWriter
         return statistics;
     }
 
+    protected int getTypeLength()
+    {
+        return parquetType.getTypeLength();
+    }
+
     @Override
     public long getBufferedSize()
     {

@@ -49,6 +49,7 @@ import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
+import com.facebook.presto.parquet.writer.ParquetSchemaConverter;
 import com.facebook.presto.parquet.writer.ParquetWriter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
@@ -690,8 +691,13 @@ public enum FileFormat
         public PrestoParquetFormatWriter(File targetFile, List<String> columnNames, List<Type> types, HiveCompressionCodec compressionCodec)
                 throws IOException
         {
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                    types,
+                    columnNames);
             writer = new ParquetWriter(
                     new FileOutputStream(targetFile),
+                    schemaConverter.getMessageType(),
+                    schemaConverter.getPrimitiveTypes(),
                     columnNames,
                     types,
                     ParquetWriterOptions.builder().build(),
