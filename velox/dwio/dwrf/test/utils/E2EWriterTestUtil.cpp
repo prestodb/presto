@@ -35,8 +35,7 @@ namespace facebook::velox::dwrf {
     const std::vector<VectorPtr>& batches,
     const std::shared_ptr<Config>& config,
     std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory,
-    std::function<
-        std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
+    std::function<std::unique_ptr<LayoutPlanner>(const TypeWithId&)>
         layoutPlannerFactory,
     const int64_t writerMemoryCap) {
   // write file to memory
@@ -70,8 +69,7 @@ namespace facebook::velox::dwrf {
     size_t numStripesUpper,
     const std::shared_ptr<Config>& config,
     std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory,
-    std::function<
-        std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
+    std::function<std::unique_ptr<LayoutPlanner>(const TypeWithId&)>
         layoutPlannerFactory,
     const int64_t writerMemoryCap,
     const bool verifyContent) {

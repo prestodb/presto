@@ -45,9 +45,8 @@ class E2EWriterTestUtil {
       const std::shared_ptr<Config>& config,
       std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory =
           nullptr,
-      std::function<
-          std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
-          layoutPlannerFactory = nullptr,
+      std::function<std::unique_ptr<LayoutPlanner>(
+          const dwio::common::TypeWithId&)> layoutPlannerFactory = nullptr,
       const int64_t writerMemoryCap = std::numeric_limits<int64_t>::max());
 
   /**
@@ -66,9 +65,8 @@ class E2EWriterTestUtil {
       const std::shared_ptr<Config>& config,
       std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory =
           nullptr,
-      std::function<
-          std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
-          layoutPlannerFactory = nullptr,
+      std::function<std::unique_ptr<LayoutPlanner>(
+          const dwio::common::TypeWithId&)> layoutPlannerFactory = nullptr,
       const int64_t writerMemoryCap = std::numeric_limits<int64_t>::max(),
       const bool verifyContent = true);
 

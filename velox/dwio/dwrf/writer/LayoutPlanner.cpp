@@ -184,38 +184,56 @@ void EncodingManager::initEncryptionGroups() {
   }
 }
 
-LayoutPlanner::LayoutPlanner(StreamList streams)
-    : streams_{std::move(streams)} {}
-
-void LayoutPlanner::iterateIndexStreams(
-    std::function<void(const DwrfStreamIdentifier&, DataBufferHolder&)>
-        consumer) {
+void LayoutResult::iterateIndexStreams(
+    const std::function<void(const DwrfStreamIdentifier&, DataBufferHolder&)>&
+        consumer) const {
   for (auto iter = streams_.begin(), end = iter + indexCount_; iter != end;
        ++iter) {
     consumer(*iter->first, *iter->second);
   }
 }
 
-void LayoutPlanner::iterateDataStreams(
-    std::function<void(const DwrfStreamIdentifier&, DataBufferHolder&)>
-        consumer) {
+void LayoutResult::iterateDataStreams(
+    const std::function<void(const DwrfStreamIdentifier&, DataBufferHolder&)>&
+        consumer) const {
   for (auto iter = streams_.begin() + indexCount_; iter != streams_.end();
        ++iter) {
     consumer(*iter->first, *iter->second);
   }
 }
 
-void LayoutPlanner::plan() {
+namespace {
+
+// Helper method to walk the schema tree and grow the node to column id mapping.
+void fillNodeToColumnMap(
+    const dwio::common::TypeWithId& schema,
+    folly::F14FastMap<uint32_t, uint32_t>& nodeToColumnMap) {
+  nodeToColumnMap.emplace(schema.id, schema.column);
+  for (size_t i = 0; i < schema.size(); ++i) {
+    fillNodeToColumnMap(*schema.childAt(i), nodeToColumnMap);
+  }
+}
+
+} // namespace
+
+LayoutPlanner::LayoutPlanner(const dwio::common::TypeWithId& schema) {
+  fillNodeToColumnMap(schema, nodeToColumnMap_);
+}
+
+LayoutResult LayoutPlanner::plan(
+    const EncodingContainer& encoding,
+    StreamList streams) const {
   // place index before data
-  auto iter =
-      std::partition(streams_.begin(), streams_.end(), [](auto& stream) {
-        return isIndexStream(stream.first->kind());
-      });
-  indexCount_ = iter - streams_.begin();
+  auto iter = std::partition(streams.begin(), streams.end(), [](auto& stream) {
+    return isIndexStream(stream.first->kind());
+  });
+  size_t indexCount = iter - streams.begin();
 
   // sort streams
-  NodeSizeSorter::sort(streams_.begin(), iter);
-  NodeSizeSorter::sort(iter, streams_.end());
+  NodeSizeSorter::sort(streams.begin(), iter);
+  NodeSizeSorter::sort(iter, streams.end());
+
+  return LayoutResult{std::move(streams), indexCount};
 }
 
 void LayoutPlanner::NodeSizeSorter::sort(

@@ -34,8 +34,7 @@ struct WriterOptions {
   // policy with the configs in its ctor.
   std::function<std::unique_ptr<DWRFFlushPolicy>()> flushPolicyFactory;
   // Change the interface to stream list and encoding iter.
-  std::function<
-      std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
+  std::function<std::unique_ptr<LayoutPlanner>(const dwio::common::TypeWithId&)>
       layoutPlannerFactory;
   std::shared_ptr<encryption::EncryptionSpecification> encryptionSpec;
   std::shared_ptr<dwio::common::encryption::EncrypterFactory> encrypterFactory;
@@ -53,8 +52,7 @@ class Writer : public WriterBase {
       std::unique_ptr<dwio::common::DataSink> sink,
       std::shared_ptr<memory::MemoryPool> pool)
       : WriterBase{std::move(sink)},
-        schema_{dwio::common::TypeWithId::create(options.schema)},
-        layoutPlannerFactory_{options.layoutPlannerFactory} {
+        schema_{dwio::common::TypeWithId::create(options.schema)} {
     auto handler =
         (options.encryptionSpec ? encryption::EncryptionHandler::create(
                                       schema_,
@@ -72,11 +70,10 @@ class Writer : public WriterBase {
       flushPolicy_ = options.flushPolicyFactory();
     }
 
-    if (!layoutPlannerFactory_) {
-      layoutPlannerFactory_ = [](StreamList streams,
-                                 const EncodingContainer& /* unused */) {
-        return std::make_unique<LayoutPlanner>(std::move(streams));
-      };
+    if (options.layoutPlannerFactory) {
+      layoutPlanner_ = options.layoutPlannerFactory(*schema_);
+    } else {
+      layoutPlanner_ = std::make_unique<LayoutPlanner>(*schema_);
     }
 
     if (!options.columnWriterFactory) {
@@ -136,9 +133,7 @@ class Writer : public WriterBase {
 
   const std::shared_ptr<const dwio::common::TypeWithId> schema_;
   std::unique_ptr<DWRFFlushPolicy> flushPolicy_;
-  std::function<
-      std::unique_ptr<LayoutPlanner>(StreamList, const EncodingContainer&)>
-      layoutPlannerFactory_;
+  std::unique_ptr<LayoutPlanner> layoutPlanner_;
   std::unique_ptr<ColumnWriter> writer_;
 
   friend class WriterTestHelper;
