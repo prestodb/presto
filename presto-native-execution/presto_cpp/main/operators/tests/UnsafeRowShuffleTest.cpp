@@ -26,7 +26,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/serializers/UnsafeRowSerializer.h"
+#include "velox/row/UnsafeRowDeserializers.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
@@ -74,8 +74,11 @@ class TestShuffleWriter : public ShuffleWriter {
   }
 
   void collect(int32_t partition, std::string_view data) override {
+    using TRowSize = uint32_t;
+
     auto& buffer = inProgressPartitions_[partition];
-    auto size = data.size();
+    TRowSize rowSize = data.size();
+    auto size = sizeof(TRowSize) + rowSize;
 
     // Check if there is enough space in the buffer.
     if (buffer && inProgressSizes_[partition] + size >= maxBytesPerPartition_) {
@@ -93,10 +96,11 @@ class TestShuffleWriter : public ShuffleWriter {
     }
 
     // Copy data.
-    auto rawBuffer = buffer->asMutable<char>();
     auto offset = inProgressSizes_[partition];
+    auto rawBuffer = buffer->asMutable<char>() + offset;
 
-    ::memcpy(rawBuffer + offset, data.data(), size);
+    *(TRowSize*)(rawBuffer) = folly::Endian::big(rowSize);
+    ::memcpy(rawBuffer + sizeof(TRowSize), data.data(), rowSize);
 
     inProgressSizes_[partition] += size;
   }
@@ -390,44 +394,16 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     auto serializedData =
         serializedResult->childAt(1)->as<FlatVector<StringView>>();
 
-    // Serialize data into a single block.
-
-    // Calculate total size.
-    size_t totalSize = 0;
+    std::vector<std::optional<std::string_view>> rows;
+    rows.reserve(serializedData->size());
     for (auto i = 0; i < serializedData->size(); ++i) {
-      totalSize += serializedData->valueAt(i).size();
+      auto serializedRow = serializedData->valueAt(i);
+      rows.push_back(
+          std::string_view(serializedRow.data(), serializedRow.size()));
     }
 
-    // Allocate the block. Add an extra sizeof(size_t) bytes for each row to
-    // hold row size.
-    BufferPtr buffer = AlignedBuffer::allocate<char>(totalSize, pool());
-    auto rawBuffer = buffer->asMutable<char>();
-
-    // Copy data.
-    size_t offset = 0;
-    for (auto i = 0; i < serializedData->size(); ++i) {
-      auto value = serializedData->valueAt(i);
-      memcpy(rawBuffer + offset, value.data(), value.size());
-      offset += value.size();
-    }
-
-    // Deserialize the block.
-    return deserialize(buffer, rowType);
-  }
-
-  RowVectorPtr deserialize(BufferPtr& serialized, const RowTypePtr& rowType) {
-    auto serializer =
-        std::make_unique<serializer::spark::UnsafeRowVectorSerde>();
-
-    ByteRange byteRange = {
-        serialized->asMutable<uint8_t>(), (int32_t)serialized->size(), 0};
-
-    auto input = std::make_unique<ByteStream>();
-    input->resetInput({byteRange});
-
-    RowVectorPtr result;
-    serializer->deserialize(input.get(), pool(), rowType, &result, nullptr);
-    return result;
+    return std::dynamic_pointer_cast<RowVector>(
+        row::UnsafeRowDeserializer::deserialize(rows, rowType, pool()));
   }
 
   RowVectorPtr copyResultVector(const RowVectorPtr& result) {
