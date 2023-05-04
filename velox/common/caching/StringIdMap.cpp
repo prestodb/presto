@@ -48,7 +48,8 @@ void StringIdMap::addReference(uint64_t id) {
   auto it = idToString_.find(id);
   VELOX_CHECK(
       it != idToString_.end(),
-      "Trying to add a reference to an id that is not in StringIdMap");
+      "Trying to add a reference to id {} that is not in StringIdMap",
+      id);
 
   ++it->second.numInUse;
 }
@@ -59,8 +60,9 @@ uint64_t StringIdMap::makeId(std::string_view string) {
   if (it != stringToId_.end()) {
     auto entry = idToString_.find(it->second);
     VELOX_CHECK(entry != idToString_.end());
-    VELOX_CHECK_LT(0, entry->second.numInUse);
-    ++entry->second.numInUse;
+    if (++entry->second.numInUse == 1) {
+      pinnedSize_ += entry->second.string.size();
+    }
 
     return it->second;
   }
@@ -73,13 +75,12 @@ uint64_t StringIdMap::makeId(std::string_view string) {
   // be in the 100K range.
   do {
     entry.id = ++lastId_;
-  } while (entry.id == kNoId ||
-           idToString_.find(entry.id) != idToString_.end());
+  } while (idToString_.find(entry.id) != idToString_.end());
   entry.numInUse = 1;
   pinnedSize_ += entry.string.size();
-  const auto id = entry.id;
+  auto id = entry.id;
   auto& entryInTable = idToString_[id] = std::move(entry);
-  stringToId_[entryInTable.string] = id;
+  stringToId_[entryInTable.string] = entry.id;
   return lastId_;
 }
 
