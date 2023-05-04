@@ -58,6 +58,8 @@ public class IcebergParquetFileWriter
                 rollbackAction,
                 fileColumnNames,
                 fileColumnTypes,
+                messageType,
+                primitiveTypes,
                 parquetWriterOptions,
                 fileInputColumnIndexes,
                 compressionCodecName);
