@@ -98,6 +98,12 @@ class MemConfig : public Config {
     return values_;
   }
 
+  /// Adds or replaces value at the given key. Can be used by debugging or
+  /// testing code.
+  void setValue(const std::string& key, const std::string& value) {
+    values_[key] = value;
+  }
+
  private:
   std::unordered_map<std::string, std::string> values_;
 };
