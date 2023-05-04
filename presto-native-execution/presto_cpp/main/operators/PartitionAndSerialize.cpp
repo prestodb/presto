@@ -82,6 +82,8 @@ class PartitionAndSerializeOperator : public Operator {
   }
 
  private:
+  using TRowSize = uint32_t;
+
   void computePartitions(FlatVector<int32_t>& partitionsVector) {
     auto numInput = input_->size();
     partitions_.resize(numInput);
@@ -142,8 +144,6 @@ class PartitionAndSerializeOperator : public Operator {
       offset += size;
     }
   }
-
-  using TRowSize = uint32_t;
 
   const uint32_t numPartitions_;
   std::unique_ptr<core::PartitionFunction> partitionFunction_;
