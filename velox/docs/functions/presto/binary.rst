@@ -86,6 +86,10 @@ Binary Functions
 
     Encodes ``binary`` into a hex string representation.
 
+.. function:: to_ieee754_64(double) -> varbinary
+
+    Encodes ``double`` in a 64-bit big-endian binary according to IEEE 754 double-precision floating-point format.
+
 .. function:: xxhash64(binary) -> varbinary
 
     Computes the xxhash64 hash of ``binary``.

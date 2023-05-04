@@ -39,6 +39,8 @@ inline bool isBitSet(const T* bits, int32_t idx) {
 /// Return the binary representation of bits in the range specified.
 std::string toString(const uint64_t* bits, int offset, int size);
 
+void toString(const uint64_t* bits, int offset, int size, char* out);
+
 // The reason we do this is that it's slightly faster for
 // setNthBit<Value> in benchmarks compared to doing the calculation
 // inline (see D37623774). We do it only for clearBit because the
