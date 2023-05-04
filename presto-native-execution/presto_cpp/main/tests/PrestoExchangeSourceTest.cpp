@@ -407,7 +407,7 @@ TEST_P(PrestoExchangeSourceTestSuite, basic) {
       getClientCa(useHttps),
       getCiphers(useHttps));
 
-  size_t beforePoolSize = pool_->getCurrentBytes();
+  size_t beforePoolSize = pool_->currentBytes();
   size_t beforeQueueSize = queue->totalBytes();
   requestNextPage(queue, exchangeSource);
   for (int i = 0; i < pages.size(); i++) {
@@ -417,13 +417,13 @@ TEST_P(PrestoExchangeSourceTestSuite, basic) {
   }
   waitForEndMarker(queue);
 
-  size_t deltaPool = pool_->getCurrentBytes() - beforePoolSize;
+  size_t deltaPool = pool_->currentBytes() - beforePoolSize;
   size_t deltaQueue = queue->totalBytes() - beforeQueueSize;
   EXPECT_EQ(deltaPool, deltaQueue);
 
   producer->waitForDeleteResults();
   serverWrapper.stop();
-  EXPECT_EQ(pool_->getCurrentBytes(), 0);
+  EXPECT_EQ(pool_->currentBytes(), 0);
 
   const auto stats = exchangeSource->stats();
   ASSERT_EQ(stats.size(), 1);
@@ -463,7 +463,7 @@ TEST_P(PrestoExchangeSourceTestSuite, earlyTerminatingConsumer) {
 
   producer->waitForDeleteResults();
   serverWrapper.stop();
-  EXPECT_EQ(pool_->getCurrentBytes(), 0);
+  EXPECT_EQ(pool_->currentBytes(), 0);
 
   const auto stats = exchangeSource->stats();
   ASSERT_EQ(stats.size(), 1);
@@ -494,7 +494,7 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducer) {
       getClientCa(useHttps),
       getCiphers(useHttps));
 
-  size_t beforePoolSize = pool_->getCurrentBytes();
+  size_t beforePoolSize = pool_->currentBytes();
   size_t beforeQueueSize = queue->totalBytes();
   requestNextPage(queue, exchangeSource);
   for (int i = 0; i < pages.size(); i++) {
@@ -506,13 +506,13 @@ TEST_P(PrestoExchangeSourceTestSuite, slowProducer) {
   producer->noMoreData();
   waitForEndMarker(queue);
 
-  size_t deltaPool = pool_->getCurrentBytes() - beforePoolSize;
+  size_t deltaPool = pool_->currentBytes() - beforePoolSize;
   size_t deltaQueue = queue->totalBytes() - beforeQueueSize;
   EXPECT_EQ(deltaPool, deltaQueue);
 
   producer->waitForDeleteResults();
   serverWrapper.stop();
-  EXPECT_EQ(pool_->getCurrentBytes(), 0);
+  EXPECT_EQ(pool_->currentBytes(), 0);
 
   const auto stats = exchangeSource->stats();
   ASSERT_EQ(stats.size(), 1);
@@ -644,7 +644,7 @@ TEST_P(PrestoExchangeSourceTestSuite, exceedingMemoryCapacityForHttpResponse) {
   // Verify that we never retry on memory allocation failure of the http
   // response data but just fails the query.
   ASSERT_EQ(exchangeSource->testingFailedAttempts(), 1);
-  ASSERT_EQ(leafPool->getCurrentBytes(), 0);
+  ASSERT_EQ(leafPool->currentBytes(), 0);
 }
 
 TEST_P(PrestoExchangeSourceTestSuite, memoryAllocationAndUsageCheck) {
