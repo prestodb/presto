@@ -451,19 +451,56 @@ class RelationPlanner
         }
 
         if (node.getType() == INNER) {
-            // rewrite all the other conditions using output variables from left + right plan node.
-            PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root);
-            rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, node, context);
-
-            for (Expression expression : complexJoinExpressions) {
-                postInnerJoinConditions.add(rootPlanBuilder.rewrite(expression));
+            ImmutableList.Builder<Expression> expressionsWithoutSubqueryBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> expressionsWithSubqueryBuilder = ImmutableList.builder();
+            for (Expression expression : complexJoinExpressions)
+            {
+                if (!subqueryPlanner.hasSubqueries(expression, node))
+                {
+                    expressionsWithoutSubqueryBuilder.add(expression);
+                }
+                else {
+                    expressionsWithSubqueryBuilder.add(expression);
+                }
             }
-            root = rootPlanBuilder.getRoot();
 
-            Expression postInnerJoinCriteria;
-            if (!postInnerJoinConditions.isEmpty()) {
-                postInnerJoinCriteria = ExpressionUtils.and(postInnerJoinConditions);
-                root = new FilterNode(getSourceLocation(postInnerJoinCriteria), idAllocator.getNextId(), root, rowExpression(postInnerJoinCriteria, context));
+            List<Expression> expressionsWithoutSubquery = expressionsWithoutSubqueryBuilder.build();
+            List<Expression> expressionsWithSubquery = expressionsWithSubqueryBuilder.build();
+            if (!expressionsWithoutSubquery.isEmpty()) {
+                Expression joinedFilterCondition = ExpressionUtils.and(expressionsWithoutSubquery);
+                Expression rewrittenFilterCondition = translationMap.rewrite(joinedFilterCondition);
+                root = new JoinNode(
+                        getSourceLocation(node),
+                        idAllocator.getNextId(),
+                        JoinNodeUtils.typeConvert(node.getType()),
+                        leftPlanBuilder.getRoot(),
+                        rightPlanBuilder.getRoot(),
+                        equiClauses.build(),
+                        ImmutableList.<VariableReferenceExpression>builder()
+                                .addAll(leftPlanBuilder.getRoot().getOutputVariables())
+                                .addAll(rightPlanBuilder.getRoot().getOutputVariables())
+                                .build(),
+                        Optional.of(rowExpression(rewrittenFilterCondition, context)),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of());
+            }
+            // rewrite all the other conditions using output variables from left + right plan node.
+            if (!expressionsWithoutSubquery.isEmpty()) {
+                PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root);
+                rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, expressionsWithSubquery, node, context);
+
+                for (Expression expression : expressionsWithSubquery) {
+                    postInnerJoinConditions.add(rootPlanBuilder.rewrite(expression));
+                }
+                root = rootPlanBuilder.getRoot();
+
+                Expression postInnerJoinCriteria;
+                if (!postInnerJoinConditions.isEmpty()) {
+                    postInnerJoinCriteria = ExpressionUtils.and(postInnerJoinConditions);
+                    root = new FilterNode(getSourceLocation(postInnerJoinCriteria), idAllocator.getNextId(), root, rowExpression(postInnerJoinCriteria, context));
+                }
             }
         }
 
