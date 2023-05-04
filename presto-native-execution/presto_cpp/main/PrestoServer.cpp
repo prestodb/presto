@@ -332,17 +332,8 @@ void PrestoServer::run() {
         server->runOperation(message, downstream);
       });
 
-  static const std::string kPrestoDefaultPrefix{"presto.default."};
-  velox::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
-  velox::aggregate::prestosql::registerAllAggregateFunctions(
-      kPrestoDefaultPrefix);
-  velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
-  if (SystemConfig::instance()->registerTestFunctions()) {
-    velox::functions::prestosql::registerComparisonFunctions(
-        "json.test_schema.");
-    velox::aggregate::prestosql::registerAllAggregateFunctions(
-        "json.test_schema.");
-  }
+  registerFunctions();
+  registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
 
@@ -658,6 +649,22 @@ void PrestoServer::registerCustomOperators() {
   facebook::velox::exec::Operator::registerOperator(
       std::make_unique<operators::ShuffleReadTranslator>());
 }
+
+void PrestoServer::registerFunctions() {
+  static const std::string kPrestoDefaultPrefix{"presto.default."};
+  velox::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+  velox::aggregate::prestosql::registerAllAggregateFunctions(
+      kPrestoDefaultPrefix);
+  velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
+  if (SystemConfig::instance()->registerTestFunctions()) {
+    velox::functions::prestosql::registerComparisonFunctions(
+        "json.test_schema.");
+    velox::aggregate::prestosql::registerAllAggregateFunctions(
+        "json.test_schema.");
+  }
+}
+
+void PrestoServer::registerRemoteFunctions() {}
 
 void PrestoServer::registerVectorSerdes() {
   if (!velox::isRegisteredVectorSerde()) {
