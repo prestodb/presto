@@ -323,7 +323,12 @@ public class PlanBuilder
 
     public RemoteSourceNode remoteSource(List<PlanFragmentId> sourceFragmentIds)
     {
-        return new RemoteSourceNode(Optional.empty(), idAllocator.getNextId(), sourceFragmentIds, ImmutableList.of(), false, Optional.empty(), REPARTITION);
+        return remoteSource(idAllocator.getNextId(), sourceFragmentIds, ImmutableList.of());
+    }
+
+    public RemoteSourceNode remoteSource(PlanNodeId planNodeId, List<PlanFragmentId> sourceFragmentIds, List<VariableReferenceExpression> outputVariables)
+    {
+        return new RemoteSourceNode(Optional.empty(), planNodeId, sourceFragmentIds, outputVariables, false, Optional.empty(), REPARTITION);
     }
 
     public RemoteSourceNode remoteSource(List<PlanFragmentId> sourceFragmentIds, PlanNode statsEquivalentPlanNode)
