@@ -105,8 +105,11 @@ void LocalPersistentShuffleWriter::storePartitionBlock(int32_t partition) {
 void LocalPersistentShuffleWriter::collect(
     int32_t partition,
     std::string_view data) {
+  using TRowSize = uint32_t;
+
   auto& buffer = inProgressPartitions_[partition];
-  const auto size = data.size();
+  const TRowSize rowSize = data.size();
+  const auto size = sizeof(TRowSize) + rowSize;
 
   // Check if there is enough space in the buffer.
   if ((buffer != nullptr) &&
@@ -124,10 +127,11 @@ void LocalPersistentShuffleWriter::collect(
   }
 
   // Copy data.
-  auto rawBuffer = buffer->asMutable<char>();
   auto offset = inProgressSizes_[partition];
+  auto rawBuffer = buffer->asMutable<char>() + offset;
 
-  ::memcpy(rawBuffer + offset, data.data(), size);
+  *(TRowSize*)(rawBuffer) = folly::Endian::big(rowSize);
+  ::memcpy(rawBuffer + sizeof(TRowSize), data.data(), rowSize);
 
   inProgressSizes_[partition] += size;
 }
