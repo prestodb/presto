@@ -27,6 +27,7 @@ import com.facebook.presto.parquet.writer.valuewriter.DoubleValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.IntegerValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.PrimitiveValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.RealValueWriter;
+import com.facebook.presto.parquet.writer.valuewriter.TimestampValueWriter;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -165,7 +166,7 @@ class ParquetWriters
         if (DATE.equals(type)) {
             return new DateValueWriter(valuesWriter, parquetType);
         }
-        if (BIGINT.equals(type) || TIMESTAMP.equals(type)) {
+        if (BIGINT.equals(type)) {
             return new BigintValueWriter(valuesWriter, type, parquetType);
         }
         if (DOUBLE.equals(type)) {
@@ -173,6 +174,9 @@ class ParquetWriters
         }
         if (REAL.equals(type)) {
             return new RealValueWriter(valuesWriter, parquetType);
+        }
+        if (TIMESTAMP.equals(type)) {
+            return new TimestampValueWriter(valuesWriter, type, parquetType);
         }
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
             return new CharValueWriter(valuesWriter, type, parquetType);

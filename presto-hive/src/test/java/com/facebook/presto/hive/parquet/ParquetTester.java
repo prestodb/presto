@@ -44,6 +44,7 @@ import com.facebook.presto.hive.parquet.write.SingleLevelArrayMapKeyValuesSchema
 import com.facebook.presto.hive.parquet.write.SingleLevelArraySchemaConverter;
 import com.facebook.presto.hive.parquet.write.TestMapredParquetOutputFormat;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
+import com.facebook.presto.parquet.writer.ParquetSchemaConverter;
 import com.facebook.presto.parquet.writer.ParquetWriter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -828,8 +829,13 @@ public class ParquetTester
             throws Exception
     {
         checkArgument(types.size() == columnNames.size() && types.size() == values.length);
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                types,
+                columnNames);
         ParquetWriter writer = new ParquetWriter(
                 new FileOutputStream(outputFile),
+                schemaConverter.getMessageType(),
+                schemaConverter.getPrimitiveTypes(),
                 columnNames,
                 types,
                 ParquetWriterOptions.builder()
