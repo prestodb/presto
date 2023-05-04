@@ -2184,7 +2184,7 @@ struct fmt::formatter<facebook::velox::TypeKind> {
   }
 
   template <typename FormatContext>
-  auto format(const facebook::velox::TypeKind& k, FormatContext& ctx) {
+  auto format(const facebook::velox::TypeKind& k, FormatContext& ctx) const {
     return format_to(ctx.out(), "{}", facebook::velox::mapTypeKindToName(k));
   }
 };
@@ -2199,7 +2199,7 @@ struct fmt::formatter<
   }
 
   template <typename FormatContext>
-  auto format(const std::shared_ptr<T>& k, FormatContext& ctx) {
+  auto format(const std::shared_ptr<T>& k, FormatContext& ctx) const {
     return format_to(ctx.out(), "{}", k->toString());
   }
 };

@@ -39,7 +39,7 @@ struct fmt::formatter<Counter> {
   }
 
   template <typename FormatContext>
-  auto format(const Counter& c, FormatContext& ctx) {
+  auto format(const Counter& c, FormatContext& ctx) const {
     auto x = c.counter++;
     return format_to(ctx.out(), "{}", x);
   }

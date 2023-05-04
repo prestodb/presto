@@ -105,12 +105,12 @@ std::string to_string(const ::facebook::velox::Date& ts);
 template <>
 struct fmt::formatter<facebook::velox::Date> {
   template <typename ParseContext>
-  constexpr auto parse(ParseContext& ctx) {
+  constexpr auto parse(ParseContext& ctx) const {
     return ctx.begin();
   }
 
   template <typename FormatContext>
-  auto format(const facebook::velox::Date& d, FormatContext& ctx) {
+  auto format(const facebook::velox::Date& d, FormatContext& ctx) const {
     return fmt::format_to(ctx.out(), "{}", std::to_string(d));
   }
 };
