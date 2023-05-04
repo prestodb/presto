@@ -119,7 +119,7 @@ public class JsonFileBasedFunctionNamespaceManager
 
     private void bootstrapNamespaceFromFile()
     {
-        UdfFunctionSignatureMap udfFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(managerConfig.getFunctionDefinitionFile());
+        UdfFunctionSignatureMap udfFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(managerConfig.getFunctionDefinitionPath());
         if (udfFunctionSignatureMap == null || udfFunctionSignatureMap.isEmpty()) {
             return;
         }

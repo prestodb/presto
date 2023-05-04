@@ -1,0 +1,42 @@
+{
+  "udfSignatureMap": {
+    "aggregate_function_1": [
+      {
+        "docString":"a test aggregate function for int input/output",
+        "functionKind": "AGGREGATE",
+        "outputType": "INT",
+        "paramTypes":[
+          "INT"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "ROW(BIGINT, INT)",
+          "isOrderSensitive": false
+        }
+      },
+      {
+        "docString":"a test aggregate function for double input/output",
+        "functionKind": "AGGREGATE",
+        "outputType": "DOUBLE",
+        "paramTypes":[
+          "DOUBLE"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "ROW(DOUBLE, INT)",
+          "isOrderSensitive": false
+        }
+      }
+    ]
+  }
+}

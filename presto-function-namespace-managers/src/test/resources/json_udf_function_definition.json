@@ -1,154 +1,154 @@
 {
-"udfSignatureMap": {
-"add_ARRAY_element_wise":[
-         {
-            "docString":"function to add two string vectors element-wise",
-           "functionKind": "SCALAR",
-            "outputType": "ARRAY<ARRAY<BOOLEAN>>",
-            "paramTypes":[
-                 "ARRAY<ARRAY<BOOLEAN>>",
-                 "ARRAY<ARRAY<BOOLEAN>>"
-            ],
-           "schema":"test_schema",
-           "routineCharacteristics": {
-             "language":"CPP",
-             "determinism":"DETERMINISTIC",
-             "nullCallClause":"CALLED_ON_NULL_INPUT"
-           }
-         },
-         {
-            "docString":"function to add two float vectors element-wise",
-           "functionKind": "SCALAR",
-            "outputType": "ARRAY<ARRAY<BIGINT>>",
-            "paramTypes":[
-                "ARRAY<ARRAY<BIGINT>>",
-                 "ARRAY<ARRAY<BIGINT>>"
-            ],
-           "schema":"test_schema",
-           "routineCharacteristics": {
-             "language":"CPP",
-             "determinism":"DETERMINISTIC",
-             "nullCallClause":"CALLED_ON_NULL_INPUT"
-           }
-         },
-         {
-            "docString":"function to add two int64_t vectors element-wise",
-           "functionKind": "SCALAR",
-            "outputType": "ARRAY<DOUBLE>",
-            "paramTypes":[
-                 "ARRAY<DOUBLE>",
-                 "ARRAY<DOUBLE>"
-            ],
-           "schema":"test_schema",
-           "routineCharacteristics": {
-             "language":"CPP",
-             "determinism":"DETERMINISTIC",
-             "nullCallClause":"CALLED_ON_NULL_INPUT"
-           }
-         }
-      ],
- "ads_product_types_transform":[
-         {
-            "docString":"gff ads product types transform",
-           "functionKind": "SCALAR",
-            "outputType": "ARRAY<map<BIGINT, DOUBLE>>",
-            "paramTypes":[
-                 "ARRAY<map<BIGINT, DOUBLE>>",
-                 "ARRAY<varchar>"
-            ],
-           "schema":"test_schema",
-           "routineCharacteristics": {
-             "language":"CPP",
-             "determinism":"DETERMINISTIC",
-             "nullCallClause":"CALLED_ON_NULL_INPUT"
-           }
-         },
-         {
-            "docString":"gff ads product types transform",
-           "functionKind": "SCALAR",
-            "outputType": "ARRAY<map<BIGINT, DOUBLE>>",
-            "paramTypes":[
-                 "ARRAY<map<BIGINT, DOUBLE>>",
-                 "ARRAY<ARRAY<BOOLEAN>>",
-                 "ARRAY<varchar>"
-            ],
-           "schema":"test_schema",
-           "routineCharacteristics": {
-             "language":"CPP",
-             "determinism":"DETERMINISTIC",
-             "nullCallClause":"CALLED_ON_NULL_INPUT"
-           }
-         }
-      ],
-  "square": [
-    {
-      "docString":"square an integer",
-      "functionKind": "SCALAR",
-      "outputType": "int",
-      "paramTypes":[
-        "int"
-      ],
-      "schema":"test_schema",
-      "routineCharacteristics": {
-        "language":"CPP",
-        "determinism":"DETERMINISTIC",
-        "nullCallClause":"CALLED_ON_NULL_INPUT"
-      }
-    },
-    {
-      "docString":"square a double",
-      "functionKind": "SCALAR",
-      "outputType": "double",
-      "paramTypes":[
-        "double"
-      ],
-      "schema":"test_schema",
-      "routineCharacteristics": {
-        "language":"CPP",
-        "determinism":"DETERMINISTIC",
-        "nullCallClause":"CALLED_ON_NULL_INPUT"
-      }
-    }
-  ],
-  "avg": [
-    {
-      "docString":"Returns mean of integers",
-      "functionKind": "AGGREGATE",
-      "outputType": "int",
-      "paramTypes":[
-        "int"
-      ],
-      "schema":"test_schema",
-      "routineCharacteristics": {
-        "language":"CPP",
-        "determinism":"DETERMINISTIC",
-        "nullCallClause":"CALLED_ON_NULL_INPUT"
+  "udfSignatureMap": {
+    "array_function_1": [
+      {
+        "docString": "combines two string arrays into one",
+        "functionKind": "SCALAR",
+        "outputType": "ARRAY<ARRAY<BOOLEAN>>",
+        "paramTypes": [
+          "ARRAY<ARRAY<BOOLEAN>>",
+          "ARRAY<ARRAY<BOOLEAN>>"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
       },
-      "aggregateMetadata": {
-        "intermediateType": "ROW(bigint, int)",
-        "isOrderSensitive": false
-      }
-    },
-    {
-      "docString":"Returns mean of doubles",
-      "functionKind": "AGGREGATE",
-      "outputType": "double",
-      "paramTypes":[
-        "double"
-      ],
-      "schema":"test_schema",
-      "routineCharacteristics": {
-        "language":"CPP",
-        "determinism":"DETERMINISTIC",
-        "nullCallClause":"CALLED_ON_NULL_INPUT"
+      {
+        "docString": "combines two float arrays into one",
+        "functionKind": "SCALAR",
+        "outputType": "ARRAY<ARRAY<BIGINT>>",
+        "paramTypes": [
+          "ARRAY<ARRAY<BIGINT>>",
+          "ARRAY<ARRAY<BIGINT>>"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
       },
-      "aggregateMetadata": {
-        "intermediateType": "ROW(double, int)",
-        "isOrderSensitive": false
+      {
+        "docString": "combines two double arrays into one",
+        "functionKind": "SCALAR",
+        "outputType": "ARRAY<DOUBLE>",
+        "paramTypes": [
+          "ARRAY<DOUBLE>",
+          "ARRAY<DOUBLE>"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
       }
-    }
-  ]
- }
+    ],
+    "array_function_2": [
+      {
+        "docString": "transforms inputs into the output",
+        "functionKind": "SCALAR",
+        "outputType": "ARRAY<map<BIGINT, DOUBLE>>",
+        "paramTypes": [
+          "ARRAY<map<BIGINT, DOUBLE>>",
+          "ARRAY<varchar>"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      },
+      {
+        "docString": "transforms inputs into the output",
+        "functionKind": "SCALAR",
+        "outputType": "ARRAY<map<BIGINT, DOUBLE>>",
+        "paramTypes": [
+          "ARRAY<map<BIGINT, DOUBLE>>",
+          "ARRAY<ARRAY<BOOLEAN>>",
+          "ARRAY<varchar>"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+    "square": [
+      {
+        "docString": "square an integer",
+        "functionKind": "SCALAR",
+        "outputType": "int",
+        "paramTypes": [
+          "int"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      },
+      {
+        "docString": "square a double",
+        "functionKind": "SCALAR",
+        "outputType": "double",
+        "paramTypes": [
+          "double"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+    "avg": [
+      {
+        "docString": "Returns mean of integers",
+        "functionKind": "AGGREGATE",
+        "outputType": "int",
+        "paramTypes": [
+          "int"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "ROW(bigint, int)",
+          "isOrderSensitive": false
+        }
+      },
+      {
+        "docString": "Returns mean of doubles",
+        "functionKind": "AGGREGATE",
+        "outputType": "double",
+        "paramTypes": [
+          "double"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "ROW(double, int)",
+          "isOrderSensitive": false
+        }
+      }
+    ]
+  }
 }
 
 
