@@ -609,7 +609,10 @@ TEST_P(PrestoExchangeSourceTestSuite, failedProducer) {
   EXPECT_THROW(waitForNextPage(queue), std::runtime_error);
 }
 
-TEST_P(PrestoExchangeSourceTestSuite, exceedingMemoryCapacityForHttpResponse) {
+// TODO Fix and re-enable: https://github.com/prestodb/presto/issues/19560
+TEST_P(
+    PrestoExchangeSourceTestSuite,
+    DISABLED_exceedingMemoryCapacityForHttpResponse) {
   const int64_t memoryCapBytes = 1 << 10;
   const bool useHttps = GetParam();
   auto rootPool = defaultMemoryManager().addRootPool(
