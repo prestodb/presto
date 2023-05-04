@@ -149,6 +149,8 @@ class MessageTypeConverter
                 return ConvertedType.TIME_MILLIS;
             case TIMESTAMP_MILLIS:
                 return ConvertedType.TIMESTAMP_MILLIS;
+            case TIMESTAMP_MICROS:
+                return ConvertedType.TIMESTAMP_MICROS;
             case INTERVAL:
                 return ConvertedType.INTERVAL;
             case INT_8:
