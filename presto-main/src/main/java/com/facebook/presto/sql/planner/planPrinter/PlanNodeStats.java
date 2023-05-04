@@ -44,6 +44,8 @@ public class PlanNodeStats
     private final long planNodeOutputPositions;
     private final DataSize planNodeOutputDataSize;
 
+    private final Duration planNodeWallTime;
+
     protected final Map<String, OperatorInputStats> operatorInputStats;
 
     PlanNodeStats(
@@ -56,6 +58,7 @@ public class PlanNodeStats
             DataSize planNodeRawInputDataSize,
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
+            Duration planNodeWallTime,
             Map<String, OperatorInputStats> operatorInputStats)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -68,6 +71,7 @@ public class PlanNodeStats
         this.planNodeRawInputDataSize = planNodeRawInputDataSize;
         this.planNodeOutputPositions = planNodeOutputPositions;
         this.planNodeOutputDataSize = planNodeOutputDataSize;
+        this.planNodeWallTime = planNodeWallTime;
 
         this.operatorInputStats = requireNonNull(operatorInputStats, "operatorInputStats is null");
     }
@@ -93,6 +97,11 @@ public class PlanNodeStats
     public Duration getPlanNodeCpuTime()
     {
         return planNodeCpuTime;
+    }
+
+    public Duration getPlanNodeWallTime()
+    {
+        return planNodeWallTime;
     }
 
     public Set<String> getOperatorTypes()
@@ -170,6 +179,6 @@ public class PlanNodeStats
                 planNodeInputPositions, planNodeInputDataSize,
                 planNodeRawInputPositions, planNodeRawInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
-                operatorInputStats);
+                new Duration(Math.max(planNodeWallTime.toMillis(), other.planNodeWallTime.toMillis()), MILLISECONDS), operatorInputStats);
     }
 }

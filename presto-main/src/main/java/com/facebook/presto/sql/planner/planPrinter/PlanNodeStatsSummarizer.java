@@ -81,6 +81,7 @@ public class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeOutputBytes = new HashMap<>();
         Map<PlanNodeId, Long> planNodeScheduledMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeWallMillis = new HashMap<>();
 
         Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
@@ -108,6 +109,10 @@ public class PlanNodeStatsSummarizer
 
                 long cpuMillis = operatorStats.getAddInputCpu().toMillis() + operatorStats.getGetOutputCpu().toMillis() + operatorStats.getFinishCpu().toMillis();
                 planNodeCpuMillis.merge(planNodeId, cpuMillis, Long::sum);
+
+                long wallMillis = operatorStats.getAddInputWall().toMillis() + operatorStats.getGetOutputWall().toMillis() + operatorStats.getBlockedWall().toMillis()
+                        + operatorStats.getFinishWall().toMillis();
+                planNodeWallMillis.merge(planNodeId, wallMillis, Long::max);
 
                 // A pipeline like hash build before join might link to another "internal" pipelines which provide actual input for this plan node
                 if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
@@ -211,6 +216,7 @@ public class PlanNodeStatsSummarizer
                         succinctDataSize(planNodeRawInputBytes.get(planNodeId), BYTE),
                         outputPositions,
                         succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        new Duration(planNodeWallMillis.get(planNodeId), MILLISECONDS),
                         operatorInputStats.get(planNodeId),
                         operatorHashCollisionsStats.get(planNodeId));
             }
@@ -225,6 +231,7 @@ public class PlanNodeStatsSummarizer
                         succinctDataSize(planNodeRawInputBytes.get(planNodeId), BYTE),
                         outputPositions,
                         succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        new Duration(planNodeWallMillis.get(planNodeId), MILLISECONDS),
                         operatorInputStats.get(planNodeId),
                         windowNodeStats.get(planNodeId));
             }
@@ -239,7 +246,7 @@ public class PlanNodeStatsSummarizer
                         succinctDataSize(planNodeRawInputBytes.get(planNodeId), BYTE),
                         outputPositions,
                         succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
-                        operatorInputStats.get(planNodeId));
+                        new Duration(planNodeWallMillis.get(planNodeId), MILLISECONDS), operatorInputStats.get(planNodeId));
             }
 
             stats.add(nodeStats);
