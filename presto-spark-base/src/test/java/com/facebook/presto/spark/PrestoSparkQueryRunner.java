@@ -747,7 +747,7 @@ public class PrestoSparkQueryRunner
         public void release(SparkContext sparkContext, boolean forceRelease)
         {
             synchronized (SparkContextHolder.class) {
-                checkState(forceRelease || SparkContextHolder.sparkContext == sparkContext, "unexpected spark context");
+                checkState(forceRelease || sparkContext.isStopped() || SparkContextHolder.sparkContext == sparkContext, "unexpected spark context");
                 referenceCount--;
                 if (referenceCount == 0) {
                     sparkContext.cancelAllJobs();
