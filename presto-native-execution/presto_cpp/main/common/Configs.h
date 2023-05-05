@@ -27,6 +27,13 @@ class ConfigBase {
   /// @param filePath Path to configuration file.
   void initialize(const std::string& filePath);
 
+  /// Adds or replaces value at the given key. Can be used by debugging or
+  /// testing code.
+  /// Returns previous value if there was any.
+  folly::Optional<std::string> setValue(
+      const std::string& propertyName,
+      const std::string& value);
+
   template <typename T>
   T requiredProperty(const std::string& propertyName) const {
     auto propertyValue = config_->get<T>(propertyName);
@@ -58,8 +65,9 @@ class ConfigBase {
     return config_->get(propertyName);
   }
 
-  const std::unordered_map<std::string, std::string>& values() const {
-    return config_->values();
+  /// Returns copy of the config values map.
+  std::unordered_map<std::string, std::string> values() const {
+    return config_->valuesCopy();
   }
 
  protected:
@@ -72,13 +80,14 @@ class ConfigBase {
 /// Provides access to system properties defined in config.properties file.
 class SystemConfig : public ConfigBase {
  public:
+  static constexpr std::string_view kMutableConfig{"mutable-config"};
   static constexpr std::string_view kPrestoVersion{"presto.version"};
   static constexpr std::string_view kHttpServerHttpPort{
       "http-server.http.port"};
-  // This option allows a port closed in TIME_WAIT state to be reused
-  // immediately upon worker startup. This property is mainly used by batch
-  // processing. For interactive query, the worker uses a dynamic port upon
-  // startup.
+  /// This option allows a port closed in TIME_WAIT state to be reused
+  /// immediately upon worker startup. This property is mainly used by batch
+  /// processing. For interactive query, the worker uses a dynamic port upon
+  /// startup.
   static constexpr std::string_view kHttpServerReusePort{
       "http-server.reuse-port"};
   static constexpr std::string_view kDiscoveryUri{"discovery.uri"};
@@ -136,9 +145,10 @@ class SystemConfig : public ConfigBase {
   /// the received http response data.
   static constexpr std::string_view kHttpMaxAllocateBytes{
       "http-server.max-response-allocate-bytes"};
-  // Most server nodes today (May 2022) have at least 16 cores.
-  // Setting the default maximum drivers per task to this value will
-  // provide a better off-shelf experience.
+
+  /// Most server nodes today (May 2022) have at least 16 cores.
+  /// Setting the default maximum drivers per task to this value will
+  /// provide a better off-shelf experience.
   static constexpr int32_t kMaxDriversPerTaskDefault = 16;
   static constexpr bool kHttpServerReusePortDefault = false;
   static constexpr int32_t kConcurrentLifespansPerTaskDefault = 1;
