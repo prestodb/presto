@@ -966,7 +966,9 @@ std::unique_ptr<ContinuePromise> Task::addSplitLocked(
   ++taskStats_.numTotalSplits;
   ++taskStats_.numQueuedSplits;
 
-  VELOX_CHECK_NULL(split.connectorSplit->dataSource);
+  if (split.connectorSplit) {
+    VELOX_CHECK_NULL(split.connectorSplit->dataSource);
+  }
 
   if (!split.hasGroup()) {
     return addSplitToStoreLocked(

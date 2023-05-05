@@ -100,6 +100,9 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
   // Add split for the source node.
   task.addSplit("0", exec::Split(folly::copy(connectorSplit)));
 
+  // Add an empty split.
+  task.addSplit("0", exec::Split());
+
   // Try to add split for a non-source node.
   auto errorMessage =
       "Splits can be associated only with leaf plan nodes which require splits. Plan node ID 1 doesn't refer to such plan node.";

@@ -1731,7 +1731,6 @@ TEST_F(TableScanTest, bucket) {
 
   for (int i = 0; i < buckets.size(); ++i) {
     int bucketValue = buckets[i];
-    auto connectorSplit = splits[i];
     auto hsplit = HiveConnectorSplitBuilder(filePaths[i]->path)
                       .tableBucketNumber(bucketValue)
                       .build();
