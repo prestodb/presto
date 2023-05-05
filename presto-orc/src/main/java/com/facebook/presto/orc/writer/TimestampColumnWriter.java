@@ -82,7 +82,7 @@ public class TimestampColumnWriter
     private long columnStatisticsRetainedSizeInBytes;
 
     private final long baseTimestampInSeconds;
-    private final int unitsPerSecond;
+    private final long unitsPerSecond;
     private final int trailingZeros;
 
     private int nonNullValueCount;
