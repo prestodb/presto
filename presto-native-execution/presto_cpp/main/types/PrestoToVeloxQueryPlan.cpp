@@ -779,6 +779,10 @@ void setCellFromVariant(
     columnVector->setNull(row, true);
     return;
   }
+  if (columnVector->typeKind() == TypeKind::HUGEINT) {
+    setCellFromVariantByKind<TypeKind::HUGEINT>(columnVector, row, value);
+    return;
+  }
   VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       setCellFromVariantByKind,
       columnVector->typeKind(),
