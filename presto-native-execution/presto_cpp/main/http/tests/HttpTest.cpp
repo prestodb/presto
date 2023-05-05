@@ -136,7 +136,7 @@ std::string bodyAsString(http::HttpResponse& response, MemoryPool* pool) {
     oss << std::string((const char*)body->data(), body->length());
     pool->free(body->writableData(), body->capacity());
   }
-  EXPECT_EQ(pool->getCurrentBytes(), 0);
+  EXPECT_EQ(pool->currentBytes(), 0);
   return oss.str();
 }
 
@@ -324,8 +324,7 @@ TEST_P(HttpTestSuite, basic) {
 
 TEST_P(HttpTestSuite, httpResponseAllocationFailure) {
   const int64_t memoryCapBytes = 1 << 10;
-  auto rootPool = defaultMemoryManager().addRootPool(
-      "httpResponseAllocationFailure", memoryCapBytes);
+  auto rootPool = defaultMemoryManager().addRootPool("", memoryCapBytes);
   auto leafPool = rootPool->addLeafChild("httpResponseAllocationFailure");
 
   const bool useHttps = GetParam();
