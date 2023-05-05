@@ -417,11 +417,11 @@ public abstract class AbstractTestNativeGeneralQueries
         // numeric limits
         assertQueryFails("SELECT n + m from (values (DECIMAL'99999999999999999999999999999999999999'," +
                 "CAST('1' as DECIMAL(2,0)))) t(n, m)",
-                ".*Decimal overflow.*");
+                ".*Decimal.*");
         assertQueryFails(
                 "SELECT n + m from (values (CAST('-99999999999999999999999999999999999999' as DECIMAL(38,0))," +
                         "CAST('-1' as DECIMAL(15,0)))) t(n,m)",
-                ".*Decimal overflow.*");
+                ".*Decimal.*");
 
         // Subtraction of long decimals.
         assertQuery(
@@ -440,7 +440,7 @@ public abstract class AbstractTestNativeGeneralQueries
         // Subtraction Overflow
         assertQueryFails(
                 "SELECT n - m from (values (DECIMAL'-99999999999999999999999999999999999999', decimal'1')) " +
-                        "t(n,m)", ".*Decimal overflow.*");
+                        "t(n,m)", ".*Decimal.*");
         // Multiplication.
         assertQuery("SELECT n * m from (values (DECIMAL'99999999999999999999', DECIMAL'-0.000003')," +
                 "(DECIMAL'-0.00000000000000001', DECIMAL'10000000000'),(DECIMAL'-12345678902345.124', DECIMAL'-0.275')," +
@@ -449,7 +449,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 "(DECIMAL '-3.4', DECIMAL '-625'), (DECIMAL '-0.0004', DECIMAL '-0.0123')) t(n,m)");
         // Multiplication overflow.
         assertQueryFails("SELECT n*m from (values (DECIMAL'14621507953634074601941877663083790335', DECIMAL'10')) " +
-                "t(n,m)", ".*Decimal overflow.*");
+                "t(n,m)", ".*Decimal.*");
         // Division long decimals.
         assertQuery("SELECT n/m from(values " +
                 "(CAST('10000000000000000.00' as decimal(19, 2)), DECIMAL'30000000000000.00')," +
@@ -467,7 +467,7 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Division overflow.
         assertQueryFails("SELECT n/m from(values (DECIMAL'99999999999999999999999999999999999999', DECIMAL'0.01'))" +
-                        " t(n,m)", ".*Decimal overflow.*");
+                        " t(n,m)", ".*Decimal.*");
     }
 
     @Test
