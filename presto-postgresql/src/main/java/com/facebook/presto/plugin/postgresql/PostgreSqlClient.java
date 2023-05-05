@@ -100,7 +100,7 @@ public class PostgreSqlClient
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, escape).orElse(null),
                 escapeNamePattern(tableName, escape).orElse(null),
-                new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE"});
+                new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE", "PARTITIONED TABLE"});
     }
 
     @Override
