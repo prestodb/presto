@@ -29,9 +29,35 @@ ConfigBase::ConfigBase()
     : config_(std::make_unique<velox::core::MemConfig>()) {}
 
 void ConfigBase::initialize(const std::string& filePath) {
-  config_ = std::make_unique<velox::core::MemConfig>(
-      util::readConfig(fs::path(filePath)));
+  // See if we want to create a mutable config.
+  auto values = util::readConfig(fs::path(filePath));
+  bool mutableConfig{false};
+  auto it = values.find(std::string(SystemConfig::kMutableConfig));
+  if (it != values.end()) {
+    mutableConfig = folly::to<bool>(it->second);
+  }
+
+  if (mutableConfig) {
+    config_ = std::make_unique<velox::core::MemConfigMutable>(values);
+  } else {
+    config_ = std::make_unique<velox::core::MemConfig>(values);
+  };
+
   filePath_ = filePath;
+}
+
+folly::Optional<std::string> ConfigBase::setValue(
+    const std::string& propertyName,
+    const std::string& value) {
+  if (auto* memConfig =
+          dynamic_cast<velox::core::MemConfigMutable*>(config_.get())) {
+    auto oldValue = config_->get(propertyName);
+    memConfig->setValue(propertyName, value);
+    return oldValue;
+  }
+  VELOX_USER_FAIL(
+      "Config is not mutable. Consider setting {} to 'true'.",
+      SystemConfig::kMutableConfig);
 }
 
 SystemConfig* SystemConfig::instance() {
