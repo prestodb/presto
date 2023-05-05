@@ -260,6 +260,22 @@ public abstract class AbstractTestNativeAggregations
         assertQuerySucceeds("SELECT orderkey, arbitrary(tax_as_real) FROM lineitem GROUP BY 1");
     }
 
+    @Test
+    public void testBlackhole()
+    {
+        assertQuery("SELECT blackhole(v) FROM (VALUES 1.0, 3.0, 5.0, NULL ) as t (v)");
+        assertQuery("SELECT blackhole(orderkey) FROM lineitem WHERE orderkey < 2");
+        assertQuery("SELECT blackhole(orderkey) FROM lineitem WHERE orderkey  = -1");
+        assertQuery("SELECT blackhole(orderkey) FROM lineitem");
+        assertQuery("SELECT blackhole(extendedprice) FROM lineitem where orderkey < 20");
+        assertQuery("SELECT blackhole(shipdate) FROM lineitem");
+        assertQuery("SELECT blackhole(comment) FROM lineitem");
+        assertQuery("SELECT blackhole(quantities) FROM orders_ex");
+        assertQuery("SELECT blackhole(quantity_by_linenumber) FROM orders_ex");
+        assertQuery("SELECT shipmode, blackhole(extendedprice) FROM lineitem GROUP BY shipmode");
+        assertQuery("SELECT blackhole(from_unixtime(orderkey, '+01:00')) FROM lineitem WHERE orderkey < 20");
+    }
+
     private void assertQueryResultCount(String sql, int expectedResultCount)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expectedResultCount);

@@ -38,6 +38,10 @@ General Aggregate Functions
 
     Returns the average interval length of all input values.
 
+.. function:: blackhole(x) -> varbinary
+
+    Consumes given values with minimal resource usage and always returns the ``OK`` value.
+
 .. function:: bool_and(boolean) -> boolean
 
     Returns ``TRUE`` if every input value is ``TRUE``, otherwise ``FALSE``.
