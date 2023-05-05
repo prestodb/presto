@@ -28,12 +28,11 @@ permissions:
   contents: read
   actions: read
   statuses: write
-  #TODO comment results to PR
 
 jobs:
   upload:
     runs-on: ubuntu-latest
-    if: ${{ (github.event.workflow_run.conclusion == 'success' || 
+    if: ${{ (github.event.workflow_run.conclusion == 'success' ||
              github.event_name == 'workflow_dispatch') &&
             github.repository == 'facebookincubator/velox' }}
     steps:
@@ -49,7 +48,7 @@ jobs:
             repo: context.repo.repo,
             run_id: run_id,
           });
-          
+
           let artifacts = await github.rest.actions.listWorkflowRunArtifacts({
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -59,7 +58,7 @@ jobs:
           let result_artifact = artifacts.data.artifacts.filter((artifact) => {
             return artifact.name == "benchmark-results"
           })[0];
-          
+
           let pr_artifact = artifacts.data.artifacts.filter((artifact) => {
             return artifact.name == "pr_number"
           })[0];
@@ -70,20 +69,27 @@ jobs:
             artifact_id: result_artifact.id,
             archive_format: 'zip',
           });
-          
+
           let pr_download = await github.rest.actions.downloadArtifact({
             owner: context.repo.owner,
             repo: context.repo.repo,
             artifact_id: pr_artifact.id,
             archive_format: 'zip',
           });
-          
+
           var fs = require('fs');
           fs.writeFileSync('${{github.workspace}}/benchmark-results.zip', Buffer.from(result_download.data));
           fs.writeFileSync('${{github.workspace}}/pr_number.zip', Buffer.from(pr_download.data));
-            
+
           core.setOutput('contender_sha', benchmark_run.data.head_sha);
-    - name: Extract artifact 
+
+          if (benchmark_run.data.event == 'push') {
+            core.setOutput('merge_commit_message', benchmark_run.data.head_commit.message);
+          } else {
+            core.setOutput('merge_commit_message', '');
+          }
+
+    - name: Extract artifact
       id: extract
       run: |
         unzip benchmark-results.zip -d benchmark-results
@@ -97,10 +103,10 @@ jobs:
         python-version: '3.8'
         cache: 'pip'
         cache-dependency-path: "velox/scripts/*"
-    
+
     - name: "Install dependencies"
       run: python -m pip install -r velox/scripts/benchmark-requirements.txt
-    
+
     - name: "Upload results"
       env:
         CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
@@ -113,20 +119,20 @@ jobs:
         if [ "${{ steps.extract.outputs.pr_number }}" -gt 0]; then
           export CONBENCH_PROJECT_PR_NUMBER="${{ steps.extract.outputs.pr_number }}"
         fi
-        
+
         ./velox/scripts/benchmark-runner.py upload \
           --run_id "GHA-${{ github.run_id }}-${{ github.run_attempt }}" \
           --pr_number "${{ steps.extract.outputs.pr_number }}" \
           --sha "${{ steps.download.outputs.contender_sha }}" \
           --output_dir "${{ github.workspace }}/benchmark-results/contender/"
 
-    - name: "Status Check"
+    - name: "Check the status of the upload"
       # Status functions like failure() only work in `if:`
       if: failure()
       id: status
       run: echo "failed=true" >> $GITHUB_OUTPUT
 
-    - name: "Create commit status"
+    - name: "Create a GitHub Status on the contender commit (whether the upload was successful)"
       uses: actions/github-script@v6
       if: always()
       with:
@@ -134,7 +140,7 @@ jobs:
           let url = 'https://github.com/${{github.repository}}/actions/runs/${{ github.run_id }}'
           let state = 'success'
           let description = 'Result upload succeeded!'
-          
+
           if(${{ steps.status.outputs.failed || false }}) {
             state = 'failure'
             description = 'Result upload failed!'
@@ -149,3 +155,14 @@ jobs:
             description: description,
             context: 'Benchmark Result Upload'
           })
+
+    - name: Create a GitHub Check benchmark report on the contender comment, and if merge-commit, a comment on the merged PR
+      env:
+        CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
+        GITHUB_APP_ID: "${{ secrets.GH_APP_ID }}"
+        GITHUB_APP_PRIVATE_KEY: "${{ secrets.GH_APP_PRIVATE_KEY }}"
+      run: |
+        ./velox/scripts/benchmark-alert.py \
+          --contender-sha "${{ steps.download.outputs.contender_sha }}" \
+          --merge-commit-message "${{ steps.download.outputs.merge_commit_message }}" \
+          --z-score-threshold 50
