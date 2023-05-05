@@ -116,6 +116,10 @@ void capExceedingMessageVisitor(
     MemoryUsageHeap& topLeafMemUsages,
     std::stringstream& out) {
   const MemoryPool::Stats stats = pool->stats();
+  // Avoid logging empty pools.
+  if (stats.empty()) {
+    return;
+  }
   const MemoryUsage usage{
       .name = pool->name(),
       .currentUsage = stats.currentBytes,

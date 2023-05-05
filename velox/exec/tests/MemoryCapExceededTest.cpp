@@ -36,17 +36,11 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
   // why).
   std::array<std::string, 14> expectedTexts = {
       "Exceeded memory cap of 5.00MB when requesting 2.00MB",
-      "node.0 usage 0B peak 0B",
-      "op.0.0.0.Values usage 0B peak 0B",
       "node.1 usage 1.00MB peak 1.00MB",
       "op.1.0.0.FilterProject usage 12.00KB peak 12.00KB",
       "node.2 usage 4.00MB peak 4.00MB",
       "op.2.0.0.Aggregation usage 3.77MB peak 3.77MB",
-      "node.3 usage 0B peak 0B",
-      "op.3.0.0.OrderBy usage 0B peak 0B",
-      "node.N/A usage 0B peak 0B",
-      "op.N/A.0.0.CallbackSink usage 0B peak 0B",
-      "Top 5 leaf memory pool usages:",
+      "Top 2 leaf memory pool usages:",
       "Failed memory pool: op.2.0.0.Aggregation: 3.77MB"};
 
   std::vector<RowVectorPtr> data;
@@ -107,21 +101,18 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
     data.push_back(rowVector);
   }
 
-  std::array<std::string, 28> expectedTexts = {
-      "op.N/A.0.8.CallbackSink usage", "op.N/A.0.7.CallbackSink usage",
-      "op.N/A.0.6.CallbackSink usage", "op.N/A.0.5.CallbackSink usage",
-      "op.N/A.0.4.CallbackSink usage", "op.N/A.0.3.CallbackSink usage",
-      "op.N/A.0.2.CallbackSink usage", "op.N/A.0.1.CallbackSink usage",
-      "op.N/A.0.0.CallbackSink usage", "op.1.0.9.Aggregation usage",
-      "op.1.0.8.Aggregation usage",    "op.1.0.7.Aggregation usage",
-      "op.1.0.6.Aggregation usage",    "op.1.0.5.Aggregation usage",
-      "op.1.0.4.Aggregation usage",    "op.1.0.3.Aggregation usage",
-      "op.1.0.2.Aggregation usage",    "op.1.0.1.Aggregation usage",
-      "op.0.0.9.Values usage",         "op.0.0.8.Values usage",
-      "op.0.0.7.Values usage",         "op.0.0.6.Values usage",
-      "op.0.0.5.Values usage",         "op.0.0.4.Values usage",
-      "op.0.0.3.Values usage",         "op.0.0.2.Values usage",
-      "op.0.0.1.Values usage"};
+  std::array<std::string, 10> expectedTexts = {
+      "op.1.0.9.Aggregation usage",
+      "op.1.0.8.Aggregation usage",
+      "op.1.0.7.Aggregation usage",
+      "op.1.0.6.Aggregation usage",
+      "op.1.0.5.Aggregation usage",
+      "op.1.0.4.Aggregation usage",
+      "op.1.0.3.Aggregation usage",
+      "op.1.0.2.Aggregation usage",
+      "op.1.0.1.Aggregation usage",
+      "op.1.0.0.Aggregation usage",
+  };
 
   auto plan = PlanBuilder()
                   .values(data, true)

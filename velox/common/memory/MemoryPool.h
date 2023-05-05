@@ -397,6 +397,13 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     bool operator==(const Stats& rhs) const;
 
     std::string toString() const;
+
+    /// Returns true if the current bytes is zero.
+    /// Note that peak or cumulative bytes might be non-zero and we are still
+    /// empty at this moment.
+    bool empty() const {
+      return currentBytes == 0;
+    }
   };
 
   /// Returns the stats of this memory pool.

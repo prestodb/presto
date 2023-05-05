@@ -522,7 +522,7 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
         ASSERT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
         ASSERT_TRUE(ex.isRetriable());
         ASSERT_EQ(
-            "\nExceeded memory cap of 127.00MB when requesting 128.00MB\nMemoryCapExceptions usage 0B peak 0B\n    static_quota usage 0B peak 0B\n\nTop 1 leaf memory pool usages:\n    static_quota usage 0B peak 0B\n\nFailed memory pool: static_quota: 0B\n",
+            "\nExceeded memory cap of 127.00MB when requesting 128.00MB\nMemoryCapExceptions usage 0B peak 0B\n\nFailed memory pool: static_quota: 0B\n",
             ex.message());
       }
     }

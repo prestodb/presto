@@ -74,8 +74,8 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
   std::move(state->future_)
       .via(&exec)
       .thenValue([state](auto&& /* unused */) {
-        auto driver = state->driver_;
-        auto task = driver->task();
+        auto& driver = state->driver_;
+        auto& task = driver->task();
 
         std::lock_guard<std::mutex> l(task->mutex());
         if (!driver->state().isTerminated) {
@@ -93,9 +93,9 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
       })
       .thenError(
           folly::tag_t<std::exception>{}, [state](std::exception const& e) {
-            LOG(ERROR)
-                << "A ContinueFuture should not be realized with an error"
-                << e.what();
+            LOG(ERROR) << "A ContinueFuture for task "
+                       << state->driver_->task()->taskId()
+                       << " should not be realized with an error: " << e.what();
             state->driver_->setError(std::make_exception_ptr(e));
           });
 }

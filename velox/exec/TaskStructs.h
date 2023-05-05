@@ -39,6 +39,10 @@ std::string taskStateString(TaskState state);
 struct BarrierState {
   int32_t numRequested;
   std::vector<std::shared_ptr<Driver>> drivers;
+  /// Promises given to non-last peer drivers that the last driver will collect
+  /// all hashtables from the peers and assembles them into one (HashBuilder
+  /// operator does that). After the last drier done its work, the promises are
+  /// fulfilled and the non-last drivers can continue.
   std::vector<ContinuePromise> promises;
 };
 
