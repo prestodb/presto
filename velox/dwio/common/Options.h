@@ -102,6 +102,12 @@ class RowReaderOptions {
   std::shared_ptr<folly::Executor> decodingExecutor_;
   std::shared_ptr<folly::Executor> ioExecutor_;
   bool appendRowNumberColumn_ = false;
+  // Function to populate metrics related to feature projection stats
+  // in Koski. This gets fired in FlatMapColumnReader.
+  // This is a bit of a hack as there is (by design) no good way
+  // To propogate information from column reader to Koski
+  std::function<void(uint64_t numTotalKeys, uint64_t numSelectedKeys)>
+      keySelectionCallback_;
 
  public:
   RowReaderOptions() noexcept
@@ -275,6 +281,17 @@ class RowReaderOptions {
 
   bool getAppendRowNumberColumn() const {
     return appendRowNumberColumn_;
+  }
+
+  void setKeySelectionCallback(
+      std::function<void(uint64_t totalKeys, uint64_t selectedKeys)>
+          keySelectionCallback) {
+    keySelectionCallback_ = std::move(keySelectionCallback);
+  }
+
+  const std::function<void(uint64_t totalKeys, uint64_t selectedKeys)>
+  getKeySelectionCallback() const {
+    return keySelectionCallback_;
   }
 
   const std::shared_ptr<folly::Executor>& getDecodingExecutor() const {

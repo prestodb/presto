@@ -1573,6 +1573,13 @@ class StructColumnReader : public ColumnReader {
       override;
 };
 
+FlatMapContext makeCopyWithNullDecoder(FlatMapContext& original) {
+  return FlatMapContext{
+      .sequence = original.sequence,
+      .inMapDecoder = nullptr,
+      .keySelectionCallback = original.keySelectionCallback};
+}
+
 // From reading side - all sequences are by default 0
 // except it's turned into a sequence level filtering
 // Sequence level fitlering to be added in the future.
@@ -1607,7 +1614,7 @@ StructColumnReader::StructColumnReader(
             child,
             nodeType_->childAt(i),
             stripe,
-            FlatMapContext{flatMapContext_.sequence, nullptr}));
+            makeCopyWithNullDecoder(flatMapContext_)));
       } else {
         children_.push_back(
             std::make_unique<NullColumnReader>(stripe, child->type));
@@ -1739,7 +1746,7 @@ ListColumnReader::ListColumnReader(
         childType,
         nodeType_->childAt(0),
         stripe,
-        FlatMapContext{flatMapContext_.sequence, nullptr});
+        makeCopyWithNullDecoder(flatMapContext_));
   }
 }
 
@@ -1901,7 +1908,7 @@ MapColumnReader::MapColumnReader(
         keyType,
         nodeType_->childAt(0),
         stripe,
-        FlatMapContext{flatMapContext_.sequence, nullptr});
+        makeCopyWithNullDecoder(flatMapContext_));
   }
 
   auto& valueType = requestedType_->childAt(1);
@@ -1910,7 +1917,7 @@ MapColumnReader::MapColumnReader(
         valueType,
         nodeType_->childAt(1),
         stripe,
-        FlatMapContext{flatMapContext_.sequence, nullptr});
+        makeCopyWithNullDecoder(flatMapContext_));
   }
 
   VLOG(1) << "[Map] Initialized map column reader for node " << nodeType_->id;

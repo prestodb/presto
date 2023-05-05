@@ -404,6 +404,7 @@ void DwrfRowReader::startNextStripe() {
   auto requestedType = getColumnSelector().getSchemaWithId();
   auto dataType = getReader().getSchemaWithId();
   auto flatMapContext = FlatMapContext::nonFlatMapContext();
+  flatMapContext.keySelectionCallback = options_.getKeySelectionCallback();
 
   if (scanSpec) {
     selectiveColumnReader_ = SelectiveDwrfReader::build(

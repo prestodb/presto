@@ -337,7 +337,13 @@ void testDataTypeWriter(
     auto typeWithId = TypeWithId::create(rowType);
     auto reqType = typeWithId->childAt(0);
     auto reader = ColumnReader::build(
-        reqType, reqType, streams, FlatMapContext{sequence, nullptr});
+        reqType,
+        reqType,
+        streams,
+        FlatMapContext{
+            .sequence = sequence,
+            .inMapDecoder = nullptr,
+            .keySelectionCallback = nullptr});
     VectorPtr out;
     for (auto strideI = 0; strideI < strideCount; ++strideI) {
       reader->next(size, out);

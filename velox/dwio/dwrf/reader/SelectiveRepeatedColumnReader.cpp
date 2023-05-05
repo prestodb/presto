@@ -37,6 +37,13 @@ std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> makeLengthDecoder(
 }
 } // namespace
 
+FlatMapContext flatMapContextFromEncodingKey(EncodingKey& encodingKey) {
+  return FlatMapContext{
+      .sequence = encodingKey.sequence,
+      .inMapDecoder = nullptr,
+      .keySelectionCallback = nullptr};
+}
+
 SelectiveListColumnReader::SelectiveListColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
@@ -65,7 +72,7 @@ SelectiveListColumnReader::SelectiveListColumnReader(
   scanSpec_->children()[0]->setExtractValues(true);
 
   auto childParams =
-      DwrfParams(stripe, FlatMapContext{encodingKey.sequence, nullptr});
+      DwrfParams(stripe, flatMapContextFromEncodingKey(encodingKey));
   child_ = SelectiveDwrfReader::build(
       childType, nodeType_->childAt(0), childParams, *scanSpec_->children()[0]);
   children_ = {child_.get()};
@@ -102,7 +109,7 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
       cs.shouldReadNode(keyType->id),
       "Map key must be selected in SelectiveMapColumnReader");
   auto keyParams =
-      DwrfParams(stripe, FlatMapContext{encodingKey.sequence, nullptr});
+      DwrfParams(stripe, flatMapContextFromEncodingKey(encodingKey));
   keyReader_ = SelectiveDwrfReader::build(
       keyType,
       nodeType_->childAt(0),
@@ -114,7 +121,7 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
       cs.shouldReadNode(valueType->id),
       "Map Values must be selected in SelectiveMapColumnReader");
   auto elementParams =
-      DwrfParams(stripe, FlatMapContext{encodingKey.sequence, nullptr});
+      DwrfParams(stripe, flatMapContextFromEncodingKey(encodingKey));
   elementReader_ = SelectiveDwrfReader::build(
       valueType,
       nodeType_->childAt(1),

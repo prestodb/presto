@@ -53,8 +53,12 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
     auto childDataType = nodeType_->childByName(childSpec->fieldName());
     auto childRequestedType =
         requestedType_->childByName(childSpec->fieldName());
-    auto childParams =
-        DwrfParams(stripe, FlatMapContext{encodingKey.sequence, nullptr});
+    auto childParams = DwrfParams(
+        stripe,
+        FlatMapContext{
+            .sequence = encodingKey.sequence,
+            .inMapDecoder = nullptr,
+            .keySelectionCallback = nullptr});
     VELOX_CHECK(cs.shouldReadNode(childDataType->id));
     addChild(SelectiveDwrfReader::build(
         childRequestedType, childDataType, childParams, *childSpec));

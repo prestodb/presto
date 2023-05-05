@@ -158,7 +158,11 @@ std::vector<KeyNode<T>> getKeyNodes(
         VELOX_CHECK(inMap, "In map stream is required");
         auto inMapDecoder = createBooleanRleDecoder(std::move(inMap), seqEk);
         DwrfParams childParams(
-            stripe, FlatMapContext(sequence, inMapDecoder.get()));
+            stripe,
+            FlatMapContext{
+                .sequence = sequence,
+                .inMapDecoder = inMapDecoder.get(),
+                .keySelectionCallback = nullptr});
         auto reader = SelectiveDwrfReader::build(
             requestedValueType, dataValueType, childParams, *childSpec);
         keyNodes.emplace_back(

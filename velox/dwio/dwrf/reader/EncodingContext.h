@@ -21,16 +21,16 @@
 namespace facebook::velox::dwrf {
 struct FlatMapContext {
  public:
-  explicit FlatMapContext(uint32_t sequence, BooleanRleDecoder* inMapDecoder)
-      : sequence{sequence}, inMapDecoder{inMapDecoder} {}
-
   static FlatMapContext nonFlatMapContext() {
-    return FlatMapContext{0, nullptr};
+    return FlatMapContext{0, nullptr, nullptr};
   }
 
   uint32_t sequence;
   // Kept alive by key nodes
-  BooleanRleDecoder* inMapDecoder;
+  BooleanRleDecoder* inMapDecoder{nullptr};
+
+  std::function<void(uint64_t totalKeys, uint64_t selectedKeys)>
+      keySelectionCallback;
 };
 
 } // namespace facebook::velox::dwrf
