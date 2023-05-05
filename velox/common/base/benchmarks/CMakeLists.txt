@@ -14,4 +14,4 @@
 add_executable(velox_common_base_benchmarks BitUtilBenchmark.cpp)
 
 target_link_libraries(velox_common_base_benchmarks velox_common_base
-                      ${FOLLY_WITH_DEPENDENCIES} ${FOLLY_BENCHMARK})
+                      Folly::folly ${FOLLY_BENCHMARK})

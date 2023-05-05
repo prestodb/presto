@@ -13,4 +13,4 @@
 # limitations under the License.
 
 add_library(velox_codegen_functions INTERFACE)
-target_link_libraries(velox_codegen_functions INTERFACE ${FMT})
+target_link_libraries(velox_codegen_functions INTERFACE fmt::fmt)

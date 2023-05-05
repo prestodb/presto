@@ -11,20 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-set(VELOX_LINK_LIBS
-    velox_caching
-    velox_dwio_common
-    velox_dwio_common_exception
-    velox_dwio_type_fbhive
-    velox_encode
-    velox_exception
-    velox_memory
-    velox_process
-    velox_serialization
-    velox_type
-    velox_vector
-    ${FOLLY_WITH_DEPENDENCIES}
-    ${FMT})
+add_library(velox_link_libs INTERFACE)
+target_link_libraries(
+  velox_link_libs
+  INTERFACE velox_caching
+            velox_dwio_common
+            velox_dwio_common_exception
+            velox_dwio_type_fbhive
+            velox_encode
+            velox_exception
+            velox_memory
+            velox_process
+            velox_serialization
+            velox_type
+            velox_vector
+            Folly::folly
+            fmt::fmt)
 
 add_subdirectory(common)
 add_subdirectory(dwrf)

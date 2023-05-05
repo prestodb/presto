@@ -30,9 +30,8 @@ add_library(
   SharedArbitrator.cpp
   StreamArena.cpp)
 
-target_link_libraries(
-  velox_memory velox_flag_definitions velox_common_base velox_exception
-  velox_test_util ${FOLLY_WITH_DEPENDENCIES})
+target_link_libraries(velox_memory velox_flag_definitions velox_common_base
+                      velox_exception velox_test_util Folly::folly)
 
 if(NOT VELOX_DISABLE_GOOGLETEST)
   target_link_libraries(velox_memory gtest)

@@ -46,20 +46,20 @@ target_link_libraries(
   velox_presto_types
   velox_temp_path
   velox_vector_fuzzer
-  ${Boost_ATOMIC_LIBRARIES}
-  ${Boost_CONTEXT_LIBRARIES}
-  ${Boost_DATE_TIME_LIBRARIES}
-  ${Boost_FILESYSTEM_LIBRARIES}
-  ${Boost_PROGRAM_OPTIONS_LIBRARIES}
-  ${Boost_REGEX_LIBRARIES}
-  ${Boost_THREAD_LIBRARIES}
-  ${Boost_SYSTEM_LIBRARIES}
+  Boost::atomic
+  Boost::context
+  Boost::date_time
+  Boost::filesystem
+  Boost::program_options
+  Boost::regex
+  Boost::thread
+  Boost::system
   gtest
   gtest_main
-  ${FOLLY_WITH_DEPENDENCIES}
+  Folly::folly
   gflags::gflags
   glog::glog
-  ${FMT}
+  fmt::fmt
   dl)
 
 add_executable(simple_vector_test SimpleVectorTest.cpp ToStringUtilityTest.cpp)
@@ -74,10 +74,10 @@ target_link_libraries(
   velox_vector_test_lib
   gtest
   gtest_main
-  ${FOLLY_WITH_DEPENDENCIES}
+  Folly::folly
   gflags::gflags
   glog::glog
-  ${FMT})
+  fmt::fmt)
 
 add_executable(bias_vector_test BiasVectorTest.cpp)
 
@@ -89,7 +89,7 @@ target_link_libraries(
   Boost::filesystem
   gtest
   gtest_main
-  ${FOLLY_WITH_DEPENDENCIES}
+  Folly::folly
   gflags::gflags
   glog::glog
-  ${FMT})
+  fmt::fmt)

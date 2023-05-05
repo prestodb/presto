@@ -13,7 +13,8 @@
 # limitations under the License.
 add_library(velox_functions_string INTERFACE)
 
-target_link_libraries(velox_functions_string INTERFACE velox_exception)
+target_link_libraries(velox_functions_string INTERFACE velox_exception
+                                                       Folly::folly)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

@@ -24,6 +24,6 @@ target_link_libraries(
   velox_dwio_common_exception
   velox_vector_fuzzer
   velox_vector_test_lib
-  ${FOLLY_WITH_DEPENDENCIES}
+  Folly::folly
   ${FOLLY_BENCHMARK}
   gflags::gflags)

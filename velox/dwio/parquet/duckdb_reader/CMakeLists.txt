@@ -15,4 +15,4 @@
 add_library(velox_dwio_duckdb_parquet_reader ParquetReader.cpp)
 
 target_link_libraries(velox_dwio_duckdb_parquet_reader velox_duckdb_allocator
-                      velox_dwio_common velox_duckdb_conversion duckdb ${FMT})
+                      velox_dwio_common velox_duckdb_conversion duckdb fmt::fmt)

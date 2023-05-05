@@ -24,12 +24,12 @@ target_link_libraries(
   velox_codegen_code_generator
   velox_hive_connector
   ${FOLLY_BENCHMARK}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${Boost_FILESYSTEM_LIBRARIES}
+  Folly::folly
+  Boost::filesystem
   gtest
   gtest_main
   gflags::gflags
-  ${FMT}
+  fmt::fmt
   velox_core
   velox_exec
   velox_exec_test_lib
@@ -88,13 +88,13 @@ target_link_libraries(
   velox_exec_test_lib
   velox_codegen_code_generator
   ${FOLLY_BENCHMARK}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${Boost_FILESYSTEM_LIBRARIES}
+  Folly::folly
+  Boost::filesystem
   gtest
   gtest_main
   gflags::gflags
   glog::glog
-  ${FMT}
+  fmt::fmt
   velox_core
   velox_exec
   velox_codegen_utils_resource_path

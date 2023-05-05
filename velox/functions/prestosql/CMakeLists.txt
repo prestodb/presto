@@ -71,7 +71,7 @@ target_link_libraries(
   velox_type_tz
   velox_presto_types
   velox_functions_util
-  ${FOLLY})
+  Folly::folly)
 
 set_property(TARGET velox_functions_prestosql_impl PROPERTY JOB_POOL_COMPILE
                                                             high_memory_pool)

@@ -14,4 +14,4 @@ add_library(md5 md5.cpp)
 add_compile_definitions(FOLLY_HAVE_INT128_T=1)
 target_link_libraries(
         md5
-        ${FOLLY_WITH_DEPENDENCIES})
+        Folly::folly)

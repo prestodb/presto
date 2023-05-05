@@ -14,7 +14,7 @@
 
 set(BENCHMARK_DEPENDENCIES_NO_FUNC
     velox_functions_test_lib velox_exec velox_exec_test_lib gflags::gflags
-    ${FOLLY_WITH_DEPENDENCIES} ${FOLLY_BENCHMARK})
+    Folly::folly ${FOLLY_BENCHMARK})
 
 set(BENCHMARK_DEPENDENCIES
     velox_functions_prestosql velox_functions_lib velox_vector_fuzzer

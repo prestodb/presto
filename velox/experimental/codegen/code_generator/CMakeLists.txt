@@ -22,12 +22,12 @@ target_link_libraries(
   velox_exec_test_lib
   velox_functions_lib
   velox_functions_prestosql_impl
-  ${FOLLY_WITH_DEPENDENCIES}
+  Folly::folly
   gtest
   gtest_main
   gflags::gflags
   glog::glog
-  ${FMT})
+  fmt::fmt)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

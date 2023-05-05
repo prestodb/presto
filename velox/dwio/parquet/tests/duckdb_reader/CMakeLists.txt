@@ -20,7 +20,7 @@ add_test(
 
 target_link_libraries(
   velox_dwio_duckdb_parquet_reader_test velox_dwio_duckdb_parquet_reader
-  ${VELOX_LINK_LIBS} ${TEST_LINK_LIBS})
+  velox_link_libs ${TEST_LINK_LIBS})
 
 add_executable(velox_dwio_duckdb_parquet_table_scan_test
                ParquetTableScanTest.cpp)
@@ -36,5 +36,5 @@ target_link_libraries(
   velox_exec
   velox_hive_connector
   velox_aggregates
-  ${VELOX_LINK_LIBS}
+  velox_link_libs
   ${TEST_LINK_LIBS})

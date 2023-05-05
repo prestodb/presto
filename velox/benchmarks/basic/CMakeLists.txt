@@ -20,7 +20,7 @@ set(velox_benchmark_deps
     velox_parse_utils
     velox_parse_expression
     velox_serialization
-    ${FOLLY}
+    Folly::folly
     ${FOLLY_BENCHMARK}
     ${DOUBLE_CONVERSION}
     gflags::gflags

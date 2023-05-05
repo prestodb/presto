@@ -35,7 +35,7 @@ target_link_libraries(
   velox_codegen_native_loader_test
   gtest
   gtest_main
-  ${FOLLY_WITH_DEPENDENCIES}
+  Folly::folly
   gflags::gflags
   glog::glog
-  ${FMT})
+  fmt::fmt)

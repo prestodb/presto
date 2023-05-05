@@ -21,8 +21,9 @@ target_link_libraries(
   velox_codegen_external_process_test
   gtest
   gtest_main
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${Boost_FILESYSTEM_LIBRARIES}
+  Folly::folly
+  Boost::filesystem
+  ${DOUBLE_CONVERSION}
   gflags::gflags
   glog::glog
-  ${FMT})
+  fmt::fmt)

@@ -13,4 +13,4 @@
 # limitations under the License.
 
 add_library(velox_dwio_common_compression LzoDecompressor.cpp)
-target_link_libraries(velox_dwio_common_compression ${FOLLY_WITH_DEPENDENCIES})
+target_link_libraries(velox_dwio_common_compression Folly::folly)

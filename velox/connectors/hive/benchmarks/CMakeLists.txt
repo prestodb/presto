@@ -29,6 +29,6 @@ target_link_libraries(
   velox_hive_connector
   velox_hive_partition_function
   velox_memory
-  ${FOLLY_WITH_DEPENDENCIES}
+  Folly::folly
   ${FOLLY_BENCHMARK}
-  ${FMT})
+  fmt::fmt)

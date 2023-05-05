@@ -21,4 +21,4 @@ target_link_libraries(
   gtest_main
   glog::glog
   gflags::gflags
-  ${FOLLY_WITH_DEPENDENCIES})
+  Folly::folly)

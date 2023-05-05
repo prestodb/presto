@@ -15,7 +15,7 @@
 add_executable(simple_lru_cache_test SimpleLRUCacheTest.cpp)
 add_test(simple_lru_cache_test simple_lru_cache_test)
 target_link_libraries(simple_lru_cache_test gtest gtest_main glog::glog
-                      gflags::gflags ${FOLLY_WITH_DEPENDENCIES})
+                      gflags::gflags Folly::folly)
 
 add_executable(velox_cache_test StringIdMapTest.cpp AsyncDataCacheTest.cpp
                                 SsdFileTest.cpp SsdFileTrackerTest.cpp)
@@ -30,7 +30,7 @@ target_link_libraries(
   gtest_main
   glog::glog
   gflags::gflags
-  ${FOLLY_WITH_DEPENDENCIES})
+  Folly::folly)
 
 add_executable(cached_factory_test CachedFactoryTest.cpp)
 add_test(cached_factory_test cached_factory_test)
@@ -41,4 +41,4 @@ target_link_libraries(
   gtest_main
   glog::glog
   gflags::gflags
-  ${FOLLY_WITH_DEPENDENCIES})
+  Folly::folly)

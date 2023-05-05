@@ -27,7 +27,10 @@
 #include <vector>
 #include "folly/CPortability.h"
 #include "folly/Likely.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include "folly/ssl/OpenSSLHash.h"
+#pragma GCC diagnostic pop
 #include "velox/common/base/Exceptions.h"
 #include "velox/external/md5/md5.h"
 #include "velox/functions/lib/string/StringCore.h"

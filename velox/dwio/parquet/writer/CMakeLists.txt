@@ -15,4 +15,4 @@
 add_library(velox_dwio_parquet_writer Writer.cpp)
 
 target_link_libraries(velox_dwio_parquet_writer velox_dwio_common
-                      velox_arrow_bridge parquet arrow ${FMT})
+                      velox_arrow_bridge parquet arrow fmt::fmt)

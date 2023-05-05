@@ -14,7 +14,7 @@
 add_library(velox_functions_spark_aggregates
             BitwiseXorAggregate.cpp FirstLastAggregate.cpp Register.cpp)
 
-target_link_libraries(velox_functions_spark_aggregates ${FMT} velox_exec
+target_link_libraries(velox_functions_spark_aggregates fmt::fmt velox_exec
                       velox_expression_functions velox_aggregates velox_vector)
 
 if(${VELOX_BUILD_TESTING})

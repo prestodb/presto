@@ -17,7 +17,7 @@ add_library(velox_dwio_common_test_utils BatchMaker.cpp DataFiles.cpp
 
 target_link_libraries(
   velox_dwio_common_test_utils
-  ${FOLLY_WITH_DEPENDENCIES}
+  Folly::folly
   velox_dwio_common
   velox_dwio_common_exception
   velox_dwio_type_fbhive

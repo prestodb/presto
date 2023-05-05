@@ -80,10 +80,10 @@ target_link_libraries(
   gtest
   gtest_main
   gmock
-  ${FOLLY_WITH_DEPENDENCIES}
+  Folly::folly
   gflags::gflags
   glog::glog
-  ${FMT})
+  fmt::fmt)
 
 add_library(velox_expression_verifier ExpressionVerifier.cpp)
 

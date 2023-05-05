@@ -28,7 +28,7 @@ target_link_libraries(
   velox_file
   velox_time
   glog::glog
-  ${FOLLY_WITH_DEPENDENCIES})
+  Folly::folly)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

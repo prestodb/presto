@@ -38,7 +38,7 @@ set(HOST_ENV_CMAKE
     CC="${CMAKE_C_COMPILER}"
     CXX="${CMAKE_CXX_COMPILER}"
     CFLAGS="${CMAKE_C_FLAGS}"
-    CXXFLAGS="${CMAKE_CXX_FLAGS}"
+    CXXFLAGS="${CMAKE_CXX_FLAGS} -w"
     LDFLAGS="${CMAKE_MODULE_LINKER_FLAGS}")
 set(ICU_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/icu)
 set(ICU_INCLUDE_DIRS ${ICU_DIR}/include)
@@ -75,7 +75,7 @@ foreach(component ${icu_components})
   set_target_properties(
     ICU::${component}
     PROPERTIES IMPORTED_LOCATION ${ICU_${component}_LIBRARY}
-               INTERFACE_INCLUDE_DIRECTORIES ${ICU_INCLUDE_DIRS})
+               INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${ICU_INCLUDE_DIRS})
   target_link_libraries(ICU::ICU INTERFACE ICU::${component})
 endforeach()
 

@@ -18,7 +18,7 @@ add_test(velox_functions_string_test velox_functions_string_test)
 target_link_libraries(
   velox_functions_string_test
   velox_functions_string
-  ${FOLLY_WITH_DEPENDENCIES}
+  Folly::folly
   gtest
   gtest_main
   gflags::gflags
