@@ -157,6 +157,8 @@ public class PrestoSparkQueryExecutionFactory
 {
     private static final Logger log = Logger.get(PrestoSparkQueryExecutionFactory.class);
     public static final String PRESTO_QUERY_ID_CONFIG = "presto_query_id";
+    public static final String PRESTO_SPARK_SHUFFLE_STATS_COLLECTOR = "shuffleStatsCollector";
+    public static final String PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR = "genericShuffleStatsCollector";
 
     private final QueryIdGenerator queryIdGenerator;
     private final QuerySessionSupplier sessionSupplier;
@@ -645,10 +647,12 @@ public class PrestoSparkQueryExecutionFactory
             else {
                 planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
                 JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
+                CollectionAccumulator<String> genericShuffleStatsCollector = new CollectionAccumulator<>();
+                genericShuffleStatsCollector.register(sparkContext, Option.apply(PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR), false);
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
                 taskInfoCollector.register(sparkContext, Option.empty(), false);
                 CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector = new CollectionAccumulator<>();
-                shuffleStatsCollector.register(sparkContext, Option.empty(), false);
+                shuffleStatsCollector.register(sparkContext, Option.apply(PRESTO_SPARK_SHUFFLE_STATS_COLLECTOR), false);
                 TempStorage tempStorage = tempStorageManager.getTempStorage(storageBasedBroadcastJoinStorage);
                 queryStateTimer.endAnalysis();
 
@@ -657,6 +661,7 @@ public class PrestoSparkQueryExecutionFactory
                             javaSparkContext,
                             session,
                             queryMonitor,
+                            genericShuffleStatsCollector,
                             taskInfoCollector,
                             shuffleStatsCollector,
                             prestoSparkTaskExecutorFactory,
@@ -695,6 +700,7 @@ public class PrestoSparkQueryExecutionFactory
                             javaSparkContext,
                             session,
                             queryMonitor,
+                            genericShuffleStatsCollector,
                             taskInfoCollector,
                             shuffleStatsCollector,
                             prestoSparkTaskExecutorFactory,

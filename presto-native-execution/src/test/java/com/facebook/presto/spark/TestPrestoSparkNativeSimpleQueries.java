@@ -13,10 +13,21 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import org.apache.spark.SparkContext;
+import org.apache.spark.util.AccumulatorContext$;
+import org.apache.spark.util.AccumulatorV2;
+import org.apache.spark.util.CollectionAccumulator;
 import org.testng.annotations.Test;
+import scala.Option;
+
+import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PRESTO_SPARK_SHUFFLE_STATS_COLLECTOR;
+import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestPrestoSparkNativeSimpleQueries
         extends AbstractTestQueryFramework
@@ -57,9 +68,29 @@ public class TestPrestoSparkNativeSimpleQueries
     }
 
     @Test
-    public void testJoins()
+    public void testJoinsWithGenericShuffleStats()
     {
         assertQuery("SELECT * FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
+        SparkContext.getOrCreate();
+        Option<AccumulatorV2<?, ?>> accumulator = AccumulatorContext$.MODULE$.lookForAccumulatorByName(PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR);
+        assertTrue(accumulator.isDefined());
+        java.util.List<String> stats = ((CollectionAccumulator<String>) accumulator.get()).value();
+        assertTrue(!stats.isEmpty());
+        String metric = stats.get(0);
+        String[] metrics = metric.split("\\|");
+        assertTrue(metrics.length == 4);
+    }
+
+    @Test
+    public void testJoinsWithShuffleStats()
+    {
+        assertQuery("SELECT * FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
+        SparkContext.getOrCreate();
+        Option<AccumulatorV2<?, ?>> accumulator = AccumulatorContext$.MODULE$.lookForAccumulatorByName(PRESTO_SPARK_SHUFFLE_STATS_COLLECTOR);
+        assertTrue(accumulator.isDefined());
+        java.util.List<PrestoSparkShuffleStats> stats = ((CollectionAccumulator<PrestoSparkShuffleStats>) accumulator.get()).value();
+        assertEquals(stats.size(), 10);
+        assertEquals(stats.get(2).getProcessedRows(), 3694);
     }
 
     @Test

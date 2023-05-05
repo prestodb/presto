@@ -18,6 +18,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeMetric;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
@@ -34,6 +36,10 @@ import com.facebook.presto.execution.scheduler.StreamingSubPlan;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.NativeExecutionInfo;
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.PipelineStats;
+import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.ErrorClassifier;
 import com.facebook.presto.spark.PrestoSparkBroadcastDependency;
 import com.facebook.presto.spark.PrestoSparkMemoryBasedBroadcastDependency;
@@ -170,6 +176,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected final QueryMonitor queryMonitor;
     protected final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
     protected final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
+    protected final CollectionAccumulator<String> genericShuffleStatsCollector;
     // used to create tasks on the Driver
     protected final PrestoSparkTaskExecutorFactory taskExecutorFactory;
     // used to create tasks on executor, serializable
@@ -211,6 +218,7 @@ public abstract class AbstractPrestoSparkQueryExecution
             JavaSparkContext sparkContext,
             Session session,
             QueryMonitor queryMonitor,
+            CollectionAccumulator<String> genericShuffleStatsCollector,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             PrestoSparkTaskExecutorFactory taskExecutorFactory,
@@ -247,6 +255,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
         this.session = requireNonNull(session, "session is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
+        this.genericShuffleStatsCollector = requireNonNull(genericShuffleStatsCollector, "genericShuffleStatsCollector cannot be null");
         this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
         this.shuffleStatsCollector = requireNonNull(shuffleStatsCollector, "shuffleStatsCollector is null");
         this.taskExecutorFactory = requireNonNull(taskExecutorFactory, "taskExecutorFactory is null");
@@ -564,6 +573,39 @@ public abstract class AbstractPrestoSparkQueryExecution
         }
     }
 
+    private void collectMetrics(TaskInfo taskInfo)
+    {
+        int taskId = taskInfo.getTaskId().getId();
+        int stageId = taskInfo.getTaskId().getStageExecutionId().getStageId().getId();
+        for (PipelineStats pipelineStats : taskInfo.getStats().getPipelines()) {
+            for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {
+                if (operatorStats.getOperatorType().equals("NativeExecutionOperator")) {
+                    NativeExecutionInfo nativeExecutionInfo = (NativeExecutionInfo) operatorStats.getInfo();
+                    for (TaskStats taskStats : nativeExecutionInfo.getTaskStats()) {
+                        RuntimeStats runtimeStat = taskStats.getRuntimeStats();
+                        for (Map.Entry<String, RuntimeMetric> entry : runtimeStat.getMetrics().entrySet()) {
+                            String key = entry.getKey();
+                            RuntimeMetric metric = entry.getValue();
+                            String metricString = buildGenericMetric(taskId, stageId, key, metric.getSum()); // TODO improve this
+                            genericShuffleStatsCollector.add(metricString);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private String buildGenericMetric(int taskId, int stageId, String key, long metric)
+    {
+        StringBuilder buf = new StringBuilder();
+        String sep = "|";
+        buf.append(taskId).append(sep);
+        buf.append(stageId).append(sep);q
+        buf.append(key).append(sep);
+        buf.append(metric).append(sep);
+        return buf.toString();
+    }
+
     protected void queryCompletedEvent(Optional<ExecutionFailureInfo> failureInfo, OptionalLong updateCount)
     {
         List<SerializedTaskInfo> serializedTaskInfos = taskInfoCollector.value();
@@ -573,6 +615,7 @@ public abstract class AbstractPrestoSparkQueryExecution
             byte[] bytes = serializedTaskInfo.getBytesAndClear();
             totalSerializedTaskInfoSizeInBytes += bytes.length;
             TaskInfo taskInfo = deserializeZstdCompressed(taskInfoCodec, bytes);
+            collectMetrics(taskInfo);
             taskInfos.add(taskInfo);
         }
         taskInfoCollector.reset();
@@ -632,7 +675,6 @@ public abstract class AbstractPrestoSparkQueryExecution
         for (Map.Entry<ShuffleStatsKey, List<PrestoSparkShuffleStats>> fragment : statsMap.entrySet()) {
             logShuffleStatsSummary(fragment.getKey(), fragment.getValue());
         }
-        shuffleStatsCollector.reset();
     }
 
     protected void logShuffleStatsSummary(ShuffleStatsKey key, List<PrestoSparkShuffleStats> statsList)
