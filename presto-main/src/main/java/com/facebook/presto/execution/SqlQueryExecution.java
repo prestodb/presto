@@ -548,7 +548,7 @@ public class SqlQueryExecution
             queryPlan.set(plan);
             stateMachine.setPlanStatsAndCosts(plan.getStatsAndCosts());
             if (isPlanAnalyticsEnabled(getSession())) {
-                stateMachine.setPlanAnalyticsCanonicalInfo(getPlanAnalyticsCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
+                stateMachine.setPlanAnalyticsCanonicalInfo(getPlanAnalyticsCanonicalInfo(getSession(), plan.getRoot(), planAnalyticsInfoProvider));
             }
 
             stateMachine.setPlanCanonicalInfo(getCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));

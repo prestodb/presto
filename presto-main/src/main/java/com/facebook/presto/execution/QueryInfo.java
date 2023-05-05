@@ -483,7 +483,7 @@ public class QueryInfo
     // Don't serialize this field because it can be big
     public List<CanonicalPlanWithInfo> getPlanAnalyticsCanonicalInfo()
     {
-        return planCanonicalInfo;
+        return planAnalyticsCanonicalInfo;
     }
 
     @Override
