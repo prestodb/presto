@@ -16,23 +16,33 @@
 
 namespace facebook::presto {
 
-const std::unordered_map<std::string, ServerOperation::Action>
-    ServerOperation::kActionLookup = {
+const folly::F14FastMap<std::string, ServerOperation::Action>
+    ServerOperation::kActionLookup{
         {"clearCache", ServerOperation::Action::kClearCache},
-        {"getCacheStats", ServerOperation::Action::kGetCacheStats}};
+        {"getCacheStats", ServerOperation::Action::kGetCacheStats},
+        {"setProperty", ServerOperation::Action::kSetProperty},
+        {"getProperty", ServerOperation::Action::kGetProperty},
+    };
 
-const std::unordered_map<ServerOperation::Action, std::string>
-    ServerOperation::kReverseActionLookup = {
+const folly::F14FastMap<ServerOperation::Action, std::string>
+    ServerOperation::kReverseActionLookup{
         {ServerOperation::Action::kClearCache, "clearCache"},
-        {ServerOperation::Action::kGetCacheStats, "getCacheStats"}};
+        {ServerOperation::Action::kGetCacheStats, "getCacheStats"},
+        {ServerOperation::Action::kSetProperty, "setProperty"},
+        {ServerOperation::Action::kGetProperty, "getProperty"},
+    };
 
-const std::unordered_map<std::string, ServerOperation::Target>
-    ServerOperation::kTargetLookup = {
-        {"connector", ServerOperation::Target::kConnector}};
+const folly::F14FastMap<std::string, ServerOperation::Target>
+    ServerOperation::kTargetLookup{
+        {"connector", ServerOperation::Target::kConnector},
+        {"systemConfig", ServerOperation::Target::kSystemConfig},
+    };
 
-const std::unordered_map<ServerOperation::Target, std::string>
-    ServerOperation::kReverseTargetLookup = {
-        {ServerOperation::Target::kConnector, "connector"}};
+const folly::F14FastMap<ServerOperation::Target, std::string>
+    ServerOperation::kReverseTargetLookup{
+        {ServerOperation::Target::kConnector, "connector"},
+        {ServerOperation::Target::kSystemConfig, "systemConfig"},
+    };
 
 ServerOperation::Target ServerOperation::targetFromString(
     const std::string& str) {
@@ -68,22 +78,18 @@ std::string ServerOperation::actionString(Action action) {
   return it->second;
 }
 
-ServerOperation buildServerOpFromHttpRequest(
-    const proxygen::HTTPMessage* message) {
-  const auto& path = message->getPath();
-  const auto targetPos = std::string("/v1/operation/").length();
-  auto actionPos = path.find('/', targetPos);
+ServerOperation buildServerOpFromHttpMsgPath(const std::string& httpMsgPath) {
+  static const auto targetPos = std::string("/v1/operation/").length();
+  auto actionPos = httpMsgPath.find('/', targetPos);
   VELOX_USER_CHECK_NE(actionPos, std::string::npos);
   // Go beyond '/' to point to the first letter of action
   actionPos += 1;
-  VELOX_USER_CHECK_LT(targetPos, actionPos);
-  auto target = path.substr(targetPos, actionPos - 1 - targetPos);
-  auto action = path.substr(actionPos);
+  auto target = httpMsgPath.substr(targetPos, actionPos - 1 - targetPos);
+  auto action = httpMsgPath.substr(actionPos);
 
-  ServerOperation op;
-  op.target = ServerOperation::targetFromString(target);
-  op.action = ServerOperation::actionFromString(action);
-  return op;
+  return ServerOperation{
+      ServerOperation::targetFromString(target),
+      ServerOperation::actionFromString(action)};
 }
 
 } // namespace facebook::presto
