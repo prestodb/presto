@@ -563,6 +563,25 @@ TEST_F(E2EFilterTest, largeMetadata) {
   EXPECT_EQ(1000, reader->numberOfRows());
 }
 
+TEST_F(E2EFilterTest, date) {
+  testWithTypes(
+      "date_val:date",
+      [&]() {
+        makeIntDistribution<Date>(
+            "date_val",
+            10, // min
+            100, // max
+            22, // repeats
+            19, // rareFrequency
+            -999, // rareMin
+            30000, // rareMax
+            true); // keepNulls
+      },
+      false,
+      {"date_val"},
+      20);
+}
+
 // Define main so that gflags get processed.
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);

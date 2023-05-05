@@ -1730,7 +1730,7 @@ TEST(FilterTest, mergeWithBytesMultiRange) {
   }
 }
 
-TEST(FilterTest, HugeIntRange) {
+TEST(FilterTest, hugeIntRange) {
   auto filter = equalHugeint(HugeInt::build(1, 1), false);
   auto testInt128 = [&](int128_t x) { return filter->testInt128(x); };
   auto max = DecimalUtil::kLongDecimalMax;
@@ -1811,4 +1811,12 @@ TEST(FilterTest, HugeIntRange) {
   filter = greaterThanHugeint(max, true);
   EXPECT_FALSE(filter->testInt128(max));
   EXPECT_FALSE(filter->testInt128Range(min, max, false));
+}
+
+TEST(FilterTest, dateRange) {
+  Date low = Date(1);
+  Date high = Date(100);
+  auto filter = between(low.days(), high.days());
+  EXPECT_TRUE(applyFilter(*filter, Date(10)));
+  EXPECT_FALSE(applyFilter(*filter, Date(101)));
 }

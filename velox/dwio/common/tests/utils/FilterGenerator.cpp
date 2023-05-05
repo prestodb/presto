@@ -85,6 +85,11 @@ VectorPtr getChildBySubfield(
 uint32_t AbstractColumnStats::counter_ = 0;
 
 template <>
+int64_t ColumnStats<Date>::getIntegerValue(const Date& value) {
+  return value.days();
+}
+
+template <>
 std::unique_ptr<Filter> ColumnStats<bool>::makeRangeFilter(
     const FilterSpec& filterSpec) {
   if (values_.empty()) {
@@ -407,6 +412,9 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
         break;
       case TypeKind::BIGINT:
         stats = makeStats<TypeKind::BIGINT>(vector->type(), rowType_);
+        break;
+      case TypeKind::DATE:
+        stats = makeStats<TypeKind::DATE>(vector->type(), rowType_);
         break;
       case TypeKind::VARCHAR:
         stats = makeStats<TypeKind::VARCHAR>(vector->type(), rowType_);
