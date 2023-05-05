@@ -21,7 +21,6 @@ class ServerOperationTest : public testing::Test {};
 
 TEST_F(ServerOperationTest, targetActionLookup) {
   {
-    auto size = ServerOperation::kTargetLookup.size();
     // Targets lookup verification
     EXPECT_EQ(
         ServerOperation::kTargetLookup.size(),
@@ -87,6 +86,25 @@ TEST_F(ServerOperationTest, stringEnumConversion) {
   }
   EXPECT_THROW(
       ServerOperation::actionFromString("UNKNOWN_ACTION"),
+      velox::VeloxUserError);
+}
+
+TEST_F(ServerOperationTest, buildServerOp) {
+  ServerOperation op;
+  op = buildServerOpFromHttpMsgPath("/v1/operation/connector/clearCache");
+  EXPECT_EQ(ServerOperation::Target::kConnector, op.target);
+  EXPECT_EQ(ServerOperation::Action::kClearCache, op.action);
+
+  op = buildServerOpFromHttpMsgPath("/v1/operation/connector/getCacheStats");
+  EXPECT_EQ(ServerOperation::Target::kConnector, op.target);
+  EXPECT_EQ(ServerOperation::Action::kGetCacheStats, op.action);
+
+  op = buildServerOpFromHttpMsgPath("/v1/operation/systemConfig/setProperty");
+  EXPECT_EQ(ServerOperation::Target::kConnector, op.target);
+  EXPECT_EQ(ServerOperation::Action::kSetProperty, op.action);
+
+  EXPECT_THROW(
+      op = buildServerOpFromHttpMsgPath("/v1/operation/whatzit/setProperty"),
       velox::VeloxUserError);
 }
 
