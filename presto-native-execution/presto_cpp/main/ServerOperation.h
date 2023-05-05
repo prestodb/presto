@@ -13,7 +13,7 @@
  */
 #pragma once
 
-#include <proxygen/lib/http/HTTPMessage.h>
+#include <folly/container/F14Map.h>
 #include <string>
 
 namespace facebook::presto {
@@ -23,15 +23,16 @@ struct ServerOperation {
   /// The target this operation is operating upon
   enum class Target {
     kConnector,
+    kSystemConfig,
   };
 
   /// The action this operation is trying to take
-  enum class Action { kClearCache, kGetCacheStats };
+  enum class Action { kClearCache, kGetCacheStats, kSetProperty, kGetProperty };
 
-  static const std::unordered_map<std::string, Target> kTargetLookup;
-  static const std::unordered_map<Target, std::string> kReverseTargetLookup;
-  static const std::unordered_map<std::string, Action> kActionLookup;
-  static const std::unordered_map<Action, std::string> kReverseActionLookup;
+  static const folly::F14FastMap<std::string, Target> kTargetLookup;
+  static const folly::F14FastMap<Target, std::string> kReverseTargetLookup;
+  static const folly::F14FastMap<std::string, Action> kActionLookup;
+  static const folly::F14FastMap<Action, std::string> kReverseActionLookup;
 
   static Target targetFromString(const std::string& str);
   static std::string targetString(Target target);
@@ -43,7 +44,6 @@ struct ServerOperation {
 };
 
 /// Builds a server operation from an HTTP request. Throws upon build failure.
-ServerOperation buildServerOpFromHttpRequest(
-    const proxygen::HTTPMessage* httpMsg);
+ServerOperation buildServerOpFromHttpMsgPath(const std::string& httpMsgPath);
 
 } // namespace facebook::presto
