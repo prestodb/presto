@@ -39,10 +39,19 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
       const RowVectorPtr& vector,
       const folly::Range<const IndexRange*>& ranges) override {
     size_t totalSize = 0;
-    for (auto& range : ranges) {
-      for (auto i = range.begin; i < range.begin + range.size; ++i) {
-        auto rowSize = row::UnsafeRowSerializer::getSizeRow(vector.get(), i);
-        totalSize += rowSize + sizeof(TRowSize);
+    auto fixedRowSize =
+        row::UnsafeRowSerializer::getFixedSizeRow(asRowType(vector->type()));
+    if (fixedRowSize.has_value()) {
+      for (const auto& range : ranges) {
+        totalSize += (fixedRowSize.value() + sizeof(TRowSize)) * range.size;
+      }
+
+    } else {
+      for (const auto& range : ranges) {
+        for (auto i = range.begin; i < range.begin + range.size; ++i) {
+          auto rowSize = row::UnsafeRowSerializer::getSizeRow(vector.get(), i);
+          totalSize += rowSize + sizeof(TRowSize);
+        }
       }
     }
 

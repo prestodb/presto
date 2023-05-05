@@ -186,6 +186,18 @@ class UnsafeRowSerializerTests : public testing::Test,
   char* buffer_ = bufferPtr_->asMutable<char>();
 };
 
+TEST_F(UnsafeRowSerializerTests, fixedRowSize) {
+  auto fixedSize = UnsafeRowSerializer::getFixedSizeRow(
+      ROW({BIGINT(), DOUBLE(), BOOLEAN()}));
+  ASSERT_TRUE(fixedSize.has_value());
+  // 8 bytes for null flags + 8 bytes per field.
+  ASSERT_EQ(8 + 3 * 8, fixedSize.value());
+
+  fixedSize = UnsafeRowSerializer::getFixedSizeRow(
+      ROW({BIGINT(), VARCHAR(), DOUBLE(), BOOLEAN()}));
+  ASSERT_FALSE(fixedSize.has_value());
+}
+
 TEST_F(UnsafeRowSerializerTests, fixedLengthPrimitive) {
   int16_t smallint = 0x1234;
   auto smallintSerialized =

@@ -197,7 +197,6 @@ struct UnsafeRowSerializer {
     DCHECK_EQ(vector->type()->kind(), Kind);
     const auto& simple =
         *vector->loadedVector()->asUnchecked<SimpleVector<NativeType>>();
-    VELOX_CHECK(vector->isIndexInRange(idx));
 
     if (simple.isNullAt(idx)) {
       return std::nullopt;
@@ -1068,6 +1067,21 @@ struct UnsafeRowSerializer {
     }
   }
 
+  /// Return row size if all fields are fixed-size. Return std::nullopt if there
+  /// are variable-width fields.
+  static std::optional<size_t> getFixedSizeRow(const RowTypePtr& type) {
+    for (const auto& child : type->children()) {
+      if (!child->isFixedWidth()) {
+        return std::nullopt;
+      }
+    }
+
+    const size_t numFields = type->size();
+    size_t nullLength = UnsafeRow::getNullLength(numFields);
+
+    return nullLength + numFields * UnsafeRow::kFieldWidthBytes;
+  }
+
   /// Gets a size of a row in a row vector
   /// \param type type of the row
   /// \param data row vector
@@ -1082,7 +1096,7 @@ struct UnsafeRowSerializer {
 
     size_t elementsSize = 0;
     for (int fieldIdx = 0; fieldIdx < numFields; fieldIdx++) {
-      auto elementType = data->type()->childAt(fieldIdx);
+      const auto& elementType = data->type()->childAt(fieldIdx);
       elementsSize += getSizeElementAt(
           elementType,
           data->childAt(fieldIdx),
