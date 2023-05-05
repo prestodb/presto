@@ -282,10 +282,7 @@ class ArrayMaxFloatingPointTest : public FunctionBaseTest {
 
 } // namespace
 
-TYPED_TEST_SUITE(
-    ArrayMaxIntegralTest,
-    FunctionBaseTest::IntegralTypes,
-    FunctionBaseTest::TypeNames);
+TYPED_TEST_SUITE(ArrayMaxIntegralTest, FunctionBaseTest::IntegralTypes);
 
 TYPED_TEST(ArrayMaxIntegralTest, arrayMaxNullable) {
   this->testWithNulls();
@@ -297,8 +294,7 @@ TYPED_TEST(ArrayMaxIntegralTest, arrayMax) {
 
 TYPED_TEST_SUITE(
     ArrayMaxFloatingPointTest,
-    FunctionBaseTest::FloatingPointTypes,
-    FunctionBaseTest::TypeNames);
+    FunctionBaseTest::FloatingPointTypes);
 
 TYPED_TEST(ArrayMaxFloatingPointTest, arrayMaxNullable) {
   this->testWithNulls();

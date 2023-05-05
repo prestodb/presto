@@ -583,10 +583,7 @@ class SimdComparisonsTest : public functions::test::FunctionBaseTest {
   }
 };
 
-TYPED_TEST_SUITE(
-    SimdComparisonsTest,
-    comparisonTypes,
-    functions::test::FunctionBaseTest::TypeNames);
+TYPED_TEST_SUITE(SimdComparisonsTest, comparisonTypes);
 
 TYPED_TEST(SimdComparisonsTest, constant) {
   this->testConstant(35, 17);
