@@ -769,6 +769,14 @@ void setCellFromVariantByKind<TypeKind::VARCHAR>(
   values->set(row, StringView(value.value<Varchar>()));
 }
 
+/*template <>
+void setCellFromVariantByKind<TypeKind::HUGEINT>(const VectorPtr& column,
+vector_size_t row,
+const velox::variant& value) {
+  auto values = column->as<FlatVector<int128_t>>();
+  values->set(row, value.value<int128_t>());
+}*/
+
 void setCellFromVariant(
     const RowVectorPtr& data,
     vector_size_t row,
@@ -779,6 +787,14 @@ void setCellFromVariant(
     columnVector->setNull(row, true);
     return;
   }
+  if (columnVector->typeKind() == TypeKind::HUGEINT) {
+    // Specialize for HUGEINT until support is added in
+    // VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH.
+    // Refer: https://github.com/prestodb/presto/issues/19569
+    setCellFromVariantByKind<TypeKind::HUGEINT>(columnVector, row, value);
+    return;
+  }
+
   VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       setCellFromVariantByKind,
       columnVector->typeKind(),
