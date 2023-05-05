@@ -43,6 +43,22 @@ bool MemConfig::isValueExists(const std::string& key) const {
   return values_.find(key) != values_.end();
 }
 
+folly::Optional<std::string> MemConfigMutable::get(
+    const std::string& key) const {
+  auto lockedValues = values_.rlock();
+  folly::Optional<std::string> val;
+  auto it = lockedValues->find(key);
+  if (it != lockedValues->end()) {
+    val = it->second;
+  }
+  return val;
+}
+
+bool MemConfigMutable::isValueExists(const std::string& key) const {
+  auto lockedValues = values_.rlock();
+  return lockedValues->find(key) != lockedValues->end();
+}
+
 folly::Optional<std::string> ConfigStack::get(const std::string& key) const {
   folly::Optional<std::string> val;
   for (int64_t i = configs_.size(); --i >= 0;) {

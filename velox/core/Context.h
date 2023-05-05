@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <folly/Synchronized.h>
 #include <mutex>
 #include <typeindex>
 #include "folly/Optional.h"
@@ -24,8 +25,7 @@
 #include "unordered_map"
 #include "velox/common/base/Exceptions.h"
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 enum class UseCase {
   DEV = 1,
@@ -67,6 +67,10 @@ class Config {
     VELOX_UNSUPPORTED("method values() is not supported by this config");
   }
 
+  virtual std::unordered_map<std::string, std::string> valuesCopy() const {
+    VELOX_UNSUPPORTED("method valuesCopy() is not supported by this config");
+  }
+
   virtual ~Config() = default;
 };
 
@@ -98,14 +102,49 @@ class MemConfig : public Config {
     return values_;
   }
 
-  /// Adds or replaces value at the given key. Can be used by debugging or
-  /// testing code.
-  void setValue(const std::string& key, const std::string& value) {
-    values_[key] = value;
+  std::unordered_map<std::string, std::string> valuesCopy() const override {
+    return values_;
   }
 
  private:
   std::unordered_map<std::string, std::string> values_;
+};
+
+/// In-memory config allowing changing properties at runtime.
+class MemConfigMutable : public Config {
+ public:
+  explicit MemConfigMutable(
+      const std::unordered_map<std::string, std::string>& values)
+      : values_(values) {}
+
+  explicit MemConfigMutable() : values_{} {}
+
+  explicit MemConfigMutable(
+      std::unordered_map<std::string, std::string>&& values)
+      : values_(std::move(values)) {}
+
+  folly::Optional<std::string> get(const std::string& key) const override;
+
+  bool isValueExists(const std::string& key) const override;
+
+  const std::unordered_map<std::string, std::string>& values() const override {
+    VELOX_UNSUPPORTED(
+        "Mutable config cannot return unprotected reference to values.");
+    return *values_.rlock();
+  }
+
+  std::unordered_map<std::string, std::string> valuesCopy() const override {
+    return *values_.rlock();
+  }
+
+  /// Adds or replaces value at the given key. Can be used by debugging or
+  /// testing code.
+  void setValue(const std::string& key, const std::string& value) {
+    (*values_.wlock())[key] = value;
+  }
+
+ private:
+  folly::Synchronized<std::unordered_map<std::string, std::string>> values_;
 };
 
 class ConfigStack : public Config {
@@ -318,5 +357,4 @@ class Context : public BaseConfigManager {
 };
 
 } // namespace core
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox
