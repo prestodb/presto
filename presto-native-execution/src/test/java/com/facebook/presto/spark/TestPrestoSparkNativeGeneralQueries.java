@@ -77,13 +77,4 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testTopN() {}
-
-    @Override
-    public void testDecimalArithmetic() {}
-
-    @Override
-    public void testDecimalLiterals() {}
-
-    @Override
-    public void testDecimalLogicalFunctions() {}
 }
