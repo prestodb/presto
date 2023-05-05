@@ -15,8 +15,10 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -25,11 +27,15 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -41,26 +47,43 @@ import static java.util.Objects.requireNonNull;
 public class HttpNativeExecutionTaskInfoFetcher
 {
     private static final Logger log = Logger.get(HttpNativeExecutionTaskInfoFetcher.class);
+    private static final String TASK_ERROR_MESSAGE = "TaskInfoFetcher encountered too many errors talking to native process.";
 
     private final PrestoSparkHttpTaskClient workerClient;
     private final ScheduledExecutorService updateScheduledExecutor;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final Executor executor;
     private final Duration infoFetchInterval;
+    private final RequestErrorTracker errorTracker;
+    private final ScheduledExecutorService errorRetryScheduledExecutor;
+    private final AtomicReference<RuntimeException> lastException = new AtomicReference<>();
+    private final Duration maxErrorDuration;
 
     @GuardedBy("this")
     private ScheduledFuture<?> scheduledFuture;
 
     public HttpNativeExecutionTaskInfoFetcher(
             ScheduledExecutorService updateScheduledExecutor,
+            ScheduledExecutorService errorRetryScheduledExecutor,
             PrestoSparkHttpTaskClient workerClient,
             Executor executor,
-            Duration infoFetchInterval)
+            Duration infoFetchInterval,
+            Duration maxErrorDuration)
     {
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.infoFetchInterval = requireNonNull(infoFetchInterval, "infoFetchInterval is null");
+        this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
+        this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
+        this.errorTracker = new RequestErrorTracker(
+                "NativeExecution",
+                workerClient.getLocation(),
+                NATIVE_EXECUTION_TASK_ERROR,
+                TASK_ERROR_MESSAGE,
+                maxErrorDuration,
+                errorRetryScheduledExecutor,
+                "getting taskInfo from native process");
     }
 
     public void start()
@@ -83,7 +106,24 @@ public class HttpNativeExecutionTaskInfoFetcher
                             @Override
                             public void onFailure(Throwable t)
                             {
-                                log.error("TaskInfoCallback failed %s", t);
+                                // record failure
+                                try {
+                                    errorTracker.requestFailed(t);
+                                }
+                                catch (PrestoException e) {
+                                    stop();
+                                    lastException.set(e);
+                                    return;
+                                }
+                                ListenableFuture<?> errorRateLimit = errorTracker.acquireRequestPermit();
+                                try {
+                                    // synchronously wait on throttling
+                                    errorRateLimit.get(maxErrorDuration.toMillis(), TimeUnit.MILLISECONDS);
+                                }
+                                catch (InterruptedException | ExecutionException | TimeoutException e) {
+                                    // throttling error is not fatal, just log the error.
+                                    log.debug(e.getMessage());
+                                }
                             }
                         },
                         executor);
@@ -102,7 +142,11 @@ public class HttpNativeExecutionTaskInfoFetcher
     }
 
     public Optional<TaskInfo> getTaskInfo()
+            throws RuntimeException
     {
+        if (scheduledFuture != null && scheduledFuture.isCancelled()) {
+            throw lastException.get();
+        }
         TaskInfo info = taskInfo.get();
         return info == null ? Optional.empty() : Optional.of(info);
     }

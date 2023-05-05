@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -45,29 +46,35 @@ public class NativeExecutionTaskFactory
     private final ExecutorService coreExecutor;
     private final Executor executor;
     private final ScheduledExecutorService updateScheduledExecutor;
+    private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec;
     private final TaskManagerConfig taskManagerConfig;
+    private final QueryManagerConfig queryManagerConfig;
 
     @Inject
     public NativeExecutionTaskFactory(
             @ForNativeExecutionTask HttpClient httpClient,
             ExecutorService coreExecutor,
             ScheduledExecutorService updateScheduledExecutor,
+            ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
             JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec,
-            TaskManagerConfig taskManagerConfig)
+            TaskManagerConfig taskManagerConfig,
+            QueryManagerConfig queryManagerConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.coreExecutor = requireNonNull(coreExecutor, "coreExecutor is null");
         this.executor = new BoundedExecutor(coreExecutor, MAX_THREADS);
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
+        this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
+        this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
     }
 
     public NativeExecutionTask createNativeExecutionTask(
@@ -90,10 +97,12 @@ public class NativeExecutionTaskFactory
                 shuffleWriteInfo,
                 executor,
                 updateScheduledExecutor,
+                errorRetryScheduledExecutor,
                 taskInfoCodec,
                 planFragmentCodec,
                 taskUpdateRequestCodec,
-                taskManagerConfig);
+                taskManagerConfig,
+                queryManagerConfig);
     }
 
     @PreDestroy
