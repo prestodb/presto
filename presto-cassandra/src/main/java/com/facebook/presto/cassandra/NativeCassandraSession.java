@@ -58,6 +58,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -420,7 +421,7 @@ public class NativeCassandraSession
 
         ImmutableList.Builder<CassandraPartition> partitions = ImmutableList.builder();
         for (Row row : rows) {
-            buffer.clear();
+            ((Buffer) buffer).clear();
             map.clear();
             stringBuilder.setLength(0);
             for (int i = 0; i < partitionKeyColumns.size(); i++) {
@@ -445,7 +446,7 @@ public class NativeCassandraSession
                 stringBuilder.append(" = ");
                 stringBuilder.append(CassandraType.getColumnValueForCql(row, i, columnHandle.getCassandraType()));
             }
-            buffer.flip();
+            ((Buffer) buffer).flip();
             byte[] key = new byte[buffer.limit()];
             buffer.get(key);
             TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(map);
