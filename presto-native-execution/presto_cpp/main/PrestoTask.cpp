@@ -288,7 +288,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   lastMemoryReservation = currentBytes;
 
   prestoTaskStats.peakNodeTotalMemoryInBytes =
-      task->queryCtx()->pool()->getMaxBytes();
+      task->queryCtx()->pool()->peakBytes();
 
   prestoTaskStats.rawInputPositions = 0;
   prestoTaskStats.rawInputDataSizeInBytes = 0;
