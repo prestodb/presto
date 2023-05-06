@@ -24,9 +24,13 @@ import org.apache.spark.util.CollectionAccumulator;
 import org.testng.annotations.Test;
 import scala.Option;
 
+import java.util.List;
+import java.util.Map;
+
 import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PRESTO_SPARK_SHUFFLE_STATS_COLLECTOR;
 import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestPrestoSparkNativeSimpleQueries
@@ -74,11 +78,15 @@ public class TestPrestoSparkNativeSimpleQueries
         SparkContext.getOrCreate();
         Option<AccumulatorV2<?, ?>> accumulator = AccumulatorContext$.MODULE$.lookForAccumulatorByName(PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR);
         assertTrue(accumulator.isDefined());
-        java.util.List<String> stats = ((CollectionAccumulator<String>) accumulator.get()).value();
+        java.util.List<List<Map<String, Long>>> stats = ((CollectionAccumulator<List<Map<String, Long>>>) accumulator.get()).value();
         assertTrue(!stats.isEmpty());
-        String metric = stats.get(0);
-        String[] metrics = metric.split("\\|");
-        assertTrue(metrics.length == 4);
+        List<Map<String, Long>> metrics = stats.get(0);
+        assertTrue(!metrics.isEmpty());
+        for (Map.Entry<String, Long> entry : metrics.get(0).entrySet()) {
+            String[] desc = entry.getKey().split("\\|");
+            assertTrue(desc.length == 4);
+            assertNotNull(entry.getValue());
+        }
     }
 
     @Test

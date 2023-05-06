@@ -176,7 +176,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected final QueryMonitor queryMonitor;
     protected final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
     protected final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
-    protected final CollectionAccumulator<String> genericShuffleStatsCollector;
+    protected final CollectionAccumulator<List<Map<String,Long>>> genericShuffleStatsCollector;
     // used to create tasks on the Driver
     protected final PrestoSparkTaskExecutorFactory taskExecutorFactory;
     // used to create tasks on executor, serializable
@@ -218,7 +218,7 @@ public abstract class AbstractPrestoSparkQueryExecution
             JavaSparkContext sparkContext,
             Session session,
             QueryMonitor queryMonitor,
-            CollectionAccumulator<String> genericShuffleStatsCollector,
+            CollectionAccumulator<List<Map<String,Long>>> genericShuffleStatsCollector,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             PrestoSparkTaskExecutorFactory taskExecutorFactory,
@@ -577,32 +577,49 @@ public abstract class AbstractPrestoSparkQueryExecution
     {
         int taskId = taskInfo.getTaskId().getId();
         int stageId = taskInfo.getTaskId().getStageExecutionId().getStageId().getId();
+        List<Map<String, Long>> newStatsList = new ArrayList<>();
         for (PipelineStats pipelineStats : taskInfo.getStats().getPipelines()) {
             for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {
                 if (operatorStats.getOperatorType().equals("NativeExecutionOperator")) {
                     NativeExecutionInfo nativeExecutionInfo = (NativeExecutionInfo) operatorStats.getInfo();
                     for (TaskStats taskStats : nativeExecutionInfo.getTaskStats()) {
                         RuntimeStats runtimeStat = taskStats.getRuntimeStats();
+                        Map<String, Long> newStatMap = new HashMap<>();
                         for (Map.Entry<String, RuntimeMetric> entry : runtimeStat.getMetrics().entrySet()) {
                             String key = entry.getKey();
                             RuntimeMetric metric = entry.getValue();
-                            String metricString = buildGenericMetric(taskId, stageId, key, metric.getSum()); // TODO improve this
-                            genericShuffleStatsCollector.add(metricString);
+                            if (metric.getCount() == 0) {
+                                continue;
+                            }
+                            String metricSumKey = buildGenericMetric(taskId, stageId, key, "sum");
+                            newStatMap.put(metricSumKey, metric.getSum());
+                            String metricCountKey = buildGenericMetric(taskId, stageId, key, "count");
+                            newStatMap.put(metricCountKey, metric.getCount());
+                            String metricMinKey = buildGenericMetric(taskId, stageId, key, "min");
+                            newStatMap.put(metricMinKey, metric.getMin());
+                            String metricMaxKey = buildGenericMetric(taskId, stageId, key, "max");
+                            newStatMap.put(metricMaxKey, metric.getMax());  //TODO add unit
+                        }
+                        if (!newStatMap.isEmpty()) {
+                            newStatsList.add(newStatMap);
                         }
                     }
                 }
             }
         }
+        if (!newStatsList.isEmpty()) {
+            genericShuffleStatsCollector.add(newStatsList);
+        }
     }
 
-    private String buildGenericMetric(int taskId, int stageId, String key, long metric)
+    private String buildGenericMetric(int taskId, int stageId, String key, String metricType)
     {
         StringBuilder buf = new StringBuilder();
         String sep = "|";
         buf.append(taskId).append(sep);
-        buf.append(stageId).append(sep);q
+        buf.append(stageId).append(sep);
         buf.append(key).append(sep);
-        buf.append(metric).append(sep);
+        buf.append(metricType).append(sep);
         return buf.toString();
     }
 
