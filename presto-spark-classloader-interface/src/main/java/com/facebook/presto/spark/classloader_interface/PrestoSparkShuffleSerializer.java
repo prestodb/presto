@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.io.UncheckedIOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
@@ -239,8 +240,8 @@ public class PrestoSparkShuffleSerializer
                         throw new UncheckedIOException(e);
                     }
 
-                    buffer.position(0);
-                    buffer.limit(length);
+                    ((Buffer) buffer).position(0);
+                    ((Buffer) buffer).limit(length);
                     row.setBuffer(buffer);
                     return tuple;
                 }

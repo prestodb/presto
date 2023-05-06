@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import org.roaringbitmap.RoaringBitmap;
 
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -223,7 +224,7 @@ public class HiveManifestUtils
         // Serialize the compressed data into ByteBuffer
         ByteBuffer byteBuffer = ByteBuffer.allocate(roaringBitmap.serializedSizeInBytes());
         roaringBitmap.serialize(byteBuffer);
-        byteBuffer.flip();
+        ((Buffer) byteBuffer).flip();
 
         return new String(byteBuffer.array(), ISO_8859_1);
     }
