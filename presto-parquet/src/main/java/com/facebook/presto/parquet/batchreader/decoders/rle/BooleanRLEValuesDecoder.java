@@ -19,6 +19,7 @@ import org.apache.parquet.Preconditions;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -156,7 +157,7 @@ public class BooleanRLEValuesDecoder
                     int fullBytes = remainingPackedBlock / 8;
 
                     if (fullBytes > 0) {
-                        inputBuffer.position(inputBuffer.position() + fullBytes);
+                        ((Buffer) inputBuffer).position(inputBuffer.position() + fullBytes);
                     }
 
                     remainingPackedBlock = remainingPackedBlock % 8;
