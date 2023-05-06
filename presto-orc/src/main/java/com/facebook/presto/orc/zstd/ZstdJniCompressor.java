@@ -16,6 +16,7 @@ package com.facebook.presto.orc.zstd;
 import com.github.luben.zstd.Zstd;
 import io.airlift.compress.Compressor;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
 
@@ -61,6 +62,6 @@ public class ZstdJniCompressor
         int outputOffset = output.arrayOffset() + output.position();
 
         int written = compress(input.array(), inputOffset, input.remaining(), output.array(), outputOffset, output.remaining());
-        output.position(output.position() + written);
+        ((Buffer) output).position(output.position() + written);
     }
 }
