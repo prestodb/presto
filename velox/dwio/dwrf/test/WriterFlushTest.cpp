@@ -145,10 +145,6 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     return localMemoryUsage_;
   }
 
-  int64_t getCurrentBytes() const override {
-    return localMemoryUsage_;
-  }
-
   std::shared_ptr<MemoryPool> genChild(
       std::shared_ptr<MemoryPool> parent,
       const std::string& name,

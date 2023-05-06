@@ -139,12 +139,12 @@ Operator::Operator(
           planNodeId,
           operatorId,
           operatorType)),
+      outputType_(std::move(outputType)),
       stats_(OperatorStats{
           operatorId,
           driverCtx->pipelineId,
           std::move(planNodeId),
-          std::move(operatorType)}),
-      outputType_(std::move(outputType)) {}
+          std::move(operatorType)}) {}
 
 std::vector<std::unique_ptr<Operator::PlanNodeTranslator>>&
 Operator::translators() {

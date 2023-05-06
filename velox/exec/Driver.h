@@ -157,7 +157,7 @@ class BlockingState {
   BlockingState(
       std::shared_ptr<Driver> driver,
       ContinueFuture&& future,
-      Operator* FOLLY_NONNULL op,
+      Operator* op,
       BlockingReason reason);
 
   ~BlockingState() {
@@ -166,7 +166,7 @@ class BlockingState {
 
   static void setResume(std::shared_ptr<BlockingState> state);
 
-  Operator* FOLLY_NONNULL op() {
+  Operator* op() {
     return operator_;
   }
 
@@ -189,7 +189,7 @@ class BlockingState {
  private:
   std::shared_ptr<Driver> driver_;
   ContinueFuture future_;
-  Operator* FOLLY_NONNULL operator_;
+  Operator* operator_;
   BlockingReason reason_;
   uint64_t sinceMicros_;
 
@@ -210,8 +210,8 @@ struct DriverCtx {
   const uint32_t partitionId;
 
   std::shared_ptr<Task> task;
-  memory::MemoryPool* FOLLY_NONNULL pool;
-  Driver* FOLLY_NONNULL driver;
+  memory::MemoryPool* pool;
+  Driver* driver;
 
   explicit DriverCtx(
       std::shared_ptr<Task> _task,
@@ -222,7 +222,7 @@ struct DriverCtx {
 
   const core::QueryConfig& queryConfig() const;
 
-  velox::memory::MemoryPool* FOLLY_NONNULL addOperatorPool(
+  velox::memory::MemoryPool* addOperatorPool(
       const core::PlanNodeId& planNodeId,
       const std::string& operatorType);
 };
@@ -267,18 +267,20 @@ class Driver : public std::enable_shared_from_this<Driver> {
 
   // Returns true if all operators between the source and 'aggregation' are
   // order-preserving and do not increase cardinality.
-  bool mayPushdownAggregation(Operator* FOLLY_NONNULL aggregation) const;
+  bool mayPushdownAggregation(Operator* aggregation) const;
 
   // Returns a subset of channels for which there are operators upstream from
   // filterSource that accept dynamically generated filters.
   std::unordered_set<column_index_t> canPushdownFilters(
-      const Operator* FOLLY_NONNULL filterSource,
+      const Operator* filterSource,
       const std::vector<column_index_t>& channels) const;
 
-  // Returns the Operator with 'planNodeId.' or nullptr if not
-  // found. For example, hash join probe accesses the corresponding
-  // build by id.
-  Operator* FOLLY_NULLABLE findOperator(std::string_view planNodeId) const;
+  /// Returns the Operator with 'planNodeId' or nullptr if not found. For
+  /// example, hash join probe accesses the corresponding build by id.
+  Operator* findOperator(std::string_view planNodeId) const;
+
+  /// Returns the Operator with 'operatorId' or nullptr if not found.
+  Operator* findOperator(int32_t operatorId) const;
 
   // Returns a list of all operators.
   std::vector<Operator*> operators() const;
@@ -287,7 +289,7 @@ class Driver : public std::enable_shared_from_this<Driver> {
 
   std::string toString();
 
-  DriverCtx* FOLLY_NONNULL driverCtx() const {
+  DriverCtx* driverCtx() const {
     return ctx_.get();
   }
 
@@ -349,12 +351,10 @@ class Driver : public std::enable_shared_from_this<Driver> {
   bool trackOperatorCpuUsage_;
 };
 
-using OperatorSupplier = std::function<std::unique_ptr<Operator>(
-    int32_t operatorId,
-    DriverCtx* FOLLY_NONNULL ctx)>;
+using OperatorSupplier = std::function<
+    std::unique_ptr<Operator>(int32_t operatorId, DriverCtx* ctx)>;
 
-using Consumer =
-    std::function<BlockingReason(RowVectorPtr, ContinueFuture* FOLLY_NULLABLE)>;
+using Consumer = std::function<BlockingReason(RowVectorPtr, ContinueFuture*)>;
 using ConsumerSupplier = std::function<Consumer()>;
 
 struct DriverFactory {
@@ -465,11 +465,11 @@ struct DriverFactory {
 // which also means that they are instantaneously killable or spillable.
 class SuspendedSection {
  public:
-  explicit SuspendedSection(Driver* FOLLY_NONNULL driver);
+  explicit SuspendedSection(Driver* driver);
   ~SuspendedSection();
 
  private:
-  Driver* FOLLY_NONNULL driver_;
+  Driver* driver_;
 };
 
 } // namespace facebook::velox::exec

@@ -77,6 +77,8 @@ class HashBuild final : public Operator {
 
   bool isFinished() override;
 
+  void reclaim(uint64_t targetBytes) override;
+
  private:
   void setState(State state);
   void checkStateTransition(State state);
@@ -233,9 +235,7 @@ class HashBuild final : public Operator {
 
   const std::shared_ptr<HashJoinBridge> joinBridge_;
 
-  const std::optional<Spiller::Config> spillConfig_;
-
-  const std::shared_ptr<SpillOperatorGroup> spillGroup_;
+  std::shared_ptr<SpillOperatorGroup> spillGroup_;
 
   State state_{State::kRunning};
 

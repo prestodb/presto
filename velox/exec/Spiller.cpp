@@ -410,22 +410,27 @@ void Spiller::spill(uint64_t targetRows, uint64_t targetBytes) {
 
 void Spiller::spill(const SpillPartitionNumSet& partitions) {
   VELOX_CHECK(!spillFinalized_);
-
-  if (FOLLY_UNLIKELY(type_ == Type::kHashJoinProbe)) {
+  if (type_ == Type::kHashJoinProbe) {
     VELOX_FAIL("There is no row container for {}", typeName(type_));
   }
-  if (FOLLY_UNLIKELY(!pendingSpillPartitions_.empty())) {
+  if (!pendingSpillPartitions_.empty()) {
     VELOX_FAIL(
         "There are pending spilling operations on partitions: {}",
         folly::join(",", pendingSpillPartitions_));
   }
 
-  for (auto partition : partitions) {
-    if (FOLLY_LIKELY(!state_.isPartitionSpilled(partition))) {
+  std::vector<uint32_t> partitionsToSpill(partitions.begin(), partitions.end());
+  if (partitionsToSpill.empty()) {
+    partitionsToSpill.resize(state_.maxPartitions());
+    std::iota(partitionsToSpill.begin(), partitionsToSpill.end(), 0);
+  }
+
+  for (auto partition : partitionsToSpill) {
+    if (!state_.isPartitionSpilled(partition)) {
       state_.setPartitionSpilled(partition);
-    }
-    if (FOLLY_LIKELY(!spillRuns_[partition].rows.empty())) {
-      pendingSpillPartitions_.insert(partition);
+      if (!spillRuns_[partition].rows.empty()) {
+        pendingSpillPartitions_.insert(partition);
+      }
     }
   }
 
@@ -651,7 +656,7 @@ void Spiller::fillSpillRuns(std::vector<SpillableStats>& statsList) {
 
 // static
 memory::MemoryPool& Spiller::spillPool() {
-  static auto pool = memory::addDefaultLeafMemoryPool();
+  static auto pool = memory::addDefaultLeafMemoryPool("spilling");
   return *pool;
 }
 

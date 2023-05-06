@@ -1000,4 +1000,73 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
   EXPECT_EQ(1, operatorStats.finishTiming.count);
 }
 
+DEBUG_ONLY_TEST_F(TaskTest, findPeerOperators) {
+  const std::vector<RowVectorPtr> probeVectors = {makeRowVector(
+      {"t_c0", "t_c1"},
+      {
+          makeFlatVector<int64_t>({1, 2, 3, 4}),
+          makeFlatVector<int64_t>({10, 20, 30, 40}),
+      })};
+
+  const std::vector<RowVectorPtr> buildVectors = {makeRowVector(
+      {"u_c0"},
+      {
+          makeFlatVector<int64_t>({0, 1, 3, 5}),
+      })};
+
+  const std::vector<int> numDrivers = {1, 4};
+  for (int numDriver : numDrivers) {
+    SCOPED_TRACE(fmt::format("numDriver {}", numDriver));
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    CursorParameters params;
+    params.planNode = PlanBuilder(planNodeIdGenerator)
+                          .values(probeVectors, true)
+                          .hashJoin(
+                              {"t_c0"},
+                              {"u_c0"},
+                              PlanBuilder(planNodeIdGenerator)
+                                  .values(buildVectors, true)
+                                  .planNode(),
+                              "",
+                              {"t_c0", "t_c1", "u_c0"})
+                          .planNode();
+    params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+    params.maxDrivers = numDriver;
+
+    auto cursor = std::make_unique<TaskCursor>(params);
+    auto* task = cursor->task().get();
+
+    // Set up a testvalue to trigger task abort when hash build tries to reserve
+    // memory.
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Driver::runInternal::addInput",
+        std::function<void(Operator*)>([&](Operator* testOp) {
+          if (testOp->operatorType() != "HashBuild") {
+            return;
+          }
+          const int pipelineId =
+              testOp->testingOperatorCtx()->driverCtx()->pipelineId;
+          auto ops = task->findPeerOperators(pipelineId, testOp);
+          ASSERT_EQ(ops.size(), numDriver);
+          bool foundSelf{false};
+          for (auto* op : ops) {
+            auto* opCtx = op->testingOperatorCtx();
+            ASSERT_EQ(op->operatorType(), "HashBuild");
+            if (op == testOp) {
+              foundSelf = true;
+            }
+            auto* driver = opCtx->driver();
+            ASSERT_EQ(op, driver->findOperator(opCtx->operatorId()));
+            VELOX_ASSERT_THROW(driver->findOperator(-1), "");
+            VELOX_ASSERT_THROW(driver->findOperator(numDriver + 10), "");
+          }
+          ASSERT_TRUE(foundSelf);
+        }));
+
+    while (cursor->moveNext()) {
+    }
+    ASSERT_TRUE(waitForTaskCompletion(task, 5'000'000));
+  }
+}
+
 } // namespace facebook::velox::exec::test

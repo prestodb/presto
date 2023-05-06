@@ -49,6 +49,7 @@ GroupingSet::GroupingSet(
     bool isPartial,
     bool isRawInput,
     const Spiller::Config* spillConfig,
+    tsan_atomic<bool>* nonReclaimableSection,
     OperatorCtx* operatorCtx)
     : preGroupedKeyChannels_(std::move(preGroupedKeys)),
       hashers_(std::move(hashers)),
@@ -65,6 +66,7 @@ GroupingSet::GroupingSet(
                                 ->queryConfig()
                                 .aggregationSpillMemoryThreshold()),
       spillConfig_(spillConfig),
+      nonReclaimableSection_(nonReclaimableSection),
       stringAllocator_(operatorCtx->pool()),
       rows_(operatorCtx->pool()),
       isAdaptive_(operatorCtx->task()
@@ -72,6 +74,7 @@ GroupingSet::GroupingSet(
                       ->queryConfig()
                       .hashAdaptivityEnabled()),
       pool_(*operatorCtx->pool()) {
+  VELOX_CHECK_NOT_NULL(nonReclaimableSection_);
   VELOX_CHECK(pool_.trackUsage());
   for (auto& hasher : hashers_) {
     keyChannels_.push_back(hasher->channel());
@@ -167,6 +170,14 @@ void GroupingSet::addInputForActiveRows(
   lookup_->reset(activeRows_.end());
   auto mode = table_->hashMode();
   ensureInputFits(input);
+
+  // Prevents the memory arbitrator to reclaim memory from this grouping set
+  // during the execution below.
+  //
+  // NOTE: 'nonReclaimableSection_' points to the corresponding flag in the
+  // associated aggregation operator.
+  auto guard = folly::makeGuard([this]() { *nonReclaimableSection_ = false; });
+  *nonReclaimableSection_ = true;
 
   for (auto i = 0; i < hashers.size(); ++i) {
     auto key = input->childAt(hashers[i]->channel())->loadedVector();
@@ -564,6 +575,9 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   if (pool_.maybeReserve(targetIncrement)) {
     return;
   }
+
+  // NOTE: disk spilling use the system disk spilling memory pool instead of
+  // the operator memory pool.
   auto rowsToSpill = std::max<int64_t>(
       1, targetIncrement / (rows->fixedRowSize() + outOfLineBytesPerRow));
   spill(
@@ -573,7 +587,13 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
 }
 
 void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
-  if (!spiller_) {
+  // NOTE: if the disk spilling is triggered by the memory arbitrator, then it
+  // is possible that the grouping set hasn't processed any input data yet.
+  // Correspondingly, 'table_' will not be initialized at that point.
+  if (table_ == nullptr) {
+    return;
+  }
+  if (spiller_ == nullptr) {
     auto rows = table_->rows();
     auto types = rows->keyTypes();
     types.insert(
@@ -600,6 +620,9 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
         spillConfig_->executor);
   }
   spiller_->spill(targetRows, targetBytes);
+  if (table_->rows()->numRows() == 0) {
+    table_->clear();
+  }
 }
 
 bool GroupingSet::getOutputWithSpill(

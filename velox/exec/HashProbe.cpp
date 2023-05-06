@@ -118,14 +118,13 @@ HashProbe::HashProbe(
       joinBridge_(operatorCtx_->task()->getHashJoinBridgeLocked(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
-      spillConfig_(
-          joinNode_->canSpill(driverCtx->queryConfig())
-              ? operatorCtx_->makeSpillConfig(Spiller::Type::kHashJoinProbe)
-              : std::nullopt),
       probeType_(joinNode_->sources()[0]->outputType()),
       filterResult_(1),
       outputTableRows_(outputBatchSize_) {
   VELOX_CHECK_NOT_NULL(joinBridge_);
+  spillConfig_ = joinNode_->canSpill(driverCtx->queryConfig())
+      ? operatorCtx_->makeSpillConfig(Spiller::Type::kHashJoinProbe)
+      : std::nullopt;
 
   auto numKeys = joinNode_->leftKeys().size();
   keyChannels_.reserve(numKeys);

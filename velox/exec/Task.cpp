@@ -1296,6 +1296,27 @@ bool Task::checkIfFinishedLocked() {
   return false;
 }
 
+std::vector<Operator*> Task::findPeerOperators(
+    int pipelineId,
+    Operator* caller) {
+  std::vector<Operator*> peers;
+  const auto operatorId = caller->operatorId();
+  const auto& operatorType = caller->operatorType();
+  std::lock_guard<std::mutex> l(mutex_);
+  for (auto& driver : drivers_) {
+    if (driver == nullptr) {
+      continue;
+    }
+    if (driver->driverCtx()->pipelineId != pipelineId) {
+      continue;
+    }
+    Operator* peer = driver->findOperator(operatorId);
+    VELOX_CHECK_EQ(peer->operatorType(), operatorType);
+    peers.push_back(peer);
+  }
+  return peers;
+}
+
 bool Task::allPeersFinished(
     const core::PlanNodeId& planNodeId,
     Driver* caller,

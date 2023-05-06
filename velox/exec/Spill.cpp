@@ -214,7 +214,7 @@ SpillFiles SpillState::files(int32_t partition) {
 uint64_t SpillState::spilledBytes() const {
   uint64_t bytes = 0;
   for (auto& list : files_) {
-    if (list) {
+    if (list != nullptr) {
       bytes += list->spilledBytes();
     }
   }

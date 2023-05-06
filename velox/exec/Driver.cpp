@@ -19,9 +19,12 @@
 #include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 #include <folly/executors/thread_factory/InitThreadFactory.h>
 #include <gflags/gflags.h>
+#include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/Task.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 
@@ -41,7 +44,7 @@ const core::QueryConfig& DriverCtx::queryConfig() const {
   return task->queryCtx()->queryConfig();
 }
 
-velox::memory::MemoryPool* FOLLY_NONNULL DriverCtx::addOperatorPool(
+velox::memory::MemoryPool* DriverCtx::addOperatorPool(
     const core::PlanNodeId& planNodeId,
     const std::string& operatorType) {
   return task->addOperatorPool(planNodeId, pipelineId, driverId, operatorType);
@@ -397,6 +400,9 @@ StopReason Driver::runInternal(
                 lockedStats->addInputVector(resultBytes, result->size());
               }
               RuntimeStatWriterScopeGuard statsWriterGuard(nextOp);
+              TestValue::adjust(
+                  "facebook::velox::exec::Driver::runInternal::addInput",
+                  nextOp);
               nextOp->addInput(result);
               // The next iteration will see if operators_[i + 1] has
               // output now that it got input.
@@ -428,6 +434,9 @@ StopReason Driver::runInternal(
                       op->stats().wlock()->finishTiming.add(timing);
                     });
                 RuntimeStatWriterScopeGuard statsWriterGuard(nextOp);
+                TestValue::adjust(
+                    "facebook::velox::exec::Driver::runInternal::noMoreInput",
+                    nextOp);
                 nextOp->noMoreInput();
                 break;
               }
@@ -592,7 +601,7 @@ bool Driver::mayPushdownAggregation(Operator* aggregation) const {
 }
 
 std::unordered_set<column_index_t> Driver::canPushdownFilters(
-    const Operator* FOLLY_NONNULL filterSource,
+    const Operator* filterSource,
     const std::vector<column_index_t>& channels) const {
   int filterSourceIndex = -1;
   for (auto i = 0; i < operators_.size(); ++i) {
@@ -640,14 +649,18 @@ std::unordered_set<column_index_t> Driver::canPushdownFilters(
   return supportedChannels;
 }
 
-Operator* FOLLY_NULLABLE
-Driver::findOperator(std::string_view planNodeId) const {
+Operator* Driver::findOperator(std::string_view planNodeId) const {
   for (auto& op : operators_) {
     if (op->planNodeId() == planNodeId) {
       return op.get();
     }
   }
   return nullptr;
+}
+
+Operator* Driver::findOperator(int32_t operatorId) const {
+  VELOX_CHECK_LT(operatorId, operators_.size());
+  return operators_[operatorId].get();
 }
 
 std::vector<Operator*> Driver::operators() const {
@@ -677,8 +690,8 @@ std::string Driver::toString() {
   out << "}";
   return out.str();
 }
-SuspendedSection::SuspendedSection(Driver* FOLLY_NONNULL driver)
-    : driver_(driver) {
+
+SuspendedSection::SuspendedSection(Driver* driver) : driver_(driver) {
   if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
     VELOX_FAIL("Terminate detected when entering suspended section");
   }

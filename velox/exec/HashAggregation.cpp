@@ -38,10 +38,6 @@ HashAggregation::HashAggregation(
       isGlobal_(aggregationNode->groupingKeys().empty()),
       maxExtendedPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxExtendedPartialAggregationMemoryUsage()),
-      spillConfig_(
-          aggregationNode->canSpill(driverCtx->queryConfig())
-              ? operatorCtx_->makeSpillConfig(Spiller::Type::kAggregate)
-              : std::nullopt),
       maxPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxPartialAggregationMemoryUsage()),
       abandonPartialAggregationMinRows_(
@@ -49,6 +45,10 @@ HashAggregation::HashAggregation(
       abandonPartialAggregationMinPct_(
           driverCtx->queryConfig().abandonPartialAggregationMinPct()) {
   VELOX_CHECK(pool()->trackUsage());
+  spillConfig_ = aggregationNode->canSpill(driverCtx->queryConfig())
+      ? operatorCtx_->makeSpillConfig(Spiller::Type::kAggregate)
+      : std::nullopt;
+
   auto inputType = aggregationNode->sources()[0]->outputType();
 
   auto numHashers = aggregationNode->groupingKeys().size();
@@ -157,6 +157,7 @@ HashAggregation::HashAggregation(
       isPartialOutput_,
       isRawInput(aggregationNode->step()),
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr,
+      &nonReclaimableSection_,
       operatorCtx_.get());
 }
 
@@ -178,14 +179,8 @@ void HashAggregation::addInput(RowVectorPtr input) {
   groupingSet_->addInput(input, mayPushdown_);
   numInputRows_ += input->size();
   {
-    const auto spillStats = groupingSet_->spilledStats();
     const auto hashTableStats = groupingSet_->hashTableStats();
     auto lockedStats = stats_.wlock();
-    lockedStats->spilledBytes = spillStats.spilledBytes;
-    lockedStats->spilledRows = spillStats.spilledRows;
-    lockedStats->spilledPartitions = spillStats.spilledPartitions;
-    lockedStats->spilledFiles = spillStats.spilledFiles;
-
     lockedStats->runtimeStats["hashtable.capacity"] =
         RuntimeMetric(hashTableStats.capacity);
     lockedStats->runtimeStats["hashtable.numRehashes"] =
@@ -213,6 +208,15 @@ void HashAggregation::addInput(RowVectorPtr input) {
       input_ = input;
     }
   }
+}
+
+void HashAggregation::recordSpillStats() {
+  const auto spillStats = groupingSet_->spilledStats();
+  auto lockedStats = stats_.wlock();
+  lockedStats->spilledBytes = spillStats.spilledBytes;
+  lockedStats->spilledRows = spillStats.spilledRows;
+  lockedStats->spilledPartitions = spillStats.spilledPartitions;
+  lockedStats->spilledFiles = spillStats.spilledFiles;
 }
 
 void HashAggregation::prepareOutput(vector_size_t size) {
@@ -362,7 +366,34 @@ RowVectorPtr HashAggregation::getOutput() {
   return output_;
 }
 
+void HashAggregation::noMoreInput() {
+  groupingSet_->noMoreInput();
+  recordSpillStats();
+  Operator::noMoreInput();
+}
+
 bool HashAggregation::isFinished() {
   return finished_;
+}
+
+void HashAggregation::reclaim(uint64_t targetBytes) {
+  VELOX_CHECK(canReclaim());
+  auto* driver = operatorCtx_->driver();
+  VELOX_CHECK(!driver->state().isOnThread() || driver->state().isSuspended);
+  VELOX_CHECK(driver->task()->pauseRequested());
+
+  /// NOTE: an aggregation operator is reclaimable if it hasn't started output
+  /// processing and is not under non-reclaimable execution section.
+  if (noMoreInput_ || nonReclaimableSection_) {
+    return;
+  }
+
+  // TODO: support fine-grain disk spilling based on 'targetBytes' after having
+  // row container memory compaction support later.
+  groupingSet_->spill(0, targetBytes);
+  VELOX_CHECK_EQ(groupingSet_->numRows(), 0);
+  VELOX_CHECK_EQ(groupingSet_->numDistinct(), 0);
+  // Release the minimum reserved memory.
+  pool()->release();
 }
 } // namespace facebook::velox::exec

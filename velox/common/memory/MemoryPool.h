@@ -288,11 +288,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
   /// Returns the currently used memory in bytes of this memory pool.
   virtual int64_t currentBytes() const = 0;
-  virtual int64_t getCurrentBytes() const = 0;
 
   /// Returns the peak memory usage in bytes of this memory pool.
   virtual int64_t peakBytes() const = 0;
-  virtual int64_t getMaxBytes() const = 0;
 
   /// Returns the reserved but not used memory reservation in bytes of this
   /// memory pool.
@@ -516,17 +514,7 @@ class MemoryPoolImpl : public MemoryPool {
     return currentBytesLocked();
   }
 
-  int64_t getCurrentBytes() const override {
-    std::lock_guard<std::mutex> l(mutex_);
-    return currentBytesLocked();
-  }
-
   int64_t peakBytes() const override {
-    std::lock_guard<std::mutex> l(mutex_);
-    return peakBytes_;
-  }
-
-  int64_t getMaxBytes() const override {
     std::lock_guard<std::mutex> l(mutex_);
     return peakBytes_;
   }

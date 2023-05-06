@@ -56,6 +56,8 @@ class OrderBy : public Operator {
     return finished_;
   }
 
+  void reclaim(uint64_t targetBytes) override;
+
  private:
   // Checks if input will fit in the existing memory and increases
   // reservation if not. If reservation cannot be increased, spills enough to
@@ -76,15 +78,15 @@ class OrderBy : public Operator {
   // in a paused state and off thread.
   void spill(int64_t targetRows, int64_t targetBytes);
 
+  // Invoked to record the spilling stats in operator stats after processing all
+  // the inputs.
+  void recordSpillStats();
+
   const int32_t numSortKeys_;
 
   // The maximum memory usage that an order by can hold before spilling.
   // If it is zero, then there is no such limit.
   const uint64_t spillMemoryThreshold_;
-
-  // Filesystem path for spill files, empty if spilling is disabled.
-  // The disk spilling related configs if spilling is enabled, otherwise null.
-  const std::optional<Spiller::Config> spillConfig_;
 
   // The map from column channel in 'output_' to the corresponding one stored in
   // 'data_'. The column channel might be reordered to ensure the sorting key

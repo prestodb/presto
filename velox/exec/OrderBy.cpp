@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 #include "velox/exec/OrderBy.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 #include "velox/vector/FlatVector.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 
@@ -39,12 +42,12 @@ OrderBy::OrderBy(
       numSortKeys_(orderByNode->sortingKeys().size()),
       spillMemoryThreshold_(operatorCtx_->driverCtx()
                                 ->queryConfig()
-                                .orderBySpillMemoryThreshold()),
-      spillConfig_(
-          orderByNode->canSpill(driverCtx->queryConfig())
-              ? operatorCtx_->makeSpillConfig(Spiller::Type::kOrderBy)
-              : std::nullopt) {
+                                .orderBySpillMemoryThreshold()) {
   VELOX_CHECK(pool()->trackUsage());
+  spillConfig_ = orderByNode->canSpill(driverCtx->queryConfig())
+      ? operatorCtx_->makeSpillConfig(Spiller::Type::kOrderBy)
+      : std::nullopt;
+
   std::vector<TypePtr> keyTypes;
   std::vector<TypePtr> dependentTypes;
   std::vector<TypePtr> types;
@@ -100,6 +103,10 @@ OrderBy::OrderBy(
 void OrderBy::addInput(RowVectorPtr input) {
   ensureInputFits(input);
 
+  // Prevents the memory arbitrator to reclaim memory from this operator during
+  // the execution below.
+  NonReclaimableSection guard(this);
+
   SelectivityVector allRows(input->size());
   std::vector<char*> rows(input->size());
   for (int row = 0; row < input->size(); ++row) {
@@ -114,15 +121,6 @@ void OrderBy::addInput(RowVectorPtr input) {
   }
 
   numRows_ += allRows.size();
-  if (spiller_ != nullptr) {
-    const auto spillStats = spiller_->stats();
-    auto lockedStats = stats_.wlock();
-    lockedStats->spilledBytes = spillStats.spilledBytes;
-    lockedStats->spilledRows = spillStats.spilledRows;
-    lockedStats->spilledPartitions = spillStats.spilledPartitions;
-    lockedStats->spilledFiles = spillStats.spilledFiles;
-    VELOX_DCHECK_LE(lockedStats->spilledPartitions, 1);
-  }
 }
 
 void OrderBy::ensureInputFits(const RowVectorPtr& input) {
@@ -194,12 +192,36 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
   if (pool()->maybeReserve(targetIncrementBytes)) {
     return;
   }
+
+  // NOTE: disk spilling use the system disk spilling memory pool instead of
+  // the operator memory pool.
   const int64_t rowsToSpill = std::max<int64_t>(
       1, targetIncrementBytes / (data_->fixedRowSize() + outOfLineBytesPerRow));
   spill(
       std::max<int64_t>(0, numRows - rowsToSpill),
       std::max<int64_t>(
           0, outOfLineBytes - (rowsToSpill * outOfLineBytesPerRow)));
+}
+
+void OrderBy::reclaim(uint64_t targetBytes) {
+  VELOX_CHECK(canReclaim());
+  auto* driver = operatorCtx_->driver();
+  VELOX_CHECK(!driver->state().isOnThread() || driver->state().isSuspended);
+  VELOX_CHECK(driver->task()->pauseRequested());
+
+  /// NOTE: an order by operator is reclaimable if it hasn't started output
+  /// processing and is not under non-reclaimable execution section.
+  if (noMoreInput_ || nonReclaimableSection_) {
+    return;
+  }
+
+  // TODO: support fine-grain disk spilling based on 'targetBytes' after having
+  // row container memory compaction support later.
+  spill(0, targetBytes);
+  VELOX_CHECK_EQ(data_->numRows(), 0);
+  data_->clear();
+  // Release the minimum reserved memory.
+  pool()->release();
 }
 
 void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
@@ -259,12 +281,26 @@ void OrderBy::noMoreInput() {
     // there is only one hash partition for orderBy operator.
     Spiller::SpillRows nonSpilledRows = spiller_->finishSpill();
     VELOX_CHECK(nonSpilledRows.empty());
-    VELOX_CHECK_NULL(spillMerge_);
 
+    VELOX_CHECK_NULL(spillMerge_);
+    recordSpillStats();
     spillMerge_ = spiller_->startMerge(0);
     spillSources_.resize(outputBatchSize_);
     spillSourceRows_.resize(outputBatchSize_);
   }
+}
+
+void OrderBy::recordSpillStats() {
+  VELOX_CHECK_NOT_NULL(spiller_);
+  VELOX_CHECK(noMoreInput_);
+
+  const auto spillStats = spiller_->stats();
+  auto lockedStats = stats_.wlock();
+  lockedStats->spilledBytes = spillStats.spilledBytes;
+  lockedStats->spilledRows = spillStats.spilledRows;
+  lockedStats->spilledPartitions = spillStats.spilledPartitions;
+  lockedStats->spilledFiles = spillStats.spilledFiles;
+  VELOX_DCHECK_LE(lockedStats->spilledPartitions, 1);
 }
 
 RowVectorPtr OrderBy::getOutput() {

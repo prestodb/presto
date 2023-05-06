@@ -165,7 +165,9 @@ class Spiller {
   /// after that, for those spilled partitions, the spilling operator will
   /// append new incoming vector to the spill file directly without buffering in
   /// row container anymore.
-  void spill(const SpillPartitionNumSet& partitions);
+  ///
+  /// NOTE: if 'partitions' is empty, then spill from all the partitions.
+  void spill(const SpillPartitionNumSet& partitions = {});
 
   /// Append 'spillVector' into the spill file of given 'partition'. It is now
   /// only used by the spilling operator which doesn't need data sort, such as

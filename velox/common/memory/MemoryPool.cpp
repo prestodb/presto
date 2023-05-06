@@ -500,6 +500,10 @@ void MemoryPoolImpl::allocateNonContiguous(
   CHECK_AND_INC_MEM_OP_STATS(Allocs);
   VELOX_CHECK_GT(numPages, 0);
 
+  TestValue::adjust(
+      "facebook::velox::common::memory::MemoryPoolImpl::allocateNonContiguous",
+      this);
+
   if (!allocator_->allocateNonContiguous(
           numPages,
           out,
@@ -596,7 +600,7 @@ std::shared_ptr<MemoryPool> MemoryPoolImpl::genChild(
 bool MemoryPoolImpl::maybeReserve(uint64_t increment) {
   CHECK_AND_INC_MEM_OP_STATS(Reserves);
   TestValue::adjust(
-      "facebook::velox::memory::MemoryPoolImpl::maybeReserve", this);
+      "facebook::velox::common::memory::MemoryPoolImpl::maybeReserve", this);
   // TODO: make this a configurable memory pool option.
   constexpr int32_t kGrowthQuantum = 8 << 20;
   const auto reservationToAdd = bits::roundUp(increment, kGrowthQuantum);

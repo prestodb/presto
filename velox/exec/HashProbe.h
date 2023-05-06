@@ -57,6 +57,13 @@ class HashProbe : public Operator {
 
   bool isFinished() override;
 
+  /// NOTE: we can't reclaim memory from a hash probe operator. The disk
+  /// spilling in hash probe is used to coordinate with the disk spilling
+  /// triggered by the hash build operator.
+  bool canReclaim() const override {
+    return false;
+  }
+
   void clearDynamicFilters() override;
 
  private:
@@ -237,8 +244,6 @@ class HashProbe : public Operator {
   const bool nullAware_;
 
   const std::shared_ptr<HashJoinBridge> joinBridge_;
-
-  const std::optional<Spiller::Config> spillConfig_;
 
   const RowTypePtr probeType_;
 
