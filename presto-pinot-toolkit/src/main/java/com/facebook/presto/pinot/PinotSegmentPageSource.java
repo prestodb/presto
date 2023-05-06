@@ -36,6 +36,7 @@ import org.apache.pinot.spi.utils.CommonConstants;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -243,7 +244,7 @@ public class PinotSegmentPageSource
         }
         finally {
             if (byteBuffer != null) {
-                byteBuffer.clear();
+                ((Buffer) byteBuffer).clear();
             }
         }
     }
