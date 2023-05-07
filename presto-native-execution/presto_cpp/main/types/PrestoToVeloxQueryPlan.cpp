@@ -34,6 +34,8 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::exec;
+using namespace facebook::velox::connector::hive;
 
 namespace facebook::presto {
 
@@ -952,29 +954,6 @@ struct PartitionedOutputChannels {
   std::vector<VectorPtr> constValues;
 };
 
-PartitionedOutputChannels toChannels(
-    const RowTypePtr& rowType,
-    const std::vector<core::TypedExprPtr>& exprs,
-    memory::MemoryPool* pool) {
-  PartitionedOutputChannels output;
-  output.channels.reserve(exprs.size());
-  for (const auto& expr : exprs) {
-    auto channel = exprToChannel(expr.get(), rowType);
-    output.channels.push_back(channel);
-
-    // For constant channels create a base vector, add single value to it from
-    // our variant and add it to the list of constant expressions.
-    if (channel == kConstantChannel) {
-      output.constValues.emplace_back(
-          velox::BaseVector::create(expr->type(), 1, pool));
-      auto constExpr =
-          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr);
-      setCellFromVariant(output.constValues.back(), 0, constExpr->value());
-    }
-  }
-  return output;
-}
-
 core::LocalPartitionNode::Type toLocalExchangeType(
     protocol::ExchangeNodeType type) {
   switch (type) {
@@ -986,157 +965,6 @@ core::LocalPartitionNode::Type toLocalExchangeType(
       VELOX_UNSUPPORTED("Unsupported exchange type: {}", toJsonString(type));
   }
 }
-
-class HashPartitionFunctionSpec : public core::PartitionFunctionSpec {
- public:
-  HashPartitionFunctionSpec(
-      RowTypePtr inputType,
-      const std::vector<column_index_t>& keys,
-      const std::vector<VectorPtr>& constValues = {})
-      : inputType_{inputType}, keys_{keys}, constValues_{constValues} {}
-
-  std::unique_ptr<core::PartitionFunction> create(
-      int numPartitions) const override {
-    return std::make_unique<exec::HashPartitionFunction>(
-        numPartitions, inputType_, keys_, constValues_);
-  }
-
-  std::string toString() const override {
-    return fmt::format("HASH({})", folly::join(", ", keys_));
-  }
-
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = "HashPartitionFunctionSpec";
-    obj["inputType"] = inputType_->serialize();
-    obj["keys"] = ISerializable::serialize(keys_);
-    std::vector<velox::core::ConstantTypedExpr> constValues;
-    constValues.reserve(constValues_.size());
-    for (const auto& value : constValues_) {
-      constValues.emplace_back(value);
-    }
-    obj["constants"] = ISerializable::serialize(constValues);
-    return obj;
-  }
-
-  static core::PartitionFunctionSpecPtr deserialize(
-      const folly::dynamic& obj,
-      void* context) {
-    const auto keys =
-        ISerializable::deserialize<std::vector<column_index_t>>(obj["keys"]);
-    const auto constTypeExprs =
-        ISerializable::deserialize<std::vector<velox::core::ConstantTypedExpr>>(
-            obj["constants"]);
-    VELOX_CHECK_EQ(keys.size(), constTypeExprs.size());
-
-    auto* pool = static_cast<memory::MemoryPool*>(context);
-    std::vector<VectorPtr> constValues;
-    constValues.reserve(constTypeExprs.size());
-    for (const auto& value : constTypeExprs) {
-      constValues.emplace_back(value->toConstantVector(pool));
-    }
-    return std::make_shared<HashPartitionFunctionSpec>(
-        ISerializable::deserialize<RowType>(obj["inputType"]),
-        keys,
-        constValues);
-  }
-
- private:
-  const RowTypePtr inputType_;
-  const std::vector<column_index_t> keys_;
-  const std::vector<VectorPtr> constValues_;
-};
-
-class RoundRobinPartitionFunctionSpec : public core::PartitionFunctionSpec {
- public:
-  std::unique_ptr<core::PartitionFunction> create(
-      int numPartitions) const override {
-    return std::make_unique<velox::exec::RoundRobinPartitionFunction>(
-        numPartitions);
-  };
-
-  std::string toString() const override {
-    return "ROUND ROBIN";
-  }
-
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = "RoundRobinPartitionFunctionSpec";
-    return obj;
-  }
-
-  static core::PartitionFunctionSpecPtr deserialize(
-      const folly::dynamic& /* obj */,
-      void* /* context */) {
-    return std::make_shared<RoundRobinPartitionFunctionSpec>();
-  }
-};
-
-class HivePartitionFunctionSpec : public core::PartitionFunctionSpec {
- public:
-  HivePartitionFunctionSpec(
-      int numBuckets,
-      const std::vector<int>& bucketToPartition,
-      const PartitionedOutputChannels& keyChannels)
-      : numBuckets_{numBuckets},
-        bucketToPartition_(bucketToPartition),
-        keyChannels_{keyChannels} {}
-
-  std::unique_ptr<core::PartitionFunction> create(
-      int /* numPartitions */) const override {
-    return std::make_unique<velox::connector::hive::HivePartitionFunction>(
-        numBuckets_,
-        bucketToPartition_,
-        keyChannels_.channels,
-        keyChannels_.constValues);
-  }
-
-  std::string toString() const override {
-    return "HIVE({NUM_BUCKETS + " + std::to_string(numBuckets_) + " KEYS " +
-        folly::join(", ", keyChannels_.channels) + "})";
-  }
-
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = "HivePartitionFunctionSpec";
-    obj["numBuckets"] = ISerializable::serialize(numBuckets_);
-    obj["bucketToPartition"] = ISerializable::serialize(bucketToPartition_);
-    obj["keys"] = ISerializable::serialize(keyChannels_.channels);
-    std::vector<velox::core::ConstantTypedExpr> constValues;
-    constValues.reserve(keyChannels_.constValues.size());
-    for (const auto& value : keyChannels_.constValues) {
-      constValues.emplace_back(value);
-    }
-    obj["constants"] = ISerializable::serialize(constValues);
-    return obj;
-  }
-
-  static core::PartitionFunctionSpecPtr deserialize(
-      const folly::dynamic& obj,
-      void* context) {
-    PartitionedOutputChannels keyChannels;
-    keyChannels.channels =
-        ISerializable::deserialize<std::vector<column_index_t>>(obj["keys"]);
-    const auto constValues =
-        ISerializable::deserialize<std::vector<velox::core::ConstantTypedExpr>>(
-            obj["constants"]);
-    VELOX_CHECK_EQ(keyChannels.channels.size(), constValues.size());
-    keyChannels.constValues.reserve(constValues.size());
-    auto* pool = static_cast<memory::MemoryPool*>(context);
-    for (const auto& value : constValues) {
-      keyChannels.constValues.emplace_back(value->toConstantVector(pool));
-    }
-    return std::make_shared<HivePartitionFunctionSpec>(
-        ISerializable::deserialize<int>(obj["numBuckets"]),
-        ISerializable::deserialize<std::vector<int>>(obj["bucketToPartition"]),
-        keyChannels);
-  }
-
- private:
-  const int numBuckets_;
-  const std::vector<int> bucketToPartition_;
-  const PartitionedOutputChannels keyChannels_;
-};
 } // namespace
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -2171,8 +1999,22 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto sourceNode = toVeloxQueryPlan(fragment.root, tableWriteInfo, taskId);
   auto inputType = sourceNode->outputType();
 
-  PartitionedOutputChannels keyChannels =
-      toChannels(inputType, partitioningKeys, pool_);
+  std::vector<column_index_t> keyChannels;
+  std::vector<VectorPtr> constValues;
+  keyChannels.reserve(partitioningKeys.size());
+  for (const auto& expr : partitioningKeys) {
+    auto channel = exprToChannel(expr.get(), inputType);
+    keyChannels.push_back(channel);
+    // For constant channels create a base vector, add single value to it from
+    // our variant and add it to the list of constant expressions.
+    if (channel == kConstantChannel) {
+      constValues.emplace_back(
+          velox::BaseVector::create(expr->type(), 1, pool_));
+      auto constExpr =
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr);
+      setCellFromVariant(constValues.back(), 0, constExpr->value());
+    }
+  }
   auto outputType = toRowType(partitioningScheme.outputLayout);
 
   if (auto systemPartitioningHandle =
@@ -2227,8 +2069,8 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     partitioningScheme.replicateNullsAndAny,
                     std::make_shared<HashPartitionFunctionSpec>(
                         inputType,
-                        keyChannels.channels,
-                        keyChannels.constValues),
+                        keyChannels,
+                        constValues),
                     outputType,
                     sourceNode);
             return planFragment;
@@ -2277,7 +2119,8 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         std::make_shared<HivePartitionFunctionSpec>(
             hivePartitioningHandle->bucketCount,
             bucketToPartition,
-            keyChannels),
+            keyChannels,
+            constValues),
         toRowType(partitioningScheme.outputLayout),
         sourceNode);
     return planFragment;
