@@ -176,7 +176,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected final QueryMonitor queryMonitor;
     protected final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
     protected final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
-    protected final CollectionAccumulator<List<Map<String,Long>>> genericShuffleStatsCollector;
+    protected final CollectionAccumulator<List<Map<String, Long>>> genericShuffleStatsCollector;
     // used to create tasks on the Driver
     protected final PrestoSparkTaskExecutorFactory taskExecutorFactory;
     // used to create tasks on executor, serializable
@@ -218,7 +218,7 @@ public abstract class AbstractPrestoSparkQueryExecution
             JavaSparkContext sparkContext,
             Session session,
             QueryMonitor queryMonitor,
-            CollectionAccumulator<List<Map<String,Long>>> genericShuffleStatsCollector,
+            CollectionAccumulator<List<Map<String, Long>>> genericShuffleStatsCollector,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             PrestoSparkTaskExecutorFactory taskExecutorFactory,

@@ -82,7 +82,7 @@ public class PrestoSparkStaticQueryExecution
             JavaSparkContext sparkContext,
             Session session,
             QueryMonitor queryMonitor,
-            CollectionAccumulator<List<Map<String,Long>>> genericShuffleStatsCollector,
+            CollectionAccumulator<List<Map<String, Long>>> genericShuffleStatsCollector,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             PrestoSparkTaskExecutorFactory taskExecutorFactory,
