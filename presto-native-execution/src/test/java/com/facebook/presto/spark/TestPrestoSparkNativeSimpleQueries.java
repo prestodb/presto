@@ -13,19 +13,20 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import org.apache.spark.SparkContext;
 import org.apache.spark.util.AccumulatorContext$;
 import org.apache.spark.util.AccumulatorV2;
 import org.apache.spark.util.CollectionAccumulator;
 import org.testng.annotations.Test;
 import scala.Option;
 
-import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PRESTO_SPARK_SHUFFLE_STATS_COLLECTOR;
-import static org.testng.Assert.assertEquals;
+import java.util.List;
+import java.util.Map;
+
+import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestPrestoSparkNativeSimpleQueries
@@ -67,15 +68,25 @@ public class TestPrestoSparkNativeSimpleQueries
     }
 
     @Test
-    public void testJoins()
+    public void testJoin()
     {
         assertQuery("SELECT * FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
-        SparkContext.getOrCreate();
-        Option<AccumulatorV2<?, ?>> accumulator = AccumulatorContext$.MODULE$.lookForAccumulatorByName(PRESTO_SPARK_SHUFFLE_STATS_COLLECTOR);
+    }
+
+    @Test
+    public void testShuffleStats()
+    {
+        assertQuery("SELECT * FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
+        Option<AccumulatorV2<?, ?>> accumulator = AccumulatorContext$.MODULE$.lookForAccumulatorByName(PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR);
         assertTrue(accumulator.isDefined());
-        java.util.List<PrestoSparkShuffleStats> stats = ((CollectionAccumulator<PrestoSparkShuffleStats>) accumulator.get()).value();
-        assertEquals(stats.size(), 10);
-        assertEquals(stats.get(2).getProcessedRows(), 3694);
+        java.util.List<List<Map<String, Long>>> stats = ((CollectionAccumulator<List<Map<String, Long>>>) accumulator.get()).value();
+        List<Map<String, Long>> metrics = stats.get(0);
+        assertTrue(!metrics.isEmpty());
+        for (Map.Entry<String, Long> entry : metrics.get(0).entrySet()) {
+            String[] desc = entry.getKey().split("\\|");
+            assertTrue(desc.length == 4);
+            assertNotNull(entry.getValue());
+        }
     }
 
     @Test
