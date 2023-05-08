@@ -258,7 +258,11 @@ void TableScan::checkPreload() {
       splitPreloader_ =
           [executor, this](std::shared_ptr<connector::ConnectorSplit> split) {
             preload(split);
-            executor->add([split]() { split->dataSource->prepare(); });
+
+            executor->add([taskHolder = operatorCtx_->task(), split]() mutable {
+              split->dataSource->prepare();
+              split.reset();
+            });
           };
     }
   }
