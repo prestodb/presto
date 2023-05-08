@@ -48,7 +48,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.isPlanAnalyticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR_EXACT;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.EXACT;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
 import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
@@ -234,7 +234,7 @@ public class HistoryBasedPlanStatisticsTracker
                     continue;
                 }
                 PlanNode statsEquivalentPlanNode = planNode.getStatsEquivalentPlanNode().get();
-                Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = Optional.ofNullable(canonicalInfoMap.get(new CanonicalPlan(statsEquivalentPlanNode, CONNECTOR_EXACT)));
+                Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = Optional.ofNullable(canonicalInfoMap.get(new CanonicalPlan(statsEquivalentPlanNode, EXACT)));
                 if (planNodeCanonicalInfo.isPresent()) {
                     String hash = planNodeCanonicalInfo.get().getHash();
 

@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR_REMOVE_TABLESCAN_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -43,7 +43,7 @@ public class TestHiveTableLayoutHandle
         TupleDomain<Subfield> domain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 new Subfield("ds"), singleValue(VARCHAR, utf8Slice("2022-01-01")),
                 new Subfield("col"), singleValue(VARCHAR, utf8Slice("id"))));
-        TupleDomain<Subfield> newDomain = canonicalizeDomainPredicate(domain, predicateColumns, CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+        TupleDomain<Subfield> newDomain = canonicalizeDomainPredicate(domain, predicateColumns, CONNECTOR);
         assertTrue(newDomain.getDomains().isPresent());
         assertEquals(newDomain.getDomains().get().size(), 1);
         assertEquals(newDomain.getDomains().get().get(new Subfield("col")), singleValue(VARCHAR, utf8Slice("id")));

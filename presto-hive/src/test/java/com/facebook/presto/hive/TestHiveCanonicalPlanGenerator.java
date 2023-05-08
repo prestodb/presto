@@ -37,8 +37,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR_EXACT;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR_REMOVE_TABLESCAN_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.EXACT;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
@@ -94,19 +94,19 @@ public class TestHiveCanonicalPlanGenerator
                     pushdownFilterEnabled(),
                     "SELECT orderkey from test_orders",
                     "SELECT orderkey from test_orders",
-                    CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+                    CONNECTOR);
 
             assertSameCanonicalLeafPlan(
                     pushdownFilterEnabled(),
                     "SELECT orderkey from test_orders where ds > '2020-09-01'",
                     "SELECT orderkey from test_orders where ds = '2020-09-02'",
-                    CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+                    CONNECTOR);
 
             assertDifferentCanonicalLeafPlan(
                     pushdownFilterEnabled(),
                     "SELECT orderkey from test_orders where ds = '2020-09-01' AND orderkey < 10",
                     "SELECT orderkey from test_orders where ds = '2020-09-02' AND orderkey < 20",
-                    CONNECTOR_REMOVE_TABLESCAN_CONSTANTS);
+                    CONNECTOR);
 
             assertDifferentCanonicalLeafPlan(
                     pushdownFilterEnabled(),
@@ -124,31 +124,31 @@ public class TestHiveCanonicalPlanGenerator
                     pushdownFilterEnabled(),
                     "SELECT orderkey from test_orders where ds = '2020-09-01'",
                     "SELECT orderkey from test_orders where ds = '2020-09-02'",
-                    CONNECTOR_EXACT);
+                    EXACT);
 
             assertSameCanonicalLeafPlan(
                     pushdownFilterEnabled(),
                     "SELECT orderkey from test_orders where ds = '2020-09-01'",
                     "SELECT orderkey from test_orders where ds = '2020-09-01'",
-                    CONNECTOR_EXACT);
+                    EXACT);
 
             assertDifferentCanonicalLeafPlan(
                     pushdownFilterEnabled(),
                     "SELECT orderkey from test_orders where ds = '2020-09-01'",
                     "SELECT orderkey from test_orders where ds = '2020-09-02'",
-                    CONNECTOR_EXACT);
+                    EXACT);
 
             assertSameCanonicalLeafPlan(
                     pushdownFilterEnabled(),
                     "SELECT orderkey from test_orders where ds > '2020-09-01'",
                     "SELECT orderkey from test_orders where ds > '2020-09-01'",
-                    CONNECTOR_EXACT);
+                    EXACT);
 
             assertDifferentCanonicalLeafPlan(
                     pushdownFilterEnabled(),
                     "SELECT orderkey from test_orders where ds > '2020-09-00'",
                     "SELECT orderkey from test_orders where ds > '2020-09-01'",
-                    CONNECTOR_EXACT);
+                    EXACT);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_orders");

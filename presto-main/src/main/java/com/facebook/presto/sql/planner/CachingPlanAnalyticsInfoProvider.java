@@ -60,7 +60,7 @@ public class CachingPlanAnalyticsInfoProvider
         }
         CanonicalPlanGenerator.Context context = new CanonicalPlanGenerator.Context();
         planNode.accept(
-                new CanonicalPlanGenerator(PlanCanonicalizationStrategy.CONNECTOR_EXACT, objectMapper, session),
+                new CanonicalPlanGenerator(PlanCanonicalizationStrategy.EXACT, objectMapper, session),
                 context);
         context
                 .getCanonicalPlans()

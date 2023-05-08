@@ -46,13 +46,13 @@ public enum PlanCanonicalizationStrategy
      *
      * This is used in context of history based optimizations.
      */
-    CONNECTOR_REMOVE_TABLESCAN_CONSTANTS,
+    CONNECTOR,
 
     /*
-     * CONNECTOR_EXACT strategy will canonicalize plan according to CONNECTOR strategy, keep the table filters as is
+     * EXACT strategy will canonicalize plan according to CONNECTOR strategy, keep the table filters as is
      *
      */
-    CONNECTOR_EXACT,
+    EXACT,
     /**
      * REMOVE_SAFE_CONSTANTS strategy is used to canonicalize plan with
      * CONNECTOR strategy and will additionally remove constants from plan

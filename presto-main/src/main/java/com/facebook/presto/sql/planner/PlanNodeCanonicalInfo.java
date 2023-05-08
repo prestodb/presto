@@ -106,9 +106,9 @@ public class PlanNodeCanonicalInfo
                 continue;
             }
             PlanNode statsEquivalentPlanNode = node.getStatsEquivalentPlanNode().get();
-            Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, PlanCanonicalizationStrategy.CONNECTOR_EXACT);
+            Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, PlanCanonicalizationStrategy.EXACT);
             if (hash.isPresent()) {
-                result.add(new CanonicalPlanWithInfo(new CanonicalPlan(statsEquivalentPlanNode, PlanCanonicalizationStrategy.CONNECTOR_EXACT),
+                result.add(new CanonicalPlanWithInfo(new CanonicalPlan(statsEquivalentPlanNode, PlanCanonicalizationStrategy.EXACT),
                         new PlanNodeCanonicalInfo(hash.get(), Collections.emptyList())));
             }
         }

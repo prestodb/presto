@@ -332,7 +332,7 @@ public class HiveTableLayoutHandle
                 .transform(getPredicateColumns()::get)
                 .transform(ColumnHandle.class::cast)
                 .intersect(constraint);
-        if (canonicalizationStrategy == PlanCanonicalizationStrategy.CONNECTOR_EXACT) {
+        if (canonicalizationStrategy == PlanCanonicalizationStrategy.EXACT) {
             constraint = constraint.canonicalize(ignored -> false);
         }
         else {
