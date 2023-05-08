@@ -81,7 +81,7 @@ class AggregationFuzzer {
       AggregateFunctionSignatureMap signatureMap,
       size_t seed,
       const std::unordered_map<std::string, std::string>&
-          orderDependentFunctions);
+          customVerificationFunctions);
 
   void go();
 
@@ -161,7 +161,7 @@ class AggregationFuzzer {
       const std::vector<std::string>& sortingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<RowVectorPtr>& input,
-      bool orderDependent);
+      bool customVerification);
 
   std::optional<MaterializedRowMultiset> computeDuckWindow(
       const std::vector<std::string>& partitionKeys,
@@ -175,7 +175,7 @@ class AggregationFuzzer {
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& masks,
       const std::vector<RowVectorPtr>& input,
-      bool orderDependent,
+      bool customVerification,
       const std::vector<std::string>& projections);
 
   std::optional<MaterializedRowMultiset> computeDuckAggregation(
@@ -209,7 +209,8 @@ class AggregationFuzzer {
       bool verifyResults,
       const velox::test::ResultOrError& expected);
 
-  const std::unordered_map<std::string, std::string> orderDependentFunctions_;
+  const std::unordered_map<std::string, std::string>
+      customVerificationFunctions_;
   const bool persistAndRunOnce_;
   const std::string reproPersistPath_;
 
@@ -232,8 +233,8 @@ void aggregateFuzzer(
     AggregateFunctionSignatureMap signatureMap,
     size_t seed,
     const std::unordered_map<std::string, std::string>&
-        orderDependentFunctions) {
-  AggregationFuzzer(std::move(signatureMap), seed, orderDependentFunctions)
+        customVerificationFunctions) {
+  AggregationFuzzer(std::move(signatureMap), seed, customVerificationFunctions)
       .go();
 }
 
@@ -284,8 +285,9 @@ std::unordered_set<std::string> getDuckFunctions() {
 AggregationFuzzer::AggregationFuzzer(
     AggregateFunctionSignatureMap signatureMap,
     size_t initialSeed,
-    const std::unordered_map<std::string, std::string>& orderDependentFunctions)
-    : orderDependentFunctions_{orderDependentFunctions},
+    const std::unordered_map<std::string, std::string>&
+        customVerificationFunctions)
+    : customVerificationFunctions_{customVerificationFunctions},
       persistAndRunOnce_{FLAGS_persist_and_run_once},
       reproPersistPath_{FLAGS_repro_persist_path},
       vectorFuzzer_{getFuzzerOptions(), pool_.get()} {
@@ -548,8 +550,8 @@ void AggregationFuzzer::go() {
       CallableSignature signature = pickSignature();
       stats_.functionNames.insert(signature.name);
 
-      const bool orderDependent =
-          orderDependentFunctions_.count(signature.name) != 0;
+      const bool customVerification =
+          customVerificationFunctions_.count(signature.name) != 0;
 
       std::vector<TypePtr> argTypes = signature.args;
       std::vector<std::string> argNames = makeNames(argTypes.size());
@@ -563,7 +565,8 @@ void AggregationFuzzer::go() {
         auto sortingKeys = generateKeys("s", argNames, argTypes);
         auto input = generateInputDataWithRowNumber(argNames, argTypes);
 
-        verifyWindow(partitionKeys, sortingKeys, {call}, input, orderDependent);
+        verifyWindow(
+            partitionKeys, sortingKeys, {call}, input, customVerification);
       } else {
         // 20% of times use mask.
         std::vector<std::string> masks;
@@ -585,10 +588,10 @@ void AggregationFuzzer::go() {
         }
 
         std::vector<std::string> projections;
-        if (orderDependent) {
+        if (customVerification) {
           // Add optional projection on the original result to make it order
           // independent for comparison.
-          auto mitigation = orderDependentFunctions_.at(signature.name);
+          auto mitigation = customVerificationFunctions_.at(signature.name);
           if (!mitigation.empty()) {
             projections = groupingKeys;
             projections.push_back(fmt::format(fmt::runtime(mitigation), "a0"));
@@ -598,7 +601,12 @@ void AggregationFuzzer::go() {
         auto input = generateInputData(argNames, argTypes);
 
         verifyAggregation(
-            groupingKeys, {call}, masks, input, orderDependent, projections);
+            groupingKeys,
+            {call},
+            masks,
+            input,
+            customVerification,
+            projections);
       }
     }
     LOG(INFO) << "==============================> Done with iteration "
@@ -930,7 +938,7 @@ void AggregationFuzzer::verifyWindow(
     const std::vector<std::string>& sortingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<RowVectorPtr>& input,
-    bool orderDependent) {
+    bool customVerification) {
   std::stringstream frame;
   if (!partitionKeys.empty()) {
     frame << "partition by " << folly::join(", ", partitionKeys);
@@ -953,7 +961,7 @@ void AggregationFuzzer::verifyWindow(
       ++stats_.numFailed;
     }
 
-    if (!orderDependent && resultOrError.result) {
+    if (!customVerification && resultOrError.result) {
       if (auto expectedResult = computeDuckWindow(
               partitionKeys, sortingKeys, aggregates, input, plan)) {
         ++stats_.numDuckVerified;
@@ -975,7 +983,7 @@ void AggregationFuzzer::verifyAggregation(
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& masks,
     const std::vector<RowVectorPtr>& input,
-    bool orderDependent,
+    bool customVerification,
     const std::vector<std::string>& projections) {
   auto plan = PlanBuilder()
                   .values(input)
@@ -993,7 +1001,7 @@ void AggregationFuzzer::verifyAggregation(
       ++stats_.numFailed;
     }
 
-    const bool verifyResults = !orderDependent || !projections.empty();
+    const bool verifyResults = !customVerification || !projections.empty();
 
     std::optional<MaterializedRowMultiset> expectedResult;
     if (verifyResults) {

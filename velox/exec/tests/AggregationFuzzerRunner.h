@@ -70,7 +70,7 @@ class AggregationFuzzerRunner {
       size_t seed,
       const std::unordered_set<std::string>& skipFunctions,
       const std::unordered_map<std::string, std::string>&
-          orderDependentFunctions) {
+          customVerificationFunctions) {
     auto signatures = facebook::velox::exec::getAggregateFunctionSignatures();
     if (signatures.empty()) {
       LOG(ERROR) << "No aggregate functions registered.";
@@ -91,7 +91,7 @@ class AggregationFuzzerRunner {
     facebook::velox::filesystems::registerLocalFileSystem();
 
     facebook::velox::exec::test::aggregateFuzzer(
-        filteredSignatures, seed, orderDependentFunctions);
+        filteredSignatures, seed, customVerificationFunctions);
     // Calling gtest here so that it can be recognized as tests in CI systems.
     return RUN_ALL_TESTS();
   }

@@ -53,12 +53,14 @@ int main(int argc, char** argv) {
       "stddev_pop", // https://github.com/facebookincubator/velox/issues/3493
   };
 
-  // The results of the following functions depend on the order of input
-  // rows. For some functions, the result can be transformed to a value that
-  // doesn't dopend on the order of inputs. If such transformation exists, it
-  // can be specified to be used for results verification. If no transformation
-  // is specified, results are not verified.
-  std::unordered_map<std::string, std::string> orderDependentFunctions = {
+  // Functions whose results verification should be skipped. These can be
+  // order-dependent functions whose results depend on the order of input rows.
+  // For some functions, the result can be transformed to a value that can be
+  // verified. If such transformation exists, it can be specified to be used for
+  // results verification. If no transformation is specified, results are not
+  // verified.
+  std::unordered_map<std::string, std::string> customVerificationFunctions = {
+      // Order-dependent functions.
       {"approx_distinct", ""},
       {"approx_set", ""},
       {"arbitrary", ""},
@@ -71,5 +73,5 @@ int main(int argc, char** argv) {
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return AggregationFuzzerRunner::run(
-      FLAGS_only, initialSeed, skipFunctions, orderDependentFunctions);
+      FLAGS_only, initialSeed, skipFunctions, customVerificationFunctions);
 }
