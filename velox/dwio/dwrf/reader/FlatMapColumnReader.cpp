@@ -68,6 +68,33 @@ KeyPredicate<T> prepareKeyPredicate(
   return dwio::common::flatmap::prepareKeyPredicate<T>(expr);
 }
 
+// Helper function to perform uniqueness checks before visiting streams
+uint32_t visitUniqueStreamsOfNode(
+    const std::shared_ptr<const TypeWithId>& dataType,
+    StripeStreams& stripe,
+    std::function<void(const StreamInformation&)> visitor) {
+  const auto dataValueType = dataType->childAt(1);
+  std::unordered_set<size_t> processed;
+
+  auto streams = stripe.visitStreamsOfNode(
+      dataValueType->id, [&](const StreamInformation& stream) {
+        auto sequence = stream.getSequence();
+        // No need to load shared dictionary stream here.
+        if (sequence == 0) {
+          return;
+        }
+        // if this branch (sequence) is in the node list already
+        if (processed.count(sequence)) {
+          return;
+        }
+        processed.insert(sequence);
+
+        visitor(stream);
+      });
+
+  return streams;
+}
+
 template <typename T>
 std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
     const std::function<bool(const KeyValue<T>&)>& keyPredicate,
@@ -84,8 +111,8 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
 
   // load all sub streams
   // fetch reader, in map bitmap and key object.
-  auto streams = stripe.visitStreamsOfNode(
-      dataValueType->id, [&](const StreamInformation& stream) {
+  auto streams = visitUniqueStreamsOfNode(
+      dataType, stripe, [&](const StreamInformation& stream) {
         auto sequence = stream.getSequence();
         // No need to load shared dictionary stream here.
         if (sequence == 0) {
