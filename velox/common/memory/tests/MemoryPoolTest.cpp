@@ -26,6 +26,7 @@
 #include "velox/common/testutil/TestValue.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
+DECLARE_int32(velox_memory_num_shared_leaf_pools);
 
 using namespace ::testing;
 using namespace facebook::velox::cache;
@@ -1684,7 +1685,8 @@ class MemoryPoolTester {
           contiguousAllocations_.pop_back();
         } else {
           int64_t allocatePages = std::max<int64_t>(
-              1, folly::Random().rand32() % (maxMemory_ / 32) / 4096);
+              1,
+              folly::Random().rand32() % Allocation::PageRun::kMaxPagesInRun);
           ContiguousAllocation allocation;
           if (folly::Random().oneIn(2) && !contiguousAllocations_.empty()) {
             allocation = std::move(contiguousAllocations_.back());
@@ -1712,7 +1714,8 @@ class MemoryPoolTester {
           nonContiguiusAllocations_.pop_back();
         } else {
           const int64_t allocatePages = std::max<int64_t>(
-              1, folly::Random().rand32() % (maxMemory_ / 32) / 4096);
+              1,
+              folly::Random().rand32() % Allocation::PageRun::kMaxPagesInRun);
           Allocation allocation;
           try {
             pool_.allocateNonContiguous(allocatePages, allocation);
@@ -1846,6 +1849,36 @@ TEST_P(MemoryPoolTest, concurrentUpdatesToTheSamePool) {
   childPools.clear();
   ASSERT_LE(root->stats().peakBytes, root->stats().cumulativeBytes);
   ASSERT_EQ(root->stats().currentBytes, 0);
+}
+
+TEST_P(MemoryPoolTest, concurrentUpdateToSharedPools) {
+  constexpr int64_t kMaxMemory = 10 * GB;
+  MemoryManager manager{{.capacity = kMaxMemory}};
+  const int32_t kNumThreads = FLAGS_velox_memory_num_shared_leaf_pools;
+
+  folly::Random::DefaultGenerator rng;
+  rng.seed(1234);
+
+  const int32_t kNumOpsPerThread = 1'000;
+  std::vector<std::thread> threads;
+  threads.reserve(kNumThreads);
+  for (size_t i = 0; i < kNumThreads; ++i) {
+    threads.emplace_back([&, i]() {
+      auto& sharedPool = manager.deprecatedSharedLeafPool();
+      MemoryPoolTester tester(i, kMaxMemory, sharedPool);
+      for (int32_t iter = 0; iter < kNumOpsPerThread; ++iter) {
+        tester.run();
+      }
+    });
+  }
+
+  for (auto& th : threads) {
+    th.join();
+  }
+
+  for (auto pool : manager.testingSharedLeafPools()) {
+    EXPECT_EQ(pool->currentBytes(), 0);
+  }
 }
 
 TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {

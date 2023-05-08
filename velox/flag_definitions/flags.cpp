@@ -38,6 +38,11 @@ DEFINE_int32(
     4 * 1024,
     "Size of file cache/operator working memory in MB");
 
+DEFINE_int32(
+    velox_memory_num_shared_leaf_pools,
+    32,
+    "Number of shared leaf memory pools per process");
+
 DEFINE_bool(
     velox_time_allocations,
     true,

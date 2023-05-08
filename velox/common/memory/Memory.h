@@ -119,13 +119,13 @@ class IMemoryManager {
   /// 'incrementBytes'. The function returns true on success, otherwise false.
   virtual bool growPool(MemoryPool* pool, uint64_t incrementBytes) = 0;
 
-  /// Returns the default leaf memory pool for direct memory allocation use. The
-  /// pool is created as the child of the memory manager's default root memory
-  /// pool and is owned by the memory manager.
+  /// Default unmanaged leaf pool with no threadsafe stats support. Libraries
+  /// using this method can get a pool that is shared with other threads. The
+  /// goal is to minimize lock contention while supporting such use cases.
   ///
   /// TODO: deprecate this API after all the use cases are able to manage the
   /// lifecycle of the allocated memory pools properly.
-  virtual MemoryPool& deprecatedLeafPool() = 0;
+  virtual MemoryPool& deprecatedSharedLeafPool() = 0;
 
   /// Returns the number of alive memory pools allocated from addRootPool() and
   /// addLeafPool().
@@ -197,7 +197,7 @@ class MemoryManager final : public IMemoryManager {
 
   bool growPool(MemoryPool* pool, uint64_t incrementBytes) final;
 
-  MemoryPool& deprecatedLeafPool() final;
+  MemoryPool& deprecatedSharedLeafPool() final;
 
   int64_t getTotalBytes() const final;
 
@@ -216,6 +216,10 @@ class MemoryManager final : public IMemoryManager {
   /// purpose.
   MemoryPool& testingDefaultRoot() const {
     return *defaultRoot_;
+  }
+
+  const std::vector<std::shared_ptr<MemoryPool>>& testingSharedLeafPools() {
+    return sharedLeafPools_;
   }
 
  private:
@@ -237,10 +241,7 @@ class MemoryManager final : public IMemoryManager {
   const MemoryPoolImpl::DestructionCallback poolDestructionCb_;
 
   const std::shared_ptr<MemoryPool> defaultRoot_;
-  // The leaf memory pool created as child of 'defaultRoot_' on memory manager
-  // construction. This is for legacy use cases that can't manage the memory
-  // pool's lifecycle properly, and will be deprecated later.
-  const std::shared_ptr<MemoryPool> deprecatedDefaultLeafPool_;
+  std::vector<std::shared_ptr<MemoryPool>> sharedLeafPools_;
 
   mutable folly::SharedMutex mutex_;
   std::atomic_long totalBytes_{0};
@@ -255,6 +256,15 @@ IMemoryManager& defaultMemoryManager();
 std::shared_ptr<MemoryPool> addDefaultLeafMemoryPool(
     const std::string& name = "",
     bool threadSafe = true);
+
+/// Default unmanaged leaf pool with no threadsafe stats support. Libraries
+/// using this method can get a pool that is shared with other threads. The goal
+/// is to minimize lock contention while supporting such use cases.
+///
+///
+/// TODO: deprecate this API after all the use cases are able to manage the
+/// lifecycle of the allocated memory pools properly.
+MemoryPool& deprecatedSharedLeafPool();
 
 FOLLY_ALWAYS_INLINE int32_t alignmentPadding(void* address, int32_t alignment) {
   auto extra = reinterpret_cast<uintptr_t>(address) % alignment;

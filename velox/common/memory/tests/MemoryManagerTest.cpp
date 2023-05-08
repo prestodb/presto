@@ -20,6 +20,8 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/Memory.h"
 
+DECLARE_int32(velox_memory_num_shared_leaf_pools);
+
 using namespace ::testing;
 
 namespace facebook {
@@ -28,7 +30,6 @@ namespace memory {
 
 namespace {
 constexpr folly::StringPiece kDefaultRootName{"__default_root__"};
-constexpr folly::StringPiece kDefaultLeafName("__default_leaf__");
 
 MemoryManager& toMemoryManager(IMemoryManager& manager) {
   return *static_cast<MemoryManager*>(&manager);
@@ -36,6 +37,7 @@ MemoryManager& toMemoryManager(IMemoryManager& manager) {
 } // namespace
 
 TEST(MemoryManagerTest, Ctor) {
+  const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
   {
     MemoryManager manager{};
     ASSERT_EQ(manager.numPools(), 0);
@@ -43,7 +45,6 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(0, manager.getTotalBytes());
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMaxAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
-    ASSERT_EQ(manager.deprecatedLeafPool().alignment(), manager.alignment());
     ASSERT_EQ(manager.arbitrator(), nullptr);
   }
   {
@@ -52,16 +53,14 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(manager.numPools(), 0);
     ASSERT_EQ(0, manager.getTotalBytes());
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
-    ASSERT_EQ(manager.deprecatedLeafPool().alignment(), manager.alignment());
   }
   {
     MemoryManager manager{{.alignment = 0, .capacity = 8L * 1024 * 1024}};
 
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMinAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
-    ASSERT_EQ(manager.deprecatedLeafPool().alignment(), manager.alignment());
     // TODO: replace with root pool memory tracker quota check.
-    ASSERT_EQ(1, manager.testingDefaultRoot().getChildCount());
+    ASSERT_EQ(kSharedPoolCount, manager.testingDefaultRoot().getChildCount());
     ASSERT_EQ(8L * 1024 * 1024, manager.capacity());
     ASSERT_EQ(0, manager.getTotalBytes());
   }
@@ -93,17 +92,20 @@ TEST(MemoryManagerTest, addPool) {
 TEST(MemoryManagerTest, defaultMemoryManager) {
   auto& managerA = toMemoryManager(defaultMemoryManager());
   auto& managerB = toMemoryManager(defaultMemoryManager());
+  const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
   ASSERT_EQ(managerA.numPools(), 0);
-  ASSERT_EQ(managerA.testingDefaultRoot().getChildCount(), 1);
+  ASSERT_EQ(managerA.testingDefaultRoot().getChildCount(), kSharedPoolCount);
   ASSERT_EQ(managerB.numPools(), 0);
-  ASSERT_EQ(managerB.testingDefaultRoot().getChildCount(), 1);
+  ASSERT_EQ(managerB.testingDefaultRoot().getChildCount(), kSharedPoolCount);
 
   auto child1 = managerA.addLeafPool("child_1");
   ASSERT_EQ(child1->parent()->name(), managerA.testingDefaultRoot().name());
   auto child2 = managerB.addLeafPool("child_2");
   ASSERT_EQ(child2->parent()->name(), managerA.testingDefaultRoot().name());
-  EXPECT_EQ(3, managerA.testingDefaultRoot().getChildCount());
-  EXPECT_EQ(3, managerB.testingDefaultRoot().getChildCount());
+  EXPECT_EQ(
+      kSharedPoolCount + 2, managerA.testingDefaultRoot().getChildCount());
+  EXPECT_EQ(
+      kSharedPoolCount + 2, managerB.testingDefaultRoot().getChildCount());
   ASSERT_EQ(managerA.numPools(), 2);
   ASSERT_EQ(managerB.numPools(), 2);
   auto pool = managerB.addRootPool();
@@ -116,9 +118,10 @@ TEST(MemoryManagerTest, defaultMemoryManager) {
       managerB.toString(),
       "Memory Manager[capacity 8388608.00TB alignment 64B usedBytes 0B number of pools 3\nList of root pools:\n\t__default_root__\n\tdefault_root_0\n]");
   child1.reset();
-  EXPECT_EQ(2, managerA.testingDefaultRoot().getChildCount());
+  EXPECT_EQ(
+      kSharedPoolCount + 1, managerA.testingDefaultRoot().getChildCount());
   child2.reset();
-  EXPECT_EQ(1, managerB.testingDefaultRoot().getChildCount());
+  EXPECT_EQ(kSharedPoolCount, managerB.testingDefaultRoot().getChildCount());
   ASSERT_EQ(managerA.numPools(), 1);
   ASSERT_EQ(managerB.numPools(), 1);
   pool.reset();
@@ -134,27 +137,33 @@ TEST(MemoryManagerTest, defaultMemoryManager) {
 
 TEST(MemoryHeaderTest, addDefaultLeafMemoryPool) {
   auto& manager = toMemoryManager(defaultMemoryManager());
-  ASSERT_EQ(manager.testingDefaultRoot().getChildCount(), 1);
+  const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
+  ASSERT_EQ(manager.testingDefaultRoot().getChildCount(), kSharedPoolCount);
   {
     auto poolA = addDefaultLeafMemoryPool();
     ASSERT_EQ(poolA->kind(), MemoryPool::Kind::kLeaf);
     auto poolB = addDefaultLeafMemoryPool();
     ASSERT_EQ(poolB->kind(), MemoryPool::Kind::kLeaf);
-    EXPECT_EQ(3, manager.testingDefaultRoot().getChildCount());
+    EXPECT_EQ(
+        kSharedPoolCount + 2, manager.testingDefaultRoot().getChildCount());
     {
       auto poolC = addDefaultLeafMemoryPool();
       ASSERT_EQ(poolC->kind(), MemoryPool::Kind::kLeaf);
-      EXPECT_EQ(4, manager.testingDefaultRoot().getChildCount());
+      EXPECT_EQ(
+          kSharedPoolCount + 3, manager.testingDefaultRoot().getChildCount());
       {
         auto poolD = addDefaultLeafMemoryPool();
         ASSERT_EQ(poolD->kind(), MemoryPool::Kind::kLeaf);
-        EXPECT_EQ(5, manager.testingDefaultRoot().getChildCount());
+        EXPECT_EQ(
+            kSharedPoolCount + 4, manager.testingDefaultRoot().getChildCount());
       }
-      EXPECT_EQ(4, manager.testingDefaultRoot().getChildCount());
+      EXPECT_EQ(
+          kSharedPoolCount + 3, manager.testingDefaultRoot().getChildCount());
     }
-    EXPECT_EQ(3, manager.testingDefaultRoot().getChildCount());
+    EXPECT_EQ(
+        kSharedPoolCount + 2, manager.testingDefaultRoot().getChildCount());
   }
-  EXPECT_EQ(1, manager.testingDefaultRoot().getChildCount());
+  EXPECT_EQ(kSharedPoolCount, manager.testingDefaultRoot().getChildCount());
 
   auto namedPool = addDefaultLeafMemoryPool("namedPool");
   ASSERT_EQ(namedPool->name(), "namedPool");
@@ -206,46 +215,40 @@ TEST(MemoryManagerTest, memoryPoolManagement) {
 TEST(MemoryManagerTest, globalMemoryManager) {
   auto& manager = MemoryManager::getInstance();
   auto& managerII = MemoryManager::getInstance();
-
+  const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
   {
     auto& rootI = manager.testingDefaultRoot();
     const std::string childIName("some_child");
     auto childI = rootI.addLeafChild(childIName);
-    ASSERT_EQ(rootI.getChildCount(), 2);
+    ASSERT_EQ(rootI.getChildCount(), kSharedPoolCount + 1);
 
     auto& rootII = managerII.testingDefaultRoot();
-    ASSERT_EQ(2, rootII.getChildCount());
+    ASSERT_EQ(kSharedPoolCount + 1, rootII.getChildCount());
     std::vector<MemoryPool*> pools{};
     rootII.visitChildren([&pools](MemoryPool* child) {
       pools.emplace_back(child);
       return true;
     });
-    ASSERT_EQ(pools.size(), 2);
+    ASSERT_EQ(pools.size(), kSharedPoolCount + 1);
     int matchedCount = 0;
     for (const auto* pool : pools) {
       if (pool->name() == childIName) {
         ++matchedCount;
       }
-      if (pool->name() == kDefaultLeafName.str()) {
-        ++matchedCount;
-      }
     }
-    ASSERT_EQ(matchedCount, 2);
-
-    auto& defaultChild = manager.deprecatedLeafPool();
-    ASSERT_EQ(defaultChild.name(), kDefaultLeafName.str());
+    ASSERT_EQ(matchedCount, 1);
 
     auto childII = manager.addLeafPool("another_child");
     ASSERT_EQ(childII->kind(), MemoryPool::Kind::kLeaf);
-    ASSERT_EQ(rootI.getChildCount(), 3);
+    ASSERT_EQ(rootI.getChildCount(), kSharedPoolCount + 2);
     ASSERT_EQ(childII->parent()->name(), kDefaultRootName.str());
     childII.reset();
-    ASSERT_EQ(rootI.getChildCount(), 2);
-    ASSERT_EQ(rootII.getChildCount(), 2);
+    ASSERT_EQ(rootI.getChildCount(), kSharedPoolCount + 1);
+    ASSERT_EQ(rootII.getChildCount(), kSharedPoolCount + 1);
     auto userRootChild = manager.addRootPool("rootChild");
     ASSERT_EQ(userRootChild->kind(), MemoryPool::Kind::kAggregate);
-    ASSERT_EQ(rootI.getChildCount(), 2);
-    ASSERT_EQ(rootII.getChildCount(), 2);
+    ASSERT_EQ(rootI.getChildCount(), kSharedPoolCount + 1);
+    ASSERT_EQ(rootII.getChildCount(), kSharedPoolCount + 1);
     ASSERT_EQ(manager.numPools(), 2);
   }
   ASSERT_EQ(manager.numPools(), 0);
@@ -257,9 +260,10 @@ TEST(MemoryManagerTest, globalMemoryManager) {
     ASSERT_EQ(pool->kind(), MemoryPool::Kind::kLeaf);
     ASSERT_EQ(pool->parent()->name(), kDefaultRootName.str());
     ASSERT_EQ(manager.numPools(), 1);
-    ASSERT_EQ(manager.testingDefaultRoot().getChildCount(), 2);
+    ASSERT_EQ(
+        manager.testingDefaultRoot().getChildCount(), kSharedPoolCount + 1);
     pool.reset();
-    ASSERT_EQ(manager.testingDefaultRoot().getChildCount(), 1);
+    ASSERT_EQ(manager.testingDefaultRoot().getChildCount(), kSharedPoolCount);
   }
   ASSERT_EQ(manager.numPools(), 0);
 }
@@ -342,9 +346,6 @@ TEST(MemoryManagerTest, alignmentOptionCheck) {
         std::max(testData.alignment, MemoryAllocator::kMinAlignment));
     ASSERT_EQ(
         manager.testingDefaultRoot().alignment(),
-        std::max(testData.alignment, MemoryAllocator::kMinAlignment));
-    ASSERT_EQ(
-        manager.deprecatedLeafPool().alignment(),
         std::max(testData.alignment, MemoryAllocator::kMinAlignment));
     auto leafPool = manager.addLeafPool("leafPool");
     ASSERT_EQ(

@@ -17,6 +17,7 @@
 #include "velox/common/memory/Memory.h"
 
 DECLARE_bool(velox_enable_memory_usage_track_in_default_memory_pool);
+DECLARE_int32(velox_memory_num_shared_leaf_pools);
 
 namespace facebook::velox::memory {
 namespace {
@@ -59,12 +60,17 @@ MemoryManager::MemoryManager(const Options& options)
               .alignment = alignment_,
               .capacity = kMaxMemory,
               .trackUsage =
-                  FLAGS_velox_enable_memory_usage_track_in_default_memory_pool})},
-      deprecatedDefaultLeafPool_(
-          defaultRoot_->addLeafChild(kDefaultLeafName.str())) {
+                  FLAGS_velox_enable_memory_usage_track_in_default_memory_pool})} {
   VELOX_CHECK_NOT_NULL(allocator_);
   VELOX_USER_CHECK_GE(capacity_, 0);
   MemoryAllocator::alignmentCheck(0, alignment_);
+  const size_t numSharedPools =
+      std::max(1, FLAGS_velox_memory_num_shared_leaf_pools);
+  sharedLeafPools_.reserve(numSharedPools);
+  for (size_t i = 0; i < numSharedPools; ++i) {
+    sharedLeafPools_.emplace_back(
+        addLeafPool(fmt::format("default_shared_leaf_pool_{}", i)));
+  }
 }
 
 MemoryManager::~MemoryManager() {
@@ -176,8 +182,10 @@ void MemoryManager::dropPool(MemoryPool* pool) {
   }
 }
 
-MemoryPool& MemoryManager::deprecatedLeafPool() {
-  return *deprecatedDefaultLeafPool_;
+MemoryPool& MemoryManager::deprecatedSharedLeafPool() {
+  const auto idx = std::hash<std::thread::id>{}(std::this_thread::get_id());
+  folly::SharedMutex::ReadHolder guard{mutex_};
+  return *sharedLeafPools_.at(idx % sharedLeafPools_.size());
 }
 
 int64_t MemoryManager::getTotalBytes() const {
@@ -194,13 +202,11 @@ void MemoryManager::release(int64_t size) {
 }
 
 size_t MemoryManager::numPools() const {
-  // Don't count 'deprecatedDefaultLeafPool_' which is a child of
-  // 'defaultRoot_'.
-  size_t numPools = defaultRoot_->getChildCount() - 1;
+  size_t numPools = defaultRoot_->getChildCount();
   VELOX_CHECK_GE(numPools, 0);
   {
     folly::SharedMutex::ReadHolder guard{mutex_};
-    numPools += pools_.size();
+    numPools += pools_.size() - sharedLeafPools_.size();
   }
   return numPools;
 }
@@ -256,5 +262,9 @@ std::shared_ptr<MemoryPool> addDefaultLeafMemoryPool(
     bool threadSafe) {
   auto& memoryManager = defaultMemoryManager();
   return memoryManager.addLeafPool(name, threadSafe);
+}
+
+MemoryPool& deprecatedSharedLeafPool() {
+  return defaultMemoryManager().deprecatedSharedLeafPool();
 }
 } // namespace facebook::velox::memory
