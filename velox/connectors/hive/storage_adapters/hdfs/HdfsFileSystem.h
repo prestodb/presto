@@ -17,8 +17,20 @@
 
 namespace facebook::velox::filesystems {
 struct HdfsServiceEndpoint {
-  std::string host;
-  int port;
+  HdfsServiceEndpoint(const std::string& hdfsHost, const std::string& hdfsPort)
+      : host(hdfsHost), port(hdfsPort) {}
+
+  /// In HDFS HA mode, the identity is a nameservice ID with no port, e.g.,
+  /// the identity is nameservice_id for
+  /// hdfs://nameservice_id/file/path/in/hdfs. Otherwise, a port must be
+  /// contained, e.g., the identity is hdfs_namenode:9000 for
+  /// hdfs://hdfs_namenode:9000/file/path/in/hdfs.
+  std::string identity() const {
+    return host + (port.empty() ? "" : ":" + port);
+  }
+
+  const std::string host;
+  const std::string port;
 };
 
 /**
@@ -33,7 +45,9 @@ class HdfsFileSystem : public FileSystem {
   static std::string_view kScheme;
 
  public:
-  explicit HdfsFileSystem(const std::shared_ptr<const Config>& config);
+  explicit HdfsFileSystem(
+      const std::shared_ptr<const Config>& config,
+      const HdfsServiceEndpoint& endpoint);
 
   std::string name() const override;
 
@@ -71,6 +85,13 @@ class HdfsFileSystem : public FileSystem {
   }
 
   static bool isHdfsFile(std::string_view filename);
+
+  /// The given filePath is used to infer hdfs endpoint. If hdfs identity is
+  /// missing from filePath, the configured "hive.hdfs.host" & "hive.hdfs.port"
+  /// will be used.
+  static HdfsServiceEndpoint getServiceEndpoint(
+      const std::string_view filePath,
+      const Config* config);
 
  protected:
   class Impl;
