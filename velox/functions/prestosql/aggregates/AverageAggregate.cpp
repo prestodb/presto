@@ -162,41 +162,15 @@ class AverageAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
     decodedPartial_.decode(*args[0], rows);
-    auto baseRowVector = dynamic_cast<const RowVector*>(decodedPartial_.base());
-    auto baseSumVector =
-        baseRowVector->childAt(0)->as<SimpleVector<TAccumulator>>();
-    auto baseCountVector =
-        baseRowVector->childAt(1)->as<SimpleVector<int64_t>>();
+    auto baseRowVector = decodedPartial_.base()->template as<RowVector>();
 
-    if (decodedPartial_.isConstantMapping()) {
-      if (!decodedPartial_.isNullAt(0)) {
-        auto decodedIndex = decodedPartial_.index(0);
-        auto count = baseCountVector->valueAt(decodedIndex);
-        auto sum = baseSumVector->valueAt(decodedIndex);
-        rows.applyToSelected([&](vector_size_t i) {
-          updateNonNullValue(groups[i], count, sum);
-        });
-      }
-    } else if (decodedPartial_.mayHaveNulls()) {
-      rows.applyToSelected([&](vector_size_t i) {
-        if (decodedPartial_.isNullAt(i)) {
-          return;
-        }
-        auto decodedIndex = decodedPartial_.index(i);
-        updateNonNullValue(
-            groups[i],
-            baseCountVector->valueAt(decodedIndex),
-            baseSumVector->valueAt(decodedIndex));
-      });
-    } else {
-      rows.applyToSelected([&](vector_size_t i) {
-        auto decodedIndex = decodedPartial_.index(i);
-        updateNonNullValue(
-            groups[i],
-            baseCountVector->valueAt(decodedIndex),
-            baseSumVector->valueAt(decodedIndex));
-      });
+    if (validateIntermediateInputs_ &&
+        (baseRowVector->childAt(0)->mayHaveNulls() ||
+         baseRowVector->childAt(1)->mayHaveNulls())) {
+      addIntermediateResultsImpl<true>(groups, rows);
+      return;
     }
+    addIntermediateResultsImpl<false>(groups, rows);
   }
 
   void addSingleGroupIntermediateResults(
@@ -205,40 +179,15 @@ class AverageAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
     decodedPartial_.decode(*args[0], rows);
-    auto baseRowVector = dynamic_cast<const RowVector*>(decodedPartial_.base());
-    auto baseSumVector =
-        baseRowVector->childAt(0)->as<SimpleVector<TAccumulator>>();
-    auto baseCountVector =
-        baseRowVector->childAt(1)->as<SimpleVector<int64_t>>();
+    auto baseRowVector = decodedPartial_.base()->template as<RowVector>();
 
-    if (decodedPartial_.isConstantMapping()) {
-      if (!decodedPartial_.isNullAt(0)) {
-        auto decodedIndex = decodedPartial_.index(0);
-        const auto numRows = rows.countSelected();
-        auto totalCount = baseCountVector->valueAt(decodedIndex) * numRows;
-        auto totalSum = baseSumVector->valueAt(decodedIndex) * numRows;
-        updateNonNullValue(group, totalCount, totalSum);
-      }
-    } else if (decodedPartial_.mayHaveNulls()) {
-      rows.applyToSelected([&](vector_size_t i) {
-        if (!decodedPartial_.isNullAt(i)) {
-          auto decodedIndex = decodedPartial_.index(i);
-          updateNonNullValue(
-              group,
-              baseCountVector->valueAt(decodedIndex),
-              baseSumVector->valueAt(decodedIndex));
-        }
-      });
-    } else {
-      TAccumulator totalSum(0);
-      int64_t totalCount = 0;
-      rows.applyToSelected([&](vector_size_t i) {
-        auto decodedIndex = decodedPartial_.index(i);
-        totalCount += baseCountVector->valueAt(decodedIndex);
-        totalSum += baseSumVector->valueAt(decodedIndex);
-      });
-      updateNonNullValue(group, totalCount, totalSum);
+    if (validateIntermediateInputs_ &&
+        (baseRowVector->childAt(0)->mayHaveNulls() ||
+         baseRowVector->childAt(1)->mayHaveNulls())) {
+      addSingleGroupIntermediateResultsImpl<true>(group, rows);
+      return;
     }
+    addSingleGroupIntermediateResultsImpl<false>(group, rows);
   }
 
  private:
@@ -263,6 +212,117 @@ class AverageAggregate : public exec::Aggregate {
 
   inline SumCount<TAccumulator>* accumulator(char* group) {
     return exec::Aggregate::value<SumCount<TAccumulator>>(group);
+  }
+
+  template <bool checkNullFields>
+  void addIntermediateResultsImpl(
+      char** groups,
+      const SelectivityVector& rows) {
+    auto baseRowVector = decodedPartial_.base()->template as<RowVector>();
+    auto baseSumVector =
+        baseRowVector->childAt(0)->template as<SimpleVector<TAccumulator>>();
+    auto baseCountVector =
+        baseRowVector->childAt(1)->template as<SimpleVector<int64_t>>();
+
+    if (decodedPartial_.isConstantMapping()) {
+      if (!decodedPartial_.isNullAt(0)) {
+        auto decodedIndex = decodedPartial_.index(0);
+        if constexpr (checkNullFields) {
+          VELOX_USER_CHECK(
+              !baseSumVector->isNullAt(decodedIndex) &&
+              !baseCountVector->isNullAt(decodedIndex));
+        }
+        auto count = baseCountVector->valueAt(decodedIndex);
+        auto sum = baseSumVector->valueAt(decodedIndex);
+        rows.applyToSelected([&](vector_size_t i) {
+          updateNonNullValue(groups[i], count, sum);
+        });
+      }
+    } else if (decodedPartial_.mayHaveNulls()) {
+      rows.applyToSelected([&](vector_size_t i) {
+        if (decodedPartial_.isNullAt(i)) {
+          return;
+        }
+        auto decodedIndex = decodedPartial_.index(i);
+        if constexpr (checkNullFields) {
+          VELOX_USER_CHECK(
+              !baseSumVector->isNullAt(decodedIndex) &&
+              !baseCountVector->isNullAt(decodedIndex));
+        }
+        updateNonNullValue(
+            groups[i],
+            baseCountVector->valueAt(decodedIndex),
+            baseSumVector->valueAt(decodedIndex));
+      });
+    } else {
+      rows.applyToSelected([&](vector_size_t i) {
+        auto decodedIndex = decodedPartial_.index(i);
+        if constexpr (checkNullFields) {
+          VELOX_USER_CHECK(
+              !baseSumVector->isNullAt(decodedIndex) &&
+              !baseCountVector->isNullAt(decodedIndex));
+        }
+        updateNonNullValue(
+            groups[i],
+            baseCountVector->valueAt(decodedIndex),
+            baseSumVector->valueAt(decodedIndex));
+      });
+    }
+  }
+
+  template <bool checkNullFields>
+  void addSingleGroupIntermediateResultsImpl(
+      char* group,
+      const SelectivityVector& rows) {
+    auto baseRowVector = decodedPartial_.base()->template as<RowVector>();
+    auto baseSumVector =
+        baseRowVector->childAt(0)->template as<SimpleVector<TAccumulator>>();
+    auto baseCountVector =
+        baseRowVector->childAt(1)->template as<SimpleVector<int64_t>>();
+
+    if (decodedPartial_.isConstantMapping()) {
+      if (!decodedPartial_.isNullAt(0)) {
+        auto decodedIndex = decodedPartial_.index(0);
+        if constexpr (checkNullFields) {
+          VELOX_USER_CHECK(
+              !baseSumVector->isNullAt(decodedIndex) &&
+              !baseCountVector->isNullAt(decodedIndex));
+        }
+        const auto numRows = rows.countSelected();
+        auto totalCount = baseCountVector->valueAt(decodedIndex) * numRows;
+        auto totalSum = baseSumVector->valueAt(decodedIndex) * numRows;
+        updateNonNullValue(group, totalCount, totalSum);
+      }
+    } else if (decodedPartial_.mayHaveNulls()) {
+      rows.applyToSelected([&](vector_size_t i) {
+        if (!decodedPartial_.isNullAt(i)) {
+          auto decodedIndex = decodedPartial_.index(i);
+          if constexpr (checkNullFields) {
+            VELOX_USER_CHECK(
+                !baseSumVector->isNullAt(decodedIndex) &&
+                !baseCountVector->isNullAt(decodedIndex));
+          }
+          updateNonNullValue(
+              group,
+              baseCountVector->valueAt(decodedIndex),
+              baseSumVector->valueAt(decodedIndex));
+        }
+      });
+    } else {
+      TAccumulator totalSum(0);
+      int64_t totalCount = 0;
+      rows.applyToSelected([&](vector_size_t i) {
+        auto decodedIndex = decodedPartial_.index(i);
+        if constexpr (checkNullFields) {
+          VELOX_USER_CHECK(
+              !baseSumVector->isNullAt(decodedIndex) &&
+              !baseCountVector->isNullAt(decodedIndex));
+        }
+        totalCount += baseCountVector->valueAt(decodedIndex);
+        totalSum += baseSumVector->valueAt(decodedIndex);
+      });
+      updateNonNullValue(group, totalCount, totalSum);
+    }
   }
 
   void extractValuesImpl(char** groups, int32_t numGroups, VectorPtr* result) {

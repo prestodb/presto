@@ -229,6 +229,10 @@ class Aggregate {
     clearInternal();
   }
 
+  void enableValidateIntermediateInputs() {
+    validateIntermediateInputs_ = true;
+  }
+
   static std::unique_ptr<Aggregate> create(
       const std::string& name,
       core::AggregationNode::Step step,
@@ -349,6 +353,8 @@ class Aggregate {
   // different indices vector as the one we get from the DecodedVector is simply
   // sequential.
   std::vector<vector_size_t> pushdownCustomIndices_;
+
+  bool validateIntermediateInputs_ = false;
 };
 
 using AggregateFunctionFactory = std::function<std::unique_ptr<Aggregate>(
