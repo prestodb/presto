@@ -402,7 +402,7 @@ bool registerAverage(const std::string& name) {
                            .integerVariable("a_precision")
                            .integerVariable("a_scale")
                            .argumentType("DECIMAL(a_precision, a_scale)")
-                           .intermediateType("VARBINARY")
+                           .intermediateType("varbinary")
                            .returnType("DECIMAL(a_precision, a_scale)")
                            .build());
 
@@ -488,7 +488,8 @@ bool registerAverage(const std::string& name) {
                   resultType->kindName());
           }
         }
-      });
+      },
+      /*registerCompanionFunctions*/ true);
   return true;
 }
 

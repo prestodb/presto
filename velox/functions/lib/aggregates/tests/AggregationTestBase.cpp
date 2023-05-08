@@ -18,14 +18,17 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/exec/AggregateCompanionSignatures.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/SignatureBinder.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 using facebook::velox::exec::test::AssertQueryBuilder;
 using facebook::velox::exec::test::CursorParameters;
 using facebook::velox::exec::test::PlanBuilder;
+using facebook::velox::test::VectorMaker;
 
 namespace facebook::velox::functions::aggregate::test {
 
@@ -79,6 +82,367 @@ void AggregationTestBase::testAggregations(
       [&](auto& builder) { return builder.assertResults(duckDbSql); });
 }
 
+namespace {
+// Returns total spilled bytes inside 'task'.
+int64_t spilledBytes(const exec::Task& task) {
+  auto stats = task.taskStats();
+  int64_t spilledBytes = 0;
+  for (auto& pipeline : stats.pipelineStats) {
+    for (auto op : pipeline.operatorStats) {
+      spilledBytes += op.spilledBytes;
+    }
+  }
+
+  return spilledBytes;
+}
+
+// Given a row type `type` and a list of field names, e.g., "c0, c1, c2",
+// return a vector of TypePtr of the corresponding field types in the row type
+// 'type'.
+std::vector<TypePtr> getArgTypes(
+    const TypePtr& type,
+    const std::string& argList) {
+  std::vector<folly::StringPiece> argNames;
+  folly::split(',', argList, argNames);
+
+  std::vector<TypePtr> result;
+  auto rowType = asRowType(type);
+  VELOX_CHECK_NOT_NULL(rowType);
+  for (const auto& name : argNames) {
+    auto childType = rowType->findChild(name);
+    VELOX_CHECK_NOT_NULL(childType);
+    result.push_back(std::move(childType));
+  }
+  return result;
+}
+
+// Add a BIGINT column of 4 distinct values to data.
+RowVectorPtr addExtraGroupingKeyImpl(
+    const RowVectorPtr& data,
+    const std::vector<std::string>& fieldNames,
+    VectorMaker& vectorMaker) {
+  auto children = data->children();
+  children.push_back(vectorMaker.flatVector<int64_t>(
+      data->size(), [](auto row) { return row % 4; }));
+  return vectorMaker.rowVector(fieldNames, children);
+}
+
+// Add a BIGINT column of 4 distinct values to every RowVector in data.
+std::vector<RowVectorPtr> addExtraGroupingKey(
+    const std::vector<RowVectorPtr>& data,
+    const std::string& extraKeyName) {
+  VELOX_CHECK(!data.empty());
+  auto names = asRowType(data[0]->type())->names();
+  names.push_back(extraKeyName);
+
+  std::vector<RowVectorPtr> newData{data.size()};
+  VectorMaker vectorMaker{data[0]->pool()};
+  std::transform(
+      data.begin(),
+      data.end(),
+      newData.begin(),
+      [&names, &vectorMaker](const RowVectorPtr& vector) {
+        return addExtraGroupingKeyImpl(vector, names, vectorMaker);
+      });
+  return newData;
+}
+
+// Given the name of the original aggregation function and the argument types,
+// return the name of the extract companion function with a suffix of the result
+// type. Extract function names with suffixes should only be used when the
+// original aggregation function has multiple signatures with the same
+// intermediate type.
+std::string getExtractFunctionNameWithSuffix(
+    const std::string& name,
+    const std::vector<TypePtr>& argTypes) {
+  auto signatures = exec::getAggregateFunctionSignatures(name);
+  VELOX_CHECK(signatures.has_value());
+
+  for (const auto& signature : signatures.value()) {
+    exec::SignatureBinder binder{*signature, argTypes};
+    if (binder.tryBind()) {
+      if (auto resultType = binder.tryResolveReturnType()) {
+        return exec::CompanionSignatures::extractFunctionNameWithSuffix(
+            name, signature->returnType());
+      }
+    }
+  }
+  VELOX_UNREACHABLE("Could not find a function bound to argTypes.");
+}
+
+// Given the `index`-th aggregation expression, e.g., "avg(c0)", return three
+// strings of its partial companion aggregation expression, merge companion
+// aggregation expression, and extract companion expression, e.g.,
+// {"avg_partial(c0)", "avg_merge(a0)", "avg_extract_double(a0)"} when `index`
+// is 0.
+std::tuple<std::string, std::string, std::string> getCompanionAggregates(
+    column_index_t index,
+    const exec::CompanionFunctionSignatureMap& companionFunctions,
+    const std::string& functionName,
+    const std::string& aggregateArgs,
+    const TypePtr& inputType) {
+  VELOX_CHECK_EQ(companionFunctions.partial.size(), 1);
+  auto partialAggregate = fmt::format(
+      "{}({})", companionFunctions.partial.front().functionName, aggregateArgs);
+
+  VELOX_CHECK_EQ(companionFunctions.merge.size(), 1);
+  auto mergeAggregate = fmt::format(
+      "{}(a{})", companionFunctions.merge.front().functionName, index);
+
+  std::string extractExpression;
+  if (companionFunctions.extract.size() == 1) {
+    extractExpression = fmt::format(
+        "{}(a{})", companionFunctions.extract.front().functionName, index);
+  } else {
+    VELOX_CHECK_GT(companionFunctions.extract.size(), 1);
+    auto extractFunctionName = getExtractFunctionNameWithSuffix(
+        functionName, getArgTypes(inputType, aggregateArgs));
+    extractExpression = fmt::format("{}(a{})", extractFunctionName, index);
+  }
+  return std::make_tuple(partialAggregate, mergeAggregate, extractExpression);
+}
+
+// Given a list of aggregation expressions, e.g., {"avg(c0)"}, return a list of
+// aggregate function names and a list of arguments in these expressions, e.g.,
+// {{"avg"}, {"c0"}}.
+std::tuple<std::vector<std::string>, std::vector<std::string>>
+getFunctionNamesAndArgs(const std::vector<std::string>& aggregates) {
+  std::vector<std::string> functionNames;
+  std::vector<std::string> aggregateArgs;
+  for (const auto& aggregate : aggregates) {
+    std::vector<std::string> tokens;
+    folly::split("(", aggregate, tokens);
+    VELOX_CHECK_EQ(tokens.size(), 2);
+    functionNames.push_back(tokens[0]);
+    aggregateArgs.push_back(tokens[1].substr(0, tokens[1].find(')')));
+  }
+  return std::make_pair(functionNames, aggregateArgs);
+}
+} // namespace
+
+void AggregationTestBase::testAggregationsWithCompanion(
+    const std::vector<RowVectorPtr>& data,
+    const std::function<void(PlanBuilder&)>& preAggregationProcessing,
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregates,
+    const std::vector<std::string>& postAggregationProjections,
+    const std::string& duckDbSql) {
+  testAggregationsWithCompanion(
+      data,
+      preAggregationProcessing,
+      groupingKeys,
+      aggregates,
+      postAggregationProjections,
+      [&](auto& builder) { return builder.assertResults(duckDbSql); });
+}
+
+void AggregationTestBase::testAggregationsWithCompanion(
+    const std::vector<RowVectorPtr>& data,
+    const std::function<void(PlanBuilder&)>& preAggregationProcessing,
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregates,
+    const std::vector<std::string>& postAggregationProjections,
+    std::function<std::shared_ptr<exec::Task>(exec::test::AssertQueryBuilder&)>
+        assertResults) {
+  auto dataWithExtaGroupingKey = addExtraGroupingKey(data, "k0");
+  auto groupingKeysWithPartialKey = groupingKeys;
+  groupingKeysWithPartialKey.push_back("k0");
+
+  std::vector<std::string> paritialAggregates;
+  std::vector<std::string> mergeAggregates;
+  std::vector<std::string> extractExpressions;
+  extractExpressions.insert(
+      extractExpressions.end(), groupingKeys.begin(), groupingKeys.end());
+
+  auto [functionNames, aggregateArgs] = getFunctionNamesAndArgs(aggregates);
+  for (size_t i = 0, size = functionNames.size(); i < size; ++i) {
+    const auto& companionSignatures =
+        exec::getCompanionFunctionSignatures(functionNames[i]);
+    VELOX_CHECK(companionSignatures.has_value());
+
+    const auto& [paritialAggregate, mergeAggregate, extractAggregate] =
+        getCompanionAggregates(
+            i,
+            *companionSignatures,
+            functionNames[i],
+            aggregateArgs[i],
+            data.front()->type());
+    paritialAggregates.push_back(paritialAggregate);
+    mergeAggregates.push_back(mergeAggregate);
+    extractExpressions.push_back(extractAggregate);
+  }
+
+  {
+    SCOPED_TRACE("Run partial + final");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtaGroupingKey);
+    preAggregationProcessing(builder);
+    builder.partialAggregation(groupingKeysWithPartialKey, paritialAggregates)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeAggregates)
+        .finalAggregation()
+        .project(extractExpressions);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    assertResults(queryBuilder);
+  }
+
+  if (!groupingKeys.empty() && allowInputShuffle_) {
+    SCOPED_TRACE("Run partial + final with spilling");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtaGroupingKey);
+    preAggregationProcessing(builder);
+
+    // Spilling needs at least 2 batches of input. Use round-robin
+    // repartitioning to split input into multiple batches.
+    core::PlanNodeId partialNodeId;
+    builder.localPartitionRoundRobin()
+        .partialAggregation(groupingKeysWithPartialKey, paritialAggregates)
+        .capturePlanNodeId(partialNodeId)
+        .localPartition(groupingKeysWithPartialKey)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeAggregates)
+        .capturePlanNodeId(partialNodeId)
+        .localPartition(groupingKeys)
+        .finalAggregation()
+        .project(extractExpressions);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.config(core::QueryConfig::kTestingSpillPct, "100")
+        .config(core::QueryConfig::kSpillEnabled, "true")
+        .config(core::QueryConfig::kAggregationSpillEnabled, "true")
+        .spillDirectory(spillDirectory->path)
+        .maxDrivers(4);
+
+    auto task = assertResults(queryBuilder);
+
+    // Expect > 0 spilled bytes unless there was no input.
+    auto inputRows = toPlanStats(task->taskStats()).at(partialNodeId).inputRows;
+    if (inputRows > 1) {
+      EXPECT_LT(0, spilledBytes(*task));
+    } else {
+      EXPECT_EQ(0, spilledBytes(*task));
+    }
+  }
+
+  {
+    SCOPED_TRACE("Run single");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtaGroupingKey);
+    preAggregationProcessing(builder);
+    builder.singleAggregation(groupingKeysWithPartialKey, paritialAggregates)
+        .singleAggregation(groupingKeys, mergeAggregates)
+        .project(extractExpressions);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    assertResults(queryBuilder);
+  }
+
+  {
+    SCOPED_TRACE("Run partial + intermediate + final");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtaGroupingKey);
+    preAggregationProcessing(builder);
+    builder.partialAggregation(groupingKeysWithPartialKey, paritialAggregates)
+        .intermediateAggregation()
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeAggregates)
+        .intermediateAggregation()
+        .finalAggregation()
+        .project(extractExpressions);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    assertResults(queryBuilder);
+  }
+
+  if (!groupingKeys.empty()) {
+    SCOPED_TRACE("Run partial + local exchange + final");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtaGroupingKey);
+    preAggregationProcessing(builder);
+    builder.partialAggregation(groupingKeysWithPartialKey, paritialAggregates)
+        .localPartition(groupingKeysWithPartialKey)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeAggregates)
+        .localPartition(groupingKeys)
+        .finalAggregation()
+        .project(extractExpressions);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.maxDrivers(4);
+    assertResults(queryBuilder);
+  }
+
+  {
+    SCOPED_TRACE(
+        "Run partial + local exchange + intermediate + local exchange + final");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtaGroupingKey);
+    preAggregationProcessing(builder);
+    builder.partialAggregation(groupingKeysWithPartialKey, paritialAggregates)
+        .localPartition(groupingKeysWithPartialKey)
+        .intermediateAggregation()
+        .localPartition(groupingKeysWithPartialKey)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeAggregates);
+
+    if (groupingKeys.empty()) {
+      builder.localPartitionRoundRobin();
+    } else {
+      builder.localPartition(groupingKeys);
+    }
+
+    builder.intermediateAggregation()
+        .localPartition(groupingKeys)
+        .finalAggregation()
+        .project(extractExpressions);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.maxDrivers(2);
+    assertResults(queryBuilder);
+  }
+
+  if (testStreaming_ && groupingKeys.empty() &&
+      postAggregationProjections.empty()) {
+    {
+      SCOPED_TRACE("Streaming partial");
+      auto partialResult = validateStreamingInTestAggregations(
+          [&](auto& builder) { builder.values(dataWithExtaGroupingKey); },
+          paritialAggregates);
+
+      validateStreamingInTestAggregations(
+          [&](auto& builder) { builder.values({partialResult}); },
+          mergeAggregates);
+    }
+  }
+}
+
 void AggregationTestBase::testAggregations(
     const std::vector<RowVectorPtr>& data,
     const std::vector<std::string>& groupingKeys,
@@ -104,38 +468,23 @@ void AggregationTestBase::testAggregations(
       });
 }
 
-namespace {
-// Returns total spilled bytes inside 'task'.
-int64_t spilledBytes(const exec::Task& task) {
-  auto stats = task.taskStats();
-  int64_t spilledBytes = 0;
-  for (auto& pipeline : stats.pipelineStats) {
-    for (auto op : pipeline.operatorStats) {
-      spilledBytes += op.spilledBytes;
-    }
-  }
-
-  return spilledBytes;
-}
-} // namespace
-
-void AggregationTestBase::validateStreamingInTestAggregations(
+RowVectorPtr AggregationTestBase::validateStreamingInTestAggregations(
     const std::function<void(PlanBuilder&)>& makeSource,
     const std::vector<std::string>& aggregates) {
   PlanBuilder builder(pool());
   makeSource(builder);
   auto input = AssertQueryBuilder(builder.planNode()).copyResults(pool());
   if (input->size() < 2) {
-    return;
+    return nullptr;
   }
   auto size1 = input->size() / 2;
   auto size2 = input->size() - size1;
   builder.singleAggregation({}, aggregates);
   auto expected = AssertQueryBuilder(builder.planNode()).copyResults(pool());
-  ASSERT_EQ(expected->size(), 1);
+  EXPECT_EQ(expected->size(), 1);
   auto& aggregationNode =
       static_cast<const core::AggregationNode&>(*builder.planNode());
-  ASSERT_EQ(expected->childrenSize(), aggregationNode.aggregates().size());
+  EXPECT_EQ(expected->childrenSize(), aggregationNode.aggregates().size());
   for (int i = 0; i < aggregationNode.aggregates().size(); ++i) {
     auto& aggregate = aggregationNode.aggregates()[i];
     SCOPED_TRACE(aggregate->name());
@@ -161,6 +510,7 @@ void AggregationTestBase::validateStreamingInTestAggregations(
         testStreaming(
             aggregate->name(), false, rawInput1, size1, rawInput2, size2));
   }
+  return expected;
 }
 
 void AggregationTestBase::testAggregations(

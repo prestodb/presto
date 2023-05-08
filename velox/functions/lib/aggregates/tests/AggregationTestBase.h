@@ -121,6 +121,40 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<VectorPtr>& rawInput1,
       const std::vector<VectorPtr>& rawInput2);
 
+  // Given a list of aggregation expressions, test
+  // their equivalent plans using companion functions.
+  // For example, suppose we have the following arguments where c0 and c1 are
+  // double colummns.
+  //   aggregates = {"avg(c0), avg(c1)"}
+  //   groupingKeys = {"g0"},
+  //   postAggregationProjections = {},
+  // construct and test aggregation plans for a query consisting the following
+  // operations:
+  //   a0, a1 = avg_partial(c0), avg_partial(c1) group by g0, k1
+  //   a0, a1 = avg_merge(a0), avg_merge(a1) group by g0
+  //   g0, c0, c1 = g0, avg_extract_double(a0), avg_extract_double(a1)
+  // Note that we intentionally add an additional grouping key k1 at the
+  // avg_partial operation so that the following avg_merge operation will have
+  // multiple values to merge for each g0 group.
+  void testAggregationsWithCompanion(
+      const std::vector<RowVectorPtr>& data,
+      const std::function<void(exec::test::PlanBuilder&)>&
+          preAggregationProcessing,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& postAggregationProjections,
+      const std::string& duckDbSql);
+
+  void testAggregationsWithCompanion(
+      const std::vector<RowVectorPtr>& data,
+      const std::function<void(exec::test::PlanBuilder&)>&
+          preAggregationProcessing,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& postAggregationProjections,
+      std::function<std::shared_ptr<exec::Task>(
+          exec::test::AssertQueryBuilder&)> assertResults);
+
   /// Specifies that aggregate functions used in this test are not sensitive
   /// to the order of inputs.
   void allowInputShuffle() {
@@ -136,7 +170,9 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
   bool testStreaming_{true};
 
  private:
-  void validateStreamingInTestAggregations(
+  // Test streaming use case where raw inputs are added after intermediate
+  // results. Return the result of aggregates if successful.
+  RowVectorPtr validateStreamingInTestAggregations(
       const std::function<void(exec::test::PlanBuilder&)>& makeSource,
       const std::vector<std::string>& aggregates);
 

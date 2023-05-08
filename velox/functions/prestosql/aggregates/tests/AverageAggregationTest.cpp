@@ -158,6 +158,13 @@ TEST_F(AverageAggregationTest, avg) {
       {},
       {"avg(c1)", "avg(c2)", "avg(c4)", "avg(c5)"},
       "SELECT avg(c1), avg(c2), avg(c4), avg(c5) FROM tmp");
+  testAggregationsWithCompanion(
+      vectors,
+      [](auto& /*builder*/) {},
+      {},
+      {"avg(c1)", "avg(c2)", "avg(c4)", "avg(c5)"},
+      {},
+      "SELECT avg(c1), avg(c2), avg(c4), avg(c5) FROM tmp");
 
   // global aggregation; no input
   testAggregations(
@@ -165,12 +172,26 @@ TEST_F(AverageAggregationTest, avg) {
       {},
       {"avg(c0)"},
       "SELECT null");
+  testAggregationsWithCompanion(
+      vectors,
+      [&](auto& builder) { builder.filter("c0 % 2 = 5"); },
+      {},
+      {"avg(c0)"},
+      {},
+      "SELECT null");
 
   // global aggregation over filter
   testAggregations(
       [&](auto& builder) { builder.values(vectors).filter("c0 % 5 = 3"); },
       {},
       {"avg(c1)"},
+      "SELECT avg(c1) FROM tmp WHERE c0 % 5 = 3");
+  testAggregationsWithCompanion(
+      vectors,
+      [&](auto& builder) { builder.filter("c0 % 5 = 3"); },
+      {},
+      {"avg(c1)"},
+      {},
       "SELECT avg(c1) FROM tmp WHERE c0 % 5 = 3");
 
   // group by
@@ -181,6 +202,17 @@ TEST_F(AverageAggregationTest, avg) {
       },
       {"c0_mod_10"},
       {"avg(c1)", "avg(c2)", "avg(c3)", "avg(c4)", "avg(c5)"},
+      "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
+      "avg(c4), avg(c5) FROM tmp GROUP BY 1");
+  testAggregationsWithCompanion(
+      vectors,
+      [&](auto& builder) {
+        builder.project(
+            {"c0 % 10 AS c0_mod_10", "c1", "c2", "c3", "c4", "c5", "k0"});
+      },
+      {"c0_mod_10"},
+      {"avg(c1)", "avg(c2)", "avg(c3)", "avg(c4)", "avg(c5)"},
+      {},
       "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
       "avg(c4), avg(c5) FROM tmp GROUP BY 1");
 
@@ -194,6 +226,16 @@ TEST_F(AverageAggregationTest, avg) {
       {"c0_mod_10"},
       {"avg(c1)"},
       "");
+  testAggregationsWithCompanion(
+      vectors,
+      [&](auto& builder) {
+        builder.project({"c0 % 10 AS c0_mod_10", "c1", "k0"})
+            .filter("c0_mod_10 > 10");
+      },
+      {"c0_mod_10"},
+      {"avg(c1)"},
+      {},
+      "");
 
   // group by over filter
   testAggregations(
@@ -204,6 +246,16 @@ TEST_F(AverageAggregationTest, avg) {
       },
       {"c0_mod_10"},
       {"avg(c1)"},
+      "SELECT c0 % 10, avg(c1) FROM tmp WHERE c2 % 5 = 3 GROUP BY 1");
+  testAggregationsWithCompanion(
+      vectors,
+      [&](auto& builder) {
+        builder.filter("c2 % 5 = 3")
+            .project({"c0 % 10 AS c0_mod_10", "c1", "k0"});
+      },
+      {"c0_mod_10"},
+      {"avg(c1)"},
+      {},
       "SELECT c0 % 10, avg(c1) FROM tmp WHERE c2 % 5 = 3 GROUP BY 1");
 }
 
