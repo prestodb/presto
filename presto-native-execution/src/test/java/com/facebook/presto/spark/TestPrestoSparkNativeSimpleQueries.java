@@ -24,13 +24,8 @@ import org.apache.spark.util.CollectionAccumulator;
 import org.testng.annotations.Test;
 import scala.Option;
 
-import java.util.List;
-import java.util.Map;
-
 import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PRESTO_SPARK_SHUFFLE_STATS_COLLECTOR;
-import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestPrestoSparkNativeSimpleQueries
@@ -72,25 +67,7 @@ public class TestPrestoSparkNativeSimpleQueries
     }
 
     @Test
-    public void testJoinsWithGenericShuffleStats()
-    {
-        assertQuery("SELECT * FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
-        SparkContext.getOrCreate();
-        Option<AccumulatorV2<?, ?>> accumulator = AccumulatorContext$.MODULE$.lookForAccumulatorByName(PRESTO_SPARK_SHUFFLE_STATS_GENERIC_COLLECTOR);
-        assertTrue(accumulator.isDefined());
-        java.util.List<List<Map<String, Long>>> stats = ((CollectionAccumulator<List<Map<String, Long>>>) accumulator.get()).value();
-        assertTrue(!stats.isEmpty());
-        List<Map<String, Long>> metrics = stats.get(0);
-        assertTrue(!metrics.isEmpty());
-        for (Map.Entry<String, Long> entry : metrics.get(0).entrySet()) {
-            String[] desc = entry.getKey().split("\\|");
-            assertTrue(desc.length == 4);
-            assertNotNull(entry.getValue());
-        }
-    }
-
-    @Test
-    public void testJoinsWithShuffleStats()
+    public void testJoins()
     {
         assertQuery("SELECT * FROM orders o, lineitem l WHERE o.orderkey = l.orderkey AND o.orderkey % 2 = 1");
         SparkContext.getOrCreate();

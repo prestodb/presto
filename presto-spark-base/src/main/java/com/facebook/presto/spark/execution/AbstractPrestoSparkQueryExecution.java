@@ -176,7 +176,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected final QueryMonitor queryMonitor;
     protected final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
     protected final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
-    protected final CollectionAccumulator<List<Map<String, Long>>> genericShuffleStatsCollector;
+    protected final CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector;
     // used to create tasks on the Driver
     protected final PrestoSparkTaskExecutorFactory taskExecutorFactory;
     // used to create tasks on executor, serializable
@@ -218,7 +218,7 @@ public abstract class AbstractPrestoSparkQueryExecution
             JavaSparkContext sparkContext,
             Session session,
             QueryMonitor queryMonitor,
-            CollectionAccumulator<List<Map<String, Long>>> genericShuffleStatsCollector,
+            CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             PrestoSparkTaskExecutorFactory taskExecutorFactory,
@@ -577,28 +577,30 @@ public abstract class AbstractPrestoSparkQueryExecution
     {
         int taskId = taskInfo.getTaskId().getId();
         int stageId = taskInfo.getTaskId().getStageExecutionId().getStageId().getId();
-        List<Map<String, Long>> newStatsList = new ArrayList<>();
+        List<Map<String, String>> newStatsList = new ArrayList<>();
         for (PipelineStats pipelineStats : taskInfo.getStats().getPipelines()) {
             for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {
                 if (operatorStats.getOperatorType().equals("NativeExecutionOperator")) {
                     NativeExecutionInfo nativeExecutionInfo = (NativeExecutionInfo) operatorStats.getInfo();
                     for (TaskStats taskStats : nativeExecutionInfo.getTaskStats()) {
                         RuntimeStats runtimeStat = taskStats.getRuntimeStats();
-                        Map<String, Long> newStatMap = new HashMap<>();
+                        Map<String, String> newStatMap = new HashMap<>();
                         for (Map.Entry<String, RuntimeMetric> entry : runtimeStat.getMetrics().entrySet()) {
                             String key = entry.getKey();
                             RuntimeMetric metric = entry.getValue();
                             if (metric.getCount() == 0) {
                                 continue;
                             }
-                            String metricSumKey = buildGenericMetric(taskId, stageId, key, "sum");
-                            newStatMap.put(metricSumKey, metric.getSum());
-                            String metricCountKey = buildGenericMetric(taskId, stageId, key, "count");
-                            newStatMap.put(metricCountKey, metric.getCount());
-                            String metricMinKey = buildGenericMetric(taskId, stageId, key, "min");
-                            newStatMap.put(metricMinKey, metric.getMin());
-                            String metricMaxKey = buildGenericMetric(taskId, stageId, key, "max");
-                            newStatMap.put(metricMaxKey, metric.getMax());  //TODO add unit
+                            String metricSumKey = buildGenericMetricKey(taskId, stageId, key, "sum");
+                            newStatMap.put(metricSumKey, String.valueOf(metric.getSum()));
+                            String metricCountKey = buildGenericMetricKey(taskId, stageId, key, "count");
+                            newStatMap.put(metricCountKey, String.valueOf(metric.getCount()));
+                            String metricMinKey = buildGenericMetricKey(taskId, stageId, key, "min");
+                            newStatMap.put(metricMinKey, String.valueOf(metric.getMin()));
+                            String metricMaxKey = buildGenericMetricKey(taskId, stageId, key, "max");
+                            newStatMap.put(metricMaxKey, String.valueOf(metric.getMax()));
+                            String metricUnitKey = buildGenericMetricKey(taskId, stageId, key, "unit");
+                            newStatMap.put(metricUnitKey, String.valueOf(metric.getUnit()));
                         }
                         if (!newStatMap.isEmpty()) {
                             newStatsList.add(newStatMap);
@@ -612,15 +614,9 @@ public abstract class AbstractPrestoSparkQueryExecution
         }
     }
 
-    private String buildGenericMetric(int taskId, int stageId, String key, String metricType)
+    private String buildGenericMetricKey(int taskId, int stageId, String key, String metricType)
     {
-        StringBuilder buf = new StringBuilder();
-        String sep = "|";
-        buf.append(taskId).append(sep);
-        buf.append(stageId).append(sep);
-        buf.append(key).append(sep);
-        buf.append(metricType).append(sep);
-        return buf.toString();
+        return String.format("%1$s|%2$s|%3$s|%4$s", taskId, stageId, key, metricType);
     }
 
     protected void queryCompletedEvent(Optional<ExecutionFailureInfo> failureInfo, OptionalLong updateCount)
