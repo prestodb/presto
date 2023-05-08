@@ -2196,3 +2196,97 @@ TEST_F(VectorTest, testCopyWithZeroCount) {
   runTest(
       makeRowVector({makeFlatVector<int32_t>(1, [](auto i) { return i; })}));
 }
+
+TEST_F(VectorTest, flattenVector) {
+  auto test = [&](VectorPtr& vector, bool stayTheSame) {
+    auto original = vector;
+    BaseVector::flattenVector(vector);
+    if (stayTheSame) {
+      EXPECT_EQ(original.get(), vector.get());
+    } else {
+      EXPECT_NE(original.get(), vector.get());
+    }
+    test::assertEqualVectors(original, vector);
+  };
+
+  // Flat input.
+  VectorPtr flat = makeFlatVector<int32_t>({1, 2, 3});
+  test(flat, true);
+
+  VectorPtr array = makeArrayVector<int32_t>({{1, 2, 3}, {1}, {1}});
+  test(array, true);
+
+  VectorPtr map =
+      makeMapVector<int32_t, int32_t>({{{4, 40}, {3, 30}}, {{4, 41}}, {}});
+  test(map, true);
+
+  VectorPtr row = makeRowVector({flat, array, map});
+  test(row, true);
+
+  // Constant
+  VectorPtr constant = BaseVector::wrapInConstant(100, 1, flat);
+  test(constant, false);
+  EXPECT_TRUE(constant->isFlatEncoding());
+
+  // Dictionary
+  VectorPtr dictionary = BaseVector::wrapInDictionary(
+      nullptr, makeIndices(100, [](auto row) { return row % 2; }), 100, flat);
+  test(dictionary, false);
+  EXPECT_TRUE(dictionary->isFlatEncoding());
+
+  // Array with constant elements.
+  auto* arrayVector = array->as<ArrayVector>();
+  arrayVector->elements() = BaseVector::wrapInConstant(100, 1, flat);
+  auto originalElements = arrayVector->elements();
+  auto original = array;
+
+  BaseVector::flattenVector(array);
+  test::assertEqualVectors(original, array);
+
+  EXPECT_EQ(array->encoding(), VectorEncoding::Simple::ARRAY);
+  EXPECT_TRUE(array->as<ArrayVector>()->elements()->isFlatEncoding());
+
+  EXPECT_EQ(original.get(), array.get());
+  EXPECT_NE(originalElements.get(), array->as<ArrayVector>()->elements().get());
+
+  // Map with constant keys and values.
+  auto* mapVector = map->as<MapVector>();
+  auto originalValues = mapVector->mapValues() =
+      BaseVector::wrapInConstant(100, 1, flat);
+  auto originalKeys = mapVector->mapKeys() =
+      BaseVector::wrapInConstant(100, 1, flat);
+
+  original = map;
+  BaseVector::flattenVector(map);
+  test::assertEqualVectors(original, map);
+
+  EXPECT_EQ(map->encoding(), VectorEncoding::Simple::MAP);
+  EXPECT_TRUE(map->as<MapVector>()->mapValues()->isFlatEncoding());
+  EXPECT_TRUE(map->as<MapVector>()->mapKeys()->isFlatEncoding());
+
+  EXPECT_EQ(original.get(), map.get());
+  EXPECT_NE(originalValues.get(), map->as<MapVector>()->mapValues().get());
+  EXPECT_NE(originalKeys.get(), map->as<MapVector>()->mapKeys().get());
+
+  // Row with constant field.
+  row = makeRowVector({flat, BaseVector::wrapInConstant(3, 1, flat)});
+  auto* rowVector = row->as<RowVector>();
+  auto originalRow0 = rowVector->children()[0];
+  auto originalRow1 = rowVector->children()[1];
+  original = row;
+  BaseVector::flattenVector(row);
+  EXPECT_EQ(row->encoding(), VectorEncoding::Simple::ROW);
+  EXPECT_TRUE(row->as<RowVector>()->children()[0]->isFlatEncoding());
+  EXPECT_TRUE(row->as<RowVector>()->children()[1]->isFlatEncoding());
+  test::assertEqualVectors(original, row);
+
+  EXPECT_EQ(original.get(), row.get());
+  EXPECT_EQ(originalRow0.get(), row->as<RowVector>()->children()[0].get());
+  EXPECT_NE(originalRow1.get(), row->as<RowVector>()->children()[1].get());
+
+  // Row with constant field.
+  // Null input
+  VectorPtr nullVector = nullptr;
+  BaseVector::flattenVector(nullVector);
+  EXPECT_EQ(nullVector, nullptr);
+}

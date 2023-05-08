@@ -110,7 +110,7 @@ void FieldReference::evalSpecialFormSimplified(
   } else {
     VELOX_CHECK_EQ(inputs_.size(), 1);
     inputs_[0]->evalSimplified(rows, context, input);
-    BaseVector::flattenVector(input, rows.end());
+    BaseVector::flattenVector(input);
     row = input->as<RowVector>();
     VELOX_CHECK(row);
   }

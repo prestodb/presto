@@ -439,7 +439,7 @@ void Expr::evalSimplifiedImpl(
   auto evalArg = [&](int32_t i) {
     auto& inputValue = inputValues_[i];
     inputs_[i]->evalSimplified(remainingRows.rows(), context, inputValue);
-    BaseVector::flattenVector(inputValue, rows.end());
+    BaseVector::flattenVector(inputValue);
     VELOX_CHECK(
         inputValue->encoding() == VectorEncoding::Simple::FLAT ||
         inputValue->encoding() == VectorEncoding::Simple::ARRAY ||

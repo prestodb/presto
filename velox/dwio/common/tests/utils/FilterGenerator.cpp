@@ -652,8 +652,8 @@ void pruneRandomSubfield(
             BaseVector::wrapInDictionary(nullptr, indices, offset, keys);
         auto newValues = BaseVector::wrapInDictionary(
             nullptr, indices, offset, data->mapValues());
-        BaseVector::flattenVector(newKeys, newKeys->size());
-        BaseVector::flattenVector(newValues, newValues->size());
+        BaseVector::flattenVector(newKeys);
+        BaseVector::flattenVector(newValues);
         data->setKeysAndValues(newKeys, newValues);
       }
       spec.childByName(ScanSpec::kMapKeysFieldName)

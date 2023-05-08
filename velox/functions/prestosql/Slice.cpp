@@ -74,7 +74,7 @@ class SliceFunction : public exec::VectorFunction {
     // overlapping ranges. To prevent this, we flatten the first parameter in
     // these cases.
     if (!args[1]->isConstantEncoding() || !args[2]->isConstantEncoding()) {
-      BaseVector::flattenVector(args[0], args[0]->size());
+      BaseVector::flattenVector(args[0]);
     }
 
     VectorPtr localResult =

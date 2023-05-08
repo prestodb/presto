@@ -701,6 +701,37 @@ bool isReusableEncoding(VectorEncoding::Simple encoding) {
 } // namespace
 
 // static
+void BaseVector::flattenVector(VectorPtr& vector) {
+  if (!vector) {
+    return;
+  }
+  switch (vector->encoding()) {
+    case VectorEncoding::Simple::FLAT:
+      return;
+    case VectorEncoding::Simple::ROW: {
+      auto* rowVector = vector->asUnchecked<RowVector>();
+      for (auto& child : rowVector->children()) {
+        BaseVector::flattenVector(child);
+      }
+      return;
+    }
+    case VectorEncoding::Simple::ARRAY: {
+      auto* arrayVector = vector->asUnchecked<ArrayVector>();
+      BaseVector::flattenVector(arrayVector->elements());
+      return;
+    }
+    case VectorEncoding::Simple::MAP: {
+      auto* mapVector = vector->asUnchecked<MapVector>();
+      BaseVector::flattenVector(mapVector->mapKeys());
+      BaseVector::flattenVector(mapVector->mapValues());
+      return;
+    }
+    default:
+      BaseVector::ensureWritable(
+          SelectivityVector::empty(), vector->type(), vector->pool(), vector);
+  }
+}
+
 void BaseVector::prepareForReuse(
     std::shared_ptr<BaseVector>& vector,
     vector_size_t size) {

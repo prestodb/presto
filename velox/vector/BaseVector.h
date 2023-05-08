@@ -49,6 +49,8 @@ template <typename T>
 class FlatVector;
 
 class VectorPool;
+class BaseVector;
+using VectorPtr = std::shared_ptr<BaseVector>;
 
 /**
  * Base class for all columnar-based vectors of any type.
@@ -512,22 +514,8 @@ class BaseVector {
     return false;
   }
 
-  // Flattens the input vector.
-  //
-  // TODO: This method reuses ensureWritable(), which ensures that both:
-  //  (a) the vector is flattened, and
-  //  (b) it's singly-referenced
-  //
-  // We don't necessarily need (b) if we only want to flatten vectors.
-  static void flattenVector(
-      std::shared_ptr<BaseVector>& vector,
-      size_t vectorSize) {
-    BaseVector::ensureWritable(
-        SelectivityVector::empty(vectorSize),
-        vector->type(),
-        vector->pool(),
-        vector);
-  }
+  // Flattens the input vector and all of its children.
+  static void flattenVector(VectorPtr& vector);
 
   template <typename T>
   static inline uint64_t byteSize(vector_size_t count) {
@@ -860,8 +848,6 @@ template <>
 inline uint64_t BaseVector::byteSize<UnknownValue>(vector_size_t) {
   return 0;
 }
-
-using VectorPtr = std::shared_ptr<BaseVector>;
 
 // Returns true if vector is a Lazy vector, possibly wrapped, that hasn't
 // been loaded yet.
