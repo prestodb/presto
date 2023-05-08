@@ -1,8 +1,8 @@
 SELECT
   "promotions"
 , "total"
---, ((CAST("promotions" AS DECIMAL(15,4)) / CAST("total" AS DECIMAL(15,4))) * 100)
-, "round"(((CAST("promotions" AS double) / CAST("total" AS double)) * 100), 2)
+, ((CAST("promotions" AS DECIMAL(15,4)) / CAST("total" AS DECIMAL(15,4))) * 100)
+-- , "round"(((CAST("promotions" AS double) / CAST("total" AS double)) * 100), 2)
 FROM
   (
    SELECT "round"("sum"("ss_ext_sales_price"), 2) "promotions"

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.nativeworker;
 
-public class TestPrestoNativeTpcdsQueriesThrift
+public class TestPrestoNativeTpcdsQueriesDwrfThrift
         extends AbstractTestNativeTpcdsQueries
 {
-    TestPrestoNativeTpcdsQueriesThrift() {
+    TestPrestoNativeTpcdsQueriesDwrfThrift() {
         super(true, "DWRF");
     }
 }

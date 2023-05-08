@@ -51,8 +51,8 @@ SELECT
   "ss_sold_year"
 , "ss_item_sk"
 , "ss_customer_sk"
---, "round"((CAST("ss_qty" AS DECIMAL(10,2)) / COALESCE(("ws_qty" + "cs_qty"), 1)), 2) "ratio"
-, "round"((CAST("ss_qty" AS double) / COALESCE(("ws_qty" + "cs_qty"), 1)), 2) "ratio"
+, "round"((CAST("ss_qty" AS DECIMAL(10,2)) / COALESCE(("ws_qty" + "cs_qty"), 1)), 2) "ratio"
+-- , "round"((CAST("ss_qty" AS double) / COALESCE(("ws_qty" + "cs_qty"), 1)), 2) "ratio"
 , "ss_qty" "store_qty"
 , "ss_wc" "store_wholesale_cost"
 , "ss_sp" "store_sales_price"
@@ -70,6 +70,6 @@ LEFT JOIN cs ON ("cs_sold_year" = "ss_sold_year")
 WHERE (COALESCE("ws_qty", 0) > 0)
    AND (COALESCE("cs_qty", 0) > 0)
    AND ("ss_sold_year" = 2000)
---ORDER BY "ss_sold_year" ASC, "ss_item_sk" ASC, "ss_customer_sk" ASC, "ss_qty" DESC, "ss_wc" DESC, "ss_sp" DESC, "other_chan_qty" ASC, "other_chan_wholesale_cost" ASC, "other_chan_sales_price" ASC, "round"((CAST("ss_qty" AS DECIMAL(10,2)) / COALESCE(("ws_qty" + "cs_qty"), 1)), 2) ASC
+-- ORDER BY "ss_sold_year" ASC, "ss_item_sk" ASC, "ss_customer_sk" ASC, "ss_qty" DESC, "ss_wc" DESC, "ss_sp" DESC, "other_chan_qty" ASC, "other_chan_wholesale_cost" ASC, "other_chan_sales_price" ASC, "round"((CAST("ss_qty" AS DECIMAL(10,2)) / COALESCE(("ws_qty" + "cs_qty"), 1)), 2) ASC
 ORDER BY "ss_sold_year" ASC, "ss_item_sk" ASC, "ss_customer_sk" ASC, "ss_qty" DESC, "ss_wc" DESC, "ss_sp" DESC, "other_chan_qty" ASC, "other_chan_wholesale_cost" ASC, "other_chan_sales_price" ASC, "round"((CAST("ss_qty" AS double) / COALESCE(("ws_qty" + "cs_qty"), 1)), 2) ASC
 LIMIT 100

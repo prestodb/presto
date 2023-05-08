@@ -16,10 +16,10 @@ FROM
      (
       SELECT
         "ws"."ws_item_sk" "item"
-      --, (CAST("sum"(COALESCE("wr"."wr_return_quantity", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("ws"."ws_quantity", 0)) AS DECIMAL(15,4))) "return_ratio"
-      --, (CAST("sum"(COALESCE("wr"."wr_return_amt", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("ws"."ws_net_paid", 0)) AS DECIMAL(15,4))) "currency_ratio"
-      , "round"((CAST("sum"(COALESCE("wr"."wr_return_quantity", 0)) AS double) / CAST("sum"(COALESCE("ws"."ws_quantity", 0)) AS double)), 2) "return_ratio"
-      , "round"((CAST("sum"(COALESCE("wr"."wr_return_amt", 0)) AS double) / CAST("sum"(COALESCE("ws"."ws_net_paid", 0)) AS double)), 2) "currency_ratio"
+      , (CAST("sum"(COALESCE("wr"."wr_return_quantity", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("ws"."ws_quantity", 0)) AS DECIMAL(15,4))) "return_ratio"
+      , (CAST("sum"(COALESCE("wr"."wr_return_amt", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("ws"."ws_net_paid", 0)) AS DECIMAL(15,4))) "currency_ratio"
+--       , "round"((CAST("sum"(COALESCE("wr"."wr_return_quantity", 0)) AS double) / CAST("sum"(COALESCE("ws"."ws_quantity", 0)) AS double)), 2) "return_ratio"
+--       , "round"((CAST("sum"(COALESCE("wr"."wr_return_amt", 0)) AS double) / CAST("sum"(COALESCE("ws"."ws_net_paid", 0)) AS double)), 2) "currency_ratio"
       FROM
         (web_sales ws
       LEFT JOIN web_returns wr ON ("ws"."ws_order_number" = "wr"."wr_order_number")
@@ -55,10 +55,10 @@ FROM
      (
       SELECT
         "cs"."cs_item_sk" "item"
-      --, (CAST("sum"(COALESCE("cr"."cr_return_quantity", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("cs"."cs_quantity", 0)) AS DECIMAL(15,4))) "return_ratio"
-      --, (CAST("sum"(COALESCE("cr"."cr_return_amount", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("cs"."cs_net_paid", 0)) AS DECIMAL(15,4))) "currency_ratio"
-      , "round"((CAST("sum"(COALESCE("cr"."cr_return_quantity", 0)) AS double) / CAST("sum"(COALESCE("cs"."cs_quantity", 0)) AS double)), 2) "return_ratio"
-      , "round"((CAST("sum"(COALESCE("cr"."cr_return_amount", 0)) AS double) / CAST("sum"(COALESCE("cs"."cs_net_paid", 0)) AS double)), 2) "currency_ratio"
+      , (CAST("sum"(COALESCE("cr"."cr_return_quantity", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("cs"."cs_quantity", 0)) AS DECIMAL(15,4))) "return_ratio"
+      , (CAST("sum"(COALESCE("cr"."cr_return_amount", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("cs"."cs_net_paid", 0)) AS DECIMAL(15,4))) "currency_ratio"
+--       , "round"((CAST("sum"(COALESCE("cr"."cr_return_quantity", 0)) AS double) / CAST("sum"(COALESCE("cs"."cs_quantity", 0)) AS double)), 2) "return_ratio"
+--       , "round"((CAST("sum"(COALESCE("cr"."cr_return_amount", 0)) AS double) / CAST("sum"(COALESCE("cs"."cs_net_paid", 0)) AS double)), 2) "currency_ratio"
       FROM
         (catalog_sales cs
       LEFT JOIN catalog_returns cr ON ("cs"."cs_order_number" = "cr"."cr_order_number")
@@ -94,10 +94,10 @@ FROM
      (
       SELECT
         "sts"."ss_item_sk" "item"
-      --, (CAST("sum"(COALESCE("sr"."sr_return_quantity", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("sts"."ss_quantity", 0)) AS DECIMAL(15,4))) "return_ratio"
-      --, (CAST("sum"(COALESCE("sr"."sr_return_amt", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("sts"."ss_net_paid", 0)) AS DECIMAL(15,4))) "currency_ratio"
-      , "round"((CAST("sum"(COALESCE("sr"."sr_return_quantity", 0)) AS double) / CAST("sum"(COALESCE("sts"."ss_quantity", 0)) AS double)), 2) "return_ratio"
-      , "round"((CAST("sum"(COALESCE("sr"."sr_return_amt", 0)) AS double) / CAST("sum"(COALESCE("sts"."ss_net_paid", 0)) AS double)), 2) "currency_ratio"
+      , (CAST("sum"(COALESCE("sr"."sr_return_quantity", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("sts"."ss_quantity", 0)) AS DECIMAL(15,4))) "return_ratio"
+      , (CAST("sum"(COALESCE("sr"."sr_return_amt", 0)) AS DECIMAL(15,4)) / CAST("sum"(COALESCE("sts"."ss_net_paid", 0)) AS DECIMAL(15,4))) "currency_ratio"
+--       , "round"((CAST("sum"(COALESCE("sr"."sr_return_quantity", 0)) AS double) / CAST("sum"(COALESCE("sts"."ss_quantity", 0)) AS double)), 2) "return_ratio"
+--       , "round"((CAST("sum"(COALESCE("sr"."sr_return_amt", 0)) AS double) / CAST("sum"(COALESCE("sts"."ss_net_paid", 0)) AS double)), 2) "currency_ratio"
       FROM
         (store_sales sts
       LEFT JOIN store_returns sr ON ("sts"."ss_ticket_number" = "sr"."sr_ticket_number")
