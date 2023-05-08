@@ -345,4 +345,36 @@ class HiveHadoop2ConnectorFactory : public HiveConnectorFactory {
       : HiveConnectorFactory(kHiveHadoop2ConnectorName) {}
 };
 
+class HivePartitionFunctionSpec : public core::PartitionFunctionSpec {
+ public:
+  HivePartitionFunctionSpec(
+      int numBuckets,
+      std::vector<int> bucketToPartition,
+      std::vector<column_index_t> channels,
+      std::vector<VectorPtr> constValues)
+      : numBuckets_(numBuckets),
+        bucketToPartition_(std::move(bucketToPartition)),
+        channels_(std::move(channels)),
+        constValues_(std::move(constValues)) {}
+
+  std::unique_ptr<core::PartitionFunction> create(
+      int numPartitions) const override;
+
+  std::string toString() const override;
+
+  folly::dynamic serialize() const override;
+
+  static core::PartitionFunctionSpecPtr deserialize(
+      const folly::dynamic& obj,
+      void* context);
+
+ private:
+  const int numBuckets_;
+  const std::vector<int> bucketToPartition_;
+  const std::vector<column_index_t> channels_;
+  const std::vector<VectorPtr> constValues_;
+};
+
+void registerHivePartitionFunctionSerDe();
+
 } // namespace facebook::velox::connector::hive

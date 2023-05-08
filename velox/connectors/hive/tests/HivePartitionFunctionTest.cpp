@@ -15,6 +15,7 @@
  */
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "gtest/gtest.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -276,4 +277,45 @@ TEST_F(HivePartitionFunctionTest, date) {
   assertPartitionsWithConstChannel(values, 2);
   assertPartitionsWithConstChannel(values, 500);
   assertPartitionsWithConstChannel(values, 997);
+}
+
+TEST_F(HivePartitionFunctionTest, spec) {
+  Type::registerSerDe();
+  core::ITypedExpr::registerSerDe();
+  const int bucketCount = 10;
+  std::vector<int> bucketToPartition = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  std::iota(bucketToPartition.begin(), bucketToPartition.end(), 0);
+
+  // The test case with 1 constValues.
+  {
+    auto hiveSpec =
+        std::make_unique<connector::hive::HivePartitionFunctionSpec>(
+            bucketCount,
+            bucketToPartition,
+            std::vector<column_index_t>{0, 1, 2, 3, 4},
+            std::vector<VectorPtr>{makeConstant(1, 1)});
+    auto serialized = hiveSpec->serialize();
+    auto copy = connector::hive::HivePartitionFunctionSpec::deserialize(
+        serialized, pool());
+    ASSERT_EQ(serialized["constants"].size(), 1);
+    ASSERT_EQ(hiveSpec->toString(), copy->toString());
+  }
+
+  // The test case with 0 constValues.
+  {
+    auto hiveSpec =
+        std::make_unique<connector::hive::HivePartitionFunctionSpec>(
+            bucketCount,
+            bucketToPartition,
+            std::vector<column_index_t>{0, 1, 2, 3, 4},
+            std::vector<VectorPtr>{});
+    auto serialized = hiveSpec->serialize();
+    auto copy = connector::hive::HivePartitionFunctionSpec::deserialize(
+        serialized, pool());
+    ASSERT_EQ(serialized["constants"].size(), 0);
+    ASSERT_EQ(hiveSpec->toString(), copy->toString());
+    ASSERT_EQ(
+        hiveSpec->toString(),
+        "HIVE(num of buckets:10, channels:0, 1, 2, 3, 4)");
+  }
 }
