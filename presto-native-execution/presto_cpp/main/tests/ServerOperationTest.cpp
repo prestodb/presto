@@ -100,7 +100,7 @@ TEST_F(ServerOperationTest, buildServerOp) {
   EXPECT_EQ(ServerOperation::Action::kGetCacheStats, op.action);
 
   op = buildServerOpFromHttpMsgPath("/v1/operation/systemConfig/setProperty");
-  EXPECT_EQ(ServerOperation::Target::kConnector, op.target);
+  EXPECT_EQ(ServerOperation::Target::kSystemConfig, op.target);
   EXPECT_EQ(ServerOperation::Action::kSetProperty, op.action);
 
   EXPECT_THROW(
