@@ -132,6 +132,8 @@ There are also arguments that toggle certain fuzzer features:
 
 * ``--assign_function_tickets``: Comma separated list of function names and their tickets in the format <function_name>=<tickets>. Every ticket represents an opportunity for a function to be chosen from a pool of candidates. By default, every function has one ticket, and the likelihood of a function being picked can be increased by allotting it more tickets. Note that in practice, increasing the number of tickets does not proportionally increase the likelihood of selection, as the selection process involves filtering the pool of candidates by a required return type so not all functions may compete against the same number of functions at every instance. Number of tickets must be a positive integer. Example: eq=3,floor=5.
 
+* ``--max_expression_trees_per_step``: This sets an upper limit on the number of expression trees to generate per step. These trees would be executed in the same ExprSet and can re-use already generated columns and subexpressions (if re-use is enabled). Default is 1.
+
 In addition, Aggregation Fuzzer also supports tuning parameters:
 
 * ``--num_batches``: The number of input vectors of size `--batch_size` to generate. Default is 10.

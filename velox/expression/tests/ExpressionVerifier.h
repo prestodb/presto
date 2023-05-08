@@ -50,19 +50,19 @@ class ExpressionVerifier {
       ExpressionVerifierOptions options)
       : execCtx_(execCtx), options_(options) {}
 
-  // Executes an expression both using common path (all evaluation
+  // Executes expressions both using common path (all evaluation
   // optimizations) and simplified path. Additionally, a sorted list of column
   // indices can be passed via 'columnsToWrapInLazy' which specify the
   // columns/children in the input row vector that should be wrapped in a lazy
   // layer before running it through the common evaluation path.
   // Returns:
-  //  - result of evaluating the expression if both paths succeeded and returned
-  //  the exact same vectors.
+  //  - result of evaluating the expressions if both paths succeeded and
+  //  returned the exact same vectors.
   //  - exception thrown by the common path if both paths failed with compatible
   //  exceptions.
   //  - throws otherwise (incompatible exceptions or different results).
   ResultOrError verify(
-      const core::TypedExprPtr& plan,
+      const std::vector<core::TypedExprPtr>& plans,
       const RowVectorPtr& rowVector,
       VectorPtr&& resultVector,
       bool canThrow,

@@ -183,11 +183,9 @@ void ExpressionRunner::run(
   LOG(INFO) << "Evaluating SQL expression(s): " << sql;
 
   if (mode == "verify") {
-    VELOX_CHECK_EQ(
-        1, typedExprs.size(), "'verify' mode supports only one SQL expression");
     test::ExpressionVerifier(&execCtx, {false, ""})
         .verify(
-            typedExprs[0],
+            typedExprs,
             inputVector,
             std::move(resultVector),
             true,

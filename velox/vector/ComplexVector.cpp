@@ -165,11 +165,6 @@ void RowVector::copy(
     const BaseVector* source,
     const SelectivityVector& rows,
     const vector_size_t* toSourceRow) {
-  for (auto i = 0; i < children_.size(); ++i) {
-    BaseVector::ensureWritable(
-        rows, type()->asRow().childAt(i), pool(), children_[i]);
-  }
-
   // Copy non-null values.
   SelectivityVector nonNullRows = rows;
 
@@ -188,8 +183,14 @@ void RowVector::copy(
 
     auto rowSource = source->loadedVector()->as<RowVector>();
     for (auto i = 0; i < childrenSize_; ++i) {
-      children_[i]->copy(
-          rowSource->childAt(i)->loadedVector(), nonNullRows, toSourceRow);
+      if (rowSource->childAt(i)) {
+        BaseVector::ensureWritable(
+            rows, type()->asRow().childAt(i), pool(), children_[i]);
+        children_[i]->copy(
+            rowSource->childAt(i)->loadedVector(), nonNullRows, toSourceRow);
+      } else {
+        children_[i].reset();
+      }
     }
   } else {
     auto nulls = decodedSource.nulls();
@@ -217,10 +218,16 @@ void RowVector::copy(
 
     auto baseSource = decodedSource.base()->as<RowVector>();
     for (auto i = 0; i < childrenSize_; ++i) {
-      children_[i]->copy(
-          baseSource->childAt(i)->loadedVector(),
-          nonNullRows,
-          rawMappedIndices ? rawMappedIndices : indices);
+      if (baseSource->childAt(i)) {
+        BaseVector::ensureWritable(
+            rows, type()->asRow().childAt(i), pool(), children_[i]);
+        children_[i]->copy(
+            baseSource->childAt(i)->loadedVector(),
+            nonNullRows,
+            rawMappedIndices ? rawMappedIndices : indices);
+      } else {
+        children_[i].reset();
+      }
     }
   }
 
@@ -387,7 +394,9 @@ void RowVector::prepareForReuse() {
 VectorPtr RowVector::slice(vector_size_t offset, vector_size_t length) const {
   std::vector<VectorPtr> children(children_.size());
   for (int i = 0; i < children_.size(); ++i) {
-    children[i] = children_[i]->slice(offset, length);
+    if (children_[i]) {
+      children[i] = children_[i]->slice(offset, length);
+    }
   }
   return std::make_shared<RowVector>(
       pool_, type_, sliceNulls(offset, length), length, std::move(children));
