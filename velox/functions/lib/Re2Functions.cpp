@@ -74,7 +74,7 @@ FlatVector<bool>& ensureWritableBool(
 FlatVector<StringView>& ensureWritableStringView(
     const SelectivityVector& rows,
     EvalCtx& context,
-    std::shared_ptr<BaseVector>& result) {
+    VectorPtr& result) {
   context.ensureWritable(rows, VARCHAR(), result);
   auto* flat = result->as<FlatVector<StringView>>();
   flat->mutableValues(rows.end());

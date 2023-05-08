@@ -375,7 +375,8 @@ class SimpleFunctionAdapter : public VectorFunction {
     }
   }
 
-  // Acquire string buffer from source if vector is a string flat vector.
+  // All string vectors within `vector` will acquire shared ownership of all
+  // string buffers found within source.
   void tryAcquireStringBuffer(BaseVector* vector, const BaseVector* source)
       const {
     if (auto* flatVector = vector->asFlatVector<StringView>()) {
