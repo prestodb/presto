@@ -12,8 +12,11 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/common/Configs.h"
+#include <re2/re2.h>
+#include <unordered_set>
+
 #include "presto_cpp/main/common/ConfigReader.h"
+#include "presto_cpp/main/common/Configs.h"
 
 #if __has_include("filesystem")
 #include <filesystem>
@@ -25,12 +28,174 @@ namespace fs = std::experimental::filesystem;
 
 namespace facebook::presto {
 
+namespace {
+
+void checkIncomingSystemProperties(
+    const std::unordered_map<std::string, std::string>& values) {
+  static const std::unordered_set<std::string_view> kSupportedSystemProperties{
+      SystemConfig::kMutableConfig,
+      SystemConfig::kPrestoVersion,
+      SystemConfig::kHttpServerHttpPort,
+      SystemConfig::kHttpServerReusePort,
+      SystemConfig::kDiscoveryUri,
+      SystemConfig::kMaxDriversPerTask,
+      SystemConfig::kConcurrentLifespansPerTask,
+      SystemConfig::kHttpExecThreads,
+      SystemConfig::kHttpServerHttpsPort,
+      SystemConfig::kHttpServerHttpsEnabled,
+      SystemConfig::kHttpsSupportedCiphers,
+      SystemConfig::kHttpsCertPath,
+      SystemConfig::kHttpsKeyPath,
+      SystemConfig::kHttpsClientCertAndKeyPath,
+      SystemConfig::kNumIoThreads,
+      SystemConfig::kNumQueryThreads,
+      SystemConfig::kNumSpillThreads,
+      SystemConfig::kSpillerSpillPath,
+      SystemConfig::kShutdownOnsetSec,
+      SystemConfig::kSystemMemoryGb,
+      SystemConfig::kAsyncCacheSsdGb,
+      SystemConfig::kAsyncCacheSsdCheckpointGb,
+      SystemConfig::kAsyncCacheSsdPath,
+      SystemConfig::kAsyncCacheSsdDisableFileCow,
+      SystemConfig::kEnableSerializedPageChecksum,
+      SystemConfig::kUseMmapArena,
+      SystemConfig::kMmapArenaCapacityRatio,
+      SystemConfig::kUseMmapAllocator,
+      SystemConfig::kEnableVeloxTaskLogging,
+      SystemConfig::kEnableVeloxExprSetLogging,
+      SystemConfig::kLocalShuffleMaxPartitionBytes,
+      SystemConfig::kShuffleName,
+      SystemConfig::kHttpEnableAccessLog,
+      SystemConfig::kHttpEnableStatsFilter,
+      SystemConfig::kRegisterTestFunctions,
+      SystemConfig::kHttpMaxAllocateBytes,
+      SystemConfig::kQueryMaxMemoryPerNode,
+      SystemConfig::kEnableMemoryLeakCheck,
+      SystemConfig::kRemoteFunctionServerThriftPort,
+  };
+
+  std::stringstream supported;
+  std::stringstream unsupported;
+  for (const auto& pair : values) {
+    ((kSupportedSystemProperties.count(pair.first) != 0) ? supported
+                                                         : unsupported)
+        << "  " << pair.first << "=" << pair.second << "\n";
+  }
+  auto str = supported.str();
+  if (!str.empty()) {
+    LOG(INFO) << "STARTUP: Supported system properties:\n" << str;
+  }
+  str = unsupported.str();
+  if (!str.empty()) {
+    LOG(WARNING) << "STARTUP: Unsupported system properties:\n" << str;
+  }
+}
+
+void checkIncomingNodeProperties(
+    const std::unordered_map<std::string, std::string>& values) {
+  static const std::unordered_set<std::string_view> kSupportedNodeProperties{
+      NodeConfig::kNodeEnvironment,
+      NodeConfig::kNodeId,
+      NodeConfig::kNodeIp,
+      NodeConfig::kNodeLocation,
+      NodeConfig::kNodeMemoryGb,
+  };
+
+  std::stringstream supported;
+  std::stringstream unsupported;
+  for (const auto& pair : values) {
+    ((kSupportedNodeProperties.count(pair.first) != 0) ? supported
+                                                       : unsupported)
+        << "  " << pair.first << "=" << pair.second << "\n";
+  }
+  auto str = supported.str();
+  if (!str.empty()) {
+    LOG(INFO) << "STARTUP: Supported node properties:\n" << str;
+  }
+  str = unsupported.str();
+  if (!str.empty()) {
+    LOG(WARNING) << "STARTUP: Unsupported node properties:\n" << str;
+  }
+}
+
+enum class CapacityUnit {
+  BYTE,
+  KILOBYTE,
+  MEGABYTE,
+  GIGABYTE,
+  TERABYTE,
+  PETABYTE
+};
+
+double toBytesPerCapacityUnit(CapacityUnit unit) {
+  switch (unit) {
+    case CapacityUnit::BYTE:
+      return 1;
+    case CapacityUnit::KILOBYTE:
+      return exp2(10);
+    case CapacityUnit::MEGABYTE:
+      return exp2(20);
+    case CapacityUnit::GIGABYTE:
+      return exp2(30);
+    case CapacityUnit::TERABYTE:
+      return exp2(40);
+    case CapacityUnit::PETABYTE:
+      return exp2(50);
+    default:
+      VELOX_USER_FAIL("Invalid capacity unit '{}'", (int)unit);
+  }
+}
+
+CapacityUnit valueOfCapacityUnit(const std::string& unitStr) {
+  if (unitStr == "B") {
+    return CapacityUnit::BYTE;
+  }
+  if (unitStr == "kB") {
+    return CapacityUnit::KILOBYTE;
+  }
+  if (unitStr == "MB") {
+    return CapacityUnit::MEGABYTE;
+  }
+  if (unitStr == "GB") {
+    return CapacityUnit::GIGABYTE;
+  }
+  if (unitStr == "TB") {
+    return CapacityUnit::TERABYTE;
+  }
+  if (unitStr == "PB") {
+    return CapacityUnit::PETABYTE;
+  }
+  VELOX_USER_FAIL("Invalid capacity unit '{}'", unitStr);
+}
+
+// Convert capacity string with unit to the capacity number in the specified
+// units
+uint64_t toCapacity(const std::string& from, CapacityUnit to) {
+  static const RE2 kPattern(R"(^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$)");
+  double value;
+  std::string unit;
+  if (!RE2::FullMatch(from, kPattern, &value, &unit)) {
+    VELOX_USER_FAIL("Invalid capacity string '{}'", from);
+  }
+
+  return value *
+      (toBytesPerCapacityUnit(valueOfCapacityUnit(unit)) /
+       toBytesPerCapacityUnit(to));
+}
+
+} // namespace
+
 ConfigBase::ConfigBase()
     : config_(std::make_unique<velox::core::MemConfig>()) {}
 
 void ConfigBase::initialize(const std::string& filePath) {
   // See if we want to create a mutable config.
   auto values = util::readConfig(fs::path(filePath));
+  if (filePath.find("config.properties") != std::string::npos) {
+    checkIncomingSystemProperties(values);
+  } else if (filePath.find("node.properties") != std::string::npos) {
+    checkIncomingNodeProperties(values);
+  }
   bool mutableConfig{false};
   auto it = values.find(std::string(SystemConfig::kMutableConfig));
   if (it != values.end()) {
@@ -79,7 +244,7 @@ int SystemConfig::httpServerHttpsPort() const {
   return requiredProperty<int>(std::string(kHttpServerHttpsPort));
 }
 
-bool SystemConfig::enableHttps() const {
+bool SystemConfig::httpServerHttpsEnabled() const {
   auto opt = optionalProperty<bool>(std::string(kHttpServerHttpsEnabled));
   return opt.value_or(kHttpServerHttpsEnabledDefault);
 }
@@ -237,7 +402,7 @@ bool SystemConfig::enableHttpAccessLog() const {
 }
 
 bool SystemConfig::enableHttpStatsFilter() const {
-  auto opt = optionalProperty<bool>(std::string(kHttpEnableStatFilter));
+  auto opt = optionalProperty<bool>(std::string(kHttpEnableStatsFilter));
   return opt.value_or(kHttpEnableStatsFilterDefault);
 }
 
@@ -249,6 +414,19 @@ bool SystemConfig::registerTestFunctions() const {
 uint64_t SystemConfig::httpMaxAllocateBytes() const {
   auto opt = optionalProperty<uint64_t>(std::string(kHttpMaxAllocateBytes));
   return opt.value_or(kHttpMaxAllocateBytesDefault);
+}
+
+uint64_t SystemConfig::queryMaxMemoryPerNode() const {
+  auto opt = optionalProperty(std::string(kQueryMaxMemoryPerNode));
+  if (opt.hasValue()) {
+    return toCapacity(opt.value(), CapacityUnit::BYTE);
+  }
+  return kQueryMaxMemoryPerNodeDefault;
+}
+
+bool SystemConfig::enableMemoryLeakCheck() const {
+  auto opt = optionalProperty<bool>(std::string(kEnableMemoryLeakCheck));
+  return opt.value_or(kEnableMemoryLeakCheckDefault);
 }
 
 NodeConfig* NodeConfig::instance() {

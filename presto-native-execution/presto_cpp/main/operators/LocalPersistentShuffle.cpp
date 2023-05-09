@@ -244,8 +244,6 @@ std::shared_ptr<ShuffleReader> LocalPersistentShuffleFactory::createReader(
     const std::string& serializedStr,
     const int32_t partition,
     velox::memory::MemoryPool* pool) {
-  static const uint64_t maxBytesPerPartition =
-      SystemConfig::instance()->localShuffleMaxPartitionBytes();
   const operators::LocalShuffleReadInfo readInfo =
       operators::LocalShuffleReadInfo::deserialize(serializedStr);
   return std::make_shared<operators::LocalPersistentShuffleReader>(
