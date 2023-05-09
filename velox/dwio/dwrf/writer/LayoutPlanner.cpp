@@ -214,6 +214,23 @@ void fillNodeToColumnMap(
   }
 }
 
+struct MapKey {
+  uint32_t column;
+  uint32_t sequence;
+};
+
+struct MapKeyHash {
+  size_t operator()(MapKey key) const noexcept {
+    return static_cast<uint64_t>(key.column) << 32 | key.sequence;
+  }
+};
+
+struct MapKeyEqual {
+  bool operator()(MapKey lhs, MapKey rhs) const noexcept {
+    return lhs.column == rhs.column && lhs.sequence == rhs.sequence;
+  }
+};
+
 } // namespace
 
 LayoutPlanner::LayoutPlanner(const dwio::common::TypeWithId& schema) {
@@ -228,65 +245,127 @@ LayoutResult LayoutPlanner::plan(
     return isIndexStream(stream.first->kind());
   });
   size_t indexCount = iter - streams.begin();
+  auto flatMapCols = getFlatMapColumns(encoding, nodeToColumnMap_);
 
   // sort streams
-  NodeSizeSorter::sort(streams.begin(), iter);
-  NodeSizeSorter::sort(iter, streams.end());
+  sortBySize(streams.begin(), iter, flatMapCols);
+  sortBySize(iter, streams.end(), flatMapCols);
 
   return LayoutResult{std::move(streams), indexCount};
 }
 
-void LayoutPlanner::NodeSizeSorter::sort(
+void LayoutPlanner::sortBySize(
     StreamList::iterator begin,
-    StreamList::iterator end) {
-  // rules:
-  // 1. streams of node with smaller total size will be in front of those with
-  // larger total node size
-  // 2. if total node size is the same, small node id first
-  // 3. for same node, small sequence id first
-  // 4. for same sequence, small kind first
-
+    StreamList::iterator end,
+    const folly::F14FastSet<uint32_t>& flatMapCols) {
   // calculate node size
-  auto getNodeKey = [](const DwrfStreamIdentifier& stream) {
-    return static_cast<uint64_t>(stream.encodingKey().node) << 32 |
-        stream.encodingKey().sequence;
-  };
+  folly::F14FastMap<uint32_t, uint64_t> nodeSize;
+  folly::F14FastMap<MapKey, uint64_t, MapKeyHash, MapKeyEqual> flatMapNodeSize;
 
-  std::unordered_map<uint64_t, uint64_t> nodeSize;
   for (auto iter = begin; iter != end; ++iter) {
-    auto node = getNodeKey(*iter->first);
+    auto& stream = *iter->first;
     auto size = iter->second->size();
-    auto existing = nodeSize.find(node);
-    if (existing == nodeSize.end()) {
-      nodeSize[node] = size;
+    // Flatmap aggregate size at column/sequence level. Non-flatmap does that at
+    // node level.
+    if (flatMapCols.count(stream.column()) > 0) {
+      flatMapNodeSize[{
+          .column = stream.column(),
+          .sequence = stream.encodingKey().sequence,
+      }] += size;
     } else {
-      existing->second += size;
+      nodeSize[stream.encodingKey().node] += size;
     }
   }
 
-  // sort based on node size
   std::sort(begin, end, [&](auto& a, auto& b) {
-    auto sizeA = nodeSize[getNodeKey(*a.first)];
-    auto sizeB = nodeSize[getNodeKey(*b.first)];
+    // 1. Sort based on flatmap or not. Place streams of non-flatmaps before
+    // those of flatmaps. Within flatmap, sort by column and sequence. Lowest
+    // first.
+    auto& streamA = *a.first;
+    auto& streamB = *b.first;
+    auto nodeA = streamA.encodingKey().node;
+    auto nodeB = streamB.encodingKey().node;
+    auto isFlatMapA = flatMapCols.count(streamA.column()) > 0;
+    auto isFlatMapB = flatMapCols.count(streamB.column()) > 0;
+
+    // 1. Sort based on flatmap or not. Place streams of non-flatmaps before
+    // those of flatmaps.
+    if (isFlatMapA != isFlatMapB) {
+      return !isFlatMapA;
+    }
+
+    // 2. For flatmaps, sort based on column id, smaller column id first. Then
+    // sequence 0 (ie. streams shared by all sequences) always before others.
+    uint64_t sizeA = 0;
+    uint64_t sizeB = 0;
+    if (isFlatMapA) {
+      auto colA = streamA.column();
+      auto colB = streamB.column();
+      // Smaller column id first
+      if (colA != colB) {
+        return colA < colB;
+      }
+
+      auto seqA = streamA.encodingKey().sequence;
+      auto seqB = streamB.encodingKey().sequence;
+      // Sequence 0 always before others
+      if (seqA != seqB) {
+        if (seqA == 0) {
+          return true;
+        }
+        if (seqB == 0) {
+          return false;
+        }
+      }
+
+      sizeA = flatMapNodeSize[{
+          .column = colA,
+          .sequence = seqA,
+      }];
+      sizeB = flatMapNodeSize[{
+          .column = colB,
+          .sequence = seqB,
+      }];
+    } else {
+      sizeA = nodeSize[nodeA];
+      sizeB = nodeSize[nodeB];
+    }
+
+    // 3. Sort based on size. Streams with smaller total size will
+    // be in front of those with larger total node size.
     if (sizeA != sizeB) {
       return sizeA < sizeB;
     }
 
-    // if size is the same, sort by node and sequence
-    auto nodeA = a.first->encodingKey().node;
-    auto nodeB = b.first->encodingKey().node;
+    // 4. Flatmap, when sequences have the same size, small sequence goes first.
+    if (isFlatMapA) {
+      auto seqA = streamA.encodingKey().sequence;
+      auto seqB = streamB.encodingKey().sequence;
+      if (seqA != seqB) {
+        return seqA < seqB;
+      }
+    }
+
+    // 5. Sort based on node. Small node first
     if (nodeA != nodeB) {
       return nodeA < nodeB;
     }
 
-    auto seqA = a.first->encodingKey().sequence;
-    auto seqB = b.first->encodingKey().sequence;
-    if (seqA != seqB) {
-      return seqA < seqB;
-    }
-
-    return a.first->kind() < b.first->kind();
+    // 6. Sort based on kind. Smaller kind first
+    return streamA.kind() < streamB.kind();
   });
+}
+
+folly::F14FastSet<uint32_t> LayoutPlanner::getFlatMapColumns(
+    const EncodingContainer& encoding,
+    const folly::F14FastMap<uint32_t, uint32_t>& nodeToColumnMap) {
+  folly::F14FastSet<uint32_t> cols;
+  for (const auto& enc : encoding) {
+    if (enc.kind() == proto::ColumnEncoding::MAP_FLAT) {
+      cols.insert(nodeToColumnMap.at(enc.node()));
+    }
+  }
+  return cols;
 }
 
 } // namespace facebook::velox::dwrf

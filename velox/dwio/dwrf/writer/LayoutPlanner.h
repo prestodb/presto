@@ -136,10 +136,16 @@ class LayoutPlanner {
       StreamList streamList) const;
 
  protected:
-  class NodeSizeSorter {
-   public:
-    static void sort(StreamList::iterator begin, StreamList::iterator end);
-  };
+  static void sortBySize(
+      StreamList::iterator begin,
+      StreamList::iterator end,
+      const folly::F14FastSet<uint32_t>& flatMapCols);
+
+  // This method assumes flatmap can only be top level fields, which is enforced
+  // through the way how flatmap is configured.
+  static folly::F14FastSet<uint32_t> getFlatMapColumns(
+      const EncodingContainer& encoding,
+      const folly::F14FastMap<uint32_t, uint32_t>& nodeToColumnMap);
 
   folly::F14FastMap<uint32_t, uint32_t> nodeToColumnMap_;
 

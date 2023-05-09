@@ -101,14 +101,17 @@ TEST(LayoutPlannerTests, Basic) {
   streams.reserve(10);
   std::array<char, 256> data;
   std::memset(data.data(), 'a', data.size());
-  auto addStream =
-      [&](uint32_t node, uint32_t seq, StreamKind kind, uint32_t size) {
-        auto streamId = DwrfStreamIdentifier{node, seq, 0, kind};
-        streams.push_back(streamId);
-        AppendOnlyBufferedStream out{context.newStream(streamId)};
-        out.write(data.data(), size);
-        out.flush();
-      };
+  auto addStream = [&](uint32_t node,
+                       uint32_t seq,
+                       uint32_t col,
+                       StreamKind kind,
+                       uint32_t size) {
+    auto streamId = DwrfStreamIdentifier{node, seq, col, kind};
+    streams.push_back(streamId);
+    AppendOnlyBufferedStream out{context.newStream(streamId)};
+    out.write(data.data(), size);
+    out.flush();
+  };
 
   auto encryptionHandler =
       std::make_unique<velox::dwrf::encryption::EncryptionHandler>();
@@ -126,15 +129,19 @@ TEST(LayoutPlannerTests, Basic) {
     }
   };
 
-  addStream(1, 2, StreamKind::StreamKind_PRESENT, 15); // 0
-  addStream(1, 1, StreamKind::StreamKind_DATA, 10); // 1
-  addStream(1, 1, StreamKind::StreamKind_PRESENT, 12); // 2
-  addStream(3, 0, StreamKind::StreamKind_DATA, 1); // 3
-  addStream(3, 0, StreamKind::StreamKind_PRESENT, 2); // 4
-  addStream(3, 0, StreamKind::StreamKind_DICTIONARY_DATA, 3); // 5
-  addStream(1, 0, StreamKind::StreamKind_ROW_INDEX, 200); // 6
-  addStream(2, 0, StreamKind::StreamKind_ROW_INDEX, 100); // 7
-  addStream(2, 0, StreamKind::StreamKind_DATA, 6); // 8
+  addStream(5, 2, 2, StreamKind::StreamKind_PRESENT, 15); // 0
+  addStream(5, 1, 2, StreamKind::StreamKind_DATA, 10); // 1
+  addStream(5, 1, 2, StreamKind::StreamKind_PRESENT, 12); // 2
+  addStream(2, 0, 1, StreamKind::StreamKind_DATA, 1); // 3
+  addStream(2, 0, 1, StreamKind::StreamKind_PRESENT, 2); // 4
+  addStream(2, 0, 1, StreamKind::StreamKind_DICTIONARY_DATA, 3); // 5
+  addStream(1, 0, 0, StreamKind::StreamKind_ROW_INDEX, 200); // 6
+  addStream(2, 0, 1, StreamKind::StreamKind_ROW_INDEX, 100); // 7
+  addStream(1, 0, 0, StreamKind::StreamKind_DATA, 6); // 8
+  addStream(5, 0, 2, StreamKind::StreamKind_DICTIONARY_DATA, 15); // 9
+  addStream(6, 1, 2, StreamKind::StreamKind_PRESENT, 200); // 10
+  addStream(9, 1, 3, StreamKind::StreamKind_PRESENT, 100); // 11
+  addStream(3, 0, 2, StreamKind::StreamKind_ROW_INDEX, 50); // 12
 
   addEncoding(1, 0, proto::ColumnEncoding::DIRECT);
   addEncoding(2, 0, proto::ColumnEncoding::DIRECT);
@@ -157,7 +164,7 @@ TEST(LayoutPlannerTests, Basic) {
   auto typeWithId = dwio::common::TypeWithId::create(type);
   LayoutPlanner planner{*typeWithId};
   auto result = planner.plan(encodingManager, getStreamList(context));
-  std::vector<size_t> indices{7, 6};
+  std::vector<size_t> indices{7, 6, 12};
   size_t pos = 0;
   result.iterateIndexStreams([&](auto& stream, auto& /* ignored */) {
     ASSERT_LT(pos, indices.size());
@@ -165,13 +172,7 @@ TEST(LayoutPlannerTests, Basic) {
   });
   ASSERT_EQ(pos, indices.size());
 
-  // we expected data streams to be ordered based on these rules:
-  // 1. Streams of node with smaller total size will be in front of those with
-  // larger total node size
-  // 2. if total node size is the same, small node id first
-  // 3. for same node, small sequence id first
-  // 4. for same sequence, small kind first
-  std::vector<size_t> dataStreams{8, 4, 3, 5, 0, 2, 1};
+  std::vector<size_t> dataStreams{8, 4, 3, 5, 9, 0, 2, 1, 10, 11};
   pos = 0;
   result.iterateDataStreams([&](auto& stream, auto& /* ignored */) {
     ASSERT_LT(pos, dataStreams.size());
