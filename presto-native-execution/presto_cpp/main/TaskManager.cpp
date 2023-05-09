@@ -94,15 +94,9 @@ void keepPromiseAlive(
 }
 } // namespace
 
-TaskManager::TaskManager(
-    std::unordered_map<std::string, std::string> properties,
-    std::unordered_map<std::string, std::string> nodeProperties)
+TaskManager::TaskManager()
     : bufferManager_(
-          velox::exec::PartitionedOutputBufferManager::getInstance().lock()),
-      queryContextManager_(properties, nodeProperties),
-      maxDriversPerTask_(SystemConfig::instance()->maxDriversPerTask()),
-      concurrentLifespansPerTask_(
-          SystemConfig::instance()->concurrentLifespansPerTask()) {
+          velox::exec::PartitionedOutputBufferManager::getInstance().lock()) {
   VELOX_CHECK_NOT_NULL(
       bufferManager_, "invalid PartitionedOutputBufferManager");
 }
@@ -275,8 +269,6 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
   auto prestoTask = findOrCreateTask(taskId);
-  uint32_t maxDrivers;
-  uint32_t concurrentLifespans;
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     if (not prestoTask->task && planFragment.planNode) {
@@ -288,15 +280,6 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
 
       auto queryCtx = queryContextManager_.findOrCreateQueryCtx(
           taskId, std::move(configStrings), std::move(connectorConfigStrings));
-      maxDrivers =
-          queryCtx->get<int32_t>(kMaxDriversPerTask.data(), maxDriversPerTask_);
-      concurrentLifespans = queryCtx->get<int32_t>(
-          kConcurrentLifespansPerTask.data(), concurrentLifespansPerTask_);
-      // Zero concurrent lifespans means 'unlimited', but we still limit the
-      // number to some reasonable one.
-      if (concurrentLifespans == 0) {
-        concurrentLifespans = kMaxConcurrentLifespans;
-      }
 
       execTask = std::make_shared<exec::Task>(
           taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));
@@ -325,6 +308,18 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
   std::lock_guard<std::mutex> l(prestoTask->mutex);
 
   if (startTask) {
+    const uint32_t maxDrivers = execTask->queryCtx()->get<int32_t>(
+        kMaxDriversPerTask.data(),
+        SystemConfig::instance()->maxDriversPerTask());
+    uint32_t concurrentLifespans = execTask->queryCtx()->get<int32_t>(
+        kConcurrentLifespansPerTask.data(),
+        SystemConfig::instance()->concurrentLifespansPerTask());
+    // Zero concurrent lifespans means 'unlimited', but we still limit the
+    // number to some reasonable one.
+    if (concurrentLifespans == 0) {
+      concurrentLifespans = kMaxConcurrentLifespans;
+    }
+
     if (execTask->isGroupedExecution()) {
       LOG(INFO) << "Starting task " << taskId << " with " << maxDrivers
                 << " max drivers and " << concurrentLifespans

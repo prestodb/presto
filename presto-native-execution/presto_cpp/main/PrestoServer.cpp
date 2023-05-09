@@ -135,7 +135,7 @@ void PrestoServer::run() {
         fmt::format("{}/node.properties", configDirectoryPath_));
 
     httpPort = systemConfig->httpServerHttpPort();
-    if (systemConfig->enableHttps()) {
+    if (systemConfig->httpServerHttpsEnabled()) {
       httpsPort = systemConfig->httpServerHttpsPort();
 
       ciphers = systemConfig->httpsSupportedCiphers();
@@ -311,8 +311,7 @@ void PrestoServer::run() {
       velox::parquet::ParquetReaderType::NATIVE);
 #endif
 
-  taskManager_ = std::make_unique<TaskManager>(
-      systemConfig->values(), nodeConfig->values());
+  taskManager_ = std::make_unique<TaskManager>();
 
   std::string taskUri;
   if (httpsPort.has_value()) {
@@ -399,11 +398,13 @@ void PrestoServer::run() {
             << ", task queue: " << cpuExecutor->getTaskQueueSize();
   cpuExecutor->join();
 
-  LOG(INFO) << "SHUTDOWN: Joining IO Executor '"
-            << connectorIoExecutor_->getName()
-            << "': threads: " << connectorIoExecutor_->numActiveThreads() << "/"
-            << connectorIoExecutor_->numThreads();
-  connectorIoExecutor_->join();
+  if (connectorIoExecutor_) {
+    LOG(INFO) << "SHUTDOWN: Joining IO Executor '"
+              << connectorIoExecutor_->getName()
+              << "': threads: " << connectorIoExecutor_->numActiveThreads()
+              << "/" << connectorIoExecutor_->numThreads();
+    connectorIoExecutor_->join();
+  }
 
   LOG(INFO) << "SHUTDOWN: Done joining our executors.";
 
@@ -470,7 +471,10 @@ void PrestoServer::initializeVeloxMemory() {
   memory::MemoryAllocator::setDefaultInstance(cache_.get());
   // Set up velox memory manager.
   memory::MemoryManager::getInstance(
-      memory::MemoryManager::Options{.capacity = memoryBytes}, true);
+      memory::MemoryManager::Options{
+          .capacity = memoryBytes,
+          .checkUsageLeak = systemConfig->enableMemoryLeakCheck()},
+      true);
 }
 
 void PrestoServer::stop() {

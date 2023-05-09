@@ -30,9 +30,7 @@ struct DriverCountStats {
 
 class TaskManager {
  public:
-  explicit TaskManager(
-      std::unordered_map<std::string, std::string> properties = {},
-      std::unordered_map<std::string, std::string> nodeProperties = {});
+  TaskManager();
 
   void setBaseUri(const std::string& baseUri) {
     baseUri_ = baseUri;
@@ -161,8 +159,6 @@ class TaskManager {
   std::shared_ptr<velox::exec::PartitionedOutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   QueryContextManager queryContextManager_;
-  int32_t maxDriversPerTask_;
-  int32_t concurrentLifespansPerTask_;
 };
 
 } // namespace facebook::presto
