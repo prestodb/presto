@@ -152,19 +152,6 @@ void EvalCtx::restore(ScopedContextSaver& saver) {
 }
 
 namespace {
-/// If exceptionPtr represents an std::exception, convert it to VeloxUserError
-/// to add useful context for debugging.
-std::exception_ptr toVeloxException(const std::exception_ptr& exceptionPtr) {
-  try {
-    std::rethrow_exception(exceptionPtr);
-  } catch (const VeloxException& e) {
-    return exceptionPtr;
-  } catch (const std::exception& e) {
-    return std::make_exception_ptr(
-        VeloxUserError(std::current_exception(), e.what(), false));
-  }
-}
-
 auto throwError(const std::exception_ptr& exceptionPtr) {
   std::rethrow_exception(toVeloxException(exceptionPtr));
 }

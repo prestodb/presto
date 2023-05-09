@@ -350,6 +350,10 @@ struct ExceptionContext {
   bool suspended{false};
 };
 
+/// If exceptionPtr represents an std::exception, convert it to VeloxUserError
+/// to add useful context for debugging.
+std::exception_ptr toVeloxException(const std::exception_ptr& exceptionPtr);
+
 /// Returns a reference to thread_local variable that holds a function that can
 /// be used to get addition context to be added to the detailed error message in
 /// case an exception occurs. This is to used in cases when stack trace would
