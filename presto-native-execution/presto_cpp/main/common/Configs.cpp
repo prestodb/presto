@@ -113,6 +113,16 @@ std::optional<std::string> SystemConfig::discoveryUri() const {
       optionalProperty<std::string>(std::string(kDiscoveryUri)));
 }
 
+std::optional<folly::SocketAddress> SystemConfig::remoteFunctionServerLocation()
+    const {
+  auto remoteServerPort =
+      optionalProperty<uint16_t>(std::string(kRemoteFunctionServerThriftPort));
+  if (remoteServerPort) {
+    return folly::SocketAddress{"::1", remoteServerPort.value()};
+  }
+  return std::nullopt;
+}
+
 int32_t SystemConfig::maxDriversPerTask() const {
   auto opt = optionalProperty<int32_t>(std::string(kMaxDriversPerTask));
   return opt.value_or(kMaxDriversPerTaskDefault);
