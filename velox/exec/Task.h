@@ -701,7 +701,9 @@ class Task : public std::enable_shared_from_this<Task> {
       SplitsStore& splitsStore,
       exec::Split&& split);
 
-  void finishedLocked();
+  // Invoked when all the driver threads are off thread. The function returns
+  // 'threadFinishPromises_' to fulfill.
+  std::vector<ContinuePromise> allThreadsFinishedLocked();
 
   StopReason shouldStopLocked();
 

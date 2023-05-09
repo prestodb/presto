@@ -19,7 +19,6 @@
 #include <string>
 
 #include "velox/codegen/Codegen.h"
-#include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Exchange.h"
@@ -1948,15 +1947,21 @@ StopReason Task::enterForTerminateLocked(ThreadState& state) {
 }
 
 StopReason Task::leave(ThreadState& state) {
+  std::vector<ContinuePromise> threadFinishPromises;
+  auto guard = folly::makeGuard([&]() {
+    for (auto& promise : threadFinishPromises) {
+      promise.setValue();
+    }
+  });
   std::lock_guard<std::mutex> l(mutex_);
   if (--numThreads_ == 0) {
-    finishedLocked();
+    threadFinishPromises = allThreadsFinishedLocked();
   }
   state.clearThread();
   if (state.isTerminated) {
     return StopReason::kTerminate;
   }
-  auto reason = shouldStopLocked();
+  const auto reason = shouldStopLocked();
   if (reason == StopReason::kTerminate) {
     state.isTerminated = true;
   }
@@ -1967,6 +1972,12 @@ StopReason Task::enterSuspended(ThreadState& state) {
   VELOX_CHECK(!state.hasBlockingFuture);
   VELOX_CHECK(state.isOnThread());
 
+  std::vector<ContinuePromise> threadFinishPromises;
+  auto guard = folly::makeGuard([&]() {
+    for (auto& promise : threadFinishPromises) {
+      promise.setValue();
+    }
+  });
   std::lock_guard<std::mutex> l(mutex_);
   if (state.isTerminated) {
     return StopReason::kAlreadyTerminated;
@@ -1981,7 +1992,7 @@ StopReason Task::enterSuspended(ThreadState& state) {
   VELOX_CHECK(reason == StopReason::kNone || reason == StopReason::kPause);
   state.isSuspended = true;
   if (--numThreads_ == 0) {
-    finishedLocked();
+    threadFinishPromises = allThreadsFinishedLocked();
   }
   return StopReason::kNone;
 }
@@ -2044,11 +2055,10 @@ int32_t Task::yieldIfDue(uint64_t startTimeMicros) {
   return 0;
 }
 
-void Task::finishedLocked() {
-  for (auto& promise : threadFinishPromises_) {
-    promise.setValue();
-  }
-  threadFinishPromises_.clear();
+std::vector<ContinuePromise> Task::allThreadsFinishedLocked() {
+  std::vector<ContinuePromise> threadFinishPromises;
+  threadFinishPromises.swap(threadFinishPromises_);
+  return threadFinishPromises;
 }
 
 StopReason Task::shouldStopLocked() {
