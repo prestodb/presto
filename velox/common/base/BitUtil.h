@@ -37,9 +37,9 @@ inline bool isBitSet(const T* bits, int32_t idx) {
 }
 
 /// Return the binary representation of bits in the range specified.
-std::string toString(const uint64_t* bits, int offset, int size);
+std::string toString(const void* bits, int offset, int size);
 
-void toString(const uint64_t* bits, int offset, int size, char* out);
+void toString(const void* bits, int offset, int size, char* out);
 
 // The reason we do this is that it's slightly faster for
 // setNthBit<Value> in benchmarks compared to doing the calculation

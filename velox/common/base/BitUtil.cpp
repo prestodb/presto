@@ -90,13 +90,13 @@ void copyBitsBackward(
   }
 }
 
-void toString(const uint64_t* bits, int offset, int size, char* out) {
+void toString(const void* bits, int offset, int size, char* out) {
   for (int i = 0; i < size; ++i) {
-    out[i] = '0' + isBitSet(bits, offset + i);
+    out[i] = '0' + isBitSet(reinterpret_cast<const uint8_t*>(bits), offset + i);
   }
 }
 
-std::string toString(const uint64_t* bits, int offset, int size) {
+std::string toString(const void* bits, int offset, int size) {
   std::string ans(size, '\0');
   toString(bits, offset, size, ans.data());
   return ans;

@@ -649,6 +649,8 @@ TEST_F(BitUtilTest, toString) {
   EXPECT_EQ(
       toString(&bits, 0, 64),
       "1111011110110011110101010000100100011110011010100010110001001000");
+  uint8_t byte = 0x42;
+  EXPECT_EQ(toString(&byte, 0, 8), "01000010");
 }
 
 TEST_F(BitUtilTest, scatterBits) {
