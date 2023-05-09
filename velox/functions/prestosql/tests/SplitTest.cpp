@@ -42,7 +42,7 @@ class SplitTest : public FunctionBaseTest {
       VectorEncoding::Simple encodingStrings = VectorEncoding::Simple::FLAT,
       VectorEncoding::Simple encodingDelims = VectorEncoding::Simple::CONSTANT,
       VectorEncoding::Simple encodingLimit = VectorEncoding::Simple::CONSTANT) {
-    std::shared_ptr<BaseVector> strings, delims, limits;
+    VectorPtr strings, delims, limits;
     const vector_size_t numRows = input.size();
 
     // Functors to create flat vectors, used as is and for lazy vector.

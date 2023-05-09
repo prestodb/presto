@@ -25,7 +25,7 @@ template <typename T>
 SequenceVector<T>::SequenceVector(
     velox::memory::MemoryPool* pool,
     size_t length,
-    std::shared_ptr<BaseVector> sequenceValues,
+    VectorPtr sequenceValues,
     BufferPtr sequenceLengths,
     const SimpleVectorStats<T>& stats,
     std::optional<int32_t> distinctCount,

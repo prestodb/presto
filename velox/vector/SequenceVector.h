@@ -42,7 +42,7 @@ class SequenceVector : public SimpleVector<T> {
   SequenceVector(
       velox::memory::MemoryPool* pool,
       size_t length,
-      std::shared_ptr<BaseVector> sequenceValues,
+      VectorPtr sequenceValues,
       BufferPtr sequenceLengths,
       const SimpleVectorStats<T>& stats = {},
       std::optional<int32_t> distinctCount = std::nullopt,
@@ -90,7 +90,7 @@ class SequenceVector : public SimpleVector<T> {
    * this vector as SequenceLength types. This is used during execution to
    * process over the subset of values when possible.
    */
-  inline std::shared_ptr<BaseVector> getSequenceValues() const {
+  inline VectorPtr getSequenceValues() const {
     return sequenceValues_;
   }
 
@@ -119,7 +119,7 @@ class SequenceVector : public SimpleVector<T> {
   /**
    * Returns a shared_ptr to the underlying values container.
    */
-  inline std::shared_ptr<BaseVector> getValuesVectorShared() const {
+  inline VectorPtr getValuesVectorShared() const {
     return sequenceValues_;
   }
 
@@ -183,7 +183,7 @@ class SequenceVector : public SimpleVector<T> {
 
   bool checkLoadRange(size_t idx, size_t count) const;
 
-  std::shared_ptr<BaseVector> sequenceValues_;
+  VectorPtr sequenceValues_;
   SimpleVector<T>* scalarSequenceValues_ = nullptr;
   BufferPtr sequenceLengths_;
   // Caches 'sequenceLengths_->as<vector_size_t>()'

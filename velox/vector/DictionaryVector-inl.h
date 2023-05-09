@@ -82,7 +82,7 @@ DictionaryVector<T>::DictionaryVector(
     velox::memory::MemoryPool* pool,
     BufferPtr nulls,
     size_t length,
-    std::shared_ptr<BaseVector> dictionaryValues,
+    VectorPtr dictionaryValues,
     BufferPtr dictionaryIndices,
     const SimpleVectorStats<T>& stats,
     std::optional<vector_size_t> distinctValueCount,

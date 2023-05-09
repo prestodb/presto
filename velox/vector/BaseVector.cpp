@@ -623,7 +623,7 @@ VectorPtr newNullConstant(
 }
 } // namespace
 
-std::shared_ptr<BaseVector> BaseVector::createNullConstant(
+VectorPtr BaseVector::createNullConstant(
     const TypePtr& type,
     vector_size_t size,
     velox::memory::MemoryPool* pool) {
@@ -732,9 +732,7 @@ void BaseVector::flattenVector(VectorPtr& vector) {
   }
 }
 
-void BaseVector::prepareForReuse(
-    std::shared_ptr<BaseVector>& vector,
-    vector_size_t size) {
+void BaseVector::prepareForReuse(VectorPtr& vector, vector_size_t size) {
   if (!vector.unique() || !isReusableEncoding(vector->encoding())) {
     vector = BaseVector::create(vector->type(), size, vector->pool());
     return;

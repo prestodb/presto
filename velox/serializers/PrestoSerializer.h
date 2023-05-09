@@ -32,7 +32,7 @@ class PrestoVectorSerde : public VectorSerde {
   };
 
   void estimateSerializedSize(
-      std::shared_ptr<BaseVector> vector,
+      VectorPtr vector,
       const folly::Range<const IndexRange*>& ranges,
       vector_size_t** sizes) override;
 

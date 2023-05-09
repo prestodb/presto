@@ -154,7 +154,7 @@ TEST_F(ArrayConstructorTest, reuseResultWithNulls) {
   auto a = makeFlatVector<int32_t>(size, [](vector_size_t row) { return row; });
   auto b =
       makeFlatVector<int32_t>(size, [](vector_size_t row) { return row + 1; });
-  std::shared_ptr<BaseVector> reusedResult = makeArrayVector<int32_t>(
+  VectorPtr reusedResult = makeArrayVector<int32_t>(
       size,
       [](vector_size_t /* row */) { return 1; },
       [](vector_size_t row) { return row; },
