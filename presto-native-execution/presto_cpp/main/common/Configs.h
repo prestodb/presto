@@ -113,11 +113,13 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
+
+  /// Number of threads for async io. Disabled if zero.
   static constexpr std::string_view kNumIoThreads{"num-io-threads"};
   static constexpr std::string_view kNumQueryThreads{"num-query-threads"};
   static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
-  static constexpr std::string_view kSpillerSpillPath =
-      "experimental.spiller-spill-path";
+  static constexpr std::string_view kSpillerSpillPath{
+      "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
@@ -145,7 +147,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kShuffleName{"shuffle.name"};
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
-  static constexpr std::string_view kHttpEnableStatFilter{
+  static constexpr std::string_view kHttpEnableStatsFilter{
       "http-server.enable-stats-filter"};
   static constexpr std::string_view kRegisterTestFunctions{
       "register-test-functions"};
@@ -154,6 +156,13 @@ class SystemConfig : public ConfigBase {
   /// the received http response data.
   static constexpr std::string_view kHttpMaxAllocateBytes{
       "http-server.max-response-allocate-bytes"};
+  static constexpr std::string_view kQueryMaxMemoryPerNode{
+      "query.max-memory-per-node"};
+
+  /// This system property is added for not crashing the cluster when memory
+  /// leak is detected. The check should be disabled in production cluster.
+  static constexpr std::string_view kEnableMemoryLeakCheck{
+      "enable-memory-leak-check"};
 
   /// Port used by the remote function thrift server.
   static constexpr std::string_view kRemoteFunctionServerThriftPort{
@@ -189,6 +198,9 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kHttpEnableStatsFilterDefault = false;
   static constexpr bool kRegisterTestFunctionsDefault = false;
   static constexpr uint64_t kHttpMaxAllocateBytesDefault = 64 << 10;
+  /// 1/10 of kSystemMemoryGbDefault.
+  static constexpr uint64_t kQueryMaxMemoryPerNodeDefault = 4UL << 30;
+  static constexpr bool kEnableMemoryLeakCheckDefault = true;
 
   static SystemConfig* instance();
 
@@ -196,7 +208,7 @@ class SystemConfig : public ConfigBase {
 
   bool httpServerReusePort() const;
 
-  bool enableHttps() const;
+  bool httpServerHttpsEnabled() const;
 
   int httpServerHttpsPort() const;
 
@@ -279,6 +291,10 @@ class SystemConfig : public ConfigBase {
   bool registerTestFunctions() const;
 
   uint64_t httpMaxAllocateBytes() const;
+
+  uint64_t queryMaxMemoryPerNode() const;
+
+  bool enableMemoryLeakCheck() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
