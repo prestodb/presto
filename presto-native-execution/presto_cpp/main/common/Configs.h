@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <folly/SocketAddress.h>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -26,6 +27,11 @@ class ConfigBase {
   /// before calling any of the getters below.
   /// @param filePath Path to configuration file.
   void initialize(const std::string& filePath);
+
+  /// Uses a config object already materialized.
+  void initialize(std::unique_ptr<velox::Config>&& config) {
+    config_ = std::move(config);
+  }
 
   /// Adds or replaces value at the given key. Can be used by debugging or
   /// testing code.
@@ -84,6 +90,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPrestoVersion{"presto.version"};
   static constexpr std::string_view kHttpServerHttpPort{
       "http-server.http.port"};
+
   /// This option allows a port closed in TIME_WAIT state to be reused
   /// immediately upon worker startup. This property is mainly used by batch
   /// processing. For interactive query, the worker uses a dynamic port upon
@@ -117,6 +124,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kAsyncCacheSsdCheckpointGb{
       "async-cache-ssd-checkpoint-gb"};
   static constexpr std::string_view kAsyncCacheSsdPath{"async-cache-ssd-path"};
+
   /// In file systems, such as btrfs, supporting cow (copy on write), the ssd
   /// cache can use all ssd space and stop working. To prevent that, use this
   /// option to disable cow for cache files.
@@ -141,10 +149,15 @@ class SystemConfig : public ConfigBase {
       "http-server.enable-stats-filter"};
   static constexpr std::string_view kRegisterTestFunctions{
       "register-test-functions"};
+
   /// The options to configure the max quantized memory allocation size to store
   /// the received http response data.
   static constexpr std::string_view kHttpMaxAllocateBytes{
       "http-server.max-response-allocate-bytes"};
+
+  /// Port used by the remote function thrift server.
+  static constexpr std::string_view kRemoteFunctionServerThriftPort{
+      "remote-function-server.thrift.port"};
 
   /// Most server nodes today (May 2022) have at least 16 cores.
   /// Setting the default maximum drivers per task to this value will
@@ -213,6 +226,8 @@ class SystemConfig : public ConfigBase {
   std::string prestoVersion() const;
 
   std::optional<std::string> discoveryUri() const;
+
+  std::optional<folly::SocketAddress> remoteFunctionServerLocation() const;
 
   int32_t maxDriversPerTask() const;
 
