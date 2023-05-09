@@ -40,7 +40,7 @@
 
 namespace facebook::velox {
 
-// A read-only file.
+// A read-only file.  All methods in this object should be thread safe.
 class ReadFile {
  public:
   struct Segment {
@@ -63,15 +63,21 @@ class ReadFile {
 
   // Reads the data at [offset, offset + length) into the provided pre-allocated
   // buffer 'buf'. The bytes are returned as a string_view pointing to 'buf'.
+  //
+  // This method should be thread safe.
   virtual std::string_view
   pread(uint64_t offset, uint64_t length, void* FOLLY_NONNULL buf) const = 0;
 
   // Same as above, but returns owned data directly.
+  //
+  // This method should be thread safe.
   virtual std::string pread(uint64_t offset, uint64_t length) const;
 
   // Reads starting at 'offset' into the memory referenced by the
   // Ranges in 'buffers'. The buffers are filled left to right. A
   // buffer with nullptr data will cause its size worth of bytes to be skipped.
+  //
+  // This method should be thread safe.
   virtual uint64_t preadv(
       uint64_t /*offset*/,
       const std::vector<folly::Range<char*>>& /*buffers*/) const;
@@ -80,11 +86,15 @@ class ReadFile {
   // It is different to the preadv above because we can add a label to the
   // segment and because the offsets don't need to be sorted.
   // In the preadv above offsets of buffers are always
+  //
+  // This method should be thread safe.
   virtual void preadv(const std::vector<Segment>& segments) const;
 
   // Like preadv but may execute asynchronously and returns the read
   // size or exception via SemiFuture. Use hasPreadvAsync() to check
   // if the implementation is in fact asynchronous.
+  //
+  // This method should be thread safe.
   virtual folly::SemiFuture<uint64_t> preadvAsync(
       uint64_t offset,
       const std::vector<folly::Range<char*>>& buffers) const {
