@@ -606,8 +606,6 @@ class HashJoinBuilder {
 
 class HashJoinTest : public HiveConnectorTestBase {
  protected:
-  friend class HashJoinBuilder;
-
   HashJoinTest() : HashJoinTest(TestParam(1)) {}
 
   explicit HashJoinTest(const TestParam& param)
@@ -732,6 +730,8 @@ class HashJoinTest : public HiveConnectorTestBase {
   // The default left and right table types used for test.
   RowTypePtr probeType_;
   RowTypePtr buildType_;
+
+  friend class HashJoinBuilder;
 };
 
 class MultiThreadedHashJoinTest

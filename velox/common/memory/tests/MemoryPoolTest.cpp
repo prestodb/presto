@@ -17,7 +17,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "velox/buffer/Buffer.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/SsdCache.h"
@@ -573,8 +572,8 @@ TEST_P(MemoryPoolTest, MemoryManagerGlobalCap) {
   EXPECT_THROW(
       child->reallocate(oneChunk, 32L * MB, 64L * MB),
       velox::VeloxRuntimeError);
+  ASSERT_EQ(root->currentBytes(), 33554432L);
   child->free(oneChunk, 32L * MB);
-  ASSERT_EQ(root->currentBytes(), 0);
 }
 
 // Tests how child updates itself and its parent's memory usage
@@ -883,6 +882,77 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
       allocations.pop_back();
     }
   }
+}
+
+TEST_P(MemoryPoolTest, allocationFailStats) {
+  auto manager = getMemoryManager(16 * KB);
+  auto pool = manager->addLeafPool("nonContiguousAllocateFail");
+
+  EXPECT_THROW(pool->allocate(32 * KB), VeloxException);
+  EXPECT_EQ(1, pool->stats().numAllocs);
+  EXPECT_EQ(0, pool->stats().numFrees);
+
+  auto* buffer = pool->allocate(256);
+  EXPECT_EQ(2, pool->stats().numAllocs);
+  EXPECT_EQ(0, pool->stats().numFrees);
+
+  EXPECT_THROW(pool->reallocate(buffer, 256, 32 * KB), VeloxException);
+  EXPECT_EQ(3, pool->stats().numAllocs);
+  EXPECT_EQ(0, pool->stats().numFrees);
+
+  EXPECT_THROW(pool->allocateZeroFilled(32, 1 * KB), VeloxException);
+  EXPECT_EQ(4, pool->stats().numAllocs);
+  EXPECT_EQ(0, pool->stats().numFrees);
+
+  // Free to reset to 0 allocation
+  pool->free(buffer, 256);
+  EXPECT_EQ(1, pool->stats().numFrees);
+
+  Allocation allocation;
+  EXPECT_THROW(pool->allocateNonContiguous(32, allocation, 1), VeloxException);
+  EXPECT_EQ(5, pool->stats().numAllocs);
+  EXPECT_EQ(1, pool->stats().numFrees);
+
+  pool->allocateNonContiguous(2 /* 8KB */, allocation, 1);
+  EXPECT_EQ(6, pool->stats().numAllocs);
+  EXPECT_EQ(1, pool->stats().numFrees);
+
+  EXPECT_THROW(
+      pool->allocateNonContiguous(8 /* 32KB */, allocation, 1), VeloxException);
+  EXPECT_EQ(7, pool->stats().numAllocs);
+  EXPECT_EQ(2, pool->stats().numFrees);
+
+  pool->allocateNonContiguous(3 /* 12KB */, allocation, 1);
+  EXPECT_EQ(8, pool->stats().numAllocs);
+  EXPECT_EQ(2, pool->stats().numFrees);
+
+  // Free to reset to 0 allocation
+  pool->freeNonContiguous(allocation);
+  EXPECT_EQ(3, pool->stats().numFrees);
+
+  ContiguousAllocation contiguousAllocation;
+  EXPECT_THROW(
+      pool->allocateContiguous(8 /* 32KB */, contiguousAllocation),
+      VeloxException);
+  EXPECT_EQ(9, pool->stats().numAllocs);
+  EXPECT_EQ(3, pool->stats().numFrees);
+
+  pool->allocateContiguous(2 /* 8KB */, contiguousAllocation);
+  EXPECT_EQ(10, pool->stats().numAllocs);
+  EXPECT_EQ(3, pool->stats().numFrees);
+
+  pool->allocateContiguous(4 /* 16KB */, contiguousAllocation);
+  EXPECT_EQ(11, pool->stats().numAllocs);
+  EXPECT_EQ(4, pool->stats().numFrees);
+
+  EXPECT_THROW(
+      pool->allocateContiguous(8 /* 32KB */, contiguousAllocation),
+      VeloxException);
+  EXPECT_EQ(12, pool->stats().numAllocs);
+  EXPECT_EQ(5, pool->stats().numFrees);
+
+  pool->freeContiguous(contiguousAllocation);
+  EXPECT_EQ(6, pool->stats().numFrees);
 }
 
 TEST_P(MemoryPoolTest, nonContiguousAllocateWithOldAllocation) {

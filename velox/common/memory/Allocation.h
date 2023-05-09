@@ -20,6 +20,7 @@
 
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/CheckedArithmetic.h"
+#include "velox/common/base/GTestMacros.h"
 
 namespace facebook::velox::memory {
 
@@ -118,8 +119,6 @@ class Allocation {
     return numPages_ * AllocationTraits::kPageSize;
   }
 
-  void append(uint8_t* address, int32_t numPages);
-
   /// Invoked by memory pool to set the ownership on allocation success. All
   /// the external non-contiguous memory allocations go through memory pool.
   ///
@@ -133,12 +132,6 @@ class Allocation {
 
   MemoryPool* pool() const {
     return pool_;
-  }
-
-  void clear() {
-    runs_.clear();
-    numPages_ = 0;
-    pool_ = nullptr;
   }
 
   /// Returns the run number in 'runs_' and the position within the run
@@ -159,9 +152,27 @@ class Allocation {
     VELOX_CHECK(numPages_ != 0 || pool_ == nullptr);
   }
 
+  void append(uint8_t* address, int32_t numPages);
+
+  void clear() {
+    runs_.clear();
+    numPages_ = 0;
+    pool_ = nullptr;
+  }
+
   MemoryPool* pool_{nullptr};
   std::vector<PageRun> runs_;
   int32_t numPages_ = 0;
+
+  // NOTE: we only allow memory allocators to change an allocation's internal
+  // state.
+  friend class MemoryAllocator;
+  friend class MmapAllocator;
+  friend class MallocAllocator;
+
+  VELOX_FRIEND_TEST(MemoryAllocatorTest, allocationTest);
+  VELOX_FRIEND_TEST(MemoryAllocatorTest, allocation);
+  VELOX_FRIEND_TEST(AllocationTest, append);
 };
 
 /// Represents a run of contiguous pages that do not belong to any size class.

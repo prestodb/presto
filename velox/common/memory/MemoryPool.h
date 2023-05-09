@@ -233,6 +233,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Re-allocates from an existing buffer with 'newSize' and update memory
   /// usage counting accordingly. If 'newSize' is larger than the current buffer
   /// 'size', the function will allocate a new buffer and free the old buffer.
+  /// If the new allocation fails, this method will throw and not free 'p'.
   virtual void* reallocate(void* p, int64_t size, int64_t newSize) = 0;
 
   /// Frees an allocated buffer.
@@ -243,7 +244,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// <= the size of the largest size class. The new memory is returned in 'out'
   /// on success and any memory formerly referenced by 'out' is freed. The
   /// function throws if allocation fails and 'out' references no memory and any
-  /// partially allocated memory is freed.
+  /// partially allocated memory is freed. 'out' will always be freed regardless
+  /// of success or not.
   virtual void allocateNonContiguous(
       MachinePageCount numPages,
       Allocation& out,

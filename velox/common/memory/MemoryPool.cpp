@@ -55,6 +55,9 @@ namespace {
     ++num##stats##_;                                                  \
   } while (0)
 
+// Check if memory operation is allowed and increment the named stats.
+#define INC_MEM_OP_STATS(stats) ++num##stats##_;
+
 // Check if a memory pool management operation is allowed.
 #define CHECK_POOL_MANAGEMENT_OP(opName)                                             \
   do {                                                                               \
@@ -462,13 +465,12 @@ void* MemoryPoolImpl::allocateZeroFilled(int64_t numEntries, int64_t sizeEach) {
 
 void* MemoryPoolImpl::reallocate(void* p, int64_t size, int64_t newSize) {
   CHECK_AND_INC_MEM_OP_STATS(Allocs);
-
   const auto alignedSize = sizeAlign(size);
   const auto alignedNewSize = sizeAlign(newSize);
   reserve(alignedNewSize);
+
   void* newP = allocator_->allocateBytes(alignedNewSize, alignment_);
   if (FOLLY_UNLIKELY(newP == nullptr)) {
-    free(p, alignedSize);
     release(alignedNewSize);
     VELOX_MEM_ALLOC_ERROR(fmt::format(
         "{} failed with {} new bytes and {} old bytes from {}",
@@ -477,12 +479,11 @@ void* MemoryPoolImpl::reallocate(void* p, int64_t size, int64_t newSize) {
         size,
         toString()));
   }
-  VELOX_CHECK_NOT_NULL(newP);
-  if (p == nullptr) {
-    return newP;
+  if (p != nullptr) {
+    ::memcpy(newP, p, std::min(size, newSize));
+    free(p, alignedSize);
   }
-  ::memcpy(newP, p, std::min(size, newSize));
-  free(p, alignedSize);
+
   return newP;
 }
 
@@ -498,12 +499,13 @@ void MemoryPoolImpl::allocateNonContiguous(
     Allocation& out,
     MachinePageCount minSizeClass) {
   CHECK_AND_INC_MEM_OP_STATS(Allocs);
+  if (!out.empty()) {
+    INC_MEM_OP_STATS(Frees);
+  }
   VELOX_CHECK_GT(numPages, 0);
-
   TestValue::adjust(
       "facebook::velox::common::memory::MemoryPoolImpl::allocateNonContiguous",
       this);
-
   if (!allocator_->allocateNonContiguous(
           numPages,
           out,
@@ -543,6 +545,9 @@ void MemoryPoolImpl::allocateContiguous(
     MachinePageCount numPages,
     ContiguousAllocation& out) {
   CHECK_AND_INC_MEM_OP_STATS(Allocs);
+  if (!out.empty()) {
+    INC_MEM_OP_STATS(Frees);
+  }
   VELOX_CHECK_GT(numPages, 0);
 
   if (!allocator_->allocateContiguous(

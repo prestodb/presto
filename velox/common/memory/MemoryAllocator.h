@@ -384,5 +384,84 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   static MemoryAllocator* customInstance_;
 };
 
+/// The implementation of MemoryAllocator using malloc.
+class MallocAllocator : public MemoryAllocator {
+ public:
+  MallocAllocator();
+
+  ~MallocAllocator() {
+    VELOX_CHECK((numAllocated_ == 0) && (numMapped_ == 0), "{}", toString());
+  }
+
+  Kind kind() const override {
+    return kind_;
+  }
+
+  bool allocateNonContiguous(
+      MachinePageCount numPages,
+      Allocation& out,
+      ReservationCallback reservationCB = nullptr,
+      MachinePageCount minSizeClass = 0) override;
+
+  int64_t freeNonContiguous(Allocation& allocation) override;
+
+  bool allocateContiguous(
+      MachinePageCount numPages,
+      Allocation* collateral,
+      ContiguousAllocation& allocation,
+      ReservationCallback reservationCB = nullptr) override {
+    VELOX_CHECK_GT(numPages, 0);
+    bool result;
+    stats_.recordAllocate(AllocationTraits::pageBytes(numPages), 1, [&]() {
+      result = allocateContiguousImpl(
+          numPages, collateral, allocation, reservationCB);
+    });
+    return result;
+  }
+
+  void freeContiguous(ContiguousAllocation& allocation) override {
+    stats_.recordFree(
+        allocation.size(), [&]() { freeContiguousImpl(allocation); });
+  }
+
+  void* allocateBytes(uint64_t bytes, uint16_t alignment) override;
+
+  void* allocateZeroFilled(uint64_t bytes) override;
+
+  void freeBytes(void* p, uint64_t bytes) noexcept override;
+
+  MachinePageCount numAllocated() const override {
+    return numAllocated_;
+  }
+
+  MachinePageCount numMapped() const override {
+    return numMapped_;
+  }
+
+  Stats stats() const override {
+    return stats_;
+  }
+
+  bool checkConsistency() const override;
+
+  std::string toString() const override;
+
+ private:
+  bool allocateContiguousImpl(
+      MachinePageCount numPages,
+      Allocation* FOLLY_NULLABLE collateral,
+      ContiguousAllocation& allocation,
+      ReservationCallback reservationCB);
+
+  void freeContiguousImpl(ContiguousAllocation& allocation);
+
+  const Kind kind_;
+
+  std::mutex mallocsMutex_;
+  // Tracks malloc'd pointers to detect bad frees.
+  std::unordered_set<void*> mallocs_;
+  Stats stats_;
+};
+
 std::ostream& operator<<(std::ostream& out, const MemoryAllocator::Kind& kind);
 } // namespace facebook::velox::memory

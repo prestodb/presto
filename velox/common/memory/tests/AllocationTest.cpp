@@ -22,7 +22,7 @@
 using namespace ::testing;
 using namespace facebook::velox::memory;
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::memory {
 
 class AllocationTest : public testing::Test {};
 
@@ -49,4 +49,4 @@ TEST_F(AllocationTest, append) {
   VELOX_ASSERT_THROW(allocation.append(thirdBufAddr, kNumPages), "");
   allocation.clear();
 }
-} // namespace facebook::velox::exec::test
+} // namespace facebook::velox::memory
