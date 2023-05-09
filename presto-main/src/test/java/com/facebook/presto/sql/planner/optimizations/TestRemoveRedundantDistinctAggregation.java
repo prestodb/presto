@@ -208,7 +208,6 @@ public class TestRemoveRedundantDistinctAggregation
                                                                                         tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderkey", "orderkey"))))))))))));
     }
 
-    // Does not trigger
     @Test
     public void testJoinWithGroupByOnDifferentKey()
     {
@@ -218,10 +217,13 @@ public class TestRemoveRedundantDistinctAggregation
                         project(
                                 aggregation(
                                         ImmutableMap.of(),
-                                        anyTree(
+                                        project(
                                                 join(
                                                         INNER,
-                                                        ImmutableList.of(equiJoinClause("max_by", "orderkey_10")),
+                                                        ImmutableList.of(equiJoinClause("orderkey_10", "max_by")),
+                                                        project(
+                                                                ImmutableMap.of(),
+                                                                tableScan("lineitem", ImmutableMap.of("orderkey_10", "orderkey"))),
                                                         project(
                                                                 aggregation(
                                                                         ImmutableMap.of("max_by", functionCall("max_by", ImmutableList.of("max_by_24"))),
@@ -231,11 +233,7 @@ public class TestRemoveRedundantDistinctAggregation
                                                                                         ImmutableMap.of("max_by_24", functionCall("max_by", ImmutableList.of("orderkey", "totalprice"))),
                                                                                         PARTIAL,
                                                                                         project(
-                                                                                                tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderkey", "orderkey"))))))),
-                                                        anyTree(
-                                                                project(
-                                                                        ImmutableMap.of(),
-                                                                        tableScan("lineitem", ImmutableMap.of("orderkey_10", "orderkey"))))))))));
+                                                                                                tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderkey", "orderkey")))))))))))));
     }
 
     // Trigger when using default join selectivity
