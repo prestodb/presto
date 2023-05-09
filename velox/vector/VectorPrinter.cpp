@@ -187,7 +187,7 @@ class MapVectorPrinter : public VectorPrinter {
     for (auto i = 0; i < size; ++i) {
       if (fixedWidthKey) {
         out << indent << "Key " << i << ": "
-            << printFixedWidth(keys->decoded(), offset + 1) << std::endl;
+            << printFixedWidth(keys->decoded(), offset + i) << std::endl;
       } else {
         out << indent << "Key " << i << ": " << values->summarize(offset + i)
             << std::endl;

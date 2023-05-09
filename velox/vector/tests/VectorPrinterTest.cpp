@@ -44,4 +44,12 @@ TEST_F(VectorPrinterTest, basic) {
     ASSERT_NO_THROW(printVector(*data, rows));
   }
 }
+
+TEST_F(VectorPrinterTest, map) {
+  auto data = makeMapVector<int64_t, int64_t>({
+      {},
+      {{1, 10}},
+  });
+  ASSERT_NO_THROW(printVector(*data));
+}
 } // namespace facebook::velox::test
