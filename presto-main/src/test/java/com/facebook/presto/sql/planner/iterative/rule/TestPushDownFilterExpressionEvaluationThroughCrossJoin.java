@@ -100,7 +100,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                     p.variable("right_k1", VARCHAR);
                     p.variable("right_k2", VARCHAR);
                     return p.filter(
-                            p.rowExpression("left_k1 = right_k1 or CAST(left_k2 AS DOUBLE) = CAST(right_k2 AS DOUBLE)"),
+                            p.rowExpression("left_k1 = right_k1 or CAST(left_k2 AS BIGINT) = CAST(right_k2 AS BIGINT)"),
                             p.join(JoinNode.Type.INNER,
                                     p.values(p.variable("left_k1", VARCHAR), p.variable("left_k2", VARCHAR)),
                                     p.values(p.variable("right_k1", VARCHAR), p.variable("right_k2", VARCHAR))));
@@ -113,10 +113,10 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                                 JoinNode.Type.INNER,
                                                 ImmutableList.of(),
                                                 project(
-                                                        ImmutableMap.of("cast_1", expression("CAST(left_k2 AS double)")),
+                                                        ImmutableMap.of("cast_1", expression("CAST(left_k2 AS bigint)")),
                                                         values("left_k1", "left_k2")),
                                                 project(
-                                                        ImmutableMap.of("cast_0", expression("CAST(right_k2 AS double)")),
+                                                        ImmutableMap.of("cast_0", expression("CAST(right_k2 AS bigint)")),
                                                         values("right_k1", "right_k2"))))));
     }
 
