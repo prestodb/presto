@@ -145,6 +145,8 @@ class SystemConfig : public ConfigBase {
   /// the received http response data.
   static constexpr std::string_view kHttpMaxAllocateBytes{
       "http-server.max-response-allocate-bytes"};
+  /// File handles will be preloaded during table scan if it is true.
+  static constexpr std::string_view kEnableSplitPreload{"enable-split-preload"};
 
   /// Most server nodes today (May 2022) have at least 16 cores.
   /// Setting the default maximum drivers per task to this value will
@@ -176,6 +178,7 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kHttpEnableStatsFilterDefault = false;
   static constexpr bool kRegisterTestFunctionsDefault = false;
   static constexpr uint64_t kHttpMaxAllocateBytesDefault = 64 << 10;
+  static constexpr bool kEnableSplitPreloadDefault = false;
 
   static SystemConfig* instance();
 
@@ -264,6 +267,8 @@ class SystemConfig : public ConfigBase {
   bool registerTestFunctions() const;
 
   uint64_t httpMaxAllocateBytes() const;
+
+  bool enableSplitPreload() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

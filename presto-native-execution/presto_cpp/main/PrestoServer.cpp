@@ -591,7 +591,9 @@ std::vector<std::string> PrestoServer::registerConnectors(
               ->newConnector(
                   catalogName,
                   std::move(properties),
-                  connectorIoExecutor_.get());
+                  SystemConfig::instance()->enableSplitPreload()
+                      ? connectorIoExecutor_.get()
+                      : nullptr);
       velox::connector::registerConnector(connector);
     }
   }

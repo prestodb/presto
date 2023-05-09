@@ -241,6 +241,11 @@ uint64_t SystemConfig::httpMaxAllocateBytes() const {
   return opt.value_or(kHttpMaxAllocateBytesDefault);
 }
 
+bool SystemConfig::enableSplitPreload() const {
+  auto opt = optionalProperty<bool>(std::string(kEnableSplitPreload));
+  return opt.value_or(kEnableSplitPreloadDefault);
+}
+
 NodeConfig* NodeConfig::instance() {
   static std::unique_ptr<NodeConfig> instance = std::make_unique<NodeConfig>();
   return instance.get();
