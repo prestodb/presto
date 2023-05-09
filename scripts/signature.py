@@ -34,10 +34,10 @@ class bcolors:
 def export(args):
     """Exports Velox function signatures."""
     if args.spark:
-        pv.register_spark_signatures()
+        pv.register_spark_signatures("spark_")
 
     if args.presto:
-        pv.register_presto_signatures()
+        pv.register_presto_signatures("presto_")
 
     signatures = pv.get_function_signatures()
 
