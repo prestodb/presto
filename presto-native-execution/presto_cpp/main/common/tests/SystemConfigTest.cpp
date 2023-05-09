@@ -38,6 +38,8 @@ class SystemConfigTest : public testing::Test {
     auto sysConfigFile = fileSystem->openFileForWrite(configFilePath);
     sysConfigFile->append(
         fmt::format("{}={}\n", SystemConfig::kPrestoVersion, prestoVersion));
+    sysConfigFile->append(
+        fmt::format("{}=11KB\n", SystemConfig::kQueryMaxMemoryPerNode));
     if (isMutable) {
       sysConfigFile->append(
           fmt::format("{}={}\n", SystemConfig::kMutableConfig, "true"));
@@ -66,6 +68,7 @@ TEST_F(SystemConfigTest, defaultConfig) {
           ->optionalProperty<bool>(std::string{SystemConfig::kMutableConfig})
           .has_value());
   ASSERT_EQ(prestoVersion, systemConfig->prestoVersion());
+  ASSERT_EQ(11 << 10, systemConfig->queryMaxMemoryPerNode());
   ASSERT_THROW(
       systemConfig->setValue(
           std::string(SystemConfig::kPrestoVersion), prestoVersion2),
@@ -88,6 +91,12 @@ TEST_F(SystemConfigTest, mutableConfig) {
           ->setValue(std::string(SystemConfig::kPrestoVersion), prestoVersion2)
           .value());
   ASSERT_EQ(prestoVersion2, systemConfig->prestoVersion());
+  ASSERT_EQ(
+      "11KB",
+      systemConfig
+          ->setValue(std::string(SystemConfig::kQueryMaxMemoryPerNode), "5GB")
+          .value());
+  ASSERT_EQ(5UL << 30, systemConfig->queryMaxMemoryPerNode());
 }
 
 TEST_F(SystemConfigTest, requiredConfigs) {
