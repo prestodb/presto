@@ -45,6 +45,12 @@ class SystemConfigTest : public testing::Test {
     sysConfigFile->close();
   }
 
+  void init(
+      SystemConfig& config,
+      std::unordered_map<std::string, std::string> properties) {
+    config.initialize(std::make_unique<core::MemConfig>(std::move(properties)));
+  }
+
   std::string configFilePath;
   const std::string prestoVersion{"SystemConfigTest1"};
   const std::string prestoVersion2{"SystemConfigTest2"};
@@ -82,6 +88,54 @@ TEST_F(SystemConfigTest, mutableConfig) {
           ->setValue(std::string(SystemConfig::kPrestoVersion), prestoVersion2)
           .value());
   ASSERT_EQ(prestoVersion2, systemConfig->prestoVersion());
+}
+
+TEST_F(SystemConfigTest, requiredConfigs) {
+  SystemConfig config;
+  init(config, {});
+
+  ASSERT_THROW(config.httpServerHttpPort(), VeloxUserError);
+  ASSERT_THROW(config.prestoVersion(), VeloxUserError);
+
+  init(
+      config,
+      {{std::string(SystemConfig::kPrestoVersion), "1234"},
+       {std::string(SystemConfig::kHttpServerHttpPort), "8080"}});
+
+  ASSERT_EQ(config.prestoVersion(), "1234");
+  ASSERT_EQ(config.httpServerHttpPort(), 8080);
+}
+
+TEST_F(SystemConfigTest, optionalConfigs) {
+  SystemConfig config;
+  init(config, {});
+  ASSERT_EQ(std::nullopt, config.discoveryUri());
+
+  init(config, {{std::string(SystemConfig::kDiscoveryUri), "my uri"}});
+  ASSERT_EQ(config.discoveryUri(), "my uri");
+}
+
+TEST_F(SystemConfigTest, optionalWithDefault) {
+  SystemConfig config;
+  init(config, {});
+  ASSERT_EQ(
+      SystemConfig::kMaxDriversPerTaskDefault, config.maxDriversPerTask());
+
+  init(config, {{std::string(SystemConfig::kMaxDriversPerTask), "1024"}});
+  ASSERT_EQ(config.maxDriversPerTask(), 1024);
+}
+
+TEST_F(SystemConfigTest, remoteFunctionServer) {
+  SystemConfig config;
+  init(config, {});
+  ASSERT_EQ(std::nullopt, config.remoteFunctionServerLocation());
+
+  init(
+      config,
+      {{std::string(SystemConfig::kRemoteFunctionServerThriftPort), "8081"}});
+  ASSERT_EQ(
+      config.remoteFunctionServerLocation(),
+      (folly::SocketAddress{"::1", 8081}));
 }
 
 } // namespace facebook::presto::test
