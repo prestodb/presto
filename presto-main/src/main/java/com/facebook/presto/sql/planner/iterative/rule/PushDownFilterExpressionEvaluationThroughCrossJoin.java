@@ -36,11 +36,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.getPushdownFilterExpressionEvaluationThroughCrossJoinStrategy;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractDisjuncts;
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy.DISABLED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractAll;
+import static com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithOrFilterToInnerJoin.getCandidateOrExpression;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
@@ -91,7 +95,7 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
     @Override
     public boolean isEnabled(Session session)
     {
-        return true;
+        return !getPushdownFilterExpressionEvaluationThroughCrossJoinStrategy(session).equals(DISABLED);
     }
 
     @Override
@@ -116,6 +120,12 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
         PlanNode rightInput = joinNode.getRight();
         if (!rightAssignment.isEmpty()) {
             rightInput = PlannerUtils.addProjections(joinNode.getRight(), context.getIdAllocator(), rightAssignment);
+        }
+
+        // Only enable if the cross join can be rewritten to inner join after the rewrite
+        if (getPushdownFilterExpressionEvaluationThroughCrossJoinStrategy(context.getSession()).equals(REWRITTEN_TO_INNER_JOIN)
+                && getCandidateOrExpression(rewrittenFilter, leftInput.getOutputVariables(), rightInput.getOutputVariables()) == null) {
+            return Result.empty();
         }
 
         Assignments.Builder identity = Assignments.builder();
