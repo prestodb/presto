@@ -145,6 +145,10 @@ class SystemConfig : public ConfigBase {
   /// the received http response data.
   static constexpr std::string_view kHttpMaxAllocateBytes{
       "http-server.max-response-allocate-bytes"};
+  /// This system property is added for not crashing the cluster when memory
+  /// leak is detected. The check should be disabled in production cluster.
+  static constexpr std::string_view kEnableMemoryLeakCheck{
+      "enable-memory-leak-check"};
 
   /// Most server nodes today (May 2022) have at least 16 cores.
   /// Setting the default maximum drivers per task to this value will
@@ -176,6 +180,7 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kHttpEnableStatsFilterDefault = false;
   static constexpr bool kRegisterTestFunctionsDefault = false;
   static constexpr uint64_t kHttpMaxAllocateBytesDefault = 64 << 10;
+  static constexpr bool kEnableMemoryLeakCheckDefault = true;
 
   static SystemConfig* instance();
 
@@ -264,6 +269,8 @@ class SystemConfig : public ConfigBase {
   bool registerTestFunctions() const;
 
   uint64_t httpMaxAllocateBytes() const;
+
+  bool enableMemoryLeakCheck() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

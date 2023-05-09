@@ -241,6 +241,11 @@ uint64_t SystemConfig::httpMaxAllocateBytes() const {
   return opt.value_or(kHttpMaxAllocateBytesDefault);
 }
 
+bool SystemConfig::enableMemoryLeakCheck() const {
+  auto opt = optionalProperty<bool>(std::string(kEnableMemoryLeakCheck));
+  return opt.value_or(kEnableMemoryLeakCheckDefault);
+}
+
 NodeConfig* NodeConfig::instance() {
   static std::unique_ptr<NodeConfig> instance = std::make_unique<NodeConfig>();
   return instance.get();

@@ -470,7 +470,10 @@ void PrestoServer::initializeVeloxMemory() {
   memory::MemoryAllocator::setDefaultInstance(cache_.get());
   // Set up velox memory manager.
   memory::MemoryManager::getInstance(
-      memory::MemoryManager::Options{.capacity = memoryBytes}, true);
+      memory::MemoryManager::Options{
+          .capacity = memoryBytes,
+          .checkUsageLeak = systemConfig->enableMemoryLeakCheck()},
+      true);
 }
 
 void PrestoServer::stop() {
