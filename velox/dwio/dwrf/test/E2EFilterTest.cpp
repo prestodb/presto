@@ -280,9 +280,9 @@ TEST_F(E2EFilterTest, timestamp) {
 
 TEST_F(E2EFilterTest, listAndMap) {
   int numCombinations = 10;
-#ifdef TSAN_BUILD
-  // The test is running slow under TSAN; reduce the number of combinations to
-  // avoid timeout.
+#if !defined(NDEBUG) || defined(TSAN_BUILD)
+  // The test is running slow under dev/debug and TSAN build; reduce the number
+  // of combinations to avoid timeout.
   numCombinations = 2;
 #endif
   testWithTypes(
