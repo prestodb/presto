@@ -521,12 +521,6 @@ class TaskManagerTest : public testing::Test {
         taskInfo->stats.peakTotalMemoryInBytes);
   }
 
-  void setMemoryLimits(uint64_t maxMemory) {
-    taskManager_->getQueryContextManager()->overrideProperties(
-        QueryContextManager::kQueryMaxMemoryPerNode,
-        fmt::format("{}B", maxMemory));
-  }
-
   // Setup the temporary spilling directory and initialize the system config
   // file (in the same temporary directory) to contain the spilling path
   // setting.
@@ -541,6 +535,19 @@ class TaskManagerTest : public testing::Test {
     sysConfigFile->close();
     SystemConfig::instance()->initialize(sysConfigFilePath);
     return spillDirectory;
+  }
+
+  static void setupMutableSystemConfig() {
+    auto dir = exec::test::TempDirectoryPath::create();
+    auto sysConfigFilePath = fmt::format("{}/config.properties", dir->path);
+    auto fileSystem = filesystems::getFileSystem(sysConfigFilePath, nullptr);
+    auto sysConfigFile = fileSystem->openFileForWrite(sysConfigFilePath);
+    sysConfigFile->append(
+        fmt::format("{}=true\n", SystemConfig::kMutableConfig));
+    sysConfigFile->append(
+        fmt::format("{}=4GB\n", SystemConfig::kQueryMaxMemoryPerNode));
+    sysConfigFile->close();
+    SystemConfig::instance()->initialize(sysConfigFilePath);
   }
 
   std::shared_ptr<exec::Task> createDummyExecTask(
@@ -759,9 +766,10 @@ TEST_F(TaskManagerTest, countAggregation) {
 }
 
 TEST_F(TaskManagerTest, outOfQueryUserMemory) {
+  setupMutableSystemConfig();
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
-  for (int i = 0; i < filePaths.size(); i++) {
+  for (auto i = 0; i < filePaths.size(); i++) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
@@ -769,12 +777,14 @@ TEST_F(TaskManagerTest, outOfQueryUserMemory) {
   testCountAggregation("cold", filePaths);
 
   auto [peakUser, peakTotal] = testCountAggregation("initial", filePaths);
-
-  setMemoryLimits(peakUser - 1);
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kQueryMaxMemoryPerNode),
+      fmt::format("{}B", peakUser - 1));
   testCountAggregation("max-memory", filePaths, {}, true);
 
   // Verify the query is successful with some limits.
-  setMemoryLimits(20 * kGB);
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kQueryMaxMemoryPerNode), "20GB");
   testCountAggregation("test-count-aggr", filePaths);
 
   // Wait a little to allow for futures to complete.
