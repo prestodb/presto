@@ -95,6 +95,11 @@ public final class Expressions
         return COMPARISON_FUNCTIONS.contains(callExpression.getFunctionHandle().getName());
     }
 
+    public static CallExpression not(FunctionAndTypeManager functionAndTypeManager, RowExpression rowExpression)
+    {
+        return call(functionAndTypeManager, "not", BOOLEAN, rowExpression);
+    }
+
     public static CallExpression call(String displayName, FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
     {
         return call(displayName, functionHandle, returnType, asList(arguments));
