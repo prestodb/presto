@@ -18,6 +18,7 @@ import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.ClusterSizeMonitor;
+import com.facebook.presto.execution.ExecutionFactoriesManager;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
@@ -38,7 +39,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 
 import javax.inject.Inject;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -60,7 +60,7 @@ public class LocalDispatchQueryFactory
 
     private final ClusterSizeMonitor clusterSizeMonitor;
 
-    private final Map<QueryType, QueryExecutionFactory<?>> executionFactories;
+    private final ExecutionFactoriesManager executionFactoriesManager;
     private final ListeningExecutorService executor;
 
     private final QueryPrerequisitesManager queryPrerequisitesManager;
@@ -74,7 +74,7 @@ public class LocalDispatchQueryFactory
      * @param metadata the metadata
      * @param queryMonitor the query monitor
      * @param locationFactory the location factory
-     * @param executionFactories the execution factories
+     * @param executionFactoriesManager the execution factories manager
      * @param clusterSizeMonitor the cluster size monitor
      * @param dispatchExecutor the dispatch executor
      * @param queryPrerequisitesManager the query prerequisites manager
@@ -87,7 +87,7 @@ public class LocalDispatchQueryFactory
             Metadata metadata,
             QueryMonitor queryMonitor,
             LocationFactory locationFactory,
-            Map<QueryType, QueryExecutionFactory<?>> executionFactories,
+            ExecutionFactoriesManager executionFactoriesManager,
             ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor,
             QueryPrerequisitesManager queryPrerequisitesManager)
@@ -98,7 +98,7 @@ public class LocalDispatchQueryFactory
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
-        this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
+        this.executionFactoriesManager = requireNonNull(executionFactoriesManager, "executionFactoriesManager is null");
 
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
@@ -159,7 +159,7 @@ public class LocalDispatchQueryFactory
         queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
 
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
-            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(queryType.get());
+            QueryExecutionFactory<?> queryExecutionFactory = executionFactoriesManager.getExecutionFactory(preparedQuery);
             if (queryExecutionFactory == null) {
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatementClass().getSimpleName());
             }

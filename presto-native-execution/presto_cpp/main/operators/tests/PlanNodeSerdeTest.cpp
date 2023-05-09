@@ -19,6 +19,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/HashPartitionFunction.h"
+#include "velox/exec/PartitionFunction.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -28,69 +29,6 @@
 using namespace facebook::presto::operators;
 
 namespace facebook::velox::exec::test {
-
-namespace {
-class HashPartitionFunctionSpec : public core::PartitionFunctionSpec {
- public:
-  HashPartitionFunctionSpec(
-      RowTypePtr inputType,
-      const std::vector<column_index_t>& keys,
-      const std::vector<VectorPtr>& constValues = {})
-      : inputType_{inputType}, keys_{keys}, constValues_{constValues} {}
-
-  std::unique_ptr<core::PartitionFunction> create(
-      int numPartitions) const override {
-    return std::make_unique<exec::HashPartitionFunction>(
-        numPartitions, inputType_, keys_, constValues_);
-  }
-
-  std::string toString() const override {
-    return fmt::format("HASH({})", folly::join(", ", keys_));
-  }
-
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = "HashPartitionFunctionSpec";
-    obj["inputType"] = inputType_->serialize();
-    obj["keys"] = ISerializable::serialize(keys_);
-    std::vector<velox::core::ConstantTypedExpr> constValues;
-    constValues.reserve(constValues_.size());
-    for (const auto& value : constValues_) {
-      constValues.emplace_back(value);
-    }
-    obj["constants"] = ISerializable::serialize(constValues);
-    return obj;
-  }
-
-  static core::PartitionFunctionSpecPtr deserialize(
-      const folly::dynamic& obj,
-      void* context) {
-    const auto keys =
-        ISerializable::deserialize<std::vector<column_index_t>>(obj["keys"]);
-    const auto constTypeExprs =
-        ISerializable::deserialize<std::vector<velox::core::ConstantTypedExpr>>(
-            obj["constants"]);
-    VELOX_CHECK_EQ(keys.size(), constTypeExprs.size());
-
-    auto* pool = static_cast<memory::MemoryPool*>(context);
-    std::vector<VectorPtr> constValues;
-    constValues.reserve(constTypeExprs.size());
-    for (const auto& value : constTypeExprs) {
-      constValues.emplace_back(value->toConstantVector(pool));
-    }
-    return std::make_shared<HashPartitionFunctionSpec>(
-        ISerializable::deserialize<RowType>(obj["inputType"]),
-        keys,
-        constValues);
-  }
-
- private:
-  const RowTypePtr inputType_;
-  const std::vector<column_index_t> keys_;
-  const std::vector<VectorPtr> constValues_;
-};
-} // namespace
-
 class PlanNodeSerdeTest : public testing::Test,
                           public velox::test::VectorTestBase {
  protected:
@@ -103,7 +41,7 @@ class PlanNodeSerdeTest : public testing::Test,
     Type::registerSerDe();
     core::PlanNode::registerSerDe();
     core::ITypedExpr::registerSerDe();
-    PlanBuilder::registerSerDe();
+    exec::registerPartitionFunctionSerDe();
 
     data_ = {makeRowVector({
         makeFlatVector<int64_t>({1, 2, 3}),

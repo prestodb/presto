@@ -262,6 +262,7 @@ public final class SystemSessionProperties
     public static final String USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS = "use_defaults_for_correlated_aggregation_pushdown_through_outer_joins";
     public static final String MERGE_DUPLICATE_AGGREGATIONS = "merge_duplicate_aggregations";
     public static final String MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER = "merge_aggregations_with_and_without_filter";
+    public static final String SIMPLIFY_PLAN_WITH_EMPTY_INPUT = "simplify_plan_with_empty_input";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1181,7 +1182,7 @@ public final class SystemSessionProperties
                         object -> object),
                 booleanProperty(
                         OPTIMIZE_JOINS_WITH_EMPTY_SOURCES,
-                        "Simplify joins with one or more empty sources",
+                        "(Deprecated) Simplify joins with one or more empty sources",
                         featuresConfig.isEmptyJoinOptimization(),
                         false),
                 booleanProperty(
@@ -1516,12 +1517,12 @@ public final class SystemSessionProperties
                         MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER,
                         "Merge aggregations that are same except for filter",
                         featuresConfig.isMergeAggregationsWithAndWithoutFilter(),
+                        false),
+                booleanProperty(
+                        SIMPLIFY_PLAN_WITH_EMPTY_INPUT,
+                        "Simplify the query plan with empty input",
+                        featuresConfig.isSimplifyPlanWithEmptyInput(),
                         false));
-    }
-
-    public static boolean isEmptyJoinOptimization(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, Boolean.class);
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -2546,5 +2547,10 @@ public final class SystemSessionProperties
     public static boolean isMergeDuplicateAggregationsEnabled(Session session)
     {
         return session.getSystemProperty(MERGE_DUPLICATE_AGGREGATIONS, Boolean.class);
+    }
+
+    public static boolean isSimplifyPlanWithEmptyInputEnabled(Session session)
+    {
+        return session.getSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, Boolean.class) || session.getSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, Boolean.class);
     }
 }

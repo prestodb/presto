@@ -164,6 +164,7 @@ public class PrestoSparkQueryExecutionFactory
     private final QuerySessionSupplier sessionSupplier;
     private final BuiltInQueryPreparer queryPreparer;
     private final PrestoSparkQueryPlanner queryPlanner;
+    private final PrestoSparkAccessControlChecker accessControlChecker;
     private final PrestoSparkPlanFragmenter planFragmenter;
     private final PrestoSparkRddFactory rddFactory;
     private final PrestoSparkMetadataStorage metadataStorage;
@@ -202,6 +203,7 @@ public class PrestoSparkQueryExecutionFactory
             QuerySessionSupplier sessionSupplier,
             BuiltInQueryPreparer queryPreparer,
             PrestoSparkQueryPlanner queryPlanner,
+            PrestoSparkAccessControlChecker accessControlChecker,
             PrestoSparkPlanFragmenter planFragmenter,
             PrestoSparkRddFactory rddFactory,
             PrestoSparkMetadataStorage metadataStorage,
@@ -237,6 +239,7 @@ public class PrestoSparkQueryExecutionFactory
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
         this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
         this.queryPlanner = requireNonNull(queryPlanner, "queryPlanner is null");
+        this.accessControlChecker = requireNonNull(accessControlChecker, "accessControlChecker is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.rddFactory = requireNonNull(rddFactory, "rddFactory is null");
         this.metadataStorage = requireNonNull(metadataStorage, "metadataStorage is null");
@@ -643,6 +646,9 @@ public class PrestoSparkQueryExecutionFactory
                 queryStateTimer.endAnalysis();
                 DDLDefinitionTask<?> task = (DDLDefinitionTask<?>) ddlTasks.get(preparedQuery.getStatement().getClass());
                 return new PrestoSparkDataDefinitionExecution(task, preparedQuery.getStatement(), transactionManager, accessControl, metadata, session, queryStateTimer, warningCollector);
+            }
+            else if (preparedQuery.isExplainTypeValidate()) {
+                return accessControlChecker.createExecution(session, preparedQuery, queryStateTimer, warningCollector);
             }
             else {
                 planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
