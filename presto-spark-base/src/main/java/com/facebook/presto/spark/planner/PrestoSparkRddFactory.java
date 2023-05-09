@@ -125,6 +125,7 @@ public class PrestoSparkRddFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
+            CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector,
             TableWriteInfo tableWriteInfo,
             Class<T> outputType)
     {
@@ -166,6 +167,7 @@ public class PrestoSparkRddFactory
                     executorFactoryProvider,
                     taskInfoCollector,
                     shuffleStatsCollector,
+                    genericShuffleStatsCollector,
                     tableWriteInfo,
                     rddInputs,
                     broadcastInputs,
@@ -183,6 +185,7 @@ public class PrestoSparkRddFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
+            CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector,
             TableWriteInfo tableWriteInfo,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
             Map<PlanFragmentId, Broadcast<?>> broadcastInputs,
@@ -220,6 +223,7 @@ public class PrestoSparkRddFactory
                 serializedTaskDescriptor,
                 taskInfoCollector,
                 shuffleStatsCollector,
+                genericShuffleStatsCollector,
                 toTaskProcessorBroadcastInputs(broadcastInputs),
                 outputType);
 

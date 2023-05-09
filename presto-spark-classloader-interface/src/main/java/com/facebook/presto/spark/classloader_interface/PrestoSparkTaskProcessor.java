@@ -21,6 +21,7 @@ import scala.collection.Iterator;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -34,6 +35,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
     private final SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor;
     private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
     private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
+    private final CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector;
     // fragmentId -> Broadcast
     private final Map<String, Broadcast<?>> broadcastInputs;
     private final Class<T> outputType;
@@ -43,6 +45,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
+            CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector,
             Map<String, Broadcast<?>> broadcastInputs,
             Class<T> outputType)
     {
@@ -50,6 +53,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
         this.serializedTaskDescriptor = requireNonNull(serializedTaskDescriptor, "serializedTaskDescriptor is null");
         this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
         this.shuffleStatsCollector = requireNonNull(shuffleStatsCollector, "shuffleStatsCollector is null");
+        this.genericShuffleStatsCollector = genericShuffleStatsCollector;
         this.broadcastInputs = new HashMap<>(requireNonNull(broadcastInputs, "broadcastInputs is null"));
         this.outputType = requireNonNull(outputType, "outputType is null");
     }
@@ -67,6 +71,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
                 new PrestoSparkJavaExecutionTaskInputs(shuffleInputs, broadcastInputs, emptyMap()),
                 taskInfoCollector,
                 shuffleStatsCollector,
+                genericShuffleStatsCollector,
                 outputType);
     }
 
@@ -87,6 +92,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
                 new PrestoSparkNativeTaskInputs(shuffleReadDescriptors, shuffleWriteDescriptor),
                 taskInfoCollector,
                 shuffleStatsCollector,
+                genericShuffleStatsCollector,
                 outputType);
     }
 }

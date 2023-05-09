@@ -18,8 +18,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.RuntimeMetric;
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
@@ -36,10 +34,6 @@ import com.facebook.presto.execution.scheduler.StreamingSubPlan;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.NativeExecutionInfo;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.PipelineStats;
-import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.ErrorClassifier;
 import com.facebook.presto.spark.PrestoSparkBroadcastDependency;
 import com.facebook.presto.spark.PrestoSparkMemoryBasedBroadcastDependency;
@@ -517,6 +511,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                 new PrestoSparkJavaExecutionTaskInputs(ImmutableMap.of(), ImmutableMap.of(), inputs.build()),
                 taskInfoCollector,
                 shuffleStatsCollector,
+                genericShuffleStatsCollector,
                 PrestoSparkSerializedPage.class);
         return collectScalaIterator(prestoSparkTaskExecutor);
     }
@@ -559,6 +554,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                 taskExecutorFactoryProvider,
                 taskInfoCollector,
                 shuffleStatsCollector,
+                genericShuffleStatsCollector,
                 tableWriteInfo,
                 outputType);
         return new RddAndMore<>(rdd, broadcastDependencies.build());
@@ -570,47 +566,6 @@ public abstract class AbstractPrestoSparkQueryExecution
         List<StorageCapabilities> storageCapabilities = tempStorage.getStorageCapabilities();
         if (!isLocalMode && !storageCapabilities.contains(REMOTELY_ACCESSIBLE)) {
             throw new PrestoException(UNSUPPORTED_STORAGE_TYPE, "Configured TempStorage does not support remote access required for distributing broadcast tables.");
-        }
-    }
-
-    private void collectMetrics(TaskInfo taskInfo)
-    {
-        int taskId = taskInfo.getTaskId().getId();
-        int stageId = taskInfo.getTaskId().getStageExecutionId().getStageId().getId();
-        List<Map<String, String>> newStatsList = new ArrayList<>();
-        for (PipelineStats pipelineStats : taskInfo.getStats().getPipelines()) {
-            for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {
-                if (operatorStats.getOperatorType().equals("NativeExecutionOperator")) {
-                    NativeExecutionInfo nativeExecutionInfo = (NativeExecutionInfo) operatorStats.getInfo();
-                    for (TaskStats taskStats : nativeExecutionInfo.getTaskStats()) {
-                        RuntimeStats runtimeStat = taskStats.getRuntimeStats();
-                        Map<String, String> newStatMap = new HashMap<>();
-                        for (Map.Entry<String, RuntimeMetric> entry : runtimeStat.getMetrics().entrySet()) {
-                            String key = entry.getKey();
-                            RuntimeMetric metric = entry.getValue();
-                            if (metric.getCount() == 0) {
-                                continue;
-                            }
-                            String metricSumKey = buildGenericMetricKey(taskId, stageId, key, "sum");
-                            newStatMap.put(metricSumKey, String.valueOf(metric.getSum()));
-                            String metricCountKey = buildGenericMetricKey(taskId, stageId, key, "count");
-                            newStatMap.put(metricCountKey, String.valueOf(metric.getCount()));
-                            String metricMinKey = buildGenericMetricKey(taskId, stageId, key, "min");
-                            newStatMap.put(metricMinKey, String.valueOf(metric.getMin()));
-                            String metricMaxKey = buildGenericMetricKey(taskId, stageId, key, "max");
-                            newStatMap.put(metricMaxKey, String.valueOf(metric.getMax()));
-                            String metricUnitKey = buildGenericMetricKey(taskId, stageId, key, "unit");
-                            newStatMap.put(metricUnitKey, String.valueOf(metric.getUnit()));
-                        }
-                        if (!newStatMap.isEmpty()) {
-                            newStatsList.add(newStatMap);
-                        }
-                    }
-                }
-            }
-        }
-        if (!newStatsList.isEmpty()) {
-            genericShuffleStatsCollector.add(newStatsList);
         }
     }
 
@@ -628,7 +583,6 @@ public abstract class AbstractPrestoSparkQueryExecution
             byte[] bytes = serializedTaskInfo.getBytesAndClear();
             totalSerializedTaskInfoSizeInBytes += bytes.length;
             TaskInfo taskInfo = deserializeZstdCompressed(taskInfoCodec, bytes);
-            collectMetrics(taskInfo);
             taskInfos.add(taskInfo);
         }
         taskInfoCollector.reset();
@@ -872,6 +826,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                 taskExecutorFactoryProvider,
                 taskInfoCollector,
                 shuffleStatsCollector,
+                genericShuffleStatsCollector,
                 tableWriteInfo,
                 outputType);
 

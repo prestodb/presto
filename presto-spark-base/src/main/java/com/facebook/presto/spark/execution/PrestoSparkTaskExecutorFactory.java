@@ -18,6 +18,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeMetric;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.io.DataOutput;
@@ -48,8 +50,11 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.NativeExecutionInfo;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.OutputFactory;
+import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskStats;
@@ -120,6 +125,7 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -360,6 +366,7 @@ public class PrestoSparkTaskExecutorFactory
             PrestoSparkTaskInputs inputs,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
+            CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector,
             Class<T> outputType)
     {
         try {
@@ -371,6 +378,7 @@ public class PrestoSparkTaskExecutorFactory
                     inputs,
                     taskInfoCollector,
                     shuffleStatsCollector,
+                    genericShuffleStatsCollector,
                     outputType);
         }
         catch (RuntimeException e) {
@@ -386,6 +394,7 @@ public class PrestoSparkTaskExecutorFactory
             PrestoSparkTaskInputs inputs,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
+            CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector,
             Class<T> outputType)
     {
         PrestoSparkTaskDescriptor taskDescriptor = taskDescriptorJsonCodec.fromJson(serializedTaskDescriptor.getBytes());
@@ -585,6 +594,7 @@ public class PrestoSparkTaskExecutorFactory
                         broadcastInputs.build(),
                         partitionId,
                         shuffleStatsCollector,
+                        genericShuffleStatsCollector,
                         tempStorage,
                         tempDataOperationContext,
                         prestoSparkBroadcastTableCacheManager,
@@ -634,6 +644,7 @@ public class PrestoSparkTaskExecutorFactory
                 taskInfoCodec,
                 taskInfoCollector,
                 shuffleStatsCollector,
+                genericShuffleStatsCollector,
                 executionExceptionFactory,
                 output.getOutputBufferType(),
                 outputBuffer,
@@ -850,6 +861,7 @@ public class PrestoSparkTaskExecutorFactory
         private final Codec<TaskInfo> taskInfoCodec;
         private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
         private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
+        private final CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
         private final OutputBufferType outputBufferType;
         private final PrestoSparkOutputBuffer<?> outputBuffer;
@@ -872,6 +884,7 @@ public class PrestoSparkTaskExecutorFactory
                 Codec<TaskInfo> taskInfoCodec,
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
                 CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
+                CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory,
                 OutputBufferType outputBufferType,
                 PrestoSparkOutputBuffer<?> outputBuffer,
@@ -884,6 +897,8 @@ public class PrestoSparkTaskExecutorFactory
             this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
             this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
             this.shuffleStatsCollector = requireNonNull(shuffleStatsCollector, "shuffleStatsCollector is null");
+            this.genericShuffleStatsCollector = requireNonNull(genericShuffleStatsCollector, "genericShuffleStatsCollector is null");
+
             this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
             this.outputBufferType = requireNonNull(outputBufferType, "outputBufferType is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
@@ -963,6 +978,8 @@ public class PrestoSparkTaskExecutorFactory
             SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfo));
             taskInfoCollector.add(serializedTaskInfo);
 
+            collectMetrics(taskInfo);
+
             LinkedBlockingQueue<Throwable> failures = taskStateMachine.getFailureCauses();
             if (failures.isEmpty()) {
                 return null;
@@ -989,6 +1006,52 @@ public class PrestoSparkTaskExecutorFactory
             propagateIfPossible(failure, RuntimeException.class);
             propagateIfPossible(failure, InterruptedException.class);
             throw new RuntimeException(failure);
+        }
+
+        private void collectMetrics(TaskInfo taskInfo)
+        {
+            int taskId = taskInfo.getTaskId().getId();
+            int stageId = taskInfo.getTaskId().getStageExecutionId().getStageId().getId();
+            List<Map<String, String>> newStatsList = new ArrayList<>();
+            for (PipelineStats pipelineStats : taskInfo.getStats().getPipelines()) {
+                for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {
+                    if (operatorStats.getOperatorType().equals("NativeExecutionOperator")) {
+                        NativeExecutionInfo nativeExecutionInfo = (NativeExecutionInfo) operatorStats.getInfo();
+                        for (TaskStats taskStats : nativeExecutionInfo.getTaskStats()) {
+                            RuntimeStats runtimeStat = taskStats.getRuntimeStats();
+                            Map<String, String> newStatMap = new HashMap<>();
+                            for (Map.Entry<String, RuntimeMetric> entry : runtimeStat.getMetrics().entrySet()) {
+                                String key = entry.getKey();
+                                RuntimeMetric metric = entry.getValue();
+                                if (metric.getCount() == 0) {
+                                    continue;
+                                }
+                                String metricSumKey = buildGenericMetricKey(taskId, stageId, key, "sum");
+                                newStatMap.put(metricSumKey, String.valueOf(metric.getSum()));
+                                String metricCountKey = buildGenericMetricKey(taskId, stageId, key, "count");
+                                newStatMap.put(metricCountKey, String.valueOf(metric.getCount()));
+                                String metricMinKey = buildGenericMetricKey(taskId, stageId, key, "min");
+                                newStatMap.put(metricMinKey, String.valueOf(metric.getMin()));
+                                String metricMaxKey = buildGenericMetricKey(taskId, stageId, key, "max");
+                                newStatMap.put(metricMaxKey, String.valueOf(metric.getMax()));
+                                String metricUnitKey = buildGenericMetricKey(taskId, stageId, key, "unit");
+                                newStatMap.put(metricUnitKey, String.valueOf(metric.getUnit()));
+                            }
+                            if (!newStatMap.isEmpty()) {
+                                newStatsList.add(newStatMap);
+                            }
+                        }
+                    }
+                }
+            }
+            if (!newStatsList.isEmpty()) {
+                genericShuffleStatsCollector.add(newStatsList);
+            }
+        }
+
+        private String buildGenericMetricKey(int taskId, int stageId, String key, String metricType)
+        {
+            return String.format("%1$s|%2$s|%3$s|%4$s", taskId, stageId, key, metricType);
         }
 
         private static TaskInfo createTaskInfo(

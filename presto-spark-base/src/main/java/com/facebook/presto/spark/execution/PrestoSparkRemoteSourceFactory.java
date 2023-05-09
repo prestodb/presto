@@ -61,6 +61,7 @@ public class PrestoSparkRemoteSourceFactory
             Map<PlanNodeId, List<?>> broadcastInputsMap,
             int taskId,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
+            CollectionAccumulator<List<Map<String, String>>> genericShuffleStatsCollector,
             TempStorage tempStorage,
             TempDataOperationContext tempDataOperationContext,
             PrestoSparkBroadcastTableCacheManager prestoSparkBroadcastTableCacheManager,
