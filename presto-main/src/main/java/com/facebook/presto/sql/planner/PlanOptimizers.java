@@ -73,6 +73,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PullConstantsAboveGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushDownDereferences;
+import com.facebook.presto.sql.planner.iterative.rule.PushDownFilterExpressionEvaluationThroughCrossJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughOffset;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
@@ -437,6 +438,11 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RewriteAggregationIfToFilter(metadata.getFunctionAndTypeManager()))),
                 predicatePushDown,
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new PushDownFilterExpressionEvaluationThroughCrossJoin(metadata.getFunctionAndTypeManager()))),
                 new KeyBasedSampler(metadata, sqlParser),
                 new IterativeOptimizer(
                         ruleStats,
