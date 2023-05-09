@@ -82,10 +82,8 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
         {entry.first, std::make_shared<core::MemConfig>(entry.second)});
   }
 
-  const int64_t maxQueryMemoryPerNode =
-      getMaxMemoryPerNode(kQueryMaxMemoryPerNode, kDefaultMaxMemoryPerNode);
   auto pool = memory::defaultMemoryManager().addRootPool(
-      queryId, maxQueryMemoryPerNode);
+      queryId, SystemConfig::instance()->queryMaxMemoryPerNode());
 
   auto queryCtx = std::make_shared<core::QueryCtx>(
       executor().get(),
