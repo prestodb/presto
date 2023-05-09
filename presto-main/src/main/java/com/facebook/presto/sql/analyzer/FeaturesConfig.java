@@ -255,6 +255,7 @@ public class FeaturesConfig
     private boolean mergeDuplicateAggregationsEnabled = true;
     private boolean mergeAggregationsWithAndWithoutFilter;
     private boolean simplifyPlanWithEmptyInput = true;
+    private boolean pushDownFilterExpressionEvaluationThroughCrossJoin = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2480,6 +2481,19 @@ public class FeaturesConfig
     public FeaturesConfig setSimplifyPlanWithEmptyInput(boolean simplifyPlanWithEmptyInput)
     {
         this.simplifyPlanWithEmptyInput = simplifyPlanWithEmptyInput;
+        return this;
+    }
+
+    public boolean isPushDownFilterExpressionEvaluationThroughCrossJoin()
+    {
+        return this.pushDownFilterExpressionEvaluationThroughCrossJoin;
+    }
+
+    @Config("optimizer.push-down-filter-expression-evaluation-through-cross-join")
+    @ConfigDescription("Push down expression evaluation in filter through cross join")
+    public FeaturesConfig setPushDownFilterExpressionEvaluationThroughCrossJoin(boolean pushDownFilterExpressionEvaluationThroughCrossJoin)
+    {
+        this.pushDownFilterExpressionEvaluationThroughCrossJoin = pushDownFilterExpressionEvaluationThroughCrossJoin;
         return this;
     }
 }
