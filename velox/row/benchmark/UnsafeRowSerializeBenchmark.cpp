@@ -16,7 +16,7 @@
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
 
-#include "velox/row/UnsafeRowSerializers.h"
+#include "velox/row/UnsafeRowFast.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::row {
@@ -37,10 +37,17 @@ class SerializeBenchmark {
 
     suspender.dismiss();
 
+    UnsafeRowFast fast(data);
+
     size_t totalSize = 0;
-    for (auto i = 0; i < data->size(); ++i) {
-      auto rowSize = UnsafeRowSerializer::getSizeRow(data.get(), i);
-      totalSize += rowSize;
+    if (auto fixedRowSize =
+            UnsafeRowFast::fixedRowSize(asRowType(data->type()))) {
+      totalSize += fixedRowSize.value() * data->size();
+    } else {
+      for (auto i = 0; i < data->size(); ++i) {
+        auto rowSize = fast.rowSize(i);
+        totalSize += rowSize;
+      }
     }
 
     auto buffer = AlignedBuffer::allocate<char>(totalSize, pool());
@@ -48,9 +55,7 @@ class SerializeBenchmark {
 
     size_t offset = 0;
     for (auto i = 0; i < data->size(); ++i) {
-      auto rowSize = velox::row::UnsafeRowSerializer::serialize(
-                         data, rawBuffer + offset, i)
-                         .value_or(0);
+      auto rowSize = fast.serialize(i, rawBuffer + offset);
       offset += rowSize;
     }
 
@@ -115,6 +120,11 @@ BENCHMARK(strings5) {
 BENCHMARK(arrays) {
   SerializeBenchmark benchmark;
   benchmark.run(ROW({BIGINT(), ARRAY(BIGINT())}));
+}
+
+BENCHMARK(nestedArrays) {
+  SerializeBenchmark benchmark;
+  benchmark.run(ROW({BIGINT(), ARRAY(ARRAY(BIGINT()))}));
 }
 
 BENCHMARK(maps) {

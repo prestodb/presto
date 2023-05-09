@@ -18,6 +18,7 @@ add_test(velox_row_test velox_row_test)
 
 target_link_libraries(
   velox_row_test
+  velox_row_fast
   velox_exec
   velox_exec_test_lib
   velox_functions_lib
