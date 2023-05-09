@@ -263,6 +263,7 @@ public final class SystemSessionProperties
     public static final String MERGE_DUPLICATE_AGGREGATIONS = "merge_duplicate_aggregations";
     public static final String MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER = "merge_aggregations_with_and_without_filter";
     public static final String SIMPLIFY_PLAN_WITH_EMPTY_INPUT = "simplify_plan_with_empty_input";
+    public static final String PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN = "push_down_filter_expression_evaluation_through_cross_join";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1522,6 +1523,11 @@ public final class SystemSessionProperties
                         SIMPLIFY_PLAN_WITH_EMPTY_INPUT,
                         "Simplify the query plan with empty input",
                         featuresConfig.isSimplifyPlanWithEmptyInput(),
+                        false),
+                booleanProperty(
+                        PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN,
+                        "Push down expression evaluation in filter through cross join",
+                        featuresConfig.isPushDownFilterExpressionEvaluationThroughCrossJoin(),
                         false));
     }
 
@@ -2552,5 +2558,10 @@ public final class SystemSessionProperties
     public static boolean isSimplifyPlanWithEmptyInputEnabled(Session session)
     {
         return session.getSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, Boolean.class) || session.getSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, Boolean.class);
+    }
+
+    public static boolean isPushdownFilterExpressionEvaluationThroughCrossJoin(Session session)
+    {
+        return session.getSystemProperty(PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN, Boolean.class);
     }
 }
