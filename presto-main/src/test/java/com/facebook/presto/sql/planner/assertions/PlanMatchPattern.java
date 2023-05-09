@@ -463,6 +463,11 @@ public final class PlanMatchPattern
         return node(UnnestNode.class, source);
     }
 
+    public static PlanMatchPattern unnest(Map<String, List<String>> unnestVariables, PlanMatchPattern source)
+    {
+        return node(UnnestNode.class, source).with(new UnnestMatcher(unnestVariables));
+    }
+
     public static PlanMatchPattern exchange(PlanMatchPattern... sources)
     {
         return node(ExchangeNode.class, sources);
