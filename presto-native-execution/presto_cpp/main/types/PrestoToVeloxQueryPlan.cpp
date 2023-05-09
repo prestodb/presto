@@ -2417,7 +2417,7 @@ velox::core::PlanNodePtr VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
 }
 
 void registerPrestoPlanNodeSerDe() {
-  auto& registry = DeserializationWithContextRegistryForSharedPtr();
+  auto& registry = deserializationWithContextRegistryForSharedPtr();
 
   registry.Register(
       "PartitionAndSerializeNode",
