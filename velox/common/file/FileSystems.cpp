@@ -31,8 +31,7 @@ constexpr std::string_view kFileScheme("file:");
 
 using RegisteredFileSystems = std::vector<std::pair<
     std::function<bool(std::string_view)>,
-    std::function<std::shared_ptr<
-        FileSystem>(std::shared_ptr<const Config>, std::string_view)>>>;
+    std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>)>>>;
 
 RegisteredFileSystems& registeredFileSystems() {
   // Meyers singleton.
@@ -44,22 +43,21 @@ RegisteredFileSystems& registeredFileSystems() {
 
 void registerFileSystem(
     std::function<bool(std::string_view)> schemeMatcher,
-    std::function<std::shared_ptr<FileSystem>(
-        std::shared_ptr<const Config>,
-        std::string_view)> fileSystemGenerator) {
+    std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>)>
+        fileSystemGenerator) {
   registeredFileSystems().emplace_back(schemeMatcher, fileSystemGenerator);
 }
 
 std::shared_ptr<FileSystem> getFileSystem(
-    std::string_view filePath,
+    std::string_view filename,
     std::shared_ptr<const Config> properties) {
   const auto& filesystems = registeredFileSystems();
   for (const auto& p : filesystems) {
-    if (p.first(filePath)) {
-      return p.second(properties, filePath);
+    if (p.first(filename)) {
+      return p.second(properties);
     }
   }
-  VELOX_FAIL("No registered file system matched with file path '{}'", filePath);
+  VELOX_FAIL("No registered file system matched with filename '{}'", filename);
 }
 
 namespace {
@@ -173,16 +171,15 @@ class LocalFileSystem : public FileSystem {
   static std::function<bool(std::string_view)> schemeMatcher() {
     // Note: presto behavior is to prefix local paths with 'file:'.
     // Check for that prefix and prune to absolute regular paths as needed.
-    return [](std::string_view filePath) {
-      return filePath.find("/") == 0 || filePath.find(kFileScheme) == 0;
+    return [](std::string_view filename) {
+      return filename.find("/") == 0 || filename.find(kFileScheme) == 0;
     };
   }
 
-  static std::function<std::shared_ptr<
-      FileSystem>(std::shared_ptr<const Config>, std::string_view)>
+  static std::function<
+      std::shared_ptr<FileSystem>(std::shared_ptr<const Config>)>
   fileSystemGenerator() {
-    return [](std::shared_ptr<const Config> properties,
-              std::string_view filePath) {
+    return [](std::shared_ptr<const Config> properties) {
       // One instance of Local FileSystem is sufficient.
       // Initialize on first access and reuse after that.
       static std::shared_ptr<FileSystem> lfs;
