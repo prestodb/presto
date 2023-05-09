@@ -54,6 +54,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFa
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
 import com.facebook.presto.spark.execution.NativeExecutionModule;
+import com.facebook.presto.spark.execution.PrestoSparkAccessControlCheckerExecution;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -532,6 +533,17 @@ public class PrestoSparkQueryRunner
                         ImmutableList.of());
             }
         }
+        else if (execution instanceof PrestoSparkAccessControlCheckerExecution) {
+            PrestoSparkAccessControlCheckerExecution accessControlCheckerExecution = (PrestoSparkAccessControlCheckerExecution) execution;
+            return new MaterializedResult(
+                    rows,
+                    accessControlCheckerExecution.getOutputTypes(),
+                    ImmutableMap.of(),
+                    ImmutableSet.of(),
+                    Optional.empty(),
+                    OptionalLong.empty(),
+                    ImmutableList.of());
+        }
         else {
             return new MaterializedResult(
                     rows,
@@ -747,7 +759,7 @@ public class PrestoSparkQueryRunner
         public void release(SparkContext sparkContext, boolean forceRelease)
         {
             synchronized (SparkContextHolder.class) {
-                checkState(forceRelease || SparkContextHolder.sparkContext == sparkContext, "unexpected spark context");
+                checkState(forceRelease || sparkContext.isStopped() || SparkContextHolder.sparkContext == sparkContext, "unexpected spark context");
                 referenceCount--;
                 if (referenceCount == 0) {
                     sparkContext.cancelAllJobs();

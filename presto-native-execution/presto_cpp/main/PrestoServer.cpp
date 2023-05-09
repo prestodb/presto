@@ -20,7 +20,7 @@
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
-#include "presto_cpp/main/ServerOperation.h"
+#include "presto_cpp/main/PrestoServerOperations.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
@@ -104,42 +104,6 @@ void enableChecksum() {
         return std::make_unique<
             serializer::presto::PrestoOutputStreamListener>();
       });
-}
-
-std::string clearConnectorCache(proxygen::HTTPMessage* message) {
-  const auto name = message->getQueryParam("name");
-  const auto id = message->getQueryParam("id");
-  if (name == "hive") {
-    // ======== HiveConnector Operations ========
-    auto hiveConnector =
-        std::dynamic_pointer_cast<velox::connector::hive::HiveConnector>(
-            velox::connector::getConnector(id));
-    VELOX_USER_CHECK_NOT_NULL(
-        hiveConnector,
-        "No '{}' connector found for connector id '{}'",
-        name,
-        id);
-    return hiveConnector->clearFileHandleCache().toString();
-  }
-  VELOX_USER_FAIL("connector '{}' operation is not supported", name);
-}
-
-std::string getConnectorCacheStats(proxygen::HTTPMessage* message) {
-  const auto name = message->getQueryParam("name");
-  const auto id = message->getQueryParam("id");
-  if (name == "hive") {
-    // ======== HiveConnector Operations ========
-    auto hiveConnector =
-        std::dynamic_pointer_cast<velox::connector::hive::HiveConnector>(
-            velox::connector::getConnector(id));
-    VELOX_USER_CHECK_NOT_NULL(
-        hiveConnector,
-        "No '{}' connector found for connector id '{}'",
-        name,
-        id);
-    return hiveConnector->fileHandleCacheStats().toString();
-  }
-  VELOX_USER_FAIL("connector '{}' operation is not supported", name);
 }
 
 } // namespace
@@ -325,24 +289,14 @@ void PrestoServer::run() {
   // The endpoint used by operation in production.
   httpServer_->registerGet(
       "/v1/operation/.*",
-      [server = this](
-          proxygen::HTTPMessage* message,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-          proxygen::ResponseHandler* downstream) {
-        server->runOperation(message, downstream);
+      [](proxygen::HTTPMessage* message,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+         proxygen::ResponseHandler* downstream) {
+        PrestoServerOperations::runOperation(message, downstream);
       });
 
-  static const std::string kPrestoDefaultPrefix{"presto.default."};
-  velox::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
-  velox::aggregate::prestosql::registerAllAggregateFunctions(
-      kPrestoDefaultPrefix);
-  velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
-  if (SystemConfig::instance()->registerTestFunctions()) {
-    velox::functions::prestosql::registerComparisonFunctions(
-        "json.test_schema.");
-    velox::aggregate::prestosql::registerAllAggregateFunctions(
-        "json.test_schema.");
-  }
+  registerFunctions();
+  registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
 
@@ -659,6 +613,22 @@ void PrestoServer::registerCustomOperators() {
       std::make_unique<operators::ShuffleReadTranslator>());
 }
 
+void PrestoServer::registerFunctions() {
+  static const std::string kPrestoDefaultPrefix{"presto.default."};
+  velox::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+  velox::aggregate::prestosql::registerAllAggregateFunctions(
+      kPrestoDefaultPrefix);
+  velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
+  if (SystemConfig::instance()->registerTestFunctions()) {
+    velox::functions::prestosql::registerComparisonFunctions(
+        "json.test_schema.");
+    velox::aggregate::prestosql::registerAllAggregateFunctions(
+        "json.test_schema.");
+  }
+}
+
+void PrestoServer::registerRemoteFunctions() {}
+
 void PrestoServer::registerVectorSerdes() {
   if (!velox::isRegisteredVectorSerde()) {
     velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
@@ -689,7 +659,7 @@ void PrestoServer::populateMemAndCPUInfo() {
   // TODO(sperhsin): If 'current bytes' is the same as we get by summing up all
   // child contexts below, then use the one we sum up, rather than call
   // 'getCurrentBytes'.
-  poolInfo.reservedBytes = pool->getCurrentBytes();
+  poolInfo.reservedBytes = pool->currentBytes();
   poolInfo.reservedRevocableBytes = 0;
 
   // Fill basic per-query fields.
@@ -697,7 +667,7 @@ void PrestoServer::populateMemAndCPUInfo() {
   size_t numContexts{0};
   queryCtxMgr->visitAllContexts([&](const protocol::QueryId& queryId,
                                     const velox::core::QueryCtx* queryCtx) {
-    const protocol::Long bytes = queryCtx->pool()->getCurrentBytes();
+    const protocol::Long bytes = queryCtx->pool()->currentBytes();
     poolInfo.queryMemoryReservations.insert({queryId, bytes});
     // TODO(spershin): Might want to see what Java exports and export similar
     // info (like child memory pools).
@@ -708,39 +678,6 @@ void PrestoServer::populateMemAndCPUInfo() {
   REPORT_ADD_STAT_VALUE(kCounterNumQueryContexts, numContexts);
   cpuMon_.update();
   **memoryInfo_.wlock() = std::move(memoryInfo);
-}
-
-void PrestoServer::runOperation(
-    proxygen::HTTPMessage* message,
-    proxygen::ResponseHandler* downstream) {
-  try {
-    ServerOperation op = buildServerOpFromHttpRequest(message);
-    switch (op.target) {
-      case ServerOperation::Target::kConnector:
-        http::sendOkResponse(downstream, connectorOperation(op, message));
-        break;
-    }
-  } catch (const VeloxUserError& ex) {
-    http::sendErrorResponse(downstream, ex.what());
-  } catch (const VeloxException& ex) {
-    http::sendErrorResponse(downstream, ex.what());
-  }
-}
-
-std::string PrestoServer::connectorOperation(
-    const ServerOperation& op,
-    proxygen::HTTPMessage* message) {
-  switch (op.action) {
-    case ServerOperation::Action::kClearCache:
-      return clearConnectorCache(message);
-    case ServerOperation::Action::kGetCacheStats:
-      return getConnectorCacheStats(message);
-    default:
-      VELOX_USER_FAIL(
-          "Target '{}' does not support action '{}'",
-          ServerOperation::targetString(op.target),
-          ServerOperation::actionString(op.action));
-  }
 }
 
 static protocol::Duration getUptime(
@@ -796,7 +733,7 @@ void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
       (int)std::thread::hardware_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
-      taskResource_->getPool()->getCurrentBytes(),
+      taskResource_->getPool()->currentBytes(),
       nodeMemoryGb * 1024 * 1024 * 1024,
       nonHeapUsed};
 

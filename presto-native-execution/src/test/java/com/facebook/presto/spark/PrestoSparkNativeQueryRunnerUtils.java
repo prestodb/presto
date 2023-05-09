@@ -25,6 +25,7 @@ import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import com.google.inject.Module;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.shuffle.ShuffleHandle;
@@ -79,7 +80,7 @@ public class PrestoSparkNativeQueryRunnerUtils
 
     private PrestoSparkNativeQueryRunnerUtils() {}
 
-    public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner()
+    public static Map<String, String> getNativeExecutionSessionConfigs()
     {
         ImmutableMap.Builder<String, String> builder = new ImmutableMap.Builder<String, String>()
                 // Do not use default Prestissimo config files. Presto-Spark will generate the configs on-the-fly.
@@ -97,9 +98,14 @@ public class PrestoSparkNativeQueryRunnerUtils
             builder.put("native-execution-executable-path", path);
         }
 
+        return builder.build();
+    }
+
+    public static PrestoSparkQueryRunner createPrestoSparkNativeQueryRunner()
+    {
         PrestoSparkQueryRunner queryRunner = createPrestoSparkNativeQueryRunner(
                 Optional.of(getBaseDataPath()),
-                builder.build(),
+                getNativeExecutionSessionConfigs(),
                 getNativeExecutionShuffleConfigs(),
                 ImmutableList.of(new NativeExecutionModule()));
         setupJsonFunctionNamespaceManager(queryRunner);
@@ -150,7 +156,7 @@ public class PrestoSparkNativeQueryRunnerUtils
         }
     }
 
-    private static void customizeLogging()
+    public static void customizeLogging()
     {
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.spark", WARN);
@@ -176,6 +182,7 @@ public class PrestoSparkNativeQueryRunnerUtils
 
     public static void setupJsonFunctionNamespaceManager(QueryRunner queryRunner)
     {
+        String jsonDefinitionPath = Resources.getResource("external_functions.json").getFile();
         queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
         queryRunner.loadFunctionNamespaceManager(
                 JsonFileBasedFunctionNamespaceManagerFactory.NAME,
@@ -183,7 +190,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP",
-                        "json-based-function-manager.path-to-function-definition", "src/test/resources/external_functions.json"));
+                        "json-based-function-manager.path-to-function-definition", jsonDefinitionPath));
     }
 
     public static synchronized Path getBaseDataPath()

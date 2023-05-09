@@ -779,6 +779,10 @@ void setCellFromVariant(
     columnVector->setNull(row, true);
     return;
   }
+  if (columnVector->typeKind() == TypeKind::HUGEINT) {
+    setCellFromVariantByKind<TypeKind::HUGEINT>(columnVector, row, value);
+    return;
+  }
   VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       setCellFromVariantByKind,
       columnVector->typeKind(),
@@ -2336,8 +2340,9 @@ core::PlanNodePtr addProjectIfNeeded(
     projections.push_back(std::make_shared<core::FieldAccessTypedExpr>(
         outputType->childAt(i), outputType->nameOf(i)));
   }
+  const auto planNodeId = planNode->id();
   return std::make_shared<core::ProjectNode>(
-      fmt::format("{}.project", planNode->id()),
+      fmt::format("{}.project", planNodeId),
       outputNames,
       projections,
       std::move(planNode));
