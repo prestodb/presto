@@ -171,6 +171,11 @@ public class NativeExecutionProcess
         }
     }
 
+    public boolean isAlive()
+    {
+        return process.isAlive();
+    }
+
     public int getPort()
     {
         return port;

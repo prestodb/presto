@@ -190,9 +190,13 @@ public class NativeExecutionOperator
 
             return null;
         }
-        catch (InterruptedException e) {
+        catch (InterruptedException | RuntimeException e) {
+            String error = e.getMessage();
+            if (!process.isAlive()) {
+                error = String.format("Native process has crashed. %s", e.getMessage());
+            }
             log.error(e);
-            throw new RuntimeException(e);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, error, e);
         }
     }
 
