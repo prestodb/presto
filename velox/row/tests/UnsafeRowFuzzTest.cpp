@@ -86,7 +86,7 @@ class UnsafeRowFuzzTests : public ::testing::Test {
     }
   }
 
-  static constexpr uint64_t kBufferSize = 50 << 10; // 50kb
+  static constexpr uint64_t kBufferSize = 70 << 10; // 70kb
   static constexpr uint64_t kNumBuffers = 100;
 
   std::array<char[kBufferSize], kNumBuffers> buffers_{};
