@@ -110,19 +110,28 @@ class PartitionAndSerializeOperator : public Operator {
 
     velox::row::UnsafeRowFast unsafeRow(input_);
 
+    // Make sure to align row sizes at 16 bytes. This enables fast path in
+    // folly::crc32 used by Shuffle service to compute the checksum.
+    static const int32_t kRowSizeAlignment = 16;
+
     size_t totalSize = 0;
     if (auto fixedRowSize = unsafeRow.fixedRowSize(asRowType(input_->type()))) {
-      totalSize += fixedRowSize.value() * numInput;
-      std::fill(rowSizes_.begin(), rowSizes_.end(), fixedRowSize.value());
+      const auto alignedRowSize =
+          bits::roundUp(fixedRowSize.value(), kRowSizeAlignment);
+
+      totalSize = alignedRowSize * numInput;
+      std::fill(rowSizes_.begin(), rowSizes_.end(), alignedRowSize);
     } else {
       for (auto i = 0; i < numInput; ++i) {
-        const size_t rowSize = unsafeRow.rowSize(i);
-        rowSizes_[i] = rowSize;
-        totalSize += rowSize;
+        const size_t alignedRowSize =
+            bits::roundUp(unsafeRow.rowSize(i), kRowSizeAlignment);
+        rowSizes_[i] = alignedRowSize;
+        totalSize += alignedRowSize;
       }
     }
     // Allocate memory.
     auto buffer = dataVector.getBufferWithSpace(totalSize);
+
     // getBufferWithSpace() may return a buffer that already has content, so we
     // only use the space after that.
     auto rawBuffer = buffer->asMutable<char>() + buffer->size();
@@ -132,12 +141,14 @@ class PartitionAndSerializeOperator : public Operator {
     // Serialize rows.
     size_t offset = 0;
     for (auto i = 0; i < numInput; ++i) {
-      dataVector.setNoCopy(i, StringView(rawBuffer + offset, rowSizes_[i]));
+      const auto rowSize = rowSizes_[i];
+      dataVector.setNoCopy(i, StringView(rawBuffer + offset, rowSize));
 
       // Write row data.
-      auto size = unsafeRow.serialize(i, rawBuffer + offset);
-      VELOX_DCHECK_EQ(size, rowSizes_[i]);
-      offset += size;
+      auto serializedBytes = unsafeRow.serialize(i, rawBuffer + offset);
+      VELOX_DCHECK_EQ(
+          bits::roundUp(serializedBytes, kRowSizeAlignment), rowSize);
+      offset += rowSize;
     }
   }
 

@@ -20,7 +20,8 @@ namespace facebook::presto::operators {
 
 /// Partitions the input row based on partition function and serializes the
 /// entire row using UnsafeRow format. The output contains 2 columns: partition
-/// number (INTEGER) and serialized row (VARBINARY).
+/// number (INTEGER) and serialized row (VARBINARY). Each row is padded with
+/// zeros to align at 16 bytes.
 class PartitionAndSerializeNode : public velox::core::PlanNode {
  public:
   static constexpr std::string_view kPartitionColumnNameDefault = "partition";

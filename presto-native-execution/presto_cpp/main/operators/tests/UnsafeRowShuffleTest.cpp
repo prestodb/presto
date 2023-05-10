@@ -398,6 +398,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     rows.reserve(serializedData->size());
     for (auto i = 0; i < serializedData->size(); ++i) {
       auto serializedRow = serializedData->valueAt(i);
+      EXPECT_EQ(serializedRow.size() % 16, 0);
       rows.push_back(
           std::string_view(serializedRow.data(), serializedRow.size()));
     }
