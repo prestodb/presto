@@ -777,7 +777,7 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public final void close()
+    public final synchronized void close()
     {
         cancelAllQueries();
         try {
