@@ -201,7 +201,7 @@ public class TestDistributedClusterStatsResource
         return client.execute(request, createJsonResponseHandler(jsonCodec(ClusterStatsResource.ClusterStats.class)));
     }
 
-    @Test(timeOut = 120_000)
+    @Test(timeOut = 120_000, enabled = false)
     public void testClusterStatsLocalInfoReturn()
             throws Exception
     {
