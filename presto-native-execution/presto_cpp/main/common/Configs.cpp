@@ -48,6 +48,7 @@ void checkIncomingSystemProperties(
       SystemConfig::kHttpsKeyPath,
       SystemConfig::kHttpsClientCertAndKeyPath,
       SystemConfig::kNumIoThreads,
+      SystemConfig::kNumConnectorIoThreads,
       SystemConfig::kNumQueryThreads,
       SystemConfig::kNumSpillThreads,
       SystemConfig::kSpillerSpillPath,
@@ -307,6 +308,11 @@ int32_t SystemConfig::httpExecThreads() const {
 int32_t SystemConfig::numIoThreads() const {
   auto opt = optionalProperty<int32_t>(std::string(kNumIoThreads));
   return opt.value_or(kNumIoThreadsDefault);
+}
+
+int32_t SystemConfig::numConnectorIoThreads() const {
+  auto opt = optionalProperty<int32_t>(std::string(kNumConnectorIoThreads));
+  return opt.value_or(kNumConnectorIoThreadsDefault);
 }
 
 int32_t SystemConfig::numQueryThreads() const {
