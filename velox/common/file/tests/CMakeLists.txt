@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+add_library(velox_file_test_utils TestUtils.cpp)
+target_link_libraries(velox_file_test_utils velox_file)
+
 add_executable(velox_file_test FileTest.cpp UtilsTest.cpp)
 add_test(velox_file_test velox_file_test)
 target_link_libraries(
   velox_file_test
+  velox_file_test_utils
   velox_file
   velox_exception
   velox_exec_test_lib
