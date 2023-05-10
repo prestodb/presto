@@ -131,6 +131,7 @@ void AggregateCompanionAdapter::MergeFunction::addSingleGroupRawInput(
     const SelectivityVector& rows,
     const std::vector<VectorPtr>& args,
     bool mayPushdown) {
+  fn_->enableValidateIntermediateInputs();
   fn_->addSingleGroupIntermediateResults(group, rows, args, mayPushdown);
 }
 
