@@ -2290,3 +2290,40 @@ TEST_F(VectorTest, flattenVector) {
   BaseVector::flattenVector(nullVector);
   EXPECT_EQ(nullVector, nullptr);
 }
+
+TEST_F(VectorTest, findDuplicateValue) {
+  const CompareFlags flags;
+  auto data = makeFlatVector<int64_t>({1, 3, 2, 4, 3, 5, 4, 6});
+
+  // No duplicates in the first 4 values.
+  auto dup = data->findDuplicateValue(0, 4, flags);
+  ASSERT_FALSE(dup.has_value());
+
+  // No duplicates in the last 4 values.
+  dup = data->findDuplicateValue(4, 4, flags);
+  ASSERT_FALSE(dup.has_value());
+
+  // No duplicates in rows 2 to 6.
+  dup = data->findDuplicateValue(2, 4, flags);
+  ASSERT_FALSE(dup.has_value());
+
+  // Values in rows 1 and 4 are the same.
+  dup = data->findDuplicateValue(0, 5, flags);
+  ASSERT_TRUE(dup.has_value());
+  ASSERT_EQ(4, dup.value());
+
+  // Values in rows 3 and 7 are the same.
+  dup = data->findDuplicateValue(2, 6, flags);
+  ASSERT_TRUE(dup.has_value());
+  ASSERT_EQ(6, dup.value());
+
+  // Verify that empty range doesn't throw.
+  dup = data->findDuplicateValue(2, 0, flags);
+  ASSERT_FALSE(dup.has_value());
+
+  // Verify that out-of-bound range throws.
+  VELOX_ASSERT_THROW(
+      data->findDuplicateValue(2, 8, flags), "Size is too large");
+  VELOX_ASSERT_THROW(
+      data->findDuplicateValue(22, 8, flags), "Start index is too large");
+}

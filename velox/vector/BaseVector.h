@@ -284,6 +284,13 @@ class BaseVector {
         });
   }
 
+  /// Compares values in range [start, start + size) and returns an index of a
+  /// duplicate value if found.
+  std::optional<vector_size_t> findDuplicateValue(
+      vector_size_t start,
+      vector_size_t size,
+      CompareFlags flags);
+
   /**
    * @return the hash of the value at the given index in this vector
    */

@@ -823,6 +823,28 @@ BufferPtr BaseVector::sliceBuffer(
   return ans;
 }
 
+std::optional<vector_size_t> BaseVector::findDuplicateValue(
+    vector_size_t start,
+    vector_size_t size,
+    CompareFlags flags) {
+  VELOX_DCHECK_GE(start, 0, "Start index must not be negative");
+  VELOX_DCHECK_LT(start, length_, "Start index is too large");
+  VELOX_DCHECK_GE(size, 0, "Size must not be negative");
+  VELOX_DCHECK_LE(start + size, length_, "Size is too large");
+
+  std::vector<vector_size_t> indices(size);
+  std::iota(indices.begin(), indices.end(), start);
+  sortIndices(indices, flags);
+
+  for (auto i = 1; i < size; ++i) {
+    if (equalValueAt(this, indices[i], indices[i - 1])) {
+      return indices[i];
+    }
+  }
+
+  return std::nullopt;
+}
+
 std::string printNulls(const BufferPtr& nulls, vector_size_t maxBitsToPrint) {
   VELOX_CHECK_GE(maxBitsToPrint, 0);
 
