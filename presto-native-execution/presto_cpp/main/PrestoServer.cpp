@@ -564,10 +564,11 @@ std::vector<std::string> PrestoServer::registerConnectors(
     const fs::path& configDirectoryPath) {
   static const std::string kPropertiesExtension = ".properties";
 
-  auto numIoThreads = SystemConfig::instance()->numIoThreads();
-  if (numIoThreads) {
+  const auto numConnectorIoThreads =
+      SystemConfig::instance()->numConnectorIoThreads();
+  if (numConnectorIoThreads) {
     connectorIoExecutor_ =
-        std::make_unique<folly::IOThreadPoolExecutor>(numIoThreads);
+        std::make_unique<folly::IOThreadPoolExecutor>(numConnectorIoThreads);
   }
   std::vector<std::string> catalogNames;
 
