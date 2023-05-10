@@ -100,6 +100,7 @@ public abstract class AbstractResourceConfigurationManager
                     spec.getResourceEstimate(),
                     spec.getQueryType(),
                     spec.getClientInfoRegex(),
+                    spec.getSchema(),
                     spec.getGroup()));
         }
         return selectors.build();
