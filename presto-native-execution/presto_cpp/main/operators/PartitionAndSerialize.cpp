@@ -13,7 +13,7 @@
  */
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include <folly/lang/Bits.h>
-#include "velox/row/UnsafeRowSerializers.h"
+#include "velox/row/UnsafeRowFast.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
@@ -81,8 +81,6 @@ class PartitionAndSerializeOperator : public Operator {
   }
 
  private:
-  using TRowSize = uint32_t;
-
   void computePartitions(FlatVector<int32_t>& partitionsVector) {
     auto numInput = input_->size();
     partitions_.resize(numInput);
@@ -110,20 +108,26 @@ class PartitionAndSerializeOperator : public Operator {
     // Compute row sizes.
     rowSizes_.resize(numInput);
 
-    size_t totalSize = 0;
-    for (auto i = 0; i < numInput; ++i) {
-      const size_t rowSize =
-          velox::row::UnsafeRowSerializer::getSizeRow(input_.get(), i);
-      rowSizes_[i] = rowSize;
-      totalSize += rowSize;
-    }
+    velox::row::UnsafeRowFast unsafeRow(input_);
 
+    size_t totalSize = 0;
+    if (auto fixedRowSize = unsafeRow.fixedRowSize(asRowType(input_->type()))) {
+      totalSize += fixedRowSize.value() * numInput;
+      std::fill(rowSizes_.begin(), rowSizes_.end(), fixedRowSize.value());
+    } else {
+      for (auto i = 0; i < numInput; ++i) {
+        const size_t rowSize = unsafeRow.rowSize(i);
+        rowSizes_[i] = rowSize;
+        totalSize += rowSize;
+      }
+    }
     // Allocate memory.
     auto buffer = dataVector.getBufferWithSpace(totalSize);
     // getBufferWithSpace() may return a buffer that already has content, so we
     // only use the space after that.
     auto rawBuffer = buffer->asMutable<char>() + buffer->size();
     buffer->setSize(buffer->size() + totalSize);
+    memset(rawBuffer, 0, totalSize);
 
     // Serialize rows.
     size_t offset = 0;
@@ -131,9 +135,7 @@ class PartitionAndSerializeOperator : public Operator {
       dataVector.setNoCopy(i, StringView(rawBuffer + offset, rowSizes_[i]));
 
       // Write row data.
-      auto size = velox::row::UnsafeRowSerializer::serialize(
-                      input_, rawBuffer + offset, i)
-                      .value_or(0);
+      auto size = unsafeRow.serialize(i, rawBuffer + offset);
       VELOX_DCHECK_EQ(size, rowSizes_[i]);
       offset += size;
     }
