@@ -116,6 +116,8 @@ class SystemConfig : public ConfigBase {
 
   /// Number of threads for async io. Disabled if zero.
   static constexpr std::string_view kNumIoThreads{"num-io-threads"};
+  static constexpr std::string_view kNumConnectorIoThreads{
+      "num-connector-io-threads"};
   static constexpr std::string_view kNumQueryThreads{"num-query-threads"};
   static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
   static constexpr std::string_view kSpillerSpillPath{
@@ -179,6 +181,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpsSupportedCiphersDefault{
       "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384"};
   static constexpr int32_t kNumIoThreadsDefault = 30;
+  static constexpr int32_t kNumConnectorIoThreadsDefault = 30;
   static constexpr int32_t kShutdownOnsetSecDefault = 10;
   static constexpr int32_t kSystemMemoryGbDefault = 40;
   static constexpr int32_t kMmapArenaCapacityRatioDefault = 10;
@@ -247,8 +250,11 @@ class SystemConfig : public ConfigBase {
 
   int32_t httpExecThreads() const;
 
-  // Process-wide number of query execution threads
+  /// Size of global IO executor.
   int32_t numIoThreads() const;
+
+  /// Size of IO executor for connectors to do preload/prefetch
+  int32_t numConnectorIoThreads() const;
 
   int32_t numQueryThreads() const;
 
