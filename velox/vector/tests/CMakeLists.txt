@@ -21,6 +21,7 @@ add_executable(
   VectorPoolTest.cpp
   VectorPrinterTest.cpp
   VectorTest.cpp
+  VectorStreamTest.cpp
   VectorToStringTest.cpp
   VectorEstimateFlatSizeTest.cpp
   VectorPrepareForReuseTest.cpp

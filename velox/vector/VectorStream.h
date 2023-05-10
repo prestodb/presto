@@ -71,11 +71,29 @@ class VectorSerde {
       const Options* options = nullptr) = 0;
 };
 
+/// Register/deregister the "default" vector serde.
 void registerVectorSerde(std::unique_ptr<VectorSerde> serdeToRegister);
+void deregisterVectorSerde();
 
+/// Check if a "default" vector serde has been registered.
 bool isRegisteredVectorSerde();
 
+/// Get the "default" vector serde, if one has been registered.
 VectorSerde* getVectorSerde();
+
+/// Register/deregister a named vector serde. `serdeName` is a handle that
+/// allows users to register multiple serde formats.
+void registerNamedVectorSerde(
+    std::string_view serdeName,
+    std::unique_ptr<VectorSerde> serdeToRegister);
+void deregisterNamedVectorSerde(std::string_view serdeName);
+
+/// Check if a named vector serde has been registered with `serdeName` as a
+/// handle.
+bool isRegisteredNamedVectorSerde(std::string_view serdeName);
+
+/// Get the vector serde identified by `serdeName`. Throws if not found.
+VectorSerde* getNamedVectorSerde(std::string_view serdeName);
 
 class VectorStreamGroup : public StreamArena {
  public:

@@ -18,28 +18,73 @@
 
 namespace facebook::velox {
 namespace {
+
 std::unique_ptr<VectorSerde>& getVectorSerdeImpl() {
   static std::unique_ptr<VectorSerde> serde;
   return serde;
 }
+
+std::unordered_map<std::string, std::unique_ptr<VectorSerde>>&
+getNamedVectorSerdeImpl() {
+  static std::unordered_map<std::string, std::unique_ptr<VectorSerde>>
+      namedSerde;
+  return namedSerde;
+}
+
 } // namespace
 
 VectorSerde* getVectorSerde() {
   auto serde = getVectorSerdeImpl().get();
-  VELOX_CHECK_NOT_NULL(serde, "Vector serde is not registered");
+  VELOX_CHECK_NOT_NULL(serde, "Vector serde is not registered.");
   return serde;
 }
 
-/// This call is not thread safe. We only expect one call of it in the entire
-/// system upon startup.
+/// None of the calls below are thread-safe. We only expect one call of it in
+/// the entire system upon startup.
 void registerVectorSerde(std::unique_ptr<VectorSerde> serdeToRegister) {
   auto& serde = getVectorSerdeImpl();
-  VELOX_CHECK_NULL(serde, "Vector serde is already registered");
+  VELOX_CHECK_NULL(serde, "Vector serde is already registered.");
   serde = std::move(serdeToRegister);
+}
+
+void deregisterVectorSerde() {
+  getVectorSerdeImpl().reset();
 }
 
 bool isRegisteredVectorSerde() {
   return getVectorSerdeImpl() != nullptr;
+}
+
+/// Named serde helper functions.
+void registerNamedVectorSerde(
+    std::string_view serdeName,
+    std::unique_ptr<VectorSerde> serdeToRegister) {
+  auto& namedSerdeMap = getNamedVectorSerdeImpl();
+  VELOX_CHECK(
+      namedSerdeMap.find(std::string(serdeName)) == namedSerdeMap.end(),
+      "Vector serde '{}' is already registered.",
+      serdeName);
+  namedSerdeMap[std::string(serdeName)] = std::move(serdeToRegister);
+}
+
+void deregisterNamedVectorSerde(std::string_view serdeName) {
+  auto& namedSerdeMap = getNamedVectorSerdeImpl();
+  namedSerdeMap.erase(std::string(serdeName));
+}
+
+bool isRegisteredNamedVectorSerde(std::string_view serdeName) {
+  auto& namedSerdeMap = getNamedVectorSerdeImpl();
+  return namedSerdeMap.find(std::string(serdeName)) != namedSerdeMap.end();
+}
+
+VectorSerde* getNamedVectorSerde(std::string_view serdeName) {
+  auto& namedSerdeMap = getNamedVectorSerdeImpl();
+  auto it = namedSerdeMap.find(std::string(serdeName));
+  VELOX_CHECK(
+      it != namedSerdeMap.end(),
+      "Named vector serde '{}' is not registered.",
+      serdeName);
+  return it->second.get();
 }
 
 void VectorStreamGroup::createStreamTree(
