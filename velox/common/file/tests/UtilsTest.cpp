@@ -103,6 +103,20 @@ bool willCoalesceIfDistanceLE(
   return CoalesceIfDistanceLE(distance)(&a, &b);
 }
 
+class ReadToSegmentsTest : public ::testing::Test {
+ public:
+  auto getReader(
+      std::string content =
+          "aaaaabbbbbcccccdddddeeeeefffffggggghhhhhiiiiijjjjjkkkkk") {
+    return [buf = std::move(content)](uint64_t offset, uint64_t size) {
+      if (offset + size > buf.size()) {
+        throw std::runtime_error("read is too big.");
+      }
+      return folly::IOBuf::copyBuffer(&buf[offset], size);
+    };
+  }
+};
+
 } // namespace
 
 TEST(CoalesceSegmentsTest, EmptyCase) {
@@ -246,4 +260,60 @@ TEST(CoalesceIfDistanceLETest, SegmentsCantOverlap) {
   EXPECT_THROW(
       willCoalesceIfDistanceLE(10, {0, 2}, {1, 2}),
       ::facebook::velox::VeloxRuntimeError);
+}
+
+TEST_F(ReadToSegmentsTest, CanReadToContiguousSegments) {
+  auto testData = getSegments({"this", "is", "an", "awesome", "test"});
+  ASSERT_EQ(testData.segments.size(), 5);
+  const auto& p = testData.segmentPtrs;
+
+  auto readToSegments = ReadToSegments(p.begin(), p.end(), getReader());
+
+  EXPECT_EQ(
+      testData.buffers,
+      (std::vector<std::string>{"this", "is", "an", "awesome", "test"}));
+
+  readToSegments.read();
+
+  EXPECT_EQ(
+      testData.buffers,
+      (std::vector<std::string>{"aaaa", "ab", "bb", "bbccccc", "dddd"}));
+}
+
+TEST_F(ReadToSegmentsTest, CanReadToNonContiguousSegments) {
+  auto testData = getSegments({"this", "is", "an", "awesome", "test"}, {1, 3});
+  ASSERT_EQ(testData.segments.size(), 3);
+  const auto& p = testData.segmentPtrs;
+
+  auto readToSegments = ReadToSegments(p.begin(), p.end(), getReader());
+
+  EXPECT_EQ(
+      testData.buffers,
+      (std::vector<std::string>{"this", "is", "an", "awesome", "test"}));
+
+  readToSegments.read();
+
+  EXPECT_EQ(
+      testData.buffers,
+      (std::vector<std::string>{"aaaa", "is", "bb", "awesome", "dddd"}));
+}
+
+TEST_F(ReadToSegmentsTest, NoSegmentsIsNoOp) {
+  auto testData = getSegments({"a", "b"});
+  ASSERT_EQ(testData.segments.size(), 2);
+  const auto& p = testData.segmentPtrs;
+
+  // Set the desired read size to 0, but point to buffer to check that we don't
+  // override
+  testData.segments[0].buffer.reset(testData.buffers[0].data(), 0);
+  testData.segments[1].buffer.reset(testData.buffers[1].data(), 0);
+
+  auto readToSegments = ReadToSegments(p.begin(), p.end(), getReader());
+
+  EXPECT_EQ(testData.buffers, (std::vector<std::string>{"a", "b"}));
+
+  // No op
+  readToSegments.read();
+
+  EXPECT_EQ(testData.buffers, (std::vector<std::string>{"a", "b"}));
 }

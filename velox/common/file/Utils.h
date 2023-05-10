@@ -18,6 +18,7 @@
 
 #include <cstdint>
 
+#include "folly/io/Cursor.h"
 #include "velox/common/file/File.h"
 
 namespace facebook::velox::file::utils {
@@ -111,6 +112,39 @@ class CoalesceIfDistanceLE {
 
  private:
   uint64_t maxCoalescingDistance_;
+};
+
+template <typename SegmentPtrIter, typename Reader>
+class ReadToSegments {
+ public:
+  ReadToSegments(SegmentPtrIter begin, SegmentPtrIter end, Reader reader)
+      : begin_{begin}, end_{end}, reader_{reader} {}
+
+  void read() {
+    if (begin_ == end_) {
+      return;
+    }
+
+    auto fileOffset = (*begin_)->offset;
+    const auto last = std::prev(end_);
+    const auto readSize = (*last)->offset + (*last)->buffer.size() - fileOffset;
+    std::unique_ptr<folly::IOBuf> result = reader_(fileOffset, readSize);
+
+    folly::io::Cursor cursor(result.get());
+    for (auto segment = begin_; segment != end_; ++segment) {
+      if (fileOffset < (*segment)->offset) {
+        cursor.skip((*segment)->offset - fileOffset);
+        fileOffset = (*segment)->offset;
+      }
+      cursor.pull((*segment)->buffer.data(), (*segment)->buffer.size());
+      fileOffset += (*segment)->buffer.size();
+    }
+  }
+
+ private:
+  SegmentPtrIter begin_;
+  SegmentPtrIter end_;
+  Reader reader_;
 };
 
 } // namespace facebook::velox::file::utils
