@@ -61,6 +61,7 @@ public class NativeExecutionSystemConfig
     private static final String PRESTO_VERSION = "presto.version";
     private static final String SHUTDOWN_ONSET_SEC = "shutdown-onset-sec";
     private static final String SYSTEM_MEMORY_GB = "system-memory-gb";
+    private static final String QUERY_MEMORY_GB = "query.max-memory-per-node";
     private static final String TASK_MAX_DRIVERS_PER_TASK = "task.max-drivers-per-task";
     // Name of exchange client to use
     private static final String SHUFFLE_NAME = "shuffle.name";
@@ -80,6 +81,7 @@ public class NativeExecutionSystemConfig
     private int numIoThreads = 30;
     private int shutdownOnsetSec = 10;
     private int systemMemoryGb = 10;
+    private int queryMemoryGb = systemMemoryGb;
     private int concurrentLifespansPerTask = 5;
     private int maxDriversPerTask = 15;
     private String prestoVersion = "dummy.presto.version";
@@ -107,6 +109,7 @@ public class NativeExecutionSystemConfig
                 .put(PRESTO_VERSION, getPrestoVersion())
                 .put(SHUTDOWN_ONSET_SEC, String.valueOf(getShutdownOnsetSec()))
                 .put(SYSTEM_MEMORY_GB, String.valueOf(getSystemMemoryGb()))
+                .put(QUERY_MEMORY_GB, String.valueOf(getQueryMemoryGb()))
                 .put(TASK_MAX_DRIVERS_PER_TASK, String.valueOf(getMaxDriversPerTask()))
                 .put(SHUFFLE_NAME, getShuffleName())
                 .put(HTTP_SERVER_ACCESS_LOGS, String.valueOf(isEnableHttpServerAccessLog()))
@@ -303,6 +306,18 @@ public class NativeExecutionSystemConfig
     public int getSystemMemoryGb()
     {
         return systemMemoryGb;
+    }
+
+    @Config(QUERY_MEMORY_GB)
+    public NativeExecutionSystemConfig setQueryMemoryGb(int queryMemoryGb)
+    {
+        this.queryMemoryGb = queryMemoryGb;
+        return this;
+    }
+
+    public int getQueryMemoryGb()
+    {
+        return queryMemoryGb;
     }
 
     @Config(CONCURRENT_LIFESPANS_PER_TASK)
