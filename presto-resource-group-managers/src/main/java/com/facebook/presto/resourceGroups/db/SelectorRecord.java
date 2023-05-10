@@ -40,6 +40,8 @@ public class SelectorRecord
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final Optional<Pattern> clientInfoRegex;
 
+    private final Optional<String> schema;
+
     public SelectorRecord(
             long resourceGroupId,
             long priority,
@@ -48,7 +50,8 @@ public class SelectorRecord
             Optional<String> queryType,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
-            Optional<Pattern> clientInfoRegex)
+            Optional<Pattern> clientInfoRegex,
+            Optional<String> schema)
     {
         this.resourceGroupId = resourceGroupId;
         this.priority = priority;
@@ -58,6 +61,7 @@ public class SelectorRecord
         this.clientTags = requireNonNull(clientTags, "clientTags is null").map(ImmutableList::copyOf);
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         this.clientInfoRegex = requireNonNull(clientInfoRegex, "clientInfoRegex is null");
+        this.schema = requireNonNull(schema, "schema is null");
     }
 
     public long getResourceGroupId()
@@ -100,6 +104,11 @@ public class SelectorRecord
         return clientInfoRegex;
     }
 
+    public Optional<String> getSchema()
+    {
+        return schema;
+    }
+
     public static class Mapper
             implements RowMapper<SelectorRecord>
     {
@@ -118,7 +127,8 @@ public class SelectorRecord
                     Optional.ofNullable(resultSet.getString("query_type")),
                     Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),
                     Optional.ofNullable(resultSet.getString("selector_resource_estimate")).map(SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC::fromJson),
-                    Optional.ofNullable(resultSet.getString("client_info_regex")).map(Pattern::compile));
+                    Optional.ofNullable(resultSet.getString("client_info_regex")).map(Pattern::compile),
+                    Optional.ofNullable(resultSet.getString("schema")));
         }
     }
 }
