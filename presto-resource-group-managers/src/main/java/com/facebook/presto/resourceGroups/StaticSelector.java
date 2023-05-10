@@ -40,6 +40,8 @@ public class StaticSelector
     private static final Pattern NAMED_GROUPS_PATTERN = Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
     private static final String USER_VARIABLE = "USER";
     private static final String SOURCE_VARIABLE = "SOURCE";
+
+    private static final String SCHEMA_VARIABLE = "SCHEMA";
     private static final String EMPTY_CRITERIA_STRING = "";
 
     private final Optional<Pattern> userRegex;
@@ -48,6 +50,8 @@ public class StaticSelector
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final Optional<String> queryType;
     private final Optional<Pattern> clientInfoRegex;
+
+    private final Optional<String> schema;
     private final ResourceGroupIdTemplate group;
     private final Set<String> variableNames;
 
@@ -58,6 +62,7 @@ public class StaticSelector
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
             Optional<String> queryType,
             Optional<Pattern> clientInfoRegex,
+            Optional<String> schema,
             ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
@@ -67,6 +72,7 @@ public class StaticSelector
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientInfoRegex = requireNonNull(clientInfoRegex, "clientInfoRegex is null");
+        this.schema = requireNonNull(schema, "schema is null");
         this.group = requireNonNull(group, "group is null");
 
         HashSet<String> variableNames = new HashSet<>(ImmutableList.of(USER_VARIABLE, SOURCE_VARIABLE));
@@ -118,10 +124,18 @@ public class StaticSelector
             }
         }
 
+        if (schema.isPresent() && criteria.getSchema().isPresent()) {
+            if (criteria.getSchema().get().compareToIgnoreCase(schema.get()) != 0) {
+                return Optional.empty();
+            }
+        }
+
         variables.putIfAbsent(USER_VARIABLE, criteria.getUser());
 
         // Special handling for source, which is an optional field that is part of the standard variables
         variables.putIfAbsent(SOURCE_VARIABLE, criteria.getSource().orElse(""));
+
+        variables.putIfAbsent(SCHEMA_VARIABLE, criteria.getSchema().orElse(""));
 
         VariableMap map = new VariableMap(variables);
         ResourceGroupId id = group.expandTemplate(map);
