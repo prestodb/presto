@@ -17,6 +17,7 @@
 #include "velox/dwio/common/tests/E2EFilterTestBase.h"
 
 #include "velox/dwio/common/tests/utils/DataSetBuilder.h"
+#include "velox/expression/Expr.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/Expressions.h"
@@ -426,6 +427,7 @@ void E2EFilterTestBase::testMetadataFilterImpl(
     const std::vector<RowVectorPtr>& batches,
     common::Subfield filterField,
     std::unique_ptr<common::Filter> filter,
+    core::ExpressionEvaluator* evaluator,
     const std::string& remainingFilter,
     std::function<bool(int64_t, int64_t)> validationFilter) {
   SCOPED_TRACE(fmt::format("remainingFilter={}", remainingFilter));
@@ -437,7 +439,8 @@ void E2EFilterTestBase::testMetadataFilterImpl(
   auto untypedExpr = parse::parseExpr(remainingFilter, {});
   auto typedExpr = core::Expressions::inferTypes(
       untypedExpr, batches[0]->type(), leafPool_.get());
-  auto metadataFilter = std::make_shared<MetadataFilter>(*spec, *typedExpr);
+  auto metadataFilter =
+      std::make_shared<MetadataFilter>(*spec, *typedExpr, evaluator);
   auto specA = spec->getOrCreateChild(common::Subfield("a"));
   auto specB = spec->getOrCreateChild(common::Subfield("b"));
   auto specC = spec->getOrCreateChild(common::Subfield("b.c"));
@@ -497,6 +500,8 @@ void E2EFilterTestBase::testMetadataFilter() {
   test::VectorMaker vectorMaker(leafPool_.get());
   functions::prestosql::registerAllScalarFunctions();
   parse::registerTypeResolver();
+  core::QueryCtx queryCtx;
+  exec::SimpleExpressionEvaluator evaluator(&queryCtx, leafPool_.get());
 
   // a: bigint, b: struct<c: bigint>
   std::vector<RowVectorPtr> batches;
@@ -528,12 +533,14 @@ void E2EFilterTestBase::testMetadataFilter() {
       batches,
       common::Subfield("a"),
       nullptr,
+      &evaluator,
       "a >= 9 or not (a < 4 and b.c >= 2)",
       [](int64_t a, int64_t c) { return a >= 9 || !(a < 4 && c >= 2); });
   testMetadataFilterImpl(
       batches,
       common::Subfield("a"),
       exec::greaterThanOrEqual(1),
+      &evaluator,
       "a >= 9 or not (a < 4 and b.c >= 2)",
       [](int64_t a, int64_t c) {
         return a >= 1 && (a >= 9 || !(a < 4 && c >= 2));
@@ -542,12 +549,14 @@ void E2EFilterTestBase::testMetadataFilter() {
       batches,
       common::Subfield("a"),
       nullptr,
+      &evaluator,
       "a in (1, 3, 8) or a >= 9",
       [](int64_t a, int64_t) { return a == 1 || a == 3 || a == 8 || a >= 9; });
   testMetadataFilterImpl(
       batches,
       common::Subfield("a"),
       nullptr,
+      &evaluator,
       "not (a not in (2, 3, 5, 7))",
       [](int64_t a, int64_t) {
         return !!(a == 2 || a == 3 || a == 5 || a == 7);
@@ -564,6 +573,7 @@ void E2EFilterTestBase::testMetadataFilter() {
         batches,
         common::Subfield("a"),
         nullptr,
+        &evaluator,
         "not (a = 1 and b.c = 2)",
         [](int64_t a, int64_t c) { return !(a == 1 && c == 2); });
   }

@@ -132,7 +132,7 @@ class HiveDataSource : public DataSource {
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
       FileHandleFactory* fileHandleFactory,
       velox::memory::MemoryPool* pool,
-      ExpressionEvaluator* expressionEvaluator,
+      core::ExpressionEvaluator* expressionEvaluator,
       memory::MemoryAllocator* allocator,
       const std::string& scanId,
       folly::Executor* executor);
@@ -237,7 +237,7 @@ class HiveDataSource : public DataSource {
   dwio::common::RuntimeStatistics runtimeStats_;
 
   FileHandleCachedPtr fileHandle_;
-  ExpressionEvaluator* expressionEvaluator_;
+  core::ExpressionEvaluator* expressionEvaluator_;
   uint64_t completedRows_ = 0;
 
   // Reusable memory for remaining filter evaluation.

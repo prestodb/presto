@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <velox/core/QueryCtx.h>
-#include <velox/expression/Expr.h>
-#include <velox/expression/ExprToSubfieldFilter.h>
+#include "velox/expression/ExprToSubfieldFilter.h"
+
+#include "velox/expression/Expr.h"
 
 using namespace facebook::velox;
 
@@ -26,24 +26,21 @@ namespace {
 
 VectorPtr toConstant(
     const core::TypedExprPtr& expr,
-    const std::shared_ptr<core::QueryCtx>& queryCtx) {
-  static auto pool = memory::addDefaultLeafMemoryPool();
-  auto data = std::make_shared<RowVector>(
-      pool.get(), ROW({}, {}), nullptr, 1, std::vector<VectorPtr>{});
-  core::ExecCtx execCtx{pool.get(), queryCtx.get()};
-  ExprSet exprSet({expr}, &execCtx);
-  if (!exprSet.exprs()[0]->isConstant()) {
+    core::ExpressionEvaluator* evaluator) {
+  auto exprSet = evaluator->compile(expr);
+  if (!exprSet->exprs()[0]->isConstant()) {
     return nullptr;
   }
-  EvalCtx evalCtx(&execCtx, &exprSet, data.get());
+  RowVector input(
+      evaluator->pool(), ROW({}, {}), nullptr, 1, std::vector<VectorPtr>{});
   SelectivityVector rows(1);
-  std::vector<VectorPtr> results(1);
+  VectorPtr result;
   try {
-    exprSet.eval(rows, evalCtx, results);
+    evaluator->evaluate(exprSet.get(), rows, input, result);
   } catch (const VeloxUserError&) {
     return nullptr;
   }
-  return results[0];
+  return result;
 }
 
 template <typename T>
@@ -139,9 +136,9 @@ std::unique_ptr<common::Filter> makeOrFilter(
 }
 
 std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
-    const core::TypedExprPtr& upperExpr) {
-  auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto upper = toConstant(upperExpr, queryCtx);
+    const core::TypedExprPtr& upperExpr,
+    core::ExpressionEvaluator* evaluator) {
+  auto upper = toConstant(upperExpr, evaluator);
   if (!upper) {
     return nullptr;
   }
@@ -168,9 +165,9 @@ std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
 }
 
 std::unique_ptr<common::Filter> makeLessThanFilter(
-    const core::TypedExprPtr& upperExpr) {
-  auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto upper = toConstant(upperExpr, queryCtx);
+    const core::TypedExprPtr& upperExpr,
+    core::ExpressionEvaluator* evaluator) {
+  auto upper = toConstant(upperExpr, evaluator);
   if (!upper) {
     return nullptr;
   }
@@ -197,9 +194,9 @@ std::unique_ptr<common::Filter> makeLessThanFilter(
 }
 
 std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
-    const core::TypedExprPtr& lowerExpr) {
-  auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto lower = toConstant(lowerExpr, queryCtx);
+    const core::TypedExprPtr& lowerExpr,
+    core::ExpressionEvaluator* evaluator) {
+  auto lower = toConstant(lowerExpr, evaluator);
   if (!lower) {
     return nullptr;
   }
@@ -226,9 +223,9 @@ std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
 }
 
 std::unique_ptr<common::Filter> makeGreaterThanFilter(
-    const core::TypedExprPtr& lowerExpr) {
-  auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto lower = toConstant(lowerExpr, queryCtx);
+    const core::TypedExprPtr& lowerExpr,
+    core::ExpressionEvaluator* evaluator) {
+  auto lower = toConstant(lowerExpr, evaluator);
   if (!lower) {
     return nullptr;
   }
@@ -255,9 +252,9 @@ std::unique_ptr<common::Filter> makeGreaterThanFilter(
 }
 
 std::unique_ptr<common::Filter> makeEqualFilter(
-    const core::TypedExprPtr& valueExpr) {
-  auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto value = toConstant(valueExpr, queryCtx);
+    const core::TypedExprPtr& valueExpr,
+    core::ExpressionEvaluator* evaluator) {
+  auto value = toConstant(valueExpr, evaluator);
   if (!value) {
     return nullptr;
   }
@@ -282,20 +279,20 @@ std::unique_ptr<common::Filter> makeEqualFilter(
 }
 
 std::unique_ptr<common::Filter> makeNotEqualFilter(
-    const core::TypedExprPtr& valueExpr) {
-  auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto value = toConstant(valueExpr, queryCtx);
+    const core::TypedExprPtr& valueExpr,
+    core::ExpressionEvaluator* evaluator) {
+  auto value = toConstant(valueExpr, evaluator);
   if (!value) {
     return nullptr;
   }
 
   std::unique_ptr<common::Filter> lessThanFilter =
-      makeLessThanFilter(valueExpr);
+      makeLessThanFilter(valueExpr, evaluator);
   if (!lessThanFilter) {
     return nullptr;
   }
   std::unique_ptr<common::Filter> greaterThanFilter =
-      makeGreaterThanFilter(valueExpr);
+      makeGreaterThanFilter(valueExpr, evaluator);
   if (!greaterThanFilter) {
     return nullptr;
   }
@@ -340,9 +337,9 @@ toInt64List(const VectorPtr& vector, vector_size_t start, vector_size_t size) {
 
 std::unique_ptr<common::Filter> makeInFilter(
     const core::TypedExprPtr& expr,
+    core::ExpressionEvaluator* evaluator,
     bool negated) {
-  auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto vector = toConstant(expr, queryCtx);
+  auto vector = toConstant(expr, evaluator);
   if (!(vector && vector->type()->isArray())) {
     return nullptr;
   }
@@ -390,13 +387,13 @@ std::unique_ptr<common::Filter> makeInFilter(
 std::unique_ptr<common::Filter> makeBetweenFilter(
     const core::TypedExprPtr& lowerExpr,
     const core::TypedExprPtr& upperExpr,
+    core::ExpressionEvaluator* evaluator,
     bool negated) {
-  auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto lower = toConstant(lowerExpr, queryCtx);
+  auto lower = toConstant(lowerExpr, evaluator);
   if (!lower) {
     return nullptr;
   }
-  auto upper = toConstant(upperExpr, queryCtx);
+  auto upper = toConstant(upperExpr, evaluator);
   if (!upper) {
     return nullptr;
   }
@@ -440,59 +437,63 @@ std::unique_ptr<common::Filter> makeBetweenFilter(
 std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
     const core::CallTypedExpr& call,
     common::Subfield& subfield,
+    core::ExpressionEvaluator* evaluator,
     bool negated) {
   if (call.name() == "eq") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return negated ? makeNotEqualFilter(call.inputs()[1])
-                       : makeEqualFilter(call.inputs()[1]);
+        return negated ? makeNotEqualFilter(call.inputs()[1], evaluator)
+                       : makeEqualFilter(call.inputs()[1], evaluator);
       }
     }
   } else if (call.name() == "neq") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return negated ? makeEqualFilter(call.inputs()[1])
-                       : makeNotEqualFilter(call.inputs()[1]);
+        return negated ? makeEqualFilter(call.inputs()[1], evaluator)
+                       : makeNotEqualFilter(call.inputs()[1], evaluator);
       }
     }
   } else if (call.name() == "lte") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return negated ? makeGreaterThanFilter(call.inputs()[1])
-                       : makeLessThanOrEqualFilter(call.inputs()[1]);
+        return negated ? makeGreaterThanFilter(call.inputs()[1], evaluator)
+                       : makeLessThanOrEqualFilter(call.inputs()[1], evaluator);
       }
     }
   } else if (call.name() == "lt") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return negated ? makeGreaterThanOrEqualFilter(call.inputs()[1])
-                       : makeLessThanFilter(call.inputs()[1]);
+        return negated
+            ? makeGreaterThanOrEqualFilter(call.inputs()[1], evaluator)
+            : makeLessThanFilter(call.inputs()[1], evaluator);
       }
     }
   } else if (call.name() == "gte") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return negated ? makeLessThanFilter(call.inputs()[1])
-                       : makeGreaterThanOrEqualFilter(call.inputs()[1]);
+        return negated
+            ? makeLessThanFilter(call.inputs()[1], evaluator)
+            : makeGreaterThanOrEqualFilter(call.inputs()[1], evaluator);
       }
     }
   } else if (call.name() == "gt") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return negated ? makeLessThanOrEqualFilter(call.inputs()[1])
-                       : makeGreaterThanFilter(call.inputs()[1]);
+        return negated ? makeLessThanOrEqualFilter(call.inputs()[1], evaluator)
+                       : makeGreaterThanFilter(call.inputs()[1], evaluator);
       }
     }
   } else if (call.name() == "between") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return makeBetweenFilter(call.inputs()[1], call.inputs()[2], negated);
+        return makeBetweenFilter(
+            call.inputs()[1], call.inputs()[2], evaluator, negated);
       }
     }
   } else if (call.name() == "in") {
     if (auto field = asField(&call, 0)) {
       if (toSubfield(field, subfield)) {
-        return makeInFilter(call.inputs()[1], negated);
+        return makeInFilter(call.inputs()[1], evaluator, negated);
       }
     }
   } else if (call.name() == "is_null") {
@@ -509,11 +510,12 @@ std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
 }
 
 std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
-    const core::TypedExprPtr& expr) {
+    const core::TypedExprPtr& expr,
+    core::ExpressionEvaluator* evaluator) {
   if (auto call = asCall(expr.get())) {
     if (call->name() == "or") {
-      auto left = toSubfieldFilter(call->inputs()[0]);
-      auto right = toSubfieldFilter(call->inputs()[1]);
+      auto left = toSubfieldFilter(call->inputs()[0], evaluator);
+      auto right = toSubfieldFilter(call->inputs()[1], evaluator);
       VELOX_CHECK(left.first == right.first);
       return {
           std::move(left.first),
@@ -523,10 +525,10 @@ std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
     std::unique_ptr<common::Filter> filter;
     if (call->name() == "not") {
       if (auto* inner = asCall(call->inputs()[0].get())) {
-        filter = leafCallToSubfieldFilter(*inner, subfield, true);
+        filter = leafCallToSubfieldFilter(*inner, subfield, evaluator, true);
       }
     } else {
-      filter = leafCallToSubfieldFilter(*call, subfield, false);
+      filter = leafCallToSubfieldFilter(*call, subfield, evaluator, false);
     }
     if (filter) {
       return std::make_pair(std::move(subfield), std::move(filter));

@@ -254,7 +254,7 @@ HiveDataSource::HiveDataSource(
         std::shared_ptr<connector::ColumnHandle>>& columnHandles,
     FileHandleFactory* fileHandleFactory,
     velox::memory::MemoryPool* pool,
-    ExpressionEvaluator* expressionEvaluator,
+    core::ExpressionEvaluator* expressionEvaluator,
     memory::MemoryAllocator* allocator,
     const std::string& scanId,
     folly::Executor* executor)
@@ -314,8 +314,8 @@ HiveDataSource::HiveDataSource(
 
   const auto& remainingFilter = hiveTableHandle->remainingFilter();
   if (remainingFilter) {
-    metadataFilter_ =
-        std::make_shared<common::MetadataFilter>(*scanSpec_, *remainingFilter);
+    metadataFilter_ = std::make_shared<common::MetadataFilter>(
+        *scanSpec_, *remainingFilter, expressionEvaluator_);
     remainingFilterExprSet_ = expressionEvaluator_->compile(remainingFilter);
 
     // Remaining filter may reference columns that are not used otherwise,
@@ -690,7 +690,7 @@ vector_size_t HiveDataSource::evaluateRemainingFilter(RowVectorPtr& rowVector) {
   filterRows_.resize(output_->size());
 
   expressionEvaluator_->evaluate(
-      remainingFilterExprSet_.get(), filterRows_, rowVector, &filterResult_);
+      remainingFilterExprSet_.get(), filterRows_, *rowVector, filterResult_);
   return exec::processFilterResults(
       filterResult_, filterRows_, filterEvalCtx_, pool_);
 }

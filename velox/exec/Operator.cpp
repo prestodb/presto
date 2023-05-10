@@ -22,48 +22,6 @@
 #include "velox/expression/Expr.h"
 
 namespace facebook::velox::exec {
-namespace {
-// Basic implementation of the connector::ExpressionEvaluator interface.
-class SimpleExpressionEvaluator : public connector::ExpressionEvaluator {
- public:
-  explicit SimpleExpressionEvaluator(
-      core::QueryCtx* queryCtx,
-      memory::MemoryPool* pool)
-      : queryCtx_(queryCtx), pool_(pool) {}
-
-  std::unique_ptr<exec::ExprSet> compile(
-      const core::TypedExprPtr& expression) const override {
-    auto expressions = {expression};
-    return std::make_unique<exec::ExprSet>(
-        std::move(expressions), ensureExecCtx());
-  }
-
-  void evaluate(
-      exec::ExprSet* exprSet,
-      const SelectivityVector& rows,
-      RowVectorPtr& input,
-      VectorPtr* result) const override {
-    exec::EvalCtx context(ensureExecCtx(), exprSet, input.get());
-
-    std::vector<VectorPtr> results = {*result};
-    exprSet->eval(0, 1, true, rows, context, results);
-
-    *result = results[0];
-  }
-
- private:
-  core::ExecCtx* ensureExecCtx() const {
-    if (!execCtx_) {
-      execCtx_ = std::make_unique<core::ExecCtx>(pool_, queryCtx_);
-    }
-    return execCtx_.get();
-  }
-
-  core::QueryCtx* const queryCtx_;
-  memory::MemoryPool* const pool_;
-  mutable std::unique_ptr<core::ExecCtx> execCtx_;
-};
-} // namespace
 
 OperatorCtx::OperatorCtx(
     DriverCtx* driverCtx,

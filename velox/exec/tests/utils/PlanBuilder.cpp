@@ -91,9 +91,12 @@ PlanBuilder& PlanBuilder::tableScan(
   }
   SubfieldFilters filters;
   filters.reserve(subfieldFilters.size());
+  core::QueryCtx queryCtx;
+  SimpleExpressionEvaluator evaluator(&queryCtx, pool_);
   for (const auto& filter : subfieldFilters) {
     auto filterExpr = parseExpr(filter, outputType, options_, pool_);
-    auto [subfield, subfieldFilter] = exec::toSubfieldFilter(filterExpr);
+    auto [subfield, subfieldFilter] =
+        exec::toSubfieldFilter(filterExpr, &evaluator);
 
     auto it = columnAliases.find(subfield.toString());
     if (it != columnAliases.end()) {

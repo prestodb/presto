@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/core/ExpressionEvaluator.h"
 #include "velox/core/ITypedExpr.h"
 
 namespace facebook::velox::common {
@@ -31,7 +32,10 @@ class MetadataFilter {
 
   /// Construct from a ScanSpec and an expression.  The leaf filter nodes
   /// generated will be added to the corresponding position in ScanSpec.
-  explicit MetadataFilter(ScanSpec&, const core::ITypedExpr&);
+  MetadataFilter(
+      ScanSpec&,
+      const core::ITypedExpr&,
+      core::ExpressionEvaluator*);
 
   /// Evaluate the filter results based on logical conjunctions tracked in this
   /// object.  `leafNodeResults` could be reused for intermediate results.  The

@@ -53,7 +53,7 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
     parse::ParseOptions options;
     options.parseDecimalAsDouble = false;
 
-    auto plan = PlanBuilder()
+    auto plan = PlanBuilder(pool_.get())
                     .setParseOptions(options)
                     .tableScan(rowType, subfieldFilters, remainingFilter)
                     .planNode();

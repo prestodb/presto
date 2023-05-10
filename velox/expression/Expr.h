@@ -21,6 +21,7 @@
 #include <folly/container/F14Map.h>
 
 #include "velox/common/time/CpuWallTimer.h"
+#include "velox/core/ExpressionEvaluator.h"
 #include "velox/core/Expressions.h"
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/EvalCtx.h"
@@ -759,5 +760,34 @@ bool registerExprSetListener(std::shared_ptr<ExprSetListener> listener);
 /// unregistered successfully, false if listener was not found.
 bool unregisterExprSetListener(
     const std::shared_ptr<ExprSetListener>& listener);
+
+class SimpleExpressionEvaluator : public core::ExpressionEvaluator {
+ public:
+  SimpleExpressionEvaluator(core::QueryCtx* queryCtx, memory::MemoryPool* pool)
+      : queryCtx_(queryCtx), pool_(pool) {}
+
+  std::unique_ptr<ExprSet> compile(
+      const core::TypedExprPtr& expression) override {
+    return std::make_unique<ExprSet>(
+        std::vector<core::TypedExprPtr>{expression}, ensureExecCtx());
+  }
+
+  void evaluate(
+      ExprSet* exprSet,
+      const SelectivityVector& rows,
+      const RowVector& input,
+      VectorPtr& result) override;
+
+  memory::MemoryPool* pool() override {
+    return pool_;
+  }
+
+ private:
+  core::ExecCtx* ensureExecCtx();
+
+  core::QueryCtx* const queryCtx_;
+  memory::MemoryPool* const pool_;
+  std::unique_ptr<core::ExecCtx> execCtx_;
+};
 
 } // namespace facebook::velox::exec

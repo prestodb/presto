@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/core/ExpressionEvaluator.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/type/Filter.h"
@@ -371,7 +372,8 @@ betweenHugeint(int128_t min, int128_t max, bool nullAllowed = false) {
 }
 
 std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
-    const core::TypedExprPtr& expr);
+    const core::TypedExprPtr& expr,
+    core::ExpressionEvaluator*);
 
 /// Convert a leaf call expression (no conjunction like AND/OR) to subfield and
 /// filter.  Return nullptr if not supported for pushdown.  This is needed
@@ -381,6 +383,7 @@ std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
 std::unique_ptr<common::Filter> leafCallToSubfieldFilter(
     const core::CallTypedExpr&,
     common::Subfield&,
+    core::ExpressionEvaluator*,
     bool negated = false);
 
 } // namespace facebook::velox::exec

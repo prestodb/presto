@@ -582,7 +582,7 @@ TEST_F(PlanNodeToStringTest, tableScan) {
       ROW({"discount", "quantity", "shipdate", "comment"},
           {DOUBLE(), DOUBLE(), VARCHAR(), VARCHAR()})};
   {
-    auto plan = PlanBuilder()
+    auto plan = PlanBuilder(pool_.get())
                     .tableScan(
                         rowType,
                         {"shipdate between '1994-01-01' and '1994-12-31'",
@@ -603,7 +603,7 @@ TEST_F(PlanNodeToStringTest, tableScan) {
   }
   {
     auto plan =
-        PlanBuilder()
+        PlanBuilder(pool_.get())
             .tableScan(rowType, {}, "comment NOT LIKE '%special%request%'")
             .planNode();
 

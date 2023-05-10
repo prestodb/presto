@@ -35,7 +35,7 @@ class PlanBuilderTest : public testing::Test,
 
 TEST_F(PlanBuilderTest, duplicateSubfield) {
   VELOX_ASSERT_THROW(
-      PlanBuilder()
+      PlanBuilder(pool_.get())
           .tableScan(
               ROW({"a", "b"}, {BIGINT(), BIGINT()}),
               {"a < 5", "b = 7", "a > 0"},
