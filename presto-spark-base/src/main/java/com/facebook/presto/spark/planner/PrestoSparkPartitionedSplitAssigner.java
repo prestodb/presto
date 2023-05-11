@@ -56,13 +56,15 @@ public class PrestoSparkPartitionedSplitAssigner
             PlanNodeId tableScanNodeId,
             SplitSource splitSource,
             PartitioningHandle fragmentPartitioning,
-            PartitioningProviderManager partitioningProviderManager)
+            PartitioningProviderManager partitioningProviderManager,
+            int startSequenceId)
     {
         return new PrestoSparkPartitionedSplitAssigner(
                 tableScanNodeId,
                 splitSource,
                 getSplitBucketFunction(session, fragmentPartitioning, partitioningProviderManager),
-                getSplitAssignmentBatchSize(session));
+                getSplitAssignmentBatchSize(session),
+                startSequenceId);
     }
 
     private static ToIntFunction<ConnectorSplit> getSplitBucketFunction(
@@ -88,12 +90,14 @@ public class PrestoSparkPartitionedSplitAssigner
             PlanNodeId tableScanNodeId,
             SplitSource splitSource,
             ToIntFunction<ConnectorSplit> splitBucketFunction,
-            int maxBatchSize)
+            int maxBatchSize,
+            int startSequenceId)
     {
         this.tableScanNodeId = requireNonNull(tableScanNodeId, "tableScanNodeId is null");
         this.splitSource = requireNonNull(splitSource, "splitSource is null");
         this.splitBucketFunction = requireNonNull(splitBucketFunction, "splitBucketFunction is null");
         this.maxBatchSize = maxBatchSize;
+        this.sequenceId = startSequenceId;
         checkArgument(maxBatchSize > 0, "maxBatchSize must be greater than zero");
     }
 

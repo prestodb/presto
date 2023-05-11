@@ -51,10 +51,6 @@ public class TestPrestoSparkNativeJoinQueries
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
     @Ignore
-    public void testMergeJoin() {}
-
-    @Override
-    @Ignore
     public void testCrossJoin() {}
 
     @Override
