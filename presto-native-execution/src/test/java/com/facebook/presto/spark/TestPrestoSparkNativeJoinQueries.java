@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.nativeworker.AbstractTestNativeJoinQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
@@ -52,8 +51,4 @@ public class TestPrestoSparkNativeJoinQueries
     @Override
     @Ignore
     public void testCrossJoin() {}
-
-    @Override
-    @Ignore
-    public void testBucketedInnerJoin(Session joinTypeSession) {}
 }
