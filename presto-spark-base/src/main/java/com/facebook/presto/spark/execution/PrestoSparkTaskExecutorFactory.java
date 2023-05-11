@@ -784,6 +784,11 @@ public class PrestoSparkTaskExecutorFactory
         ImmutableSet.Builder<ScheduledSplit> result = ImmutableSet.builder();
         PlanNode root = fragment.getRoot();
         AtomicLong nextSplitId = new AtomicLong();
+        taskSources.stream()
+                .flatMap(source -> source.getSplits().stream())
+                .mapToLong(split -> split.getSequenceId())
+                .max()
+                .ifPresent(id -> nextSplitId.set(id + 1));
         shuffleReadInfos.forEach((planNodeId, info) ->
                 result.add(new ScheduledSplit(nextSplitId.getAndIncrement(), planNodeId, new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(
                         new Location(format("batch://%s?shuffleInfo=%s", taskId, shuffleInfoTranslator.createSerializedReadInfo(info))),
