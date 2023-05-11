@@ -29,7 +29,8 @@ dwio::common::FileFormat toVeloxFileFormat(
     return dwio::common::FileFormat::DWRF;
   } else if (
       format ==
-      "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat") {
+      "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat" ||
+      format == "org.apache.hudi.hadoop.HoodieParquetInputFormat") {
     return dwio::common::FileFormat::PARQUET;
   } else {
     VELOX_FAIL("Unknown file format {}", format);
