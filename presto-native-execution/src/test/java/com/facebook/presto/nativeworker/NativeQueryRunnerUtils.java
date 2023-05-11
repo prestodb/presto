@@ -22,10 +22,11 @@ public class NativeQueryRunnerUtils
 {
     private NativeQueryRunnerUtils() {}
 
-    public static Map<String, String> getNativeWorkerHiveProperties()
+    public static Map<String, String> getNativeWorkerHiveProperties(String storageFormat)
     {
-        return ImmutableMap.of("hive.storage-format", "DWRF",
-                "hive.pushdown-filter-enabled", "true");
+        return ImmutableMap.of("hive.storage-format", storageFormat,
+                "hive.pushdown-filter-enabled", "true",
+                "hive.parquet.pushdown-filter-enabled", "true");
     }
 
     public static Map<String, String> getNativeWorkerSystemProperties()

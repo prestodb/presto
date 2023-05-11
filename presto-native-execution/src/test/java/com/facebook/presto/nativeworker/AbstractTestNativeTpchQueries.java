@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.io.Resources;
 import org.testng.annotations.Ignore;
@@ -20,11 +21,41 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersHll;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartSupp;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public abstract class AbstractTestNativeTpchQueries
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
+        createLineitem(queryRunner);
+        createBucketedLineitemAndOrders(queryRunner);
+        createOrders(queryRunner);
+        createOrdersEx(queryRunner);
+        createOrdersHll(queryRunner);
+        createNation(queryRunner);
+        createCustomer(queryRunner);
+        createBucketedCustomer(queryRunner);
+        createPart(queryRunner);
+        createPartSupp(queryRunner);
+        createRegion(queryRunner);
+        createSupplier(queryRunner);
+    }
+
     private static String getTpchQuery(int q)
             throws IOException
     {
