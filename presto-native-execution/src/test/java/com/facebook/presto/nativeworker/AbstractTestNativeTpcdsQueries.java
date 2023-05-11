@@ -689,7 +689,9 @@ public abstract class AbstractTestNativeTpcdsQueries
         assertQuery(getTpcdsQuery("77"));
     }
 
-    @Test
+    // TODO: This query starts a chain of bad workers
+    // See https://github.com/prestodb/presto/issues/19599.
+    @Test(enabled = false)
     public void testTpcdsQ78()
             throws Exception
     {
