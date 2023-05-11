@@ -40,6 +40,13 @@ struct CorrIndices : public CovarIndices {
 };
 constexpr CorrIndices kCorrIndices{{1, 4, 5, 0}, 2, 3};
 
+// Indices into RowType representing intermediate results of regr_slope and
+// regr_intercept.
+struct RegrIndices : public CovarIndices {
+  int32_t m2X;
+};
+constexpr RegrIndices kRegrIndices{{1, 3, 4, 0}, 2};
+
 struct CovarAccumulator {
   double count() const {
     return count_;
@@ -219,8 +226,8 @@ struct CorrAccumulator : public CovarAccumulator {
   }
 
  private:
-  double m2X_;
-  double m2Y_;
+  double m2X_{0};
+  double m2Y_{0};
 };
 
 struct CorrResultAccessor {
@@ -279,6 +286,97 @@ class CorrIntermediateResult : public CovarIntermediateResult {
   double* m2Y_;
 };
 
+struct RegrAccumulator : public CovarAccumulator {
+  double m2X() const {
+    return m2X_;
+  }
+
+  void update(double x, double y) {
+    double oldMeanX = meanX();
+    CovarAccumulator::update(x, y);
+
+    m2X_ += (x - oldMeanX) * (x - meanX());
+  }
+
+  void merge(
+      int64_t countOther,
+      double meanXOther,
+      double meanYOther,
+      double c2Other,
+      double m2XOther) {
+    if (countOther == 0) {
+      return;
+    }
+
+    m2X_ += m2XOther +
+        count() / (count() + countOther) * countOther *
+            std::pow(meanX() - meanXOther, 2);
+    CovarAccumulator::merge(countOther, meanXOther, meanYOther, c2Other);
+  }
+
+ private:
+  double m2X_{0};
+};
+
+struct RegrSlopeResultAccessor {
+  static bool hasResult(const RegrAccumulator& accumulator) {
+    return !std::isnan(result(accumulator));
+  }
+
+  static double result(const RegrAccumulator& accumulator) {
+    return accumulator.c2() / accumulator.m2X();
+  }
+};
+
+struct RegrInterceptResultAccessor {
+  static bool hasResult(const RegrAccumulator& accumulator) {
+    return !std::isnan(result(accumulator));
+  }
+
+  static double result(const RegrAccumulator& accumulator) {
+    double slope = RegrSlopeResultAccessor::result(accumulator);
+    return accumulator.meanY() - slope * accumulator.meanX();
+  }
+};
+
+class RegrIntermediateInput : public CovarIntermediateInput {
+ public:
+  explicit RegrIntermediateInput(const RowVector* rowVector)
+      : CovarIntermediateInput(rowVector, kRegrIndices),
+        m2X_{asSimpleVector<double>(rowVector, kRegrIndices.m2X)} {}
+
+  void mergeInto(RegrAccumulator& accumulator, vector_size_t row) {
+    accumulator.merge(
+        count_->valueAt(row),
+        meanX_->valueAt(row),
+        meanY_->valueAt(row),
+        c2_->valueAt(row),
+        m2X_->valueAt(row));
+  }
+
+ private:
+  SimpleVector<double>* m2X_;
+};
+
+class RegrIntermediateResult : public CovarIntermediateResult {
+ public:
+  explicit RegrIntermediateResult(const RowVector* rowVector)
+      : CovarIntermediateResult(rowVector, kRegrIndices),
+        m2X_{mutableRawValues<double>(rowVector, kRegrIndices.m2X)} {}
+
+  static std::string type() {
+    return "row(double,bigint,double,double,double)";
+  }
+
+  void set(vector_size_t row, const RegrAccumulator& accumulator) {
+    CovarIntermediateResult::set(row, accumulator);
+    m2X_[row] = accumulator.m2X();
+  }
+
+ private:
+  double* m2X_;
+};
+
 // @tparam T Type of the raw input and final result. Can be double or float.
 template <
     typename T,
@@ -309,8 +407,15 @@ class CovarianceAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
-    decodedX_.decode(*args[0], rows);
-    decodedY_.decode(*args[1], rows);
+    if constexpr (std::is_same_v<TAccumulator, RegrAccumulator>) {
+      // The args order of linear regression function is (y, x), so we need to
+      // swap the order
+      decodedX_.decode(*args[1], rows);
+      decodedY_.decode(*args[0], rows);
+    } else {
+      decodedX_.decode(*args[0], rows);
+      decodedY_.decode(*args[1], rows);
+    }
 
     rows.applyToSelected([&](auto row) {
       if (decodedX_.isNullAt(row) || decodedY_.isNullAt(row)) {
@@ -349,8 +454,15 @@ class CovarianceAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
-    decodedX_.decode(*args[0], rows);
-    decodedY_.decode(*args[1], rows);
+    if constexpr (std::is_same_v<TAccumulator, RegrAccumulator>) {
+      // The args order of linear regression function is (y, x), so we need to
+      // swap the order
+      decodedX_.decode(*args[1], rows);
+      decodedY_.decode(*args[0], rows);
+    } else {
+      decodedX_.decode(*args[0], rows);
+      decodedY_.decode(*args[1], rows);
+    }
 
     exec::Aggregate::clearNull(group);
     auto* accumulator = this->accumulator(group);
@@ -515,6 +627,16 @@ void registerCovarianceAggregates(const std::string& prefix) {
       CorrIntermediateInput,
       CorrIntermediateResult,
       CorrResultAccessor>(prefix + kCorr);
+  registerCovariance<
+      RegrAccumulator,
+      RegrIntermediateInput,
+      RegrIntermediateResult,
+      RegrInterceptResultAccessor>(prefix + kRegrIntercept);
+  registerCovariance<
+      RegrAccumulator,
+      RegrIntermediateInput,
+      RegrIntermediateResult,
+      RegrSlopeResultAccessor>(prefix + kRegrSlop);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

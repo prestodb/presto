@@ -115,5 +115,10 @@ TEST_P(CovarianceAggregationTest, floatSomeNulls) {
 VELOX_INSTANTIATE_TEST_SUITE_P(
     CovarianceAggregationTest,
     CovarianceAggregationTest,
-    testing::Values("covar_samp", "covar_pop", "corr"));
+    testing::Values(
+        "covar_samp",
+        "covar_pop",
+        "corr",
+        "regr_intercept",
+        "regr_slope"));
 } // namespace facebook::velox::aggregate::test

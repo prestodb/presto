@@ -232,6 +232,16 @@ Statistical Aggregate Functions
 
     Returns the sample covariance of input values.
 
+.. function:: regr_intercept(y, x) -> double
+
+    Returns linear regression intercept of input values. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_slope(y, x) -> double
+
+    Returns linear regression slope of input values. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
 .. function:: stddev(x) -> double
 
     This is an alias for stddev_samp().
