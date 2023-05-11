@@ -1169,20 +1169,16 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   const auto type = toLocalExchangeType(node->type);
 
   const auto outputType = toRowType(node->partitioningScheme.outputLayout);
-  const auto names = outputType->names();
 
   // Different source nodes may have different output layouts.
   // Add ProjectNode on top of each source node to re-arrange the output columns
   // to match the output layout of the LocalExchangeNode.
   for (auto i = 0; i < sourceNodes.size(); ++i) {
+    auto names = outputType->names();
     std::vector<core::TypedExprPtr> projections;
     projections.reserve(outputType->size());
 
-    auto desiredSourceOutput = toRowType(node->inputs[i]);
-    // If the output layout is identical, do not add ProjectNode.
-    if (outputType->names() == desiredSourceOutput->names()) {
-      continue;
-    }
+    const auto desiredSourceOutput = toRowType(node->inputs[i]);
 
     for (auto j = 0; j < outputType->size(); j++) {
       projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
