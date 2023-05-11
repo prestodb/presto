@@ -14,13 +14,39 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartitionedNation;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
+
 public abstract class AbstractTestNativeJoinQueries
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
+        createLineitem(queryRunner);
+        createOrders(queryRunner);
+        createBucketedLineitemAndOrders(queryRunner);
+        createOrdersEx(queryRunner);
+        createNation(queryRunner);
+        createPartitionedNation(queryRunner);
+        createRegion(queryRunner);
+        createCustomer(queryRunner);
+        createBucketedCustomer(queryRunner);
+    }
+
     @Test(dataProvider = "joinTypeProvider")
     public void testInnerJoin(Session joinTypeSession)
     {

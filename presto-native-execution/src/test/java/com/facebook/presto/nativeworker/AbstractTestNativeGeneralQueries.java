@@ -14,6 +14,7 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,12 +24,45 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createEmptyTable;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartitionedNation;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestNativeGeneralQueries
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
+        createLineitem(queryRunner);
+        createCustomer(queryRunner);
+        createOrders(queryRunner);
+        createOrdersEx(queryRunner);
+        createNation(queryRunner);
+        createPartitionedNation(queryRunner);
+        createSupplier(queryRunner);
+        createBucketedCustomer(queryRunner);
+        createPart(queryRunner);
+        createRegion(queryRunner);
+        createEmptyTable(queryRunner);
+        createBucketedLineitemAndOrders(queryRunner);
+
+        createPrestoBenchTables(queryRunner);
+    }
+
     @Test
     public void testCatalogWithCacheEnabled()
     {
@@ -416,7 +450,7 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // numeric limits
         assertQueryFails("SELECT n + m from (values (DECIMAL'99999999999999999999999999999999999999'," +
-                "CAST('1' as DECIMAL(2,0)))) t(n, m)",
+                        "CAST('1' as DECIMAL(2,0)))) t(n, m)",
                 ".*Decimal.*");
         assertQueryFails(
                 "SELECT n + m from (values (CAST('-99999999999999999999999999999999999999' as DECIMAL(38,0))," +
@@ -459,7 +493,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 ") t(n, m)");
         // Divide by zero error.
         assertQueryFails("SELECT n/m from(values (DECIMAL'100', DECIMAL'0.0')) t(n,m)",
-                        ".*Division by zero.*");
+                ".*Division by zero.*");
 
         // Division short decimals.
         assertQuery("SELECT n/m from(values (DECIMAL'100', DECIMAL'299'),(DECIMAL'5.4', DECIMAL'-125')," +
@@ -467,7 +501,7 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Division overflow.
         assertQueryFails("SELECT n/m from(values (DECIMAL'99999999999999999999999999999999999999', DECIMAL'0.01'))" +
-                        " t(n,m)", ".*Decimal.*");
+                " t(n,m)", ".*Decimal.*");
     }
 
     @Test
@@ -510,6 +544,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 "(DECIMAL'3.141592653589793238', NULL), (DECIMAL'-1.54455555555555555551', DECIMAL'-1.54455555555555555555')," +
                 "(NULL, NULL )) t(c0, c1) where c0 <= c1");
     }
+
     @Test
     public void testStringFunctions()
     {
