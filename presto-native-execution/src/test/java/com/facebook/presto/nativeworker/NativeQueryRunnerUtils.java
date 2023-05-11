@@ -47,6 +47,7 @@ public class NativeQueryRunnerUtils
 
     /**
      * Creates all tables for local testing, except for bench tables.
+     *
      * @param queryRunner
      */
     public static void createAllTables(QueryRunner queryRunner)
