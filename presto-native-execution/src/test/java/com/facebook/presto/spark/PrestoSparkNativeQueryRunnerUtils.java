@@ -77,6 +77,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     private static final int AVAILABLE_CPU_COUNT = 4;
     private static final String SPARK_SHUFFLE_MANAGER = "spark.shuffle.manager";
     private static final String FALLBACK_SPARK_SHUFFLE_MANAGER = "spark.fallback.shuffle.manager";
+    private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
     private static Optional<Path> dataDirectory = Optional.empty();
 
     private PrestoSparkNativeQueryRunnerUtils() {}
@@ -135,13 +136,13 @@ public class PrestoSparkNativeQueryRunnerUtils
     {
         ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
         configBuilder.putAll(getNativeWorkerSystemProperties()).putAll(additionalConfigProperties);
-
+        Optional<Path> dataDir = baseDir.map(path -> Paths.get(path.toString() + '/' + DEFAULT_STORAGE_FORMAT));
         PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner(
                 defaultCatalog,
                 configBuilder.build(),
-                getNativeWorkerHiveProperties(),
+                getNativeWorkerHiveProperties(DEFAULT_STORAGE_FORMAT),
                 additionalSparkProperties,
-                baseDir,
+                dataDir,
                 nativeModules,
                 AVAILABLE_CPU_COUNT);
 
@@ -155,7 +156,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     public static QueryRunner createJavaQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy");
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner(Optional.of(getBaseDataPath()), "legacy", DEFAULT_STORAGE_FORMAT);
     }
 
     public static void assertShuffleMetadata()
