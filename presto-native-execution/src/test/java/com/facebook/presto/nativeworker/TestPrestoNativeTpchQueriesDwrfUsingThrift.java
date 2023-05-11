@@ -16,18 +16,18 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
-public class TestPrestoNativeTpchQueriesThrift
+public class TestPrestoNativeTpchQueriesDwrfUsingThrift
         extends AbstractTestNativeTpchQueries
 {
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true);
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true, "DWRF");
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("DWRF");
     }
 }

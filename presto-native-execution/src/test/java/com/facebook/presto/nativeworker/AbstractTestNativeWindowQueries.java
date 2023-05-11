@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -20,9 +21,18 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
+
 public abstract class AbstractTestNativeWindowQueries
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
+        createOrders(queryRunner);
+    }
+
     private static final List<String> OVER_CLAUSES_WITH_ORDER_BY = Arrays.asList(
             "PARTITION BY orderkey ORDER BY totalprice",
             "PARTITION BY custkey, orderkey ORDER BY totalprice",

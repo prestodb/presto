@@ -13,14 +13,33 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersHll;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestNativeAggregations
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
+        createLineitem(queryRunner);
+        createOrders(queryRunner);
+        createOrdersHll(queryRunner);
+        createOrdersEx(queryRunner);
+        createNation(queryRunner);
+        createRegion(queryRunner);
+    }
+
     @Test
     public void testAggregations()
     {

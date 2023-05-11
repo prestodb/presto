@@ -13,12 +13,22 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 
 public abstract class AbstractTestNativeBitwiseFunctionQueries
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
+        createNation(queryRunner);
+    }
+
     @Test
     public void testBitCount()
     {

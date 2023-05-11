@@ -28,21 +28,6 @@ import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createEmptyTable;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersHll;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartSupp;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartitionedNation;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,6 +36,7 @@ import static org.testng.Assert.assertNotNull;
 
 public class PrestoNativeQueryRunnerUtils
 {
+    private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
     private PrestoNativeQueryRunnerUtils() {}
 
     public static QueryRunner createQueryRunner()
@@ -68,21 +54,23 @@ public class PrestoNativeQueryRunnerUtils
                 Optional.ofNullable(prestoServerPath),
                 Optional.ofNullable(dataDirectory).map(Paths::get),
                 Optional.ofNullable(workerCount).map(Integer::parseInt),
-                cacheMaxSize);
+                cacheMaxSize,
+                DEFAULT_STORAGE_FORMAT);
     }
 
     public static QueryRunner createQueryRunner(
             Optional<String> prestoServerPath,
             Optional<Path> dataDirectory,
             Optional<Integer> workerCount,
-            int cacheMaxSize)
+            int cacheMaxSize,
+            String storageFormat)
             throws Exception
     {
         if (prestoServerPath.isPresent()) {
             checkArgument(dataDirectory.isPresent(), "Path to data files must be specified when testing external workers");
         }
 
-        QueryRunner defaultQueryRunner = createJavaQueryRunner(dataDirectory);
+        QueryRunner defaultQueryRunner = createJavaQueryRunner(dataDirectory, storageFormat);
 
         if (!prestoServerPath.isPresent()) {
             return defaultQueryRunner;
@@ -90,24 +78,30 @@ public class PrestoNativeQueryRunnerUtils
 
         defaultQueryRunner.close();
 
-        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true);
+        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true, storageFormat);
     }
 
     public static QueryRunner createJavaQueryRunner() throws Exception
     {
+        return createJavaQueryRunner(DEFAULT_STORAGE_FORMAT);
+    }
+
+    public static QueryRunner createJavaQueryRunner(String storageFormat) throws Exception
+    {
         String dataDirectory = System.getProperty("DATA_DIR");
-        return createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)));
+        return createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)), storageFormat);
     }
 
-    public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory)
+    public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory, String storageFormat)
             throws Exception
     {
-        return createJavaQueryRunner(dataDirectory, "sql-standard");
+        return createJavaQueryRunner(dataDirectory, "sql-standard", storageFormat);
     }
 
-    public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory, String security)
+    public static QueryRunner createJavaQueryRunner(Optional<Path> baseDataDirectory, String security, String storageFormat)
             throws Exception
     {
+        Optional<Path> dataDirectory = baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat));
         DistributedQueryRunner queryRunner =
                 HiveQueryRunner.createQueryRunner(
                         ImmutableList.of(),
@@ -117,27 +111,9 @@ public class PrestoNativeQueryRunnerUtils
                                 "offset-clause-enabled", "true"),
                         security,
                         ImmutableMap.of(
-                                "hive.storage-format", "DWRF",
+                                "hive.storage-format", storageFormat,
                                 "hive.pushdown-filter-enabled", "true"),
                         dataDirectory);
-
-        // DWRF doesn't support date type. Convert date columns to varchar for lineitem and orders.
-        createLineitem(queryRunner);
-        createOrders(queryRunner);
-        createOrdersEx(queryRunner);
-        createOrdersHll(queryRunner);
-        createNation(queryRunner);
-        createPartitionedNation(queryRunner);
-        createBucketedCustomer(queryRunner);
-        createCustomer(queryRunner);
-        createPart(queryRunner);
-        createPartSupp(queryRunner);
-        createRegion(queryRunner);
-        createSupplier(queryRunner);
-        createEmptyTable(queryRunner);
-        createPrestoBenchTables(queryRunner);
-        createBucketedLineitemAndOrders(queryRunner);
-
         return queryRunner;
     }
 
@@ -146,7 +122,8 @@ public class PrestoNativeQueryRunnerUtils
             String prestoServerPath,
             Optional<Integer> workerCount,
             int cacheMaxSize,
-            boolean useThrift)
+            boolean useThrift,
+            String storageFormat)
             throws Exception
     {
         // Make query runner with external workers for tests
@@ -160,9 +137,9 @@ public class PrestoNativeQueryRunnerUtils
                         .build(),
                 ImmutableMap.of(),
                 "legacy",
-                getNativeWorkerHiveProperties(),
+                getNativeWorkerHiveProperties(storageFormat),
                 workerCount,
-                Optional.of(Paths.get(dataDirectory)),
+                Optional.of(Paths.get(dataDirectory + "/" + storageFormat)),
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
                         Path tempDirectoryPath = Files.createTempDirectory(PrestoNativeQueryRunnerUtils.class.getSimpleName());
@@ -222,6 +199,12 @@ public class PrestoNativeQueryRunnerUtils
     public static QueryRunner createNativeQueryRunner(boolean useThrift)
             throws Exception
     {
+        return createNativeQueryRunner(useThrift, DEFAULT_STORAGE_FORMAT);
+    }
+
+    public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat)
+            throws Exception
+    {
         String prestoServerPath = System.getProperty("PRESTO_SERVER");
         String dataDirectory = System.getProperty("DATA_DIR");
         String workerCount = System.getProperty("WORKER_COUNT");
@@ -230,6 +213,6 @@ public class PrestoNativeQueryRunnerUtils
         assertNotNull(prestoServerPath, "Native worker binary path is missing. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.");
         assertNotNull(dataDirectory, "Data directory path is missing. Add -DDATA_DIR=<path/to/data> to your JVM arguments.");
 
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift);
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift, storageFormat);
     }
 }

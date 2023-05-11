@@ -16,18 +16,18 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
-public class TestPrestoNativeTpchQueriesJSON
+public class TestPrestoNativeTpchQueriesParquetUsingJSON
         extends AbstractTestNativeTpchQueries
 {
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(false);
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(false, "PARQUET");
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
     }
 }

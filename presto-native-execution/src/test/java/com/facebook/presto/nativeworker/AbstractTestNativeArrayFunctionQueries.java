@@ -13,12 +13,24 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 
 public abstract class AbstractTestNativeArrayFunctionQueries
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
+        createLineitem(queryRunner);
+        createOrdersEx(queryRunner);
+    }
+
     @Test
     public void testRepeat()
     {
