@@ -877,7 +877,7 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrations) {
           } catch (VeloxException& e) {
             // Ignore memory limit exception.
             ASSERT_TRUE(
-                e.message().find("Exceeded memory cap") != std::string::npos);
+                e.message().find("Exceeded memory") != std::string::npos);
           }
         }
       }
@@ -924,7 +924,7 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
           } catch (VeloxException& e) {
             // Ignore the memory capacity limit exception.
             ASSERT_TRUE(
-                e.message().find("Exceeded memory cap") != std::string::npos);
+                e.message().find("Exceeded memory") != std::string::npos);
           }
         }
         std::this_thread::sleep_for(std::chrono::microseconds(1));

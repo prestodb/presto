@@ -33,16 +33,7 @@ namespace {
       ::facebook::velox::error_code::kMemCapExceeded.c_str(),       \
       /* isRetriable */ true,                                       \
       "{}",                                                         \
-      errorMessage);
-
-#define VELOX_MEM_MANAGER_CAP_EXCEEDED(cap)                         \
-  _VELOX_THROW(                                                     \
-      ::facebook::velox::VeloxRuntimeError,                         \
-      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
-      ::facebook::velox::error_code::kMemCapExceeded.c_str(),       \
-      /* isRetriable */ true,                                       \
-      "Exceeded memory manager cap of {}",                          \
-      succinctBytes(cap));
+      (errorMessage));
 
 // Check if memory operation is allowed and increment the named stats.
 #define CHECK_AND_INC_MEM_OP_STATS(stats)                             \
@@ -143,6 +134,10 @@ void capExceedingMessageVisitor(
         capExceedingMessageVisitor(pool, indent, topLeafMemUsages, out);
         return true;
       });
+}
+
+std::string capacityToString(int64_t capacity) {
+  return capacity == kMaxMemory ? "UNLIMITED" : succinctBytes(capacity);
 }
 } // namespace
 
@@ -634,7 +629,13 @@ void MemoryPoolImpl::reserve(uint64_t size, bool reserveOnly) {
     // is low-pri because we can only have inflated aggregates, and be on the
     // more conservative side.
     release(size);
-    VELOX_MEM_MANAGER_CAP_EXCEEDED(manager_->capacity());
+    VELOX_MEM_POOL_CAP_EXCEEDED(toImpl(root())->capExceedingMessage(
+        this,
+        fmt::format(
+            "Exceeded memory manager cap of {} when requesting {}, memory pool cap is {}",
+            capacityToString(manager_->capacity()),
+            succinctBytes(size),
+            capacityToString(capacity()))));
   }
 }
 
@@ -720,7 +721,13 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
     return maybeIncrementReservation(size);
   }
 
-  VELOX_MEM_POOL_CAP_EXCEEDED(capExceedingMessage(requestor, size));
+  VELOX_MEM_POOL_CAP_EXCEEDED(capExceedingMessage(
+      requestor,
+      fmt::format(
+          "Exceeded memory pool cap of {} when requesting {}, memory manager cap is {}",
+          capacityToString(capacity_),
+          succinctBytes(size),
+          capacityToString(manager_->capacity()))));
 }
 
 bool MemoryPoolImpl::maybeIncrementReservation(uint64_t size) {
@@ -803,14 +810,13 @@ void MemoryPoolImpl::decrementReservation(uint64_t size) noexcept {
 
 std::string MemoryPoolImpl::capExceedingMessage(
     MemoryPool* requestor,
-    uint64_t incrementBytes) {
+    const std::string& errorMessage) {
   VELOX_CHECK_NULL(parent_);
 
   std::stringstream out;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    out << "\nExceeded memory cap of " << succinctBytes(capacity_)
-        << " when requesting " << succinctBytes(incrementBytes) << "\n";
+    out << "\n" << errorMessage << "\n";
     const Stats stats = statsLocked();
     const MemoryUsage usage{
         .name = name(),

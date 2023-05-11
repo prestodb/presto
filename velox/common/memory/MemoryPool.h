@@ -751,7 +751,7 @@ class MemoryPoolImpl : public MemoryPool {
   // , Source: RUNTIME, ErrorCode: MEM_CAP_EXCEEDED
   std::string capExceedingMessage(
       MemoryPool* requestor,
-      uint64_t incrementBytes);
+      const std::string& errorMessage);
 
   FOLLY_ALWAYS_INLINE void sanityCheckLocked() const {
     if (FOLLY_UNLIKELY(

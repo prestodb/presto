@@ -522,7 +522,7 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
         ASSERT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
         ASSERT_TRUE(ex.isRetriable());
         ASSERT_EQ(
-            "\nExceeded memory cap of 127.00MB when requesting 128.00MB\nMemoryCapExceptions usage 0B peak 0B\n\nFailed memory pool: static_quota: 0B\n",
+            "\nExceeded memory pool cap of 127.00MB when requesting 128.00MB, memory manager cap is 127.00MB\nMemoryCapExceptions usage 0B peak 0B\n\nFailed memory pool: static_quota: 0B\n",
             ex.message());
       }
     }
@@ -541,7 +541,9 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
         ASSERT_EQ(error_source::kErrorSourceRuntime.c_str(), ex.errorSource());
         ASSERT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
         ASSERT_TRUE(ex.isRetriable());
-        ASSERT_EQ("Exceeded memory manager cap of 127.00MB", ex.message());
+        ASSERT_EQ(
+            "\nExceeded memory manager cap of 127.00MB when requesting 127.00MB, memory pool cap is 254.00MB\nMemoryCapExceptions usage 0B peak 128.00MB\n\nFailed memory pool: static_quota: 0B\n",
+            ex.message());
       }
     }
   }

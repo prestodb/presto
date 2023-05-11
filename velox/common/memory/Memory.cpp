@@ -21,15 +21,6 @@ DECLARE_int32(velox_memory_num_shared_leaf_pools);
 
 namespace facebook::velox::memory {
 namespace {
-#define VELOX_MEM_MANAGER_CAP_EXCEEDED(cap)                         \
-  _VELOX_THROW(                                                     \
-      ::facebook::velox::VeloxRuntimeError,                         \
-      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
-      ::facebook::velox::error_code::kMemCapExceeded.c_str(),       \
-      /* isRetriable */ true,                                       \
-      "Exceeded memory manager cap of {} MB",                       \
-      (cap) / 1024 / 1024);
-
 constexpr folly::StringPiece kDefaultRootName{"__default_root__"};
 constexpr folly::StringPiece kDefaultLeafName("__default_leaf__");
 } // namespace
