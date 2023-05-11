@@ -218,6 +218,14 @@ public class TestQueryPlanDeterminism
         return super.computeExpected(sql, resultTypes);
     }
 
+    // Give more time for large queries in plan determinsm check.
+    @Override
+    @Test(timeOut = 100_000)
+    public void testLargeQuery()
+    {
+        super.testLargeQuery();
+    }
+
     @Test
     public void testTpchQ9deterministic()
     {
