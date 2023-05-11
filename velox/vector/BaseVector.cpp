@@ -827,9 +827,13 @@ std::optional<vector_size_t> BaseVector::findDuplicateValue(
     vector_size_t start,
     vector_size_t size,
     CompareFlags flags) {
+  if (length_ == 0 || size == 0) {
+    return std::nullopt;
+  }
+
   VELOX_DCHECK_GE(start, 0, "Start index must not be negative");
   VELOX_DCHECK_LT(start, length_, "Start index is too large");
-  VELOX_DCHECK_GE(size, 0, "Size must not be negative");
+  VELOX_DCHECK_GT(size, 0, "Size must not be negative");
   VELOX_DCHECK_LE(start + size, length_, "Size is too large");
 
   std::vector<vector_size_t> indices(size);

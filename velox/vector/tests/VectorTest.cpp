@@ -2320,4 +2320,17 @@ TEST_F(VectorTest, findDuplicateValue) {
   // Verify that empty range doesn't throw.
   dup = data->findDuplicateValue(2, 0, flags);
   ASSERT_FALSE(dup.has_value());
+
+// Verify that out-of-bound range throws in debug mode.
+#ifndef NDEBUG
+  VELOX_ASSERT_THROW(
+      data->findDuplicateValue(2, 8, flags), "Size is too large");
+  VELOX_ASSERT_THROW(
+      data->findDuplicateValue(22, 8, flags), "Start index is too large");
+#endif
+
+  // Verify that empty vector doesn't throw.
+  auto noData = makeFlatVector<int32_t>({});
+  dup = noData->findDuplicateValue(0, 0, flags);
+  ASSERT_FALSE(dup.has_value());
 }
