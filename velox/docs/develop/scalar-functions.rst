@@ -359,11 +359,6 @@ we need to call registerFunction again:
 
 We need to call registerFunction for each signature we want to support.
 
-For decimal arguments, we use UnscaledLongDecimal or UnscaledShortDecimal for
-registration. Simple functions always require decimal arguments to have the same
-precision and scale. We must explicitly :func:`cast` the decimal arguments if
-required before passing them to simple functions.
-
 Codegen
 ^^^^^^^
 
