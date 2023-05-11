@@ -35,7 +35,7 @@ class CoalesceSegments {
         : begin_{begin},
           end_{end},
           theEnd_{end},
-          shouldCoalesce_(shouldCoalesce) {
+          shouldCoalesce_(std::move(shouldCoalesce)) {
       findNextEnd();
     }
 
@@ -86,8 +86,8 @@ class CoalesceSegments {
   CoalesceSegments(
       SegmentIter begin,
       SegmentIter end,
-      ShouldCoalesce& shouldCoalesce)
-      : begin_{begin}, end_{end}, shouldCoalesce_(shouldCoalesce) {}
+      ShouldCoalesce shouldCoalesce)
+      : begin_{begin}, end_{end}, shouldCoalesce_(std::move(shouldCoalesce)) {}
 
   Iter begin() {
     return Iter{begin_, end_, shouldCoalesce_};
@@ -118,7 +118,7 @@ template <typename SegmentPtrIter, typename Reader>
 class ReadToSegments {
  public:
   ReadToSegments(SegmentPtrIter begin, SegmentPtrIter end, Reader reader)
-      : begin_{begin}, end_{end}, reader_{reader} {}
+      : begin_{begin}, end_{end}, reader_{std::move(reader)} {}
 
   void read() {
     if (begin_ == end_) {
