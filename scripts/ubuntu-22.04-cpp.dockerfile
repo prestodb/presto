@@ -31,7 +31,8 @@ ADD scripts /velox/scripts/
 # TZ and DEBIAN_FRONTEND="noninteractive"
 # are required to avoid tzdata installation
 # to prompt for region selection.
-ENV DEBIAN_FRONTEND="noninteractive" TZ=${tz}
+ARG DEBIAN_FRONTEND="noninteractive"
+ENV TZ=${tz}
 RUN /velox/scripts/setup-ubuntu.sh
 
 WORKDIR /velox
