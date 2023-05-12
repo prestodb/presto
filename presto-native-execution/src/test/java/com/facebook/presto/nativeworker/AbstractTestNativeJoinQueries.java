@@ -33,10 +33,12 @@ public abstract class AbstractTestNativeJoinQueries
     public void testBucketedInnerJoin(Session joinTypeSession)
     {
         assertQuery(joinTypeSession, "SELECT b.name, c.name FROM customer_bucketed b, customer c WHERE b.name=c.name");
-        assertQuery(joinTypeSession, "SELECT b.name FROM customer_bucketed b, customer c " +
+        assertQuery(joinTypeSession, "SELECT b.name, c.custkey FROM customer_bucketed b, customer c " +
                 "WHERE b.name=c.name AND \"$bucket\" = 7");
         assertQuery(joinTypeSession, "SELECT b.* FROM customer_bucketed b, customer c " +
                 "WHERE b.name=c.name AND \"$bucket\" IN (2, 5, 8)");
+        assertQuery(joinTypeSession, "SELECT * FROM customer_bucketed b, customer c " +
+                "WHERE b.name=c.name AND \"$bucket\" = 5");
     }
 
     @Test(dataProvider = "joinTypeProvider")

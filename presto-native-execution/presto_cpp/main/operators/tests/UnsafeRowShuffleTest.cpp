@@ -376,6 +376,26 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     return vector;
   }
 
+  void testPartitionAndSerialize(
+      const core::PlanNodePtr& plan,
+      const RowVectorPtr& expected) {
+    exec::test::CursorParameters params;
+    params.planNode = plan;
+    params.maxDrivers = 2;
+
+    auto [taskCursor, serializedResults] =
+        readCursor(params, [](auto /*task*/) {});
+    EXPECT_EQ(serializedResults.size(), 2);
+
+    for (auto& serializedResult : serializedResults) {
+      // Verify that serialized data can be deserialized successfully into the
+      // original data.
+      auto deserialized =
+          deserialize(serializedResult, asRowType(expected->type()));
+      velox::test::assertEqualVectors(expected, deserialized);
+    }
+  }
+
   void runShuffleTest(
       const std::string& shuffleName,
       const std::string& serializedShuffleWriteInfo,
@@ -714,20 +734,22 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperator) {
                   .addNode(addPartitionAndSerializeNode(4))
                   .planNode();
 
-  exec::test::CursorParameters params;
-  params.planNode = plan;
-  params.maxDrivers = 2;
+  testPartitionAndSerialize(plan, data);
+}
 
-  auto [taskCursor, serializedResults] =
-      readCursor(params, [](auto /*task*/) {});
-  EXPECT_EQ(serializedResults.size(), 2);
+TEST_F(UnsafeRowShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
+  });
 
-  for (auto& serializedResult : serializedResults) {
-    // Verify that serialized data can be deserialized successfully into the
-    // original data.
-    auto deserialized = deserialize(serializedResult, asRowType(data->type()));
-    velox::test::assertEqualVectors(data, deserialized);
-  }
+  auto plan = exec::test::PlanBuilder()
+                  .values({data}, true)
+                  .addNode(addPartitionAndSerializeNode(4, {"c1", "c0"}))
+                  .planNode();
+
+  auto expected = makeRowVector({data->childAt(1), data->childAt(0)});
+  testPartitionAndSerialize(plan, expected);
 }
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperatorWhenSinglePartition) {
@@ -741,20 +763,7 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperatorWhenSinglePartition) {
                   .addNode(addPartitionAndSerializeNode(1))
                   .planNode();
 
-  exec::test::CursorParameters params;
-  params.planNode = plan;
-  params.maxDrivers = 2;
-
-  auto [taskCursor, serializedResults] =
-      readCursor(params, [](auto /*task*/) {});
-  EXPECT_EQ(serializedResults.size(), 2);
-
-  for (auto& serializedResult : serializedResults) {
-    // Verify that serialized data can be deserialized successfully into the
-    // original data.
-    auto deserialized = deserialize(serializedResult, asRowType(data->type()));
-    velox::test::assertEqualVectors(data, deserialized);
-  }
+  testPartitionAndSerialize(plan, data);
 }
 
 TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
@@ -775,7 +784,7 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
   ASSERT_EQ(plan->toString(false, false), "-- ShuffleWrite\n");
   ASSERT_EQ(
       plan->toString(true, false),
-      "-- ShuffleWrite[] -> p:INTEGER, d:VARBINARY\n");
+      "-- ShuffleWrite[] -> partition:INTEGER, data:VARBINARY\n");
 }
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
