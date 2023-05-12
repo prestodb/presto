@@ -488,11 +488,11 @@ public class TestResourceManagerClusterStateProvider
         assertEquals(provider.getAdjustedQueueSize(), expectedAdjustedQueueSize);
     }
 
-    @Test(timeOut = 15_000)
+    @Test(timeOut = 20_000)
     public void testWorkerMemoryInfo()
             throws Exception
     {
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(new InMemoryNodeManager(), new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(new InMemoryNodeManager(), new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
         assertWorkerMemoryInfo(provider, 0);
 
@@ -502,8 +502,9 @@ public class TestResourceManagerClusterStateProvider
         provider.registerNodeHeartbeat(createNodeStatus("nodeId2", GENERAL_POOL, createMemoryPoolInfo(200, 20, 10)));
         assertWorkerMemoryInfo(provider, 2);
 
-        // Expire nodes
-        Thread.sleep(SECONDS.toMillis(5));
+        // Node expiration timeout was set as 4 seconds
+        // Waiting for the expiration to cross the threshold + adding buffer to avoid flakiness
+        Thread.sleep(SECONDS.toMillis(10));
 
         assertWorkerMemoryInfo(provider, 0);
     }
