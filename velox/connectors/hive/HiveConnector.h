@@ -236,7 +236,7 @@ class HiveDataSource : public DataSource {
 
   dwio::common::RuntimeStatistics runtimeStats_;
 
-  FileHandleCachedPtr fileHandle_;
+  std::shared_ptr<FileHandle> fileHandle_;
   core::ExpressionEvaluator* expressionEvaluator_;
   uint64_t completedRows_ = 0;
 

@@ -33,9 +33,9 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox::dwrf;
 
 DEFINE_int32(
-    file_handle_cache_mb,
-    16,
-    "Amount of space for the file handle cache in mb.");
+    num_file_handle_cache,
+    20'000,
+    "Max number of file handles to cache.");
 
 namespace facebook::velox::connector::hive {
 namespace {
@@ -503,7 +503,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
 
   VLOG(1) << "Adding split " << split_->toString();
 
-  fileHandle_ = fileHandleFactory_->generate(split_->filePath);
+  fileHandle_ = fileHandleFactory_->generate(split_->filePath).second;
   auto input = createBufferedInput(*fileHandle_, readerOpts_);
 
   if (readerOpts_.getFileFormat() != dwio::common::FileFormat::UNKNOWN) {
@@ -771,8 +771,9 @@ HiveConnector::HiveConnector(
     folly::Executor* FOLLY_NULLABLE executor)
     : Connector(id, properties),
       fileHandleFactory_(
-          std::make_unique<SimpleLRUCache<std::string, FileHandle>>(
-              FLAGS_file_handle_cache_mb << 20),
+          std::make_unique<
+              SimpleLRUCache<std::string, std::shared_ptr<FileHandle>>>(
+              FLAGS_num_file_handle_cache),
           std::make_unique<FileHandleGenerator>(std::move(properties))),
       executor_(executor) {}
 

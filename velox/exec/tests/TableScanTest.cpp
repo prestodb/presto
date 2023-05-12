@@ -37,6 +37,18 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox::common::test;
 using namespace facebook::velox::exec::test;
 
+namespace {
+void verifyCacheStats(
+    const FileHandleCacheStats& cacheStats,
+    size_t curSize,
+    size_t numHits,
+    size_t numLookups) {
+  EXPECT_EQ(cacheStats.curSize, curSize);
+  EXPECT_EQ(cacheStats.numHits, numHits);
+  EXPECT_EQ(cacheStats.numLookups, numLookups);
+}
+} // namespace
+
 class TableScanTest : public virtual HiveConnectorTestBase {
  protected:
   void SetUp() override {
@@ -213,12 +225,7 @@ TEST_F(TableScanTest, connectorStats) {
       std::dynamic_pointer_cast<connector::hive::HiveConnector>(
           connector::getConnector(kHiveConnectorId));
   EXPECT_NE(nullptr, hiveConnector);
-  auto cacheStats = hiveConnector->fileHandleCacheStats();
-  EXPECT_EQ(0, cacheStats.curSize);
-  EXPECT_EQ(0, cacheStats.pinnedSize);
-  EXPECT_EQ(0, cacheStats.numElements);
-  EXPECT_EQ(0, cacheStats.numHits);
-  EXPECT_EQ(0, cacheStats.numLookups);
+  verifyCacheStats(hiveConnector->fileHandleCacheStats(), 0, 0, 0);
 
   for (size_t i = 0; i < 99; i++) {
     auto vectors = makeVectors(10, 10);
@@ -229,17 +236,8 @@ TEST_F(TableScanTest, connectorStats) {
     assertQuery(plan, {filePath}, "SELECT * FROM tmp");
   }
 
-  cacheStats = hiveConnector->fileHandleCacheStats();
-  EXPECT_EQ(0, cacheStats.pinnedSize);
-  EXPECT_EQ(99, cacheStats.numElements);
-  EXPECT_EQ(0, cacheStats.numHits);
-  EXPECT_EQ(99, cacheStats.numLookups);
-
-  cacheStats = hiveConnector->clearFileHandleCache();
-  EXPECT_EQ(0, cacheStats.pinnedSize);
-  EXPECT_EQ(0, cacheStats.numElements);
-  EXPECT_EQ(0, cacheStats.numHits);
-  EXPECT_EQ(99, cacheStats.numLookups);
+  verifyCacheStats(hiveConnector->fileHandleCacheStats(), 99, 0, 99);
+  verifyCacheStats(hiveConnector->clearFileHandleCache(), 0, 0, 99);
 }
 
 TEST_F(TableScanTest, columnAliases) {

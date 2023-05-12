@@ -24,12 +24,6 @@
 
 namespace facebook::velox {
 
-uint64_t FileHandleSizer::operator()(const FileHandle& fileHandle) {
-  // TODO: remember to add in the size of the hash map and its contents
-  // when we add it later.
-  return fileHandle.file->memoryUsage();
-}
-
 namespace {
 // The group tracking is at the level of the directory, i.e. Hive partition.
 std::string groupName(const std::string& filename) {
@@ -39,13 +33,13 @@ std::string groupName(const std::string& filename) {
 }
 } // namespace
 
-std::unique_ptr<FileHandle> FileHandleGenerator::operator()(
+std::shared_ptr<FileHandle> FileHandleGenerator::operator()(
     const std::string& filename) {
   uint64_t elapsedTimeUs{0};
-  std::unique_ptr<FileHandle> fileHandle;
+  std::shared_ptr<FileHandle> fileHandle;
   {
     MicrosecondTimer timer(&elapsedTimeUs);
-    fileHandle = std::make_unique<FileHandle>();
+    fileHandle = std::make_shared<FileHandle>();
     fileHandle->file = filesystems::getFileSystem(filename, properties_)
                            ->openFileForRead(filename);
     fileHandle->uuid = StringIdLease(fileIds(), filename);
