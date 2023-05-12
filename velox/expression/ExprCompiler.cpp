@@ -296,8 +296,7 @@ std::shared_ptr<Expr> compileLambda(
 }
 
 ExprPtr tryFoldIfConstant(const ExprPtr& expr, Scope* scope) {
-  if (expr->isConstant() && !expr->inputs().empty() &&
-      scope->exprSet->execCtx()) {
+  if (expr->isConstant() && scope->exprSet->execCtx()) {
     try {
       auto rowType = ROW({}, {});
       auto execCtx = scope->exprSet->execCtx();

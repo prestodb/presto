@@ -560,6 +560,7 @@ using UDTTypeRegistrar = OpaqueCustomTypeRegister<UDT, kName>;
 
 template <typename T>
 struct MakeUDTFunc {
+  static constexpr bool is_deterministic = false;
   VELOX_DEFINE_FUNCTION_TYPES(T);
   int x = 0;
 

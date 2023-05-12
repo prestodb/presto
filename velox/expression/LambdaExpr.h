@@ -48,6 +48,10 @@ class LambdaExpr : public SpecialForm {
     }
   }
 
+  bool isConstant() const override {
+    return false;
+  }
+
   std::string toString(bool recursive = true) const override;
 
   std::string toSql(

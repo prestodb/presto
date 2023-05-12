@@ -464,11 +464,22 @@ TEST_F(ExprTest, validateReturnType) {
       VeloxUserError);
 }
 
+namespace {
+
+template <typename T>
+struct NoArgFunction {
+  void call(int64_t& out) {
+    out = 10;
+  }
+};
+} // namespace
+
 TEST_F(ExprTest, constantFolding) {
   auto typedExpr = parseExpression("1 + 2", ROW({}));
 
   auto extractConstant = [](exec::Expr* expr) {
     auto constExpr = dynamic_cast<exec::ConstantExpr*>(expr);
+    EXPECT_TRUE(constExpr);
     return constExpr->value()->as<ConstantVector<int64_t>>()->valueAt(0);
   };
 
@@ -500,6 +511,13 @@ TEST_F(ExprTest, constantFolding) {
     // folding time. Ensure compiling this expression does not throw..
     auto typedExpr = parseExpression("codepoint('abcdef')", ROW({}));
     EXPECT_NO_THROW(exec::ExprSet exprSet({typedExpr}, execCtx_.get(), true));
+  }
+
+  {
+    registerFunction<NoArgFunction, int64_t>({"no_arg_func"});
+    auto expression = parseExpression("no_arg_func()", ROW({}));
+    exec::ExprSet exprSetFolded({expression}, execCtx_.get(), true);
+    EXPECT_EQ(10, extractConstant(exprSetFolded.exprs().front().get()));
   }
 }
 
