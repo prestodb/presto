@@ -20,8 +20,6 @@
 #include "presto_cpp/main/common/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/AsyncDataCache.h"
-#include "velox/common/caching/SsdFile.h"
-#include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/connectors/hive/HiveConnector.h"
@@ -97,7 +95,7 @@ void PeriodicTaskManager::addExecutorStatsTask() {
               kCounterDriverCPUExecutorQueueSize,
               driverCPUExecutor->getTaskQueueSize());
 
-          // Report the latency between scheduling the task and its execution.
+          // Report driver execution latency.
           folly::stop_watch<std::chrono::milliseconds> timer;
           driverCPUExecutor->add([timer = timer]() {
             REPORT_ADD_STAT_VALUE(
@@ -339,7 +337,7 @@ void PeriodicTaskManager::addAsyncDataCacheStatsTask() {
 }
 
 void PeriodicTaskManager::addConnectorStatsTask() {
-  for (auto itr : connectors_) {
+  for (const auto& itr : connectors_) {
     static std::unordered_map<std::string, int64_t> oldValues;
     // Export HiveConnector stats
     if (auto hiveConnector =
