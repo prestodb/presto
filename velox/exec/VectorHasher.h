@@ -172,6 +172,11 @@ class VectorHasher {
   // computeValueIds(). The decoded vector can be accessed via decodedVector()
   // getter.
   void decode(const BaseVector& vector, const SelectivityVector& rows) {
+    VELOX_CHECK(
+        type_->kindEquals(vector.type()),
+        "Type mismatch: {} vs. {}",
+        type_->toString(),
+        vector.type()->toString());
     decoded_.decode(vector, rows);
   }
 

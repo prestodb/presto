@@ -15,6 +15,7 @@
  */
 #include "velox/exec/VectorHasher.h"
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/type/Type.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
@@ -941,4 +942,16 @@ TEST_F(VectorHasherTest, simdRange) {
           result[i]);
     }
   }
+}
+
+TEST_F(VectorHasherTest, typeMismatch) {
+  auto hasher = VectorHasher::create(BIGINT(), 0);
+
+  auto data = vectorMaker_->flatVector<std::string>(
+      {"a",
+       "b"
+       "c"});
+  SelectivityVector rows(data->size());
+  VELOX_ASSERT_THROW(
+      hasher->decode(*data, rows), "Type mismatch: BIGINT vs. VARCHAR");
 }
