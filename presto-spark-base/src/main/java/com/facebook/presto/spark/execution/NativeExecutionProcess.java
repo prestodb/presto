@@ -152,9 +152,12 @@ public class NativeExecutionProcess
         if (process != null && process.isAlive()) {
             process.destroy();
             try {
-                // For native process it takes 10s to initiate SHUTDOWN. The task cleanup interval is 60s. To be sure task cleanup is run at least once we just roughly double the
-                // wait time.
-                process.waitFor(120, TimeUnit.SECONDS);
+                // This 1 sec is arbitrary. Ideally, we do not need to be give any heads up
+                // to CPP process on presto-on-spark native, because the resources
+                // are reclaimed by the container manager.
+                // For localmode, we still want to provide an opportunity for
+                // graceful termination as there is no resource/container manager.
+                process.waitFor(1, TimeUnit.SECONDS);
             }
             catch (InterruptedException e) {
                 e.printStackTrace();
