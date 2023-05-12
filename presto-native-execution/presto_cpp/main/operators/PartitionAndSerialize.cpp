@@ -43,7 +43,22 @@ class PartitionAndSerializeOperator : public Operator {
         partitionFunction_(
             numPartitions_ == 1 ? nullptr
                                 : planNode->partitionFunctionFactory()->create(
-                                      planNode->numPartitions())) {}
+                                      planNode->numPartitions())),
+        serializedRowType_{planNode->serializedRowType()} {
+    const auto& inputType = planNode->sources()[0]->outputType()->asRow();
+    const auto& serializedRowTypeNames = serializedRowType_->names();
+    bool identityMapping = true;
+    for (auto i = 0; i < serializedRowTypeNames.size(); ++i) {
+      serializedColumnIndices_.push_back(
+          inputType.getChildIdx(serializedRowTypeNames[i]));
+      if (serializedColumnIndices_.back() != i) {
+        identityMapping = false;
+      }
+    }
+    if (identityMapping) {
+      serializedColumnIndices_.clear();
+    }
+  }
 
   bool needsInput() const override {
     return !input_;
@@ -96,6 +111,24 @@ class PartitionAndSerializeOperator : public Operator {
     ::memcpy(rawPartitions, partitions_.data(), sizeof(int32_t) * numInput);
   }
 
+  RowVectorPtr reorderInputsIfNeeded() {
+    if (serializedColumnIndices_.empty()) {
+      return input_;
+    }
+
+    const auto& inputColumns = input_->children();
+    std::vector<VectorPtr> columns(inputColumns.size());
+    for (auto i = 0; i < columns.size(); ++i) {
+      columns[i] = inputColumns[serializedColumnIndices_[i]];
+    }
+    return std::make_shared<RowVector>(
+        input_->pool(),
+        serializedRowType_,
+        nullptr,
+        input_->size(),
+        std::move(columns));
+  }
+
   // The logic of this method is logically identical with
   // UnsafeRowVectorSerializer::append() and UnsafeRowVectorSerializer::flush().
   // Rewriting of the serialization logic here to avoid additional copies so
@@ -108,7 +141,7 @@ class PartitionAndSerializeOperator : public Operator {
     // Compute row sizes.
     rowSizes_.resize(numInput);
 
-    velox::row::UnsafeRowFast unsafeRow(input_);
+    velox::row::UnsafeRowFast unsafeRow(reorderInputsIfNeeded());
 
     size_t totalSize = 0;
     if (auto fixedRowSize = unsafeRow.fixedRowSize(asRowType(input_->type()))) {
@@ -121,6 +154,7 @@ class PartitionAndSerializeOperator : public Operator {
         totalSize += rowSize;
       }
     }
+
     // Allocate memory.
     auto buffer = dataVector.getBufferWithSpace(totalSize);
     // getBufferWithSpace() may return a buffer that already has content, so we
@@ -145,6 +179,8 @@ class PartitionAndSerializeOperator : public Operator {
   std::unique_ptr<core::PartitionFunction> partitionFunction_;
   std::vector<uint32_t> partitions_;
   std::vector<uint32_t> rowSizes_;
+  const RowTypePtr serializedRowType_;
+  std::vector<column_index_t> serializedColumnIndices_;
 };
 } // namespace
 
@@ -178,14 +214,15 @@ void PartitionAndSerializeNode::addDetails(std::stringstream& stream) const {
       stream << expr->toString();
     }
   }
-  stream << ") " << numPartitions_ << " " << partitionFunctionSpec_->toString();
+  stream << ") " << numPartitions_ << " " << partitionFunctionSpec_->toString()
+         << " " << serializedRowType_->toString();
 }
 
 folly::dynamic PartitionAndSerializeNode::serialize() const {
   auto obj = PlanNode::serialize();
   obj["keys"] = ISerializable::serialize(keys_);
   obj["numPartitions"] = numPartitions_;
-  obj["outputType"] = outputType_->serialize();
+  obj["serializedRowType"] = serializedRowType_->serialize();
   obj["sources"] = ISerializable::serialize(sources_);
   obj["partitionFunctionSpec"] = partitionFunctionSpec_->serialize();
   return obj;
@@ -199,7 +236,7 @@ velox::core::PlanNodePtr PartitionAndSerializeNode::create(
       ISerializable::deserialize<std::vector<velox::core::ITypedExpr>>(
           obj["keys"], context),
       obj["numPartitions"].asInt(),
-      ISerializable::deserialize<RowType>(obj["outputType"], context),
+      ISerializable::deserialize<RowType>(obj["serializedRowType"], context),
       ISerializable::deserialize<std::vector<velox::core::PlanNode>>(
           obj["sources"], context)[0],
       ISerializable::deserialize<velox::core::PartitionFunctionSpec>(
