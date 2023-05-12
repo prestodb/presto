@@ -166,7 +166,19 @@ public class PrestoSparkRunner
     @Override
     public void close()
     {
+        // Shutdown the driver Airlift application
         driverPrestoSparkService.close();
+
+        // If we are in localMode, the executor spawns the Executor Airlift application
+        // (which is long-running and holds onto resources) on the same JVM.
+        //
+        // On query completion, the SparkContext shutdown calls the Driver Airlift
+        // application shutdown, but it has no hook to call Executor Airlift application
+        // shutdown. So the query hangs forever.
+        //
+        // This code, prevents this hanging state by explicitly calling the
+        // Executor Airlift application shutdown.
+        DistributionBasedPrestoSparkTaskExecutorFactoryProvider.close();
     }
 
     private static IPrestoSparkServiceFactory createServiceFactory(File directory)
@@ -322,6 +334,13 @@ public class PrestoSparkRunner
         {
             if (!Objects.equals(first, second)) {
                 throw new IllegalStateException(format("%s is different: %s != %s", name, first, second));
+            }
+        }
+
+        public static synchronized void close()
+        {
+            if (service != null) {
+                service.close();
             }
         }
     }
