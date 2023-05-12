@@ -34,14 +34,6 @@ std::string announcementBody(
   std::string id =
       boost::lexical_cast<std::string>(boost::uuids::random_generator()());
 
-  std::ostringstream connectors;
-  for (int i = 0; i < connectorIds.size(); i++) {
-    if (i > 0) {
-      connectors << ",";
-    }
-    connectors << connectorIds[i];
-  }
-
   const auto uriScheme = useHttps ? "https" : "http";
 
   nlohmann::json body = {
@@ -54,7 +46,7 @@ std::string announcementBody(
          {"properties",
           {{"node_version", nodeVersion},
            {"coordinator", false},
-           {"connectorIds", connectors.str()},
+           {"connectorIds", folly::join(',', connectorIds)},
            {uriScheme,
             fmt::format("{}://{}:{}", uriScheme, address, port)}}}}}}};
   return body.dump();
