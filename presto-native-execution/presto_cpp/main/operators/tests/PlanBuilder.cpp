@@ -23,19 +23,31 @@ using namespace facebook::velox::core;
 namespace facebook::presto::operators {
 
 std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)>
-addPartitionAndSerializeNode(uint32_t numPartitions) {
-  return [numPartitions](
+addPartitionAndSerializeNode(
+    uint32_t numPartitions,
+    const std::vector<std::string>& serializedColumns) {
+  return [numPartitions, &serializedColumns](
              core::PlanNodeId nodeId,
              core::PlanNodePtr source) -> core::PlanNodePtr {
-    std::vector<core::TypedExprPtr> keys;
-    keys.push_back(
-        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0"));
+    std::vector<core::TypedExprPtr> keys{
+        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0")};
     const auto inputType = source->outputType();
+
+    std::vector<std::string> names = serializedColumns;
+    std::vector<TypePtr> types(serializedColumns.size());
+    for (auto i = 0; i < serializedColumns.size(); ++i) {
+      types[i] = inputType->findChild(serializedColumns[i]);
+    }
+
+    auto serializedType = serializedColumns.empty()
+        ? inputType
+        : ROW(std::move(names), std::move(types));
+
     return std::make_shared<PartitionAndSerializeNode>(
         nodeId,
         keys,
         numPartitions,
-        ROW({"p", "d"}, {INTEGER(), VARBINARY()}),
+        serializedType,
         std::move(source),
         std::make_shared<exec::HashPartitionFunctionSpec>(
             inputType, exec::toChannels(inputType, keys)));

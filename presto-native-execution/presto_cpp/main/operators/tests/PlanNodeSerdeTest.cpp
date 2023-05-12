@@ -56,6 +56,12 @@ class PlanNodeSerdeTest : public testing::Test,
     ASSERT_EQ(plan->toString(true, true), copy->toString(true, true));
   }
 
+  static std::vector<std::string> reverseColumns(const RowTypePtr& rowType) {
+    auto names = rowType->names();
+    std::reverse(names.begin(), names.end());
+    return names;
+  }
+
   std::vector<RowVectorPtr> data_;
   RowTypePtr type_;
 };
@@ -63,7 +69,8 @@ class PlanNodeSerdeTest : public testing::Test,
 TEST_F(PlanNodeSerdeTest, partitionAndSerializeNode) {
   auto plan = exec::test::PlanBuilder()
                   .values(data_, true)
-                  .addNode(addPartitionAndSerializeNode(4))
+                  .addNode(addPartitionAndSerializeNode(
+                      4, reverseColumns(asRowType(data_[0]->type()))))
                   .localPartition({})
                   .planNode();
   testSerde(plan);

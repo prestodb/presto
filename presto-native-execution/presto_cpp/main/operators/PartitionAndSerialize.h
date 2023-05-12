@@ -23,28 +23,19 @@ namespace facebook::presto::operators {
 /// number (INTEGER) and serialized row (VARBINARY).
 class PartitionAndSerializeNode : public velox::core::PlanNode {
  public:
-  static constexpr std::string_view kPartitionColumnNameDefault = "partition";
-  static constexpr std::string_view kDataColumnNameDefault = "data";
-
   PartitionAndSerializeNode(
       const velox::core::PlanNodeId& id,
       std::vector<velox::core::TypedExprPtr> keys,
       uint32_t numPartitions,
-      velox::RowTypePtr outputType,
+      velox::RowTypePtr serializedRowType,
       velox::core::PlanNodePtr source,
       velox::core::PartitionFunctionSpecPtr partitionFunctionFactory)
       : velox::core::PlanNode(id),
         keys_(std::move(keys)),
         numPartitions_(numPartitions),
-        outputType_{std::move(outputType)},
+        serializedRowType_{std::move(serializedRowType)},
         sources_({std::move(source)}),
         partitionFunctionSpec_(std::move(partitionFunctionFactory)) {
-    // Only verify output types are correct. Note column names are not enforced
-    // in the following check.
-    VELOX_USER_CHECK(
-        velox::ROW(
-            {"partition", "data"}, {velox::INTEGER(), velox::VARBINARY()})
-            ->equivalent(*outputType_));
     VELOX_USER_CHECK_NOT_NULL(
         partitionFunctionSpec_, "Partition function factory cannot be null.");
   }
@@ -56,7 +47,10 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
       void* context);
 
   const velox::RowTypePtr& outputType() const override {
-    return outputType_;
+    static const velox::RowTypePtr kRowType{velox::ROW(
+        {"partition", "data"}, {velox::INTEGER(), velox::VARBINARY()})};
+
+    return kRowType;
   }
 
   const std::vector<velox::core::PlanNodePtr>& sources() const override {
@@ -69,6 +63,10 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
 
   uint32_t numPartitions() const {
     return numPartitions_;
+  }
+
+  const velox::RowTypePtr& serializedRowType() const {
+    return serializedRowType_;
   }
 
   const velox::core::PartitionFunctionSpecPtr& partitionFunctionFactory()
@@ -85,7 +83,7 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
 
   const std::vector<velox::core::TypedExprPtr> keys_;
   const uint32_t numPartitions_;
-  const velox::RowTypePtr outputType_;
+  const velox::RowTypePtr serializedRowType_;
   const std::vector<velox::core::PlanNodePtr> sources_;
   const velox::core::PartitionFunctionSpecPtr partitionFunctionSpec_;
 };
