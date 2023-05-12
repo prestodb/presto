@@ -132,11 +132,12 @@ TEST_F(ComparisonsTest, betweenDecimal) {
       "between(DECIMAL(20,2), DECIMAL(3,2), DECIMAL(3,2)).");
 }
 
-TEST_F(ComparisonsTest, eqDecimal) {
-  auto runAndCompare = [&](std::vector<VectorPtr>& inputs,
-                           VectorPtr expectedResult) {
-    auto actual =
-        evaluate<SimpleVector<bool>>("c0 == c1", makeRowVector(inputs));
+TEST_F(ComparisonsTest, eqNeqDecimal) {
+  auto runAndCompare = [&](const std::vector<VectorPtr>& inputs,
+                           const VectorPtr& expectedResult,
+                           const std::string& op) {
+    auto actual = evaluate<SimpleVector<bool>>(
+        fmt::format("c0 {} c1", op), makeRowVector(inputs));
     test::assertEqualVectors(actual, expectedResult);
   };
 
@@ -145,18 +146,46 @@ TEST_F(ComparisonsTest, eqDecimal) {
           {1, std::nullopt, 3, -3, std::nullopt, 4}, DECIMAL(10, 5)),
       makeNullableShortDecimalFlatVector(
           {1, 2, 3, -3, std::nullopt, 5}, DECIMAL(10, 5))};
+  // Equal on decimals.
   auto expected = makeNullableFlatVector<bool>(
       {true, std::nullopt, true, true, std::nullopt, false});
-  runAndCompare(inputs, expected);
+  runAndCompare(inputs, expected, "=");
 
+  std::vector<VectorPtr> inputsLong = {
+      makeNullableLongDecimalFlatVector(
+          {DecimalUtil::kLongDecimalMin,
+           std::nullopt,
+           DecimalUtil::kLongDecimalMax,
+           -3,
+           std::nullopt,
+           4},
+          DECIMAL(30, 5)),
+      makeNullableLongDecimalFlatVector(
+          {DecimalUtil::kLongDecimalMin,
+           std::nullopt,
+           DecimalUtil::kLongDecimalMax,
+           -3,
+           std::nullopt,
+           5},
+          DECIMAL(30, 5))};
+  runAndCompare(inputs, expected, "=");
+  // Not-Equal on decimals.
+  expected = makeNullableFlatVector<bool>(
+      {false, std::nullopt, false, false, std::nullopt, true});
+  runAndCompare(inputs, expected, "!=");
+  runAndCompare(inputsLong, expected, "!=");
   // Test with different data types.
   inputs = {
       makeShortDecimalFlatVector({1}, DECIMAL(10, 5)),
       makeShortDecimalFlatVector({1}, DECIMAL(10, 4))};
   VELOX_ASSERT_THROW(
-      runAndCompare(inputs, expected),
+      runAndCompare(inputs, expected, "="),
       "Scalar function signature is not supported: "
       "eq(DECIMAL(10,5), DECIMAL(10,4))");
+  VELOX_ASSERT_THROW(
+      runAndCompare(inputs, expected, "!="),
+      "Scalar function signature is not supported: "
+      "neq(DECIMAL(10,5), DECIMAL(10,4))");
 }
 
 TEST_F(ComparisonsTest, gtLtDecimal) {
