@@ -40,7 +40,7 @@ class CastExprTest : public functions::test::CastBaseTest {
 
   void setCastIntByTruncate(bool value) {
     queryCtx_->setConfigOverridesUnsafe({
-        {core::QueryConfig::kCastIntByTruncate, std::to_string(value)},
+        {core::QueryConfig::kCastToIntByTruncate, std::to_string(value)},
     });
   }
 

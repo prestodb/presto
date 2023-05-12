@@ -143,11 +143,10 @@ void CastExpr::applyCastWithTry(
     const BaseVector& input,
     FlatVector<To>* resultFlatVector) {
   const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
-  auto isCastIntByTruncate = queryConfig.isCastIntByTruncate();
 
   auto* inputSimpleVector = input.as<SimpleVector<From>>();
 
-  if (!isCastIntByTruncate) {
+  if (!queryConfig.isCastToIntByTruncate()) {
     context.applyToSelectedNoThrow(rows, [&](int row) {
       bool nullOutput = false;
       try {

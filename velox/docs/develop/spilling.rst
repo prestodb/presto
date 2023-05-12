@@ -238,13 +238,13 @@ spilled partition, we can parallelize the build work among multiple hash build
 operators by assigning each of them a shard of spill files. There are two
 configuration properties to control.
 
-:doc:`max-spill-file-size <../configs>` sets the maximum spill file size limit. For unsorted spill,
+:doc:`max_spill_file_size <../configs>` sets the maximum spill file size limit. For unsorted spill,
 as we continuously append to the same spill file so this helps to prevent a
 spill file from growing too big. For sorted spill, each file stores only one
 sorted run of data, hence, the spill file size is the minimum of spillable data
 size and this configuration limit.
 
-:doc:`min-spill-run-size <../configs>` sets the minimum data size used by sorted spill to select
+:doc:`min_spill_run_size <../configs>` sets the minimum data size used by sorted spill to select
 partitions for spilling. Each sorted spill file can only store one sorted run
 of data. Spiller tries to spill from the same set of partitions if possible.
 By having this configuration limit, we can avoid spilling from partitions which
@@ -259,7 +259,7 @@ Spill Target Size
 The spill target size determines how much data to spill each time. If too
 small, spilling interrupts operator execution frequently and generates lots of
 small files. If too large, operator execution slows down by spilling lots of
-data to disk. Configuration property :doc:`spillable-reservation-growth-pct <../configs>` sets the
+data to disk. Configuration property :doc:`spillable_reservation_growth_pct <../configs>` sets the
 spill target size as a factor of the query memory limit. We might need to tune
 this parameter a bit in practice to see its impact on performance.
 
@@ -447,7 +447,7 @@ level, *M* = 1*GB*, *N* = 3:
      - 2 PB
 
 For production deployments, we recommend setting a limit for the max spilling
-level using :doc:`max-spill-level <../configs>` configuration property.
+level using :doc:`max_spill_level <../configs>` configuration property.
 
 The following gives a brief description of the hash build and probe workflows
 extended to support (recursive) spilling:

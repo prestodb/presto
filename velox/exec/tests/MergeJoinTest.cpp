@@ -30,8 +30,6 @@ class MergeJoinTest : public HiveConnectorTestBase {
       const std::shared_ptr<const core::PlanNode>& planNode,
       uint32_t preferredOutputBatchSize) {
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    queryCtx->setConfigOverridesUnsafe(
-        {{core::QueryConfig::kCreateEmptyFiles, "true"}});
 
     CursorParameters params;
     params.planNode = planNode;

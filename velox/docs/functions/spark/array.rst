@@ -3,10 +3,10 @@ Array Functions
 =============================
 
 .. spark:function:: aggregate(array(E), start, merge, finish) -> array(E)
-    
+
     Applies a binary operator to an initial state and all elements in the array, and reduces this to a single state.
     The final state is converted into the final result by applying a finish function. ::
-    
+
         SELECT aggregate(array(1, 2, 3), 0, (acc, x) -> acc + x, acc -> acc * 10); -- 60
 
 .. spark:function:: array(E, E1, ..., En) -> array(E, E1, ..., En)
@@ -39,7 +39,7 @@ Array Functions
         SELECT array_sort(ARRAY [NULL, 2, 1]); -- [1, 2, NULL]
 
 .. spark:function:: concat(array(E), array(E1), ..., array(En)) -> array(E, E1, ..., En)
-    
+
     Returns the concatenation of array(E), array(E1), ..., array(En). ::
 
         SELECT concat(array(1, 2, 3), array(4, 5), array(6)); -- [1, 2, 3, 4, 5, 6]
@@ -60,7 +60,7 @@ Array Functions
 .. spark:function:: size(array(E)) -> bigint
 
     Returns the size of the array. Returns null for null input
-    if :doc:`spark.legacy-size-of-null <../../configs>` is set to false. 
+    if :doc:`spark.legacy_size_of_null <../../configs>` is set to false.
     Otherwise, returns -1 for null input.
 
 .. spark:function:: sort_array(array(E)) -> array(E)

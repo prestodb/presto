@@ -29,7 +29,7 @@ TEST(TestQueryConfig, emptyConfig) {
 
   ASSERT_FALSE(config.codegenEnabled());
   ASSERT_EQ(config.codegenConfigurationFilePath(), "");
-  ASSERT_FALSE(config.isCastIntByTruncate());
+  ASSERT_FALSE(config.isCastToIntByTruncate());
 }
 
 TEST(TestQueryConfig, setConfig) {
@@ -43,7 +43,7 @@ TEST(TestQueryConfig, setConfig) {
 
   ASSERT_TRUE(config.codegenEnabled());
   ASSERT_EQ(config.codegenConfigurationFilePath(), path);
-  ASSERT_FALSE(config.isCastIntByTruncate());
+  ASSERT_FALSE(config.isCastToIntByTruncate());
 }
 
 TEST(TestQueryConfig, memConfig) {
