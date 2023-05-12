@@ -127,27 +127,38 @@ bool ReadFileInputStream::hasReadAsync() const {
   return readFile_->hasPreadvAsync();
 }
 
-bool Region::operator<(const Region& other) const {
-  return offset < other.offset ||
-      (offset == other.offset && length < other.length);
-}
-
-void InputStream::vread(
+void ReadFileInputStream::vread(
     const std::vector<void*>& buffers,
     const std::vector<Region>& regions,
     const LogType purpose) {
   const auto size = buffers.size();
-  // the default implementation of this is to do the read sequentially
   DWIO_ENSURE_GT(size, 0, "invalid vread parameters");
   DWIO_ENSURE_EQ(regions.size(), size, "mismatched region->buffer");
-
-  // convert buffer to IOBufs and convert regions to VReadIntervals
-  LOG(INFO) << "[VREAD] fall back vread to sequential reads.";
+  std::vector<ReadFile::Segment> segments;
+  segments.reserve(size);
+  size_t length = 0;
+  size_t offset = regions[0].offset;
   for (size_t i = 0; i < size; ++i) {
-    // fill each buffer
     const auto& r = regions[i];
-    read(buffers[i], r.length, r.offset, purpose);
+    segments.push_back(
+        {r.offset,
+         folly::Range<char*>(static_cast<char*>(buffers[i]), r.length),
+         {}});
+    length += r.length;
   }
+
+  logRead(offset, length, purpose);
+  auto readStartMicros = getCurrentTimeMicro();
+  readFile_->preadv(segments);
+  if (stats_) {
+    stats_->incRawBytesRead(length);
+    stats_->incTotalScanTime((getCurrentTimeMicro() - readStartMicros) * 1000);
+  }
+}
+
+bool Region::operator<(const Region& other) const {
+  return offset < other.offset ||
+      (offset == other.offset && length < other.length);
 }
 
 const std::string& InputStream::getName() const {

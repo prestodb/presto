@@ -44,3 +44,29 @@ TEST(ReadFileInputStream, SimpleUsage) {
   read_value = {buf.get(), 15};
   ASSERT_EQ(read_value, "aaaaabbbbbccccc");
 }
+
+TEST(ReadFileInputStream, VRead) {
+  std::string fileData;
+  {
+    InMemoryWriteFile writeFile(&fileData);
+    writeFile.append("aaaaa");
+    writeFile.append("bbbbb");
+    writeFile.append("ccccc");
+  }
+  auto readFile = std::make_shared<InMemoryReadFile>(fileData);
+  ReadFileInputStream inputStream(readFile);
+  ASSERT_EQ(inputStream.getLength(), 15);
+  auto buf1 = std::make_unique<char[]>(5);
+  auto buf2 = std::make_unique<char[]>(5);
+  std::vector<void*> buffers;
+  buffers.emplace_back(buf1.get());
+  buffers.emplace_back(buf2.get());
+  std::vector<Region> regions;
+  regions.emplace_back(0, 5);
+  regions.emplace_back(10, 5);
+  inputStream.vread(buffers, regions, LogType::STREAM);
+  std::string_view read_value(buf1.get(), 5);
+  ASSERT_EQ(read_value, "aaaaa");
+  read_value = {buf2.get(), 5};
+  ASSERT_EQ(read_value, "ccccc");
+}

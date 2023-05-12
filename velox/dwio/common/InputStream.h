@@ -133,7 +133,7 @@ class InputStream {
   virtual void vread(
       const std::vector<void*>& buffers,
       const std::vector<Region>& regions,
-      const LogType purpose);
+      const LogType purpose) = 0;
 
   // case insensitive find
   static uint32_t ifind(const std::string& src, const std::string& target);
@@ -180,6 +180,11 @@ class ReadFileInputStream final : public InputStream {
       LogType logType) override;
 
   bool hasReadAsync() const override;
+
+  void vread(
+      const std::vector<void*>& buffers,
+      const std::vector<Region>& regions,
+      const LogType purpose) override;
 
   const std::shared_ptr<velox::ReadFile>& getReadFile() const {
     return readFile_;
