@@ -73,8 +73,6 @@ jobs:
           ccache -s
 
       - name: Run unit tests
-        if: always()
-        continue-on-error: true
         run: |
           cd ${GITHUB_WORKSPACE}/presto-native-execution/_build/debug
           ctest -j 1 -VV --output-on-failure --exclude-regex velox.*
@@ -104,8 +102,6 @@ jobs:
           ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm,!presto-test-coverage'
 
       - name: Run e2e tests
-        if: always()
-        continue-on-error: true
         run: |
           rm -rf /tmp/hive_data/tpch/
           ./mvnw test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${GITHUB_WORKSPACE}/presto-native-execution/_build/debug/presto_cpp/main/presto_server -DDATA_DIR=/tmp/ -Duser.timezone=America/Bahia_Banderas
