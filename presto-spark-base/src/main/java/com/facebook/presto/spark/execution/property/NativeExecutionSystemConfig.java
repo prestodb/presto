@@ -15,6 +15,7 @@ package com.facebook.presto.spark.execution.property;
 
 import com.facebook.airlift.configuration.Config;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 
 import java.util.Map;
 
@@ -81,7 +82,7 @@ public class NativeExecutionSystemConfig
     private int numIoThreads = 30;
     private int shutdownOnsetSec = 10;
     private int systemMemoryGb = 10;
-    private int queryMemoryGb = systemMemoryGb;
+    private DataSize queryMemoryGb = new DataSize(systemMemoryGb, DataSize.Unit.GIGABYTE);
     private int concurrentLifespansPerTask = 5;
     private int maxDriversPerTask = 15;
     private String prestoVersion = "dummy.presto.version";
@@ -309,13 +310,13 @@ public class NativeExecutionSystemConfig
     }
 
     @Config(QUERY_MEMORY_GB)
-    public NativeExecutionSystemConfig setQueryMemoryGb(int queryMemoryGb)
+    public NativeExecutionSystemConfig setQueryMemoryGb(DataSize queryMemoryGb)
     {
         this.queryMemoryGb = queryMemoryGb;
         return this;
     }
 
-    public int getQueryMemoryGb()
+    public DataSize getQueryMemoryGb()
     {
         return queryMemoryGb;
     }
