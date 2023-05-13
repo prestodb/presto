@@ -55,7 +55,7 @@ public class OrcFileWriterConfig
     private boolean isStringDictionaryEncodingEnabled = OrcWriterOptions.DEFAULT_STRING_DICTIONARY_ENCODING_ENABLED;
     private boolean isStringDictionarySortingEnabled = OrcWriterOptions.DEFAULT_STRING_DICTIONARY_SORTING_ENABLED;
     private boolean isFlatMapWriterEnabled = DEFAULT_FLAT_MAP_WRITER_ENABLED;
-    private boolean addHostnameToFileMetadataEnabled;
+    private boolean addHostnameToFileMetadataEnabled = true;
 
     public OrcWriterOptions.Builder toOrcWriterOptionsBuilder()
     {
