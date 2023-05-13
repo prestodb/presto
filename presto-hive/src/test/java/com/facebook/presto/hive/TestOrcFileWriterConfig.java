@@ -65,7 +65,7 @@ public class TestOrcFileWriterConfig
                 .setStringDictionaryEncodingEnabled(true)
                 .setStringDictionarySortingEnabled(true)
                 .setFlatMapWriterEnabled(false)
-                .setAddHostnameToFileMetadataEnabled(false));
+                .setAddHostnameToFileMetadataEnabled(true));
     }
 
     @Test
@@ -88,7 +88,7 @@ public class TestOrcFileWriterConfig
                 .put("hive.orc.writer.string-dictionary-encoding-enabled", "false")
                 .put("hive.orc.writer.string-dictionary-sorting-enabled", "false")
                 .put("hive.orc.writer.flat-map-writer-enabled", "true")
-                .put("hive.orc.writer.add-hostname-to-file-metadata-enabled", "true")
+                .put("hive.orc.writer.add-hostname-to-file-metadata-enabled", "false")
                 .build();
 
         OrcFileWriterConfig expected = new OrcFileWriterConfig()
@@ -108,7 +108,7 @@ public class TestOrcFileWriterConfig
                 .setStringDictionaryEncodingEnabled(false)
                 .setStringDictionarySortingEnabled(false)
                 .setFlatMapWriterEnabled(true)
-                .setAddHostnameToFileMetadataEnabled(true);
+                .setAddHostnameToFileMetadataEnabled(false);
 
         assertFullMapping(properties, expected);
     }
