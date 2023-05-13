@@ -556,8 +556,7 @@ void BaseVector::ensureWritable(
     copy =
         BaseVector::create(isUnknownType ? type : resultType, targetSize, pool);
   }
-  SelectivityVector copyRows(
-      std::min<vector_size_t>(targetSize, result->size()));
+  SelectivityVector copyRows(result->size());
   copyRows.deselect(rows);
   if (copyRows.hasSelections()) {
     copy->copy(result.get(), copyRows, nullptr);

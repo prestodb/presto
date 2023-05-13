@@ -101,7 +101,7 @@ void applyScalarType(
   VELOX_DCHECK(kind == inputElements->typeKind());
   const SelectivityVector inputElementRows =
       toElementRows(inputElements->size(), rows, inputArray);
-  const vector_size_t elementsCount = inputElementRows.end();
+  const vector_size_t elementsCount = inputElementRows.size();
 
   // TODO: consider to use dictionary wrapping to avoid the direct sorting on
   // the scalar values as we do for complex data type if this runs slow in

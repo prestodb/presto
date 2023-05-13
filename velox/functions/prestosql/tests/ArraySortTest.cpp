@@ -465,6 +465,57 @@ TEST_P(ArraySortTest, encodedElements) {
   assertEqualVectors(expected, result);
 }
 
+TEST_F(ArraySortTest, wellFormedVectors) {
+  // A test that make sure that offsets of unselected indices that appears in
+  // the output are still valid (refer to addressable locations in the elements
+  // vector) in the final output vector.
+  auto base = makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+
+  auto makeBuffer = [&](const std::vector<vector_size_t>& values) {
+    BufferPtr buffer = facebook::velox::allocateOffsets(values.size(), pool());
+    auto rawBuffer = buffer->asMutable<vector_size_t>();
+
+    for (int i = 0; i < values.size(); i++) {
+      rawBuffer[i] = values[i];
+    }
+    return buffer;
+  };
+
+  // Make array of size 3 but with offset at position 2 > position 3.
+  auto offsets = makeBuffer({0, 4, 1});
+  auto sizes = makeBuffer({1, 5, 1});
+
+  auto array = std::make_shared<ArrayVector>(
+      pool(), ARRAY(BIGINT()), nullptr, 3, offsets, sizes, base);
+  auto data = makeRowVector({array});
+  const std::string expression = "array_sort(c0)";
+  auto typedExpr = makeTypedExpr(expression, asRowType(data->type()));
+
+  SelectivityVector rows(data->size(), false);
+
+  std::vector<VectorPtr> results(1);
+  exec::ExprSet exprSet({typedExpr}, &execCtx_);
+  exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
+
+  // Evaluate and ensure middle row is not selected.
+  rows.setValid(0, true);
+  rows.setValid(2, true);
+  rows.updateBounds();
+  exprSet.eval(rows, evalCtx, results);
+  VectorPtr result = results[0];
+
+  // Ensure that array vector is addressable right.
+  // That is all offset + size should be < element.size().
+  // In https://github.com/facebookincubator/velox/issues/4754 we found a bug
+  // that caused us to create element vectors with size < offsets + size.
+  auto arrayVec = result->asUnchecked<ArrayVector>();
+  EXPECT_TRUE(arrayVec);
+  EXPECT_GT(arrayVec->offsetAt(2), 0);
+  EXPECT_LE(
+      arrayVec->offsetAt(1) + arrayVec->sizeAt(1),
+      arrayVec->elements()->size());
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     ArraySortTest,
     ArraySortTest,
