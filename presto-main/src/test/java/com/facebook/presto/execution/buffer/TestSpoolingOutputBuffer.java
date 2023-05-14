@@ -551,7 +551,7 @@ public class TestSpoolingOutputBuffer
 
     private SpoolingOutputBuffer createSpoolingOutputBuffer()
     {
-        TaskId taskId = new TaskId(queryIdGenerator.createNextQueryId().toString(), 0, 0, 0);
+        TaskId taskId = new TaskId(queryIdGenerator.createNextQueryId().toString(), 0, 0, 0, 0);
         return spoolingOutputBufferFactory.createSpoolingOutputBuffer(
                 taskId,
                 TASK_INSTANCE_ID,

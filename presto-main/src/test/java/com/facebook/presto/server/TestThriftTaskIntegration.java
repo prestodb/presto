@@ -115,18 +115,18 @@ public class TestThriftTaskIntegration
             ThriftTaskClient client = clientFactory.createDriftClient(ThriftTaskClient.class).get();
 
             // get buffer result
-            ListenableFuture<ThriftBufferResult> result = client.getResults(TaskId.valueOf("queryid.0.0.0"), new OutputBufferId(1), 0, 100);
+            ListenableFuture<ThriftBufferResult> result = client.getResults(TaskId.valueOf("queryid.0.0.0.0"), new OutputBufferId(1), 0, 100);
             assertTrue(result.get().isBufferComplete());
             assertTrue(result.get().getSerializedPages().isEmpty());
             assertEquals(result.get().getToken(), 1);
             assertEquals(result.get().getTaskInstanceId(), "test");
 
             // ack buffer result
-            client.acknowledgeResults(TaskId.valueOf("queryid.0.0.0"), new OutputBufferId(1), 42).get();    // sync
-            client.acknowledgeResults(TaskId.valueOf("queryid.0.0.0"), new OutputBufferId(1), 42);          // fire and forget
+            client.acknowledgeResults(TaskId.valueOf("queryid.0.0.0.0"), new OutputBufferId(1), 42).get();    // sync
+            client.acknowledgeResults(TaskId.valueOf("queryid.0.0.0.0"), new OutputBufferId(1), 42);          // fire and forget
 
             // abort buffer result
-            client.abortResults(TaskId.valueOf("queryid.0.0.0"), new OutputBufferId(1)).get();
+            client.abortResults(TaskId.valueOf("queryid.0.0.0.0"), new OutputBufferId(1)).get();
         }
         catch (Exception e) {
             fail();
@@ -248,7 +248,7 @@ public class TestThriftTaskIntegration
                 @Override
                 public void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId)
                 {
-                    assertEquals(taskId, TaskId.valueOf("queryid.0.0.0"));
+                    assertEquals(taskId, TaskId.valueOf("queryid.0.0.0.0"));
                     assertEquals(bufferId, new OutputBufferId(1));
                     assertEquals(sequenceId, 42);
                 }
@@ -256,7 +256,7 @@ public class TestThriftTaskIntegration
                 @Override
                 public TaskInfo abortTaskResults(TaskId taskId, OutputBufferId bufferId)
                 {
-                    assertEquals(taskId, TaskId.valueOf("queryid.0.0.0"));
+                    assertEquals(taskId, TaskId.valueOf("queryid.0.0.0.0"));
                     assertEquals(bufferId, new OutputBufferId(1));
 
                     // null is not going to be consumed
