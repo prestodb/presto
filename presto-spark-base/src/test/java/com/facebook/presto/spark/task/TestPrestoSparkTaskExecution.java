@@ -93,7 +93,7 @@ public class TestPrestoSparkTaskExecution
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        taskStateMachine = new TaskStateMachine(new TaskId("test_query_id", 4, 4, 1), taskNotificationExecutor);
+        taskStateMachine = new TaskStateMachine(new TaskId("test_query_id", 4, 4, 1, 0), taskNotificationExecutor);
 
         localExecutionPlan = createTestingPlanner().plan(
                 TestingTaskContext.createTaskContext(taskNotificationExecutor, scheduledExecutor, nativeTestSession),

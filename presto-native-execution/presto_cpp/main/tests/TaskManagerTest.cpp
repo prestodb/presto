@@ -314,7 +314,7 @@ class TaskManagerTest : public testing::Test {
       const std::vector<std::string>& taskUris,
       const RowTypePtr& outputType,
       long& splitSequenceId,
-      protocol::TaskId outputTaskId = "output.0.0.1") {
+      protocol::TaskId outputTaskId = "output.0.0.1.0") {
     std::vector<std::string> locations;
     for (auto& taskUri : taskUris) {
       locations.emplace_back(fmt::format("{}/results/0", taskUri));
@@ -416,7 +416,7 @@ class TaskManagerTest : public testing::Test {
     std::vector<std::string> partialAggTasks;
     long splitSequenceId{0};
     for (int i = 0; i < filePaths.size(); ++i) {
-      protocol::TaskId taskId = fmt::format("{}.0.0.{}", queryId, i);
+      protocol::TaskId taskId = fmt::format("{}.0.0.{}.0", queryId, i);
       allTaskIds.emplace_back(taskId);
 
       protocol::TaskUpdateRequest updateRequest;
@@ -446,7 +446,7 @@ class TaskManagerTest : public testing::Test {
     std::vector<std::string> finalAggTasks;
     std::vector<protocol::TaskId> finalAggTaskIds;
     for (int i = 0; i < numPartitions; ++i) {
-      protocol::TaskId finalAggTaskId = fmt::format("{}.1.0.{}", queryId, i);
+      protocol::TaskId finalAggTaskId = fmt::format("{}.1.0.{}.0", queryId, i);
       allTaskIds.emplace_back(finalAggTaskId);
       finalAggTaskIds.emplace_back(finalAggTaskId);
 
@@ -470,7 +470,7 @@ class TaskManagerTest : public testing::Test {
         finalAggTasks,
         finalOutputType,
         splitSequenceId,
-        fmt::format("{}.2.0.0", queryId));
+        fmt::format("{}.2.0.0.0", queryId));
     allTaskIds.emplace_back(outputTaskInfo->taskId);
     if (!expectTaskFailure) {
       assertResults(
@@ -583,7 +583,7 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
 
   long splitSequenceId{0};
 
-  protocol::TaskId taskId = "scan.0.0.1";
+  protocol::TaskId taskId = "scan.0.0.1.0";
 
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(
@@ -612,7 +612,7 @@ TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
   long splitSequenceId{0};
   auto source = makeSource("0", filePaths, true, splitSequenceId);
 
-  const protocol::TaskId taskId = "scan.0.0.1";
+  const protocol::TaskId taskId = "scan.0.0.1.0";
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(source);
   const auto taskInfo =
@@ -666,7 +666,7 @@ TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
                           .partitionedOutput({}, 1, {"c0", "c1"})
                           .planFragment();
 
-  protocol::TaskId taskId = "scan.0.0.1";
+  protocol::TaskId taskId = "scan.0.0.1.0";
   auto taskInfo = taskManager_->createOrUpdateTask(taskId, {}, planFragment);
 
   long splitSequenceId{0};
@@ -703,7 +703,7 @@ TEST_F(TaskManagerTest, tableScanMultipleTasks) {
   std::vector<std::string> tasks;
   long splitSequenceId{0};
   for (int i = 0; i < filePaths.size(); i++) {
-    protocol::TaskId taskId = fmt::format("scan.0.0.{}", i);
+    protocol::TaskId taskId = fmt::format("scan.0.0.{}.0", i);
     auto source = makeSource("0", {filePaths[i]}, true, splitSequenceId);
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(source);
@@ -729,7 +729,7 @@ TEST_F(TaskManagerTest, emptyFile) {
 
   // Create task to scan an empty file.
   auto source = makeSource("0", filePaths, true);
-  protocol::TaskId taskId = "scan.0.0.1";
+  protocol::TaskId taskId = "scan.0.0.1.0";
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(source);
   auto taskInfo =
@@ -753,7 +753,7 @@ TEST_F(TaskManagerTest, emptyFile) {
       EXPECT_THAT(
           failure.message,
           testing::ContainsRegex(
-              "fileLength_ > 0 ORC file is empty Split \\[.*\\] Task scan\\.0\\.0\\.1"));
+              "fileLength_ > 0 ORC file is empty Split \\[.*\\] Task scan\\.0\\.0\\.1\\.0"));
       EXPECT_EQ("VeloxException", failure.type);
       break;
     }
@@ -822,7 +822,7 @@ TEST_F(TaskManagerTest, outOfOrderRequests) {
                           .partitionedOutput({}, 1, {"c0", "c1"})
                           .planFragment();
 
-  protocol::TaskId taskId = "scan.0.0.1";
+  protocol::TaskId taskId = "scan.0.0.1.0";
   protocol::TaskState currentState{};
   auto maxSize = protocol::DataSize("32MB");
 
@@ -855,7 +855,7 @@ TEST_F(TaskManagerTest, timeoutOutOfOrderRequests) {
   auto longWait = std::chrono::seconds(5);
   auto maxSize = protocol::DataSize("32MB");
 
-  protocol::TaskId taskId = "test.0.0.1";
+  protocol::TaskId taskId = "test.0.0.1.0";
   protocol::TaskState currentState{};
 
   auto infoRequestState = http::CallbackRequestHandlerState::create();
@@ -948,7 +948,7 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
                           .planFragment();
 
   int token = 123;
-  auto scanTaskId = "scan.0.0.1";
+  auto scanTaskId = "scan.0.0.1.0";
   bool promiseFulfilled = false;
   auto prestoTask = std::make_shared<PrestoTask>(scanTaskId, "1");
   auto [promise, f] = folly::makePromiseContract<std::unique_ptr<Result>>();
@@ -983,7 +983,7 @@ TEST_F(TaskManagerTest, getDataOnAbortedTask) {
 }
 
 TEST_F(TaskManagerTest, getResultsErrorPropagation) {
-  const protocol::TaskId taskId = "error-task.0.0.0";
+  const protocol::TaskId taskId = "error-task.0.0.0.0";
   std::exception e;
   taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e));
 
@@ -1008,7 +1008,7 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
-  const protocol::TaskId taskId = "scan.0.0.0";
+  const protocol::TaskId taskId = "scan.0.0.0.0";
   long splitSequenceId{0};
   auto planFragment = exec::test::PlanBuilder()
                           .tableScan(rowType_)
@@ -1041,7 +1041,7 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
 }
 
 TEST_F(TaskManagerTest, checkBatchSplits) {
-  const auto taskId = "test.1.2.3";
+  const auto taskId = "test.1.2.3.4";
 
   core::PlanNodeId probeId;
   core::PlanNodeId buildId;

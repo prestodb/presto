@@ -87,7 +87,7 @@ public class TestBatchTaskUpdateRequest
                                         new Split(
                                                 new ConnectorId("connector_id"),
                                                 new RemoteTransactionHandle(),
-                                                new RemoteSplit(new Location(stringSerializedReadInfo), TaskId.valueOf("foo.0.0.0"))))),
+                                                new RemoteSplit(new Location(stringSerializedReadInfo), TaskId.valueOf("foo.0.0.0.0"))))),
                         true));
         Session session = TestingSession.testSessionBuilder().build();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
