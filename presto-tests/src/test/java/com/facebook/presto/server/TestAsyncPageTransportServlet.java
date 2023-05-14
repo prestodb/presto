@@ -74,8 +74,8 @@ public class TestAsyncPageTransportServlet
     @Test
     public void testParsing()
     {
-        TestServlet servlet = parse("/v1/task/async/1.2.3.4/results/456/789");
-        assertEquals("1.2.3.4", servlet.taskId.toString());
+        TestServlet servlet = parse("/v1/task/async/0.1.2.3.4/results/456/789");
+        assertEquals("0.1.2.3.4", servlet.taskId.toString());
         assertEquals("456", servlet.bufferId.toString());
         assertEquals(789, servlet.token);
     }
@@ -83,12 +83,12 @@ public class TestAsyncPageTransportServlet
     @Test (expectedExceptions = { IllegalArgumentException.class })
     public void testParseTooFewElements()
     {
-        parse("/v1/task/async/1.2.3.4/results/456");
+        parse("/v1/task/async/SomeQueryId.1.2.3.4/results/456");
     }
 
     @Test (expectedExceptions = { IllegalArgumentException.class })
     public void testParseTooManyElements()
     {
-        parse("/v1/task/async/1.2.3.4/results/456/789/foo");
+        parse("/v1/task/async/SomeQueryId.1.2.3.4/results/456/789/foo");
     }
 }
