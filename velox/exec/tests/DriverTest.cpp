@@ -267,10 +267,11 @@ class DriverTest : public OperatorTestBase {
     return task;
   }
 
-  std::shared_ptr<Task> testDriverSuspensionWithTaskOperationRace(
+  void testDriverSuspensionWithTaskOperationRace(
       int numDrivers,
       StopReason expectedEnterSuspensionStopReason,
       StopReason expectedLeaveSuspensionStopReason,
+      bool expectedSuccess,
       std::function<void(Task*)> preSuspensionTaskFunc = nullptr,
       std::function<void(Task*)> inSuspensionTaskFunc = nullptr,
       std::function<void(Task*)> leaveSuspensionTaskFunc = nullptr) {
@@ -327,7 +328,11 @@ class DriverTest : public OperatorTestBase {
       leaveSuspensionTaskFunc(task.get());
     }
     leaveSuspensionNotify.wait(leaveSuspensionNotifyKey);
-    return task;
+    if (expectedSuccess) {
+      waitForTaskCompletion(task.get(), 1000'000'000);
+    } else {
+      waitForTaskAborted(task.get(), 1000'000'000);
+    }
   }
 
  public:
@@ -965,10 +970,11 @@ DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionRaceWithTaskPause) {
     std::shared_ptr<Task> task;
     if (testData.enterSuspensionAfterPauseStarted &&
         testData.leaveSuspensionDuringPause) {
-      task = testDriverSuspensionWithTaskOperationRace(
+      testDriverSuspensionWithTaskOperationRace(
           testData.numDrivers,
           StopReason::kNone,
           StopReason::kNone,
+          true,
           [&](Task* task) { task->requestPause(); },
           [&](Task* task) { task->requestPause().wait(); },
           [&](Task* task) {
@@ -984,10 +990,11 @@ DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionRaceWithTaskPause) {
     } else if (
         testData.enterSuspensionAfterPauseStarted &&
         !testData.leaveSuspensionDuringPause) {
-      task = testDriverSuspensionWithTaskOperationRace(
+      testDriverSuspensionWithTaskOperationRace(
           testData.numDrivers,
           StopReason::kNone,
           StopReason::kNone,
+          true,
           [&](Task* task) { task->requestPause(); },
           [&](Task* task) {
             task->requestPause().wait();
@@ -996,10 +1003,11 @@ DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionRaceWithTaskPause) {
     } else if (
         !testData.enterSuspensionAfterPauseStarted &&
         testData.leaveSuspensionDuringPause) {
-      task = testDriverSuspensionWithTaskOperationRace(
+      testDriverSuspensionWithTaskOperationRace(
           testData.numDrivers,
           StopReason::kNone,
           StopReason::kNone,
+          true,
           nullptr,
           [&](Task* task) { task->requestPause().wait(); },
           [&](Task* task) {
@@ -1013,17 +1021,17 @@ DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionRaceWithTaskPause) {
             Task::resume(task->shared_from_this());
           });
     } else {
-      task = testDriverSuspensionWithTaskOperationRace(
+      testDriverSuspensionWithTaskOperationRace(
           testData.numDrivers,
           StopReason::kNone,
           StopReason::kNone,
+          true,
           nullptr,
           [&](Task* task) {
             task->requestPause().wait();
             Task::resume(task->shared_from_this());
           });
     }
-    waitForTaskCompletion(task.get(), 1000'000'000);
   }
 }
 
@@ -1068,20 +1076,21 @@ DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionRaceWithTaskTerminate) {
 
     std::shared_ptr<Task> task;
     if (testData.enterSuspensionAfterTaskTerminated) {
-      task = testDriverSuspensionWithTaskOperationRace(
+      testDriverSuspensionWithTaskOperationRace(
           testData.numDrivers,
           testData.expectedEnterSuspensionStopReason,
           testData.expectedLeaveSuspensionStopReason,
+          false,
           [&](Task* task) { task->requestCancel(); });
     } else {
-      task = testDriverSuspensionWithTaskOperationRace(
+      testDriverSuspensionWithTaskOperationRace(
           testData.numDrivers,
           testData.expectedEnterSuspensionStopReason,
           testData.expectedLeaveSuspensionStopReason,
+          false,
           nullptr,
           [&](Task* task) { task->requestCancel(); });
     }
-    waitForTaskAborted(task.get(), 1000'000'000);
   }
 }
 
