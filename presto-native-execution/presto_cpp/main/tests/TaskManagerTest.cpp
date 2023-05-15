@@ -556,7 +556,7 @@ class TaskManagerTest : public testing::Test {
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
             taskId, {}, {});
-    return std::make_shared<exec::Task>(
+    return exec::Task::create(
         taskId, planFragment, 0, std::move(queryCtx));
   }
 
