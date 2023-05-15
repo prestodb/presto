@@ -141,7 +141,7 @@ class SimpleAggregatesBenchmark : public HiveConnectorTestBase {
   std::shared_ptr<exec::Task> makeTask(
       core::PlanFragment plan,
       vector_size_t& numResultRows) {
-    return std::make_shared<exec::Task>(
+    return exec::Task::create(
         "t",
         std::move(plan),
         0,

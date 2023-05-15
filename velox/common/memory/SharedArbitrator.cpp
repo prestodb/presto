@@ -180,6 +180,7 @@ uint64_t SharedArbitrator::reclaimUsedMemoryFromCandidates(
     const int64_t bytesToReclaim = std::max<int64_t>(
         targetBytes - freedBytes, minMemoryPoolCapacityTransferSize_);
     VELOX_CHECK_GT(bytesToReclaim, 0);
+    // TODO: add to handle the exception raised from memory pool reclaim.
     freedBytes += candidate.pool->reclaim(bytesToReclaim);
     if (freedBytes >= targetBytes) {
       break;

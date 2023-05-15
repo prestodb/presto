@@ -22,6 +22,7 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Operator.h"
+#include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 
 using facebook::velox::common::testutil::TestValue;
@@ -48,6 +49,30 @@ velox::memory::MemoryPool* DriverCtx::addOperatorPool(
     const core::PlanNodeId& planNodeId,
     const std::string& operatorType) {
   return task->addOperatorPool(planNodeId, pipelineId, driverId, operatorType);
+}
+
+std::optional<Spiller::Config> DriverCtx::makeSpillConfig(
+    int32_t operatorId) const {
+  const auto& queryConfig = task->queryCtx()->queryConfig();
+  if (!queryConfig.spillEnabled()) {
+    return std::nullopt;
+  }
+  if (task->spillDirectory().empty()) {
+    return std::nullopt;
+  }
+  return Spiller::Config(
+      makeOperatorSpillPath(
+          task->spillDirectory(), pipelineId, driverId, operatorId),
+      queryConfig.maxSpillFileSize(),
+      queryConfig.minSpillRunSize(),
+      task->queryCtx()->spillExecutor(),
+      queryConfig.spillableReservationGrowthPct(),
+      HashBitRange(
+          queryConfig.spillStartPartitionBit(),
+          queryConfig.spillStartPartitionBit() +
+              queryConfig.spillPartitionBits()),
+      queryConfig.maxSpillLevel(),
+      queryConfig.testingSpillPct());
 }
 
 std::atomic_uint64_t BlockingState::numBlockedDrivers_{0};
@@ -184,19 +209,20 @@ void Driver::enqueue(std::shared_ptr<Driver> driver) {
       [driver]() { Driver::run(driver); });
 }
 
-Driver::Driver(
+void Driver::init(
     std::unique_ptr<DriverCtx> ctx,
-    std::vector<std::unique_ptr<Operator>> operators)
-    : ctx_(std::move(ctx)), operators_(std::move(operators)) {
+    std::vector<std::unique_ptr<Operator>> operators) {
+  VELOX_CHECK_NULL(ctx_);
+  ctx_ = std::move(ctx);
+  VELOX_CHECK(operators_.empty());
+  operators_ = std::move(operators);
   curOpIndex_ = operators_.size() - 1;
-  // Operators need access to their Driver for adaptation.
-  ctx_->driver = this;
   trackOperatorCpuUsage_ = ctx_->queryConfig().operatorTrackCpuUsage();
 }
 
 namespace {
-/// Checks if output channel is produced using identity projection and returns
-/// input channel if so.
+// Checks if output channel is produced using identity projection and returns
+// input channel if so.
 std::optional<column_index_t> getIdentityProjection(
     const std::vector<IdentityProjection>& projections,
     column_index_t outputChannel) {
@@ -284,6 +310,7 @@ StopReason Driver::runInternal(
     std::shared_ptr<Driver>& self,
     std::shared_ptr<BlockingState>& blockingState,
     RowVectorPtr& result) {
+  TestValue::adjust("facebook::velox::exec::Driver::runInternal", self.get());
   const auto now = getCurrentTimeMicro();
   const auto queuedTime = (now - queueTimeStartMicros_) * 1'000;
   // Update the next operator's queueTime.

@@ -131,7 +131,7 @@ TaskCursor::TaskCursor(const CursorParameters& params)
       params.groupedExecutionLeafNodeIds};
   const std::string taskId = fmt::format("test_cursor {}", ++serial_);
 
-  task_ = std::make_shared<exec::Task>(
+  task_ = Task::create(
       taskId,
       std::move(planFragment),
       params.destination,

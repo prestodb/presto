@@ -366,6 +366,8 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
     std::unique_ptr<DriverCtx> ctx,
     std::shared_ptr<ExchangeClient> exchangeClient,
     std::function<int(int pipelineId)> numDrivers) {
+  auto driver = std::shared_ptr<Driver>(new Driver());
+  ctx->driver = driver.get();
   std::vector<std::unique_ptr<Operator>> operators;
   operators.reserve(planNodes.size());
 
@@ -536,7 +538,8 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
     operators.push_back(consumerSupplier(operators.size(), ctx.get()));
   }
 
-  return std::make_shared<Driver>(std::move(ctx), std::move(operators));
+  driver->init(std::move(ctx), std::move(operators));
+  return driver;
 }
 
 std::vector<core::PlanNodeId> DriverFactory::needsHashJoinBridges() const {

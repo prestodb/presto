@@ -24,6 +24,7 @@
 #include "velox/connectors/Connector.h"
 #include "velox/core/PlanNode.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/exec/Spiller.h"
 
 namespace facebook::velox::exec {
 
@@ -210,7 +211,6 @@ struct DriverCtx {
   const uint32_t partitionId;
 
   std::shared_ptr<Task> task;
-  memory::MemoryPool* pool;
   Driver* driver;
 
   explicit DriverCtx(
@@ -225,14 +225,13 @@ struct DriverCtx {
   velox::memory::MemoryPool* addOperatorPool(
       const core::PlanNodeId& planNodeId,
       const std::string& operatorType);
+
+  /// Builds the spill config for the operator with specified 'operatorId'.
+  std::optional<Spiller::Config> makeSpillConfig(int32_t operatorId) const;
 };
 
 class Driver : public std::enable_shared_from_this<Driver> {
  public:
-  Driver(
-      std::unique_ptr<DriverCtx> driverCtx,
-      std::vector<std::unique_ptr<Operator>> operators);
-
   static void enqueue(std::shared_ptr<Driver> instance);
 
   /// Run the pipeline until it produces a batch of data or gets blocked. Return
@@ -306,6 +305,12 @@ class Driver : public std::enable_shared_from_this<Driver> {
   }
 
  private:
+  Driver() = default;
+
+  void init(
+      std::unique_ptr<DriverCtx> driverCtx,
+      std::vector<std::unique_ptr<Operator>> operators);
+
   void enqueueInternal();
 
   static void run(std::shared_ptr<Driver> self);
@@ -349,6 +354,8 @@ class Driver : public std::enable_shared_from_this<Driver> {
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
 
   bool trackOperatorCpuUsage_;
+
+  friend struct DriverFactory;
 };
 
 using OperatorSupplier = std::function<

@@ -134,4 +134,17 @@ class HashJoinBridge : public JoinBridge {
 // has filter set.
 bool isLeftNullAwareJoinWithFilter(
     const std::shared_ptr<const core::HashJoinNode>& joinNode);
+
+class HashJoinMemoryReclaimer final : public memory::MemoryReclaimer {
+ public:
+  static std::unique_ptr<memory::MemoryReclaimer> create() {
+    return std::unique_ptr<memory::MemoryReclaimer>(
+        new HashJoinMemoryReclaimer());
+  }
+
+  uint64_t reclaim(memory::MemoryPool* pool, uint64_t targetBytes) final;
+
+ private:
+  HashJoinMemoryReclaimer() : MemoryReclaimer() {}
+};
 } // namespace facebook::velox::exec

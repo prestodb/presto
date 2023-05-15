@@ -19,7 +19,6 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <re2/re2.h>
 

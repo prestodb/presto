@@ -249,7 +249,7 @@ class ExchangeBenchmark : public VectorTestBase {
         memory::defaultMemoryManager().addRootPool(
             queryCtx->queryId(), maxMemory));
     core::PlanFragment planFragment{planNode};
-    return std::make_shared<Task>(
+    return Task::create(
         taskId,
         std::move(planFragment),
         destination,

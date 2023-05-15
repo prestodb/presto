@@ -5053,6 +5053,4 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
 
   taskThread.join();
 }
-
-// TODO: add memory reclaim with multiple hash builder test.
 } // namespace

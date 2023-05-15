@@ -52,7 +52,7 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
                             .values({std::dynamic_pointer_cast<RowVector>(
                                 BatchMaker::createBatch(rowType, 100, *pool_))})
                             .planFragment();
-    auto task = std::make_shared<Task>(
+    auto task = Task::create(
         taskId,
         std::move(planFragment),
         0,

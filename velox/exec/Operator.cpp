@@ -17,6 +17,7 @@
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/process/ProcessBase.h"
 #include "velox/exec/Driver.h"
+#include "velox/exec/HashJoinBridge.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 #include "velox/expression/Expr.h"
@@ -59,50 +60,37 @@ OperatorCtx::createConnectorQueryCtx(
       driverCtx_->driverId);
 }
 
-std::optional<Spiller::Config> OperatorCtx::makeSpillConfig(
-    Spiller::Type type) const {
-  const auto& queryConfig = driverCtx_->task->queryCtx()->queryConfig();
-  if (!queryConfig.spillEnabled()) {
-    return std::nullopt;
-  }
-  if (driverCtx_->task->spillDirectory().empty()) {
-    return std::nullopt;
-  }
-  return Spiller::Config(
-      makeOperatorSpillPath(
-          driverCtx_->task->spillDirectory(),
-          driverCtx()->pipelineId,
-          driverCtx()->driverId,
-          operatorId_),
-      queryConfig.maxSpillFileSize(),
-      queryConfig.minSpillRunSize(),
-      driverCtx_->task->queryCtx()->spillExecutor(),
-      queryConfig.spillableReservationGrowthPct(),
-      HashBitRange(
-          queryConfig.spillStartPartitionBit(),
-          queryConfig.spillStartPartitionBit() +
-              queryConfig.spillPartitionBits()),
-      queryConfig.maxSpillLevel(),
-      queryConfig.testingSpillPct());
-}
-
 Operator::Operator(
     DriverCtx* driverCtx,
     RowTypePtr outputType,
     int32_t operatorId,
     std::string planNodeId,
-    std::string operatorType)
+    std::string operatorType,
+    std::optional<Spiller::Config> spillConfig)
     : operatorCtx_(std::make_unique<OperatorCtx>(
           driverCtx,
           planNodeId,
           operatorId,
           operatorType)),
       outputType_(std::move(outputType)),
+      spillConfig_(std::move(spillConfig)),
       stats_(OperatorStats{
           operatorId,
           driverCtx->pipelineId,
           std::move(planNodeId),
-          std::move(operatorType)}) {}
+          std::move(operatorType)}) {
+  maybeSetReclaimer();
+}
+
+void Operator::maybeSetReclaimer() {
+  VELOX_CHECK_NULL(pool()->reclaimer());
+
+  if (pool()->parent()->reclaimer() == nullptr) {
+    return;
+  }
+  pool()->setReclaimer(
+      Operator::MemoryReclaimer::create(operatorCtx_->driverCtx(), this));
+}
 
 std::vector<std::unique_ptr<Operator::PlanNodeTranslator>>&
 Operator::translators() {
@@ -408,4 +396,59 @@ void OperatorStats::clear() {
   runtimeStats.clear();
 }
 
+std::unique_ptr<memory::MemoryReclaimer> Operator::MemoryReclaimer::create(
+    DriverCtx* driverCtx,
+    Operator* op) {
+  return std::unique_ptr<memory::MemoryReclaimer>(
+      new Operator::MemoryReclaimer(driverCtx->driver->shared_from_this(), op));
+}
+
+void Operator::MemoryReclaimer::enterArbitration() {
+  std::shared_ptr<Driver> driver = ensureDriver();
+  // The driver must be alive as the operator is still under memory arbitration
+  // processing.
+  VELOX_CHECK_NOT_NULL(driver);
+  VELOX_CHECK_EQ(std::this_thread::get_id(), driver->state().thread);
+  if (driver->task()->enterSuspended(driver->state()) != StopReason::kNone) {
+    // There is no need for arbitration if the associated task has already
+    // terminated.
+    VELOX_FAIL("Terminate detected when entering suspension");
+  }
+}
+
+void Operator::MemoryReclaimer::leaveArbitration() noexcept {
+  std::shared_ptr<Driver> driver = ensureDriver();
+  // The driver must be alive as the operator is still under memory arbitration
+  // processing.
+  VELOX_CHECK_NOT_NULL(driver);
+  VELOX_CHECK_EQ(std::this_thread::get_id(), driver->state().thread);
+  driver->task()->leaveSuspended(driver->state());
+}
+
+bool Operator::MemoryReclaimer::reclaimableBytes(
+    const memory::MemoryPool& pool,
+    uint64_t& reclaimableBytes) const {
+  reclaimableBytes = 0;
+  std::shared_ptr<Driver> driver = ensureDriver();
+  if (FOLLY_UNLIKELY(driver == nullptr)) {
+    return false;
+  }
+  VELOX_CHECK_EQ(pool.name(), op_->pool()->name());
+  return op_->reclaimableBytes(reclaimableBytes);
+}
+
+uint64_t Operator::MemoryReclaimer::reclaim(
+    memory::MemoryPool* pool,
+    uint64_t targetBytes) {
+  std::shared_ptr<Driver> driver = ensureDriver();
+  if (FOLLY_UNLIKELY(driver == nullptr)) {
+    return 0;
+  }
+  if (!op_->canReclaim()) {
+    return 0;
+  }
+  VELOX_CHECK_EQ(pool->name(), op_->pool()->name());
+  op_->reclaim(targetBytes);
+  return pool->shrink(targetBytes);
+}
 } // namespace facebook::velox::exec

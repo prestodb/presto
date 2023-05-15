@@ -38,15 +38,15 @@ OrderBy::OrderBy(
           orderByNode->outputType(),
           operatorId,
           orderByNode->id(),
-          "OrderBy"),
+          "OrderBy",
+          orderByNode->canSpill(driverCtx->queryConfig())
+              ? driverCtx->makeSpillConfig(operatorId)
+              : std::nullopt),
       numSortKeys_(orderByNode->sortingKeys().size()),
       spillMemoryThreshold_(operatorCtx_->driverCtx()
                                 ->queryConfig()
                                 .orderBySpillMemoryThreshold()) {
   VELOX_CHECK(pool()->trackUsage());
-  spillConfig_ = orderByNode->canSpill(driverCtx->queryConfig())
-      ? operatorCtx_->makeSpillConfig(Spiller::Type::kOrderBy)
-      : std::nullopt;
 
   std::vector<TypePtr> keyTypes;
   std::vector<TypePtr> dependentTypes;
@@ -209,9 +209,14 @@ void OrderBy::reclaim(uint64_t targetBytes) {
   VELOX_CHECK(!driver->state().isOnThread() || driver->state().isSuspended);
   VELOX_CHECK(driver->task()->pauseRequested());
 
-  /// NOTE: an order by operator is reclaimable if it hasn't started output
-  /// processing and is not under non-reclaimable execution section.
+  // NOTE: an order by operator is reclaimable if it hasn't started output
+  // processing and is not under non-reclaimable execution section.
   if (noMoreInput_ || nonReclaimableSection_) {
+    // TODO: add stats to record the non-reclaimable case and reduce the log
+    // frequency if it is too verbose.
+    LOG(WARNING) << "Can't reclaim from order by operator, noMoreInput_["
+                 << noMoreInput_ << "], nonReclaimableSection_["
+                 << nonReclaimableSection_ << "], " << toString();
     return;
   }
 

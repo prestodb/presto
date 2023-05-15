@@ -39,7 +39,7 @@ class SpillOperatorGroupTest : public testing::Test {
     const core::PlanNodeId id{"0"};
     planFragment.planNode = std::make_shared<core::ValuesNode>(id, values);
 
-    task_ = std::make_shared<exec::Task>(
+    task_ = Task::create(
         "SpillOperatorGroupTest_task",
         std::move(planFragment),
         0,

@@ -32,7 +32,10 @@ HashAggregation::HashAggregation(
           aggregationNode->id(),
           aggregationNode->step() == core::AggregationNode::Step::kPartial
               ? "PartialAggregation"
-              : "Aggregation"),
+              : "Aggregation",
+          aggregationNode->canSpill(driverCtx->queryConfig())
+              ? driverCtx->makeSpillConfig(operatorId)
+              : std::nullopt),
       isPartialOutput_(isPartialOutput(aggregationNode->step())),
       isDistinct_(aggregationNode->aggregates().empty()),
       isGlobal_(aggregationNode->groupingKeys().empty()),
@@ -45,9 +48,6 @@ HashAggregation::HashAggregation(
       abandonPartialAggregationMinPct_(
           driverCtx->queryConfig().abandonPartialAggregationMinPct()) {
   VELOX_CHECK(pool()->trackUsage());
-  spillConfig_ = aggregationNode->canSpill(driverCtx->queryConfig())
-      ? operatorCtx_->makeSpillConfig(Spiller::Type::kAggregate)
-      : std::nullopt;
 
   auto inputType = aggregationNode->sources()[0]->outputType();
 
@@ -385,6 +385,11 @@ void HashAggregation::reclaim(uint64_t targetBytes) {
   /// NOTE: an aggregation operator is reclaimable if it hasn't started output
   /// processing and is not under non-reclaimable execution section.
   if (noMoreInput_ || nonReclaimableSection_) {
+    // TODO: add stats to record the non-reclaimable case and reduce the log
+    // frequency if it is too verbose.
+    LOG(WARNING) << "Can't reclaim from aggregation operator, noMoreInput_["
+                 << noMoreInput_ << "], nonReclaimableSection_["
+                 << nonReclaimableSection_ << "], " << toString();
     return;
   }
 

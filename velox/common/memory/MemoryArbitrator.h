@@ -183,7 +183,7 @@ class MemoryReclaimer {
  public:
   virtual ~MemoryReclaimer() = default;
 
-  static std::shared_ptr<MemoryReclaimer> create();
+  static std::unique_ptr<MemoryReclaimer> create();
 
   /// Invoked by the memory arbitrator before entering the memory arbitration
   /// processing. The default implementation does nothing but user can override

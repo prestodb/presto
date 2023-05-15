@@ -39,7 +39,7 @@ class TaskTest : public HiveConnectorTestBase {
       core::PlanFragment plan,
       const std::unordered_map<std::string, std::vector<std::string>>&
           filePaths = {}) {
-    auto task = std::make_shared<exec::Task>(
+    auto task = Task::create(
         "single.execution.task.0", plan, 0, std::make_shared<core::QueryCtx>());
 
     for (const auto& [nodeId, paths] : filePaths) {
@@ -91,53 +91,53 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
                   .project({"a * a", "b + b"})
                   .planFragment();
 
-  exec::Task task(
+  auto task = Task::create(
       "task-1",
       std::move(plan),
       0,
       std::make_shared<core::QueryCtx>(driverExecutor_.get()));
 
   // Add split for the source node.
-  task.addSplit("0", exec::Split(folly::copy(connectorSplit)));
+  task->addSplit("0", exec::Split(folly::copy(connectorSplit)));
 
   // Add an empty split.
-  task.addSplit("0", exec::Split());
+  task->addSplit("0", exec::Split());
 
   // Try to add split for a non-source node.
   auto errorMessage =
       "Splits can be associated only with leaf plan nodes which require splits. Plan node ID 1 doesn't refer to such plan node.";
   VELOX_ASSERT_THROW(
-      task.addSplit("1", exec::Split(folly::copy(connectorSplit))),
+      task->addSplit("1", exec::Split(folly::copy(connectorSplit))),
       errorMessage)
 
   VELOX_ASSERT_THROW(
-      task.addSplitWithSequence(
+      task->addSplitWithSequence(
           "1", exec::Split(folly::copy(connectorSplit)), 3),
       errorMessage)
 
-  VELOX_ASSERT_THROW(task.setMaxSplitSequenceId("1", 9), errorMessage)
+  VELOX_ASSERT_THROW(task->setMaxSplitSequenceId("1", 9), errorMessage)
 
-  VELOX_ASSERT_THROW(task.noMoreSplits("1"), errorMessage)
+  VELOX_ASSERT_THROW(task->noMoreSplits("1"), errorMessage)
 
-  VELOX_ASSERT_THROW(task.noMoreSplitsForGroup("1", 5), errorMessage)
+  VELOX_ASSERT_THROW(task->noMoreSplitsForGroup("1", 5), errorMessage)
 
   // Try to add split for non-existent node.
   errorMessage =
       "Splits can be associated only with leaf plan nodes which require splits. Plan node ID 12 doesn't refer to such plan node.";
   VELOX_ASSERT_THROW(
-      task.addSplit("12", exec::Split(folly::copy(connectorSplit))),
+      task->addSplit("12", exec::Split(folly::copy(connectorSplit))),
       errorMessage)
 
   VELOX_ASSERT_THROW(
-      task.addSplitWithSequence(
+      task->addSplitWithSequence(
           "12", exec::Split(folly::copy(connectorSplit)), 3),
       errorMessage)
 
-  VELOX_ASSERT_THROW(task.setMaxSplitSequenceId("12", 9), errorMessage)
+  VELOX_ASSERT_THROW(task->setMaxSplitSequenceId("12", 9), errorMessage)
 
-  VELOX_ASSERT_THROW(task.noMoreSplits("12"), errorMessage)
+  VELOX_ASSERT_THROW(task->noMoreSplits("12"), errorMessage)
 
-  VELOX_ASSERT_THROW(task.noMoreSplitsForGroup("12", 5), errorMessage)
+  VELOX_ASSERT_THROW(task->noMoreSplitsForGroup("12", 5), errorMessage)
 
   // Try to add split for a Values source node.
   plan =
@@ -146,7 +146,7 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
           .project({"a * a", "b + b"})
           .planFragment();
 
-  exec::Task valuesTask(
+  auto valuesTask = Task::create(
       "task-2",
       std::move(plan),
       0,
@@ -154,7 +154,7 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
   errorMessage =
       "Splits can be associated only with leaf plan nodes which require splits. Plan node ID 0 doesn't refer to such plan node.";
   VELOX_ASSERT_THROW(
-      valuesTask.addSplit("0", exec::Split(folly::copy(connectorSplit))),
+      valuesTask->addSplit("0", exec::Split(folly::copy(connectorSplit))),
       errorMessage)
 }
 
@@ -172,7 +172,7 @@ TEST_F(TaskTest, duplicatePlanNodeIds) {
                   .planFragment();
 
   VELOX_ASSERT_THROW(
-      exec::Task(
+      Task::create(
           "task-1",
           std::move(plan),
           0,
@@ -776,7 +776,7 @@ TEST_F(TaskTest, singleThreadedExecutionExternalBlockable) {
   ContinueFuture continueFuture = ContinueFuture::makeEmpty();
   // First pass, we don't activate the external blocker, expect the task to run
   // without being blocked.
-  auto nonBlockingTask = std::make_shared<exec::Task>(
+  auto nonBlockingTask = Task::create(
       "single.execution.task.0", plan, 0, std::make_shared<core::QueryCtx>());
   std::vector<RowVectorPtr> results;
   for (;;) {
@@ -792,7 +792,7 @@ TEST_F(TaskTest, singleThreadedExecutionExternalBlockable) {
   results.clear();
   continueFuture = ContinueFuture::makeEmpty();
   // Second pass, we will now use external blockers to block the task.
-  auto blockingTask = std::make_shared<exec::Task>(
+  auto blockingTask = Task::create(
       "single.execution.task.1", plan, 0, std::make_shared<core::QueryCtx>());
   // Before we block, we expect `next` to get data normally.
   results.push_back(blockingTask->next(&continueFuture));
@@ -824,7 +824,7 @@ TEST_F(TaskTest, supportsSingleThreadedExecution) {
                   .project({"c0 % 10"})
                   .partitionedOutput({}, 1, std::vector<std::string>{"p0"})
                   .planFragment();
-  auto task = std::make_shared<exec::Task>(
+  auto task = Task::create(
       "single.execution.task.0", plan, 0, std::make_shared<core::QueryCtx>());
 
   // PartitionedOutput does not support single threaded execution, therefore the
@@ -840,7 +840,7 @@ TEST_F(TaskTest, updateBroadCastOutputBuffers) {
                   .planFragment();
   auto bufferManager = PartitionedOutputBufferManager::getInstance().lock();
   {
-    auto task = std::make_shared<exec::Task>(
+    auto task = Task::create(
         "t0", plan, 0, std::make_shared<core::QueryCtx>(driverExecutor_.get()));
 
     task->start(task, 1, 1);
@@ -854,7 +854,7 @@ TEST_F(TaskTest, updateBroadCastOutputBuffers) {
   }
 
   {
-    auto task = std::make_shared<exec::Task>(
+    auto task = Task::create(
         "t1", plan, 0, std::make_shared<core::QueryCtx>(driverExecutor_.get()));
 
     task->start(task, 1, 1);

@@ -14,9 +14,17 @@
  * limitations under the License.
  */
 
+#include <boost/regex.hpp>
+
 #include "velox/exec/HashJoinBridge.h"
 
 namespace facebook::velox::exec {
+namespace {
+bool isHashBuildMemoryPool(const memory::MemoryPool& pool) {
+  static const boost::regex re(".*HashBuild");
+  return regex_match(pool.name(), re);
+}
+} // namespace
 
 void HashJoinBridge::start() {
   std::lock_guard<std::mutex> l(mutex_);
@@ -169,5 +177,24 @@ bool isLeftNullAwareJoinWithFilter(
   return (joinNode->isAntiJoin() || joinNode->isLeftSemiProjectJoin() ||
           joinNode->isLeftSemiFilterJoin()) &&
       joinNode->isNullAware() && (joinNode->filter() != nullptr);
+}
+
+uint64_t HashJoinMemoryReclaimer::reclaim(
+    memory::MemoryPool* pool,
+    uint64_t targetBytes) {
+  uint64_t reclaimedBytes{0};
+  pool->visitChildren(
+      [&targetBytes, &reclaimedBytes](memory::MemoryPool* child) {
+        VELOX_CHECK_EQ(child->kind(), memory::MemoryPool::Kind::kLeaf);
+        // The hash probe operator do not support memory reclaim.
+        if (!isHashBuildMemoryPool(*child)) {
+          return true;
+        }
+        // We only need to reclaim from any one of the hash build operators
+        // which will reclaim from all the peer hash build operators.
+        reclaimedBytes = child->reclaim(targetBytes);
+        return false;
+      });
+  return reclaimedBytes;
 }
 } // namespace facebook::velox::exec

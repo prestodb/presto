@@ -31,7 +31,6 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/SumNonPODAggregate.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/expression/FunctionSignature.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using facebook::velox::core::QueryConfig;
@@ -2009,6 +2008,120 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
     ASSERT_EQ(reclaimable, enableSpilling);
     if (enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
+      const auto usedMemory = op->pool()->currentBytes();
+      op->reclaim(folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_));
+      // No reclaim as the operator has started output processing.
+      ASSERT_EQ(usedMemory, op->pool()->currentBytes());
+    } else {
+      ASSERT_EQ(reclaimableBytes, 0);
+      VELOX_ASSERT_THROW(
+          op->reclaim(
+              folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_)),
+          "");
+    }
+
+    Task::resume(task);
+
+    taskThread.join();
+
+    auto stats = task->taskStats().pipelineStats;
+    ASSERT_EQ(stats[0].operatorStats[1].spilledBytes, 0);
+    ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 0);
+    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+  }
+}
+
+DEBUG_ONLY_TEST_F(AggregationTest, reclaimWithEmptyAggregationTable) {
+  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
+  auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
+  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
+  const int32_t numBatches = 10;
+  std::vector<RowVectorPtr> batches;
+  for (int32_t i = 0; i < numBatches; ++i) {
+    batches.push_back(fuzzer.fuzzRow(rowType));
+  }
+  std::vector<bool> enableSpillings = {false, true};
+  for (const auto enableSpilling : enableSpillings) {
+    SCOPED_TRACE(fmt::format("enableSpilling {}", enableSpilling));
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    queryCtx->testingOverrideMemoryPool(
+        memory::defaultMemoryManager().addRootPool(
+            queryCtx->queryId(), kMaxBytes));
+    auto expectedResult =
+        AssertQueryBuilder(
+            PlanBuilder()
+                .values(batches)
+                .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                .planNode())
+            .queryCtx(queryCtx)
+            .copyResults(pool_.get());
+
+    folly::EventCount driverWait;
+    auto driverWaitKey = driverWait.prepareWait();
+    folly::EventCount testWait;
+    auto testWaitKey = testWait.prepareWait();
+
+    core::PlanNodeId aggregationPlanNodeId;
+    auto aggregationPlan =
+        PlanBuilder()
+            .values(batches)
+            .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+            .capturePlanNodeId(aggregationPlanNodeId)
+            .planNode();
+
+    std::atomic<bool> injectOnce{true};
+    Operator* op;
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Driver::runInternal",
+        std::function<void(Driver*)>(([&](Driver* driver) {
+          if (driver->findOperator(aggregationPlanNodeId) == nullptr) {
+            return;
+          }
+          if (!injectOnce.exchange(false)) {
+            return;
+          }
+          op = driver->findOperator(aggregationPlanNodeId);
+          testWait.notify();
+          driverWait.wait(driverWaitKey);
+        })));
+
+    std::thread taskThread([&]() {
+      if (enableSpilling) {
+        auto task = AssertQueryBuilder(nullptr)
+                        .plan(aggregationPlan)
+                        .queryCtx(queryCtx)
+                        .spillDirectory(tempDirectory->path)
+                        .config(QueryConfig::kSpillEnabled, "true")
+                        .config(QueryConfig::kAggregationSpillEnabled, "true")
+                        .config(core::QueryConfig::kSpillPartitionBits, "2")
+                        .maxDrivers(1)
+                        .assertResults(expectedResult);
+      } else {
+        auto task = AssertQueryBuilder(
+                        PlanBuilder()
+                            .values(batches)
+                            .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                            .planNode())
+                        .queryCtx(queryCtx)
+                        .maxDrivers(1)
+                        .assertResults(expectedResult);
+      }
+    });
+
+    testWait.wait(testWaitKey);
+    ASSERT_TRUE(op != nullptr);
+    auto task = op->testingOperatorCtx()->task();
+    auto taskPauseWait = task->requestPause();
+    driverWait.notify();
+    taskPauseWait.wait();
+
+    uint64_t reclaimableBytes{0};
+    const bool reclaimable = op->reclaimableBytes(reclaimableBytes);
+    ASSERT_EQ(op->canReclaim(), enableSpilling);
+    ASSERT_EQ(reclaimable, enableSpilling);
+    if (enableSpilling) {
+      ASSERT_EQ(reclaimableBytes, 0);
       const auto usedMemory = op->pool()->currentBytes();
       op->reclaim(folly::Random::oneIn(2) ? 0 : folly::Random::rand32(rng_));
       // No reclaim as the operator has started output processing.

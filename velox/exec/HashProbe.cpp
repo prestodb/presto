@@ -110,7 +110,10 @@ HashProbe::HashProbe(
           joinNode->outputType(),
           operatorId,
           joinNode->id(),
-          "HashProbe"),
+          "HashProbe",
+          joinNode->canSpill(driverCtx->queryConfig())
+              ? driverCtx->makeSpillConfig(operatorId)
+              : std::nullopt),
       outputBatchSize_{outputBatchRows()},
       joinNode_(std::move(joinNode)),
       joinType_{joinNode_->joinType()},
@@ -122,9 +125,6 @@ HashProbe::HashProbe(
       filterResult_(1),
       outputTableRows_(outputBatchSize_) {
   VELOX_CHECK_NOT_NULL(joinBridge_);
-  spillConfig_ = joinNode_->canSpill(driverCtx->queryConfig())
-      ? operatorCtx_->makeSpillConfig(Spiller::Type::kHashJoinProbe)
-      : std::nullopt;
 
   auto numKeys = joinNode_->leftKeys().size();
   keyChannels_.reserve(numKeys);

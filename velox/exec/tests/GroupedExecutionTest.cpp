@@ -117,8 +117,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.groupedExecutionLeafNodeIds.clear();
   planFragment.groupedExecutionLeafNodeIds.emplace(tableScanNodeId);
   queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  task =
-      std::make_shared<exec::Task>("0", planFragment, 0, std::move(queryCtx));
+  task = exec::Task::create("0", planFragment, 0, std::move(queryCtx));
   VELOX_ASSERT_THROW(
       task->start(task, 3, 1),
       "groupedExecutionLeafNodeIds must be empty in ungrouped execution mode");
@@ -127,8 +126,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
   planFragment.groupedExecutionLeafNodeIds.clear();
   queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  task =
-      std::make_shared<exec::Task>("0", planFragment, 0, std::move(queryCtx));
+  task = exec::Task::create("0", planFragment, 0, std::move(queryCtx));
   VELOX_ASSERT_THROW(
       task->start(task, 3, 1),
       "groupedExecutionLeafNodeIds must not be empty in "
@@ -139,8 +137,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.groupedExecutionLeafNodeIds.clear();
   planFragment.groupedExecutionLeafNodeIds.emplace(projectNodeId);
   queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  task =
-      std::make_shared<exec::Task>("0", planFragment, 0, std::move(queryCtx));
+  task = exec::Task::create("0", planFragment, 0, std::move(queryCtx));
   VELOX_ASSERT_THROW(
       task->start(task, 3, 1),
       fmt::format(
@@ -153,8 +150,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.groupedExecutionLeafNodeIds.emplace(tableScanNodeId);
   planFragment.groupedExecutionLeafNodeIds.emplace(projectNodeId);
   queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  task =
-      std::make_shared<exec::Task>("0", planFragment, 0, std::move(queryCtx));
+  task = exec::Task::create("0", planFragment, 0, std::move(queryCtx));
   VELOX_ASSERT_THROW(
       task->start(task, 3, 1),
       fmt::format(
@@ -167,8 +163,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.groupedExecutionLeafNodeIds.clear();
   planFragment.groupedExecutionLeafNodeIds.emplace(localPartitionNodeId);
   queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  task =
-      std::make_shared<exec::Task>("0", planFragment, 0, std::move(queryCtx));
+  task = exec::Task::create("0", planFragment, 0, std::move(queryCtx));
   VELOX_ASSERT_THROW(
       task->start(task, 3, 1),
       fmt::format(
@@ -209,8 +204,8 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithOutputBuffer) {
   planFragment.groupedExecutionLeafNodeIds.emplace(tableScanNodeId);
   planFragment.numSplitGroups = 10;
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  auto task = std::make_shared<exec::Task>(
-      "0", std::move(planFragment), 0, std::move(queryCtx));
+  auto task =
+      exec::Task::create("0", std::move(planFragment), 0, std::move(queryCtx));
   // 3 drivers max and 1 concurrent split group.
   task->start(task, 3, 1);
 
@@ -360,7 +355,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndNestedLoopJoin) {
     planFragment.groupedExecutionLeafNodeIds.emplace(probeScanNodeId);
     planFragment.numSplitGroups = 10;
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    auto task = std::make_shared<exec::Task>(
+    auto task = exec::Task::create(
         "0", std::move(planFragment), 0, std::move(queryCtx));
     // 3 drivers max and 1 concurrent split group.
     task->start(task, 3, 1);

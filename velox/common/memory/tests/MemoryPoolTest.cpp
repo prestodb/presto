@@ -159,6 +159,7 @@ TEST_P(MemoryPoolTest, Ctor) {
         MemoryPool::Kind::kAggregate,
         nullptr,
         nullptr,
+        nullptr,
         MemoryPool::Options{.threadSafe = false}));
     ASSERT_EQ("fake_root", fakeRoot->name());
     ASSERT_EQ(
@@ -2183,6 +2184,62 @@ TEST_P(MemoryPoolTest, shrinkAndGrowAPIs) {
   }
 }
 
+TEST_P(MemoryPoolTest, memoryReclaimerSetCheck) {
+  auto manager = getMemoryManager(kMaxMemory);
+  // Valid use case: parent has memory reclaimer but child doesn't set.
+  {
+    auto root =
+        manager->addRootPool("", kMaxMemory, memory::MemoryReclaimer::create());
+    // Can't set more tha once.
+    VELOX_ASSERT_THROW(
+        root->setReclaimer(memory::MemoryReclaimer::create()), "");
+    VELOX_ASSERT_THROW(root->setReclaimer(nullptr), "");
+    auto aggrChild = root->addAggregateChild("aggregateChild");
+    aggrChild->setReclaimer(memory::MemoryReclaimer::create());
+    VELOX_ASSERT_THROW(
+        aggrChild->setReclaimer(memory::MemoryReclaimer::create()), "");
+    // Can't set empty reclaimer.
+    VELOX_ASSERT_THROW(aggrChild->setReclaimer(nullptr), "");
+    auto leafChild = root->addLeafChild("leafChild");
+    leafChild->setReclaimer(memory::MemoryReclaimer::create());
+    VELOX_ASSERT_THROW(
+        leafChild->setReclaimer(memory::MemoryReclaimer::create()), "");
+    VELOX_ASSERT_THROW(leafChild->setReclaimer(nullptr), "");
+  }
+  // Valid use case: both parent and child set memory reclaimer.
+  {
+    auto root =
+        manager->addRootPool("", kMaxMemory, memory::MemoryReclaimer::create());
+    auto aggrChild = root->addAggregateChild("aggregateChild");
+    auto leafChild = root->addLeafChild("leafChild");
+  }
+  // Valid use case: both parent and child don't set memory reclaimer.
+  {
+    auto root = manager->addRootPool("", kMaxMemory);
+    auto aggrChild = root->addAggregateChild("aggregateChild");
+    auto leafChild = root->addLeafChild("leafChild");
+    root->setReclaimer(memory::MemoryReclaimer::create());
+    VELOX_ASSERT_THROW(aggrChild->setReclaimer(nullptr), "");
+    aggrChild->setReclaimer(memory::MemoryReclaimer::create());
+    VELOX_ASSERT_THROW(leafChild->setReclaimer(nullptr), "");
+    leafChild->setReclaimer(memory::MemoryReclaimer::create());
+  }
+  // Invalid use case: parent has no memory reclaimer but child set.
+  {
+    auto root = manager->addRootPool("", kMaxMemory);
+    VELOX_ASSERT_THROW(
+        root->addAggregateChild(
+            "aggregateChild", memory::MemoryReclaimer::create()),
+        "");
+    VELOX_ASSERT_THROW(
+        root->addLeafChild(
+            "leafChild",
+            folly::Random::oneIn(2),
+            memory::MemoryReclaimer::create()),
+        "");
+  }
+}
+
 TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
   MemoryManager manager;
   struct {
@@ -2215,7 +2272,6 @@ TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
     auto pool = manager.addRootPool(
         "shrinkAPIs",
         kMaxMemory,
-        true,
         testData.hasReclaimer ? memory::MemoryReclaimer::create() : nullptr);
     pools.push_back(pool);
 
@@ -2275,30 +2331,24 @@ TEST_P(MemoryPoolTest, reclaimAPIsWithDefaultReclaimer) {
 
 TEST_P(MemoryPoolTest, usageTrackerOptionTest) {
   auto manager = getMemoryManager(8 * GB);
-  std::vector<bool> trackUsages = {false, true};
-  for (const auto trackUsage : trackUsages) {
-    auto root = manager->addRootPool(
-        "usageTrackerOptionTest", kMaxMemory, trackUsage, nullptr);
-    ASSERT_EQ(trackUsage, root->trackUsage());
-    auto child =
-        root->addLeafChild("usageTrackerOptionTest", isLeafThreadSafe_);
-    ASSERT_EQ(trackUsage, child->trackUsage());
-    ASSERT_EQ(child->threadSafe(), isLeafThreadSafe_);
-    ASSERT_TRUE(root->threadSafe());
-    ASSERT_EQ(
-        child->toString(),
-        fmt::format(
-            "Memory Pool[usageTrackerOptionTest LEAF {} {} {}]<unlimited capacity used 0B available 0B reservation [used 0B, reserved 0B, min 0B] counters [allocs 0, frees 0, reserves 0, releases 0, collisions 0])>",
-            useMmap_ ? "MMAP" : "MALLOC",
-            trackUsage ? "track-usage" : "no-usage-track",
-            isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"));
-    ASSERT_EQ(
-        root->toString(),
-        fmt::format(
-            "Memory Pool[usageTrackerOptionTest AGGREGATE {} {} thread-safe]<unlimited capacity used 0B available 0B reservation [used 0B, reserved 0B, min 0B] counters [allocs 0, frees 0, reserves 0, releases 0, collisions 0])>",
-            useMmap_ ? "MMAP" : "MALLOC",
-            trackUsage ? "track-usage" : "no-usage-track"));
-  }
+  auto root =
+      manager->addRootPool("usageTrackerOptionTest", kMaxMemory, nullptr);
+  ASSERT_TRUE(root->trackUsage());
+  auto child = root->addLeafChild("usageTrackerOptionTest", isLeafThreadSafe_);
+  ASSERT_TRUE(child->trackUsage());
+  ASSERT_EQ(child->threadSafe(), isLeafThreadSafe_);
+  ASSERT_TRUE(root->threadSafe());
+  ASSERT_EQ(
+      child->toString(),
+      fmt::format(
+          "Memory Pool[usageTrackerOptionTest LEAF {} track-usage {}]<unlimited capacity used 0B available 0B reservation [used 0B, reserved 0B, min 0B] counters [allocs 0, frees 0, reserves 0, releases 0, collisions 0])>",
+          useMmap_ ? "MMAP" : "MALLOC",
+          isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"));
+  ASSERT_EQ(
+      root->toString(),
+      fmt::format(
+          "Memory Pool[usageTrackerOptionTest AGGREGATE {} track-usage thread-safe]<unlimited capacity used 0B available 0B reservation [used 0B, reserved 0B, min 0B] counters [allocs 0, frees 0, reserves 0, releases 0, collisions 0])>",
+          useMmap_ ? "MMAP" : "MALLOC"));
 }
 
 TEST_P(MemoryPoolTest, statsAndToString) {

@@ -185,16 +185,26 @@ MemoryPool::MemoryPool(
     const std::string& name,
     Kind kind,
     std::shared_ptr<MemoryPool> parent,
+    std::unique_ptr<MemoryReclaimer> reclaimer,
     const Options& options)
     : name_(name),
       kind_(kind),
       alignment_(options.alignment),
       parent_(std::move(parent)),
+
       trackUsage_(options.trackUsage),
       threadSafe_(options.threadSafe),
-      reclaimer_(options.reclaimer),
-      checkUsageLeak_(options.checkUsageLeak) {
+      checkUsageLeak_(options.checkUsageLeak),
+      reclaimer_(std::move(reclaimer)) {
   VELOX_CHECK(!isRoot() || !isLeaf());
+  // NOTE: we shall only set reclaimer in a child pool if its parent has also
+  // set. Otherwise. it should be mis-configured.
+  VELOX_CHECK(
+      parent_ == nullptr || parent_->reclaimer() != nullptr ||
+          reclaimer_ == nullptr,
+      "Child memory pool {} shall only set memory reclaimer if its parent {} has also set",
+      name_,
+      parent_->name());
   MemoryAllocator::alignmentCheck(0, alignment_);
 }
 
@@ -241,7 +251,7 @@ MemoryPool* MemoryPool::root() {
 }
 
 uint64_t MemoryPool::getChildCount() const {
-  folly::SharedMutex::ReadHolder guard{childrenMutex_};
+  folly::SharedMutex::ReadHolder guard{poolMutex_};
   return children_.size();
 }
 
@@ -249,7 +259,7 @@ void MemoryPool::visitChildren(
     const std::function<bool(MemoryPool*)>& visitor) const {
   std::vector<std::shared_ptr<MemoryPool>> children;
   {
-    folly::SharedMutex::ReadHolder guard{childrenMutex_};
+    folly::SharedMutex::ReadHolder guard{poolMutex_};
     children.reserve(children_.size());
     for (auto& entry : children_) {
       auto child = entry.second.lock();
@@ -260,7 +270,7 @@ void MemoryPool::visitChildren(
   }
 
   // NOTE: we should call 'visitor' on child pool object out of
-  // 'childrenMutex_' to avoid potential recursive locking issues. Firstly, the
+  // 'poolMutex_' to avoid potential recursive locking issues. Firstly, the
   // user provided 'visitor' might try to acquire this memory pool lock again.
   // Secondly, the shared child pool reference created from the weak pointer
   // might be the last reference if some other threads drop all the external
@@ -279,10 +289,10 @@ void MemoryPool::visitChildren(
 std::shared_ptr<MemoryPool> MemoryPool::addLeafChild(
     const std::string& name,
     bool threadSafe,
-    std::shared_ptr<MemoryReclaimer> reclaimer) {
+    std::unique_ptr<MemoryReclaimer> reclaimer) {
   CHECK_POOL_MANAGEMENT_OP(addLeafChild);
 
-  folly::SharedMutex::WriteHolder guard{childrenMutex_};
+  folly::SharedMutex::WriteHolder guard{poolMutex_};
   VELOX_CHECK_EQ(
       children_.count(name),
       0,
@@ -301,10 +311,10 @@ std::shared_ptr<MemoryPool> MemoryPool::addLeafChild(
 
 std::shared_ptr<MemoryPool> MemoryPool::addAggregateChild(
     const std::string& name,
-    std::shared_ptr<MemoryReclaimer> reclaimer) {
+    std::unique_ptr<MemoryReclaimer> reclaimer) {
   CHECK_POOL_MANAGEMENT_OP(addAggregateChild);
 
-  folly::SharedMutex::WriteHolder guard{childrenMutex_};
+  folly::SharedMutex::WriteHolder guard{poolMutex_};
   VELOX_CHECK_EQ(
       children_.count(name),
       0,
@@ -323,7 +333,7 @@ std::shared_ptr<MemoryPool> MemoryPool::addAggregateChild(
 
 void MemoryPool::dropChild(const MemoryPool* child) {
   CHECK_POOL_MANAGEMENT_OP(dropChild);
-  folly::SharedMutex::WriteHolder guard{childrenMutex_};
+  folly::SharedMutex::WriteHolder guard{poolMutex_};
   const auto ret = children_.erase(child->name());
   VELOX_CHECK_EQ(
       ret,
@@ -349,6 +359,20 @@ size_t MemoryPool::preferredSize(size_t size) {
     return lower + (lower / 2);
   }
   return lower * 2;
+}
+
+void MemoryPool::setReclaimer(std::unique_ptr<MemoryReclaimer> reclaimer) {
+  VELOX_CHECK_NOT_NULL(reclaimer);
+  if (parent_ != nullptr) {
+    VELOX_CHECK_NOT_NULL(
+        parent_->reclaimer(),
+        "Child memory pool {} shall only set reclaimer if its parent {} has also set",
+        name_,
+        parent_->name());
+  }
+  folly::SharedMutex::WriteHolder guard{poolMutex_};
+  VELOX_CHECK_NULL(reclaimer_);
+  reclaimer_ = std::move(reclaimer);
 }
 
 MemoryReclaimer* MemoryPool::reclaimer() const {
@@ -387,9 +411,10 @@ MemoryPoolImpl::MemoryPoolImpl(
     const std::string& name,
     Kind kind,
     std::shared_ptr<MemoryPool> parent,
+    std::unique_ptr<MemoryReclaimer> reclaimer,
     DestructionCallback destructionCb,
     const Options& options)
-    : MemoryPool{name, kind, parent, options},
+    : MemoryPool{name, kind, parent, std::move(reclaimer), options},
       manager_{memoryManager},
       allocator_{&manager_->allocator()},
       destructionCb_(std::move(destructionCb)),
@@ -583,18 +608,18 @@ std::shared_ptr<MemoryPool> MemoryPoolImpl::genChild(
     const std::string& name,
     Kind kind,
     bool threadSafe,
-    std::shared_ptr<MemoryReclaimer> reclaimer) {
+    std::unique_ptr<MemoryReclaimer> reclaimer) {
   return std::make_shared<MemoryPoolImpl>(
       manager_,
       name,
       kind,
       parent,
+      std::move(reclaimer),
       nullptr,
       Options{
           .alignment = alignment_,
           .trackUsage = trackUsage_,
-          .threadSafe = threadSafe,
-          .reclaimer = std::move(reclaimer)});
+          .threadSafe = threadSafe});
 }
 
 bool MemoryPoolImpl::maybeReserve(uint64_t increment) {

@@ -218,10 +218,6 @@ class OperatorCtx {
       const std::string& planNodeId,
       memory::MemoryPool* connectorPool) const;
 
-  /// Generates the spiller config for a given spiller 'type' if the disk
-  /// spilling is enabled, otherwise returns null.
-  std::optional<Spiller::Config> makeSpillConfig(Spiller::Type type) const;
-
  private:
   DriverCtx* const driverCtx_;
   const core::PlanNodeId planNodeId_;
@@ -281,17 +277,18 @@ class Operator : public BaseRuntimeStatWriter {
     }
   };
 
-  // 'operatorId' is the initial index of the 'this' in the Driver's
-  // list of Operators. This is used as in index into OperatorStats
-  // arrays in the Task. 'planNodeId' is a query-level unique
-  // identifier of the PlanNode to which 'this'
-  // corresponds. 'operatorType' is a label for use in stats.
+  /// 'operatorId' is the initial index of the 'this' in the Driver's list of
+  /// Operators. This is used as in index into OperatorStats arrays in the Task.
+  /// 'planNodeId' is a query-level unique identifier of the PlanNode to which
+  /// 'this' corresponds. 'operatorType' is a label for use in stats. If
+  /// 'canSpill' is true, then disk spilling is allowed for this operator.
   Operator(
       DriverCtx* driverCtx,
       RowTypePtr outputType,
       int32_t operatorId,
       std::string planNodeId,
-      std::string operatorType);
+      std::string operatorType,
+      std::optional<Spiller::Config> spillConfig = std::nullopt);
 
   virtual ~Operator() = default;
 
@@ -491,6 +488,38 @@ class Operator : public BaseRuntimeStatWriter {
   static std::vector<std::unique_ptr<PlanNodeTranslator>>& translators();
   friend class NonReclaimableSection;
 
+  class MemoryReclaimer : public memory::MemoryReclaimer {
+   public:
+    static std::unique_ptr<memory::MemoryReclaimer> create(
+        DriverCtx* driverCtx,
+        Operator* op);
+
+    void enterArbitration() override;
+    void leaveArbitration() noexcept override;
+
+    bool reclaimableBytes(
+        const memory::MemoryPool& pool,
+        uint64_t& reclaimableBytes) const override;
+    uint64_t reclaim(memory::MemoryPool* pool, uint64_t targetBytes) override;
+
+   private:
+    MemoryReclaimer(const std::shared_ptr<Driver>& driver, Operator* op)
+        : driver_(driver), op_(op) {
+      VELOX_CHECK_NOT_NULL(op_);
+    }
+
+    // Gets the shared pointer to the associated driver to ensure the liveness
+    // of the operator during the memory reclaim operation.
+    //
+    // NOTE: an operator's memory pool can outlive its operator.
+    std::shared_ptr<Driver> ensureDriver() const {
+      return driver_.lock();
+    }
+
+    const std::weak_ptr<Driver> driver_;
+    Operator* const op_;
+  };
+
   /// The scoped object to mark a reclaimable operator is under non-reclaimable
   /// execution section. This prevents the memory arbitrator from reclaiming
   /// memory from the operator if it happens to be suspended for memory
@@ -510,6 +539,10 @@ class Operator : public BaseRuntimeStatWriter {
    private:
     Operator* const op_;
   };
+
+  /// Invoked to setup memory reclaimer for this operator's memory pool if its
+  /// parent node memory pool has set the reclaimer.
+  void maybeSetReclaimer();
 
   /// Returns true if this is a spillable operator and has configured spilling.
   FOLLY_ALWAYS_INLINE bool canSpill() const {
@@ -531,12 +564,11 @@ class Operator : public BaseRuntimeStatWriter {
 
   const std::unique_ptr<OperatorCtx> operatorCtx_;
   const RowTypePtr outputType_;
+  // Contains the disk spilling related configs if spilling is enabled (e.g.
+  // the fs dir path to store spill files), otherwise null.
+  const std::optional<Spiller::Config> spillConfig_;
 
   folly::Synchronized<OperatorStats> stats_;
-
-  /// Contains the disk spilling related configs if spilling is enabled (e.g.
-  /// the fs dir path to store spill files), otherwise null.
-  std::optional<Spiller::Config> spillConfig_;
 
   /// Indicates if an operator is under a non-reclaimable execution section.
   /// This prevents the memory arbitrator from reclaiming memory from this

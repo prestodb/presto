@@ -255,7 +255,7 @@ class DriverTest : public OperatorTestBase {
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto plan =
         PlanBuilder(planNodeIdGenerator).values(batches, true).planFragment();
-    auto task = std::make_shared<exec::Task>(
+    auto task = Task::create(
         "t0",
         plan,
         0,

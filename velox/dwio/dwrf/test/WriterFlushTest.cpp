@@ -40,7 +40,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
       MemoryPool::Kind kind,
       std::shared_ptr<MemoryPool> parent,
       int64_t cap = std::numeric_limits<int64_t>::max())
-      : MemoryPool{name, kind, parent, {.alignment = velox::memory::MemoryAllocator::kMinAlignment}},
+      : MemoryPool{name, kind, parent, nullptr, {.alignment = velox::memory::MemoryAllocator::kMinAlignment}},
         capacity_(cap) {}
 
   int64_t capacity() const override {
@@ -150,7 +150,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
       const std::string& name,
       MemoryPool::Kind kind,
       bool /*unused*/,
-      std::shared_ptr<memory::MemoryReclaimer> /*unused*/) override {
+      std::unique_ptr<memory::MemoryReclaimer> /*unused*/) override {
     return std::make_shared<MockMemoryPool>(
         name, kind, parent, parent->capacity());
   }

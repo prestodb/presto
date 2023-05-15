@@ -96,13 +96,11 @@ class IMemoryManager {
 
   /// Creates a root memory pool with specified 'name' and 'capacity'. If 'name'
   /// is missing, the memory manager generates a default name internally to
-  /// ensure uniqueness. If 'trackUsage' is true, then set the memory usage
-  /// tracker in the created root memory pool.
+  /// ensure uniqueness.
   virtual std::shared_ptr<MemoryPool> addRootPool(
       const std::string& name = "",
       int64_t capacity = kMaxMemory,
-      bool trackUsage = true,
-      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) = 0;
+      std::unique_ptr<MemoryReclaimer> reclaimer = nullptr) = 0;
 
   /// Creates a leaf memory pool for direct memory allocation use with specified
   /// 'name'. If 'name' is missing, the memory manager generates a default name
@@ -112,8 +110,7 @@ class IMemoryManager {
   /// its cpu cost.
   virtual std::shared_ptr<MemoryPool> addLeafPool(
       const std::string& name = "",
-      bool threadSafe = true,
-      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) = 0;
+      bool threadSafe = true) = 0;
 
   /// Invoked to grows a memory pool's free capacity with at least
   /// 'incrementBytes'. The function returns true on success, otherwise false.
@@ -187,13 +184,11 @@ class MemoryManager final : public IMemoryManager {
   std::shared_ptr<MemoryPool> addRootPool(
       const std::string& name = "",
       int64_t maxBytes = kMaxMemory,
-      bool trackUsage = true,
-      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) final;
+      std::unique_ptr<MemoryReclaimer> reclaimer = nullptr) final;
 
   std::shared_ptr<MemoryPool> addLeafPool(
       const std::string& name = "",
-      bool threadSafe = true,
-      std::shared_ptr<MemoryReclaimer> reclaimer = nullptr) final;
+      bool threadSafe = true) final;
 
   bool growPool(MemoryPool* pool, uint64_t incrementBytes) final;
 
@@ -227,7 +222,6 @@ class MemoryManager final : public IMemoryManager {
 
   //  Returns the shared references to all the alive memory pools in 'pools_'.
   std::vector<std::shared_ptr<MemoryPool>> getAlivePools() const;
-  std::vector<std::shared_ptr<MemoryPool>> getAlivePoolsLocked() const;
 
   const int64_t capacity_;
   const std::shared_ptr<MemoryAllocator> allocator_;

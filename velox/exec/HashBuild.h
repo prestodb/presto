@@ -110,7 +110,7 @@ class HashBuild final : public Operator {
     return spillConfig_.has_value();
   }
 
-  const Spiller::Config* FOLLY_NULLABLE spillConfig() const {
+  const Spiller::Config* spillConfig() const {
     return spillConfig_.has_value() ? &spillConfig_.value() : nullptr;
   }
 
@@ -127,7 +127,7 @@ class HashBuild final : public Operator {
   // source. The function will need to setup a spill input reader to read input
   // from the spilled data for restoring. If the spilled data can't still fit
   // in memory, then we will recursively spill part(s) of its data on disk.
-  void setupSpiller(SpillPartition* FOLLY_NULLABLE spillPartition = nullptr);
+  void setupSpiller(SpillPartition* spillPartition = nullptr);
 
   // Invoked when either there is no more input from the build source or from
   // the spill input reader during the restoring.

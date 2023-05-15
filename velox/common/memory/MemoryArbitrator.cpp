@@ -50,8 +50,8 @@ std::unique_ptr<MemoryArbitrator> MemoryArbitrator::create(
   }
 }
 
-std::shared_ptr<MemoryReclaimer> MemoryReclaimer::create() {
-  return std::shared_ptr<MemoryReclaimer>(new MemoryReclaimer());
+std::unique_ptr<MemoryReclaimer> MemoryReclaimer::create() {
+  return std::unique_ptr<MemoryReclaimer>(new MemoryReclaimer());
 }
 
 bool MemoryReclaimer::reclaimableBytes(
