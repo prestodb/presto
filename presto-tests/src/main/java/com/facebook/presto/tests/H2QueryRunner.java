@@ -89,6 +89,7 @@ import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -180,6 +181,18 @@ public class H2QueryRunner
                 "  comment VARCHAR(23) NOT NULL\n" +
                 ")");
         insertRows(tpchMetadata, PART);
+
+        handle.execute(" CREATE TABLE customer (     \n" +
+                "    custkey BIGINT NOT NULL,         \n" +
+                "    name VARCHAR(25) NOT NULL,       \n" +
+                "    address VARCHAR(40) NOT NULL,    \n" +
+                "    nationkey BIGINT NOT NULL,       \n" +
+                "    phone VARCHAR(15) NOT NULL,      \n" +
+                "    acctbal DOUBLE NOT NULL,         \n" +
+                "    mktsegment VARCHAR(10) NOT NULL, \n" +
+                "    comment VARCHAR(117) NOT NULL    \n" +
+                " ) ");
+        insertRows(tpchMetadata, CUSTOMER);
     }
 
     private void insertRows(TpchMetadata tpchMetadata, TpchTable tpchTable)
