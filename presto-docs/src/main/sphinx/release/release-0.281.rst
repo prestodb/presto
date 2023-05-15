@@ -7,8 +7,8 @@ Release 0.281
 
 General Changes
 _______________
-* Fix timeout for optimization rules.
-* Improve memory accounting for rehashing.
+* Fix timeout for optimization rules by adding interrupt check between each optimizer rule, and throw meaningful exception.
+* Improve memory accounting for rehashing for values by keeping both the new table and the old table, before this chage we account for the only size difference between the new table and the old table.
 * Improve outer join where the join key is from the output of another outer join which can have many null values. The optimization is controlled by session property ``randomize_outer_join_null_key_strategy``.
 * Add ability to express concurrency levels as a function of number of available workers.
 * Add an optimization rule for queries which have multiple similar aggregations, with and without filters. The optimization is controlled by session parameter ``merge_aggs_with_and_without_filter``.
@@ -17,8 +17,7 @@ _______________
 * Add :func:`gamma_cdf()`` and :func:`inverse_gamma_cdf()` functions.
 * Add groups support to :doc:`/functions/window`.
 * Add optimization for joins when build side is empty at runtime. The optimization is controlled by session parameter ``optimize_join_probe_for_empty_build_runtime``.
-* Add system config to enable access log on presto-on-spark native, the logs are in Apache's Combined Log Format. This can be enabled with the system config ``http-server.enable-access-log`` and default value is ``true``.
-* Add ``MetadataResolver`` in the ``AnalyzerContext``, which is passed in the pluggable analyzer interface.
+* Add system config to enable access log on presto-on-spark native. This can be enabled with the system config ``http-server.enable-access-log`` and default value is ``true``.
 * Remove session property ``deprecated.legacy-date-timestamp-to-varchar-coercion``.
 * Remove access control checks after semantic analysis. Queries with both semantic and permission issues that previously failed with permission errors may now fail with semantic errors.
 * Reduce memory usage in parquet reader.
@@ -30,6 +29,8 @@ _______________________
 SPI Changes
 ___________
 * Add various methods to create variables in the ``VariableAllocator``. ``VariableAllocator`` is also changed from interface to a class.
+* Add ``MetadataResolver`` in the ``AnalyzerContext``, which is passed in the pluggable analyzer interface.
+
 
 Hive Changes
 ____________
@@ -45,7 +46,7 @@ ____________
 
 Apache Iceberg Changes
 _______________
-* Replace Apache Iceberg version from 1.1.0 to 1.2.0.
+* Upgrade Apache Iceberg version from 1.1.0 to 1.2.0.
 
 JDBC Changes
 ____________
