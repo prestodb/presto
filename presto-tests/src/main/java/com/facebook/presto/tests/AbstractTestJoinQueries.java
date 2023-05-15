@@ -24,10 +24,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.JOINS_NOT_NULL_INFERENCE_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME;
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
@@ -2420,11 +2420,8 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testJoinsWithNulls()
     {
-        Session sessionWithOptNulls = Session.builder(getSession())
-                .setSystemProperty(OPTIMIZE_NULLS_IN_JOINS, "true")
-                .build();
         testJoinsWithNullsInternal(getSession());
-        testJoinsWithNullsInternal(sessionWithOptNulls);
+        testJoinsWithNullsInternal(inferNullsFromJoinFiltersWithUseFunctionMetadata());
     }
 
     private void testJoinsWithNullsInternal(Session session)
@@ -2455,6 +2452,53 @@ public abstract class AbstractTestJoinQueries
                 "SELECT * FROM (VALUES 2, 3, null) a(x) " +
                         "FULL OUTER JOIN (VALUES 3, 4, null) b(x) ON a.x = b.x WHERE a.x IS NULL",
                 "SELECT * FROM VALUES (NULL, 4), (NULL, NULL), (NULL, NULL)");
+        assertQuery(
+                session,
+                "SELECT * FROM (VALUES '1', '', '2', '3') a(x) INNER JOIN (VALUES 1, 2, 3) b(y) " +
+                        "ON CAST(x AS int) = y WHERE x <> ''",
+                "SELECT * FROM VALUES (1,1), (2,2), (3,3)");
+
+        // Asserting current behavior of performing filtering before JOINs
+        // We prevent dereference failures in below queries by using the CARDINALITY function
+        // Since the optimizer chooses to do filtering before the JOIN, we can use these dereferenced fields in the JOIN clause
+        assertQuery(
+                session,
+                "select l.number from (VALUES 5) l(number) " +
+                        "INNER JOIN (select sequence(1,number) as numArr from unnest(sequence(1,5)) AS x(number)) r " +
+                        "ON l.number = r.numArr[5] WHERE CARDINALITY(r.numArr) = 5",
+                // Only the last row from 'r', [1,2,3,4,5] will have cardinality of 5 and JOIN with 'l'
+                "SELECT 5 as number");
+
+        assertQuery(
+                session,
+                "select l.numArr[5] as result from " +
+                        // This will produce the 5 row relation
+                        // [1], [2,2], [3,3,3], [4,4,4,4], [5,5,5,5,5]
+                        "(select repeat(number,cast(number as integer)) as numArr from unnest(sequence(1,5)) AS x(number)) l " +
+                        "INNER JOIN " +
+                        // This will produce the 5 row relation
+                        // [5,5,5,5,5], [6,6,6,6,6,6], ... , [10,10,10,10,10,10,10,10,10,10]
+                        "(select repeat(number,cast(number as integer)) as numArr from unnest(sequence(5,10)) AS x(number)) r " +
+                        "ON l.numArr[5] = r.numArr[5] " +
+                        "WHERE CARDINALITY(l.numArr) >= 5 AND CARDINALITY(r.numArr) >= 5",
+                // Only the last row from 'l' : [5,5,5,5,5] will JOIN with the first row of 'r' : [5,5,5,5,5]
+                "SELECT 5 as result");
+
+        assertQuery(
+                session,
+                "SELECT 1 FROM ( VALUES " +
+                        "ARRAY[ CAST(ROW(1) AS ROW(x INTEGER)), CAST(ROW(2) AS ROW(x INTEGER)) ], " +
+                        "ARRAY[ CAST(ROW(4) AS ROW(x INTEGER)), CAST(ROW(5) AS ROW(x INTEGER)), " +
+                        "CAST(ROW(6) AS ROW(x INTEGER)) ], ARRAY[], NULL ) l(f) " +
+                        "INNER JOIN ( VALUES " +
+                        "ARRAY[ CAST(ROW(1) AS ROW(x INTEGER)), CAST(ROW(5) AS ROW(x INTEGER)), " +
+                        "CAST(ROW(3) AS ROW(x INTEGER)) ], " +
+                        "ARRAY[CAST(ROW(7) AS ROW(x INTEGER))], ARRAY[], NULL ) r(f) " +
+                        "ON l.f[2].x = r.f[2].x " +
+                        "AND CARDINALITY(l.f) >= 2 AND CARDINALITY(r.f) >= 2",
+                // Row 2 from l(f) and Row 1 from r(f) will JOIN to produce a one row result
+                // H2 database doesn't support the 'ROW' operator, so we assert only on the presence of a 1 row output
+                "select 1");
     }
 
     @Test
@@ -2530,6 +2574,17 @@ public abstract class AbstractTestJoinQueries
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM small_part RIGHT JOIN lineitem ON  small_part.partkey = lineitem.partkey");
     }
 
+    @Test
+    public void testJoinsWithNullInferencing()
+    {
+        Session joinsNullInferenceStrategy = inferNullsFromJoinFiltersWithUseFunctionMetadata();
+        assertQuery(joinsNullInferenceStrategy, "select 1 from lineitem l, orders o where l.orderkey = o.orderkey");
+        assertQuery(joinsNullInferenceStrategy, "select 1 from lineitem l join orders o on l.orderkey = o.orderkey and l.partkey = o.custkey");
+        assertQuery(joinsNullInferenceStrategy, "select 1 from lineitem l join orders o on l.orderkey = o.orderkey, customer c where c.custkey = o.custkey");
+        assertQuery(joinsNullInferenceStrategy, "select 1 from lineitem l left join orders o on l.orderkey = o.orderkey inner join customer c on o.custkey=c.custkey");
+        assertQuery(joinsNullInferenceStrategy, "select 1 from lineitem l left join orders o on l.orderkey = o.orderkey and partkey - custkey > 10");
+    }
+
     protected Session noJoinReordering()
     {
         return Session.builder(getSession())
@@ -2542,6 +2597,13 @@ public abstract class AbstractTestJoinQueries
     {
         return Session.builder(getSession())
                 .setSystemProperty(OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME, "true")
+                .build();
+    }
+
+    private Session inferNullsFromJoinFiltersWithUseFunctionMetadata()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(JOINS_NOT_NULL_INFERENCE_STRATEGY, "USE_FUNCTION_METADATA")
                 .build();
     }
 
