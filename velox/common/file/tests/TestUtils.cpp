@@ -32,9 +32,6 @@ Result getSegments(
     }
     lastOffset += buffer.size();
   }
-  for (auto& segment : result.segments) {
-    result.segmentPtrs.emplace_back(&segment);
-  }
   return result;
 }
 

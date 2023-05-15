@@ -20,10 +20,10 @@
 namespace facebook::velox::file::utils {
 
 bool CoalesceIfDistanceLE::operator()(
-    const ReadFile::Segment* a,
-    const ReadFile::Segment* b) const {
-  VELOX_CHECK_LE(a->offset, b->offset, "Segments to combine must be sorted.");
-  const uint64_t beginGap = a->offset + a->buffer.size(), endGap = b->offset;
+    const ReadFile::Segment& a,
+    const ReadFile::Segment& b) const {
+  VELOX_CHECK_LE(a.offset, b.offset, "Segments to combine must be sorted.");
+  const uint64_t beginGap = a.offset + a.buffer.size(), endGap = b.offset;
 
   VELOX_CHECK_LE(beginGap, endGap, "Segments to combine can't overlap.");
   const uint64_t gap = endGap - beginGap;

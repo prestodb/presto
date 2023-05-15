@@ -23,7 +23,6 @@ namespace facebook::velox::tests::utils {
 struct Result {
   std::vector<std::string> buffers;
   std::vector<ReadFile::Segment> segments;
-  std::vector<ReadFile::Segment*> segmentPtrs;
 };
 
 Result getSegments(

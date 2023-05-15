@@ -34,7 +34,7 @@ class MockShouldCoalesce {
   MOCK_METHOD(
       bool,
       shouldCoalesce,
-      (const ReadFile::Segment* a, const ReadFile::Segment* b),
+      (const ReadFile::Segment& a, const ReadFile::Segment& b),
       (const));
 };
 
@@ -43,7 +43,7 @@ class ShouldCoalesceWrapper {
   explicit ShouldCoalesceWrapper(MockShouldCoalesce& shouldCoalesce)
       : shouldCoalesce_(shouldCoalesce) {}
 
-  bool operator()(const ReadFile::Segment* a, const ReadFile::Segment* b)
+  bool operator()(const ReadFile::Segment& a, const ReadFile::Segment& b)
       const {
     return shouldCoalesce_.shouldCoalesce(a, b);
   }
@@ -76,7 +76,7 @@ bool willCoalesceIfDistanceLE(
       segA.first, folly::Range<char*>(bufA.data(), bufA.size()), {}};
   ReadFile::Segment b{
       segB.first, folly::Range<char*>(bufB.data(), bufB.size()), {}};
-  return CoalesceIfDistanceLE(distance)(&a, &b);
+  return CoalesceIfDistanceLE(distance)(a, b);
 }
 
 auto getReader(
@@ -94,8 +94,7 @@ auto getReader(
 
 TEST(CoalesceSegmentsTest, EmptyCase) {
   const auto testData = getSegments({});
-  ASSERT_EQ(testData.segments.size(), testData.segmentPtrs.size());
-  const auto& p = testData.segmentPtrs;
+  const auto& p = testData.segments;
 
   MockShouldCoalesce shouldCoalesce;
   EXPECT_CALL(shouldCoalesce, shouldCoalesce(_, _)).Times(0);
@@ -108,12 +107,11 @@ TEST(CoalesceSegmentsTest, EmptyCase) {
 
 TEST(CoalesceSegmentsTest, MergeAll) {
   const auto testData = getSegments({"aaaa", "bbbb", "c", "dd", "eee"});
-  ASSERT_EQ(testData.segments.size(), testData.segmentPtrs.size());
-  const auto& p = testData.segmentPtrs;
+  const auto& p = testData.segments;
 
   MockShouldCoalesce shouldCoalesce;
   for (size_t i = 1; i < p.size(); ++i) {
-    EXPECT_CALL(shouldCoalesce, shouldCoalesce(p[i - 1], p[i]))
+    EXPECT_CALL(shouldCoalesce, shouldCoalesce(Ref(p[i - 1]), Ref(p[i])))
         .Times(1)
         .WillOnce(Return(true));
   }
@@ -126,12 +124,11 @@ TEST(CoalesceSegmentsTest, MergeAll) {
 
 TEST(CoalesceSegmentsTest, MergeNone) {
   const auto testData = getSegments({"aaaa", "bbbb", "c", "dd", "eee"});
-  ASSERT_EQ(testData.segments.size(), testData.segmentPtrs.size());
-  const auto& p = testData.segmentPtrs;
+  const auto& p = testData.segments;
 
   MockShouldCoalesce shouldCoalesce;
   for (size_t i = 1; i < p.size(); ++i) {
-    EXPECT_CALL(shouldCoalesce, shouldCoalesce(p[i - 1], p[i]))
+    EXPECT_CALL(shouldCoalesce, shouldCoalesce(Ref(p[i - 1]), Ref(p[i])))
         .Times(1)
         .WillOnce(Return(false));
   }
@@ -145,14 +142,13 @@ TEST(CoalesceSegmentsTest, MergeNone) {
 
 TEST(CoalesceSegmentsTest, MergeOdd) {
   const auto testData = getSegments({"aaaa", "bbbb", "c", "dd", "eee"});
-  ASSERT_EQ(testData.segments.size(), testData.segmentPtrs.size());
-  const auto& p = testData.segmentPtrs;
+  const auto& p = testData.segments;
 
   auto isOdd = [](size_t i) { return i % 2 == 1; };
 
   MockShouldCoalesce shouldCoalesce;
   for (size_t i = 1; i < p.size(); ++i) {
-    EXPECT_CALL(shouldCoalesce, shouldCoalesce(p[i - 1], p[i]))
+    EXPECT_CALL(shouldCoalesce, shouldCoalesce(Ref(p[i - 1]), Ref(p[i])))
         .Times(1)
         .WillOnce(Return(isOdd(i)));
   }
@@ -166,13 +162,12 @@ TEST(CoalesceSegmentsTest, MergeOdd) {
 
 TEST(CoalesceSegmentsTest, MergeEven) {
   const auto testData = getSegments({"aaaa", "bbbb", "c", "dd", "eee"});
-  ASSERT_EQ(testData.segments.size(), testData.segmentPtrs.size());
-  const auto& p = testData.segmentPtrs;
+  const auto& p = testData.segments;
   auto isEven = [](size_t i) { return i % 2 == 0; };
 
   MockShouldCoalesce shouldCoalesce;
   for (size_t i = 1; i < p.size(); ++i) {
-    EXPECT_CALL(shouldCoalesce, shouldCoalesce(p[i - 1], p[i]))
+    EXPECT_CALL(shouldCoalesce, shouldCoalesce(Ref(p[i - 1]), Ref(p[i])))
         .Times(1)
         .WillOnce(Return(isEven(i)));
   }
@@ -238,7 +233,7 @@ TEST(CoalesceIfDistanceLETest, SegmentsCantOverlap) {
 TEST(ReadToSegmentsTest, CanReadToContiguousSegments) {
   auto testData = getSegments({"this", "is", "an", "awesome", "test"});
   ASSERT_EQ(testData.segments.size(), 5);
-  const auto& p = testData.segmentPtrs;
+  const auto& p = testData.segments;
 
   auto readToSegments = ReadToSegments(p.begin(), p.end(), getReader());
 
@@ -256,7 +251,7 @@ TEST(ReadToSegmentsTest, CanReadToContiguousSegments) {
 TEST(ReadToSegmentsTest, CanReadToNonContiguousSegments) {
   auto testData = getSegments({"this", "is", "an", "awesome", "test"}, {1, 3});
   ASSERT_EQ(testData.segments.size(), 3);
-  const auto& p = testData.segmentPtrs;
+  const auto& p = testData.segments;
 
   auto readToSegments = ReadToSegments(p.begin(), p.end(), getReader());
 
@@ -274,7 +269,7 @@ TEST(ReadToSegmentsTest, CanReadToNonContiguousSegments) {
 TEST(ReadToSegmentsTest, NoSegmentsIsNoOp) {
   auto testData = getSegments({"a", "b"});
   ASSERT_EQ(testData.segments.size(), 2);
-  const auto& p = testData.segmentPtrs;
+  const auto& p = testData.segments;
 
   // Set the desired read size to 0, but point to buffer to check that we don't
   // override

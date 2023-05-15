@@ -108,16 +108,16 @@ class CoalesceIfDistanceLE {
   explicit CoalesceIfDistanceLE(uint64_t maxCoalescingDistance)
       : maxCoalescingDistance_(maxCoalescingDistance) {}
 
-  bool operator()(const ReadFile::Segment* a, const ReadFile::Segment* b) const;
+  bool operator()(const ReadFile::Segment& a, const ReadFile::Segment& b) const;
 
  private:
   uint64_t maxCoalescingDistance_;
 };
 
-template <typename SegmentPtrIter, typename Reader>
+template <typename SegmentIter, typename Reader>
 class ReadToSegments {
  public:
-  ReadToSegments(SegmentPtrIter begin, SegmentPtrIter end, Reader reader)
+  ReadToSegments(SegmentIter begin, SegmentIter end, Reader reader)
       : begin_{begin}, end_{end}, reader_{std::move(reader)} {}
 
   void read() {
@@ -125,25 +125,25 @@ class ReadToSegments {
       return;
     }
 
-    auto fileOffset = (*begin_)->offset;
+    auto fileOffset = begin_->offset;
     const auto last = std::prev(end_);
-    const auto readSize = (*last)->offset + (*last)->buffer.size() - fileOffset;
+    const auto readSize = last->offset + last->buffer.size() - fileOffset;
     std::unique_ptr<folly::IOBuf> result = reader_(fileOffset, readSize);
 
     folly::io::Cursor cursor(result.get());
     for (auto segment = begin_; segment != end_; ++segment) {
-      if (fileOffset < (*segment)->offset) {
-        cursor.skip((*segment)->offset - fileOffset);
-        fileOffset = (*segment)->offset;
+      if (fileOffset < segment->offset) {
+        cursor.skip(segment->offset - fileOffset);
+        fileOffset = segment->offset;
       }
-      cursor.pull((*segment)->buffer.data(), (*segment)->buffer.size());
-      fileOffset += (*segment)->buffer.size();
+      cursor.pull(segment->buffer.data(), segment->buffer.size());
+      fileOffset += segment->buffer.size();
     }
   }
 
  private:
-  SegmentPtrIter begin_;
-  SegmentPtrIter end_;
+  SegmentIter begin_;
+  SegmentIter end_;
   Reader reader_;
 };
 
