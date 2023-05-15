@@ -1,4 +1,7 @@
-SELECT (CAST("amc" AS DECIMAL(15,4)) / CAST("pmc" AS DECIMAL(15,4))) "am_pm_ratio"
+-- Decimals don't have NaN values so we need to handle pmc = 0 separately.
+-- This is similar to how DuckDB handles it:
+-- https://github.com/duckdb/duckdb/blob/master/extension/tpcds/dsdgen/queries/90.sql
+SELECT case when pmc = 0 then null else (CAST("amc" AS DECIMAL(15,4)) / CAST("pmc" AS DECIMAL(15,4))) end "am_pm_ratio"
 -- SELECT (CAST("amc" AS double) / CAST("pmc" AS double)) "am_pm_ratio"
 FROM
   (
