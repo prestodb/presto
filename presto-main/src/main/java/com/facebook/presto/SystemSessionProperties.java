@@ -30,6 +30,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
@@ -230,6 +231,7 @@ public final class SystemSessionProperties
     public static final String CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS = "consider-query-filters-for-materialized-view-partitions";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
+    public static final String JOINS_NOT_NULL_INFERENCE_STRATEGY = "joins_not_null_inference_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
     public static final String HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED = "heap_dump_on_exceeded_memory_limit_enabled";
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
@@ -1553,7 +1555,19 @@ public final class SystemSessionProperties
                         REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN,
                         "Rewrite cross join with or filter to inner join",
                         featuresConfig.isRewriteCrossJoinWithOrFilterToInnerJoin(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        JOINS_NOT_NULL_INFERENCE_STRATEGY,
+                        format("Set the strategy used NOT NULL filter inference on Join Nodes. Options are: %s",
+                                Stream.of(JoinNotNullInferenceStrategy.values())
+                                        .map(JoinNotNullInferenceStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        JoinNotNullInferenceStrategy.class,
+                        featuresConfig.getJoinsNotNullInferenceStrategy(),
+                        false,
+                        value -> JoinNotNullInferenceStrategy.valueOf(((String) value).toUpperCase()),
+                        JoinNotNullInferenceStrategy::name));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -2293,6 +2307,11 @@ public final class SystemSessionProperties
     public static boolean isOptimizePayloadJoins(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_PAYLOAD_JOINS, Boolean.class);
+    }
+
+    public static JoinNotNullInferenceStrategy getNotNullInferenceStrategy(Session session)
+    {
+        return session.getSystemProperty(JOINS_NOT_NULL_INFERENCE_STRATEGY, JoinNotNullInferenceStrategy.class);
     }
 
     public static Optional<DataSize> getTargetResultSize(Session session)
