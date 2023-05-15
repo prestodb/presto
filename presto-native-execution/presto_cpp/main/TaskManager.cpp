@@ -281,7 +281,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
       auto queryCtx = queryContextManager_.findOrCreateQueryCtx(
           taskId, std::move(configStrings), std::move(connectorConfigStrings));
 
-      execTask = std::make_shared<exec::Task>(
+      execTask = exec::Task::create(
           taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));
       maybeSetupTaskSpillDirectory(planFragment, *execTask);
 
