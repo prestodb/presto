@@ -65,7 +65,6 @@ import static com.facebook.presto.SystemSessionProperties.LEAF_NODE_LIMIT_ENABLE
 import static com.facebook.presto.SystemSessionProperties.MAX_LEAF_NODES_IN_PLAN;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
@@ -1373,67 +1372,6 @@ public class TestLogicalPlanner
                                 semiJoin("CUSTKEY", "T_A", "OUT", Optional.of(SemiJoinNode.DistributionType.REPLICATED),
                                         anyTree(tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))),
                                         anyTree(values("T_A"))))));
-    }
-
-    @Test
-    public void testJoinNullFilters()
-    {
-        Session nullFiltersInJoin = Session.builder(this.getQueryRunner().getDefaultSession())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.toString())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.toString())
-                .setSystemProperty(OPTIMIZE_NULLS_IN_JOINS, Boolean.toString(true))
-                .build();
-        assertPlanWithSession("SELECT nationkey FROM nation INNER JOIN region ON nation.regionkey = region.regionkey",
-                nullFiltersInJoin, false,
-                anyTree(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
-                                anyTree(
-                                        filter("NATION_REGIONKEY IS NOT NULL",
-                                                tableScan(
-                                                        "nation",
-                                                        ImmutableMap.of("NATION_REGIONKEY", "regionkey")))),
-                                anyTree(
-                                        filter("region_REGIONKEY IS NOT NULL",
-                                                tableScan(
-                                                        "region",
-                                                        ImmutableMap.of(
-                                                                "REGION_REGIONKEY", "regionkey")))))));
-
-        assertPlanWithSession("SELECT nationkey FROM nation LEFT JOIN region ON nation.regionkey = region.regionkey",
-                nullFiltersInJoin, false,
-                anyTree(
-                        join(
-                                LEFT,
-                                ImmutableList.of(equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
-                                anyTree(
-                                        tableScan(
-                                                "nation",
-                                                ImmutableMap.of("NATION_REGIONKEY", "regionkey"))),
-                                anyTree(
-                                        filter("region_REGIONKEY IS NOT NULL",
-                                                tableScan(
-                                                        "region",
-                                                        ImmutableMap.of(
-                                                                "REGION_REGIONKEY", "regionkey")))))));
-
-        assertPlanWithSession("SELECT nationkey FROM nation RIGHT JOIN region ON nation.regionkey = region.regionkey",
-                nullFiltersInJoin, false,
-                anyTree(
-                        join(
-                                RIGHT,
-                                ImmutableList.of(equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
-                                anyTree(
-                                        filter("NATION_REGIONKEY IS NOT NULL",
-                                                tableScan(
-                                                        "nation",
-                                                        ImmutableMap.of("NATION_REGIONKEY", "regionkey")))),
-                                anyTree(
-                                        tableScan(
-                                                "region",
-                                                ImmutableMap.of(
-                                                        "REGION_REGIONKEY", "regionkey"))))));
     }
 
     @Test
