@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.nativeworker.AbstractTestNativeTpchConnectorQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
@@ -41,11 +42,18 @@ public class TestPrestoSparkNativeTpchConnectorQueries
         PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
     }
 
-    // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
-    @Ignore
-    public void testMissingTpchConnector() {}
+    public void testMissingTpchConnector()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalog("tpch")
+                .setSchema("tiny")
+                .build();
+        // No tpch connector exists in the native worker.
+        assertQueryFails(session, "SELECT * FROM nation", ".*Connector with ID 'tpch' not registered.*");
+    }
 
+    // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
     @Ignore
     public void testTpchDateFilter() {}
