@@ -16,12 +16,13 @@
 
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/JsonFunctions.h"
+#include "velox/functions/prestosql/SIMDJsonFunctions.h"
 
 namespace facebook::velox::functions {
 void registerJsonFunctions(const std::string& prefix) {
   registerJsonType();
 
-  registerFunction<IsJsonScalarFunction, bool, Json>(
+  registerFunction<SIMDIsJsonScalarFunction, bool, Json>(
       {prefix + "is_json_scalar"});
   registerFunction<JsonExtractScalarFunction, Varchar, Json, Varchar>(
       {prefix + "json_extract_scalar"});

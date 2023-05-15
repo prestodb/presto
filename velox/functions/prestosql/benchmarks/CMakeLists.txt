@@ -161,3 +161,8 @@ add_executable(velox_functions_prestosql_benchmarks_cardinality
                CardinalityBenchmark.cpp)
 target_link_libraries(velox_functions_prestosql_benchmarks_cardinality
                       ${BENCHMARK_DEPENDENCIES})
+
+add_executable(velox_functions_benchmarks_simdjson_function_with_expr
+               JsonExprBenchmark.cpp)
+target_link_libraries(velox_functions_benchmarks_simdjson_function_with_expr
+                      ${BENCHMARK_DEPENDENCIES})

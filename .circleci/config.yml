@@ -422,6 +422,7 @@ jobs:
     environment:
       VELOX_DEPENDENCY_SOURCE: SYSTEM
       ICU_SOURCE: BUNDLED
+      simdjson_SOURCE: BUNDLED
     steps:
       - pre-steps
       - run:
