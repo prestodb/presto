@@ -23,6 +23,7 @@ target_link_libraries(
   velox_presto_serializer
   velox_vector_test_lib
   velox_vector_fuzzer
+  velox_row_fast
   gtest
   gtest_main
   gflags::gflags

@@ -16,7 +16,7 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 #include <folly/lang/Bits.h>
 #include "velox/row/UnsafeRowDeserializers.h"
-#include "velox/row/UnsafeRowSerializers.h"
+#include "velox/row/UnsafeRowFast.h"
 
 namespace facebook::velox::serializer::spark {
 
@@ -39,9 +39,9 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
       const RowVectorPtr& vector,
       const folly::Range<const IndexRange*>& ranges) override {
     size_t totalSize = 0;
-    auto fixedRowSize =
-        row::UnsafeRowSerializer::getFixedSizeRow(asRowType(vector->type()));
-    if (fixedRowSize.has_value()) {
+    row::UnsafeRowFast unsafeRow(vector);
+    if (auto fixedRowSize =
+            row::UnsafeRowFast::fixedRowSize(asRowType(vector->type()))) {
       for (const auto& range : ranges) {
         totalSize += (fixedRowSize.value() + sizeof(TRowSize)) * range.size;
       }
@@ -49,8 +49,7 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
     } else {
       for (const auto& range : ranges) {
         for (auto i = range.begin; i < range.begin + range.size; ++i) {
-          auto rowSize = row::UnsafeRowSerializer::getSizeRow(vector.get(), i);
-          totalSize += rowSize + sizeof(TRowSize);
+          totalSize += unsafeRow.rowSize(i) + sizeof(TRowSize);
         }
       }
     }
@@ -59,40 +58,34 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
       return;
     }
 
-    auto* buffer = (char*)pool_->allocateZeroFilled(totalSize, 1);
-    buffers_.push_back(
-        ByteRange{(uint8_t*)buffer, (int32_t)totalSize, (int32_t)totalSize});
+    BufferPtr buffer = AlignedBuffer::allocate<char>(totalSize, pool_, 0);
+    auto rawBuffer = buffer->asMutable<char>();
+    buffers_.push_back(std::move(buffer));
 
     size_t offset = 0;
     for (auto& range : ranges) {
       for (auto i = range.begin; i < range.begin + range.size; ++i) {
         // Write row data.
-        auto rowSize = row::UnsafeRowSerializer::getSizeRow(vector.get(), i);
-        TRowSize size = row::UnsafeRowSerializer::serialize(
-                            vector, buffer + offset + sizeof(TRowSize), i)
-                            .value_or(0);
-
-        // Sanity check.
-        VELOX_CHECK_EQ(rowSize, size);
+        TRowSize size =
+            unsafeRow.serialize(i, rawBuffer + offset + sizeof(TRowSize));
 
         // Write raw size. Needs to be in big endian order.
-        *(TRowSize*)(buffer + offset) = folly::Endian::big(size);
+        *(TRowSize*)(rawBuffer + offset) = folly::Endian::big(size);
         offset += sizeof(TRowSize) + size;
       }
     }
   }
 
   void flush(OutputStream* stream) override {
-    for (auto& buffer : buffers_) {
-      stream->write((char*)buffer.buffer, buffer.position);
-      pool_->free(buffer.buffer, buffer.size);
+    for (const auto& buffer : buffers_) {
+      stream->write(buffer->as<char>(), buffer->size());
     }
     buffers_.clear();
   }
 
  private:
   memory::MemoryPool* const FOLLY_NONNULL pool_;
-  std::vector<ByteRange> buffers_;
+  std::vector<BufferPtr> buffers_;
 };
 } // namespace
 
