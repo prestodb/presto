@@ -466,6 +466,7 @@ vector_size_t copyOffsets(
     vector_size_t count,
     vector_size_t& childOffset) {
   childOffset = 0;
+  target.resize(targetIndex + count);
   auto tgtOffsets = const_cast<vector_size_t*>(target.rawOffsets());
   auto tgtSizes = const_cast<vector_size_t*>(target.rawSizes());
   if (LIKELY(targetIndex > 0)) {
@@ -707,6 +708,7 @@ vector_size_t copyOffset(
     vector_size_t sourceIndex,
     vector_size_t& childOffset) {
   childOffset = 0;
+  target.resize(targetIndex + 1);
   auto tgtSizes = const_cast<vector_size_t*>(target.rawSizes());
   if (LIKELY(targetIndex > 0)) {
     auto index = targetIndex - 1;

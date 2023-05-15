@@ -402,10 +402,10 @@ void BaseVector::setNulls(const BufferPtr& nulls) {
 // static
 void BaseVector::resizeIndices(
     vector_size_t size,
-    vector_size_t initialValue,
     velox::memory::MemoryPool* pool,
     BufferPtr* indices,
-    const vector_size_t** raw) {
+    const vector_size_t** raw,
+    std::optional<vector_size_t> initialValue) {
   if (indices->get() && indices->get()->isMutable()) {
     auto newByteSize = byteSize<vector_size_t>(size);
     if (indices->get()->size() < newByteSize) {

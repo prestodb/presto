@@ -187,7 +187,8 @@ class DictionaryVector : public SimpleVector<T> {
   /// If setNotNull is false then the values and isNull is undefined.
   void resize(vector_size_t size, bool setNotNull = true) override {
     if (size > BaseVector::length_) {
-      BaseVector::resizeIndices(size, 0, &indices_, &rawIndices_);
+      this->resizeIndices(size, &indices_, &rawIndices_);
+      this->clearIndices(indices_, BaseVector::length_, size);
     }
 
     BaseVector::resize(size, setNotNull);

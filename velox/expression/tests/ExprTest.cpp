@@ -2557,9 +2557,8 @@ TEST_F(ExprTest, toSql) {
 }
 
 namespace {
-// A naive function that wraps the input in a dictionary vector resized to
-// rows.end() - 1.  It assumes all selected values are non-null.
-class TestingShrinkingDictionary : public exec::VectorFunction {
+// A naive function that wraps the input in a dictionary vector.
+class WrapInDictionaryFunc : public exec::VectorFunction {
  public:
   bool isDefaultNullBehavior() const override {
     return true;
@@ -2577,7 +2576,35 @@ class TestingShrinkingDictionary : public exec::VectorFunction {
     rows.applyToSelected([&](int row) { rawIndices[row] = row; });
 
     result =
-        BaseVector::wrapInDictionary(nullptr, indices, rows.end() - 1, args[0]);
+        BaseVector::wrapInDictionary(nullptr, indices, rows.end(), args[0]);
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    return {exec::FunctionSignatureBuilder()
+                .returnType("bigint")
+                .argumentType("bigint")
+                .build()};
+  }
+};
+
+class LastRowNullFunc : public exec::VectorFunction {
+ public:
+  bool isDefaultNullBehavior() const override {
+    return false;
+  }
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& /* outputType */,
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    context.ensureWritable(rows, BIGINT(), result);
+    auto* flatOutput = result->asFlatVector<int64_t>();
+    auto* flatInput = args[0]->asFlatVector<int64_t>();
+    rows.applyToSelected(
+        [&](int row) { flatOutput->set(row, flatInput->valueAt(row)); });
+    flatOutput->setNull(rows.end() - 1, true);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -2589,40 +2616,29 @@ class TestingShrinkingDictionary : public exec::VectorFunction {
 };
 } // namespace
 
-TEST_F(ExprTest, specialFormPropagateNulls) {
+TEST_F(ExprTest, dictionaryResizedInAddNulls) {
   exec::registerVectorFunction(
-      "test_shrinking_dictionary",
-      TestingShrinkingDictionary::signatures(),
-      std::make_unique<TestingShrinkingDictionary>());
-
+      "dict_wrap",
+      WrapInDictionaryFunc::signatures(),
+      std::make_unique<WrapInDictionaryFunc>());
+  exec::registerVectorFunction(
+      "last_row_null",
+      LastRowNullFunc::signatures(),
+      std::make_unique<LastRowNullFunc>());
   // This test verifies an edge case where applyFunctionWithPeeling may produce
   // a result vector which is dictionary encoded and has fewer values than
   // are rows.
-  // This can happen when the last value in a column used in an expression is
-  // null which causes removeSureNulls to move the end of the SelectivityVector
-  // forward.  When we incorrectly use rows.end() as the size of the
-  // dictionary when rewrapping the results.
-  // Normally this is masked when this vector is used in a function call which
-  // produces a new output vector.  However, in SpecialForm expressions, we may
-  // return the output untouched, and when we try to add back in the nulls, we
-  // get an exception trying to resize the DictionaryVector.
-  // This is difficult to reproduce, so this test artificially triggers the
-  // issue by using a UDF that returns a dictionary one smaller than rows.end().
+  // The expression bellow make sure that we call a resize on a dictonary
+  // vector during addNulls after function `dict_wrap` is evaluated.
 
-  // Making the last row NULL, so we call addNulls in eval.
-  auto c0 = makeFlatVector<int64_t>(
-      5,
-      [](vector_size_t row) { return row; },
-      [](vector_size_t row) { return row == 4; });
+  // Making the last rows NULL, so we call addNulls in eval.
+  auto c0 = makeFlatVector<int64_t>({1, 2, 3, 4, 5});
 
-  auto rowVector = makeRowVector({c0});
-  auto evalResult = evaluate("test_shrinking_dictionary(\"c0\")", rowVector);
-
-  auto expectedResult = makeFlatVector<int64_t>(
-      5,
-      [](vector_size_t row) { return row; },
-      [](vector_size_t row) { return row == 4; });
-  assertEqualVectors(expectedResult, evalResult);
+  auto evalResult =
+      evaluate("dict_wrap(last_row_null(c0))", makeRowVector({c0}));
+  auto expected = c0;
+  expected->setNull(4, true);
+  assertEqualVectors(expected, evalResult);
 }
 
 TEST_F(ExprTest, tryWithConstantFailure) {
@@ -3761,4 +3777,20 @@ TEST_F(ExprTest, dictionaryOverLoadedLazy) {
       {"(c0 < 5 and c1 < 90)", "c0 < 5"}, makeRowVector({c0, c1}));
   auto resultFromLazy = evaluate("c0 < 5", makeRowVector({c0, c1}));
   assertEqualVectors(result[1], resultFromLazy);
+}
+
+TEST_F(ExprTest, dictionaryResizeWithIndicesReset) {
+  // This test verifies a fuzzer failure that was due to resizeDictionary not
+  // initializing indices of new rows to 0.
+  auto indices = makeIndices({0, 0, 4, 4, 0});
+  auto indices2 = makeIndices({0, 1, 3});
+  auto nulls = makeNulls({false, false, false, true, false});
+  auto c0 = BaseVector::wrapInDictionary(
+      nulls, indices, 5, makeNullableFlatVector<int64_t>({1, 1, 1, 2, 2}));
+  auto wrappedC0 = BaseVector::wrapInDictionary(nullptr, indices2, 3, c0);
+
+  auto result = evaluate(
+      "coalesce(plus(c0, 1::BIGINT), 1::BIGINT)", makeRowVector({wrappedC0}));
+  auto expected = makeNullableFlatVector<int64_t>({2, 2, 1});
+  assertEqualVectors(expected, result);
 }

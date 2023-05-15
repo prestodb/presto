@@ -1843,6 +1843,23 @@ TEST_F(VectorTest, dictionaryResize) {
   test::assertEqualVectors(expectedVector, dict);
   // Check to ensure that indices has not changed.
   ASSERT_EQ(indices->size(), size * sizeof(vector_size_t));
+
+  // Check that resize clear indices even if no new allocation happens.
+  {
+    auto indicesLarge = makeIndices(20, [&](auto row) { return 3; });
+    auto dictVector = wrapInDictionary(indicesLarge, 10, flatVector);
+    dictVector->resize(15);
+    auto* indicesData = indicesLarge->asMutable<vector_size_t>();
+    for (int i = 0; i < 10; i++) {
+      EXPECT_EQ(indicesData[i], 3);
+    }
+    for (int i = 10; i < 15; i++) {
+      EXPECT_EQ(indicesData[i], 0);
+    }
+    for (int i = 15; i < 20; i++) {
+      EXPECT_EQ(indicesData[i], 3);
+    }
+  }
 }
 
 TEST_F(VectorTest, acquireSharedStringBuffers) {
@@ -2333,4 +2350,49 @@ TEST_F(VectorTest, findDuplicateValue) {
   auto noData = makeFlatVector<int32_t>({});
   dup = noData->findDuplicateValue(0, 0, flags);
   ASSERT_FALSE(dup.has_value());
+}
+
+TEST_F(VectorTest, resizeArrayAndMapResetOffsets) {
+  auto checkIndices = [&](const auto& indices) {
+    auto* data = indices->template asMutable<vector_size_t>();
+    ASSERT_EQ(data[0], 1);
+    ASSERT_EQ(data[1], 1);
+    ASSERT_EQ(data[2], 0);
+    ASSERT_EQ(data[3], 0);
+  };
+  // test array.
+  {
+    auto offsets = makeIndices({1, 1, 1, 1});
+    auto sizes = makeIndices({1, 1, 1, 1});
+
+    auto arrayVector = std::make_shared<ArrayVector>(
+        pool(),
+        ARRAY(BIGINT()),
+        nullptr,
+        2,
+        offsets,
+        sizes,
+        makeFlatVector<int64_t>({1, 2, 3, 4}));
+
+    arrayVector->resize(4);
+    checkIndices(sizes);
+  }
+
+  // test map.
+  {
+    auto offsets = makeIndices({1, 1, 1, 1});
+    auto sizes = makeIndices({1, 1, 1, 1});
+
+    auto mapVector = std::make_shared<MapVector>(
+        pool(),
+        MAP(BIGINT(), BIGINT()),
+        nullptr,
+        2,
+        offsets,
+        sizes,
+        makeFlatVector<int64_t>({1, 2, 3, 4}),
+        makeFlatVector<int64_t>({1, 2, 3, 4}));
+    mapVector->resize(4);
+    checkIndices(sizes);
+  }
 }

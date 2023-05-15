@@ -611,10 +611,10 @@ void readRowVector(
       if (!rawOffsets) {
         BaseVector::resizeIndices(
             size,
-            0,
             pool,
             &offsets,
-            const_cast<const vector_size_t**>(&rawOffsets));
+            const_cast<const vector_size_t**>(&rawOffsets),
+            0);
         for (int32_t child = 0; child < i; ++child) {
           rawOffsets[child] = child;
         }

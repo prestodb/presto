@@ -239,14 +239,19 @@ struct ArrayVectorBase : BaseVector {
 
   void resize(vector_size_t size, bool setNotNull = true) override {
     if (BaseVector::length_ < size) {
-      resizeIndices(size, 0, &offsets_, &rawOffsets_);
-      resizeIndices(size, 0, &sizes_, &rawSizes_);
+      resizeIndices(size, &offsets_, &rawOffsets_);
+      resizeIndices(size, &sizes_, &rawSizes_);
+      clearIndices(sizes_, length_, size);
+      // No need to clear offset indices since we set sizes to 0.
     }
     BaseVector::resize(size, setNotNull);
   }
 
+  // Its the caller responsibility to make sure that `offsets_` and `sizes_` are
+  // safe to write at index i, i.ex not shared, or not large enough.
   void
   setOffsetAndSize(vector_size_t i, vector_size_t offset, vector_size_t size) {
+    DCHECK_LT(i, BaseVector::length_);
     offsets_->asMutable<vector_size_t>()[i] = offset;
     sizes_->asMutable<vector_size_t>()[i] = size;
   }
@@ -298,7 +303,7 @@ struct ArrayVectorBase : BaseVector {
         buf->capacity() >= size * sizeof(vector_size_t)) {
       return buf;
     }
-    resizeIndices(size, 0, &buf, &raw);
+    resizeIndices(size, &buf, &raw, 0);
     return buf;
   }
 
@@ -469,14 +474,6 @@ class MapVector : public ArrayVectorBase {
   uint64_t hashValueAt(vector_size_t index) const override;
 
   std::unique_ptr<SimpleVector<uint64_t>> hashAll() const override;
-
-  void resize(vector_size_t size, bool setNotNull = true) override {
-    if (BaseVector::length_ < size) {
-      resizeIndices(size, 0, &offsets_, &rawOffsets_);
-      resizeIndices(size, 0, &sizes_, &rawSizes_);
-    }
-    BaseVector::resize(size, setNotNull);
-  }
 
   const VectorPtr& mapKeys() const {
     return keys_;
