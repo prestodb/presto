@@ -26,7 +26,7 @@ Task is responsible for converting a query plan into a set of pipelines
 consisting of multiple operators stacked on top of each other.
 See :doc:`Plan Nodes and Operators <operators>` for the mapping between plan
 nodes and operators. Each plan node with multiple sources introduces a new
-pipeline or pipelines. These plan nodes include HashJoinNode, CrossJoinNode,
+pipeline or pipelines. These plan nodes include HashJoinNode, NestedLoopJoinNode,
 MergeJoinNode, LocalMergeNode, LocalPartitionNode. Join nodes have two sources
 and introduce one new pipeline that ends at the right-side source.
 LocalMergeNode and LocalPartitionNode introduce one pipeline for each source.
@@ -125,12 +125,12 @@ Join Bridges and Barriers
 -------------------------
 
 HashProbe operators need to wait for the corresponding HashBuild operators to
-create a hash table. For each HashJoinNode and CrossJoinNode, the Task creates
-a bridge object, either HashJoinBridge or a CrossJoinBridge. HashProbe and
+create a hash table. For each HashJoinNode and NestedLoopJoinNode, the Task creates
+a bridge object, either HashJoinBridge or a NestedLoopJoinBridge. HashProbe and
 HashBuild operators use Task::getHashJoinBridge() API to get access to a shared
 bridge. HashBuild operator adds the hash table to the bridge. HashProbe
-operator fetches the hash table from the bridge. Similarly, CrossJoinProbe and
-CrossJoinBuild operators use Task::getCrossJoinBridge() API to access a shared
+operator fetches the hash table from the bridge. Similarly, NestedLoopJoinProbe and
+NestedLoopJoinBuild operators use Task::getNestedLoopJoinBridge() API to access a shared
 bridge to pass the build-side data to the probe-side.
 
 HashBuilder operators running in parallel need to coordinate among themselves to
@@ -143,7 +143,7 @@ and sending it over the bridge to the probe side.
 Task::allPeersFinished() API uses BarrierState structure to maintain state to
 know which operator is the last one.
 
-Similarly, CrossJoinBuild operators running in parallel use
+Similarly, NestedLoopJoinBuild operators running in parallel use
 Task::allPeersFinished() API to choose a single operator to combine the results
 and send them over the bridge to the probe side.
 

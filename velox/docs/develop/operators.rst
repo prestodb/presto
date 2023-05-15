@@ -40,7 +40,7 @@ AggregationNode             HashAggregation or StreamingAggregation
 GroupIdNode                 GroupId
 HashJoinNode                HashProbe and HashBuild
 MergeJoinNode               MergeJoin
-CrossJoinNode               CrossJoinProbe and CrossJoinBuild
+NestedLoopJoinNode          NestedLoopJoinProbe and NestedLoopJoinBuild
 OrderByNode                 OrderBy
 TopNNode                    TopN
 LimitNode                   Limit
@@ -223,8 +223,8 @@ and emitting results.
    * - outputType
      - A list of output columns. This is a subset of columns available in the left and right inputs of the join. The columns may appear in different order than in the input.
 
-CrossJoinNode
-~~~~~~~~~~~~~
+NestedLoopJoinNode
+~~~~~~~~~~~~~~~~~~
 
 The cross join operation combines two separate inputs into a single output by
 combining each row of the left hand side input with each row of the right hand
