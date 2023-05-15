@@ -1481,11 +1481,6 @@ class NestedLoopJoinNode : public PlanNode {
   const RowTypePtr outputType_;
 };
 
-// TODO Remove after updating Prestissimo.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-using CrossJoinNode = NestedLoopJoinNode;
-#endif
-
 // Represents the 'SortBy' node in the plan.
 class OrderByNode : public PlanNode {
  public:
