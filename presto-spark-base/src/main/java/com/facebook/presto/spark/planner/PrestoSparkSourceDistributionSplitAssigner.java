@@ -57,7 +57,7 @@ public class PrestoSparkSourceDistributionSplitAssigner
     private int sequenceId;
     private int partitionCount;
 
-    public static PrestoSparkSourceDistributionSplitAssigner create(Session session, PlanNodeId tableScanNodeId, SplitSource splitSource)
+    public static PrestoSparkSourceDistributionSplitAssigner create(Session session, PlanNodeId tableScanNodeId, SplitSource splitSource, int startSequenceId)
     {
         return new PrestoSparkSourceDistributionSplitAssigner(
                 tableScanNodeId,
@@ -67,7 +67,8 @@ public class PrestoSparkSourceDistributionSplitAssigner
                 getSparkInitialPartitionCount(session),
                 isSparkPartitionCountAutoTuneEnabled(session),
                 getMinSparkInputPartitionCountForAutoTune(session),
-                getMaxSparkInputPartitionCountForAutoTune(session));
+                getMaxSparkInputPartitionCountForAutoTune(session),
+                startSequenceId);
     }
 
     public PrestoSparkSourceDistributionSplitAssigner(
@@ -78,7 +79,8 @@ public class PrestoSparkSourceDistributionSplitAssigner
             int initialPartitionCount,
             boolean partitionCountAutoTuneEnabled,
             int minSparkInputPartitionCountForAutoTune,
-            int maxSparkInputPartitionCountForAutoTune)
+            int maxSparkInputPartitionCountForAutoTune,
+            int startSequenceId)
     {
         this.tableScanNodeId = requireNonNull(tableScanNodeId, "tableScanNodeId is null");
         this.splitSource = requireNonNull(splitSource, "splitSource is null");
@@ -93,6 +95,7 @@ public class PrestoSparkSourceDistributionSplitAssigner
         this.partitionCountAutoTuneEnabled = partitionCountAutoTuneEnabled;
         this.minSparkInputPartitionCountForAutoTune = minSparkInputPartitionCountForAutoTune;
         this.maxSparkInputPartitionCountForAutoTune = maxSparkInputPartitionCountForAutoTune;
+        this.sequenceId = startSequenceId;
         checkArgument(minSparkInputPartitionCountForAutoTune >= 1 && minSparkInputPartitionCountForAutoTune <= maxSparkInputPartitionCountForAutoTune,
                 "Min partition count for auto tune (%s) should be a positive integer and not larger than max partition count (%s)",
                 minSparkInputPartitionCountForAutoTune,

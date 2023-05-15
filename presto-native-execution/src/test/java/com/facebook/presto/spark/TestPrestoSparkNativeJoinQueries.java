@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.nativeworker.AbstractTestNativeJoinQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
@@ -51,13 +50,5 @@ public class TestPrestoSparkNativeJoinQueries
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
     @Ignore
-    public void testMergeJoin() {}
-
-    @Override
-    @Ignore
     public void testCrossJoin() {}
-
-    @Override
-    @Ignore
-    public void testBucketedInnerJoin(Session joinTypeSession) {}
 }

@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <folly/SocketAddress.h>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -26,6 +27,11 @@ class ConfigBase {
   /// before calling any of the getters below.
   /// @param filePath Path to configuration file.
   void initialize(const std::string& filePath);
+
+  /// Uses a config object already materialized.
+  void initialize(std::unique_ptr<velox::Config>&& config) {
+    config_ = std::move(config);
+  }
 
   /// Adds or replaces value at the given key. Can be used by debugging or
   /// testing code.
@@ -84,6 +90,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPrestoVersion{"presto.version"};
   static constexpr std::string_view kHttpServerHttpPort{
       "http-server.http.port"};
+
   /// This option allows a port closed in TIME_WAIT state to be reused
   /// immediately upon worker startup. This property is mainly used by batch
   /// processing. For interactive query, the worker uses a dynamic port upon
@@ -106,17 +113,22 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
+
+  /// Number of threads for async io. Disabled if zero.
   static constexpr std::string_view kNumIoThreads{"num-io-threads"};
+  static constexpr std::string_view kNumConnectorIoThreads{
+      "num-connector-io-threads"};
   static constexpr std::string_view kNumQueryThreads{"num-query-threads"};
   static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
-  static constexpr std::string_view kSpillerSpillPath =
-      "experimental.spiller-spill-path";
+  static constexpr std::string_view kSpillerSpillPath{
+      "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
   static constexpr std::string_view kAsyncCacheSsdCheckpointGb{
       "async-cache-ssd-checkpoint-gb"};
   static constexpr std::string_view kAsyncCacheSsdPath{"async-cache-ssd-path"};
+
   /// In file systems, such as btrfs, supporting cow (copy on write), the ssd
   /// cache can use all ssd space and stop working. To prevent that, use this
   /// option to disable cow for cache files.
@@ -137,14 +149,26 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kShuffleName{"shuffle.name"};
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
-  static constexpr std::string_view kHttpEnableStatFilter{
+  static constexpr std::string_view kHttpEnableStatsFilter{
       "http-server.enable-stats-filter"};
   static constexpr std::string_view kRegisterTestFunctions{
       "register-test-functions"};
+
   /// The options to configure the max quantized memory allocation size to store
   /// the received http response data.
   static constexpr std::string_view kHttpMaxAllocateBytes{
       "http-server.max-response-allocate-bytes"};
+  static constexpr std::string_view kQueryMaxMemoryPerNode{
+      "query.max-memory-per-node"};
+
+  /// This system property is added for not crashing the cluster when memory
+  /// leak is detected. The check should be disabled in production cluster.
+  static constexpr std::string_view kEnableMemoryLeakCheck{
+      "enable-memory-leak-check"};
+
+  /// Port used by the remote function thrift server.
+  static constexpr std::string_view kRemoteFunctionServerThriftPort{
+      "remote-function-server.thrift.port"};
 
   /// Most server nodes today (May 2022) have at least 16 cores.
   /// Setting the default maximum drivers per task to this value will
@@ -157,6 +181,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpsSupportedCiphersDefault{
       "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384"};
   static constexpr int32_t kNumIoThreadsDefault = 30;
+  static constexpr int32_t kNumConnectorIoThreadsDefault = 30;
   static constexpr int32_t kShutdownOnsetSecDefault = 10;
   static constexpr int32_t kSystemMemoryGbDefault = 40;
   static constexpr int32_t kMmapArenaCapacityRatioDefault = 10;
@@ -176,6 +201,9 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kHttpEnableStatsFilterDefault = false;
   static constexpr bool kRegisterTestFunctionsDefault = false;
   static constexpr uint64_t kHttpMaxAllocateBytesDefault = 64 << 10;
+  /// 1/10 of kSystemMemoryGbDefault.
+  static constexpr uint64_t kQueryMaxMemoryPerNodeDefault = 4UL << 30;
+  static constexpr bool kEnableMemoryLeakCheckDefault = true;
 
   static SystemConfig* instance();
 
@@ -183,7 +211,7 @@ class SystemConfig : public ConfigBase {
 
   bool httpServerReusePort() const;
 
-  bool enableHttps() const;
+  bool httpServerHttpsEnabled() const;
 
   int httpServerHttpsPort() const;
 
@@ -214,14 +242,19 @@ class SystemConfig : public ConfigBase {
 
   std::optional<std::string> discoveryUri() const;
 
+  std::optional<folly::SocketAddress> remoteFunctionServerLocation() const;
+
   int32_t maxDriversPerTask() const;
 
   int32_t concurrentLifespansPerTask() const;
 
   int32_t httpExecThreads() const;
 
-  // Process-wide number of query execution threads
+  /// Size of global IO executor.
   int32_t numIoThreads() const;
+
+  /// Size of IO executor for connectors to do preload/prefetch
+  int32_t numConnectorIoThreads() const;
 
   int32_t numQueryThreads() const;
 
@@ -264,6 +297,10 @@ class SystemConfig : public ConfigBase {
   bool registerTestFunctions() const;
 
   uint64_t httpMaxAllocateBytes() const;
+
+  uint64_t queryMaxMemoryPerNode() const;
+
+  bool enableMemoryLeakCheck() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

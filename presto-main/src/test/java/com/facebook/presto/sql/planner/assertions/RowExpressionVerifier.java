@@ -178,9 +178,6 @@ final class RowExpressionVerifier
             }
             return getValueFromLiteral(literal).equals(String.valueOf(LiteralInterpreter.evaluate(TEST_SESSION.toConnectorSession(), (ConstantExpression) actual)));
         }
-        if (actual instanceof VariableReferenceExpression && expected.getExpression() instanceof SymbolReference && expected.getType().equals(actual.getType().toString())) {
-            return visitSymbolReference((SymbolReference) expected.getExpression(), actual);
-        }
         if (!(actual instanceof CallExpression) || !functionResolution.isCastFunction(((CallExpression) actual).getFunctionHandle())) {
             return false;
         }

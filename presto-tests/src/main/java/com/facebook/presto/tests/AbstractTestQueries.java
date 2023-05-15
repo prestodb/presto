@@ -60,10 +60,12 @@ import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
+import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -6577,5 +6579,55 @@ public abstract class AbstractTestQueries
                 "AND l.shipdate BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' AND p.size = 15 ORDER BY p.name, rank_quantity LIMIT 100");
 
         emptyJoinQueries(enableOptimization);
+    }
+
+    @Test
+    public void testPushFilterExpressionDownCrossJoin()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN, "ALWAYS")
+                .build();
+        String sql = "with t1 as (select * from (values (1, 2), (null, 2), (1, null), (null, null)) t(k1, k2)), t2 as (select * from (values (1, 2), (null, 1), (null, 2), (null, null)) t(k1, k2)) " +
+                "select * from t1 join t2 on t1.k1=t2.k1 or coalesce(t1.k2, 1)= coalesce(t2.k2, 2)";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select o.orderkey, l.partkey, l.suppkey from lineitem l join orders o on l.orderkey = o.orderkey or (l.partkey + l.suppkey) = o.orderkey where l.quantity < 5 and o.totalprice < 2000";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select o.orderkey, l.partkey, l.suppkey from lineitem l join orders o on (l.orderkey = o.orderkey or (l.partkey + l.suppkey) = o.orderkey) and l.quantity*totalprice > 1000 where l.quantity < 5 and o.totalprice < 2000";
+        assertQuery(enableOptimization, sql);
+    }
+
+    @Test
+    public void testInnerJoinWithOrCondition()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN, "disabled")
+                .setSystemProperty(REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN, "true")
+                .build();
+        String sql = "with t1 as (select * from (values (1, 2), (null, 2), (1, null), (null, null)) t(k1, k2)), t2 as (select * from (values (1, 2), (null, 1), (null, 2), (null, null)) t(k1, k2)) " +
+                "select * from t1 join t2 on t1.k1=t2.k1 or t1.k2=t2.k2";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select o.orderkey, l.partkey from lineitem l join orders o on l.orderkey = o.orderkey or l.partkey = o.orderkey where l.quantity < 5 and o.totalprice < 2000";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select o.orderkey, l.partkey from lineitem l join orders o on (l.orderkey = o.orderkey or l.partkey = o.orderkey) and l.quantity*totalprice > 1000 where l.quantity < 5 and o.totalprice < 2000";
+        assertQuery(enableOptimization, sql);
+
+        Session enablePushFilterOptimization = Session.builder(getSession())
+                .setSystemProperty(PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN, "REWRITTEN_TO_INNER_JOIN")
+                .setSystemProperty(REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN, "true")
+                .build();
+
+        sql = "with t1 as (select * from (values (1, 2), (null, 2), (1, null), (null, null)) t(k1, k2)), t2 as (select * from (values (1, 2), (null, 1), (null, 2), (null, null)) t(k1, k2)) " +
+                "select * from t1 join t2 on t1.k1=t2.k1 or coalesce(t1.k2, 1)= coalesce(t2.k2, 2)";
+        assertQuery(enablePushFilterOptimization, sql);
+
+        sql = "select o.orderkey, l.partkey, l.suppkey from lineitem l join orders o on l.orderkey = o.orderkey or (l.partkey + l.suppkey) = o.orderkey where l.quantity < 5 and o.totalprice < 2000";
+        assertQuery(enablePushFilterOptimization, sql);
+
+        sql = "select o.orderkey, l.partkey, l.suppkey from lineitem l join orders o on (l.orderkey = o.orderkey or (l.partkey + l.suppkey) = o.orderkey) and l.quantity*totalprice > 1000 where l.quantity < 5 and o.totalprice < 2000";
+        assertQuery(enablePushFilterOptimization, sql);
     }
 }

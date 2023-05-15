@@ -255,6 +255,8 @@ public class FeaturesConfig
     private boolean mergeDuplicateAggregationsEnabled = true;
     private boolean mergeAggregationsWithAndWithoutFilter;
     private boolean simplifyPlanWithEmptyInput = true;
+    private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
+    private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -343,6 +345,13 @@ public class FeaturesConfig
     {
         DISABLED,
         KEY_FROM_OUTER_JOIN, // Enabled only when join keys are from output of outer joins
+        ALWAYS
+    }
+
+    public enum PushDownFilterThroughCrossJoinStrategy
+    {
+        DISABLED,
+        REWRITTEN_TO_INNER_JOIN, // Enabled only when the change can enable rewriting cross join to inner join
         ALWAYS
     }
 
@@ -2480,6 +2489,32 @@ public class FeaturesConfig
     public FeaturesConfig setSimplifyPlanWithEmptyInput(boolean simplifyPlanWithEmptyInput)
     {
         this.simplifyPlanWithEmptyInput = simplifyPlanWithEmptyInput;
+        return this;
+    }
+
+    public PushDownFilterThroughCrossJoinStrategy getPushDownFilterExpressionEvaluationThroughCrossJoin()
+    {
+        return this.pushDownFilterExpressionEvaluationThroughCrossJoin;
+    }
+
+    @Config("optimizer.push-down-filter-expression-evaluation-through-cross-join")
+    @ConfigDescription("Push down expression evaluation in filter through cross join")
+    public FeaturesConfig setPushDownFilterExpressionEvaluationThroughCrossJoin(PushDownFilterThroughCrossJoinStrategy strategy)
+    {
+        this.pushDownFilterExpressionEvaluationThroughCrossJoin = strategy;
+        return this;
+    }
+
+    public boolean isRewriteCrossJoinWithOrFilterToInnerJoin()
+    {
+        return this.rewriteCrossJoinWithOrFilterToInnerJoin;
+    }
+
+    @Config("optimizer.rewrite-cross-join-with-or-filter-to-inner-join")
+    @ConfigDescription("Enable optimization to rewrite cross join with or filter to inner join")
+    public FeaturesConfig setRewriteCrossJoinWithOrFilterToInnerJoin(boolean rewriteCrossJoinWithOrFilterToInnerJoin)
+    {
+        this.rewriteCrossJoinWithOrFilterToInnerJoin = rewriteCrossJoinWithOrFilterToInnerJoin;
         return this;
     }
 }
