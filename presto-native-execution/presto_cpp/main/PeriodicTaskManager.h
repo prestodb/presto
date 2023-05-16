@@ -78,7 +78,9 @@ class PeriodicTaskManager {
   void addPrestoExchangeSourceMemoryStatsTask();
   void addAsyncDataCacheStatsTask();
   void addConnectorStatsTask();
-  void addOperatingSystemStatsTask();
+
+  void addOperatingSystemStatsUpdateTask();
+  void updateOperatingSystemStats();
 
   folly::FunctionScheduler scheduler_;
   folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
@@ -89,6 +91,14 @@ class PeriodicTaskManager {
   const std::unordered_map<
       std::string,
       std::shared_ptr<velox::connector::Connector>>& connectors_;
+
+  // Operating system related stats.
+  int64_t lastUserCpuTimeUs_{0};
+  int64_t lastSystemCpuTimeUs_{0};
+  int64_t lastSoftPageFaults_{0};
+  int64_t lastHardPageFaults_{0};
+  int64_t lastVoluntaryContextSwitches_{0};
+  int64_t lastForcedContextSwitches_{0};
 };
 
 } // namespace facebook::presto
