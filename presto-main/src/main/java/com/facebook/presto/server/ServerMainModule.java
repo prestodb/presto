@@ -124,6 +124,7 @@ import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
+import com.facebook.presto.resourcemanager.ForPeriodicTaskExecutor;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.RaftConfig;
@@ -223,6 +224,9 @@ import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.util.FinalizerService;
 import com.facebook.presto.util.GcStatusMonitor;
+import com.facebook.presto.util.PeriodicTaskExecutorFactory;
+import com.facebook.presto.util.SimplePeriodicTaskExecutorFactory;
+import com.facebook.presto.util.ThrowingPeriodicTaskExecutorFactory;
 import com.facebook.presto.version.EmbedVersion;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -458,6 +462,7 @@ public class ServerMainModule
                             jaxrsBinder(moduleBinder).bind(ResourceManagerHeartbeatResource.class);
                         }
                         moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
+                        binder.bind(PeriodicTaskExecutorFactory.class).to(SimplePeriodicTaskExecutorFactory.class).in(Scopes.SINGLETON);
                         if (serverConfig.isCoordinator()) {
                             moduleBinder.bind(ClusterMemoryManagerService.class).in(Scopes.SINGLETON);
                             moduleBinder.bind(ClusterQueryTrackerService.class).in(Scopes.SINGLETON);
@@ -487,10 +492,28 @@ public class ServerMainModule
                                 daemonThreadsNamed("resource-manager-executor-%s"));
                         return listeningDecorator(executor);
                     }
+
+                    @Provides
+                    @Singleton
+                    @ForPeriodicTaskExecutor
+                    public Optional<ScheduledExecutorService> scheduledExecutorService(ResourceManagerConfig config)
+                    {
+                        return Optional.of(createConcurrentScheduledExecutor("resource-manager-heartbeats", config.getHeartbeatConcurrency(), config.getHeartbeatThreads()));
+                    }
+
+                    @Provides
+                    @Singleton
+                    @ForPeriodicTaskExecutor
+                    public ExecutorService executorService(ResourceManagerConfig config, @ForPeriodicTaskExecutor Optional<ScheduledExecutorService> scheduledExecutorService)
+                    {
+                        checkArgument(scheduledExecutorService.isPresent());
+                        return scheduledExecutorService.get();
+                    }
                 },
                 moduleBinder -> {
                     moduleBinder.bind(ClusterStatusSender.class).toInstance(execution -> {});
                     moduleBinder.bind(ResourceGroupService.class).to(NoopResourceGroupService.class).in(Scopes.SINGLETON);
+                    moduleBinder.bind(PeriodicTaskExecutorFactory.class).to(ThrowingPeriodicTaskExecutorFactory.class);
                 }));
 
         FeaturesConfig featuresConfig = buildConfigObject(FeaturesConfig.class);

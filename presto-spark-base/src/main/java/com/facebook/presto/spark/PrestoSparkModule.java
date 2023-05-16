@@ -205,7 +205,9 @@ import com.facebook.presto.ttl.clusterttlprovidermanagers.ThrowingClusterTtlProv
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherManager;
 import com.facebook.presto.type.TypeDeserializer;
+import com.facebook.presto.util.PeriodicTaskExecutorFactory;
 import com.facebook.presto.util.PrestoDataDefBindingHelper;
+import com.facebook.presto.util.ThrowingPeriodicTaskExecutorFactory;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
@@ -519,6 +521,7 @@ public class PrestoSparkModule
         binder.bind(NodeTtlFetcherManager.class).to(ThrowingNodeTtlFetcherManager.class).in(Scopes.SINGLETON);
         binder.bind(ClusterTtlProviderManager.class).to(ThrowingClusterTtlProviderManager.class).in(Scopes.SINGLETON);
         binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
+        binder.bind(PeriodicTaskExecutorFactory.class).to(ThrowingPeriodicTaskExecutorFactory.class);
 
         // TODO: Decouple and remove: required by SessionPropertyDefaults, PluginManager, InternalResourceGroupManager, ConnectorManager
         configBinder(binder).bindConfig(NodeConfig.class);
