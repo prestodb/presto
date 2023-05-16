@@ -2068,9 +2068,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     false, // broadcast
                     partitioningScheme.replicateNullsAndAny,
                     std::make_shared<HashPartitionFunctionSpec>(
-                        inputType,
-                        keyChannels,
-                        constValues),
+                        inputType, keyChannels, constValues),
                     outputType,
                     sourceNode);
             return planFragment;
@@ -2199,6 +2197,15 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   auto planFragment = VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       fragment, tableWriteInfo, taskId);
 
+  auto partitionedOutputNode =
+      std::dynamic_pointer_cast<const core::PartitionedOutputNode>(
+          planFragment.planNode);
+  if (partitionedOutputNode) {
+    VELOX_USER_CHECK(
+        !partitionedOutputNode->isBroadcast(),
+        "Broadcast shuffle is not supported");
+  }
+
   // If the serializedShuffleWriteInfo is not nullptr, it means this fragment
   // ends with a shuffle stage. We convert the PartitionedOutputNode to a
   // chain of following nodes:
@@ -2214,16 +2221,8 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     return planFragment;
   }
 
-  auto partitionedOutputNode =
-      std::dynamic_pointer_cast<const core::PartitionedOutputNode>(
-          planFragment.planNode);
-  VELOX_CHECK(
-      partitionedOutputNode != nullptr, "PartitionedOutputNode is required");
-  if (partitionedOutputNode->isBroadcast()) {
-    VELOX_UNSUPPORTED(
-        "Broadcast partitioned output node in batch is currently not "
-        "supported.");
-  }
+  VELOX_USER_CHECK_NOT_NULL(
+      partitionedOutputNode, "PartitionedOutputNode is required");
 
   auto source = addProjectIfNeeded(
       partitionedOutputNode->sources()[0], partitionedOutputNode->outputType());
