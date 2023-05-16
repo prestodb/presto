@@ -12,7 +12,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.elasticsearch.version>6.0.0</dep.elasticsearch.version>
+        <dep.elasticsearch.version>7.17.27</dep.elasticsearch.version>
         <dep.log4j.version>2.24.3</dep.log4j.version>
     </properties>
 
@@ -121,25 +121,13 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore-nio</artifactId>
-            <version>4.4.5</version>
+            <version>4.4.15</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-
             <exclusions>
-                <!-- elasticsearch-rest-high-level-client 6.0.0 brings in httpcore 4.4.5 vs (4.4.4) -->
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpcore</artifactId>
-                </exclusion>
-
-                    <!-- elasticsearch-rest-high-level-client 6.0.0 brings in commons-codec 1.10 vs (1.9) -->
-                <exclusion>
-                    <groupId>commons-codec</groupId>
-                    <artifactId>commons-codec</artifactId>
-                </exclusion>
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
@@ -155,8 +143,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpasyncclient</artifactId>
-            <version>4.1.2</version>
-
+            <version>4.1.5</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
@@ -359,16 +346,22 @@
         </dependency>
 
         <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch-core</artifactId>
+            <version>${dep.elasticsearch.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch-x-content</artifactId>
+            <version>${dep.elasticsearch.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.elasticsearch.plugin</groupId>
             <artifactId>transport-netty4-client</artifactId>
             <version>${dep.elasticsearch.version}</version>
             <scope>test</scope>
-            <exclusions>
-                 <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>*</artifactId>
-                 </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
