@@ -15,12 +15,15 @@ workflows:
   dist-compile:
     jobs:
       - linux-build
+      - linux-parquet-S3-build
+      - format-check
+      - header-check
 
 executors:
   build:
     docker:
-      - image : prestocpp/velox-avx-circleci:kpai-20221017
-    resource_class: xlarge
+      - image : prestocpp/prestocpp-avx-centos:kpai-20221018
+    resource_class: 2xlarge
     environment:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
@@ -40,3 +43,81 @@ jobs:
           command: |
             cd presto-native-execution
             make velox-submodule
+      - run:
+          name: Build
+          command: |
+            source /opt/rh/gcc-toolset-9/enable
+            cd presto-native-execution
+            cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            ninja -C _build/debug -j 8
+      - run:
+          name: 'Run Unit Tests'
+          command: |
+            cd presto-native-execution/_build/debug
+            ctest -j 8 -VV --output-on-failure --exclude-regex velox.*
+      - run:
+          name: 'Maven Install'
+          command: |
+            export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+            ./mvnw clean install ${MAVEN_FAST_INSTALL} -pl 'presto-native-execution' -am
+      - run:
+          name: 'Run e2e tests'
+          command: |
+            export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
+            export TEMP_PATH="/tmp"
+            mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${PRESTO_SERVER_PATH} -DDATA_DIR=${TEMP_PATH} -Duser.timezone=America/Bahia_Banderas -T1C
+
+  linux-parquet-S3-build:
+    executor: build
+    steps:
+      - checkout
+      - run:
+          name: "Update velox submodule"
+          command: |
+            cd presto-native-execution
+            make velox-submodule
+      - run:
+          name: "Install S3 adapter dependencies"
+          command: |
+            mkdir -p ${HOME}/adapter-deps/install
+            source /opt/rh/gcc-toolset-9/enable
+            set -xu
+            cd presto-native-execution
+            DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./velox/scripts/setup-adapters.sh
+      - run:
+          name: Build
+          command: |
+            source /opt/rh/gcc-toolset-9/enable
+            cd presto-native-execution
+            cmake -B _build/release -GNinja -DAWSSDK_ROOT_DIR=${HOME}/adapter-deps/install -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Release -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            ninja -C _build/release -j 8
+
+  format-check:
+    executor: check
+    steps:
+      - checkout
+      - run:
+          name: "Update velox"
+          command: |
+            cd presto-native-execution
+            make velox-submodule
+      - run:
+          name: Check formatting
+          command: |
+            cd presto-native-execution
+            make format-check
+
+  header-check:
+    executor: check
+    steps:
+      - checkout
+      - run:
+          name: "Update velox"
+          command: |
+            cd presto-native-execution
+            make velox-submodule
+      - run:
+          name: "Check license headers"
+          command: |
+            cd presto-native-execution
+            make header-check
