@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <boost/regex.hpp>
 #include <folly/Math.h>
+#include <re2/re2.h>
 
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -1715,8 +1715,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
       std::function<void(memory::MemoryPoolImpl*)>(
           ([&](memory::MemoryPoolImpl* pool) {
             ASSERT_TRUE(op != nullptr);
-            const boost::regex re(".*Aggregation");
-            if (!regex_match(pool->name(), re)) {
+            const std::string re(".*Aggregation");
+            if (!RE2::FullMatch(pool->name(), re)) {
               return;
             }
             if (!injectOnce.exchange(false)) {
@@ -1826,8 +1826,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringAllocation) {
         std::function<void(memory::MemoryPoolImpl*)>(
             ([&](memory::MemoryPoolImpl* pool) {
               ASSERT_TRUE(op != nullptr);
-              const boost::regex re(".*Aggregation");
-              if (!regex_match(pool->name(), re)) {
+              const std::string re(".*Aggregation");
+              if (!RE2::FullMatch(pool->name(), re)) {
                 return;
               }
               if (!injectOnce.exchange(false)) {

@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <boost/regex.hpp>
+#include <re2/re2.h>
+
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
@@ -725,8 +726,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
       std::function<void(memory::MemoryPoolImpl*)>(
           ([&](memory::MemoryPoolImpl* pool) {
             ASSERT_TRUE(op != nullptr);
-            const boost::regex re(".*OrderBy");
-            if (!regex_match(pool->name(), re)) {
+            const std::string re(".*OrderBy");
+            if (!RE2::FullMatch(pool->name(), re)) {
               return;
             }
             if (!injectOnce.exchange(false)) {
@@ -834,8 +835,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringAllocation) {
         std::function<void(memory::MemoryPoolImpl*)>(
             ([&](memory::MemoryPoolImpl* pool) {
               ASSERT_TRUE(op != nullptr);
-              const boost::regex re(".*OrderBy");
-              if (!regex_match(pool->name(), re)) {
+              const std::string re(".*OrderBy");
+              if (!RE2::FullMatch(pool->name(), re)) {
                 return;
               }
               if (!injectOnce.exchange(false)) {

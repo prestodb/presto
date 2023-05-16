@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/regex.hpp>
 #include <folly/Singleton.h>
+#include <re2/re2.h>
 #include <deque>
 
 #include "folly/experimental/EventCount.h"
@@ -2215,8 +2215,8 @@ DEBUG_ONLY_TEST_F(
         "facebook::velox::common::memory::MemoryPoolImpl::allocateNonContiguous",
         std::function<void(memory::MemoryPoolImpl*)>(
             ([&](memory::MemoryPoolImpl* pool) {
-              const boost::regex re(".*HashBuild");
-              if (!regex_match(pool->name(), re)) {
+              const std::string re(".*HashBuild");
+              if (!RE2::FullMatch(pool->name(), re)) {
                 return;
               }
               if (pool->parent()->currentBytes() < joinMemoryUsage) {

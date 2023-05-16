@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include <boost/regex.hpp>
+#include <re2/re2.h>
+
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
@@ -4627,8 +4628,8 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
       std::function<void(memory::MemoryPoolImpl*)>(
           ([&](memory::MemoryPoolImpl* pool) {
             ASSERT_TRUE(op != nullptr);
-            const boost::regex re(".*HashBuild");
-            if (!regex_match(pool->name(), re)) {
+            const std::string re(".*HashBuild");
+            if (!RE2::FullMatch(pool->name(), re)) {
               return;
             }
             if (!injectOnce.exchange(false)) {
@@ -4744,8 +4745,8 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringAllocation) {
         std::function<void(memory::MemoryPoolImpl*)>(
             ([&](memory::MemoryPoolImpl* pool) {
               ASSERT_TRUE(op != nullptr);
-              const boost::regex re(".*HashBuild");
-              if (!regex_match(pool->name(), re)) {
+              const std::string re(".*HashBuild");
+              if (!RE2::FullMatch(pool->name(), re)) {
                 return;
               }
               if (!injectOnce.exchange(false)) {

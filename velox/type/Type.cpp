@@ -16,8 +16,8 @@
 
 #include "velox/type/Type.h"
 #include <boost/algorithm/string.hpp>
-#include <boost/regex.hpp>
 #include <folly/Demangle.h>
+#include <re2/re2.h>
 #include <sstream>
 #include <typeindex>
 #include "velox/common/base/Exceptions.h"
@@ -33,8 +33,8 @@ struct hash<facebook::velox::TypeKind> {
 
 namespace {
 bool isColumnNameRequiringEscaping(const std::string& name) {
-  static const boost::regex re("^[a-zA-Z_][a-zA-Z0-9_]*$");
-  return !regex_match(name, re);
+  static const std::string re("^[a-zA-Z_][a-zA-Z0-9_]*$");
+  return !RE2::FullMatch(name, re);
 }
 } // namespace
 
