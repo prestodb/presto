@@ -18,6 +18,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -52,7 +53,7 @@ public class TestPeriodicTaskExecutor
         CountDownLatch latch = new CountDownLatch(3);
         Runnable runnable = latch::countDown;
 
-        try (PeriodicTaskExecutor executor = new PeriodicTaskExecutor(SECONDS.toMillis(durationBetweenTicksInSeconds), 500, executorService, runnable, i -> i)) {
+        try (PeriodicTaskExecutor executor = new PeriodicTaskExecutor(SECONDS.toMillis(durationBetweenTicksInSeconds), 500, executorService, Optional.of(executorService), runnable, i -> i)) {
             executor.start();
             Stopwatch stopwatch = Stopwatch.createStarted();
             latch.await(10, SECONDS);

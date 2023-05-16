@@ -22,10 +22,15 @@ import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.util.SimplePeriodicTaskExecutorFactory;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
+
+import java.util.Optional;
+
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 
 public class TestInternalResourceGroupManager
 {
@@ -33,7 +38,7 @@ public class TestInternalResourceGroupManager
     public void testQueryFailsWithInitializingConfigurationManager()
     {
         InternalResourceGroupManager<ImmutableMap<Object, Object>> internalResourceGroupManager = new InternalResourceGroupManager<>((poolId, listener) -> {},
-                new QueryManagerConfig(), new NodeInfo("test"), new MBeanExporter(new TestingMBeanServer()), () -> null, new ServerConfig(), new InMemoryNodeManager());
+                new QueryManagerConfig(), new NodeInfo("test"), new MBeanExporter(new TestingMBeanServer()), () -> null, new ServerConfig(), new InMemoryNodeManager(), new SimplePeriodicTaskExecutorFactory(newDirectExecutorService(), Optional.empty()));
         internalResourceGroupManager.submit(new MockManagedQueryExecution(0), new SelectionContext<>(new ResourceGroupId("global"), ImmutableMap.of()), command -> {});
     }
 
@@ -42,7 +47,7 @@ public class TestInternalResourceGroupManager
             throws Exception
     {
         InternalResourceGroupManager<ImmutableMap<Object, Object>> internalResourceGroupManager = new InternalResourceGroupManager<>((poolId, listener) -> {},
-                new QueryManagerConfig(), new NodeInfo("test"), new MBeanExporter(new TestingMBeanServer()), () -> null, new ServerConfig(), new InMemoryNodeManager());
+                new QueryManagerConfig(), new NodeInfo("test"), new MBeanExporter(new TestingMBeanServer()), () -> null, new ServerConfig(), new InMemoryNodeManager(), new SimplePeriodicTaskExecutorFactory(newDirectExecutorService(), Optional.empty()));
         internalResourceGroupManager.loadConfigurationManager();
         internalResourceGroupManager.submit(new MockManagedQueryExecution(0), new SelectionContext<>(new ResourceGroupId("global"), ImmutableMap.of()), command -> {});
     }

@@ -134,7 +134,8 @@ public class PrestoServer
                 new TempStorageModule(),
                 new QueryPrerequisitesManagerModule(),
                 new NodeTtlFetcherManagerModule(),
-                new ClusterTtlProviderManagerModule());
+                new ClusterTtlProviderManagerModule(),
+                new PeriodicTaskExecutorModule());
 
         modules.addAll(getAdditionalModules());
 

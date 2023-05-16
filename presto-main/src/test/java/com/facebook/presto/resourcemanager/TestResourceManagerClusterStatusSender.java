@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.util.SimplePeriodicTaskExecutorFactory;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -30,7 +31,9 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
@@ -63,6 +66,7 @@ public class TestResourceManagerClusterStatusSender
 
     private ResourceManagerClusterStatusSender sender;
     private TestingResourceManagerClient resourceManagerClient;
+    private ScheduledExecutorService executor;
 
     @BeforeTest
     public void setup()
@@ -80,11 +84,12 @@ public class TestResourceManagerClusterStatusSender
                         true,
                         false));
 
+        executor = newSingleThreadScheduledExecutor();
         sender = new ResourceManagerClusterStatusSender(
                 (addressSelectionContext, headers) -> resourceManagerClient,
                 nodeManager,
                 () -> NODE_STATUS,
-                newSingleThreadScheduledExecutor(),
+                new SimplePeriodicTaskExecutorFactory(executor, Optional.of(executor)),
                 new ResourceManagerConfig()
                         .setNodeHeartbeatInterval(new Duration(HEARTBEAT_INTERVAL, MILLISECONDS))
                         .setQueryHeartbeatInterval(new Duration(HEARTBEAT_INTERVAL, MILLISECONDS)),
@@ -95,6 +100,7 @@ public class TestResourceManagerClusterStatusSender
     @AfterTest
     public void tearDown()
     {
+        executor.shutdownNow();
         sender.stop();
     }
 
