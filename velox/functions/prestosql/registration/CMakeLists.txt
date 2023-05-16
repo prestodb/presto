@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# GCC 12 has a bug where it does not respect "pragma ignore" directives and ends
+# up failing compilation in an openssl header included by a hash-related
+# function.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+endif()
+
 add_library(
   velox_functions_prestosql
   ArithmeticFunctionsRegistration.cpp

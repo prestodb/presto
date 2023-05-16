@@ -15,6 +15,11 @@
  */
 #pragma once
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#include "folly/ssl/OpenSSLHash.h"
+#pragma GCC diagnostic pop
+
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/UDFOutputString.h"

@@ -48,7 +48,15 @@ FetchContent_Declare(
 configure_file(${CMAKE_CURRENT_LIST_DIR}/FindBoost.cmake.in
                ${CMAKE_CURRENT_LIST_DIR}/FindBoost.cmake @ONLY)
 
-set(BOOST_HEADER_ONLY crc circular_buffer multi_index random uuid variant)
+set(BOOST_HEADER_ONLY
+    crc
+    circular_buffer
+    math
+    multi_index
+    numeric_conversion
+    random
+    uuid
+    variant)
 list(APPEND BOOST_INCLUDE_LIBRARIES ${BOOST_HEADER_ONLY})
 
 # The `headers` target is not created by Boost cmake and leads to a warning
