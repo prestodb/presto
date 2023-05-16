@@ -63,6 +63,8 @@ TEST(TestBufferedInput, ZeroLengthStream) {
 TEST(TestBufferedInput, UseRead) {
   std::string content = "hello";
   auto readFileMock = std::make_shared<ReadFileMock>();
+  EXPECT_CALL(*readFileMock, getName()).WillRepeatedly(Return("mock_name"));
+  EXPECT_CALL(*readFileMock, size()).WillRepeatedly(Return(content.size()));
   EXPECT_CALL(*readFileMock, pread(0, 5, _))
       .Times(1)
       .WillOnce(
@@ -86,6 +88,8 @@ TEST(TestBufferedInput, UseRead) {
 TEST(TestBufferedInput, UseVRead) {
   std::string content = "hello";
   auto readFileMock = std::make_shared<ReadFileMock>();
+  EXPECT_CALL(*readFileMock, getName()).WillRepeatedly(Return("mock_name"));
+  EXPECT_CALL(*readFileMock, size()).WillRepeatedly(Return(content.size()));
   EXPECT_CALL(*readFileMock, preadv(_))
       .Times(1)
       .WillOnce([&](const std::vector<::facebook::velox::ReadFile::Segment>&
@@ -105,6 +109,7 @@ TEST(TestBufferedInput, UseVRead) {
       *pool,
       MetricsLog::voidLog(),
       nullptr,
+      10,
       /* wsVRLoad = */ true);
   auto ret = input.enqueue({0, 5});
   ASSERT_NE(ret, nullptr);
@@ -114,4 +119,94 @@ TEST(TestBufferedInput, UseVRead) {
   EXPECT_TRUE(ret->Next(&buf, &size));
   EXPECT_EQ(size, 5);
   EXPECT_EQ(std::string(static_cast<const char*>(buf), size), content);
+}
+
+TEST(TestBufferedInput, WillMerge) {
+  std::string content = "hello world";
+  auto readFileMock = std::make_shared<ReadFileMock>();
+  EXPECT_CALL(*readFileMock, getName()).WillRepeatedly(Return("mock_name"));
+  EXPECT_CALL(*readFileMock, size()).WillRepeatedly(Return(content.size()));
+  // Will merge because the distance is 1 and max distance to merge is 10.
+  // Expect only one call.
+  EXPECT_CALL(*readFileMock, pread(0, 11, _))
+      .Times(1)
+      .WillOnce(
+          [&](uint64_t offset, uint64_t length, void* buf) -> std::string_view {
+            memcpy(buf, content.data() + offset, length);
+            return {content.data() + offset, length};
+          });
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  BufferedInput input(
+      readFileMock,
+      *pool,
+      MetricsLog::voidLog(),
+      nullptr,
+      10, // Will merge if distance <= 10
+      /* wsVRLoad = */ false);
+
+  auto ret1 = input.enqueue({0, 5});
+  auto ret2 = input.enqueue({6, 5});
+  ASSERT_NE(ret1, nullptr);
+  ASSERT_NE(ret2, nullptr);
+  input.load(LogType::TEST);
+  const void* buf = nullptr;
+  int32_t size;
+
+  EXPECT_TRUE(ret1->Next(&buf, &size));
+  EXPECT_EQ(size, 5);
+  EXPECT_EQ(std::string(static_cast<const char*>(buf), size), "hello");
+
+  EXPECT_TRUE(ret2->Next(&buf, &size));
+  EXPECT_EQ(size, 5);
+  EXPECT_EQ(std::string(static_cast<const char*>(buf), size), "world");
+}
+
+TEST(TestBufferedInput, WontMerge) {
+  std::string content = "hello  world"; // two spaces
+  auto readFileMock = std::make_shared<ReadFileMock>();
+  EXPECT_CALL(*readFileMock, getName()).WillRepeatedly(Return("mock_name"));
+  EXPECT_CALL(*readFileMock, size()).WillRepeatedly(Return(content.size()));
+
+  // Won't merge because the distance is 2 and max distance to merge is 1.
+  // Expect two calls
+  EXPECT_CALL(*readFileMock, pread(0, 5, _))
+      .Times(1)
+      .WillOnce(
+          [&](uint64_t offset, uint64_t length, void* buf) -> std::string_view {
+            memcpy(buf, content.data() + offset, length);
+            return {content.data() + offset, length};
+          });
+
+  EXPECT_CALL(*readFileMock, pread(7, 5, _))
+      .Times(1)
+      .WillOnce(
+          [&](uint64_t offset, uint64_t length, void* buf) -> std::string_view {
+            memcpy(buf, content.data() + offset, length);
+            return {content.data() + offset, length};
+          });
+
+  auto pool = facebook::velox::memory::addDefaultLeafMemoryPool();
+  BufferedInput input(
+      readFileMock,
+      *pool,
+      MetricsLog::voidLog(),
+      nullptr,
+      1, // Will merge if distance <= 1
+      /* wsVRLoad = */ false);
+
+  auto ret1 = input.enqueue({0, 5});
+  auto ret2 = input.enqueue({7, 5});
+  ASSERT_NE(ret1, nullptr);
+  ASSERT_NE(ret2, nullptr);
+  input.load(LogType::TEST);
+  const void* buf = nullptr;
+  int32_t size;
+
+  EXPECT_TRUE(ret1->Next(&buf, &size));
+  EXPECT_EQ(size, 5);
+  EXPECT_EQ(std::string(static_cast<const char*>(buf), size), "hello");
+
+  EXPECT_TRUE(ret2->Next(&buf, &size));
+  EXPECT_EQ(size, 5);
+  EXPECT_EQ(std::string(static_cast<const char*>(buf), size), "world");
 }

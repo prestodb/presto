@@ -34,19 +34,25 @@ class BufferedInput {
       memory::MemoryPool& pool,
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
       IoStatistics* FOLLY_NULLABLE stats = nullptr,
+      uint64_t maxMergeDistance = kMaxMergeDistance,
       bool wsVRLoad = FLAGS_wsVRLoad)
       : input_{std::make_shared<ReadFileInputStream>(
             std::move(readFile),
             metricsLog,
             stats)},
         pool_{pool},
+        maxMergeDistance_{maxMergeDistance},
         wsVRLoad_{wsVRLoad} {}
 
   BufferedInput(
       std::shared_ptr<ReadFileInputStream> input,
       memory::MemoryPool& pool,
+      uint64_t maxMergeDistance = kMaxMergeDistance,
       bool wsVRLoad = FLAGS_wsVRLoad)
-      : input_(std::move(input)), pool_(pool), wsVRLoad_{wsVRLoad} {}
+      : input_(std::move(input)),
+        pool_(pool),
+        maxMergeDistance_{maxMergeDistance},
+        wsVRLoad_{wsVRLoad} {}
 
   BufferedInput(BufferedInput&&) = default;
   virtual ~BufferedInput() = default;
@@ -136,6 +142,7 @@ class BufferedInput {
   memory::MemoryPool& pool_;
 
  private:
+  uint64_t maxMergeDistance_;
   bool wsVRLoad_;
   std::vector<uint64_t> offsets_;
   std::vector<DataBuffer<char>> buffers_;
