@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.util;
 
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -28,7 +30,8 @@ public class PeriodicTaskExecutor
         implements AutoCloseable
 {
     private final long delayTargetMillis;
-    private final ScheduledExecutorService executor;
+    private final ExecutorService executor;
+    private final Optional<ScheduledExecutorService> scheduledExecutor;
     private final Runnable runnable;
     private final LongUnaryOperator nextDelayFunction;
     private final AtomicBoolean started = new AtomicBoolean();
@@ -37,25 +40,28 @@ public class PeriodicTaskExecutor
     private volatile ScheduledFuture<?> scheduledFuture;
     private volatile boolean stopped;
 
-    public PeriodicTaskExecutor(long delayTargetMillis, ScheduledExecutorService executor, Runnable runnable)
+    public PeriodicTaskExecutor(long delayTargetMillis, ScheduledExecutorService scheduledExecutor, Runnable runnable)
     {
-        this(delayTargetMillis, 0, executor, runnable, PeriodicTaskExecutor::nextDelayWithJitterMillis);
+        this(delayTargetMillis, 0, scheduledExecutor, Optional.of(scheduledExecutor), runnable, PeriodicTaskExecutor::nextDelayWithJitterMillis);
     }
 
-    public PeriodicTaskExecutor(long delayTargetMillis, long initDelayMillis, ScheduledExecutorService executor, Runnable runnable)
+    public PeriodicTaskExecutor(long delayTargetMillis, long initDelayMillis, ExecutorService executor, Optional<ScheduledExecutorService> scheduledExecutor, Runnable runnable, LongUnaryOperator nextDelayFunction)
     {
-        this(delayTargetMillis, initDelayMillis, executor, runnable, PeriodicTaskExecutor::nextDelayWithJitterMillis);
-    }
-
-    public PeriodicTaskExecutor(long delayTargetMillis, long initDelayMillis, ScheduledExecutorService executor, Runnable runnable, LongUnaryOperator nextDelayFunction)
-    {
-        checkArgument(delayTargetMillis > 0, "delayTargetMillis must be > 0");
-        checkArgument(initDelayMillis >= 0, "initDelayMillis must be > 0");
+        checkArgument(delayTargetMillis >= 0, "delayTargetMillis must be >= 0");
+        checkArgument(initDelayMillis >= 0, "initDelayMillis must be >= 0");
         this.delayTargetMillis = delayTargetMillis;
         this.executor = requireNonNull(executor, "executor is null");
+        this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
         this.runnable = requireNonNull(runnable, "runnable is null");
         this.nextDelayFunction = requireNonNull(nextDelayFunction, "nextDelayFunction is null");
         this.delayMillis = initDelayMillis;
+
+        if (delayTargetMillis == 0) {
+            checkArgument(!scheduledExecutor.isPresent(), "scheduledExecutor must not be present when delayTargetMillis is 0");
+        }
+        else {
+            checkArgument(scheduledExecutor.isPresent(), "scheduledExecutor must be present when delayTargetMillis is not 0");
+        }
     }
 
     public void start()
@@ -65,30 +71,45 @@ public class PeriodicTaskExecutor
         }
     }
 
-    private void tick()
+    public void tick()
     {
-        scheduledFuture = executor.schedule(this::run, delayMillis, MILLISECONDS);
+        if (!stopped) {
+            if (scheduledExecutor.isPresent()) {
+                scheduledFuture = scheduledExecutor.get().schedule(this::run, delayMillis, MILLISECONDS);
+            }
+            else {
+                forceRun();
+            }
+        }
     }
 
     private void run()
     {
         forceRun();
         delayMillis = nextDelayFunction.applyAsLong(delayTargetMillis);
-        if (!stopped) {
-            tick();
-        }
+        tick();
     }
 
     public void forceRun()
     {
-        executor.execute(runnable);
+        executor.execute(() -> {
+            try {
+                runnable.run();
+            }
+            catch (Throwable t) {
+                t.printStackTrace();
+            }
+        });
     }
 
     public void stop()
     {
         if (started.get()) {
             stopped = true;
-            scheduledFuture.cancel(false);
+
+            if (scheduledFuture != null) {
+                scheduledFuture.cancel(false);
+            }
         }
     }
 

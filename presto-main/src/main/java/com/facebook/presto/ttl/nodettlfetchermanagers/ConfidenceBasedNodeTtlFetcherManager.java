@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -78,6 +79,7 @@ public class ConfidenceBasedNodeTtlFetcherManager
     private final CounterStat refreshFailures = new CounterStat();
     private final Consumer<AllNodes> nodeChangeListener = this::refreshTtlInfo;
     private PeriodicTaskExecutor periodicTtlRefresher;
+    private ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor(threadsNamed("refresh-node-ttl-executor-%s"));
 
     @Inject
     public ConfidenceBasedNodeTtlFetcherManager(InternalNodeManager nodeManager, NodeSchedulerConfig schedulerConfig, NodeTtlFetcherManagerConfig nodeTtlFetcherManagerConfig)
@@ -98,7 +100,8 @@ public class ConfidenceBasedNodeTtlFetcherManager
         periodicTtlRefresher = new PeriodicTaskExecutor(
                 ttlFetcher.get().getRefreshInterval().toMillis(),
                 nodeTtlFetcherManagerConfig.getInitialDelayBeforeRefresh().toMillis(),
-                newSingleThreadScheduledExecutor(threadsNamed("refresh-node-ttl-executor-%s")),
+                scheduledExecutor,
+                Optional.of(scheduledExecutor),
                 this::refreshTtlInfo,
                 ConfidenceBasedNodeTtlFetcherManager::jitterForPeriodicRefresh);
         periodicTtlRefresher.start();
@@ -107,6 +110,7 @@ public class ConfidenceBasedNodeTtlFetcherManager
     @PreDestroy
     public void stop()
     {
+        scheduledExecutor.shutdownNow();
         nodeManager.removeNodeChangeListener(nodeChangeListener);
         if (periodicTtlRefresher != null) {
             periodicTtlRefresher.stop();
