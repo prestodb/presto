@@ -57,7 +57,6 @@ add_executable(
   ProbeOperatorStateTest.cpp
   RoundRobinPartitionFunctionTest.cpp
   RowContainerTest.cpp
-  MemoryCapExceededTest.cpp
   SpillTest.cpp
   SpillOperatorGroupTest.cpp
   SpillerTest.cpp

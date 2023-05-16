@@ -19,12 +19,27 @@
 
 #include <gmock/gmock.h>
 
+DECLARE_bool(velox_suppress_memory_capacity_exceeding_error_message);
+
 namespace facebook::velox::exec::test {
 namespace {
 
-class MemoryCapExceededTest : public OperatorTestBase {};
+class MemoryCapExceededTest : public OperatorTestBase,
+                              public testing::WithParamInterface<bool> {
+  void SetUp() override {
+    OperatorTestBase::SetUp();
+    // NOTE: if 'GetParam()' is true, then suppress the verbose error message in
+    // memory capacity exceeded exception.
+    FLAGS_velox_suppress_memory_capacity_exceeding_error_message = GetParam();
+  }
 
-TEST_F(MemoryCapExceededTest, singleDriver) {
+  void TearDown() override {
+    OperatorTestBase::TearDown();
+    FLAGS_velox_suppress_memory_capacity_exceeding_error_message = false;
+  }
+};
+
+TEST_P(MemoryCapExceededTest, singleDriver) {
   // Executes a plan with a single driver thread and query memory limit that
   // forces it to throw MEM_CAP_EXCEEDED exception. Verifies that the error
   // message contains all the details expected.
@@ -34,8 +49,9 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
   constexpr int64_t kMaxBytes = 5LL << 20; // 5MB
   // We look for these lines separately, since their order can change (not sure
   // why).
-  std::array<std::string, 14> expectedTexts = {
-      "Exceeded memory pool cap of 5.00MB when requesting 2.00MB",
+  std::vector<std::string> expectedTexts = {
+      "Exceeded memory pool cap of 5.00MB when requesting 2.00MB"};
+  std::vector<std::string> expectedDetailedTexts = {
       "node.1 usage 1.00MB peak 1.00MB",
       "op.1.0.0.FilterProject usage 12.00KB peak 12.00KB",
       "node.2 usage 4.00MB peak 4.00MB",
@@ -78,10 +94,22 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
           << "Expected error message to contain '" << expectedText
           << "', but received '" << errorMessage << "'.";
     }
+    for (const auto& expectedText : expectedDetailedTexts) {
+      LOG(ERROR) << expectedText;
+      if (!GetParam()) {
+        ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
+            << "Expected error message to contain '" << expectedText
+            << "', but received '" << errorMessage << "'.";
+      } else {
+        ASSERT_TRUE(errorMessage.find(expectedText) == std::string::npos)
+            << "Unexpected error message to contain '" << expectedText
+            << "', but received '" << errorMessage << "'.";
+      }
+    }
   }
 }
 
-TEST_F(MemoryCapExceededTest, multipleDrivers) {
+TEST_P(MemoryCapExceededTest, multipleDrivers) {
   // Executes a plan that runs with ten drivers and query memory limit that
   // forces it to throw MEM_CAP_EXCEEDED exception. Verifies that the error
   // message contains information that acknowledges the existence of N
@@ -101,7 +129,7 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
     data.push_back(rowVector);
   }
 
-  std::array<std::string, 10> expectedTexts = {
+  std::vector<std::string> expectedTexts = {
       "op.1.0.9.Aggregation usage",
       "op.1.0.8.Aggregation usage",
       "op.1.0.7.Aggregation usage",
@@ -134,14 +162,20 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
   } catch (const VeloxException& e) {
     const auto errorMessage = e.message();
     for (const auto& expectedText : expectedTexts) {
-      ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
-          << "Expected error message to contain '" << expectedText
-          << "', but received '" << errorMessage << "'.";
+      if (!GetParam()) {
+        ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
+            << "Expected error message to contain '" << expectedText
+            << "', but received '" << errorMessage << "'.";
+      } else {
+        ASSERT_TRUE(errorMessage.find(expectedText) == std::string::npos)
+            << "Unexpected error message to contain '" << expectedText
+            << "', but received '" << errorMessage << "'.";
+      }
     }
   }
 }
 
-TEST_F(MemoryCapExceededTest, memoryManagerCapacityExeededError) {
+TEST_P(MemoryCapExceededTest, memoryManagerCapacityExeededError) {
   // Executes a plan with no memory pool capacity limit but very small memory
   // manager's limit.
   memory::IMemoryManager::Options options{.capacity = 1 << 20};
@@ -152,8 +186,9 @@ TEST_F(MemoryCapExceededTest, memoryManagerCapacityExeededError) {
   constexpr int64_t kMaxBytes = 5LL << 20; // 5MB
   // We look for these lines separately, since their order can change (not sure
   // why).
-  std::array<std::string, 14> expectedTexts = {
-      "Exceeded memory manager cap of 1.00MB when requesting 368.00KB, memory pool cap is 5.00MB",
+  std::vector<std::string> expectedTexts = {
+      "Exceeded memory manager cap of 1.00MB when requesting 368.00KB, memory pool cap is 5.00MB"};
+  std::vector<std::string> expectedDetailedTexts = {
       "node.2 usage 1.00MB peak 2.00MB",
       "op.2.0.0.Aggregation usage 1012.00KB peak 1.35MB",
       "node.1 usage 1.00MB peak 1.00MB",
@@ -197,9 +232,25 @@ TEST_F(MemoryCapExceededTest, memoryManagerCapacityExeededError) {
           << "Expected error message to contain '" << expectedText
           << "', but received '" << errorMessage << "'.";
     }
+    for (const auto& expectedText : expectedDetailedTexts) {
+      if (!GetParam()) {
+        ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
+            << "Expected error message to contain '" << expectedText
+            << "', but received '" << errorMessage << "'.";
+      } else {
+        ASSERT_TRUE(errorMessage.find(expectedText) == std::string::npos)
+            << "Unexpected error message to contain '" << expectedText
+            << "', but received '" << errorMessage << "'.";
+      }
+    }
   }
   Task::testingWaitForAllTasksToBeDeleted();
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    MemoryCapExceededTest,
+    MemoryCapExceededTest,
+    testing::ValuesIn({false, true}));
 
 } // namespace
 } // namespace facebook::velox::exec::test

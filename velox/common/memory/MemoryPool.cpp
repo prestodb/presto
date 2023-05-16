@@ -22,6 +22,8 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/common/testutil/TestValue.h"
 
+DECLARE_bool(velox_suppress_memory_capacity_exceeding_error_message);
+
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
@@ -839,9 +841,12 @@ std::string MemoryPoolImpl::capExceedingMessage(
   VELOX_CHECK_NULL(parent_);
 
   std::stringstream out;
+  out << "\n" << errorMessage << "\n";
+  if (FLAGS_velox_suppress_memory_capacity_exceeding_error_message) {
+    return out.str();
+  }
   {
     std::lock_guard<std::mutex> l(mutex_);
-    out << "\n" << errorMessage << "\n";
     const Stats stats = statsLocked();
     const MemoryUsage usage{
         .name = name(),

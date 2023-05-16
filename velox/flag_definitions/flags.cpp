@@ -107,3 +107,9 @@ DEFINE_bool(
     velox_enable_memory_usage_track_in_default_memory_pool,
     false,
     "If true, enable memory usage tracking in the default memory pool");
+
+DEFINE_bool(
+    velox_suppress_memory_capacity_exceeding_error_message,
+    false,
+    "If true, suppress the verbose error message in memory capacity exceeded "
+    "exception. This is only used by test to control the test error output size");

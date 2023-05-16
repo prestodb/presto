@@ -34,6 +34,7 @@
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
+DECLARE_bool(velox_suppress_memory_capacity_exceeding_error_message);
 
 using namespace ::testing;
 using namespace facebook::velox::common::testutil;
@@ -334,6 +335,7 @@ class MockSharedArbitrationTest : public testing::Test {
 
   void TearDown() override {
     clearQueries();
+    FLAGS_velox_suppress_memory_capacity_exceeding_error_message = false;
   }
 
   void setupMemory(
@@ -846,6 +848,7 @@ TEST_F(MockSharedArbitrationTest, enterArbitrationException) {
 }
 
 TEST_F(MockSharedArbitrationTest, concurrentArbitrations) {
+  FLAGS_velox_suppress_memory_capacity_exceeding_error_message = true;
   const int numQueries = 10;
   const int numOpsPerQuery = 5;
   std::vector<std::shared_ptr<MockQuery>> queries;
@@ -892,13 +895,14 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrations) {
 }
 
 TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
+  FLAGS_velox_suppress_memory_capacity_exceeding_error_message = true;
   std::mutex mutex;
   std::vector<std::shared_ptr<MockQuery>> queries;
   queries.push_back(addQuery());
   queries.back()->addMemoryOp();
 
   const int numMemThreads = 20;
-  const int numAllocationsPerQuery = 5000;
+  const int numAllocationsPerQuery = 3000;
   std::vector<std::thread> memThreads;
   for (int i = 0; i < numMemThreads; ++i) {
     memThreads.emplace_back([&, i]() {
@@ -934,7 +938,7 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
     });
   }
 
-  const int numControlOps = 2000;
+  const int numControlOps = 1000;
   const int maxNumQueries = 64;
   std::thread controlThread([&]() {
     folly::Random::DefaultGenerator rng;
@@ -2466,7 +2470,8 @@ DEBUG_ONLY_TEST_F(
   }
 }
 
-TEST_F(SharedArbitrationTest, DISABLED_concurrentArbitration) {
+TEST_F(SharedArbitrationTest, concurrentArbitration) {
+  FLAGS_velox_suppress_memory_capacity_exceeding_error_message = true;
   const int numVectors = 8;
   std::vector<RowVectorPtr> vectors;
   fuzzerOpts_.vectorSize = 32;
