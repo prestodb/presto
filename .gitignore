@@ -55,3 +55,7 @@ a.out
 *.pb.h
 *.pb.cc
 *_pb2.py
+
+# IDE
+.vscode/
+
