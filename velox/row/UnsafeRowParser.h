@@ -66,55 +66,6 @@ struct UnsafeRowStaticUtilities {
 };
 
 /**
- * A templated UnsafeRow parser.
- * @tparam SqlTypes The row schema.
- */
-template <typename... SqlTypes>
-struct UnsafeRowStaticParser {
-  template <size_t idx>
-  using type_at =
-      typename std::tuple_element<idx, std::tuple<SqlTypes...>>::type;
-
-  /**
-   * The const UnsafeRow for parsing.
-   */
-  const UnsafeRow row;
-
-  UnsafeRowStaticParser<SqlTypes...>(std::string_view data)
-      : row(UnsafeRow(
-            const_cast<char*>(data.data()),
-            std::tuple_size<std::tuple<SqlTypes...>>::value)) {}
-
-  /**
-   *
-   * @tparam idx
-   * @return
-   */
-  template <size_t idx>
-  const std::string_view dataAt() const {
-    using CurrentType = type_at<idx>;
-
-    constexpr bool isFixedWidth =
-        UnsafeRowStaticUtilities::isFixedWidth<CurrentType>();
-    using NativeType =
-        typename TypeTraits<UnsafeRowStaticUtilities::simpleSqlTypeToTypeKind<
-            CurrentType>()>::NativeType;
-    if constexpr (!std::is_same_v<NativeType, void>) {
-      return row.readDataAt(idx, isFixedWidth, sizeof(NativeType));
-    }
-    return row.readDataAt(idx, isFixedWidth);
-  }
-
-  /**
-   * @param idx
-   * @return whether the element is null at the given index
-   */
-  bool isNullAt(size_t idx) const {
-    return row.isNullAt(idx);
-  }
-};
-
-/**
  * A dynamic UnsafeRowParser that uses TypePtr.
  */
 struct UnsafeRowDynamicParser {
