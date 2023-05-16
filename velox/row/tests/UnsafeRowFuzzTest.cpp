@@ -21,7 +21,6 @@
 
 #include "velox/row/UnsafeRowDeserializers.h"
 #include "velox/row/UnsafeRowFast.h"
-#include "velox/row/UnsafeRowSerializers.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -95,40 +94,6 @@ class UnsafeRowFuzzTests : public ::testing::Test {
       memory::addDefaultLeafMemoryPool();
 };
 
-TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
-  auto rowType = ROW({
-      BOOLEAN(),
-      TINYINT(),
-      SMALLINT(),
-      INTEGER(),
-      BIGINT(),
-      REAL(),
-      DOUBLE(),
-      VARCHAR(),
-      TIMESTAMP(),
-      ROW({VARCHAR(), INTEGER()}),
-      ARRAY(INTEGER()),
-      ARRAY(INTEGER()),
-      MAP(VARCHAR(), ARRAY(INTEGER())),
-  });
-
-  doTest(rowType, [&](const RowVectorPtr& data) {
-    std::vector<std::optional<std::string_view>> serialized;
-    serialized.reserve(data->size());
-    for (auto i = 0; i < data->size(); ++i) {
-      UnsafeRowSerializer::preloadVector(data);
-      auto rowSize = UnsafeRowSerializer::serialize(data, buffers_[i], i);
-      VELOX_CHECK(rowSize.has_value())
-      VELOX_CHECK_LE(rowSize.value(), kBufferSize);
-
-      auto rowSizeMeasured = UnsafeRowSerializer::getSizeRow(data.get(), i);
-      EXPECT_EQ(rowSize.value(), rowSizeMeasured);
-      serialized.push_back(std::string_view(buffers_[i], rowSize.value()));
-    }
-    return serialized;
-  });
-}
-
 TEST_F(UnsafeRowFuzzTests, fast) {
   auto rowType = ROW({
       BOOLEAN(),
@@ -185,14 +150,11 @@ TEST_F(UnsafeRowFuzzTests, fast) {
 
     UnsafeRowFast fast(data);
     for (auto i = 0; i < data->size(); ++i) {
-      UnsafeRowSerializer::preloadVector(data);
       auto rowSize = fast.serialize(i, buffers_[i]);
       VELOX_CHECK_LE(rowSize, kBufferSize);
 
       EXPECT_EQ(rowSize, fast.rowSize(i)) << i << ", " << data->toString(i);
 
-      auto rowSizeMeasured = UnsafeRowSerializer::getSizeRow(data.get(), i);
-      EXPECT_EQ(rowSize, rowSizeMeasured);
       serialized.push_back(std::string_view(buffers_[i], rowSize));
     }
     return serialized;

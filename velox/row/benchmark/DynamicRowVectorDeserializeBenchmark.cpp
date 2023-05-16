@@ -19,7 +19,7 @@
 #include <random>
 
 #include "velox/row/UnsafeRowDeserializers.h"
-#include "velox/row/UnsafeRowSerializers.h"
+#include "velox/row/UnsafeRowFast.h"
 #include "velox/type/Type.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
@@ -85,17 +85,17 @@ class BenchmarkHelper {
 
     auto seed = folly::Random::rand32();
     VectorFuzzer fuzzer(opts, pool_.get(), seed);
-    const auto& inputVector = fuzzer.fuzzRow(rowType);
+    const auto inputVector = fuzzer.fuzzInputRow(rowType);
     std::vector<std::optional<std::string_view>> results;
     results.reserve(nRows);
     // Serialize rowVector into bytes.
+    UnsafeRowFast unsafeRow(inputVector);
     for (int32_t i = 0; i < nRows; ++i) {
       BufferPtr bufferPtr =
           AlignedBuffer::allocate<char>(1024, pool_.get(), true);
       char* buffer = bufferPtr->asMutable<char>();
-      auto rowSize =
-          UnsafeRowSerializer::serialize(inputVector, buffer, /*idx=*/0);
-      results.push_back(std::string_view(buffer, rowSize.value()));
+      auto rowSize = unsafeRow.serialize(0, buffer);
+      results.push_back(std::string_view(buffer, rowSize));
     }
     return {results, rowType};
   }

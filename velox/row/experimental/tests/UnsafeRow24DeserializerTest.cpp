@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include "velox/exec/tests/utils/OperatorTestBase.h"
-#include "velox/row/UnsafeRowSerializers.h"
+#include "velox/row/UnsafeRowFast.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -549,19 +549,17 @@ class UnsafeRowComplexDeserializerTests : public exec::test::OperatorTestBase {
   }
 
   void testVectorSerde(const RowVectorPtr& inputVector) {
+    UnsafeRowFast unsafeRow(inputVector);
     std::vector<std::optional<std::string_view>> serializedVector;
     for (size_t i = 0; i < inputVector->size(); ++i) {
       // Serialize rowVector into bytes.
-      auto rowSize = UnsafeRowSerializer::serialize(
-          inputVector, this->buffers_[i], /*idx=*/i);
-      serializedVector.push_back(
-          rowSize.has_value()
-              ? std::optional<std::string_view>(
-                    std::string_view(this->buffers_[i], rowSize.value()))
-              : std::nullopt);
+      memset(buffers_[i], 0, sizeof(buffers_[i]));
+      auto rowSize = unsafeRow.serialize(i, buffers_[i]);
+      ASSERT_LE(rowSize, sizeof(buffers_[i]));
+      serializedVector.push_back(std::string_view(buffers_[i], rowSize));
     }
     VectorPtr outputVector =
-        deserialize(serializedVector, inputVector->type(), this->pool_.get());
+        deserialize(serializedVector, inputVector->type(), pool_.get());
     assertEqualVectors(inputVector, outputVector);
   }
 
@@ -584,8 +582,8 @@ TEST_F(UnsafeRowComplexDeserializerTests, nullRows) {
   for (auto& batchSize : {1, 5, 10}) {
     std::vector<std::optional<std::string_view>> serializedVector;
     const auto& inputVector =
-        this->createInputRow(batchSize, VectorTestBase::nullEvery(1));
-    this->testVectorSerde(inputVector);
+        createInputRow(batchSize, VectorTestBase::nullEvery(1));
+    testVectorSerde(makeRowVector({inputVector}));
   }
 
   // Test RowVector containing another all nulls RowVector serde.
@@ -603,7 +601,7 @@ TEST_F(UnsafeRowComplexDeserializerTests, nullRows) {
   }
 }
 
-TEST_F(UnsafeRowComplexDeserializerTests, DISABLED_Testfuzzer) {
+TEST_F(UnsafeRowComplexDeserializerTests, DISABLED_fuzz) {
   std::string buffer(100 << 20, '\0'); // Up to 100MB.
   VectorFuzzer fuzzer(
       {
@@ -622,16 +620,17 @@ TEST_F(UnsafeRowComplexDeserializerTests, DISABLED_Testfuzzer) {
     fuzzer.reSeed(seed);
     const auto type = fuzzer.randRowType();
     LOG(INFO) << "i=" << i << " seed=" << seed << " type=" << type->toString();
-    const VectorPtr input = fuzzer.fuzzRow(type);
+    auto input = fuzzer.fuzzInputRow(type);
+    UnsafeRowFast unsafeRow(input);
     std::vector<std::optional<std::string_view>> rowData;
     char* data = &buffer[0];
     for (int j = 0; j < input->size(); ++j) {
-      auto size = UnsafeRowSerializer::serialize(input, data, j);
-      ASSERT_TRUE(size);
-      rowData.emplace_back(std::string_view(data, *size));
-      data += *size;
+      auto size = unsafeRow.serialize(j, data);
+      ASSERT_LE(size, buffer.size());
+      rowData.emplace_back(std::string_view(data, size));
+      data += size;
     }
-    auto output = deserialize(rowData, type, this->pool_.get());
+    auto output = deserialize(rowData, type, pool_.get());
     assertEqualVectors(input, output);
   }
 }
