@@ -63,7 +63,13 @@ int main(int argc, char** argv) {
   std::unordered_map<std::string, std::string> customVerificationFunctions = {
       // Order-dependent functions.
       {"approx_distinct", ""},
+      {"approx_distinct_partial", ""},
+      {"approx_distinct_merge", ""},
       {"approx_set", ""},
+      {"approx_set_partial", ""},
+      {"approx_set_merge", ""},
+      {"approx_percentile_partial", ""},
+      {"approx_percentile_merge", ""},
       {"arbitrary", ""},
       {"array_agg", "array_sort({})"},
       {"map_agg", "array_sort(map_keys({}))"},
