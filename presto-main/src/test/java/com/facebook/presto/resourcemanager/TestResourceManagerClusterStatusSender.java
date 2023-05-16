@@ -22,7 +22,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.util.SimplePeriodicTaskExecutorFactory;
+import com.facebook.presto.testing.TestingPeriodicTaskExecutorFactory;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -31,16 +31,12 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.lang.String.format;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertEquals;
 
 public class TestResourceManagerClusterStatusSender
 {
@@ -60,13 +56,10 @@ public class TestResourceManagerClusterStatusSender
             1,
             2,
             3);
-    private static final int HEARTBEAT_INTERVAL = 100;
-    private static final int SLEEP_DURATION = 1000;
-    private static final int TARGET_HEARTBEATS = SLEEP_DURATION / HEARTBEAT_INTERVAL;
-
+    private static final int HEARTBEAT_INTERVAL = 0;
     private ResourceManagerClusterStatusSender sender;
     private TestingResourceManagerClient resourceManagerClient;
-    private ScheduledExecutorService executor;
+    private TestingPeriodicTaskExecutorFactory periodicTaskExecutorFactory;
 
     @BeforeTest
     public void setup()
@@ -83,13 +76,12 @@ public class TestResourceManagerClusterStatusSender
                         false,
                         true,
                         false));
-
-        executor = newSingleThreadScheduledExecutor();
+        periodicTaskExecutorFactory = new TestingPeriodicTaskExecutorFactory();
         sender = new ResourceManagerClusterStatusSender(
                 (addressSelectionContext, headers) -> resourceManagerClient,
                 nodeManager,
                 () -> NODE_STATUS,
-                new SimplePeriodicTaskExecutorFactory(executor, Optional.of(executor)),
+                periodicTaskExecutorFactory,
                 new ResourceManagerConfig()
                         .setNodeHeartbeatInterval(new Duration(HEARTBEAT_INTERVAL, MILLISECONDS))
                         .setQueryHeartbeatInterval(new Duration(HEARTBEAT_INTERVAL, MILLISECONDS)),
@@ -100,21 +92,17 @@ public class TestResourceManagerClusterStatusSender
     @AfterTest
     public void tearDown()
     {
-        executor.shutdownNow();
         sender.stop();
     }
 
     @Test(timeOut = 2_000)
     public void testNodeStatus()
-            throws Exception
     {
         sender.init();
 
-        Thread.sleep(SLEEP_DURATION);
+        assertEquals(resourceManagerClient.getNodeHeartbeats(), 1);
 
-        int nodeHeartbeats = resourceManagerClient.getNodeHeartbeats();
-        assertTrue(nodeHeartbeats > TARGET_HEARTBEATS * 0.5 && nodeHeartbeats <= TARGET_HEARTBEATS * 1.5,
-                format("Expect number of heartbeats to fall within target range (%s), +/- 50%%.  Was: %s", TARGET_HEARTBEATS, nodeHeartbeats));
+        periodicTaskExecutorFactory.tick();
     }
 
     @Test(timeOut = 6_000)
@@ -124,18 +112,15 @@ public class TestResourceManagerClusterStatusSender
         MockManagedQueryExecution queryExecution = new MockManagedQueryExecution(1);
         sender.registerQuery(queryExecution);
 
-        Thread.sleep(SLEEP_DURATION);
-
-        int queryHeartbeats = resourceManagerClient.getQueryHeartbeats();
-        assertTrue(queryHeartbeats > TARGET_HEARTBEATS * 0.5 && queryHeartbeats <= TARGET_HEARTBEATS * 1.5,
-                format("Expect number of heartbeats to fall within target range (%s), +/- 50%%.  Was: %s", TARGET_HEARTBEATS, queryHeartbeats));
+        assertEquals(resourceManagerClient.getQueryHeartbeats(), 1);
+        periodicTaskExecutorFactory.tick();
+        assertEquals(resourceManagerClient.getQueryHeartbeats(), 2);
 
         // Completing the query stops the heartbeats
         queryExecution.complete();
-        queryHeartbeats = resourceManagerClient.getQueryHeartbeats();
-
-        Thread.sleep(SLEEP_DURATION);
-
-        assertTrue(resourceManagerClient.getQueryHeartbeats() <= (queryHeartbeats + 1));
+        periodicTaskExecutorFactory.tick();
+        assertEquals(resourceManagerClient.getQueryHeartbeats(), 3);
+        periodicTaskExecutorFactory.tick();
+        assertEquals(resourceManagerClient.getQueryHeartbeats(), 3);
     }
 }

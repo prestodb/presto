@@ -54,7 +54,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.GracefulShutdownHandler;
-import com.facebook.presto.server.PeriodicTaskExecutorModule;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
@@ -78,6 +77,7 @@ import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
+import com.facebook.presto.testing.TestingPeriodicTaskExecutorFactory;
 import com.facebook.presto.testing.TestingTempStorageManager;
 import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
@@ -300,7 +300,6 @@ public class TestingPrestoServer
                 .add(new QueryPrerequisitesManagerModule())
                 .add(new NodeTtlFetcherManagerModule())
                 .add(new ClusterTtlProviderManagerModule())
-                .add(new PeriodicTaskExecutorModule())
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
@@ -315,6 +314,7 @@ public class TestingPrestoServer
                     binder.bind(RequestBlocker.class).in(Scopes.SINGLETON);
                     newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
                             .to(RequestBlocker.class).in(Scopes.SINGLETON);
+                    binder.bind(PeriodicTaskExecutorFactory.class).to(TestingPeriodicTaskExecutorFactory.class).in(Scopes.SINGLETON);
                 });
 
         if (discoveryUri != null) {
@@ -646,6 +646,13 @@ public class TestingPrestoServer
     public TaskManager getTaskManager()
     {
         return taskManager;
+    }
+
+    public Optional<TestingPeriodicTaskExecutorFactory> getPeriodicTaskExecutorFactory()
+    {
+        return periodicTaskExecutorFactory instanceof TestingPeriodicTaskExecutorFactory ?
+                Optional.of((TestingPeriodicTaskExecutorFactory) periodicTaskExecutorFactory) :
+                Optional.empty();
     }
 
     public ShutdownAction getShutdownAction()
