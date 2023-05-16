@@ -371,9 +371,10 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
       const std::string& taskId,
       core::PlanNodePtr planNode,
       int destination) {
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    auto queryCtx = std::make_shared<core::QueryCtx>(
+        executor_.get(), std::make_shared<velox::core::MemConfig>());
     core::PlanFragment planFragment{planNode};
-    return std::make_shared<exec::Task>(
+    return exec::Task::create(
         taskId, std::move(planFragment), destination, std::move(queryCtx));
   }
 
