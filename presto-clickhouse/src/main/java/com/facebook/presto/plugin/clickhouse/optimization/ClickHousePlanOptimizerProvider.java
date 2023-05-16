@@ -36,6 +36,7 @@ public class ClickHousePlanOptimizerProvider
     private final DeterminismEvaluator determinismEvaluator;
     private final ExpressionOptimizer expressionOptimizer;
     private final String identifierQuote;
+    private final ClickHouseQueryGenerator clickhouseQueryGenerator;
 
     @Inject
     public ClickHousePlanOptimizerProvider(
@@ -43,13 +44,15 @@ public class ClickHousePlanOptimizerProvider
             FunctionMetadataManager functionManager,
             StandardFunctionResolution functionResolution,
             DeterminismEvaluator determinismEvaluator,
-            ExpressionOptimizer expressionOptimizer)
+            ExpressionOptimizer expressionOptimizer,
+            ClickHouseQueryGenerator clickhouseQueryGenerator)
     {
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
         this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
         this.identifierQuote = clickHouseClient.getIdentifierQuote();
+        this.clickhouseQueryGenerator = clickhouseQueryGenerator;
     }
 
     @Override
@@ -67,7 +70,8 @@ public class ClickHousePlanOptimizerProvider
                 determinismEvaluator,
                 expressionOptimizer,
                 identifierQuote,
-                getFunctionTranslators()));
+                getFunctionTranslators(),
+                clickhouseQueryGenerator));
     }
 
     private Set<Class<?>> getFunctionTranslators()
