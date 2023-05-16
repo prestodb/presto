@@ -166,6 +166,12 @@ public class ClickHouseRecordCursor
     }
 
     @Override
+    public Object getObject(int field)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Slice getSlice(int field)
     {
         checkState(!closed, "cursor is closed");
@@ -175,12 +181,6 @@ public class ClickHouseRecordCursor
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
-    }
-
-    @Override
-    public Object getObject(int field)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
