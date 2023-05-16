@@ -83,23 +83,10 @@ jobs:
           # Delete static libraries
           rm `find ./ -name lib\*.a` 
 
-      - name: Cache local Maven repository
-        id: cache-maven
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-2-
-
-      - name: Populate maven cache
-        if: steps.cache-maven.outputs.cache-hit != 'true'
-        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
-
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm,!presto-test-coverage'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl 'presto-native-execution' -am
 
       - name: Run e2e tests
         run: |
