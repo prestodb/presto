@@ -19,5 +19,3 @@ target_link_libraries(velox_row_fast velox_vector)
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
-
-add_subdirectory(experimental)
