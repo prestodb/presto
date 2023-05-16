@@ -3,7 +3,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.281-edge8.7-SNAPSHOT</version>
+        <version>0.281-edge8.8-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
