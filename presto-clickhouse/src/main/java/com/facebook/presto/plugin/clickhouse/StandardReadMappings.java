@@ -163,6 +163,8 @@ public final class StandardReadMappings
                     return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
                 }
                 return Optional.of(varbinaryReadMapping());
+            case "block":
+                return Optional.of(doubleReadMapping());
         }
 
         switch (type.getJdbcType()) {
