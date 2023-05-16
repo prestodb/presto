@@ -170,6 +170,12 @@ class ISerializable {
     // creator generally be a static method in the class.
     auto name = obj["name"].asString();
 
+    auto res = deserializeAsUniquePtr<T>(obj);
+    if (res != nullptr) {
+      return std::dynamic_pointer_cast<const T>(
+          std::shared_ptr(std::move(res)));
+    }
+
     const auto& registryWithContext =
         velox::DeserializationWithContextRegistryForSharedPtr();
     if (registryWithContext.Has(name)) {
@@ -314,6 +320,23 @@ class ISerializable {
   }
 
   virtual ~ISerializable() = default;
+
+ private:
+  template <
+      class T,
+      typename = std::enable_if_t<std::is_base_of_v<ISerializable, T>>>
+  static auto deserializeAsUniquePtr(const folly::dynamic& obj) {
+    auto name = obj["name"].asString();
+    const auto& registry = velox::deserializationRegistryForUniquePtr();
+    using deserializeType =
+        decltype(DeserializationRegistryUniquePtrType::Create(
+            std::declval<std::string>(), std::declval<folly::dynamic>()));
+    if (registry.Has(name)) {
+      return registry.Create(name, obj);
+    } else {
+      return static_cast<deserializeType>(nullptr);
+    }
+  }
 };
 
 } // namespace velox

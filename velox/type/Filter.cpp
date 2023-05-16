@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <cstdint>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -96,6 +95,620 @@ std::string Filter::toString() const {
       strKind,
       deterministic_ ? "deterministic" : "nondeterministic",
       nullAllowed_ ? "null allowed" : "null not allowed");
+}
+
+namespace {
+std::unordered_map<FilterKind, std::string> filterKindNames() {
+  return {
+      {FilterKind::kAlwaysFalse, "kAlwaysFalse"},
+      {FilterKind::kAlwaysTrue, "kAlwaysTrue"},
+      {FilterKind::kIsNull, "kIsNull"},
+      {FilterKind::kIsNotNull, "kIsNotNull"},
+      {FilterKind::kBoolValue, "kBoolValue"},
+      {FilterKind::kBigintRange, "kBigintRange"},
+      {FilterKind::kBigintValuesUsingHashTable, "kBigintValuesUsingHashTable"},
+      {FilterKind::kBigintValuesUsingBitmask, "kBigintValuesUsingBitmask"},
+      {FilterKind::kNegatedBigintRange, "kNegatedBigintRange"},
+      {FilterKind::kNegatedBigintValuesUsingHashTable,
+       "kNegatedBigintValuesUsingHashTable"},
+      {FilterKind::kNegatedBigintValuesUsingBitmask,
+       "kNegatedBigintValuesUsingBitmask"},
+      {FilterKind::kDoubleRange, "kDoubleRange"},
+      {FilterKind::kFloatRange, "kFloatRange"},
+      {FilterKind::kBytesRange, "kBytesRange"},
+      {FilterKind::kNegatedBytesRange, "kNegatedBytesRange"},
+      {FilterKind::kBytesValues, "kBytesValues"},
+      {FilterKind::kNegatedBytesValues, "kNegatedBytesValues"},
+      {FilterKind::kBigintMultiRange, "kBigintMultiRange"},
+      {FilterKind::kMultiRange, "kMultiRange"},
+      {FilterKind::kHugeintRange, "kHugeintRange"},
+  };
+}
+
+const char* filterKindName(FilterKind kind) {
+  static const auto kNames = filterKindNames();
+  return kNames.at(kind).c_str();
+}
+
+bool deserializeNullAllowed(const folly::dynamic& obj) {
+  return obj["nullAllowed"].asBool();
+}
+
+std::vector<int64_t> deserializeValues(const folly::dynamic& obj) {
+  std::vector<int64_t> values;
+  auto valuesArray = obj["values"];
+  values.reserve(valuesArray.size());
+  for (const auto& v : valuesArray) {
+    values.push_back(v.asInt());
+  }
+  return values;
+}
+} // namespace
+
+void Filter::registerSerDe() {
+  auto& registry = deserializationRegistryForUniquePtr();
+
+  registry.Register("AlwaysFalse", AlwaysFalse::create);
+  registry.Register("AlwaysTrue", AlwaysTrue::create);
+  registry.Register("IsNull", IsNull::create);
+  registry.Register("IsNotNull", IsNotNull::create);
+  registry.Register("BoolValue", BoolValue::create);
+  registry.Register("BigintRange", BigintRange::create);
+  registry.Register("NegatedBigintRange", NegatedBigintRange::create);
+  registry.Register("HugeintRange", HugeintRange::create);
+  registry.Register(
+      "BigintValuesUsingHashTable", BigintValuesUsingHashTable::create);
+  registry.Register(
+      "BigintValuesUsingBitmask", BigintValuesUsingBitmask::create);
+  registry.Register(
+      "NegatedBigintValuesUsingHashTable",
+      NegatedBigintValuesUsingHashTable::create);
+  registry.Register(
+      "NegatedBigintValuesUsingBitmask",
+      NegatedBigintValuesUsingBitmask::create);
+  registry.Register("FloatRange", AbstractRange::create);
+  registry.Register("DoubleRange", AbstractRange::create);
+  registry.Register("BytesRange", BytesRange::create);
+  registry.Register("NegatedBytesRange", NegatedBytesRange::create);
+  registry.Register("BytesValues", BytesValues::create);
+  registry.Register("BigintMultiRange", BigintMultiRange::create);
+  registry.Register("NegatedBytesValues", NegatedBytesValues::create);
+  registry.Register("MultiRange", MultiRange::create);
+}
+
+folly::dynamic Filter::serializeBase(std::string_view name) const {
+  folly::dynamic obj = folly::dynamic::object;
+  obj["name"] = name;
+  obj["nullAllowed"] = nullAllowed_;
+  obj["kind"] = filterKindName(kind_);
+  return obj;
+}
+
+folly::dynamic AlwaysFalse::serialize() const {
+  return Filter::serializeBase("AlwaysFalse");
+}
+
+FilterPtr AlwaysFalse::create(const folly::dynamic& /*obj*/) {
+  return std::make_unique<AlwaysFalse>();
+}
+
+folly::dynamic AlwaysTrue::serialize() const {
+  return Filter::serializeBase("AlwaysTrue");
+}
+
+FilterPtr AlwaysTrue::create(const folly::dynamic& /*obj*/) {
+  return std::make_unique<AlwaysTrue>();
+}
+
+folly::dynamic IsNull::serialize() const {
+  return Filter::serializeBase("IsNull");
+}
+
+FilterPtr IsNull::create(const folly::dynamic& /*obj*/) {
+  return std::make_unique<IsNull>();
+}
+
+folly::dynamic IsNotNull::serialize() const {
+  return Filter::serializeBase("IsNotNull");
+}
+
+FilterPtr IsNotNull::create(const folly::dynamic& /*obj*/) {
+  return std::make_unique<IsNotNull>();
+}
+
+folly::dynamic BoolValue::serialize() const {
+  auto obj = Filter::serializeBase("BoolValue");
+  obj["value"] = value_;
+  return obj;
+}
+
+FilterPtr BoolValue::create(const folly::dynamic& obj) {
+  auto value = obj["value"].asBool();
+  auto nullAllowed = deserializeNullAllowed(obj);
+  return std::make_unique<BoolValue>(value, nullAllowed);
+}
+
+bool BoolValue::testingEquals(const Filter& other) const {
+  auto otherBoolValue = dynamic_cast<const BoolValue*>(&other);
+  return otherBoolValue != nullptr && Filter::testingBaseEquals(other) &&
+      (value_ == otherBoolValue->value_);
+}
+
+folly::dynamic BigintRange::serialize() const {
+  auto obj = Filter::serializeBase("BigintRange");
+  obj["lower"] = lower_;
+  obj["upper"] = upper_;
+  return obj;
+}
+
+FilterPtr BigintRange::create(const folly::dynamic& obj) {
+  auto lower = obj["lower"].asInt();
+  auto upper = obj["upper"].asInt();
+  auto nullAllowed = deserializeNullAllowed(obj);
+  return std::make_unique<BigintRange>(lower, upper, nullAllowed);
+}
+
+bool BigintRange::testingEquals(const Filter& other) const {
+  auto otherBigintRange = dynamic_cast<const BigintRange*>(&other);
+  return otherBigintRange != nullptr && Filter::testingBaseEquals(other) &&
+      (lower_ == otherBigintRange->lower_) &&
+      (upper_ == otherBigintRange->upper_);
+}
+
+folly::dynamic NegatedBigintRange::serialize() const {
+  auto obj = Filter::serializeBase("NegatedBigintRange");
+  obj["lower"] = nonNegated_->lower();
+  obj["upper"] = nonNegated_->upper();
+  return obj;
+}
+
+FilterPtr NegatedBigintRange::create(const folly::dynamic& obj) {
+  auto lower = obj["lower"].asInt();
+  auto upper = obj["upper"].asInt();
+  auto nullAllowed = deserializeNullAllowed(obj);
+  return std::make_unique<NegatedBigintRange>(lower, upper, nullAllowed);
+}
+
+bool NegatedBigintRange::testingEquals(const Filter& other) const {
+  auto otherNegatedBigintRange =
+      dynamic_cast<const NegatedBigintRange*>(&other);
+  return otherNegatedBigintRange != nullptr &&
+      Filter::testingBaseEquals(other) &&
+      nonNegated_->testingEquals(*(otherNegatedBigintRange->nonNegated_));
+}
+
+folly::dynamic HugeintRange::serialize() const {
+  auto obj = Filter::serializeBase("HugeintRange");
+  obj["lower"] = std::to_string(lower_);
+  obj["upper"] = std::to_string(upper_);
+  return obj;
+}
+
+FilterPtr HugeintRange::create(const folly::dynamic& obj) {
+  auto lower = HugeInt::parse(obj["lower"].asString());
+  auto upper = HugeInt::parse(obj["upper"].asString());
+  auto nullAllowed = deserializeNullAllowed(obj);
+  return std::make_unique<HugeintRange>(lower, upper, nullAllowed);
+}
+
+bool HugeintRange::testingEquals(const Filter& other) const {
+  auto otherHugeintRange = dynamic_cast<const HugeintRange*>(&other);
+  return otherHugeintRange != nullptr && Filter::testingBaseEquals(other) &&
+      lower_ == otherHugeintRange->lower_ &&
+      upper_ == otherHugeintRange->upper_;
+}
+
+folly::dynamic BigintValuesUsingHashTable::serialize() const {
+  auto obj = Filter::serializeBase("BigintValuesUsingHashTable");
+  obj["min"] = min_;
+  obj["max"] = max_;
+
+  folly::dynamic values = folly::dynamic::array;
+  for (auto v : values_) {
+    values.push_back(v);
+  }
+  obj["values"] = values;
+
+  return obj;
+}
+
+FilterPtr BigintValuesUsingHashTable::create(const folly::dynamic& obj) {
+  auto nullAllowed = deserializeNullAllowed(obj);
+  auto min = obj["min"].asInt();
+  auto max = obj["max"].asInt();
+  auto values = deserializeValues(obj);
+
+  return std::make_unique<BigintValuesUsingHashTable>(
+      min, max, values, nullAllowed);
+}
+
+bool BigintValuesUsingHashTable::testingEquals(const Filter& other) const {
+  auto otherBigintValues =
+      dynamic_cast<const BigintValuesUsingHashTable*>(&other);
+  bool res = otherBigintValues != nullptr && Filter::testingBaseEquals(other) &&
+      min_ == otherBigintValues->min_ && max_ == otherBigintValues->max_ &&
+      values_.size() == otherBigintValues->values_.size();
+
+  if (!res) {
+    return false;
+  }
+
+  // values_ can be compared pair-wise since they are sorted.
+  for (size_t i = 0; i < values_.size(); ++i) {
+    if (values_.at(i) != otherBigintValues->values_.at(i)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+folly::dynamic BigintValuesUsingBitmask::serialize() const {
+  auto obj = Filter::serializeBase("BigintValuesUsingBitmask");
+  obj["min"] = min_;
+  obj["max"] = max_;
+
+  folly::dynamic values = folly::dynamic::array;
+  for (size_t i = 0; i < bitmask_.size(); ++i) {
+    if (bitmask_[i]) {
+      values.push_back(i + min_);
+    }
+  }
+  obj["values"] = values;
+
+  return obj;
+}
+
+FilterPtr BigintValuesUsingBitmask::create(const folly::dynamic& obj) {
+  auto min = obj["min"].asInt();
+  auto max = obj["max"].asInt();
+  auto nullAllowed = deserializeNullAllowed(obj);
+  auto values = deserializeValues(obj);
+
+  return std::make_unique<BigintValuesUsingBitmask>(
+      min, max, values, nullAllowed);
+}
+
+bool BigintValuesUsingBitmask::testingEquals(const Filter& other) const {
+  auto otherBigintValues =
+      dynamic_cast<const BigintValuesUsingBitmask*>(&other);
+  bool res = otherBigintValues != nullptr && Filter::testingBaseEquals(other) &&
+      min_ == otherBigintValues->min_ && max_ == otherBigintValues->max_ &&
+      bitmask_.size() == otherBigintValues->bitmask_.size();
+
+  if (!res) {
+    return false;
+  }
+
+  for (size_t i = 0; i < bitmask_.size(); ++i) {
+    if (bitmask_.at(i) != otherBigintValues->bitmask_.at(i)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+folly::dynamic NegatedBigintValuesUsingHashTable::serialize() const {
+  auto obj = Filter::serializeBase("NegatedBigintValuesUsingHashTable");
+  obj["nonNegated"] = nonNegated_->serialize();
+  return obj;
+}
+
+FilterPtr NegatedBigintValuesUsingHashTable::create(const folly::dynamic& obj) {
+  auto nullAllowed = deserializeNullAllowed(obj);
+  auto nonNegated =
+      ISerializable::deserialize<BigintValuesUsingHashTable>(obj["nonNegated"]);
+  auto min = nonNegated->min();
+  auto max = nonNegated->max();
+  auto values = nonNegated->values();
+  auto res = std::make_unique<NegatedBigintValuesUsingHashTable>(
+      min, max, values, nullAllowed);
+  return res;
+}
+
+bool NegatedBigintValuesUsingHashTable::testingEquals(
+    const Filter& other) const {
+  auto otherNegatedBigintValues =
+      dynamic_cast<const NegatedBigintValuesUsingHashTable*>(&other);
+  return otherNegatedBigintValues != nullptr &&
+      Filter::testingBaseEquals(other) &&
+      nonNegated_->testingEquals(*(otherNegatedBigintValues->nonNegated_));
+}
+
+folly::dynamic NegatedBigintValuesUsingBitmask::serialize() const {
+  auto obj = Filter::serializeBase("NegatedBigintValuesUsingBitmask");
+  obj["min"] = min_;
+  obj["max"] = max_;
+  obj["nonNegated"] = nonNegated_->serialize();
+  return obj;
+}
+
+FilterPtr NegatedBigintValuesUsingBitmask::create(const folly::dynamic& obj) {
+  auto min = obj["min"].asInt();
+  auto max = obj["max"].asInt();
+  auto nullAllowed = deserializeNullAllowed(obj);
+  auto nonNegated =
+      ISerializable::deserialize<BigintValuesUsingBitmask>(obj["nonNegated"]);
+  auto values = nonNegated->values();
+  return std::make_unique<NegatedBigintValuesUsingBitmask>(
+      min, max, values, nullAllowed);
+}
+
+bool NegatedBigintValuesUsingBitmask::testingEquals(const Filter& other) const {
+  auto otherNegatedBigintValues =
+      dynamic_cast<const NegatedBigintValuesUsingBitmask*>(&other);
+  return otherNegatedBigintValues != nullptr &&
+      Filter::testingBaseEquals(other) &&
+      nonNegated_->testingEquals(*(otherNegatedBigintValues->nonNegated_));
+}
+
+template <>
+folly::dynamic FloatingPointRange<float>::serialize() const {
+  auto obj = AbstractRange::serializeBase("FloatRange");
+  obj["lower"] = lower_;
+  obj["upper"] = upper_;
+  return obj;
+}
+
+template <>
+folly::dynamic FloatingPointRange<double>::serialize() const {
+  auto obj = AbstractRange::serializeBase("DoubleRange");
+  obj["lower"] = lower_;
+  obj["upper"] = upper_;
+  return obj;
+}
+
+FilterPtr AbstractRange::create(const folly::dynamic& obj) {
+  auto lowerUnbounded = obj["lowerUnbounded"].asBool();
+  auto lowerExclusive = obj["lowerExclusive"].asBool();
+  auto upperUnbounded = obj["upperUnbounded"].asBool();
+  auto upperExclusive = obj["upperExclusive"].asBool();
+  auto lower = obj["lower"].asDouble();
+  auto upper = obj["upper"].asDouble();
+  auto nullAllowed = deserializeNullAllowed(obj);
+  auto name = obj["name"].asString();
+
+  if (name == "DoubleRange") {
+    return std::make_unique<FloatingPointRange<double>>(
+        lower,
+        lowerUnbounded,
+        lowerExclusive,
+        upper,
+        upperUnbounded,
+        upperExclusive,
+        nullAllowed);
+  } else {
+    return std::make_unique<FloatingPointRange<float>>(
+        static_cast<float>(lower),
+        lowerUnbounded,
+        lowerExclusive,
+        static_cast<float>(upper),
+        upperUnbounded,
+        upperExclusive,
+        nullAllowed);
+  }
+}
+
+folly::dynamic BytesRange::serialize() const {
+  auto obj = AbstractRange::serializeBase("BytesRange");
+  obj["lower"] = lower_;
+  obj["upper"] = upper_;
+  obj["singleValue"] = singleValue_;
+  return obj;
+}
+
+FilterPtr BytesRange::create(const folly::dynamic& obj) {
+  auto lowerUnbounded = obj["lowerUnbounded"].asBool();
+  auto lowerExclusive = obj["lowerExclusive"].asBool();
+  auto upperUnbounded = obj["upperUnbounded"].asBool();
+  auto upperExclusive = obj["upperExclusive"].asBool();
+  auto lower = obj["lower"].asString();
+  auto upper = obj["upper"].asString();
+  auto nullAllowed = deserializeNullAllowed(obj);
+  return std::make_unique<BytesRange>(
+      lower,
+      lowerUnbounded,
+      lowerExclusive,
+      upper,
+      upperUnbounded,
+      upperExclusive,
+      nullAllowed);
+}
+
+bool BytesRange::testingEquals(const Filter& other) const {
+  auto otherBytesRange = dynamic_cast<const BytesRange*>(&other);
+  return otherBytesRange != nullptr && Filter::testingBaseEquals(other) &&
+      lower_ == otherBytesRange->lower_ && upper_ == otherBytesRange->upper_ &&
+      singleValue_ == otherBytesRange->singleValue_;
+}
+
+folly::dynamic NegatedBytesRange::serialize() const {
+  auto obj = Filter::serializeBase("NegatedBytesRange");
+  obj["nonNegated"] = nonNegated_->serialize();
+  return obj;
+}
+
+FilterPtr NegatedBytesRange::create(const folly::dynamic& obj) {
+  auto nonNegated = ISerializable::deserialize<BytesRange>(obj["nonNegated"]);
+
+  return std::make_unique<NegatedBytesRange>(
+      nonNegated->lower(),
+      nonNegated->lowerUnbounded(),
+      nonNegated->lowerExclusive(),
+      nonNegated->upper(),
+      nonNegated->upperUnbounded(),
+      nonNegated->upperExclusive(),
+      nonNegated->testNull());
+}
+
+bool NegatedBytesRange::testingEquals(const Filter& other) const {
+  auto otherNegatedBytesRange = dynamic_cast<const NegatedBytesRange*>(&other);
+  return otherNegatedBytesRange != nullptr &&
+      Filter::testingBaseEquals(other) &&
+      nonNegated_->testingEquals(*(otherNegatedBytesRange->nonNegated_));
+}
+
+folly::dynamic BytesValues::serialize() const {
+  auto obj = Filter::serializeBase("BytesValues");
+  folly::dynamic values = folly::dynamic::array;
+  for (auto v : values_) {
+    values.push_back(v);
+  }
+  obj["values"] = values;
+  return obj;
+}
+
+FilterPtr BytesValues::create(const folly::dynamic& obj) {
+  auto nullAllowed = deserializeNullAllowed(obj);
+  auto arr = obj["values"];
+  std::vector<std::string> values;
+  values.reserve(arr.size());
+
+  for (const auto& v : arr) {
+    values.emplace_back(v.asString());
+  }
+
+  return std::make_unique<BytesValues>(values, nullAllowed);
+}
+
+bool BytesValues::testingEquals(const Filter& other) const {
+  auto otherBytesValues = dynamic_cast<const BytesValues*>(&other);
+  auto res = otherBytesValues != nullptr && Filter::testingBaseEquals(other) &&
+      lower_ == otherBytesValues->lower_ &&
+      upper_ == otherBytesValues->upper_ &&
+      values_.size() == otherBytesValues->values_.size() &&
+      lengths_.size() == otherBytesValues->lengths_.size();
+
+  if (!res) {
+    return false;
+  }
+
+  for (const auto& v : values_) {
+    if (!otherBytesValues->values_.contains(v)) {
+      return false;
+    }
+  }
+
+  for (auto l : lengths_) {
+    if (!otherBytesValues->lengths_.contains(l)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+folly::dynamic BigintMultiRange::serialize() const {
+  auto obj = Filter::serializeBase("BigintMultiRange");
+  folly::dynamic arr = folly::dynamic::array;
+  for (const auto& r : ranges_) {
+    arr.push_back(r->serialize());
+  }
+  obj["ranges"] = arr;
+  return obj;
+}
+
+FilterPtr BigintMultiRange::create(const folly::dynamic& obj) {
+  auto nullAllowed = deserializeNullAllowed(obj);
+  auto arr = obj["ranges"];
+  std::vector<std::unique_ptr<BigintRange>> ranges;
+  ranges.reserve(arr.size());
+  for (const auto& r : arr) {
+    ranges.push_back(std::make_unique<BigintRange>(
+        *ISerializable::deserialize<BigintRange>(r)));
+  }
+  return std::make_unique<BigintMultiRange>(std::move(ranges), nullAllowed);
+}
+
+bool BigintMultiRange::testingEquals(const Filter& other) const {
+  auto otherBigintMultiRange = dynamic_cast<const BigintMultiRange*>(&other);
+  auto res = otherBigintMultiRange != nullptr &&
+      Filter::testingBaseEquals(other) &&
+      ranges_.size() == otherBigintMultiRange->ranges_.size();
+
+  if (!res) {
+    return false;
+  }
+
+  for (size_t i = 0; i < ranges_.size(); ++i) {
+    if (!(ranges_.at(i)->testingEquals(
+            *(otherBigintMultiRange->ranges_.at(i))))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+folly::dynamic NegatedBytesValues::serialize() const {
+  auto obj = Filter::serializeBase("NegatedBytesValues");
+  obj["nonNegated"] = nonNegated_->serialize();
+  return obj;
+}
+
+FilterPtr NegatedBytesValues::create(const folly::dynamic& obj) {
+  auto nullAllowed = deserializeNullAllowed(obj);
+  auto nonNegated = ISerializable::deserialize<BytesValues>(obj["nonNegated"]);
+  return std::make_unique<NegatedBytesValues>(
+      std::vector<std::string>(
+          nonNegated->values().begin(), nonNegated->values().end()),
+      nullAllowed);
+}
+
+bool NegatedBytesValues::testingEquals(const Filter& other) const {
+  auto otherNegatedBytesValues =
+      dynamic_cast<const NegatedBytesValues*>(&other);
+  return otherNegatedBytesValues != nullptr &&
+      Filter::testingBaseEquals(other) &&
+      nonNegated_->testingEquals((*(otherNegatedBytesValues->nonNegated_)));
+}
+
+folly::dynamic MultiRange::serialize() const {
+  auto obj = Filter::serializeBase("MultiRange");
+  obj["nanAllowed"] = nanAllowed_;
+  folly::dynamic arr = folly::dynamic::array;
+  for (const auto& f : filters_) {
+    arr.push_back(f->serialize());
+  }
+  obj["filters"] = arr;
+  return obj;
+}
+
+FilterPtr MultiRange::create(const folly::dynamic& obj) {
+  auto nullAllowed = deserializeNullAllowed(obj);
+  auto nanAllowed = obj["nanAllowed"].asBool();
+  folly::dynamic arr = obj["filters"];
+  auto tmpFilters = ISerializable::deserialize<std::vector<Filter>>(arr);
+
+  std::vector<std::unique_ptr<Filter>> filters;
+  filters.reserve(tmpFilters.size());
+  for (const auto& f : tmpFilters) {
+    filters.emplace_back(f->clone());
+  }
+
+  return std::make_unique<MultiRange>(
+      std::move(filters), nullAllowed, nanAllowed);
+}
+
+bool MultiRange::testingEquals(const Filter& other) const {
+  auto otherMultiRange = dynamic_cast<const MultiRange*>(&other);
+  auto res = otherMultiRange != nullptr && Filter::testingBaseEquals(other) &&
+      nanAllowed_ == otherMultiRange->nanAllowed_ &&
+      filters_.size() == otherMultiRange->filters_.size();
+
+  if (!res) {
+    return false;
+  }
+
+  for (size_t i = 0; i < filters_.size(); ++i) {
+    if (!filters_.at(i)->testingEquals(
+            *(otherMultiRange->filters_.at(i)->clone()))) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 BigintValuesUsingBitmask::BigintValuesUsingBitmask(

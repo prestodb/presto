@@ -52,6 +52,8 @@ class HugeInt {
       char* serializedData) {
     memcpy(serializedData, &value, sizeof(int128_t));
   }
+
+  static int128_t parse(const std::string& str);
 };
 
 } // namespace facebook::velox

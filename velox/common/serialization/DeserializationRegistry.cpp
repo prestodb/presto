@@ -28,4 +28,9 @@ DeserializationWithContextRegistryForSharedPtr() {
   return kRegistry;
 }
 
+DeserializationRegistryUniquePtrType& deserializationRegistryForUniquePtr() {
+  static DeserializationRegistryUniquePtrType kRegistry;
+  return kRegistry;
+}
+
 } // namespace facebook::velox

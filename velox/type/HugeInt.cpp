@@ -16,6 +16,64 @@
 
 #include "velox/type/HugeInt.h"
 
+namespace facebook::velox {
+
+int128_t HugeInt::parse(const std::string& str) {
+  int128_t result = 0;
+  bool negative = false;
+  size_t idx = 0;
+
+  VELOX_CHECK(!str.empty(), "Empty string cannot be converted to int128_t.");
+
+  for (; idx < str.length() && str.at(idx) == ' '; ++idx) {
+  }
+
+  if (idx < str.length() && str.at(idx) == '+') {
+    ++idx;
+  } else if (idx < str.length() && str.at(idx) == '-') {
+    ++idx;
+    negative = true;
+  }
+
+  int128_t max = std::numeric_limits<int128_t>::max();
+  int128_t min = std::numeric_limits<int128_t>::min();
+  for (; idx < str.size(); ++idx) {
+    VELOX_CHECK(
+        std::isdigit(str[idx]), "Invalid character {} in the string.", str[idx])
+
+    // Throw error if the result is out of the range of int128_t, and return the
+    // result before computing the last digit if the digit string would be the
+    // min or max value of int128_t to avoid the potential overflow issue making
+    // it more robust.
+    int128_t cur = str[idx] - '0';
+    if ((result > max / 10)) {
+      VELOX_FAIL(fmt::format("{} is out of range of int128_t", str));
+    }
+
+    int128_t num = cur - (max % 10);
+    if (result == (max / 10)) {
+      if (negative) {
+        if (num > 1) {
+          VELOX_FAIL(fmt::format("{} is out of range of int128_t", str));
+        } else if (num == 1) {
+          return min;
+        }
+      } else {
+        if (num > 0) {
+          VELOX_FAIL(fmt::format("{} is out of range of int128_t", str));
+        } else if (num == 0) {
+          return max;
+        }
+      }
+    }
+
+    result = result * 10 + cur;
+  }
+
+  return negative ? -result : result;
+}
+} // namespace facebook::velox
+
 namespace std {
 
 string to_string(facebook::velox::int128_t x) {
