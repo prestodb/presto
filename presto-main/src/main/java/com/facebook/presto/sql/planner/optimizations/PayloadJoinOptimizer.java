@@ -276,7 +276,7 @@ public class PayloadJoinOptimizer
 
             PlanNode newChild = context.rewrite(child, context.get());
 
-            if (child.equals(newChild) || !context.get().needsPayloadRejoin()) {
+            if (child.equals(newChild)) {
                 return projectNode;
             }
 
