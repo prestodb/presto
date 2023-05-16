@@ -20,6 +20,9 @@
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/StreamIdentifier.h"
 
+// Use WS VRead API to load
+DECLARE_bool(wsVRLoad);
+
 namespace facebook::velox::dwio::common {
 
 class BufferedInput {
@@ -30,17 +33,20 @@ class BufferedInput {
       std::shared_ptr<ReadFile> readFile,
       memory::MemoryPool& pool,
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
-      IoStatistics* FOLLY_NULLABLE stats = nullptr)
+      IoStatistics* FOLLY_NULLABLE stats = nullptr,
+      bool wsVRLoad = FLAGS_wsVRLoad)
       : input_{std::make_shared<ReadFileInputStream>(
             std::move(readFile),
             metricsLog,
             stats)},
-        pool_{pool} {}
+        pool_{pool},
+        wsVRLoad_{wsVRLoad} {}
 
   BufferedInput(
       std::shared_ptr<ReadFileInputStream> input,
-      memory::MemoryPool& pool)
-      : input_(std::move(input)), pool_(pool) {}
+      memory::MemoryPool& pool,
+      bool wsVRLoad = FLAGS_wsVRLoad)
+      : input_(std::move(input)), pool_(pool), wsVRLoad_{wsVRLoad} {}
 
   BufferedInput(BufferedInput&&) = default;
   virtual ~BufferedInput() = default;
@@ -57,7 +63,8 @@ class BufferedInput {
   // Now we allow callers to enqueue region any time/place
   // and we do final load into buffer in 2 steps (enqueue....load)
   // 'si' allows tracking which streams actually get read. This may control
-  // read-ahead and caching for BufferedInput implementations supporting these.
+  // read-ahead and caching for BufferedInput implementations supporting
+  // these.
   virtual std::unique_ptr<SeekableInputStream> enqueue(
       Region region,
       const StreamIdentifier* FOLLY_NULLABLE si = nullptr);
@@ -74,8 +81,8 @@ class BufferedInput {
     std::unique_ptr<SeekableInputStream> ret = readBuffer(offset, length);
     if (!ret) {
       VLOG(1) << "Unplanned read. Offset: " << offset << ", Length: " << length;
-      // We cannot do enqueue/load here because load() clears previously loaded
-      // data. TODO: figure out how we can use the data cache for
+      // We cannot do enqueue/load here because load() clears previously
+      // loaded data. TODO: figure out how we can use the data cache for
       // this access.
       ret = std::make_unique<SeekableFileInputStream>(
           input_, offset, length, pool_, logType, input_->getNaturalReadSize());
@@ -101,8 +108,8 @@ class BufferedInput {
 
   virtual void setNumStripes(int32_t /*numStripes*/) {}
 
-  // Create a new (clean) instance of BufferedInput sharing the same underlying
-  // file and memory pool.  The enqueued regions are NOT copied.
+  // Create a new (clean) instance of BufferedInput sharing the same
+  // underlying file and memory pool.  The enqueued regions are NOT copied.
   virtual std::unique_ptr<BufferedInput> clone() const {
     return std::make_unique<BufferedInput>(input_, pool_);
   }
@@ -129,6 +136,7 @@ class BufferedInput {
   memory::MemoryPool& pool_;
 
  private:
+  bool wsVRLoad_;
   std::vector<uint64_t> offsets_;
   std::vector<DataBuffer<char>> buffers_;
   std::vector<Region> regions_;

@@ -36,7 +36,7 @@ void BufferedInput::load(const LogType logType) {
   // sorting the regions from low to high
   std::sort(regions_.begin(), regions_.end());
 
-  if (UNLIKELY(FLAGS_wsVRLoad)) {
+  if (wsVRLoad_) {
     std::vector<void*> buffers;
     std::vector<Region> regions;
     uint64_t sizeToRead = 0;
