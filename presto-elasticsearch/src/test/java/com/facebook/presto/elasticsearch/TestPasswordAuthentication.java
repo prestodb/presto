@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
+import static com.facebook.presto.elasticsearch.client.ElasticSearchClientUtils.performRequest;
 import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -92,12 +93,12 @@ public class TestPasswordAuthentication
                 .put("value", 42L)
                 .build());
 
-        client.getLowLevelClient()
-                .performRequest(
+        performRequest(
                         "POST",
                         "/test/_doc?refresh",
                         ImmutableMap.of(),
                         new NStringEntity(json, ContentType.APPLICATION_JSON),
+                        client,
                         new BasicHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
 
         assertions.assertQuery("SELECT * FROM test",
