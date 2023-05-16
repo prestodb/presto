@@ -75,7 +75,7 @@ void PeriodicTaskManager::start() {
     addAsyncDataCacheStatsTask();
   }
   addConnectorStatsTask();
-  addOperatingSystemStatsTask();
+  addOperatingSystemStatsUpdateTask();
 
   // This should be the last call in this method.
   scheduler_.start();
@@ -416,59 +416,51 @@ void PeriodicTaskManager::addConnectorStatsTask() {
   }
 }
 
-void PeriodicTaskManager::addOperatingSystemStatsTask() {
+void PeriodicTaskManager::updateOperatingSystemStats() {
+  struct rusage usage {};
+  memset(&usage, 0, sizeof(usage));
+  getrusage(RUSAGE_SELF, &usage);
+
+  const int64_t userCpuTimeUs{
+      (int64_t)usage.ru_utime.tv_sec * 1'000'000 +
+      (int64_t)usage.ru_utime.tv_usec};
+  REPORT_ADD_STAT_VALUE(
+      kCounterOsUserCpuTimeMicros, userCpuTimeUs - lastUserCpuTimeUs_);
+  lastUserCpuTimeUs_ = userCpuTimeUs;
+
+  const int64_t systemCpuTimeUs{
+      (int64_t)usage.ru_stime.tv_sec * 1'000'000 +
+      (int64_t)usage.ru_stime.tv_usec};
+  REPORT_ADD_STAT_VALUE(
+      kCounterOsSystemCpuTimeMicros, systemCpuTimeUs - lastSystemCpuTimeUs_);
+  lastSystemCpuTimeUs_ = systemCpuTimeUs;
+
+  const int64_t softPageFaults{usage.ru_minflt};
+  REPORT_ADD_STAT_VALUE(
+      kCounterOsNumSoftPageFaults, softPageFaults - lastSoftPageFaults_);
+  lastSoftPageFaults_ = softPageFaults;
+
+  const int64_t hardPageFaults{usage.ru_majflt};
+  REPORT_ADD_STAT_VALUE(
+      kCounterOsNumHardPageFaults, hardPageFaults - lastHardPageFaults_);
+  lastHardPageFaults_ = hardPageFaults;
+
+  const int64_t voluntaryContextSwitches{usage.ru_nvcsw};
+  REPORT_ADD_STAT_VALUE(
+      kCounterOsNumVoluntaryContextSwitches,
+      voluntaryContextSwitches - lastVoluntaryContextSwitches_);
+  lastVoluntaryContextSwitches_ = voluntaryContextSwitches;
+
+  const int64_t forcedContextSwitches{usage.ru_nivcsw};
+  REPORT_ADD_STAT_VALUE(
+      kCounterOsNumForcedContextSwitches,
+      forcedContextSwitches - lastForcedContextSwitches_);
+  lastForcedContextSwitches_ = forcedContextSwitches;
+}
+
+void PeriodicTaskManager::addOperatingSystemStatsUpdateTask() {
   scheduler_.addFunction(
-      []() {
-        struct rusage usage {};
-        memset(&usage, 0, sizeof(usage));
-        getrusage(RUSAGE_SELF, &usage);
-
-        static int64_t userCpuTimeMicrosOld{0};
-        const int64_t userCpuTimeMicrosNew{
-            (int64_t)usage.ru_utime.tv_sec * 1'000'000 +
-            (int64_t)usage.ru_utime.tv_usec};
-        REPORT_ADD_STAT_VALUE(
-            kCounterOsUserCpuTimeMicros,
-            userCpuTimeMicrosNew - userCpuTimeMicrosOld);
-        userCpuTimeMicrosOld = userCpuTimeMicrosNew;
-
-        static int64_t systemCpuTimeMicrosOld{0};
-        const int64_t systemCpuTimeMicrosNew{
-            (int64_t)usage.ru_stime.tv_sec * 1'000'000 +
-            (int64_t)usage.ru_stime.tv_usec};
-        REPORT_ADD_STAT_VALUE(
-            kCounterOsSystemCpuTimeMicros,
-            systemCpuTimeMicrosNew - systemCpuTimeMicrosOld);
-        systemCpuTimeMicrosOld = systemCpuTimeMicrosNew;
-
-        static int64_t numSoftPageFaultsOld{0};
-        const int64_t numSoftPageFaultsNew{usage.ru_minflt};
-        REPORT_ADD_STAT_VALUE(
-            kCounterOsNumSoftPageFaults,
-            numSoftPageFaultsNew - numSoftPageFaultsOld);
-        numSoftPageFaultsOld = numSoftPageFaultsNew;
-
-        static int64_t numHardPageFaultsOld{0};
-        const int64_t numHardPageFaultsNew{usage.ru_majflt};
-        REPORT_ADD_STAT_VALUE(
-            kCounterOsNumHardPageFaults,
-            numHardPageFaultsNew - numHardPageFaultsOld);
-        numHardPageFaultsOld = numHardPageFaultsNew;
-
-        static int64_t numVoluntaryContextSwitchesOld{0};
-        const int64_t numVoluntaryContextSwitchesNew{usage.ru_nvcsw};
-        REPORT_ADD_STAT_VALUE(
-            kCounterOsNumVoluntaryContextSwitches,
-            numVoluntaryContextSwitchesNew - numVoluntaryContextSwitchesOld);
-        numVoluntaryContextSwitchesOld = numVoluntaryContextSwitchesNew;
-
-        static int64_t numForcedContextSwitchesOld{0};
-        const int64_t numForcedContextSwitchesNew{usage.ru_nivcsw};
-        REPORT_ADD_STAT_VALUE(
-            kCounterOsNumForcedContextSwitches,
-            numForcedContextSwitchesNew - numForcedContextSwitchesOld);
-        numForcedContextSwitchesOld = numForcedContextSwitchesNew;
-      },
+      [this]() { updateOperatingSystemStats(); },
       std::chrono::microseconds{kOsPeriodGlobalCounters},
       "os_counters");
 }
