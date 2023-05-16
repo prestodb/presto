@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.nativeworker.AbstractTestNativeJoinQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Ignore;
+import org.testng.annotations.Test;
 
 public class TestPrestoSparkNativeJoinQueries
         extends AbstractTestNativeJoinQueries
@@ -45,6 +47,13 @@ public class TestPrestoSparkNativeJoinQueries
     public Object[][] joinTypeProviderImpl()
     {
         return new Object[][] {{partitionedJoin()}};
+    }
+
+    @Test
+    public void testBroadcastJoin()
+    {
+        assertQueryFails(broadcastJoin(), "SELECT * FROM orders o, lineitem l WHERE o.orderkey = l.orderkey",
+                ".*Broadcast shuffle is not supported");
     }
 
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
