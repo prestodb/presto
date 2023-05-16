@@ -13,12 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/expression/VectorFunction.h"
+#include "velox/common/base/BloomFilter.h"
+#include "velox/core/QueryConfig.h"
+#include "velox/functions/Macros.h"
 
 namespace facebook::velox::functions::sparksql {
 
-std::vector<std::shared_ptr<exec::FunctionSignature>> mightContainSignatures();
+template <typename T>
+struct BloomFilterMightContainFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
 
-std::unique_ptr<exec::VectorFunction> makeMightContain();
+  using Allocator = std::allocator<uint64_t>;
+
+  void initialize(
+      const core::QueryConfig&,
+      const arg_type<Varbinary>* serialized,
+      const arg_type<int64_t>*) {
+    if (serialized != nullptr) {
+      bloomFilter_.merge(serialized->str().c_str());
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void
+  call(bool& result, const arg_type<Varbinary>&, const int64_t& input) {
+    result = bloomFilter_.isSet()
+        ? bloomFilter_.mayContain(folly::hasher<int64_t>()(input))
+        : false;
+  }
+
+ private:
+  BloomFilter<Allocator> bloomFilter_;
+};
 
 } // namespace facebook::velox::functions::sparksql

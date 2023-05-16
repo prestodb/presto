@@ -16,7 +16,6 @@
 
 #include "velox/functions/sparksql/MightContain.h"
 #include "velox/common/base/BloomFilter.h"
-#include "velox/common/memory/HashStringAllocator.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 
 namespace facebook::velox::functions::sparksql::test {
@@ -25,17 +24,34 @@ namespace {
 class MightContainTest : public SparkFunctionBaseTest {
  protected:
   void testMightContain(
-      const VectorPtr& bloom,
+      const std::optional<std::string>& serialized,
       const VectorPtr& value,
       const VectorPtr& expected) {
-    auto result = evaluate(
-        "might_contain(cast(c0 as varbinary), c1)",
-        makeRowVector({bloom, value}));
-    velox::test::assertEqualVectors(expected, result);
+    // Not using `evaluate()` because the bloom filter binary cannot be parsed
+    // by DuckDB parser.
+    auto selected = SelectivityVector(value->size());
+    std::vector<core::TypedExprPtr> args;
+    if (serialized.has_value()) {
+      args.push_back(std::make_shared<core::ConstantTypedExpr>(
+          VARBINARY(), variant::binary(serialized.value())));
+    } else {
+      args.push_back(std::make_shared<core::ConstantTypedExpr>(
+          VARBINARY(), variant::null(TypeKind::VARBINARY)));
+    }
+    args.push_back(
+        std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c0"));
+    auto expr = exec::ExprSet(
+        {std::make_shared<core::CallTypedExpr>(
+            BOOLEAN(), args, "might_contain")},
+        &execCtx_);
+    auto data = makeRowVector({value});
+    exec::EvalCtx evalCtx(&execCtx_, &expr, data.get());
+    std::vector<VectorPtr> results(1);
+    expr.eval(selected, evalCtx, results);
+    velox::test::assertEqualVectors(expected, results[0]);
   }
 
-  std::string getSerializedBloomFilter() {
-    constexpr int64_t kSize = 10;
+  std::string getSerializedBloomFilter(int32_t kSize) {
     BloomFilter bloomFilter;
     bloomFilter.reset(kSize);
     for (auto i = 0; i < kSize; ++i) {
@@ -49,30 +65,29 @@ class MightContainTest : public SparkFunctionBaseTest {
 };
 
 TEST_F(MightContainTest, basic) {
-  auto serialized = getSerializedBloomFilter();
-  auto bloomFilter = makeConstant<StringView>(StringView(serialized), 10);
+  constexpr int32_t kSize = 10;
+  auto serialized = getSerializedBloomFilter(kSize);
   auto value =
-      makeFlatVector<int64_t>(10, [](vector_size_t row) { return row; });
-  auto expectedContain = makeConstant(true, 10);
-  testMightContain(bloomFilter, value, expectedContain);
+      makeFlatVector<int64_t>(kSize, [](vector_size_t row) { return row; });
+  auto expectedContain = makeConstant(true, kSize);
+  testMightContain(serialized, value, expectedContain);
 
   auto valueNotContain = makeFlatVector<int64_t>(
-      10, [](vector_size_t row) { return row + 123451; });
-  auto expectedNotContain = makeConstant(false, 10);
-  testMightContain(bloomFilter, valueNotContain, expectedNotContain);
+      kSize, [](vector_size_t row) { return row + 123451; });
+  auto expectedNotContain = makeConstant(false, kSize);
+  testMightContain(serialized, valueNotContain, expectedNotContain);
 
   auto values = makeNullableFlatVector<int64_t>(
       {1, 2, 3, 4, 5, std::nullopt, 123451, 23456, 4, 5});
   auto expected = makeNullableFlatVector<bool>(
       {true, true, true, true, true, std::nullopt, false, false, true, true});
-  testMightContain(bloomFilter, values, expected);
+  testMightContain(serialized, values, expected);
 }
 
 TEST_F(MightContainTest, nullBloomFilter) {
-  auto bloomFilter = makeConstant<StringView>(std::nullopt, 2);
   auto value = makeFlatVector<int64_t>({2, 4});
-  auto expected = makeNullConstant(TypeKind::BOOLEAN, 2);
-  testMightContain(bloomFilter, value, expected);
+  auto expected = makeNullConstant(TypeKind::BOOLEAN, value->size());
+  testMightContain(std::nullopt, value, expected);
 }
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

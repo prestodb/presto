@@ -44,7 +44,7 @@ class BloomFilter {
     bits_.resize(std::max<int32_t>(4, bits::nextPowerOfTwo(capacity) / 4));
   }
 
-  bool isSet() {
+  bool isSet() const {
     return bits_.size() > 0;
   }
 
