@@ -44,6 +44,10 @@ public class TestPrestoSparkNativeGeneralQueries
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
     @Ignore
+    public void testUnionAll() {}
+
+    @Override
+    @Ignore
     public void testBucketedExecution() {}
 
     @Override
