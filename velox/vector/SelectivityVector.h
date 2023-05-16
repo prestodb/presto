@@ -445,5 +445,11 @@ inline bool SelectivityVector::testSelected(Callable func) const {
   }
   return bits::testSetBits(bits_.data(), begin_, end_, func);
 }
+
+void translateToInnerRows(
+    const SelectivityVector& outerRows,
+    const vector_size_t* indices,
+    const uint64_t* nulls,
+    SelectivityVector& innerRows);
 } // namespace velox
 } // namespace facebook

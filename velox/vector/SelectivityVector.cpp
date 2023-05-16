@@ -15,6 +15,8 @@
  */
 #include "velox/vector/SelectivityVector.h"
 
+#include "velox/common/base/Nulls.h"
+
 namespace facebook::velox {
 
 // static
@@ -50,6 +52,19 @@ std::string SelectivityVector::toString(
     });
   }
   return out.str();
+}
+
+void translateToInnerRows(
+    const SelectivityVector& outerRows,
+    const vector_size_t* indices,
+    const uint64_t* nulls,
+    SelectivityVector& innerRows) {
+  outerRows.applyToSelected([&](vector_size_t row) {
+    if (!(nulls && bits::isBitNull(nulls, row))) {
+      innerRows.setValid(indices[row], true);
+    }
+  });
+  innerRows.updateBounds();
 }
 
 } // namespace facebook::velox

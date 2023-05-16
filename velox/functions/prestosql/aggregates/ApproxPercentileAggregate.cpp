@@ -554,7 +554,21 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     DecodedVector decoded(*args[0], rows);
     auto rowVec = decoded.base()->as<RowVector>();
     VELOX_CHECK(rowVec);
-    DecodedVector percentiles(*rowVec->childAt(kPercentiles), rows);
+
+    const SelectivityVector* baseRows = &rows;
+    SelectivityVector innerRows{rowVec->size(), false};
+    if (!decoded.isIdentityMapping()) {
+      if (decoded.isConstantMapping()) {
+        innerRows.setValid(decoded.index(0), true);
+        innerRows.updateBounds();
+      } else {
+        velox::translateToInnerRows(
+            rows, decoded.indices(), decoded.nulls(), innerRows);
+      }
+      baseRows = &innerRows;
+    }
+
+    DecodedVector percentiles(*rowVec->childAt(kPercentiles), *baseRows);
     auto percentileIsArray =
         rowVec->childAt(kPercentilesIsArray)->asUnchecked<SimpleVector<bool>>();
     auto accuracy =
