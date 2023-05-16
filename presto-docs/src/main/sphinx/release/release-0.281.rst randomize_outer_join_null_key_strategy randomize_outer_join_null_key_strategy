@@ -24,7 +24,7 @@ _______________
 
 Resource Groups Changes
 _______________________
-* Add ``workersPerQueryLimit``, which specifies the minimum number of workers that have to be available for each query.
+* Add ``workersPerQueryLimit``, which specifies the minimum number of workers that have to be available for each query. This is optional and defaults to 0. See :doc:`/admin/resource-groups`.
 
 SPI Changes
 ___________
