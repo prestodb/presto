@@ -170,8 +170,12 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
        {"        runningFinishWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"        runningGetOutputWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"     HashProbe: Input: 2000 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: .+, Memory allocations: .+, Threads: 1"},
-       {"        blockedWaitForJoinBuildTimes        sum: 1, count: 1, min: 1, max: 1"},
-       {"        blockedWaitForJoinBuildWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
+       // These lines may or may not appear depending on whether the operator
+       // gets blocked during a run.
+       {"        blockedWaitForJoinBuildTimes        sum: 1, count: 1, min: 1, max: 1",
+        true},
+       {"        blockedWaitForJoinBuildWallNanos\\s+sum: .+, count: 1, min: .+, max: .+",
+        true},
        {"        dynamicFiltersProduced\\s+sum: 1, count: 1, min: 1, max: 1"},
        {"        queuedWallNanos\\s+sum: .+, count: 1, min: .+, max: .+",
         true}, // This line may or may not appear depending on how the threads
