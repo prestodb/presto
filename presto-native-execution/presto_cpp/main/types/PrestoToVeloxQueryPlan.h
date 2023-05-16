@@ -35,6 +35,8 @@ class VeloxQueryPlanConverterBase {
   explicit VeloxQueryPlanConverterBase(velox::memory::MemoryPool* pool)
       : pool_(pool), exprConverter_(pool) {}
 
+  virtual ~VeloxQueryPlanConverterBase() = default;
+
   virtual velox::core::PlanFragment toVeloxQueryPlan(
       const protocol::PlanFragment& fragment,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
