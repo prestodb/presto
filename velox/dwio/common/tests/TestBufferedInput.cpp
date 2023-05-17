@@ -79,6 +79,8 @@ void expectPreadvs(
         for (size_t i = 0; i < reads.size(); ++i) {
           const auto& segment = segments[i];
           const auto& read = reads[i];
+          ASSERT_EQ(segment.offset, read.first);
+          ASSERT_EQ(segment.buffer.size(), read.second);
           ASSERT_LE(segment.offset + segment.buffer.size(), content.size());
           ASSERT_EQ(segment.offset, read.first);
           ASSERT_EQ(segment.buffer.size(), read.second);
