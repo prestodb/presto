@@ -26,6 +26,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/core/QueryConfig.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 
 using namespace facebook::velox;

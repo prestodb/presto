@@ -49,7 +49,7 @@ class SizeTest : public SparkFunctionBaseTest {
   }
 
   void setConfig(std::string configStr, bool value) {
-    execCtx_.queryCtx()->setConfigOverridesUnsafe({
+    execCtx_.queryCtx()->testingOverrideConfigUnsafe({
         {configStr, std::to_string(value)},
     });
   }

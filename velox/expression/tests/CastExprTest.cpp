@@ -39,19 +39,19 @@ class CastExprTest : public functions::test::CastBaseTest {
   }
 
   void setCastIntByTruncate(bool value) {
-    queryCtx_->setConfigOverridesUnsafe({
+    queryCtx_->testingOverrideConfigUnsafe({
         {core::QueryConfig::kCastToIntByTruncate, std::to_string(value)},
     });
   }
 
   void setCastMatchStructByName(bool value) {
-    queryCtx_->setConfigOverridesUnsafe({
+    queryCtx_->testingOverrideConfigUnsafe({
         {core::QueryConfig::kCastMatchStructByName, std::to_string(value)},
     });
   }
 
   void setTimezone(const std::string& value) {
-    queryCtx_->setConfigOverridesUnsafe({
+    queryCtx_->testingOverrideConfigUnsafe({
         {core::QueryConfig::kSessionTimezone, value},
         {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
     });

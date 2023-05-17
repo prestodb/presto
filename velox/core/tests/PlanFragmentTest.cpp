@@ -15,7 +15,6 @@
  */
 #include <gtest/gtest.h>
 
-#include "velox/core/Context.h"
 #include "velox/core/PlanFragment.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/core/QueryCtx.h"
@@ -64,8 +63,7 @@ class PlanFragmentTest : public testing::Test {
         {QueryConfig::kOrderBySpillEnabled,
          orderBySpillEnabled ? "true" : "false"},
     });
-    return std::make_shared<QueryCtx>(
-        nullptr, std::make_shared<MemConfig>(configData));
+    return std::make_shared<QueryCtx>(nullptr, std::move(configData));
   }
 
   RowTypePtr rowType_;

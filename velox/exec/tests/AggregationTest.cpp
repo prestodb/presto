@@ -826,7 +826,7 @@ TEST_F(AggregationTest, partialAggregationMaybeReservationReleaseCheck) {
   // Make sure partial aggregation runs out of memory after first batch.
   CursorParameters params;
   params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  params.queryCtx->setConfigOverridesUnsafe({
+  params.queryCtx->testingOverrideConfigUnsafe({
       {QueryConfig::kMaxPartialAggregationMemory,
        std::to_string(kMaxPartialMemoryUsage)},
       {QueryConfig::kMaxExtendedPartialAggregationMemory,

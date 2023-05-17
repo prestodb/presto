@@ -18,7 +18,7 @@
 #include "velox/common/file/File.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
-#include "velox/core/Context.h"
+#include "velox/core/Config.h"
 
 #include <fmt/format.h>
 #include <glog/logging.h>

@@ -15,16 +15,13 @@
  */
 #include <gtest/gtest.h>
 
-#include "velox/core/Context.h"
-#include "velox/core/QueryConfig.h"
 #include "velox/core/QueryCtx.h"
 
 namespace facebook::velox::core::test {
 
 TEST(TestQueryConfig, emptyConfig) {
   std::unordered_map<std::string, std::string> configData;
-  auto queryCtxConfig = std::make_shared<MemConfig>(configData);
-  auto queryCtx = std::make_shared<QueryCtx>(nullptr, queryCtxConfig);
+  auto queryCtx = std::make_shared<QueryCtx>(nullptr, std::move(configData));
   const QueryConfig& config = queryCtx->queryConfig();
 
   ASSERT_FALSE(config.codegenEnabled());
@@ -37,8 +34,7 @@ TEST(TestQueryConfig, setConfig) {
   std::unordered_map<std::string, std::string> configData(
       {{QueryConfig::kCodegenEnabled, "true"},
        {QueryConfig::kCodegenConfigurationFilePath, path}});
-  auto queryCtxConfig = std::make_shared<MemConfig>(configData);
-  auto queryCtx = std::make_shared<QueryCtx>(nullptr, queryCtxConfig);
+  auto queryCtx = std::make_shared<QueryCtx>(nullptr, std::move(configData));
   const QueryConfig& config = queryCtx->queryConfig();
 
   ASSERT_TRUE(config.codegenEnabled());

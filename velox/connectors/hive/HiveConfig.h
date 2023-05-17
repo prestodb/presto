@@ -15,7 +15,12 @@
  */
 #pragma once
 
-#include "velox/core/Context.h"
+#include <folly/Optional.h>
+#include <string>
+
+namespace facebook::velox {
+class Config;
+}
 
 namespace facebook::velox::connector::hive {
 

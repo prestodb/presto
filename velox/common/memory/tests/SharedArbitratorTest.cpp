@@ -1199,9 +1199,10 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
     std::unordered_map<std::string, std::shared_ptr<Config>> configs;
     std::shared_ptr<MemoryPool> pool = memoryManager_->addRootPool(
         "", memoryCapacity, MemoryReclaimer::create());
+
     auto queryCtx = std::make_shared<core::QueryCtx>(
         executor_.get(),
-        std::make_shared<core::MemConfig>(),
+        std::unordered_map<std::string, std::string>{},
         configs,
         memory::MemoryAllocator::getInstance(),
         std::move(pool));

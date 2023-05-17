@@ -15,7 +15,7 @@
  */
 
 #include "velox/connectors/hive/storage_adapters/s3fs/benchmark/S3ReadBenchmark.h"
-#include "velox/core/Context.h"
+#include "velox/core/Config.h"
 
 #include <fstream>
 

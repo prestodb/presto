@@ -233,7 +233,7 @@ TEST_F(EvalSimplifiedTest, propagateNulls) {
 // Ensure that the right exprSet object is instantiated if `kExprEvalSimplified`
 // is specified.
 TEST_F(EvalSimplifiedTest, queryParameter) {
-  queryCtx_->setConfigOverridesUnsafe({
+  queryCtx_->testingOverrideConfigUnsafe({
       {core::QueryConfig::kExprEvalSimplified, "true"},
   });
 

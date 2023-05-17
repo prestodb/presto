@@ -18,7 +18,6 @@
 #include <folly/synchronization/CallOnce.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/file/File.h"
-#include "velox/core/Context.h"
 
 #include <cstdio>
 #include <filesystem>

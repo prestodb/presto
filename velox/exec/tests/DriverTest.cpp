@@ -546,12 +546,11 @@ TEST_F(DriverTest, pause) {
       [](int64_t num) { return num % 10 > 0; },
       &hits);
   params.maxDrivers = 10;
-  params.queryCtx = std::make_shared<core::QueryCtx>(
-      executor_.get(),
-      // Make sure CPU usage tracking is enabled.
-      std::make_shared<core::MemConfig>(
-          std::unordered_map<std::string, std::string>{
-              {core::QueryConfig::kOperatorTrackCpuUsage, "true"}}));
+  // Make sure CPU usage tracking is enabled.
+  std::unordered_map<std::string, std::string> queryConfig{
+      {core::QueryConfig::kOperatorTrackCpuUsage, "true"}};
+  params.queryCtx =
+      std::make_shared<core::QueryCtx>(executor_.get(), std::move(queryConfig));
   int32_t numRead = 0;
   readResults(params, ResultOperation::kPause, 370'000'000, &numRead);
   // Each thread will fully read the 1M rows in values.
@@ -770,10 +769,9 @@ TEST_F(DriverTest, pauserNode) {
       kThreadsPerTask, sequence, testInstance));
 
   std::vector<CursorParameters> params(kNumTasks);
-  int32_t hits;
+  int32_t hits{0};
   for (int32_t i = 0; i < kNumTasks; ++i) {
-    params[i].queryCtx = std::make_shared<core::QueryCtx>(
-        executor.get(), std::make_shared<core::MemConfig>());
+    params[i].queryCtx = std::make_shared<core::QueryCtx>(executor.get());
     params[i].planNode = makeValuesFilterProject(
         rowType_,
         "m1 % 10 > 0",

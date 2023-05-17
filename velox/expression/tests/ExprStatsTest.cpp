@@ -33,7 +33,7 @@ class ExprStatsTest : public functions::test::FunctionBaseTest {
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
     // Enable CPU usage tracking.
-    queryCtx_->setConfigOverridesUnsafe({
+    queryCtx_->testingOverrideConfigUnsafe({
         {core::QueryConfig::kExprTrackCpuUsage, "true"},
     });
   }

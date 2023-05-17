@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/core/Context.h"
+#include "velox/core/Config.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include "boost/process.hpp"

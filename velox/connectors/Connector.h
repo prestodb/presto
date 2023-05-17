@@ -19,7 +19,6 @@
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/caching/ScanTracker.h"
 #include "velox/common/future/VeloxPromise.h"
-#include "velox/core/Context.h"
 #include "velox/core/ExpressionEvaluator.h"
 #include "velox/vector/ComplexVector.h"
 
@@ -27,6 +26,10 @@
 
 namespace facebook::velox::common {
 class Filter;
+}
+
+namespace facebook::velox {
+class Config;
 }
 
 namespace facebook::velox::connector {

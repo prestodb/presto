@@ -524,7 +524,7 @@ class HashJoinBuilder {
     }
     if (!configs_.empty()) {
       auto configCopy = configs_;
-      queryCtx->setConfigOverridesUnsafe(std::move(configCopy));
+      queryCtx->testingOverrideConfigUnsafe(std::move(configCopy));
     }
     if (queryPool_ != nullptr) {
       queryCtx->testingOverrideMemoryPool(queryPool_);
@@ -4353,7 +4353,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, buildReservationReleaseCheck) {
   // spilling is really triggered in test or not.
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   params.spillDirectory = spillDirectory->path;
-  params.queryCtx->setConfigOverridesUnsafe(
+  params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kSpillEnabled, "true"},
        {core::QueryConfig::kMaxSpillLevel, "0"},
        {core::QueryConfig::kJoinSpillEnabled, "true"}});

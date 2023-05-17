@@ -13,9 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
+#include "velox/core/QueryConfig.h"
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-// TODO(spershin): Remove when migrate presto_cpp to the new header.
-#include "velox/core/Config.h"
-#endif // VELOX_ENABLE_BACKWARD_COMPATIBILITY
+namespace facebook::velox::core {
+
+QueryConfig::QueryConfig(
+    const std::unordered_map<std::string, std::string>& values)
+    : config_{std::make_unique<MemConfig>(values)} {}
+
+QueryConfig::QueryConfig(std::unordered_map<std::string, std::string>&& values)
+    : config_{std::make_unique<MemConfig>(std::move(values))} {}
+
+void QueryConfig::testingOverrideConfigUnsafe(
+    std::unordered_map<std::string, std::string>&& values) {
+  config_ = std::make_unique<MemConfig>(std::move(values));
+}
+
+} // namespace facebook::velox::core

@@ -173,7 +173,7 @@ class OrderByTest : public OperatorTestBase {
       SCOPED_TRACE("run with spilling");
       auto spillDirectory = exec::test::TempDirectoryPath::create();
       auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-      queryCtx->setConfigOverridesUnsafe({
+      queryCtx->testingOverrideConfigUnsafe({
           {core::QueryConfig::kTestingSpillPct, "100"},
           {core::QueryConfig::kSpillEnabled, "true"},
           {core::QueryConfig::kOrderBySpillEnabled, "true"},
@@ -407,7 +407,7 @@ TEST_F(OrderByTest, outputBatchRows) {
                     .capturePlanNodeId(orderById)
                     .planNode();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    queryCtx->setConfigOverridesUnsafe(
+    queryCtx->testingOverrideConfigUnsafe(
         {{core::QueryConfig::kPreferredOutputBatchBytes,
           std::to_string(testData.preferredOutBatchBytes)}});
     CursorParameters params;
@@ -446,7 +446,7 @@ TEST_F(OrderByTest, spill) {
           queryCtx->queryId(), kMaxBytes));
   // Set 'kSpillableReservationGrowthPct' to an extreme large value to trigger
   // disk spilling by failed memory growth reservation.
-  queryCtx->setConfigOverridesUnsafe({
+  queryCtx->testingOverrideConfigUnsafe({
       {core::QueryConfig::kSpillEnabled, "true"},
       {core::QueryConfig::kOrderBySpillEnabled, "true"},
       {core::QueryConfig::kSpillableReservationGrowthPct, "1000"},

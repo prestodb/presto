@@ -24,7 +24,7 @@ namespace {
 class DateTimeFunctionsTest : public SparkFunctionBaseTest {
  protected:
   void setQueryTimeZone(const std::string& timeZone) {
-    queryCtx_->setConfigOverridesUnsafe({
+    queryCtx_->testingOverrideConfigUnsafe({
         {core::QueryConfig::kSessionTimezone, timeZone},
         {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
     });

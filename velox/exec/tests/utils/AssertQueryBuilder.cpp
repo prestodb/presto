@@ -215,7 +215,7 @@ AssertQueryBuilder::readCursor() {
     }
   }
   if (!configs_.empty()) {
-    params_.queryCtx->setConfigOverridesUnsafe(std::move(configs_));
+    params_.queryCtx->testingOverrideConfigUnsafe(std::move(configs_));
   }
   if (!connectorConfigs_.empty()) {
     for (auto& [connectorId, configs] : connectorConfigs_) {

@@ -15,6 +15,7 @@
  */
 
 #include "velox/connectors/hive/HiveConfig.h"
+#include "velox/core/Config.h"
 
 #include <boost/algorithm/string.hpp>
 

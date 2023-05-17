@@ -912,7 +912,7 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
   CursorParameters params;
   params.planNode = plan;
   params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
-  params.queryCtx->setConfigOverridesUnsafe(
+  params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kPreferredOutputBatchRows, "1"}});
 
   {
@@ -958,7 +958,7 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
   CursorParameters params;
   params.planNode = plan;
   params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  params.queryCtx->setConfigOverridesUnsafe(
+  params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kPreferredOutputBatchRows, "1"}});
 
   auto cursor = std::make_unique<TaskCursor>(params);

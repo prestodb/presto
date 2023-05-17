@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "velox/core/Context.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include <pwd.h>

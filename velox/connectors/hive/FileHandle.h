@@ -32,10 +32,11 @@
 #include "velox/common/caching/CachedFactory.h"
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/file/File.h"
-#include "velox/core/Context.h"
 #include "velox/dwio/common/InputStream.h"
 
 namespace facebook::velox {
+
+class Config;
 
 // See the file comment.
 struct FileHandle {

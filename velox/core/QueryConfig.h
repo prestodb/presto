@@ -15,16 +15,20 @@
  */
 #pragma once
 
-#include "velox/core/Context.h"
+#include "velox/core/Config.h"
 
 namespace facebook::velox::core {
 
-/// A simple wrapper around BaseConfigManager. Defines constants for query
+/// A simple wrapper around velox::Config. Defines constants for query
 /// config properties and accessor methods.
+/// Create per query context. Does not have a singleton instance.
+/// Does not allow altering properties on the fly. Only at creation time.
 class QueryConfig {
  public:
-  explicit QueryConfig(BaseConfigManager* configManager)
-      : configManager_{configManager} {}
+  explicit QueryConfig(
+      const std::unordered_map<std::string, std::string>& values);
+
+  explicit QueryConfig(std::unordered_map<std::string, std::string>&& values);
 
   static constexpr const char* kCodegenEnabled = "codegen.enabled";
 
@@ -382,14 +386,19 @@ class QueryConfig {
 
   template <typename T>
   T get(const std::string& key, const T& defaultValue) const {
-    return configManager_->get<T>(key, defaultValue);
+    return config_->get<T>(key, defaultValue);
   }
   template <typename T>
   std::optional<T> get(const std::string& key) const {
-    return std::optional<T>(configManager_->get<T>(key));
+    return std::optional<T>(config_->get<T>(key));
   }
 
+  /// Test-only method to override the current query config properties.
+  /// It is not thread safe.
+  void testingOverrideConfigUnsafe(
+      std::unordered_map<std::string, std::string>&& values);
+
  private:
-  BaseConfigManager* FOLLY_NONNULL configManager_;
+  std::unique_ptr<velox::Config> config_;
 };
 } // namespace facebook::velox::core
