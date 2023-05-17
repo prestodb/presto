@@ -24,7 +24,7 @@ using namespace facebook::velox::exec;
 class HashPartitionFunctionTest : public test::VectorTestBase,
                                   public testing::Test {};
 
-TEST_F(HashPartitionFunctionTest, HashPartitionFunction) {
+TEST_F(HashPartitionFunctionTest, function) {
   const int numRows = 10'000;
   RowVectorPtr vector = makeRowVector(
       {makeFlatVector<int32_t>(numRows, [](auto row) { return row * 100 / 3; }),
@@ -128,12 +128,14 @@ TEST_F(HashPartitionFunctionTest, spec) {
   {
     auto hashSpec = std::make_unique<exec::HashPartitionFunctionSpec>(
         inputType,
-        std::vector<column_index_t>{0, 1, 2, 3, 4},
-        std::vector<VectorPtr>{makeConstant(1, 1)});
+        std::vector<column_index_t>{0, kConstantChannel, 2, 3, 4},
+        std::vector<VectorPtr>{makeConstant(123, 1)});
+    ASSERT_EQ("HASH(c0, \"123\", c2, c3, c4)", hashSpec->toString());
 
     auto serialized = hashSpec->serialize();
-    auto copy = HashPartitionFunctionSpec::deserialize(serialized, pool());
     ASSERT_EQ(serialized["constants"].size(), 1);
+
+    auto copy = HashPartitionFunctionSpec::deserialize(serialized, pool());
     ASSERT_EQ(hashSpec->toString(), copy->toString());
   }
 
@@ -143,10 +145,12 @@ TEST_F(HashPartitionFunctionTest, spec) {
         inputType,
         std::vector<column_index_t>{0, 1, 2, 3, 4},
         std::vector<VectorPtr>{});
+    ASSERT_EQ("HASH(c0, c1, c2, c3, c4)", hashSpec->toString());
 
     auto serialized = hashSpec->serialize();
-    auto copy = HashPartitionFunctionSpec::deserialize(serialized, pool());
     ASSERT_EQ(serialized["constants"].size(), 0);
+
+    auto copy = HashPartitionFunctionSpec::deserialize(serialized, pool());
     ASSERT_EQ(hashSpec->toString(), copy->toString());
   }
 }

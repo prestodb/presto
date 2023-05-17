@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/WindowFunction.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -492,7 +493,7 @@ TEST_F(PlanNodeToStringTest, localPartition) {
 
   ASSERT_EQ("-- LocalPartition\n", plan->toString());
   ASSERT_EQ(
-      "-- LocalPartition[REPARTITION HASH(keyChannels:0)] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
+      "-- LocalPartition[REPARTITION HASH(c0)] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
       plan->toString(true, false));
 
   plan = PlanBuilder().values({data_}).localPartition({}).planNode();
@@ -541,6 +542,21 @@ TEST_F(PlanNodeToStringTest, partitionedOutput) {
   ASSERT_EQ("-- PartitionedOutput\n", plan->toString());
   ASSERT_EQ(
       "-- PartitionedOutput[HASH(c1, c2) 5 replicate nulls and any] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
+      plan->toString(true, false));
+
+  auto hiveSpec = std::make_shared<connector::hive::HivePartitionFunctionSpec>(
+      4,
+      std::vector<int>{0, 1, 0, 1},
+      std::vector<column_index_t>{1, 2},
+      std::vector<VectorPtr>{});
+
+  plan = PlanBuilder()
+             .values({data_})
+             .partitionedOutput({"c1", "c2"}, 2, false, hiveSpec)
+             .planNode();
+  ASSERT_EQ("-- PartitionedOutput\n", plan->toString());
+  ASSERT_EQ(
+      "-- PartitionedOutput[HIVE((1, 2) buckets: 4) 2] -> c0:SMALLINT, c1:INTEGER, c2:BIGINT\n",
       plan->toString(true, false));
 }
 

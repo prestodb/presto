@@ -535,6 +535,14 @@ class PlanBuilder {
       int numPartitions,
       const std::vector<std::string>& outputLayout = {});
 
+  /// Same as above, but allows to provide custom partition function.
+  PlanBuilder& partitionedOutput(
+      const std::vector<std::string>& keys,
+      int numPartitions,
+      bool replicateNullsAndAny,
+      core::PartitionFunctionSpecPtr partitionFunctionSpec,
+      const std::vector<std::string>& outputLayout = {});
+
   /// Add a PartitionedOutputNode to broadcast the input data.
   ///
   /// @param outputLayout Optional output layout in case it is different then

@@ -1366,9 +1366,7 @@ void PartitionedOutputNode::addDetails(std::stringstream& stream) const {
   } else if (numPartitions_ == 1) {
     stream << "SINGLE";
   } else {
-    stream << "HASH(";
-    addKeys(stream, keys_);
-    stream << ") " << numPartitions_;
+    stream << partitionFunctionSpec_->toString() << " " << numPartitions_;
   }
 
   if (replicateNullsAndAny_) {

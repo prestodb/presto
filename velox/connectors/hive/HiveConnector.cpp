@@ -784,21 +784,21 @@ std::unique_ptr<core::PartitionFunction> HivePartitionFunctionSpec::create(
 }
 
 std::string HivePartitionFunctionSpec::toString() const {
-  std::vector<std::string> constValueStrs;
-  constValueStrs.reserve(constValues_.size());
-  for (const auto& value : constValues_) {
-    constValueStrs.emplace_back(value->toString());
+  std::ostringstream keys;
+  size_t constIndex = 0;
+  for (auto i = 0; i < channels_.size(); ++i) {
+    if (i > 0) {
+      keys << ", ";
+    }
+    auto channel = channels_[i];
+    if (channel == kConstantChannel) {
+      keys << "\"" << constValues_[constIndex++]->toString(0) << "\"";
+    } else {
+      keys << channel;
+    }
   }
-  return constValueStrs.empty()
-      ? fmt::format(
-            "HIVE(num of buckets:{}, channels:{})",
-            numBuckets_,
-            folly::join(", ", channels_))
-      : fmt::format(
-            "HIVE(num of buckets:{}, channels:{}, constValues:{})",
-            numBuckets_,
-            folly::join(", ", channels_),
-            folly::join(", ", constValueStrs));
+
+  return fmt::format("HIVE(({}) buckets: {})", keys.str(), numBuckets_);
 }
 
 folly::dynamic HivePartitionFunctionSpec::serialize() const {

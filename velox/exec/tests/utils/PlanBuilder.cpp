@@ -817,18 +817,30 @@ PlanBuilder& PlanBuilder::partitionedOutput(
     int numPartitions,
     bool replicateNullsAndAny,
     const std::vector<std::string>& outputLayout) {
+  return partitionedOutput(
+      keys,
+      numPartitions,
+      replicateNullsAndAny,
+      createPartitionFunctionSpec(planNode_->outputType(), keys),
+      outputLayout);
+}
+
+PlanBuilder& PlanBuilder::partitionedOutput(
+    const std::vector<std::string>& keys,
+    int numPartitions,
+    bool replicateNullsAndAny,
+    core::PartitionFunctionSpecPtr partitionFunctionSpec,
+    const std::vector<std::string>& outputLayout) {
   auto outputType = outputLayout.empty()
       ? planNode_->outputType()
       : extract(planNode_->outputType(), outputLayout);
-  auto partitionFunctionFactory =
-      createPartitionFunctionSpec(planNode_->outputType(), keys);
   planNode_ = std::make_shared<core::PartitionedOutputNode>(
       nextPlanNodeId(),
       exprs(keys),
       numPartitions,
       false,
       replicateNullsAndAny,
-      std::move(partitionFunctionFactory),
+      std::move(partitionFunctionSpec),
       outputType,
       planNode_);
   return *this;

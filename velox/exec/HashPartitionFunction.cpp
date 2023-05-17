@@ -92,17 +92,21 @@ std::unique_ptr<core::PartitionFunction> HashPartitionFunctionSpec::create(
 }
 
 std::string HashPartitionFunctionSpec::toString() const {
-  std::vector<std::string> constValueStrs;
-  constValueStrs.reserve(constValues_.size());
-  for (const auto& value : constValues_) {
-    constValueStrs.emplace_back(value->toString());
+  std::ostringstream keys;
+  size_t constIndex = 0;
+  for (auto i = 0; i < keyChannels_.size(); ++i) {
+    if (i > 0) {
+      keys << ", ";
+    }
+    auto channel = keyChannels_[i];
+    if (channel == kConstantChannel) {
+      keys << "\"" << constValues_[constIndex++]->toString(0) << "\"";
+    } else {
+      keys << inputType_->nameOf(channel);
+    }
   }
-  return constValueStrs.empty()
-      ? fmt::format("HASH(keyChannels:{})", folly::join(", ", keyChannels_))
-      : fmt::format(
-            "HASH(keyChannels:{}, constValues:{})",
-            folly::join(", ", keyChannels_),
-            folly::join(", ", constValueStrs));
+
+  return fmt::format("HASH({})", keys.str());
 }
 
 folly::dynamic HashPartitionFunctionSpec::serialize() const {

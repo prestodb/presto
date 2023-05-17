@@ -292,12 +292,17 @@ TEST_F(HivePartitionFunctionTest, spec) {
         std::make_unique<connector::hive::HivePartitionFunctionSpec>(
             bucketCount,
             bucketToPartition,
-            std::vector<column_index_t>{0, 1, 2, 3, 4},
-            std::vector<VectorPtr>{makeConstant(1, 1)});
+            std::vector<column_index_t>{
+                0, 1, kConstantChannel, 3, kConstantChannel},
+            std::vector<VectorPtr>{makeConstant(123, 1), makeConstant(17, 1)});
+    ASSERT_EQ(
+        hiveSpec->toString(), "HIVE((0, 1, \"123\", 3, \"17\") buckets: 10)");
+
     auto serialized = hiveSpec->serialize();
+    ASSERT_EQ(serialized["constants"].size(), 2);
+
     auto copy = connector::hive::HivePartitionFunctionSpec::deserialize(
         serialized, pool());
-    ASSERT_EQ(serialized["constants"].size(), 1);
     ASSERT_EQ(hiveSpec->toString(), copy->toString());
   }
 
@@ -309,13 +314,13 @@ TEST_F(HivePartitionFunctionTest, spec) {
             bucketToPartition,
             std::vector<column_index_t>{0, 1, 2, 3, 4},
             std::vector<VectorPtr>{});
+    ASSERT_EQ(hiveSpec->toString(), "HIVE((0, 1, 2, 3, 4) buckets: 10)");
+
     auto serialized = hiveSpec->serialize();
+    ASSERT_EQ(serialized["constants"].size(), 0);
+
     auto copy = connector::hive::HivePartitionFunctionSpec::deserialize(
         serialized, pool());
-    ASSERT_EQ(serialized["constants"].size(), 0);
     ASSERT_EQ(hiveSpec->toString(), copy->toString());
-    ASSERT_EQ(
-        hiveSpec->toString(),
-        "HIVE(num of buckets:10, channels:0, 1, 2, 3, 4)");
   }
 }
