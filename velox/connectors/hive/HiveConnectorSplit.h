@@ -57,13 +57,13 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
   std::string toString() const override {
     if (tableBucketNumber.has_value()) {
       return fmt::format(
-          "[file {} {} - {} {}]",
+          "Hive: {} {} - {} {}",
           filePath,
           start,
           length,
           tableBucketNumber.value());
     }
-    return fmt::format("[file {} {} - {}]", filePath, start, length);
+    return fmt::format("Hive: {} {} - {}", filePath, start, length);
   }
 
   std::string getFileName() const {

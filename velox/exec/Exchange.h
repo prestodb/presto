@@ -341,8 +341,12 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
 struct RemoteConnectorSplit : public connector::ConnectorSplit {
   const std::string taskId;
 
-  explicit RemoteConnectorSplit(const std::string& t, int32_t groupId = -1)
-      : ConnectorSplit(""), taskId(t) {}
+  explicit RemoteConnectorSplit(const std::string& _taskId)
+      : ConnectorSplit(""), taskId(_taskId) {}
+
+  std::string toString() const override {
+    return fmt::format("Remote: {}", taskId);
+  }
 };
 
 // Handle for a set of producers. This may be shared by multiple Exchanges, one

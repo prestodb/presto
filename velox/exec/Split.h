@@ -57,7 +57,7 @@ struct Split {
 
   std::string toString() const {
     return fmt::format(
-        "[split: [{}] {}]",
+        "Split: [{}] {}",
         hasConnectorSplit() ? connectorSplit->toString() : "NULL",
         groupId);
   }

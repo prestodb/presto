@@ -114,7 +114,7 @@ RowVectorPtr TableScan::getOutput() {
       }
 
       debugString_ = fmt::format(
-          "Split {} Task {}",
+          "Split [{}] Task {}",
           connectorSplit->toString(),
           operatorCtx_->task()->taskId());
 
