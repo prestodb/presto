@@ -55,7 +55,7 @@ addPartitionAndSerializeNode(
 }
 
 std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)> addShuffleReadNode(
-    velox::RowTypePtr& outputType) {
+    const velox::RowTypePtr& outputType) {
   return [&outputType](
              PlanNodeId nodeId, PlanNodePtr /* source */) -> PlanNodePtr {
     return std::make_shared<ShuffleReadNode>(nodeId, outputType);

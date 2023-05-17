@@ -27,7 +27,7 @@ addPartitionAndSerializeNode(
 
 std::function<
     velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
-addShuffleReadNode(velox::RowTypePtr& outputType);
+addShuffleReadNode(const velox::RowTypePtr& outputType);
 
 std::function<
     velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
