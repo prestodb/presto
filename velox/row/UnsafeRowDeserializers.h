@@ -18,7 +18,6 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/row/UnsafeRow.h"
-#include "velox/row/UnsafeRowParser.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::row {
