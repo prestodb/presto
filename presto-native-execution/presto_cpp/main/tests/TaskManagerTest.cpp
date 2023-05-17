@@ -17,9 +17,9 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
-#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "velox/common/base/Fs.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
@@ -1038,6 +1038,59 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
   auto outputTaskInfo = createOutputTask(
       tasks, planFragment.planNode->outputType(), splitSequenceId);
   assertResults(outputTaskInfo->taskId, rowType_, "SELECT * FROM tmp");
+}
+
+TEST_F(TaskManagerTest, checkBatchSplits) {
+  const auto taskId = "test.1.2.3";
+
+  core::PlanNodeId probeId;
+  core::PlanNodeId buildId;
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto planFragment = exec::test::PlanBuilder(planNodeIdGenerator)
+                          .tableScan(rowType_)
+                          .capturePlanNodeId(probeId)
+                          .hashJoin(
+                              {"c0"},
+                              {"u_c0"},
+                              exec::test::PlanBuilder(planNodeIdGenerator)
+                                  .tableScan(rowType_)
+                                  .capturePlanNodeId(buildId)
+                                  .project({"c0 as u_c0", "c1 as u_c1"})
+                                  .planNode(),
+                              "",
+                              {"u_c0", "u_c1"})
+                          .singleAggregation({}, {"count(1)"})
+                          .partitionedOutput({}, 1)
+                          .planFragment();
+
+  // No splits.
+  protocol::BatchTaskUpdateRequest batchRequest;
+  VELOX_ASSERT_THROW(
+      taskManager_->createOrUpdateBatchTask(taskId, batchRequest, planFragment),
+      "Expected all splits and no-more-splits message for all plan nodes");
+
+  // Splits for scan node on the probe side.
+  batchRequest.taskUpdateRequest.sources.push_back(
+      makeSource(probeId, {}, true));
+  VELOX_ASSERT_THROW(
+      taskManager_->createOrUpdateBatchTask(taskId, batchRequest, planFragment),
+      "Expected all splits and no-more-splits message for all plan nodes: " +
+          buildId);
+
+  // Splits for scan nodes on both probe and build sides, but missing
+  // no-more-splits message for build side.
+  batchRequest.taskUpdateRequest.sources.push_back(
+      makeSource(buildId, {}, false));
+  VELOX_ASSERT_THROW(
+      taskManager_->createOrUpdateBatchTask(taskId, batchRequest, planFragment),
+      "Expected no-more-splits message for plan node " + buildId);
+
+  // All splits.
+  batchRequest.taskUpdateRequest.sources.back().noMoreSplits = true;
+  ASSERT_NO_THROW(taskManager_->createOrUpdateBatchTask(
+      taskId, batchRequest, planFragment));
+  auto resultOrFailure = fetchAllResults(taskId, ROW({BIGINT()}), {});
+  ASSERT_EQ(resultOrFailure.status, nullptr);
 }
 
 // TODO: add disk spilling test for order by and hash join later.
