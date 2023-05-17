@@ -163,6 +163,10 @@ TEST_F(AverageAggregationTest, avg) {
       [](auto& /*builder*/) {},
       {},
       {"avg(c1)", "avg(c2)", "avg(c4)", "avg(c5)"},
+      {{rowType_->childAt(1)},
+       {rowType_->childAt(2)},
+       {rowType_->childAt(4)},
+       {rowType_->childAt(5)}},
       {},
       "SELECT avg(c1), avg(c2), avg(c4), avg(c5) FROM tmp");
 
@@ -177,6 +181,7 @@ TEST_F(AverageAggregationTest, avg) {
       [&](auto& builder) { builder.filter("c0 % 2 = 5"); },
       {},
       {"avg(c0)"},
+      {{rowType_->childAt(0)}},
       {},
       "SELECT null");
 
@@ -191,6 +196,7 @@ TEST_F(AverageAggregationTest, avg) {
       [&](auto& builder) { builder.filter("c0 % 5 = 3"); },
       {},
       {"avg(c1)"},
+      {{rowType_->childAt(1)}},
       {},
       "SELECT avg(c1) FROM tmp WHERE c0 % 5 = 3");
 
@@ -212,6 +218,11 @@ TEST_F(AverageAggregationTest, avg) {
       },
       {"c0_mod_10"},
       {"avg(c1)", "avg(c2)", "avg(c3)", "avg(c4)", "avg(c5)"},
+      {{rowType_->childAt(1)},
+       {rowType_->childAt(2)},
+       {rowType_->childAt(3)},
+       {rowType_->childAt(4)},
+       {rowType_->childAt(5)}},
       {},
       "SELECT c0 % 10, avg(c1), avg(c2), avg(c3::DOUBLE), "
       "avg(c4), avg(c5) FROM tmp GROUP BY 1");
@@ -234,6 +245,7 @@ TEST_F(AverageAggregationTest, avg) {
       },
       {"c0_mod_10"},
       {"avg(c1)"},
+      {{rowType_->childAt(1)}},
       {},
       "");
 
@@ -255,6 +267,7 @@ TEST_F(AverageAggregationTest, avg) {
       },
       {"c0_mod_10"},
       {"avg(c1)"},
+      {{rowType_->childAt(1)}},
       {},
       "SELECT c0 % 10, avg(c1) FROM tmp WHERE c2 % 5 = 3 GROUP BY 1");
 }

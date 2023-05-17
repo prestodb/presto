@@ -127,6 +127,10 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     return sizeof(HllAccumulator);
   }
 
+  int32_t accumulatorAlignmentSize() const override {
+    return alignof(HllAccumulator);
+  }
+
   bool isFixedSize() const override {
     return false;
   }
@@ -444,7 +448,8 @@ bool registerApproxDistinct(
             resultType,
             hllAsFinalResult,
             hllAsRawInput);
-      });
+      },
+      /*registerCompanionFunctions*/ true);
   return true;
 }
 

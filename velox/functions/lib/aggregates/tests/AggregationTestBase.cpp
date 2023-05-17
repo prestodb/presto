@@ -96,26 +96,6 @@ int64_t spilledBytes(const exec::Task& task) {
   return spilledBytes;
 }
 
-// Given a row type `type` and a list of field names, e.g., "c0, c1, c2",
-// return a vector of TypePtr of the corresponding field types in the row type
-// 'type'.
-std::vector<TypePtr> getArgTypes(
-    const TypePtr& type,
-    const std::string& argList) {
-  std::vector<folly::StringPiece> argNames;
-  folly::split(',', argList, argNames);
-
-  std::vector<TypePtr> result;
-  auto rowType = asRowType(type);
-  VELOX_CHECK_NOT_NULL(rowType);
-  for (const auto& name : argNames) {
-    auto childType = rowType->findChild(name);
-    VELOX_CHECK_NOT_NULL(childType);
-    result.push_back(std::move(childType));
-  }
-  return result;
-}
-
 // Add a BIGINT column of 4 distinct values to data.
 RowVectorPtr addExtraGroupingKeyImpl(
     const RowVectorPtr& data,
@@ -180,7 +160,7 @@ std::tuple<std::string, std::string, std::string> getCompanionAggregates(
     const exec::CompanionFunctionSignatureMap& companionFunctions,
     const std::string& functionName,
     const std::string& aggregateArgs,
-    const TypePtr& inputType) {
+    const std::vector<TypePtr>& argTypes) {
   VELOX_CHECK_EQ(companionFunctions.partial.size(), 1);
   auto partialAggregate = fmt::format(
       "{}({})", companionFunctions.partial.front().functionName, aggregateArgs);
@@ -189,15 +169,21 @@ std::tuple<std::string, std::string, std::string> getCompanionAggregates(
   auto mergeAggregate = fmt::format(
       "{}(a{})", companionFunctions.merge.front().functionName, index);
 
+  // Construct the extract expression. Rename the result of the extract
+  // expression to be the same as the original aggregation result, so that
+  // post-aggregation proejctions, if exist, can apply with no change.
   std::string extractExpression;
   if (companionFunctions.extract.size() == 1) {
     extractExpression = fmt::format(
-        "{}(a{})", companionFunctions.extract.front().functionName, index);
+        "{0}(a{1}) as a{1}",
+        companionFunctions.extract.front().functionName,
+        index);
   } else {
     VELOX_CHECK_GT(companionFunctions.extract.size(), 1);
-    auto extractFunctionName = getExtractFunctionNameWithSuffix(
-        functionName, getArgTypes(inputType, aggregateArgs));
-    extractExpression = fmt::format("{}(a{})", extractFunctionName, index);
+    auto extractFunctionName =
+        getExtractFunctionNameWithSuffix(functionName, argTypes);
+    extractExpression =
+        fmt::format("{0}(a{1}) as a{1}", extractFunctionName, index);
   }
   return std::make_tuple(partialAggregate, mergeAggregate, extractExpression);
 }
@@ -225,6 +211,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
     const std::function<void(PlanBuilder&)>& preAggregationProcessing,
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
+    const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
     const std::vector<std::string>& postAggregationProjections,
     const std::string& duckDbSql) {
   testAggregationsWithCompanion(
@@ -232,6 +219,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
       preAggregationProcessing,
       groupingKeys,
       aggregates,
+      aggregatesArgTypes,
       postAggregationProjections,
       [&](auto& builder) { return builder.assertResults(duckDbSql); });
 }
@@ -241,10 +229,29 @@ void AggregationTestBase::testAggregationsWithCompanion(
     const std::function<void(PlanBuilder&)>& preAggregationProcessing,
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
+    const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
+    const std::vector<std::string>& postAggregationProjections,
+    const std::vector<RowVectorPtr>& expectedResult) {
+  testAggregationsWithCompanion(
+      data,
+      preAggregationProcessing,
+      groupingKeys,
+      aggregates,
+      aggregatesArgTypes,
+      postAggregationProjections,
+      [&](auto& builder) { return builder.assertResults(expectedResult); });
+}
+
+void AggregationTestBase::testAggregationsWithCompanion(
+    const std::vector<RowVectorPtr>& data,
+    const std::function<void(PlanBuilder&)>& preAggregationProcessing,
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregates,
+    const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
     const std::vector<std::string>& postAggregationProjections,
     std::function<std::shared_ptr<exec::Task>(exec::test::AssertQueryBuilder&)>
         assertResults) {
-  auto dataWithExtaGroupingKey = addExtraGroupingKey(data, "k0");
+  auto dataWithExtraGroupingKey = addExtraGroupingKey(data, "k0");
   auto groupingKeysWithPartialKey = groupingKeys;
   groupingKeysWithPartialKey.push_back("k0");
 
@@ -266,7 +273,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
             *companionSignatures,
             functionNames[i],
             aggregateArgs[i],
-            data.front()->type());
+            aggregatesArgTypes[i]);
     paritialAggregates.push_back(paritialAggregate);
     mergeAggregates.push_back(mergeAggregate);
     extractExpressions.push_back(extractAggregate);
@@ -275,7 +282,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
   {
     SCOPED_TRACE("Run partial + final");
     PlanBuilder builder(pool());
-    builder.values(dataWithExtaGroupingKey);
+    builder.values(dataWithExtraGroupingKey);
     preAggregationProcessing(builder);
     builder.partialAggregation(groupingKeysWithPartialKey, paritialAggregates)
         .finalAggregation()
@@ -294,7 +301,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
   if (!groupingKeys.empty() && allowInputShuffle_) {
     SCOPED_TRACE("Run partial + final with spilling");
     PlanBuilder builder(pool());
-    builder.values(dataWithExtaGroupingKey);
+    builder.values(dataWithExtraGroupingKey);
     preAggregationProcessing(builder);
 
     // Spilling needs at least 2 batches of input. Use round-robin
@@ -338,7 +345,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
   {
     SCOPED_TRACE("Run single");
     PlanBuilder builder(pool());
-    builder.values(dataWithExtaGroupingKey);
+    builder.values(dataWithExtraGroupingKey);
     preAggregationProcessing(builder);
     builder.singleAggregation(groupingKeysWithPartialKey, paritialAggregates)
         .singleAggregation(groupingKeys, mergeAggregates)
@@ -355,7 +362,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
   {
     SCOPED_TRACE("Run partial + intermediate + final");
     PlanBuilder builder(pool());
-    builder.values(dataWithExtaGroupingKey);
+    builder.values(dataWithExtraGroupingKey);
     preAggregationProcessing(builder);
     builder.partialAggregation(groupingKeysWithPartialKey, paritialAggregates)
         .intermediateAggregation()
@@ -376,7 +383,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
   if (!groupingKeys.empty()) {
     SCOPED_TRACE("Run partial + local exchange + final");
     PlanBuilder builder(pool());
-    builder.values(dataWithExtaGroupingKey);
+    builder.values(dataWithExtraGroupingKey);
     preAggregationProcessing(builder);
     builder.partialAggregation(groupingKeysWithPartialKey, paritialAggregates)
         .localPartition(groupingKeysWithPartialKey)
@@ -399,7 +406,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
     SCOPED_TRACE(
         "Run partial + local exchange + intermediate + local exchange + final");
     PlanBuilder builder(pool());
-    builder.values(dataWithExtaGroupingKey);
+    builder.values(dataWithExtraGroupingKey);
     preAggregationProcessing(builder);
     builder.partialAggregation(groupingKeysWithPartialKey, paritialAggregates)
         .localPartition(groupingKeysWithPartialKey)
@@ -433,7 +440,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
     {
       SCOPED_TRACE("Streaming partial");
       auto partialResult = validateStreamingInTestAggregations(
-          [&](auto& builder) { builder.values(dataWithExtaGroupingKey); },
+          [&](auto& builder) { builder.values(dataWithExtraGroupingKey); },
           paritialAggregates);
 
       validateStreamingInTestAggregations(

@@ -41,10 +41,27 @@ class ApproxDistinctTest : public AggregationTestBase {
         {},
         {fmt::format("approx_distinct(c0, {})", maxStandardError)},
         {expected});
+    testAggregationsWithCompanion(
+        {vectors},
+        [](auto& /*builder*/) {},
+        {},
+        {fmt::format("approx_distinct(c0, {})", maxStandardError)},
+        {{values->type(), DOUBLE()}},
+        {},
+        {expected});
+
     testAggregations(
         {vectors},
         {},
         {fmt::format("approx_set(c0, {})", maxStandardError)},
+        {"cardinality(a0)"},
+        {expected});
+    testAggregationsWithCompanion(
+        {vectors},
+        [](auto& /*builder*/) {},
+        {},
+        {fmt::format("approx_set(c0, {})", maxStandardError)},
+        {{values->type(), DOUBLE()}},
         {"cardinality(a0)"},
         {expected});
   }
@@ -55,8 +72,25 @@ class ApproxDistinctTest : public AggregationTestBase {
         makeRowVector({makeNullableFlatVector<int64_t>({expectedResult})});
 
     testAggregations({vectors}, {}, {"approx_distinct(c0)"}, {expected});
+    testAggregationsWithCompanion(
+        {vectors},
+        [](auto& /*builder*/) {},
+        {},
+        {"approx_distinct(c0)"},
+        {{values->type()}},
+        {},
+        {expected});
+
     testAggregations(
         {vectors}, {}, {"approx_set(c0)"}, {"cardinality(a0)"}, {expected});
+    testAggregationsWithCompanion(
+        {vectors},
+        [](auto& /*builder*/) {},
+        {},
+        {"approx_set(c0)"},
+        {{values->type()}},
+        {"cardinality(a0)"},
+        {expected});
   }
 
   template <typename T, typename U>
@@ -82,10 +116,27 @@ class ApproxDistinctTest : public AggregationTestBase {
     auto expected = toRowVector(expectedResults);
 
     testAggregations({vectors}, {"c0"}, {"approx_distinct(c1)"}, {expected});
+    testAggregationsWithCompanion(
+        {vectors},
+        [](auto& /*builder*/) {},
+        {"c0"},
+        {"approx_distinct(c1)"},
+        {{values->type()}},
+        {},
+        {expected});
+
     testAggregations(
         {vectors},
         {"c0"},
         {"approx_set(c1)"},
+        {"c0", "cardinality(a0)"},
+        {expected});
+    testAggregationsWithCompanion(
+        {vectors},
+        [](auto& /*builder*/) {},
+        {"c0"},
+        {"approx_set(c1)"},
+        {{values->type()}},
         {"c0", "cardinality(a0)"},
         {expected});
   }
@@ -160,6 +211,14 @@ TEST_F(ApproxDistinctTest, groupByAllNulls) {
   auto expected = toRowVector<int32_t, int64_t>({{0, 0}, {1, 3}});
 
   testAggregations({vectors}, {"c0"}, {"approx_distinct(c1)"}, {expected});
+  testAggregationsWithCompanion(
+      {vectors},
+      [](auto& /*builder*/) {},
+      {"c0"},
+      {"approx_distinct(c1)"},
+      {{values->type()}},
+      {},
+      {expected});
 }
 
 TEST_F(ApproxDistinctTest, globalAggIntegers) {

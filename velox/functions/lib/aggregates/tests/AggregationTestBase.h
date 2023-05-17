@@ -121,10 +121,9 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<VectorPtr>& rawInput1,
       const std::vector<VectorPtr>& rawInput2);
 
-  // Given a list of aggregation expressions, test
-  // their equivalent plans using companion functions.
-  // For example, suppose we have the following arguments where c0 and c1 are
-  // double colummns.
+  // Given a list of aggregation expressions, test their equivalent plans using
+  // companion functions. For example, suppose we have the following arguments
+  // where c0 and c1 are double colummns.
   //   aggregates = {"avg(c0), avg(c1)"}
   //   groupingKeys = {"g0"},
   //   postAggregationProjections = {},
@@ -142,6 +141,7 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
           preAggregationProcessing,
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
+      const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
       const std::vector<std::string>& postAggregationProjections,
       const std::string& duckDbSql);
 
@@ -151,6 +151,17 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
           preAggregationProcessing,
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
+      const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
+      const std::vector<std::string>& postAggregationProjections,
+      const std::vector<RowVectorPtr>& expectedResult);
+
+  void testAggregationsWithCompanion(
+      const std::vector<RowVectorPtr>& data,
+      const std::function<void(exec::test::PlanBuilder&)>&
+          preAggregationProcessing,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
       const std::vector<std::string>& postAggregationProjections,
       std::function<std::shared_ptr<exec::Task>(
           exec::test::AssertQueryBuilder&)> assertResults);
@@ -164,6 +175,14 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
   /// to the order of inputs.
   void disallowInputShuffle() {
     allowInputShuffle_ = false;
+  }
+
+  void disableTestStreaming() {
+    testStreaming_ = false;
+  }
+
+  void enableTestStreaming() {
+    testStreaming_ = true;
   }
 
   /// Whether testStreaming should be called in testAggregations.
