@@ -23,6 +23,7 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 #include "presto_cpp/main/types/TypeSignatureTypeConverter.h"
+#include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
@@ -2358,5 +2359,7 @@ void registerPrestoPlanNodeSerDe() {
       "ShuffleReadNode", presto::operators::ShuffleReadNode::create);
   registry.Register(
       "ShuffleWriteNode", presto::operators::ShuffleWriteNode::create);
+  registry.Register(
+      "BroadcastWriteNode", presto::operators::BroadcastWriteNode::create);
 }
 } // namespace facebook::presto
