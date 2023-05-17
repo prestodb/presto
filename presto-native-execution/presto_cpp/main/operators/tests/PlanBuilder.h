@@ -37,4 +37,9 @@ addShuffleWriteNode(
     const std::string& shuffleName,
     const std::string& serializedWriteInfo);
 
+std::function<velox::core::PlanNodePtr(std::string, velox::core::PlanNodePtr)>
+
+/// Add BroadcastWriteNode for writing broadcast data to files under
+/// specified basePath
+addBroadcastWriteNode(const std::string& basePath);
 } // namespace facebook::presto::operators

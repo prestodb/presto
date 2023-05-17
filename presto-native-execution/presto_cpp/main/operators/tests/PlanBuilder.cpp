@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
+#include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
@@ -71,6 +72,16 @@ std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)> addShuffleWriteNode(
              PlanNodeId nodeId, PlanNodePtr source) -> PlanNodePtr {
     return std::make_shared<ShuffleWriteNode>(
         nodeId, shuffleName, serializedWriteInfo, std::move(source));
+  };
+}
+
+std::function<PlanNodePtr(std::string, PlanNodePtr)> addBroadcastWriteNode(
+    const std::string& basePath) {
+  return [&basePath](
+             core::PlanNodeId nodeId,
+             core::PlanNodePtr source) -> core::PlanNodePtr {
+    return std::make_shared<BroadcastWriteNode>(
+        nodeId, basePath, std::move(source));
   };
 }
 } // namespace facebook::presto::operators
