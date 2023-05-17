@@ -43,11 +43,9 @@ constexpr uint64_t DEFAULT_AUTO_PRELOAD_SIZE =
 struct Region {
   uint64_t offset;
   uint64_t length;
-  // Label used for caching purposes
-  std::string label;
 
-  Region(uint64_t offset = 0, uint64_t length = 0, std::string label = {})
-      : offset{offset}, length{length}, label{std::move(label)} {}
+  Region(uint64_t offset = 0, uint64_t length = 0)
+      : offset{offset}, length{length} {}
 
   bool operator<(const Region& other) const;
 };
