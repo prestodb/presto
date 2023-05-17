@@ -13,12 +13,9 @@
  */
 #include <gtest/gtest.h>
 
-#include "presto_cpp/main/operators/PartitionAndSerialize.h"
-#include "presto_cpp/main/operators/ShuffleRead.h"
-#include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/core/PlanNode.h"
-#include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
@@ -57,43 +54,6 @@ class PlanNodeSerdeTest : public testing::Test,
     auto copy =
         velox::ISerializable::deserialize<core::PlanNode>(serialized, pool());
     ASSERT_EQ(plan->toString(true, true), copy->toString(true, true));
-  }
-
-  auto addPartitionAndSerializeNode(uint32_t numPartitions) {
-    return [numPartitions](
-               core::PlanNodeId nodeId,
-               core::PlanNodePtr source) -> core::PlanNodePtr {
-      const auto outputType = source->outputType();
-      const std::vector<velox::core::TypedExprPtr> keys = {
-          std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0")};
-      return std::make_shared<PartitionAndSerializeNode>(
-          nodeId,
-          keys,
-          numPartitions,
-          ROW({"p", "d"}, {INTEGER(), VARBINARY()}),
-          std::move(source),
-          std::make_shared<HashPartitionFunctionSpec>(
-              outputType, std::vector<column_index_t>{0}));
-    };
-  }
-
-  auto addShuffleReadNode(velox::RowTypePtr& outputType) {
-    return [&outputType](
-               core::PlanNodeId nodeId,
-               core::PlanNodePtr /* source */) -> core::PlanNodePtr {
-      return std::make_shared<ShuffleReadNode>(nodeId, outputType);
-    };
-  }
-
-  auto addShuffleWriteNode(
-      const std::string& shuffleName,
-      const std::string& serializedWriteInfo) {
-    return [&shuffleName, &serializedWriteInfo](
-               core::PlanNodeId nodeId,
-               core::PlanNodePtr source) -> core::PlanNodePtr {
-      return std::make_shared<ShuffleWriteNode>(
-          nodeId, shuffleName, serializedWriteInfo, std::move(source));
-    };
   }
 
   std::vector<RowVectorPtr> data_;
