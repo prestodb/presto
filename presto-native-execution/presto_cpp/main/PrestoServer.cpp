@@ -57,6 +57,12 @@
 #include "velox/dwio/parquet/RegisterParquetReader.h" // @manual
 #endif
 
+DEFINE_int32(
+    task_timeslice_micros,
+    50000,
+    "Maximum time for task on thread "
+    "if threads are queued");
+
 namespace facebook::presto {
 using namespace facebook::velox;
 
@@ -374,10 +380,20 @@ void PrestoServer::run() {
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();
 
+  bool timesliceRunning = false;
+  std::thread timesliceThread;
+  if (FLAGS_task_timeslice_micros) {
+    timesliceThread = std::thread([&]() { timesliceLoop(timesliceRunning); });
+    timesliceRunning = true;
+  }
+
   // Start everything. After the return from the following call we are shutting
   // down.
   httpServer_->start(getHttpServerFilters());
-
+  if (timesliceRunning) {
+    timesliceRunning = false;
+    timesliceThread.join();
+  }
   LOG(INFO) << "SHUTDOWN: Stopping all periodic tasks...";
   periodicTaskManager_->stop();
 
@@ -425,6 +441,25 @@ void PrestoServer::run() {
               << pGlobalIOExecutor->getName()
               << "': threads: " << pGlobalIOExecutor->numActiveThreads() << "/"
               << pGlobalIOExecutor->numThreads();
+  }
+}
+
+void PrestoServer::timesliceLoop(bool& running) {
+  auto cpuExecutor = driverCPUExecutor();
+  auto timeslice = FLAGS_task_timeslice_micros;
+  int64_t counter = 0;
+  int32_t slicesPerMinute = 1000000 * 60 / timeslice;
+  int64_t numLastMinute = 0;
+  while (running) {
+    auto numQueued = cpuExecutor->getTaskQueueSize();
+    if (numQueued) {
+      numLastMinute += taskManager_->yieldTasks(numQueued, timeslice);
+    }
+    std::this_thread::sleep_for(std::chrono::microseconds(timeslice));
+    if (++counter % slicesPerMinute == 0) {
+      LOG(INFO) << "YIELD: " << numLastMinute << " threads in last minute";
+      numLastMinute = 0;
+    }
   }
 }
 

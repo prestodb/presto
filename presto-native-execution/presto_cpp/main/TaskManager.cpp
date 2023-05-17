@@ -892,6 +892,21 @@ DriverCountStats TaskManager::getDriverCountStats() const {
   return driverCountStats;
 }
 
+int32_t TaskManager::yieldTasks(int32_t target, int32_t sliceMicros) {
+  int32_t numYield = 0;
+  uint64_t now = getCurrentTimeMicro();
+  auto taskMap = taskMap_.rlock();
+  for (const auto& pair : *taskMap) {
+    if (pair.second->task != nullptr) {
+      numYield += pair.second->task->yieldIfDue(now - sliceMicros);
+      if (numYield >= target) {
+        return numYield;
+      }
+    }
+  }
+  return numYield;
+}
+
 std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
   std::array<size_t, 5> res{0};
   auto taskMap = taskMap_.rlock();

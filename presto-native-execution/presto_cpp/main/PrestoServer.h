@@ -115,6 +115,10 @@ class PrestoServer {
 
   void initializeVeloxMemory();
 
+  // periodically causes Tasks to yield if there are threads waiting to run in
+  // Driver executor.
+  void timesliceLoop(bool& running);
+
  protected:
   void reportMemoryInfo(proxygen::ResponseHandler* downstream);
 
