@@ -1196,7 +1196,8 @@ void assertResultsOrdered(
 
 std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
     const CursorParameters& params,
-    std::function<void(exec::Task*)> addSplits) {
+    std::function<void(exec::Task*)> addSplits,
+    uint64_t maxWaitMicros) {
   auto cursor = std::make_unique<TaskCursor>(params);
   // 'result' borrows memory from cursor so the life cycle must be shorter.
   std::vector<RowVectorPtr> result;
@@ -1208,7 +1209,7 @@ std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
     addSplits(task);
   }
 
-  EXPECT_TRUE(waitForTaskCompletion(task)) << task->taskId();
+  EXPECT_TRUE(waitForTaskCompletion(task, maxWaitMicros)) << task->taskId();
   return {std::move(cursor), std::move(result)};
 }
 
