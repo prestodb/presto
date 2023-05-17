@@ -137,7 +137,8 @@ public class TestDistributedQueuesSchedulingPolicy
         waitForQueryState(queryRunner, 1, thirdAdhocQuery, RUNNING);
     }
 
-    @Test(timeOut = 60_000, groups = "weightedScheduling")
+    //Test is flaky https://github.com/prestodb/presto/issues/19691
+    @Test(timeOut = 60_000, groups = "weightedScheduling", enabled = false)
     public void testWeightedScheduling()
             throws Exception
     {
