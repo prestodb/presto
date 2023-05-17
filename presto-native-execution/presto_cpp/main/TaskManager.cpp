@@ -308,12 +308,14 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
   std::lock_guard<std::mutex> l(prestoTask->mutex);
 
   if (startTask) {
-    const uint32_t maxDrivers = execTask->queryCtx()->get<int32_t>(
-        kMaxDriversPerTask.data(),
-        SystemConfig::instance()->maxDriversPerTask());
-    uint32_t concurrentLifespans = execTask->queryCtx()->get<int32_t>(
-        kConcurrentLifespansPerTask.data(),
-        SystemConfig::instance()->concurrentLifespansPerTask());
+    const uint32_t maxDrivers =
+        execTask->queryCtx()->queryConfig().get<int32_t>(
+            kMaxDriversPerTask.data(),
+            SystemConfig::instance()->maxDriversPerTask());
+    uint32_t concurrentLifespans =
+        execTask->queryCtx()->queryConfig().get<int32_t>(
+            kConcurrentLifespansPerTask.data(),
+            SystemConfig::instance()->concurrentLifespansPerTask());
     // Zero concurrent lifespans means 'unlimited', but we still limit the
     // number to some reasonable one.
     if (concurrentLifespans == 0) {
