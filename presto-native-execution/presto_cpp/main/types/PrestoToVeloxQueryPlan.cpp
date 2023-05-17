@@ -1960,6 +1960,64 @@ core::ExecutionStrategy toStrategy(protocol::StageExecutionStrategy strategy) {
   }
   VELOX_UNSUPPORTED("Unknown Stage Execution Strategy type {}", (int)strategy);
 }
+
+void constructKeyChannels(
+    std::vector<column_index_t>& keyChannels,
+    std::vector<VectorPtr>& constValues,
+    const RowTypePtr& inputType,
+    const std::vector<core::TypedExprPtr>& partitioningKeys,
+    velox::memory::MemoryPool* pool) {
+  keyChannels.reserve(partitioningKeys.size());
+  for (const auto& expr : partitioningKeys) {
+    auto channel = exprToChannel(expr.get(), inputType);
+    keyChannels.push_back(channel);
+    // For constant channels create a base vector, add single value to it from
+    // our variant and add it to the list of constant expressions.
+    if (channel == kConstantChannel) {
+      constValues.emplace_back(
+          velox::BaseVector::create(expr->type(), 1, pool));
+      auto constExpr =
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr);
+      setCellFromVariant(constValues.back(), 0, constExpr->value());
+    }
+  }
+}
+
+std::shared_ptr<HivePartitionFunctionSpec> createHivePartitionFunctionSpec(
+    int numBuckets,
+    const std::vector<int>& bucketToPartition,
+    const std::vector<column_index_t>& channels,
+    const std::vector<VectorPtr>& constValues) {
+  return std::make_shared<HivePartitionFunctionSpec>(
+      numBuckets, bucketToPartition, channels, constValues);
+}
+
+std::shared_ptr<HivePartitionFunctionSpec> createHivePartitionFunctionSpec(
+    const protocol::PlanFragment& fragment,
+    const std::vector<column_index_t> keyChannels,
+    const std::vector<VectorPtr>& constValues) {
+  const auto partitioningHandle =
+      fragment.partitioningScheme.partitioning.handle.connectorHandle;
+  auto hivePartitioningHandle =
+      std::dynamic_pointer_cast<protocol::HivePartitioningHandle>(
+          partitioningHandle);
+  VELOX_CHECK(
+      hivePartitioningHandle != nullptr, "HivePartitioningHandle is required");
+
+  return createHivePartitionFunctionSpec(
+      hivePartitioningHandle->bucketCount,
+      *fragment.partitioningScheme.bucketToPartition,
+      keyChannels,
+      constValues);
+}
+
+std::shared_ptr<HashPartitionFunctionSpec> createHashPartitionFunctionSpec(
+    const RowTypePtr& inputType,
+    const std::vector<column_index_t>& keyChannels,
+    const std::vector<VectorPtr>& constValues) {
+  return std::make_shared<HashPartitionFunctionSpec>(
+      inputType, keyChannels, constValues);
+}
 } // namespace
 
 core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -1998,23 +2056,10 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   auto sourceNode = toVeloxQueryPlan(fragment.root, tableWriteInfo, taskId);
   auto inputType = sourceNode->outputType();
-
   std::vector<column_index_t> keyChannels;
   std::vector<VectorPtr> constValues;
-  keyChannels.reserve(partitioningKeys.size());
-  for (const auto& expr : partitioningKeys) {
-    auto channel = exprToChannel(expr.get(), inputType);
-    keyChannels.push_back(channel);
-    // For constant channels create a base vector, add single value to it from
-    // our variant and add it to the list of constant expressions.
-    if (channel == kConstantChannel) {
-      constValues.emplace_back(
-          velox::BaseVector::create(expr->type(), 1, pool_));
-      auto constExpr =
-          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr);
-      setCellFromVariant(constValues.back(), 0, constExpr->value());
-    }
-  }
+  constructKeyChannels(
+      keyChannels, constValues, inputType, partitioningKeys, pool_);
   auto outputType = toRowType(partitioningScheme.outputLayout);
 
   if (auto systemPartitioningHandle =
@@ -2067,10 +2112,8 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     numPartitions,
                     false, // broadcast
                     partitioningScheme.replicateNullsAndAny,
-                    std::make_shared<HashPartitionFunctionSpec>(
-                        inputType,
-                        keyChannels,
-                        constValues),
+                    createHashPartitionFunctionSpec(
+                        inputType, keyChannels, constValues),
                     outputType,
                     sourceNode);
             return planFragment;
@@ -2116,7 +2159,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         numPartitions,
         false, // broadcast
         partitioningScheme.replicateNullsAndAny,
-        std::make_shared<HivePartitionFunctionSpec>(
+        createHivePartitionFunctionSpec(
             hivePartitioningHandle->bucketCount,
             bucketToPartition,
             keyChannels,
@@ -2190,6 +2233,40 @@ core::PlanNodePtr addProjectIfNeeded(
       projections,
       std::move(planNode));
 }
+
+std::shared_ptr<const core::PartitionFunctionSpec>
+createPartitionFunctionSpecIfNeeded(
+    const protocol::PlanFragment& fragment,
+    const std::shared_ptr<const core::PartitionedOutputNode>& source,
+    const core::PlanNodePtr& output,
+    velox::memory::MemoryPool* pool) {
+  // Only HivePartitionFunctionSpec or HashPartitionFunctionSpec needs to update
+  // the order of the partition columns
+  bool isHashPartitionFunctionSpec =
+      std::dynamic_pointer_cast<const HashPartitionFunctionSpec>(
+          source->partitionFunctionSpecPtr()) != nullptr;
+  bool isHivePartitionFunctionSpec =
+      std::dynamic_pointer_cast<const HivePartitionFunctionSpec>(
+          source->partitionFunctionSpecPtr()) != nullptr;
+
+  if (!isHashPartitionFunctionSpec && !isHivePartitionFunctionSpec) {
+    return source->partitionFunctionSpecPtr();
+  }
+
+  std::vector<column_index_t> keyChannels;
+  std::vector<VectorPtr> constValues;
+  constructKeyChannels(
+      keyChannels, constValues, output->outputType(), source->keys(), pool);
+
+  if (isHashPartitionFunctionSpec) {
+    return createHashPartitionFunctionSpec(
+        output->outputType(), keyChannels, constValues);
+  } else if (isHivePartitionFunctionSpec) {
+    return createHivePartitionFunctionSpec(fragment, keyChannels, constValues);
+  }
+
+  VELOX_UNREACHABLE();
+}
 } // namespace
 
 velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
@@ -2228,6 +2305,14 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   auto source = addProjectIfNeeded(
       partitionedOutputNode->sources()[0], partitionedOutputNode->outputType());
 
+  // If a new Projection is added with different column order, we need to create
+  // a new partitionFunctionSpec following the same column order from that
+  // projection.
+  auto partitionFunctionSpecPtr = source == partitionedOutputNode->sources()[0]
+      ? partitionedOutputNode->partitionFunctionSpecPtr()
+      : createPartitionFunctionSpecIfNeeded(
+            fragment, partitionedOutputNode, source, pool_);
+
   auto partitionAndSerializeNode = std::make_shared<
       operators::PartitionAndSerializeNode>(
       "shuffle-partition-serialize",
@@ -2239,7 +2324,7 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
                operators::PartitionAndSerializeNode::kDataColumnNameDefault)},
           {INTEGER(), VARBINARY()}),
       std::move(source),
-      partitionedOutputNode->partitionFunctionSpecPtr());
+      partitionFunctionSpecPtr);
 
   planFragment.planNode = std::make_shared<operators::ShuffleWriteNode>(
       "root",
