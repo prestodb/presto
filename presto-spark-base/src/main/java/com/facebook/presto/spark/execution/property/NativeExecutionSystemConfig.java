@@ -14,11 +14,14 @@
 package com.facebook.presto.spark.execution.property;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.presto.sql.analyzer.RegexLibrary;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -57,6 +60,13 @@ public class NativeExecutionSystemConfig
     private static final String HTTPS_KEY_PATH = "https-key-path";
 
     // TODO: others use "-" separator and this property use _ separator. Fix them.
+    private static final String REGEX_LIBRARY = "regex-library";
+    private static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse-decimal-literals-as-double";
+    private static final String OFFSET_CLAUSE_ENABLED = "offset-clause-enabled";
+    private static final String INLINE_SQL_FUNCTIONS = "inline-sql-functions";
+    private static final String USE_ALTERNATIVE_FUNCTION_SIGNATURES = "use-alternative-function-signatures";
+    private static final String EXPERIMENTAL_TABLE_WRITER_MERGE_ENABLED = "experimental.table-writer-merge-enabled";
+    private static final String OPTIMIZE_HASH_GENERATION = "optimizer.optimize-hash-generation";
     private static final String HTTP_EXEC_THREADS = "http_exec_threads";
     private static final String NUM_IO_THREADS = "num-io-threads";
     private static final String PRESTO_VERSION = "presto.version";
@@ -89,6 +99,12 @@ public class NativeExecutionSystemConfig
     private String shuffleName = "local";
     private boolean registerTestFunctions;
     private boolean enableHttpServerAccessLog = true;
+    private boolean optimizeHashGeneration = false;
+    private boolean offsetClauseEnabled = true;
+    private RegexLibrary regexLibrary = RE2J;
+    private boolean useAlternativeFunctionSignatures = true;
+    private boolean inlineSqlFunctions = false;
+    private boolean tableWriterMergeOperatorEnabled = false;
 
     public Map<String, String> getAllProperties()
     {
@@ -114,6 +130,16 @@ public class NativeExecutionSystemConfig
                 .put(TASK_MAX_DRIVERS_PER_TASK, String.valueOf(getMaxDriversPerTask()))
                 .put(SHUFFLE_NAME, getShuffleName())
                 .put(HTTP_SERVER_ACCESS_LOGS, String.valueOf(isEnableHttpServerAccessLog()))
+                .put(OPTIMIZE_HASH_GENERATION, String.valueOf(isOptimizeHashGeneration()))
+                .put(PARSE_DECIMAL_LITERALS_AS_DOUBLE, "true")
+                .put(REGEX_LIBRARY, String.valueOf(getRegexLibrary()))
+                .put(OFFSET_CLAUSE_ENABLED, String.valueOf(isOffsetClauseEnabled()))
+                // By default, Presto will expand some functions into its SQL equivalent (e.g. array_duplicates()).
+                // With Velox, we do not want Presto to replace the function with its SQL equivalent.
+                // To achieve that, we set inline-sql-functions to false.
+                .put(INLINE_SQL_FUNCTIONS, String.valueOf(isInlineSqlFunctions()))
+                .put(USE_ALTERNATIVE_FUNCTION_SIGNATURES, String.valueOf(isUseAlternativeFunctionSignatures()))
+                .put(EXPERIMENTAL_TABLE_WRITER_MERGE_ENABLED, String.valueOf(isTableWriterMergeOperatorEnabled()))
                 .build();
     }
 
@@ -367,5 +393,79 @@ public class NativeExecutionSystemConfig
     public boolean isEnableHttpServerAccessLog()
     {
         return enableHttpServerAccessLog;
+    }
+
+    public RegexLibrary getRegexLibrary()
+    {
+        return regexLibrary;
+    }
+
+    @Config(REGEX_LIBRARY)
+    public NativeExecutionSystemConfig setRegexLibrary(RegexLibrary regexLibrary)
+    {
+        this.regexLibrary = regexLibrary;
+        return this;
+    }
+
+    public boolean isOffsetClauseEnabled()
+    {
+        return offsetClauseEnabled;
+    }
+
+    @Config(OFFSET_CLAUSE_ENABLED)
+    @ConfigDescription("Enable support for OFFSET clause")
+    public NativeExecutionSystemConfig setOffsetClauseEnabled(boolean offsetClauseEnabled)
+    {
+        this.offsetClauseEnabled = offsetClauseEnabled;
+        return this;
+    }
+
+    public boolean isInlineSqlFunctions()
+    {
+        return inlineSqlFunctions;
+    }
+
+    @Config("inline-sql-functions")
+    public NativeExecutionSystemConfig setInlineSqlFunctions(boolean inlineSqlFunctions)
+    {
+        this.inlineSqlFunctions = inlineSqlFunctions;
+        return this;
+    }
+
+    @Config(USE_ALTERNATIVE_FUNCTION_SIGNATURES)
+    @ConfigDescription("Override intermediate aggregation type of some aggregation functions to be compatible with Velox")
+    public NativeExecutionSystemConfig setUseAlternativeFunctionSignatures(boolean value)
+    {
+        this.useAlternativeFunctionSignatures = value;
+        return this;
+    }
+
+    public boolean isUseAlternativeFunctionSignatures()
+    {
+        return useAlternativeFunctionSignatures;
+    }
+
+    public boolean isTableWriterMergeOperatorEnabled()
+    {
+        return tableWriterMergeOperatorEnabled;
+    }
+
+    @Config(EXPERIMENTAL_TABLE_WRITER_MERGE_ENABLED)
+    public NativeExecutionSystemConfig setTableWriterMergeOperatorEnabled(boolean tableWriterMergeOperatorEnabled)
+    {
+        this.tableWriterMergeOperatorEnabled = tableWriterMergeOperatorEnabled;
+        return this;
+    }
+
+    public boolean isOptimizeHashGeneration()
+    {
+        return optimizeHashGeneration;
+    }
+
+    @Config(OPTIMIZE_HASH_GENERATION)
+    public NativeExecutionSystemConfig setOptimizeHashGeneration(boolean optimizeHashGeneration)
+    {
+        this.optimizeHashGeneration = optimizeHashGeneration;
+        return this;
     }
 }
