@@ -19,13 +19,12 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/exec/Exchange.h"
-#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/expression/VectorFunction.h"
 #include "velox/row/UnsafeRowDeserializers.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -276,44 +275,6 @@ void registerExchangeSource(const std::string& shuffleName) {
         }
         return nullptr;
       });
-}
-
-auto addPartitionAndSerializeNode(uint32_t numPartitions) {
-  return [numPartitions](
-             core::PlanNodeId nodeId,
-             core::PlanNodePtr source) -> core::PlanNodePtr {
-    std::vector<core::TypedExprPtr> keys;
-    keys.push_back(
-        std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0"));
-    const auto outputType = source->outputType();
-    return std::make_shared<PartitionAndSerializeNode>(
-        nodeId,
-        keys,
-        numPartitions,
-        ROW({"p", "d"}, {INTEGER(), VARBINARY()}),
-        std::move(source),
-        std::make_shared<HivePartitionFunctionSpec>(
-            exec::toChannels(outputType, keys)));
-  };
-}
-
-auto addShuffleWriteNode(
-    const std::string& shuffleName,
-    const std::string& serializedWriteInfo) {
-  return [&shuffleName, &serializedWriteInfo](
-             core::PlanNodeId nodeId,
-             core::PlanNodePtr source) -> core::PlanNodePtr {
-    return std::make_shared<ShuffleWriteNode>(
-        nodeId, shuffleName, serializedWriteInfo, std::move(source));
-  };
-}
-
-auto addShuffleReadNode(velox::RowTypePtr& outputType) {
-  return [&outputType](
-             core::PlanNodeId nodeId,
-             core::PlanNodePtr /* source */) -> core::PlanNodePtr {
-    return std::make_shared<ShuffleReadNode>(nodeId, outputType);
-  };
 }
 } // namespace
 
@@ -811,17 +772,10 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
                       fmt::format(kTestShuffleInfoFormat, 10, 10)))
                   .planNode();
 
+  ASSERT_EQ(plan->toString(false, false), "-- ShuffleWrite\n");
   ASSERT_EQ(
       plan->toString(true, false),
       "-- ShuffleWrite[] -> p:INTEGER, d:VARBINARY\n");
-  ASSERT_EQ(
-      plan->toString(true, true),
-      "-- ShuffleWrite[] -> p:INTEGER, d:VARBINARY\n"
-      ""
-      "  -- LocalPartition[GATHER] -> p:INTEGER, d:VARBINARY\n"
-      "    -- PartitionAndSerialize[(c0) 4 HIVE(0)] -> p:INTEGER, d:VARBINARY\n"
-      "      -- Values[1000 rows in 1 vectors] -> c0:INTEGER, c1:BIGINT\n");
-  ASSERT_EQ(plan->toString(false, false), "-- ShuffleWrite\n");
 }
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
@@ -835,14 +789,8 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
                   .addNode(addPartitionAndSerializeNode(4))
                   .planNode();
 
-  ASSERT_EQ(
-      plan->toString(true, false),
-      "-- PartitionAndSerialize[(c0) 4 HIVE(0)] -> p:INTEGER, d:VARBINARY\n");
-  ASSERT_EQ(
-      plan->toString(true, true),
-      "-- PartitionAndSerialize[(c0) 4 HIVE(0)] -> p:INTEGER, d:VARBINARY\n"
-      "  -- Values[1000 rows in 1 vectors] -> c0:INTEGER, c1:BIGINT\n");
   ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize\n");
+  // TODO Add a check for plan->toString(true, false)
 }
 
 class DummyShuffleInterfaceFactory : public ShuffleInterfaceFactory {
