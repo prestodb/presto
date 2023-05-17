@@ -102,4 +102,14 @@ TEST_F(PlanNodeSerdeTest, shuffleWriteNode) {
                   .planNode();
   testSerde(plan);
 }
+
+TEST_F(PlanNodeSerdeTest, broadcastWriteNode) {
+  const std::string basePath("/tmp/query-20130101-0000-001");
+  auto broadcastWritePlan = exec::test::PlanBuilder()
+                                .values(data_, true)
+                                .addNode(addBroadcastWriteNode(basePath))
+                                .partitionedOutputBroadcast()
+                                .planNode();
+  testSerde(broadcastWritePlan);
+}
 } // namespace facebook::velox::exec::test
