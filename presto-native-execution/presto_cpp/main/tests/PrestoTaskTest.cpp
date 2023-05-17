@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/PrestoTask.h"
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
 
@@ -37,10 +38,11 @@ TEST_F(PrestoTaskTest, basicTaskId) {
 }
 
 TEST_F(PrestoTaskTest, malformedTaskId) {
-  ASSERT_THROW(PrestoTaskId(""), std::invalid_argument);
-  ASSERT_THROW(
-      PrestoTaskId("20201107_130540_00011_wrpkw."), std::invalid_argument);
-  ASSERT_THROW(PrestoTaskId("q.1.2"), std::invalid_argument);
+  VELOX_ASSERT_THROW(PrestoTaskId(""), "Malformed task ID: ");
+  VELOX_ASSERT_THROW(
+      PrestoTaskId("20201107_130540_00011_wrpkw."),
+      "Malformed task ID: 20201107_130540_00011_wrpkw.");
+  VELOX_ASSERT_THROW(PrestoTaskId("q.1.2"), "Malformed task ID: q.1.2");
 }
 
 TEST_F(PrestoTaskTest, runtimeMetricConversion) {

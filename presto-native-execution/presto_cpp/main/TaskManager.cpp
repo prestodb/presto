@@ -20,7 +20,6 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
@@ -287,6 +286,37 @@ toConnectorConfigs(const protocol::SessionRepresentation& session) {
 
   return connectorConfigs;
 }
+
+/// Presto-on-Spark is expected to specify all splits at once along with
+/// no-more-splits flag. Verify that all plan nodes that require splits
+/// have received splits and no-more-splits flag. This check helps
+/// prevent hard-to-debug query hangs caused by Velox Task waiting for
+/// splits that never arrive.
+void checkSplitsForBatchTask(
+    const velox::core::PlanNodePtr& planNode,
+    const std::vector<protocol::TaskSource>& sources) {
+  std::unordered_set<velox::core::PlanNodeId> splitNodeIds;
+  velox::core::PlanNode::findFirstNode(
+      planNode.get(), [&](const velox::core::PlanNode* node) {
+        if (node->requiresSplits()) {
+          splitNodeIds.insert(node->id());
+        }
+        return false;
+      });
+
+  for (const auto& source : sources) {
+    VELOX_USER_CHECK(
+        source.noMoreSplits,
+        "Expected no-more-splits message for plan node {}",
+        source.planNodeId);
+    splitNodeIds.erase(source.planNodeId);
+  }
+
+  VELOX_USER_CHECK(
+      splitNodeIds.empty(),
+      "Expected all splits and no-more-splits message for all plan nodes: {}",
+      folly::join(", ", splitNodeIds));
+}
 } // namespace
 
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
@@ -309,6 +339,8 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
     const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
     const velox::core::PlanFragment& planFragment) {
   auto updateRequest = batchUpdateRequest.taskUpdateRequest;
+
+  checkSplitsForBatchTask(planFragment.planNode, updateRequest.sources);
 
   const auto& session = updateRequest.session;
 
