@@ -267,7 +267,7 @@ bool MmapAllocator::allocateContiguousImpl(
       // We failed to grow by 'newPages. So we record the freeing off the whole
       // collateral and the unmap of former 'allocation'.
       reservationCB(AllocationTraits::pageBytes(totalCollateralPages), false);
-      throw;
+      std::rethrow_exception(std::current_exception());
     }
   }
 

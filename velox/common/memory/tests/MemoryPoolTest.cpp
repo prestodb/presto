@@ -889,7 +889,7 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
 
 TEST_P(MemoryPoolTest, allocationFailStats) {
   auto manager = getMemoryManager(16 * KB);
-  auto pool = manager->addLeafPool("nonContiguousAllocateFail");
+  auto pool = manager->addLeafPool("allocationFailStats");
 
   EXPECT_THROW(pool->allocate(32 * KB), VeloxException);
   EXPECT_EQ(1, pool->stats().numAllocs);
@@ -1487,6 +1487,28 @@ TEST_P(MemoryPoolTest, transientContiguousAllocateFailure) {
     }
     allocator_->testingClearFailureInjection();
   }
+}
+
+TEST_P(MemoryPoolTest, contiguousAllocateExceedMemoryPoolLimit) {
+  const MachinePageCount kMaxNumPages = 1 << 10;
+  const auto kMemoryCapBytes = kMaxNumPages * AllocationTraits::kPageSize;
+  auto manager = getMemoryManager(1 << 30);
+  auto root =
+      manager->addRootPool("contiguousAllocateExceedLimit", kMemoryCapBytes);
+  auto pool =
+      root->addLeafChild("contiguousAllocateExceedLimit", isLeafThreadSafe_);
+
+  ContiguousAllocation allocation1;
+  pool->allocateContiguous(kMaxNumPages, allocation1);
+  ASSERT_FALSE(allocation1.empty());
+  ContiguousAllocation allocation2;
+  ASSERT_THROW(
+      pool->allocateContiguous(2 * kMaxNumPages, allocation2),
+      VeloxRuntimeError);
+  ASSERT_TRUE(allocation2.empty());
+  pool->freeContiguous(allocation1);
+  pool->allocateContiguous(kMaxNumPages, allocation2);
+  ASSERT_FALSE(allocation2.empty());
 }
 
 TEST_P(MemoryPoolTest, badNonContiguousAllocation) {
