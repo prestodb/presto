@@ -58,6 +58,11 @@ public class TestPrestoSparkNativeTpchQueries
     @Ignore
     public void testTpchQ15() {}
 
+    // Requires support for replicate-nulls-and-any shuffle mode.
+    @Override
+    @Ignore
+    public void testTpchQ16() {}
+
     @Override
     @Ignore
     public void testTpchQ18() {}
