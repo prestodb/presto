@@ -12,8 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(
-  presto_operators PartitionAndSerialize.cpp ShuffleRead.cpp ShuffleWrite.cpp
-                   UnsafeRowExchangeSource.cpp LocalPersistentShuffle.cpp)
+  presto_operators
+  PartitionAndSerialize.cpp
+  ShuffleRead.cpp
+  ShuffleWrite.cpp
+  UnsafeRowExchangeSource.cpp
+  LocalPersistentShuffle.cpp
+  BroadcastWrite.cpp
+  FileBroadcast.cpp
+  BroadcastExchangeSource.cpp)
 
 target_link_libraries(
   presto_operators

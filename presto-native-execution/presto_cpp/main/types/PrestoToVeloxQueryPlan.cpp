@@ -23,6 +23,7 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 #include "presto_cpp/main/types/TypeSignatureTypeConverter.h"
+#include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
@@ -2300,9 +2301,23 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   VELOX_USER_CHECK_NOT_NULL(
       partitionedOutputNode, "PartitionedOutputNode is required");
 
-  VELOX_USER_CHECK(
-      !partitionedOutputNode->isBroadcast(),
-      "Broadcast shuffle is not supported");
+  if (partitionedOutputNode != nullptr &&
+      partitionedOutputNode->isBroadcast()) {
+    auto broadcastWriteNode = std::make_shared<operators::BroadcastWriteNode>(
+        "broadcast-write",
+        fmt::format("/tmp/{}", taskId),
+        core::LocalPartitionNode::gather(
+            "broadcast-write-gather",
+            std::vector<core::PlanNodePtr>{
+                partitionedOutputNode->sources()[0]}));
+
+    planFragment.planNode = core::PartitionedOutputNode::broadcast(
+        "partitioned-output",
+        1,
+        broadcastWriteNode->outputType(),
+        {broadcastWriteNode});
+    return planFragment;
+  }
 
   // If the serializedShuffleWriteInfo is not nullptr, it means this fragment
   // ends with a shuffle stage. We convert the PartitionedOutputNode to a
@@ -2345,6 +2360,10 @@ velox::core::PlanNodePtr VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     const std::shared_ptr<protocol::TableWriteInfo>& /* tableWriteInfo */,
     const protocol::TaskId& taskId) {
   auto rowType = toRowType(node->outputVariables);
+  // Broadcast exchange source
+  if (node->exchangeType == protocol::ExchangeNodeType::REPLICATE) {
+    return std::make_shared<core::ExchangeNode>(node->id, rowType);
+  }
   return std::make_shared<operators::ShuffleReadNode>(node->id, rowType);
 }
 
@@ -2358,5 +2377,7 @@ void registerPrestoPlanNodeSerDe() {
       "ShuffleReadNode", presto::operators::ShuffleReadNode::create);
   registry.Register(
       "ShuffleWriteNode", presto::operators::ShuffleWriteNode::create);
+  registry.Register(
+      "BroadcastWriteNode", presto::operators::BroadcastWriteNode::create);
 }
 } // namespace facebook::presto
