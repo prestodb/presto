@@ -38,7 +38,7 @@ import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
-import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
+import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -107,7 +107,7 @@ public class FeaturesConfig
     private boolean legacyArrayAgg;
     private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
-    private boolean useAlternativeFunctionSignatures;
+    private boolean useAlternativeFunctionSignatures = true;
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
@@ -125,7 +125,7 @@ public class FeaturesConfig
 
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
-    private RegexLibrary regexLibrary = JONI;
+    private RegexLibrary regexLibrary = RE2J;
     private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
