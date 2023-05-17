@@ -19,18 +19,18 @@
 #include "velox/dwio/dwrf/common/ByteRLE.h"
 
 namespace facebook::velox::dwrf {
+
+// Struct containing context for flatmap encoding.
+// Default initialization is non-flatmap context.
 struct FlatMapContext {
  public:
-  static FlatMapContext nonFlatMapContext() {
-    return FlatMapContext{0, nullptr, nullptr};
-  }
+  uint32_t sequence{0};
 
-  uint32_t sequence;
   // Kept alive by key nodes
   BooleanRleDecoder* inMapDecoder{nullptr};
 
   std::function<void(uint64_t totalKeys, uint64_t selectedKeys)>
-      keySelectionCallback;
+      keySelectionCallback{nullptr};
 };
 
 } // namespace facebook::velox::dwrf

@@ -358,7 +358,7 @@ class IntegerDirectColumnReader : public ColumnReader {
       TypePtr requestedType,
       StripeStreams& stripe,
       uint32_t numBytes,
-      FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext());
+      FlatMapContext flatMapContext = {});
 
   ~IntegerDirectColumnReader() override = default;
 
@@ -443,7 +443,7 @@ class IntegerDictionaryColumnReader : public ColumnReader {
       TypePtr requestedType,
       StripeStreams& stripe,
       uint32_t numBytes,
-      FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext());
+      FlatMapContext flatMapContext = FlatMapContext{});
 
   ~IntegerDictionaryColumnReader() override = default;
 
@@ -933,7 +933,7 @@ class StringDictionaryColumnReader : public ColumnReader {
   StringDictionaryColumnReader(
       std::shared_ptr<const dwio::common::TypeWithId> nodeType,
       StripeStreams& stripe,
-      FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext());
+      FlatMapContext flatMapContext = {});
   ~StringDictionaryColumnReader() override = default;
 
   uint64_t skip(uint64_t numValues) override;

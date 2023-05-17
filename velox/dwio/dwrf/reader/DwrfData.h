@@ -115,9 +115,7 @@ class DwrfData : public dwio::common::FormatData {
 // DWRF specific initialization.
 class DwrfParams : public dwio::common::FormatParams {
  public:
-  DwrfParams(
-      StripeStreams& stripeStreams,
-      FlatMapContext context = FlatMapContext::nonFlatMapContext())
+  explicit DwrfParams(StripeStreams& stripeStreams, FlatMapContext context = {})
       : FormatParams(stripeStreams.getMemoryPool()),
         stripeStreams_(stripeStreams),
         flatMapContext_(context) {}

@@ -38,7 +38,7 @@ class SelectiveDwrfReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
       common::ScanSpec* FOLLY_NONNULL scanSpec,
-      FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext()) {
+      FlatMapContext flatMapContext = {}) {
     auto params = DwrfParams(stripe, flatMapContext);
     return build(requestedType, dataType, params, *scanSpec);
   }
@@ -54,7 +54,7 @@ class SelectiveColumnReaderFactory : public ColumnReaderFactory {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
-      FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext()) {
+      FlatMapContext flatMapContext = {}) {
     auto params = DwrfParams(stripe, std::move(flatMapContext));
     auto reader =
         SelectiveDwrfReader::build(requestedType, dataType, params, *scanSpec_);

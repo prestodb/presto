@@ -39,7 +39,7 @@ class ColumnReader {
       : notNullDecoder_{},
         nodeType_{type},
         memoryPool_{memoryPool},
-        flatMapContext_{FlatMapContext::nonFlatMapContext()} {}
+        flatMapContext_{} {}
 
   // Reads nulls, if any. Sets '*nulls' to nullptr if void
   // the reader has no nulls and there are no incoming
@@ -67,7 +67,7 @@ class ColumnReader {
   ColumnReader(
       std::shared_ptr<const dwio::common::TypeWithId> nodeId,
       StripeStreams& stripe,
-      FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext());
+      FlatMapContext flatMapContext = {});
 
   virtual ~ColumnReader() = default;
 
@@ -111,7 +111,7 @@ class ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
-      FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext());
+      FlatMapContext flatMapContext = {});
 };
 
 class ColumnReaderFactory {
@@ -121,7 +121,7 @@ class ColumnReaderFactory {
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       StripeStreams& stripe,
-      FlatMapContext flatMapContext = FlatMapContext::nonFlatMapContext()) {
+      FlatMapContext flatMapContext = {}) {
     return ColumnReader::build(
         requestedType, dataType, stripe, std::move(flatMapContext));
   }

@@ -141,7 +141,7 @@ class ColumnReaderTestBase {
           dataTypeWithId,
           streams_,
           scanSpec,
-          FlatMapContext::nonFlatMapContext());
+          FlatMapContext{});
       selectiveColumnReader_->setIsTopLevel();
       columnReader_ = nullptr;
     } else {

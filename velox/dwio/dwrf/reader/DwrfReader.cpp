@@ -403,7 +403,7 @@ void DwrfRowReader::startNextStripe() {
   auto scanSpec = options_.getScanSpec().get();
   auto requestedType = getColumnSelector().getSchemaWithId();
   auto dataType = getReader().getSchemaWithId();
-  auto flatMapContext = FlatMapContext::nonFlatMapContext();
+  FlatMapContext flatMapContext;
   flatMapContext.keySelectionCallback = options_.getKeySelectionCallback();
 
   if (scanSpec) {
