@@ -14,6 +14,7 @@
 #pragma once
 #include <folly/Conv.h>
 #include <string>
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto {
 class PrestoTaskId {
@@ -55,7 +56,7 @@ class PrestoTaskId {
   int nextDot(const std::string& taskId, int start) {
     auto pos = taskId.find(".", start);
     if (pos == std::string::npos) {
-      throw std::invalid_argument("Malformed task ID: " + taskId);
+      VELOX_USER_FAIL("Malformed task ID: {}", taskId);
     }
     return pos;
   }

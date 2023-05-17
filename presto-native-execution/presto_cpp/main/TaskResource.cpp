@@ -19,7 +19,6 @@
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/common/time/Timer.h"
-#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::presto {
 
@@ -257,15 +256,16 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
       pathMatch,
       [&](const protocol::TaskId& taskId, const std::string& updateJson) {
         protocol::TaskUpdateRequest updateRequest = json::parse(updateJson);
-        VELOX_USER_CHECK_NOT_NULL(updateRequest.fragment);
+        velox::core::PlanFragment planFragment;
+        if (updateRequest.fragment) {
+          auto fragment =
+              velox::encoding::Base64::decode(*updateRequest.fragment);
+          protocol::PlanFragment prestoPlan = json::parse(fragment);
 
-        auto fragment =
-            velox::encoding::Base64::decode(*updateRequest.fragment);
-        protocol::PlanFragment prestoPlan = json::parse(fragment);
-
-        auto converter = VeloxInteractiveQueryPlanConverter(pool_);
-        auto planFragment = converter.toVeloxQueryPlan(
-            prestoPlan, updateRequest.tableWriteInfo, taskId);
+          auto converter = VeloxInteractiveQueryPlanConverter(pool_);
+          planFragment = converter.toVeloxQueryPlan(
+              prestoPlan, updateRequest.tableWriteInfo, taskId);
+        }
 
         return taskManager_.createOrUpdateTask(
             taskId, updateRequest, planFragment);
