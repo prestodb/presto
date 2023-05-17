@@ -106,6 +106,12 @@ void enableChecksum() {
       });
 }
 
+#define PRESTO_STARTUP_LOG_PREFIX "[PRESTO_STARTUP] "
+#define PRESTO_STARTUP_LOG(severity) LOG(severity) << PRESTO_STARTUP_LOG_PREFIX
+
+#define PRESTO_SHUTDOWN_LOG_PREFIX "[PRESTO_SHUTDOWN] "
+#define PRESTO_SHUTDOWN_LOG(severity) \
+  LOG(severity) << PRESTO_SHUTDOWN_LOG_PREFIX
 } // namespace
 
 PrestoServer::PrestoServer(const std::string& configDirectoryPath)
@@ -200,8 +206,8 @@ void PrestoServer::run() {
 
   folly::SocketAddress httpSocketAddress;
   httpSocketAddress.setFromLocalPort(httpPort);
-  LOG(INFO) << fmt::format(
-      "STARTUP: Starting server at {}:{} ({})",
+  PRESTO_STARTUP_LOG(INFO) << fmt::format(
+      "Starting server at {}:{} ({})",
       httpSocketAddress.getIPAddress().str(),
       httpPort,
       address_);
@@ -340,20 +346,21 @@ void PrestoServer::run() {
     }
   }
 
-  LOG(INFO) << "STARTUP: Driver CPU executor has "
-            << driverCPUExecutor()->numThreads() << " threads.";
+  PRESTO_STARTUP_LOG(INFO) << "Driver CPU executor has "
+                           << driverCPUExecutor()->numThreads() << " threads.";
   if (httpServer_->getExecutor()) {
-    LOG(INFO) << "STARTUP: HTTP Server executor has "
-              << httpServer_->getExecutor()->numThreads() << " threads.";
+    PRESTO_STARTUP_LOG(INFO)
+        << "HTTP Server executor has "
+        << httpServer_->getExecutor()->numThreads() << " threads.";
   }
   if (spillExecutorPtr()) {
-    LOG(INFO) << "STARTUP: Spill executor has "
-              << spillExecutorPtr()->numThreads() << " threads.";
+    PRESTO_STARTUP_LOG(INFO) << "Spill executor has "
+                             << spillExecutorPtr()->numThreads() << " threads.";
   } else {
-    LOG(INFO) << "STARTUP: Spill executor was not configured.";
+    PRESTO_STARTUP_LOG(INFO) << "Spill executor was not configured.";
   }
 
-  LOG(INFO) << "STARTUP: Starting all periodic tasks...";
+  PRESTO_STARTUP_LOG(INFO) << "Starting all periodic tasks...";
   std::vector<std::shared_ptr<velox::connector::Connector>> connectors;
   for (auto connectorId : catalogNames) {
     connectors.emplace_back(velox::connector::getConnector(connectorId));
@@ -378,53 +385,55 @@ void PrestoServer::run() {
   // down.
   httpServer_->start(getHttpServerFilters());
 
-  LOG(INFO) << "SHUTDOWN: Stopping all periodic tasks...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks...";
   periodicTaskManager_->stop();
 
   // Destroy entities here to ensure we won't get any messages after Server
   // object is gone and to have nice log in case shutdown gets stuck.
-  LOG(INFO) << "SHUTDOWN: Destroying Task Resource...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Resource...";
   taskResource_.reset();
-  LOG(INFO) << "SHUTDOWN: Destroying Task Manager...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Manager...";
   taskManager_.reset();
-  LOG(INFO) << "SHUTDOWN: Destroying HTTP Server...";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying HTTP Server...";
   httpServer_.reset();
 
+  unregisterConnectors();
+
   auto cpuExecutor = driverCPUExecutor();
-  LOG(INFO) << "SHUTDOWN: Joining Driver CPU Executor '"
-            << cpuExecutor->getName()
-            << "': threads: " << cpuExecutor->numActiveThreads() << "/"
-            << cpuExecutor->numThreads()
-            << ", task queue: " << cpuExecutor->getTaskQueueSize();
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Joining Driver CPU Executor '" << cpuExecutor->getName()
+      << "': threads: " << cpuExecutor->numActiveThreads() << "/"
+      << cpuExecutor->numThreads()
+      << ", task queue: " << cpuExecutor->getTaskQueueSize();
   cpuExecutor->join();
 
   if (connectorIoExecutor_) {
-    LOG(INFO) << "SHUTDOWN: Joining IO Executor '"
-              << connectorIoExecutor_->getName()
-              << "': threads: " << connectorIoExecutor_->numActiveThreads()
-              << "/" << connectorIoExecutor_->numThreads();
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Joining IO Executor '" << connectorIoExecutor_->getName()
+        << "': threads: " << connectorIoExecutor_->numActiveThreads() << "/"
+        << connectorIoExecutor_->numThreads();
     connectorIoExecutor_->join();
   }
 
-  LOG(INFO) << "SHUTDOWN: Done joining our executors.";
+  PRESTO_SHUTDOWN_LOG(INFO) << "Done joining our executors.";
 
   auto globalCPUKeepAliveExec = folly::getGlobalCPUExecutor();
   if (auto* pGlobalCPUExecutor = dynamic_cast<folly::CPUThreadPoolExecutor*>(
           globalCPUKeepAliveExec.get())) {
-    LOG(INFO) << "SHUTDOWN: Global CPU Executor '"
-              << pGlobalCPUExecutor->getName()
-              << "': threads: " << pGlobalCPUExecutor->numActiveThreads() << "/"
-              << pGlobalCPUExecutor->numThreads()
-              << ", task queue: " << pGlobalCPUExecutor->getTaskQueueSize();
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Global CPU Executor '" << pGlobalCPUExecutor->getName()
+        << "': threads: " << pGlobalCPUExecutor->numActiveThreads() << "/"
+        << pGlobalCPUExecutor->numThreads()
+        << ", task queue: " << pGlobalCPUExecutor->getTaskQueueSize();
   }
 
   auto globalIOKeepAliveExec = folly::getGlobalIOExecutor();
   if (auto* pGlobalIOExecutor = dynamic_cast<folly::IOThreadPoolExecutor*>(
           globalIOKeepAliveExec.get())) {
-    LOG(INFO) << "SHUTDOWN: Global IO Executor '"
-              << pGlobalIOExecutor->getName()
-              << "': threads: " << pGlobalIOExecutor->numActiveThreads() << "/"
-              << pGlobalIOExecutor->numThreads();
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Global IO Executor '" << pGlobalIOExecutor->getName()
+        << "': threads: " << pGlobalIOExecutor->numActiveThreads() << "/"
+        << pGlobalIOExecutor->numThreads();
   }
 }
 
@@ -433,7 +442,7 @@ void PrestoServer::initializeVeloxMemory() {
   auto systemConfig = SystemConfig::instance();
   uint64_t memoryGb = nodeConfig->nodeMemoryGb(
       [&]() { return systemConfig->systemMemoryGb(); });
-  LOG(INFO) << "STARTUP: Starting with node memory " << memoryGb << "GB";
+  PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
   std::unique_ptr<cache::SsdCache> ssd;
   const auto asyncCacheSsdGb = systemConfig->asyncCacheSsdGb();
   if (asyncCacheSsdGb) {
@@ -443,10 +452,11 @@ void PrestoServer::initializeVeloxMemory() {
     auto asyncCacheSsdCheckpointGb = systemConfig->asyncCacheSsdCheckpointGb();
     auto asyncCacheSsdDisableFileCow =
         systemConfig->asyncCacheSsdDisableFileCow();
-    LOG(INFO) << "STARTUP: Initializing SSD cache with capacity "
-              << asyncCacheSsdGb << "GB, checkpoint size "
-              << asyncCacheSsdCheckpointGb << "GB, file cow "
-              << (asyncCacheSsdDisableFileCow ? "DISABLED" : "ENABLED");
+    PRESTO_STARTUP_LOG(INFO)
+        << "Initializing SSD cache with capacity " << asyncCacheSsdGb
+        << "GB, checkpoint size " << asyncCacheSsdCheckpointGb
+        << "GB, file cow "
+        << (asyncCacheSsdDisableFileCow ? "DISABLED" : "ENABLED");
     ssd = std::make_unique<cache::SsdCache>(
         systemConfig->asyncCacheSsdPath(),
         asyncCacheSsdGb << 30,
@@ -481,8 +491,8 @@ void PrestoServer::stop() {
   // Make sure we only go here once.
   auto shutdownOnsetSec = SystemConfig::instance()->shutdownOnsetSec();
   if (not shuttingDown_.exchange(true)) {
-    LOG(INFO) << "SHUTDOWN: Initiating shutdown. Will wait for "
-              << shutdownOnsetSec << " seconds.";
+    PRESTO_SHUTDOWN_LOG(INFO) << "Initiating shutdown. Will wait for "
+                              << shutdownOnsetSec << " seconds.";
     this->setNodeState(NodeState::SHUTTING_DOWN);
 
     // Give coordinator some time to receive our new node state and stop sending
@@ -496,9 +506,10 @@ void PrestoServer::stop() {
     std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
 
     if (httpServer_) {
-      LOG(INFO) << "SHUTDOWN: All tasks are completed. Stopping HTTP Server...";
+      PRESTO_SHUTDOWN_LOG(INFO)
+          << "All tasks are completed. Stopping HTTP Server...";
       httpServer_->stop();
-      LOG(INFO) << "SHUTDOWN: HTTP Server stopped.";
+      PRESTO_SHUTDOWN_LOG(INFO) << "HTTP Server stopped.";
     }
   }
 }
@@ -507,8 +518,8 @@ std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
   // Check if discovery URI is specified. Presto-on-Spark doesn't specify it.
   auto discoveryUri = SystemConfig::instance()->discoveryUri();
   if (!discoveryUri.has_value()) {
-    LOG(INFO)
-        << "STARTUP: Discovery URI is not specified - will not run Announcer.";
+    PRESTO_STARTUP_LOG(INFO)
+        << "Discovery URI is not specified - will not run Announcer.";
     return nullptr;
   }
 
@@ -588,8 +599,8 @@ std::vector<std::string> PrestoServer::registerConnectors(
 
       catalogNames.emplace_back(catalogName);
 
-      LOG(INFO) << "STARTUP: Registering catalog " << catalogName
-                << " using connector " << connectorName;
+      PRESTO_STARTUP_LOG(INFO) << "Registering catalog " << catalogName
+                               << " using connector " << connectorName;
 
       std::shared_ptr<velox::connector::Connector> connector =
           facebook::velox::connector::getConnectorFactory(connectorName)
@@ -601,6 +612,18 @@ std::vector<std::string> PrestoServer::registerConnectors(
     }
   }
   return catalogNames;
+}
+
+void PrestoServer::unregisterConnectors() {
+  PRESTO_SHUTDOWN_LOG(INFO) << "Unregistering connectors";
+  auto connectors = facebook::velox::connector::getAllConnectors();
+  std::unordered_set<std::string> connectorIds;
+  connectorIds.reserve(connectors.size());
+  for (const auto& connectorEntry : connectors) {
+    facebook::velox::connector::unregisterConnector(connectorEntry.first);
+  }
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Unregistered connectors: " << folly::join(',', connectorIds);
 }
 
 void PrestoServer::registerShuffleInterfaceFactories() {
