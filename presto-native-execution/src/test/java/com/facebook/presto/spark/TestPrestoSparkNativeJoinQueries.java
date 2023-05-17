@@ -57,6 +57,16 @@ public class TestPrestoSparkNativeJoinQueries
     }
 
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
+
+    // Semi and anti joins require support for replicate-nulls-and-any mode in shuffle.
+    @Override
+    @Ignore
+    public void testAntiJoin(Session joinTypeSession) {}
+
+    @Override
+    @Ignore
+    public void testSemiJoin(Session joinTypeSession) {}
+
     @Override
     @Ignore
     public void testCrossJoin() {}
