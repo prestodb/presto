@@ -317,6 +317,7 @@ void PrestoServer::run() {
       velox::parquet::ParquetReaderType::NATIVE);
 #endif
 
+  pool_ = velox::memory::addDefaultLeafMemoryPool();
   taskManager_ = std::make_unique<TaskManager>();
 
   std::string taskUri;
@@ -328,7 +329,7 @@ void PrestoServer::run() {
 
   taskManager_->setBaseUri(taskUri);
   taskManager_->setNodeId(nodeId_);
-  taskResource_ = std::make_unique<TaskResource>(*taskManager_);
+  taskResource_ = std::make_unique<TaskResource>(*taskManager_, pool_.get());
   taskResource_->registerUris(*httpServer_);
   if (systemConfig->enableSerializedPageChecksum()) {
     enableChecksum();
@@ -680,14 +681,13 @@ void PrestoServer::populateMemAndCPUInfo() {
 
   // Fill the only memory pool info (general)
   auto& poolInfo = memoryInfo.pools["general"];
-  auto* pool = taskResource_->getPool();
 
   // Fill global pool fields.
   poolInfo.maxBytes = nodeMemoryGb * 1024 * 1024 * 1024;
   // TODO(sperhsin): If 'current bytes' is the same as we get by summing up all
   // child contexts below, then use the one we sum up, rather than call
   // 'getCurrentBytes'.
-  poolInfo.reservedBytes = pool->currentBytes();
+  poolInfo.reservedBytes = pool_->currentBytes();
   poolInfo.reservedRevocableBytes = 0;
 
   // Fill basic per-query fields.
@@ -761,7 +761,7 @@ void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
       (int)std::thread::hardware_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
-      taskResource_->getPool()->currentBytes(),
+      pool_->currentBytes(),
       nodeMemoryGb * 1024 * 1024 * 1024,
       nonHeapUsed};
 
