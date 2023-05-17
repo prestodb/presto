@@ -14,7 +14,7 @@ add_library(presto_operators_plan_builder PlanBuilder.cpp)
 target_link_libraries(presto_operators_plan_builder velox_core)
 
 add_executable(presto_operators_test PlanNodeSerdeTest.cpp
-                                     UnsafeRowShuffleTest.cpp)
+                                     UnsafeRowShuffleTest.cpp BroadcastTest.cpp)
 
 add_test(presto_operators_test presto_operators_test)
 
