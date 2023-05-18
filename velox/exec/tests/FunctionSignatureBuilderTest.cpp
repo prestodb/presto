@@ -225,3 +225,30 @@ TEST_F(FunctionSignatureBuilderTest, aggregateConstantFlags) {
         aggSignature->toString());
   }
 }
+
+TEST_F(FunctionSignatureBuilderTest, toString) {
+  auto signature = FunctionSignatureBuilder()
+                       .returnType("bigint")
+                       .argumentType("integer")
+                       .build();
+
+  ASSERT_EQ("(integer) -> bigint", toString({signature}));
+
+  signature = FunctionSignatureBuilder()
+                  .returnType("bigint")
+                  .argumentType("varchar")
+                  .argumentType("integer")
+                  .build();
+
+  ASSERT_EQ("(varchar,integer) -> bigint", toString({signature}));
+
+  signature = AggregateFunctionSignatureBuilder()
+                  .returnType("bigint")
+                  .argumentType("varchar")
+                  .intermediateType("varbinary")
+                  .build();
+
+  ASSERT_EQ("(varchar) -> varbinary -> bigint", toString({signature}));
+
+  ASSERT_EQ("foo(BIGINT, VARCHAR)", toString("foo", {BIGINT(), VARCHAR()}));
+}

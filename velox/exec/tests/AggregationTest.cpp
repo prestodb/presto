@@ -377,6 +377,75 @@ void AggregationTest::setTestKey(
   vector->set(row, StringView(chars));
 }
 
+TEST_F(AggregationTest, missingFunctionOrSignature) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3}),
+      makeFlatVector<bool>({true, true, false}),
+  });
+
+  // (smallint, varchar) -> bigint
+  registerAggregateFunction(
+      "test_aggregate",
+      {AggregateFunctionSignatureBuilder()
+           .returnType("bigint")
+           .intermediateType("tinyint")
+           .argumentType("smallint")
+           .argumentType("varchar")
+           .build()},
+      [&](core::AggregationNode::Step step,
+          const std::vector<TypePtr>& argTypes,
+          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
+        VELOX_UNREACHABLE();
+      });
+
+  std::vector<core::TypedExprPtr> inputs = {
+      std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c0"),
+      std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "c1"),
+  };
+  auto missingFunc = std::make_shared<core::CallTypedExpr>(
+      BIGINT(), inputs, "missing-function");
+  auto wrongInputTypes =
+      std::make_shared<core::CallTypedExpr>(BIGINT(), inputs, "test_aggregate");
+  auto missingInputs = std::make_shared<core::CallTypedExpr>(
+      BIGINT(), std::vector<core::TypedExprPtr>{}, "test_aggregate");
+
+  auto makePlan = [&](const core::CallTypedExprPtr& aggExpr) {
+    return PlanBuilder()
+        .values({data})
+        .addNode([&](auto nodeId, auto source) -> core::PlanNodePtr {
+          return std::make_shared<core::AggregationNode>(
+              nodeId,
+              core::AggregationNode::Step::kSingle,
+              std::vector<core::FieldAccessTypedExprPtr>{},
+              std::vector<core::FieldAccessTypedExprPtr>{},
+              std::vector<std::string>{"agg"},
+              std::vector<core::CallTypedExprPtr>{aggExpr},
+              std::vector<core::FieldAccessTypedExprPtr>{},
+              false,
+              std::move(source));
+        })
+        .planNode();
+  };
+
+  CursorParameters params;
+  params.planNode = makePlan(missingFunc);
+  VELOX_ASSERT_THROW(
+      readCursor(params, [](Task*) {}),
+      "Aggregate function 'missing-function' not registered");
+
+  params.planNode = makePlan(wrongInputTypes);
+  VELOX_ASSERT_THROW(
+      readCursor(params, [](Task*) {}),
+      "Aggregate function signature is not supported: test_aggregate(BIGINT, BOOLEAN). "
+      "Supported signatures: (smallint,varchar) -> tinyint -> bigint.");
+
+  params.planNode = makePlan(missingInputs);
+  VELOX_ASSERT_THROW(
+      readCursor(params, [](Task*) {}),
+      "Aggregate function signature is not supported: test_aggregate(). "
+      "Supported signatures: (smallint,varchar) -> tinyint -> bigint.");
+}
+
 TEST_F(AggregationTest, global) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);

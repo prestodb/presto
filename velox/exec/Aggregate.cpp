@@ -218,17 +218,25 @@ TypePtr Aggregate::intermediateType(
     const std::vector<TypePtr>& argTypes) {
   auto signatures = getAggregateFunctionSignatures(name);
   if (!signatures.has_value()) {
-    VELOX_FAIL("Aggregate {} not registered", name);
+    VELOX_FAIL("Aggregate function '{}' not registered", name);
   }
   for (auto& signature : signatures.value()) {
     SignatureBinder binder(*signature, argTypes);
     if (binder.tryBind()) {
       auto type = binder.tryResolveType(signature->intermediateType());
-      VELOX_CHECK(type, "failed to resolve intermediate type for {}", name);
+      VELOX_CHECK(
+          type,
+          "Cannot resolve intermediate type for aggregate function {}",
+          toString(name, argTypes));
       return type;
     }
   }
-  VELOX_FAIL("Could not infer intermediate type for aggregate {}", name);
+
+  std::stringstream error;
+  error << "Aggregate function signature is not supported: "
+        << toString(name, argTypes)
+        << ". Supported signatures: " << toString(signatures.value()) << ".";
+  VELOX_USER_FAIL(error.str());
 }
 
 int32_t Aggregate::combineAlignmentInternal(int32_t otherAlignment) const {

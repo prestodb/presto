@@ -312,34 +312,6 @@ std::string throwAggregateFunctionDoesntExist(const std::string& name) {
   VELOX_USER_FAIL(error.str());
 }
 
-std::string toString(
-    const std::string& name,
-    const std::vector<TypePtr>& types) {
-  std::ostringstream signature;
-  signature << name << "(";
-  for (auto i = 0; i < types.size(); i++) {
-    if (i > 0) {
-      signature << ", ";
-    }
-    signature << types[i]->toString();
-  }
-  signature << ")";
-  return signature.str();
-}
-
-std::string toString(
-    const std::vector<std::shared_ptr<AggregateFunctionSignature>>&
-        signatures) {
-  std::stringstream out;
-  for (auto i = 0; i < signatures.size(); ++i) {
-    if (i > 0) {
-      out << ", ";
-    }
-    out << signatures[i]->toString();
-  }
-  return out.str();
-}
-
 std::string throwAggregateFunctionSignatureNotSupported(
     const std::string& name,
     const std::vector<TypePtr>& types,
@@ -1031,10 +1003,6 @@ PlanBuilder& PlanBuilder::unnest(
 }
 
 namespace {
-std::string toString(const std::vector<FunctionSignaturePtr>& signatures) {
-  return fmt::format("{}", fmt::join(signatures, ","));
-}
-
 std::string throwWindowFunctionDoesntExist(const std::string& name) {
   std::stringstream error;
   error << "Window function doesn't exist: " << name << ".";

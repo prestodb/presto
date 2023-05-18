@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/type/Type.h"
 
 namespace facebook::velox::exec {
 
@@ -380,6 +381,22 @@ class AggregateFunctionSignatureBuilder {
   std::vector<bool> constantArguments_;
   bool variableArity_{false};
 };
+
+/// Return a string representation of function signature: name(type1,
+/// type1,...). For example, foo(bigint, boolean, varchar).
+std::string toString(
+    const std::string& name,
+    const std::vector<TypePtr>& types);
+
+/// Return a string representation of a list of scalar function signatures.
+/// For example, (boolean) -> integer, (varchar, integer) -> varchar.
+std::string toString(const std::vector<FunctionSignaturePtr>& signatures);
+
+/// Return a string representation of a list of aggregate function signatures.
+/// For example, (boolean) -> varbinary -> integer, (varchar, integer) ->
+/// varbinary -> varchar.
+std::string toString(
+    const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures);
 
 } // namespace facebook::velox::exec
 
