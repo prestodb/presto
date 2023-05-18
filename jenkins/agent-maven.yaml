@@ -1,26 +1,28 @@
 apiVersion: v1
 kind: Pod
 metadata:
-    namespace: oss-agent
-    labels:
-        containers: maven
+  namespace: oss-agent
+  labels:
+    containers: maven
 spec:
-    nodeSelector:
-      eks.amazonaws.com/nodegroup: eks-oss-presto-dynamic-managed-ng
-    serviceAccountName: oss-agent
-    containers:
-    - name: maven
-      image: maven:3.8.6-openjdk-8-slim
-      env:
-      - name: MAVEN_OPTS
-        value: "-Xmx8000m -Xms8000m"
-      resources:
-        requests:
-          memory: "10Gi"
-          cpu: "4000m"
-        limits:
-          memory: "10Gi"
-          cpu: "4000m"
-      tty: true
-      command:
-      - cat
+  securityContext:
+    privileged: true
+  nodeSelector:
+    eks.amazonaws.com/nodegroup: eks-oss-presto-dynamic-managed-ng
+  serviceAccountName: oss-agent
+  containers:
+  - name: maven
+    image: maven:3.8.6-openjdk-8-slim
+    env:
+    - name: MAVEN_OPTS
+      value: "-Xmx16g -Xms16g"
+    resources:
+      requests:
+        memory: "16Gi"
+        cpu: "4000m"
+      limits:
+        memory: "16Gi"
+        cpu: "4000m"
+    tty: true
+    command:
+    - cat
