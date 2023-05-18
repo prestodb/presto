@@ -55,6 +55,7 @@ public class PinotQueryGeneratorContext
 {
     public static final String TIME_BOUNDARY_FILTER_TEMPLATE = "__TIME_BOUNDARY_FILTER_TEMPLATE__";
     public static final String TABLE_NAME_SUFFIX_TEMPLATE = "__TABLE_NAME_SUFFIX_TEMPLATE__";
+    public static final String DYNAMIC_FILTER_FUNCTION_TEMPLATE = "__DYNAMIC_FILTER_FUNCTION__";
     // Fields defining the query
     // A map that maps the column definition in terms of input relation column(s)
     private final Map<VariableReferenceExpression, Selection> selections;
@@ -304,16 +305,19 @@ public class PinotQueryGeneratorContext
     // Generate Pinot query:
     // - takes arguments of expressions/table name/limit clause;
     // - handles the common logic to generate where/groupBy/orderBy clauses.
-    private String generatePinotQueryHelper(boolean forBroker, String expressions, String tableName, String limitClause, String queryOptions)
+    private String generatePinotQueryHelper(boolean forBroker, String expressions, String tableName, String limitClause, boolean pushdownDynamicFilter, String queryOptions)
     {
         String query = "SELECT " + expressions + " FROM " + tableName + (forBroker ? "" : TABLE_NAME_SUFFIX_TEMPLATE);
         if (filter.isPresent()) {
             String filterString = filter.get();
             // this is hack!!!. Ideally we want to clone the scan pipeline and create/update the filter in the scan pipeline to contain this filter and
             // at the same time add the time column to scan so that the query generator doesn't fail when it looks up the time column in scan output columns
-            query += format(" WHERE %s%s", filterString, forBroker ? "" : TIME_BOUNDARY_FILTER_TEMPLATE);
+            query += format(" WHERE %s%s", pushdownDynamicFilter ? format("%s AND ", DYNAMIC_FILTER_FUNCTION_TEMPLATE) : "", filterString);
         }
-        else if (!forBroker) {
+        else if (pushdownDynamicFilter) {
+            query += format(" WHERE %s", DYNAMIC_FILTER_FUNCTION_TEMPLATE);
+        }
+        if (!forBroker) {
             query += TIME_BOUNDARY_FILTER_TEMPLATE;
         }
 
@@ -340,6 +344,7 @@ public class PinotQueryGeneratorContext
         boolean isQueryShort = (hasAggregation() || hasGroupBy()) || limit.orElse(Integer.MAX_VALUE) < nonAggregateShortQueryLimit;
         boolean attemptBrokerQueries = PinotSessionProperties.isAttemptBrokerQueries(session) || isQueryShort;
         boolean forBroker = !PinotSessionProperties.isForbidBrokerQueries(session) && attemptBrokerQueries;
+        boolean pushdownDynamicFilter = PinotSessionProperties.getPushdownDynamicFilter(session);
         String groupByExpressions = groupByColumns.stream()
                 .map(x -> selections.get(x).getDefinition())
                 .collect(Collectors.joining(", "));
@@ -358,7 +363,7 @@ public class PinotQueryGeneratorContext
         String tableName = from.orElseThrow(() -> new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Table name not encountered yet"));
 
         // Rules for limit:
-        // - If its a selection query:
+        // - If it's a selection query:
         //      + given limit or configured limit
         // - Else if has group by:
         //      + default limit or configured top limit
@@ -387,7 +392,7 @@ public class PinotQueryGeneratorContext
         }
         String queryOptionsProperty = PinotSessionProperties.getQueryOptions(session);
         String queryOptions = PinotQueryOptionsUtils.getQueryOptionsAsString(queryOptionsProperty);
-        String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause, queryOptions);
+        String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause, pushdownDynamicFilter, queryOptions);
         LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments();
         List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
         return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, indices, filter.isPresent(), forBroker);

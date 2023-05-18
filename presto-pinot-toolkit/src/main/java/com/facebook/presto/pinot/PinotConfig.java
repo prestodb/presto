@@ -42,6 +42,7 @@ public class PinotConfig
     public static final int DEFAULT_LIMIT_LARGE_FOR_SEGMENT = Integer.MAX_VALUE;
     public static final int DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = 25_000;
     public static final int DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES = (int) new DataSize(128, MEGABYTE).toBytes();
+    public static final int DEFAULT_MAX_PUSHDOWN_DYNAMIC_FILTER_SIZE = 10000;
 
     // There is a perf penalty of having a large topN since the structures are allocated to this size
     // So size this judiciously
@@ -94,6 +95,8 @@ public class PinotConfig
     private int nonAggregateLimitForBrokerQueries = DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES;
     private boolean pushdownTopNBrokerQueries = true;
     private boolean pushdownProjectExpressions = true;
+    private boolean pushdownDynamicFilter;
+    private int maxPushdownDynamicFilterSize = DEFAULT_MAX_PUSHDOWN_DYNAMIC_FILTER_SIZE;
     private String grpcHost;
     private int grpcPort = DEFAULT_PROXY_GRPC_PORT;
     private boolean useProxy;
@@ -417,6 +420,30 @@ public class PinotConfig
     public PinotConfig setPushdownProjectExpressions(boolean pushdownProjectExpressions)
     {
         this.pushdownProjectExpressions = pushdownProjectExpressions;
+        return this;
+    }
+
+    public boolean isPushdownDynamicFilter()
+    {
+        return pushdownDynamicFilter;
+    }
+
+    @Config("pinot.pushdown-dynamic-filter")
+    public PinotConfig setPushdownDynamicFilter(boolean pushdownDynamicFilter)
+    {
+        this.pushdownDynamicFilter = pushdownDynamicFilter;
+        return this;
+    }
+
+    public int getMaxPushdownDynamicFilterSize()
+    {
+        return maxPushdownDynamicFilterSize;
+    }
+
+    @Config("pinot.max-pushdown-dynamic-filter-size")
+    public PinotConfig setMaxPushdownDynamicFilterSize(int maxPushdownDynamicFilterSize)
+    {
+        this.maxPushdownDynamicFilterSize = maxPushdownDynamicFilterSize;
         return this;
     }
 

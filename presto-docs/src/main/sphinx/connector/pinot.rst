@@ -53,6 +53,7 @@ Property Name                                               Description
 ``pinot.caller-header-value``                               RPC service caller header value, default is "presto".
 ``pinot.forbid-broker-queries``                             No broker request pushing down, default is false.
 ``pinot.forbid-segment-queries``                            No segment query pushing down, fail the query if broker query pushing down is not possible, default is false.
+``pinot.attempt-broker-queries``                            Attempt broker request pushing down and will use capped segment max size, default is false.
 ``pinot.rest-proxy-service-for-query``                      Use rest proxy endpoint for Pinot broker requests, default is false.
 ``pinot.use-date-trunc``                                    Use the new UDF dateTrunc in pinot that is more presto compatible, default is false.
 ``pinot.num-segments-per-split``                            Number of segments of the same host per split, default is 1.
@@ -63,6 +64,9 @@ Property Name                                               Description
 ``pinot.infer-timestamp-type-in-schema``                    Infer Pinot SECONDS epoch column to Presto TIMESTAMP type, default is true.
 ``pinot.mark-data-fetch-exceptions-as-retriable``           Retry Pinot request when failure, default is true.
 ``pinot.pushdown-topn-broker-queries``                      Allow pushing down query pattern to broker: aggregation + groupBy + orderBy, default is false.
+``pinot.pushdown-project-expressions``                      Allow pushing down some special forms and functions in project expressions.
+``pinot.pushdown-dynamic-filter``                           Allow pushing down of dynamic filters from joins to Pinot queries.
+``pinot.max-pushdown-dynamic-filter-size``                  Max number of identifiers to pushdown in dynamic filter, before setting to range.
 ``pinot.streaming-server-grpc-max-inbound-message-bytes``   Max inbound message bytes when init gRPC client, default is 128MB.
 ``pinot.proxy-enabled``                                     Pinot Cluster is behind a proxy, default is false.
 ``pinot.grpc-host``                                         Pinot gRPC host.
@@ -102,11 +106,15 @@ Property Name                                             Description
 ========================================================  ==================================================================
 ``pinot.forbid_broker_queries``                           Forbid queries to the broker.
 ``pinot.forbid_segment_queries``                          Forbid segment queries.
+``pinot.attempt_broker_queries``                          Attempt broker request pushing down and will use capped segment max size, default is false.
 ``pinot.mark_data_fetch_exceptions_as_retriable``         Retry Pinot query on data fetch exceptions.
 ``pinot.retry_count``                                     Retry count for retriable pinot data fetch calls.
 ``pinot.use_date_trunc``                                  Use the new UDF dateTrunc in pinot that is more presto compatible.
 ``pinot.non_aggregate_limit_for_broker_queries``          Max limit for non aggregate queries to the pinot broker.
 ``pinot.pushdown_topn_broker_queries``                    Push down order by to pinot broker for top queries.
+``pinot.pushdown_project_expressions``                    Allow pushing down some special forms and functions in project expressions.
+``pinot.pushdown_dynamic_filter``                         Allow pushing down of dynamic filters from joins to Pinot queries.
+``pinot.max_pushdown_dynamic_filter_size``                Max number of identifiers to pushdown in dynamic filter, before setting to range.
 ``pinot.num_segments_per_split``                          Number of segments of the same host per split.
 ``pinot.limit_larger_for_segment``                        Server query selection limit for large segment.
 ``pinot.override_distinct_count_function``                Override distinct count function to another function name.
