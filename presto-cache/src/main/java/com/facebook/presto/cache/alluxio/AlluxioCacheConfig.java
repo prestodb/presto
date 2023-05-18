@@ -221,16 +221,16 @@ public class AlluxioCacheConfig
         this.shadowCacheWindow = shadowCacheWindow;
         return this;
     }
-    
+
     public String getCacheFilterClass()
-    {   
+    {
         return cacheFilterClass;
     }
 
     @Config("cache.alluxio.cache-filter-class")
     @ConfigDescription("Cache Filter class name used by the alluxio caching")
     public AlluxioCacheConfig setCacheFilterClass(String cacheFilterClass)
-    {   
+    {
         this.cacheFilterClass = cacheFilterClass;
         return this;
     }
