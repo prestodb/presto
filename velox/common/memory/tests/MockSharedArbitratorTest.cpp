@@ -853,13 +853,15 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrations) {
       memOps.push_back(addMemoryOp(queries.back(), (j % 3) != 0));
     }
   }
-  const int numAllocationsPerOp = 1000;
+
+  std::atomic<bool> stopped{false};
+
   std::vector<std::thread> memThreads;
   for (int i = 0; i < numQueries * numOpsPerQuery; ++i) {
     memThreads.emplace_back([&, i, memOp = memOps[i]]() {
       folly::Random::DefaultGenerator rng;
       rng.seed(i);
-      for (int j = 0; j < numAllocationsPerOp; ++j) {
+      while (!stopped) {
         if (folly::Random::oneIn(4, rng)) {
           if (folly::Random::oneIn(3, rng)) {
             memOp->freeAll();
@@ -880,6 +882,10 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrations) {
       }
     });
   }
+
+  std::this_thread::sleep_for(std::chrono::seconds(5));
+  stopped = true;
+
   for (auto& memThread : memThreads) {
     memThread.join();
   }
@@ -892,14 +898,15 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
   queries.push_back(addQuery());
   queries.back()->addMemoryOp();
 
+  std::atomic<bool> stopped{false};
+
   const int numMemThreads = 20;
-  const int numAllocationsPerQuery = 5000;
   std::vector<std::thread> memThreads;
   for (int i = 0; i < numMemThreads; ++i) {
     memThreads.emplace_back([&, i]() {
       folly::Random::DefaultGenerator rng;
       rng.seed(i);
-      for (int j = 0; j < numAllocationsPerQuery; ++j) {
+      while (!stopped) {
         std::shared_ptr<MockQuery> query;
         {
           std::lock_guard<std::mutex> l(mutex);
@@ -929,12 +936,11 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
     });
   }
 
-  const int numControlOps = 2000;
   const int maxNumQueries = 64;
   std::thread controlThread([&]() {
     folly::Random::DefaultGenerator rng;
     rng.seed(1000);
-    for (int i = 0; i < numControlOps; ++i) {
+    while (!stopped) {
       {
         std::lock_guard<std::mutex> l(mutex);
         if ((queries.size() == 1) ||
@@ -949,6 +955,9 @@ TEST_F(MockSharedArbitrationTest, concurrentArbitrationWithTransientRoots) {
       std::this_thread::sleep_for(std::chrono::microseconds(5));
     }
   });
+
+  std::this_thread::sleep_for(std::chrono::seconds(5));
+  stopped = true;
 
   for (auto& memThread : memThreads) {
     memThread.join();
