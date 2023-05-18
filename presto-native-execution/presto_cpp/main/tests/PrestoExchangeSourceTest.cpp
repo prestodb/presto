@@ -25,6 +25,8 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/testutil/TestValue.h"
 
+DECLARE_bool(velox_memory_leak_check_enabled);
+
 namespace fs = boost::filesystem;
 using namespace facebook::presto;
 
@@ -36,6 +38,7 @@ using namespace facebook::velox::common::testutil;
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::init(&argc, &argv, true);
+  FLAGS_velox_memory_leak_check_enabled = true;
   return RUN_ALL_TESTS();
 }
 
