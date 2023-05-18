@@ -973,5 +973,115 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     MinMaxByGroupByAggregationTest,
     testing::ValuesIn(getTestParams()));
 
+class MinMaxByComplexTypes : public AggregationTestBase {};
+
+TEST_F(MinMaxByComplexTypes, array) {
+  auto data = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+          {4, 5},
+          {},
+          {6, 7, 8},
+      }),
+      makeFlatVector<int64_t>({1, 2, 3, 4}),
+  });
+
+  // DuckDB doesn't support min_by and max_by with complex types properly.
+  // min_by(ARRAY, x) returns result of type VARCHAR, not ARRAY.
+  // Assertion failed: (value.type().InternalType() == PhysicalType::LIST),
+  // function GetChildren, file duckdb-2.cpp, line 4896.
+
+  auto expected = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+      }),
+      makeArrayVector<int64_t>({
+          {6, 7, 8},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"min_by(c0, c1)", "max_by(c0, c1)"}, {expected});
+}
+
+TEST_F(MinMaxByComplexTypes, arrayGroupBy) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({5, 6, 5, 6}),
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+          {4, 5},
+          {},
+          {6, 7, 8},
+      }),
+      makeFlatVector<int64_t>({1, 2, 3, 4}),
+  });
+
+  auto expected = makeRowVector({
+      makeFlatVector<int64_t>({5, 6}),
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+          {4, 5},
+      }),
+      makeArrayVector<int64_t>({
+          {},
+          {6, 7, 8},
+      }),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"min_by(c1, c2)", "max_by(c1, c2)"}, {expected});
+}
+
+TEST_F(MinMaxByComplexTypes, map) {
+  auto data = makeRowVector({
+      makeMapVector<int64_t, int64_t>({
+          {{1, 10}, {2, 20}, {3, 30}},
+          {{4, 40}, {5, 50}},
+          {},
+          {{6, 60}, {7, 70}, {8, 80}},
+      }),
+      makeFlatVector<int64_t>({1, 2, 3, 4}),
+  });
+
+  auto expected = makeRowVector({
+      makeMapVector<int64_t, int64_t>({
+          {{1, 10}, {2, 20}, {3, 30}},
+      }),
+      makeMapVector<int64_t, int64_t>({
+          {{6, 60}, {7, 70}, {8, 80}},
+      }),
+  });
+
+  testAggregations(
+      {data}, {}, {"min_by(c0, c1)", "max_by(c0, c1)"}, {expected});
+}
+
+TEST_F(MinMaxByComplexTypes, mapGroupBy) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({5, 6, 5, 6}),
+      makeMapVector<int64_t, int64_t>({
+          {{1, 10}, {2, 20}, {3, 30}},
+          {{4, 40}, {5, 50}},
+          {},
+          {{6, 60}, {7, 70}, {8, 80}},
+      }),
+      makeFlatVector<int64_t>({1, 2, 3, 4}),
+  });
+
+  auto expected = makeRowVector({
+      makeFlatVector<int64_t>({5, 6}),
+      makeMapVector<int64_t, int64_t>({
+          {{1, 10}, {2, 20}, {3, 30}},
+          {{4, 40}, {5, 50}},
+      }),
+      makeMapVector<int64_t, int64_t>({
+          {},
+          {{6, 60}, {7, 70}, {8, 80}},
+      }),
+  });
+
+  testAggregations(
+      {data}, {"c0"}, {"min_by(c1, c2)", "max_by(c1, c2)"}, {expected});
+}
 } // namespace
 } // namespace facebook::velox::aggregate::test

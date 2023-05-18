@@ -648,7 +648,8 @@ std::unique_ptr<exec::Aggregate> create(
 template <template <typename U, typename V> class Aggregate>
 bool registerMinMaxBy(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
-  for (const auto& valueType :
+  // TODO Add support for boolean and timestamp 'compare' types.
+  for (const auto& compareType :
        {"tinyint",
         "smallint",
         "integer",
@@ -657,23 +658,14 @@ bool registerMinMaxBy(const std::string& name) {
         "double",
         "varchar",
         "date"}) {
-    for (const auto& compareType :
-         {"tinyint",
-          "smallint",
-          "integer",
-          "bigint",
-          "real",
-          "double",
-          "varchar",
-          "date"}) {
-      signatures.push_back(exec::AggregateFunctionSignatureBuilder()
-                               .returnType(valueType)
-                               .intermediateType(fmt::format(
-                                   "row({},{})", valueType, compareType))
-                               .argumentType(valueType)
-                               .argumentType(compareType)
-                               .build());
-    }
+    signatures.push_back(
+        exec::AggregateFunctionSignatureBuilder()
+            .typeVariable("T")
+            .returnType("T")
+            .intermediateType(fmt::format("row(T,{})", compareType))
+            .argumentType("T")
+            .argumentType(compareType)
+            .build());
   }
 
   exec::registerAggregateFunction(
@@ -714,6 +706,9 @@ bool registerMinMaxBy(const std::string& name) {
             compareType->kindName());
 
         switch (valueType->kind()) {
+          case TypeKind::BOOLEAN:
+            return create<Aggregate, bool>(
+                resultType, compareType, errorMessage);
           case TypeKind::TINYINT:
             return create<Aggregate, int8_t>(
                 resultType, compareType, errorMessage);
@@ -737,6 +732,16 @@ bool registerMinMaxBy(const std::string& name) {
                 resultType, compareType, errorMessage);
           case TypeKind::DATE:
             return create<Aggregate, Date>(
+                resultType, compareType, errorMessage);
+          case TypeKind::TIMESTAMP:
+            return create<Aggregate, Timestamp>(
+                resultType, compareType, errorMessage);
+          case TypeKind::ARRAY:
+            FOLLY_FALLTHROUGH;
+          case TypeKind::MAP:
+            FOLLY_FALLTHROUGH;
+          case TypeKind::ROW:
+            return create<Aggregate, ComplexType>(
                 resultType, compareType, errorMessage);
           default:
             VELOX_FAIL(errorMessage);
