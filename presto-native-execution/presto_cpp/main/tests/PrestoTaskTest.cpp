@@ -14,12 +14,18 @@
 #include "presto_cpp/main/PrestoTask.h"
 #include <gtest/gtest.h>
 
+DECLARE_bool(velox_memory_leak_check_enabled);
+
 using namespace facebook::velox;
 using namespace facebook::presto;
 
 using facebook::presto::PrestoTaskId;
 
-class PrestoTaskTest : public testing::Test {};
+class PrestoTaskTest : public testing::Test {
+  void SetUp() override {
+    FLAGS_velox_memory_leak_check_enabled = true;
+  }
+};
 
 TEST_F(PrestoTaskTest, basicTaskId) {
   PrestoTaskId id("20201107_130540_00011_wrpkw.1.2.3");
