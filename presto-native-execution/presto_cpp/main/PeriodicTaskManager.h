@@ -76,7 +76,10 @@ class PeriodicTaskManager {
   void addTaskCleanupTask();
   void addMemoryAllocatorStatsTask();
   void addPrestoExchangeSourceMemoryStatsTask();
-  void addAsyncDataCacheStatsTask();
+
+  void addCacheStatsUpdateTask();
+  void updateCacheStats();
+
   void addConnectorStatsTask();
 
   void addOperatingSystemStatsUpdateTask();
@@ -91,6 +94,14 @@ class PeriodicTaskManager {
   const std::unordered_map<
       std::string,
       std::shared_ptr<velox::connector::Connector>>& connectors_;
+
+  // Cache related stats
+  int64_t lastMemoryCacheHits_{0};
+  int64_t lastMemoryCacheInserts_{0};
+  int64_t lastMemoryCacheEvictions_{0};
+  int64_t lastMemoryCacheEvictionChecks_{0};
+  int64_t lastMemoryCacheStalls_{0};
+  int64_t lastMemoryCacheAllocClocks_{0};
 
   // Operating system related stats.
   int64_t lastUserCpuTimeUs_{0};
