@@ -1004,6 +1004,8 @@ void Expr::addNulls(
   }
 
   if (result->size() < rows.end()) {
+    BaseVector::ensureWritable(
+        SelectivityVector::empty(), type, context.pool(), result);
     result->resize(rows.end());
   }
 

@@ -3111,6 +3111,27 @@ TEST_F(ExprTest, addNulls) {
     }
     ASSERT_TRUE(result->isNullAt(kSize - 1));
   }
+
+  // Make sure addNulls does not overwrite a shared dictionary vector indices.
+  {
+    BufferPtr sharedIndices =
+        AlignedBuffer::allocate<vector_size_t>(6, context.pool());
+    auto* mutableIndices = sharedIndices->asMutable<vector_size_t>();
+    mutableIndices[0] = 1;
+    mutableIndices[1] = 1;
+    mutableIndices[2] = 1;
+
+    // Vector of size 2 using only the first two indices of sharedIndices.
+    auto wrappedVectorSmaller = BaseVector::wrapInDictionary(
+        nullptr, sharedIndices, 2, makeFlatVector<int64_t>({1, 2, 3}));
+    exec::Expr::addNulls(
+        SelectivityVector(3),
+        rawNulls,
+        context,
+        BIGINT(),
+        wrappedVectorSmaller);
+    EXPECT_EQ(mutableIndices[2], 1);
+  }
 }
 
 namespace {
