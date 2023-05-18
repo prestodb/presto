@@ -238,6 +238,8 @@ class SystemConfig : public ConfigBase {
   // required, break this down to 3 configs one for cert,key and password later.
   std::optional<std::string> httpsClientCertAndKeyPath() const;
 
+  bool mutableConfig() const;
+
   std::string prestoVersion() const;
 
   std::optional<std::string> discoveryUri() const;
@@ -325,6 +327,43 @@ class NodeConfig : public ConfigBase {
 
   uint64_t nodeMemoryGb(
       const std::function<uint64_t()>& defaultNodeMemoryGb = nullptr) const;
+};
+
+/// Used only in the single instance as the source of the initial properties for
+/// velox::QueryConfig. Not designed for actual property access during a query
+/// run.
+/// Values can be modified via Server Operation command if the SystemConfig has
+/// kMutableConfig option set to true (so this config must be created after the
+/// SystemConfig has been initialized).
+class BaseVeloxQueryConfig {
+ public:
+  BaseVeloxQueryConfig();
+
+  static BaseVeloxQueryConfig* instance();
+
+  /// If this config is mutable.
+  bool isMutable() const {
+    return mutable_;
+  }
+
+  /// Returns copy of the config values map.
+  std::unordered_map<std::string, std::string> values() const {
+    return *(values_.rlock());
+  }
+
+  /// Adds or replaces value at the given key. Can be used by debugging or
+  /// testing code.
+  /// Returns previous value if there was any.
+  folly::Optional<std::string> setValue(
+      const std::string& propertyName,
+      const std::string& value);
+
+  /// Returns the current value of the property.
+  folly::Optional<std::string> getValue(const std::string& propertyName) const;
+
+ private:
+  const bool mutable_;
+  folly::Synchronized<std::unordered_map<std::string, std::string>> values_;
 };
 
 } // namespace facebook::presto
