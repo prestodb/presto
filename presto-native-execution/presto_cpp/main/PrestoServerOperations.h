@@ -38,6 +38,10 @@ class PrestoServerOperations {
   static std::string systemConfigOperation(
       const ServerOperation& op,
       proxygen::HTTPMessage* message);
+
+  static std::string veloxQueryConfigOperation(
+      const ServerOperation& op,
+      proxygen::HTTPMessage* message);
 };
 
 } // namespace facebook::presto

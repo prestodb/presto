@@ -24,6 +24,7 @@ struct ServerOperation {
   enum class Target {
     kConnector,
     kSystemConfig,
+    kVeloxQueryConfig,
   };
 
   /// The action this operation is trying to take
