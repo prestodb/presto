@@ -16,6 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkServiceFactory;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spark.execution.NativeExecutionModule;
@@ -36,8 +37,9 @@ public class PrestoSparkServiceFactory
     private final Logger log = Logger.get(PrestoSparkServiceFactory.class);
 
     @Override
-    public IPrestoSparkService createService(SparkProcessType sparkProcessType, PrestoSparkConfiguration configuration)
+    public IPrestoSparkService createService(SparkProcessType sparkProcessType, PrestoSparkConfiguration configuration, PrestoSparkBootstrapTimer bootstrapTimer)
     {
+        bootstrapTimer.beginPrestoSparkServiceCreation();
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(configuration.getConfigProperties());
         properties.put("plugin.dir", configuration.getPluginsDirectoryPath());
@@ -54,8 +56,9 @@ public class PrestoSparkServiceFactory
                 getSqlParserOptions(),
                 getAdditionalModules(configuration));
 
-        Injector injector = prestoSparkInjectorFactory.create();
+        Injector injector = prestoSparkInjectorFactory.create(bootstrapTimer);
         PrestoSparkService prestoSparkService = injector.getInstance(PrestoSparkService.class);
+        bootstrapTimer.endPrestoSparkServiceCreation();
         log.info("Initialized");
         return prestoSparkService;
     }

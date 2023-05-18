@@ -526,7 +526,8 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation,
-            Optional<RetryExecutionStrategy> retryExecutionStrategy)
+            Optional<RetryExecutionStrategy> retryExecutionStrategy,
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
 
@@ -694,7 +695,8 @@ public class PrestoSparkQueryExecutionFactory
                             planFragmenter,
                             metadata,
                             partitioningProviderManager,
-                            historyBasedPlanStatisticsTracker);
+                            historyBasedPlanStatisticsTracker,
+                            bootstrapMetricsCollector);
                 }
                 else {
                     return new PrestoSparkAdaptiveQueryExecution(
@@ -732,7 +734,8 @@ public class PrestoSparkQueryExecutionFactory
                             planFragmenter,
                             metadata,
                             partitioningProviderManager,
-                            historyBasedPlanStatisticsTracker);
+                            historyBasedPlanStatisticsTracker,
+                            bootstrapMetricsCollector);
                 }
             }
         }
