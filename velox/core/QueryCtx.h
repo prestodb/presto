@@ -119,68 +119,6 @@ class QueryCtx {
     pool_ = std::move(pool);
   }
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  /// QueryCtx is used in different places. When used with `Task::start()`, it's
-  /// required that the caller supplies the executor and ensure its lifetime
-  /// outlives the tasks that use it. In contrast, when used in expression
-  /// evaluation through `ExecCtx` or 'Task::next()' for single thread execution
-  /// mode, executor is not needed. Hence, we don't require executor to always
-  /// be passed in here, but instead, ensure that executor exists when actually
-  /// being used.
-  /// TODO(spershin): Deprecated, remove when migrated to the new constructors
-  /// with std::unordered_map instead of MemConfig.
-  QueryCtx(
-      folly::Executor* FOLLY_NULLABLE executor = nullptr,
-      std::shared_ptr<Config> config = std::make_shared<MemConfig>(),
-      std::unordered_map<std::string, std::shared_ptr<Config>>
-          connectorConfigs = {},
-      memory::MemoryAllocator* FOLLY_NONNULL allocator =
-          memory::MemoryAllocator::getInstance(),
-      std::shared_ptr<memory::MemoryPool> pool = nullptr,
-      std::shared_ptr<folly::Executor> spillExecutor = nullptr,
-      const std::string& queryId = "")
-      : connectorConfigs_(connectorConfigs),
-        allocator_(allocator),
-        pool_(std::move(pool)),
-        executor_(executor),
-        queryConfig_{config->valuesCopy()},
-        queryId_(queryId),
-        spillExecutor_(std::move(spillExecutor)) {
-    initPool(queryId);
-  }
-
-  /// Constructor to block the destruction of executor while this
-  /// object is alive.
-  ///
-  /// This constructor does not keep the ownership of executor.
-  /// TODO(spershin): Deprecated, remove when migrated to the new constructors
-  /// with std::unordered_map instead of MemConfig.
-  explicit QueryCtx(
-      folly::Executor::KeepAlive<> executorKeepalive,
-      std::shared_ptr<Config> config = std::make_shared<MemConfig>(),
-      std::unordered_map<std::string, std::shared_ptr<Config>>
-          connectorConfigs = {},
-      memory::MemoryAllocator* FOLLY_NONNULL allocator =
-          memory::MemoryAllocator::getInstance(),
-      std::shared_ptr<memory::MemoryPool> pool = nullptr,
-      const std::string& queryId = "")
-      : connectorConfigs_(connectorConfigs),
-        allocator_(allocator),
-        pool_(std::move(pool)),
-        executorKeepalive_(std::move(executorKeepalive)),
-        queryConfig_{config->valuesCopy()},
-        queryId_(queryId) {
-    initPool(queryId);
-  }
-
-  /// TODO(spershin): Remove when presto_cpp is migrated to the new Velox
-  /// and stop using this member.
-  template <typename T>
-  T get(const std::string& key, const T& defaultValue) const {
-    return queryConfig_.get<T>(key, defaultValue);
-  }
-#endif // VELOX_ENABLE_BACKWARD_COMPATIBILITY
-
  private:
   static Config* FOLLY_NONNULL getEmptyConfig() {
     static const std::unique_ptr<Config> kEmptyConfig =

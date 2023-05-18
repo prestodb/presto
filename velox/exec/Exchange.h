@@ -292,15 +292,8 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   // once it received enough data.
   virtual void close() = 0;
 
-// TODO Remove after updating Prestissimo.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  virtual folly::F14FastMap<std::string, int64_t> stats() const {
-    return {};
-  }
-#else
   // Returns runtime statistics.
   virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
-#endif
 
   virtual std::string toString() {
     std::stringstream out;
