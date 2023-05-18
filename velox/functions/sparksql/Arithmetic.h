@@ -151,4 +151,44 @@ struct FloorFunction {
   }
 };
 
+template <typename T>
+struct AcoshFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
+    result = std::acosh(a);
+  }
+};
+
+template <typename T>
+struct AsinhFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
+    result = std::asinh(a);
+  }
+};
+
+template <typename T>
+struct AtanhFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
+    result = std::atanh(a);
+  }
+};
+
+template <typename T>
+struct SecFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
+    result = 1 / std::cos(a);
+  }
+};
+
+template <typename T>
+struct CscFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
+    result = 1 / std::sin(a);
+  }
+};
+
 } // namespace facebook::velox::functions::sparksql

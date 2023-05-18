@@ -6,6 +6,18 @@ Mathematical Functions
 
     Returns the absolute value of ``x``.
 
+.. spark:function:: acosh(x) -> double
+
+    Returns inverse hyperbolic cosine of ``x``.
+
+.. spark:function:: asinh(x) -> double
+
+    Returns inverse hyperbolic sine of ``x``.
+
+.. spark:function:: atanh(x) -> double
+
+    Returns inverse hyperbolic tangent of ``x``.
+
 .. spark:function:: add(x, y) -> [same as x]
 
     Returns the result of adding x to y. The types of x and y must be the same.
@@ -15,6 +27,10 @@ Mathematical Functions
 
     Returns ``x`` rounded up to the nearest integer.  
     Supported types are: BIGINT and DOUBLE.
+
+.. spark:function:: csc(x) -> double
+
+    Returns the cosecant of ``x``.
 
 .. spark:function:: divide(x, y) -> double
 
@@ -71,6 +87,10 @@ Mathematical Functions
 
     Returns ``x`` rounded to ``d`` decimal places using HALF_UP rounding mode. 
     In HALF_UP rounding, the digit 5 is rounded up.
+
+.. spark:function:: sec(x) -> double
+
+    Returns the secant of ``x``.
 
 .. spark:function:: subtract(x, y) -> [same as x]
 
