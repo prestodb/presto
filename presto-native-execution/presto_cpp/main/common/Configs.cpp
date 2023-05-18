@@ -222,7 +222,7 @@ folly::Optional<std::string> ConfigBase::setValue(
     return oldValue;
   }
   VELOX_USER_FAIL(
-      "Config is not mutable. Consider setting {} to 'true'.",
+      "Config is not mutable. Consider setting '{}' to 'true'.",
       SystemConfig::kMutableConfig);
 }
 
@@ -272,6 +272,10 @@ std::optional<std::string> SystemConfig::httpsClientCertAndKeyPath() const {
 
 std::string SystemConfig::prestoVersion() const {
   return requiredProperty(std::string(kPrestoVersion));
+}
+
+bool SystemConfig::mutableConfig() const {
+  return optionalProperty<bool>(std::string(kMutableConfig)).value_or(false);
 }
 
 std::optional<std::string> SystemConfig::discoveryUri() const {
@@ -484,6 +488,46 @@ uint64_t NodeConfig::nodeMemoryGb(
     exit(1);
   }
   return result;
+}
+
+BaseVeloxQueryConfig::BaseVeloxQueryConfig()
+    : mutable_{SystemConfig::instance()->mutableConfig()} {}
+
+BaseVeloxQueryConfig* BaseVeloxQueryConfig::instance() {
+  static std::unique_ptr<BaseVeloxQueryConfig> instance =
+      std::make_unique<BaseVeloxQueryConfig>();
+  return instance.get();
+}
+
+folly::Optional<std::string> BaseVeloxQueryConfig::setValue(
+    const std::string& propertyName,
+    const std::string& value) {
+  if (!mutable_) {
+    VELOX_USER_FAIL(
+        "Config is not mutable. "
+        "Consider setting System Config's '{}' to 'true'.",
+        SystemConfig::kMutableConfig);
+  }
+
+  folly::Optional<std::string> ret;
+  auto lockedValues = values_.wlock();
+  auto it = lockedValues->find(propertyName);
+  if (it != lockedValues->end()) {
+    ret = it->second;
+  }
+  (*lockedValues)[propertyName] = value;
+  return ret;
+}
+
+folly::Optional<std::string> BaseVeloxQueryConfig::getValue(
+    const std::string& propertyName) const {
+  folly::Optional<std::string> ret;
+  auto lockedValues = values_.rlock();
+  auto it = lockedValues->find(propertyName);
+  if (it != lockedValues->end()) {
+    ret = it->second;
+  }
+  return ret;
 }
 
 } // namespace facebook::presto
