@@ -37,6 +37,7 @@
 #include "velox/type/Type.h"
 
 DECLARE_int32(old_task_ms);
+DECLARE_bool(velox_memory_leak_check_enabled);
 
 using namespace ::testing;
 using namespace facebook::velox;
@@ -136,6 +137,7 @@ static const uint64_t kGB = 1024 * 1024 * 1024ULL;
 class TaskManagerTest : public testing::Test {
  protected:
   void SetUp() override {
+    FLAGS_velox_memory_leak_check_enabled = true;
     functions::prestosql::registerAllScalarFunctions();
     aggregate::prestosql::registerAllAggregateFunctions();
     parse::registerTypeResolver();

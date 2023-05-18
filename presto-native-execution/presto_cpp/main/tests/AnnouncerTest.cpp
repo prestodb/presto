@@ -17,6 +17,8 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 
+DECLARE_bool(velox_memory_leak_check_enabled);
+
 namespace fs = boost::filesystem;
 using namespace facebook::presto;
 
@@ -90,7 +92,11 @@ std::unique_ptr<facebook::presto::test::HttpServerWrapper> makeDiscoveryServer(
 
 } // namespace
 
-class AnnouncerTestSuite : public ::testing::TestWithParam<bool> {};
+class AnnouncerTestSuite : public ::testing::TestWithParam<bool> {
+  void SetUp() override {
+    FLAGS_velox_memory_leak_check_enabled = true;
+  }
+};
 
 TEST_P(AnnouncerTestSuite, basic) {
   const bool useHttps = GetParam();
