@@ -38,6 +38,7 @@ public class AlluxioCacheConfig
     private EvictionPolicy evictionPolicy = EvictionPolicy.LRU;
     private boolean shadowCacheEnabled;
     private Duration shadowCacheWindow = new Duration(7, DAYS);
+    private String cacheFilterClass = "alluxio.client.file.cache.filter.DefaultCacheFilter";
 
     public boolean isMetricsCollectionEnabled()
     {
@@ -218,6 +219,19 @@ public class AlluxioCacheConfig
     public AlluxioCacheConfig setShadowCacheWindow(Duration shadowCacheWindow)
     {
         this.shadowCacheWindow = shadowCacheWindow;
+        return this;
+    }
+    
+    public String getCacheFilterClass()
+    {   
+        return cacheFilterClass;
+    }
+
+    @Config("cache.alluxio.cache-filter-class")
+    @ConfigDescription("Cache Filter class name used by the alluxio caching")
+    public AlluxioCacheConfig setCacheFilterClass(String cacheFilterClass)
+    {   
+        this.cacheFilterClass = cacheFilterClass;
         return this;
     }
 }
