@@ -90,6 +90,12 @@ class MapFunction : public exec::VectorFunction {
       auto keysElements = keysArray->elements();
       auto keysOffset = keysArray->offsetAt(keysIndex);
 
+      // Sort indices of keys so that values at the indices are in ascending
+      // order. Then compare adjacent values through these indices to check for
+      // duplicate keys.
+      std::vector<vector_size_t> sortedIndices(numKeys);
+      std::iota(sortedIndices.begin(), sortedIndices.end(), keysOffset);
+      keysElements->sortIndices(sortedIndices, CompareFlags());
       try {
         if (keysElements->mayHaveNulls()) {
           for (auto i = 0; i < numKeys; ++i) {
@@ -98,7 +104,7 @@ class MapFunction : public exec::VectorFunction {
         }
 
         if constexpr (!AllowDuplicateKeys) {
-          checkDuplicateConstantKeys(numKeys, keysOffset, keysElements);
+          checkDuplicateConstantKeys(sortedIndices, keysElements);
         }
       } catch (const std::exception&) {
         context.setErrors(rows, std::current_exception());
@@ -142,8 +148,11 @@ class MapFunction : public exec::VectorFunction {
 
         auto valuesOffset = valuesArray->offsetAt(valueIndices[row]);
         for (vector_size_t i = 0; i < numKeys; i++) {
-          rawKeysIndices[offset + i] = keysOffset + i;
-          rawValuesIndices[offset + i] = valuesOffset + i;
+          // Make keys in the result vector sorted to optimize subsequent
+          // processing on this result.
+          rawKeysIndices[offset + i] = sortedIndices[i];
+          rawValuesIndices[offset + i] =
+              valuesOffset + (sortedIndices[i] - keysOffset);
         }
 
         offset += numKeys;
@@ -163,7 +172,9 @@ class MapFunction : public exec::VectorFunction {
           offsets,
           sizes,
           wrappedKeys,
-          wrappedValues);
+          wrappedValues,
+          std::nullopt,
+          true);
       context.moveOrCopyResult(mapVector, remainingRows, result);
     } else {
       auto keyIndices = decodedKeys->indices();
@@ -296,15 +307,25 @@ class MapFunction : public exec::VectorFunction {
     return true;
   }
 
+  std::optional<vector_size_t> findDuplicateKeys(
+      const std::vector<vector_size_t>& sortedIndices,
+      const VectorPtr& keysElements) const {
+    for (auto i = 1; i < sortedIndices.size(); ++i) {
+      if (keysElements->equalValueAt(
+              keysElements.get(), sortedIndices[i], sortedIndices[i - 1])) {
+        return sortedIndices[i];
+      }
+    }
+    return std::nullopt;
+  }
+
   void checkDuplicateConstantKeys(
-      vector_size_t numKeys,
-      vector_size_t keysOffset,
+      const std::vector<vector_size_t>& sortedIndices,
       const VectorPtr& keysElements) const {
     static const char* kDuplicateKey =
         "Duplicate map keys ({}) are not allowed";
 
-    if (auto duplicateIndex = keysElements->findDuplicateValue(
-            keysOffset, numKeys, CompareFlags())) {
+    if (auto duplicateIndex = findDuplicateKeys(sortedIndices, keysElements)) {
       auto duplicateKey = keysElements->wrappedVector()->toString(
           keysElements->wrappedIndex(duplicateIndex.value()));
       VELOX_USER_FAIL(kDuplicateKey, duplicateKey);

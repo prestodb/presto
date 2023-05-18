@@ -320,6 +320,15 @@ TEST_F(MapTest, constantKeys) {
           makeFlatVector<int32_t>(size, valueAt),
       }));
   assertEqualVectors(nullMap, result);
+
+  // Same order of keys regardless of input keys being constant or not.
+  auto result1 = evaluate(
+      "map_keys(map(array[1, 2, 3], array_constructor(c0, c0, c0)))",
+      makeRowVector({makeFlatVector<int32_t>(size, valueAt)}));
+  auto result2 = evaluate(
+      "map_keys(map(array[3, 2, 1], array_constructor(c0, c0, c0)))",
+      makeRowVector({makeFlatVector<int32_t>(size, valueAt)}));
+  assertEqualVectors(result1, result2);
 }
 
 // Test map function applied to a flat array of keys and constant array of
