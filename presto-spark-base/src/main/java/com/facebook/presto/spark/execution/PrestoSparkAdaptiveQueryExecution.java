@@ -157,7 +157,8 @@ public class PrestoSparkAdaptiveQueryExecution
             PrestoSparkPlanFragmenter planFragmenter,
             Metadata metadata,
             PartitioningProviderManager partitioningProviderManager,
-            HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker)
+            HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker,
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
     {
         super(
                 sparkContext,
@@ -194,7 +195,8 @@ public class PrestoSparkAdaptiveQueryExecution
                 planFragmenter,
                 metadata,
                 partitioningProviderManager,
-                historyBasedPlanStatisticsTracker);
+                historyBasedPlanStatisticsTracker,
+                bootstrapMetricsCollector);
 
         this.iterativePlanFragmenter = createIterativePlanFragmenter();
     }

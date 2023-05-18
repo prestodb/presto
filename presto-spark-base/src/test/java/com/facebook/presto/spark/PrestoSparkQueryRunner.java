@@ -47,6 +47,7 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
@@ -115,6 +116,7 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -302,7 +304,7 @@ public class PrestoSparkQueryRunner
                 moduleBuilder.build(),
                 true);
 
-        Injector injector = injectorFactory.create();
+        Injector injector = injectorFactory.create(new PrestoSparkBootstrapTimer(systemTicker(), false));
 
         defaultSession = testSessionBuilder(injector.getInstance(SessionPropertyManager.class))
                 .setCatalog(defaultCatalog)
@@ -573,7 +575,8 @@ public class PrestoSparkQueryRunner
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
                 Optional.empty(),
                 Optional.empty(),
-                retryExecutionStrategy);
+                retryExecutionStrategy,
+                Optional.empty());
         return execution;
     }
 
