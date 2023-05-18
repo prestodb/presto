@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.nativeworker.AbstractTestNativeJoinQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Ignore;
+import org.testng.annotations.Test;
 
 public class TestPrestoSparkNativeJoinQueries
         extends AbstractTestNativeJoinQueries
@@ -47,7 +49,24 @@ public class TestPrestoSparkNativeJoinQueries
         return new Object[][] {{partitionedJoin()}};
     }
 
+    @Test
+    public void testBroadcastJoin()
+    {
+        assertQueryFails(broadcastJoin(), "SELECT * FROM orders o, lineitem l WHERE o.orderkey = l.orderkey",
+                ".*Broadcast shuffle is not supported");
+    }
+
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
+
+    // Semi and anti joins require support for replicate-nulls-and-any mode in shuffle.
+    @Override
+    @Ignore
+    public void testAntiJoin(Session joinTypeSession) {}
+
+    @Override
+    @Ignore
+    public void testSemiJoin(Session joinTypeSession) {}
+
     @Override
     @Ignore
     public void testCrossJoin() {}

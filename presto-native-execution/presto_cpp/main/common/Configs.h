@@ -17,7 +17,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include "velox/core/Context.h"
+#include "velox/core/Config.h"
 
 namespace facebook::presto {
 
