@@ -260,8 +260,12 @@ void TaskManager::getDataForResultRequests(
 namespace {
 std::unordered_map<std::string, std::string> toConfigs(
     const protocol::SessionRepresentation& session) {
-  auto configs = std::unordered_map<std::string, std::string>(
-      session.systemProperties.begin(), session.systemProperties.end());
+  // Use base velox query config as the starting point and add Presto session
+  // properties on top of it.
+  auto configs = BaseVeloxQueryConfig::instance()->values();
+  for (const auto& it : session.systemProperties) {
+    configs[it.first] = it.second;
+  }
 
   // If there's a timeZoneKey, convert to timezone name and add to the
   // configs. Throws if timeZoneKey can't be resolved.
